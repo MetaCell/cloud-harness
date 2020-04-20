@@ -1,0 +1,9 @@
+*.jar
+.idea
+node_modules
+.openapi-generator
+*.pyc
+.vscode
+.coverage
+*.DS_Store
+deployment

@@ -1,0 +1,9 @@
+name: events
+subdomain: events
+autoservice: true
+autodeploy: false
+secureme: true
+port: 80
+kafka:
+    name: bootstrap
+    port: 9092

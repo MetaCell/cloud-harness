@@ -1,0 +1,113 @@
+import os
+import sys
+from time import sleep
+from json import dumps, loads
+from kafka import KafkaProducer, KafkaConsumer
+from kafka.admin import KafkaAdminClient, NewTopic
+from kafka.errors import TopicAlreadyExistsError, UnknownTopicOrPartitionError, KafkaTimeoutError
+
+from cloudharness import log
+from cloudharness.errors import *
+from cloudharness.utils import env
+
+
+class EventClient:
+    def __init__(self, topic_id):
+        self.client_id = env.get_cloudharness_events_client_id()
+        self.topic_id = topic_id
+        self.service = env.get_cloudharness_events_service()
+
+    def create_topic(self):
+        """ Connects to cloudharness Events and creates a new topic
+        Return:
+            True if topic was created correctly, False otherwise.
+        """
+        ## Connect to kafka
+        log.info(f"Creating topic {self.topic_id}")
+        admin_client = KafkaAdminClient(bootstrap_servers=self.service,
+                                        client_id=self.client_id)
+        # ## Create topic
+
+        topic_list = [NewTopic(name=self.topic_id, num_partitions=1, replication_factor=1)]
+
+        try:
+            return admin_client.create_topics(new_topics=topic_list, validate_only=False)
+        except TopicAlreadyExistsError as e:
+            log.error(f"Topic {self.topic_id} already exists.")
+            raise EventTopicCreationException from e
+        except Exception as e:
+            log.error(f"Ups... We had an error creating the new Topic --> {e}")
+            raise EventGeneralException from e
+
+    def produce(self, message: dict):
+        ''' Write a message to the current topic
+            Params:
+                message: dict with message to be published.
+            Return:
+                True if the message was published correctly, False otherwise.
+        '''
+        producer = KafkaProducer(bootstrap_servers=self.service,
+                                 value_serializer=lambda x: dumps(x).encode('utf-8'))
+        try:
+            return producer.send(self.topic_id, value=message)
+        except KafkaTimeoutError as e:
+            log.error("Ups... Not able to fetch topic metadata")
+            raise EventTopicProduceException from e
+        except Exception as e:
+            raise EventGeneralException(f"Ups... We had an error creating the new Topic --> {e}") from e
+        finally:
+            producer.close()
+
+    def consume_all(self, group_id='default') -> list:
+        ''' Return a list of messages published in the topic '''
+
+        consumer = KafkaConsumer(self.topic_id,
+                                 bootstrap_servers=self.service,
+                                 auto_offset_reset='earliest',
+                                 enable_auto_commit=True,
+                                 group_id=group_id,
+                                 value_deserializer=lambda x: loads(x.decode('utf-8')))
+        try:
+            for topic in consumer.poll(10000).values():
+                return [record.value for record in topic]
+        except Exception as e:
+            log.error(f"Ups... We had an error trying to create a CloudHarnessEvents consumer for topic {self.topic_id} --> {e}")
+            raise EventTopicConsumeException from e
+        finally:
+            consumer.close()
+
+    def delete_topic(self) -> bool:
+
+        log.debug("Deleting topic " + self.topic_id)
+        ## Connect to kafka
+        admin_client = KafkaAdminClient(bootstrap_servers=self.service,
+                                        client_id=self.client_id)
+        ## Delete topic
+        try:
+            admin_client.delete_topics([self.topic_id])
+            return True
+        except UnknownTopicOrPartitionError as e:
+            log.error(f"Topic {self.topic_id} does not exists.")
+            raise EventTopicDeleteException from e
+
+        except Exception as e:
+            log.error(f"Ups... We had an error deleteing the Topic {self.topic_id} --> {e}")
+            raise EventGeneralException from e
+
+
+if __name__ == "__main__":
+    # creat the required os env variables
+    os.environ['CLOUDHARNESS_EVENTS_CLIENT_ID'] = 'my-client'
+    os.environ['CLOUDHARNESS_EVENTS_SERVICE'] = 'bootstrap.cloudharness.svc.cluster.local:9092'
+
+    # instantiate the client
+    client = EventClient('test-sync-op-results-qcwbc')
+
+    # create a topic from env variables
+    # print(client.create_topic())
+    # publish to the prev created topic
+    # print(client.produce({"message": "In God we trust, all others bring data..."}))
+    # read from the topic
+    print(client.consume_all('my-group'))
+    # delete the topic
+    # print(client.delete_topic())

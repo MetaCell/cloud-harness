@@ -1,0 +1,144 @@
+#!/usr/bin/env python
+
+import glob
+import os
+import shutil
+
+
+from cloudharness_utilities.openapi import LIB_NAME, generate_client, generate_server
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+ROOT = os.path.dirname(HERE)
+# MODULES = [ 'operations']
+OPENAPI_FILES = [path for path in glob.glob(ROOT + '/applications/*/api/*.yaml')]
+MODULES = [os.path.basename(os.path.dirname(os.path.dirname(path))) for path in OPENAPI_FILES]
+
+
+CLIENT_SRC_PATH = os.path.join(ROOT, 'client', LIB_NAME)
+
+
+
+
+def generate_servers():
+    """
+    Generates server stubs
+    """
+
+    for i in range(len(MODULES)):
+        openapi_file =  OPENAPI_FILES[i]
+        application_root = os.path.dirname(os.path.dirname(openapi_file))
+        generate_server(application_root)
+
+
+def copymergedir(root_src_dir, root_dst_dir):
+    """
+    Does copy and merge (shutil.copytree requires that the destination does not exist)
+    :param root_src_dir:
+    :param root_dst_dir:
+    :return:
+    """
+    for src_dir, dirs, files in os.walk(root_src_dir):
+        dst_dir = src_dir.replace(root_src_dir, root_dst_dir, 1)
+        if not os.path.exists(dst_dir):
+            os.makedirs(dst_dir)
+        for file_ in files:
+            src_file = os.path.join(src_dir, file_)
+            dst_file = os.path.join(dst_dir, file_)
+            if os.path.exists(dst_file):
+                os.remove(dst_file)
+            shutil.copy(src_file, dst_dir)
+
+def aggregate_packages():
+    DOCS_PATH = os.path.join(CLIENT_SRC_PATH, 'docs')
+    TEST_PATH = os.path.join(CLIENT_SRC_PATH,'test')
+    README = os.path.join(CLIENT_SRC_PATH, 'README.md')
+    REQUIREMENTS = os.path.join(CLIENT_SRC_PATH, 'requirements.txt')
+    TEST_REQUIREMENTS = os.path.join(CLIENT_SRC_PATH, 'test-requirements.txt' )
+
+    if not os.path.exists(DOCS_PATH):
+        os.mkdir(DOCS_PATH)
+    if not os.path.exists(TEST_PATH):
+        os.mkdir(TEST_PATH)
+    if os.path.exists(README):
+        os.remove(README)
+    if os.path.exists(REQUIREMENTS):
+        os.remove(REQUIREMENTS)
+    if os.path.exists(TEST_REQUIREMENTS):
+        os.remove(TEST_REQUIREMENTS)
+
+    req_lines_seen = set()
+    test_req_lines_seen = set()
+
+    for MODULE_TMP_PATH in glob.glob(CLIENT_SRC_PATH + '/tmp-*'):
+        module = MODULE_TMP_PATH.split(f'{LIB_NAME}/tmp-')[-1]
+
+        # Moves package
+
+        code_dest_dir = os.path.join(CLIENT_SRC_PATH, LIB_NAME, module)
+        copymergedir(os.path.join(MODULE_TMP_PATH, LIB_NAME, module), code_dest_dir)
+        copymergedir(f"{MODULE_TMP_PATH}/{LIB_NAME}.{module}", code_dest_dir) #Fixes a a bug with nested packages
+
+        # Adds Docs
+        module_doc_path = os.path.join(DOCS_PATH, module)
+        if not os.path.exists(module_doc_path):
+
+            os.mkdir(module_doc_path)
+        copymergedir(f"{CLIENT_SRC_PATH}/tmp-{module}/docs", module_doc_path)
+
+        # Adds Tests
+        module_test_path = os.path.join(CLIENT_SRC_PATH, 'test', module)
+        copymergedir(os.path.join(MODULE_TMP_PATH, 'test'), module_test_path)
+
+
+
+        # Merges Readme
+        readme_file = f"{MODULE_TMP_PATH}/README.md"
+        with open(README, 'a+') as outfile:
+            with open(readme_file) as infile:
+                filedata = infile.read()
+                fd = filedata.replace('docs/', f'docs/{module}/')
+                outfile.write(fd)
+
+        # Merges Requirements
+        # FIXME: Different package versions will remain in the output file
+
+        requirements_file = f"{MODULE_TMP_PATH}/requirements.txt"
+        outfile = open(REQUIREMENTS, "a+")
+        for line in open(requirements_file, "r"):
+            if line not in req_lines_seen:
+                outfile.write(line)
+                req_lines_seen.add(line)
+        outfile.close()
+
+        # Merges Test Requirements
+        # FIXME: Different package versions will remain in the output file
+        test_requirements_file = f"{MODULE_TMP_PATH}/test-requirements.txt"
+        outfile = open(TEST_REQUIREMENTS, "a+")
+        for line in open(test_requirements_file, "r"):
+            if line not in test_req_lines_seen:
+                outfile.write(line)
+                test_req_lines_seen.add(line)
+        outfile.close()
+
+        # Removes Tmp Files
+        shutil.rmtree(MODULE_TMP_PATH)
+
+
+def generate_clients():
+    """
+    Generates client stubs
+    """
+    for i in range(len(MODULES)):
+        module = MODULES[i]
+        openapi_file = OPENAPI_FILES[i]
+        generate_client(module, openapi_file, CLIENT_SRC_PATH)
+
+    aggregate_packages()
+
+
+
+
+
+if __name__ == "__main__":
+    generate_servers()
+    generate_clients()

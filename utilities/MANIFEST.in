@@ -1,0 +1,7 @@
+include cloudharness_utilities/deployment-configuration/*
+include cloudharness_utilities/deployment-configuration/**/*
+include cloudharness_utilities/deployment-configuration/**/**/*
+include cloudharness_utilities/deployment-configuration/**/**/**/*
+include cloudharness_utilities/application-template/*
+include cloudharness_utilities/application-template/**/*
+include cloudharness_utilities/application-template/**/**/*

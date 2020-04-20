@@ -1,0 +1,24 @@
+admin:
+  pass: metacell
+  user: admin
+  role: administrator
+client:
+  id: rest-client
+  secret: 5678eb6e-9e2c-4ee5-bd54-34e7411339e8
+db:
+  image: postgres:10.4
+  initialdb: auth_db
+  name: keycloak-postgress
+  pass: password
+  user: user
+enabled: true
+harvest: true
+webclient:
+  id: web-client
+  secret: 452952ae-922c-4766-b912-7b106271e34b
+name: accounts
+port: 8080
+subdomain: accounts
+# only use in minikube (with letsencrypt, we use default image)
+gatekeeper:
+  image: accounts-keycloak-gatekeeper

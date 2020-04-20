@@ -1,0 +1,47 @@
+openapi: 3.0.0
+info:
+  description: CloudHarness Sample api
+  version: 0.1.0
+  title: CloudHarness Sample API
+  contact:
+    email: cloudharness@metacell.us
+  license:
+    name: UNLICENSED
+
+tags:
+  - name: auth
+  - name: workflows
+
+paths:
+  /test:
+    get:
+      summary: Test
+      security:
+        - bearerAuth: []
+      tags:
+        - auth
+      operationId: test
+      description: |
+        Check if the token is valid
+      responses:
+        "200":
+          description: Check if the application works
+        "400":
+          description: bad input parameter
+
+
+servers:
+  - url: https://samples.cloudharness.metacell.us/api
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      x-bearerInfoFunc: cloudharness.auth.decode_token
+  schemas:
+    Valid:
+      type: object
+      properties:
+        response:
+          type: string

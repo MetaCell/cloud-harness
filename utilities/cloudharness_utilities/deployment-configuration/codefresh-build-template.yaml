@@ -1,0 +1,8 @@
+type: build
+stage: build
+tag: '${{CF_REVISION}}'
+dockerfile: Dockerfile
+when:
+  branch:
+    only:
+      - '${{CF_BRANCH}}'

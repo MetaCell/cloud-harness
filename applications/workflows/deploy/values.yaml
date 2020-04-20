@@ -1,0 +1,6 @@
+harvest: false
+port: 8080
+subdomain: workflows
+autoservice: true
+autodeploy: true
+serviceaccount: argo-workflows

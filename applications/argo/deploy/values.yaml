@@ -1,0 +1,9 @@
+enabled: true
+name: argo-server
+subdomain: argo
+port: 2746
+serviceaccount: argo-workflows
+namespace: argo
+workflows_namespace: argo-workflows
+secureme: true
+autoservice: false

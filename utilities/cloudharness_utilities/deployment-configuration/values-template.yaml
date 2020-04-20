@@ -1,0 +1,26 @@
+local: false
+secured_gatekeepers: true
+nameOverride: ""
+fullnameOverride: ""
+domain: ${{DOMAIN}}
+namespace: ch
+registry:
+  name: "localhost:5000"
+  secret: ${{REGISTRY_SECRET}}
+tag: latest
+serviceaccount: argo-workflows
+apps:
+  FILL_ME
+env:
+  - name: CH_VERSION
+    value: 0.0.1
+  - name: CH_CHART_VERSION
+    value: 0.0.1
+privenv:
+  - name: CH_SECRET
+    value: In God we trust; all others must bring data. ― W. Edwards Deming
+ingress:
+  enabled: true
+  name: cloudharness-ingress
+  letsencrypt:
+    email: facundo@metacell.us

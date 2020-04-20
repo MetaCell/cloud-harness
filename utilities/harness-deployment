@@ -1,0 +1,57 @@
+#!/usr/bin/env python
+
+import sys
+import os
+
+from cloudharness_utilities.build import Builder
+from cloudharness_utilities.helm import collect_apps_helm_templates, create_helm_chart, hosts_info
+
+
+HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
+ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='Walk filesystem inside ./applications and define build and deploy scripts.')
+
+    parser.add_argument('paths', metavar='paths', default=ROOT, type=str, nargs='*',
+                        help='Base paths to start looking for applications. The paths will be processed in the given order.')
+
+    parser.add_argument('-i', '--image', dest='image', action="append", default=[],
+                        help='Specify the images to build. Omit to build images for all Docker files.')
+
+    parser.add_argument('-t', '--tag', dest='tag', action="store", default='latest',
+                        help='Add a tag with the current version (default `latest`)')
+
+    parser.add_argument('-r', '--registry', dest='registry', action="store", default='',
+                        help='Specify image registry prefix')
+    parser.add_argument('-o', '--output', dest='output_path', action="store", default='./deployment',
+                        help='Specify helm chart base path (default `./deployment)`')
+    parser.add_argument('-b', '--build', dest='build', action="store_true",
+                        help='Builds and pushes Docker images in the specified registry (if any)')
+    parser.add_argument('-d', '--domain', dest='domain', action="store", default="cloudharness.metacell.us",
+                        help='Specify a domain different from cloudharness.metacell.us')
+    parser.add_argument('-bi', '--build-interactive', dest='build_interactive', action="store_true",
+                        help='Builds and pushes Docker images in the specified registry (if any).'
+                             'Asks interactively what images to build')
+    parser.add_argument('-l', '--local', dest='local', action="store_true",
+                        help='Specify for local deployments info and setup')
+    parser.add_argument('-u', '--disable-security', dest='unsecured', action="store_true",
+                        help='Disable secured gatekeepers access')
+    parser.add_argument('-e', '--exclude', dest='exclude', action="append", default=(),
+                        help='Specify application to exclude from the deployment')
+    args, unknown = parser.parse_known_args(sys.argv[1:])
+
+    root_paths = [os.path.join(os.getcwd(), path) for path in args.paths]
+    if unknown:
+        print('There are unknown args. Make sure to call the script with the accepted args. Try --help')
+        print(f'unknown: {unknown}')
+    else:
+        if args.build or args.build_interactive:
+            Builder(root_paths, args.image, tag=args.tag, registry=args.registry, interactive=args.build_interactive, exclude=args.exclude).run()
+
+        values_manual_deploy = create_helm_chart(root_paths, tag=args.tag, registry=args.registry, domain=args.domain, local=args.local, secured=not args.unsecured, output_path=args.output_path, exclude=args.exclude)
+        if args.local:
+            hosts_info(values_manual_deploy)

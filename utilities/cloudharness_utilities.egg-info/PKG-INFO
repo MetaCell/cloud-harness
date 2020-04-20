@@ -1,0 +1,12 @@
+Metadata-Version: 1.0
+Name: cloudharness-utilities
+Version: 0.1.0
+Summary: CloudHarness deploy utilities library
+Home-page: UNKNOWN
+Author: UNKNOWN
+Author-email: cloudharness@metacell.us
+License: UNKNOWN
+Description:     MetaCell Neuroscience Platform - CloudHarness deploy library
+            
+Keywords: Cloud,Kubernetes,Helm,Deploy
+Platform: UNKNOWN

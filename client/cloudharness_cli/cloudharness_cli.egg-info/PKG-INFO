@@ -1,0 +1,12 @@
+Metadata-Version: 1.0
+Name: cloudharness-cli
+Version: 0.1.0
+Summary: CloudHarness Python API Client
+Home-page: UNKNOWN
+Author: OpenAPI Generator community
+Author-email: cloudharness@metacell.us
+License: UNLICENSED
+Description:     CloudHarness Python API Client  # noqa: E501
+            
+Keywords: OpenAPI,CloudHarness Sample API
+Platform: UNKNOWN

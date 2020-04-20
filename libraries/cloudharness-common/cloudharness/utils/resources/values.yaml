@@ -1,0 +1,245 @@
+apps:
+  argo:
+    enabled: true
+    name: argo-ui-gk
+    port: 80
+    subdomain: argo
+  docs:
+    enabled: true
+    harvest: false
+    image:
+      name: cloudharness-docs
+      tag: 1
+    name: cloudharness-docs
+    port: 8080
+    subdomain: docs
+  events:
+    enabled: true
+    name: kafka-manager-gk
+    port: 80
+    subdomain: events
+  kafka:
+    name: bootstrap
+    port: 9092
+  keycloak:
+    admin:
+      pass: metacell
+      role: administrator
+      user: admin
+    client:
+      id: rest-client
+      secret: 5678eb6e-9e2c-4ee5-bd54-34e7411339e8
+    db:
+      image:
+        name: postgres
+        tag: 10.4
+      initialdb: auth_db
+      name: keycloak-postgress
+      pass: password
+      user: user
+    enabled: true
+    harvest: true
+    image:
+      name: keycloak
+      tag: 1
+    name: keycloak
+    port: 8080
+    realm: cloudharness
+    subdomain: accounts
+    webclient:
+      id: web-client
+      secret: 452952ae-922c-4766-b912-7b106271e34b
+  keycloak-gatekeeper:
+    enabled: true
+    image:
+      name: keycloak-gatekeeper
+      tag: 1
+    name: keycloak-gatekeeper
+  test:
+    enabled: true
+    harvest: true
+    image:
+      name: samples
+      tag: 1
+    name: samples
+    port: 8080
+    subdomain: test
+  workflows:
+    enabled: true
+    harvest: false
+    image:
+      name: workflows
+      tag: 1
+    name: workflows
+    port: 8080
+    subdomain: workflows
+domain: cloudharness.metacell.us
+env:
+  - name: CH_VERSION
+    value: 0.0.1
+  - name: CH_CHART_VERSION
+    value: 0.0.1
+  - name: CH_ELASTICSEARCH_ENABLED
+    value: true
+  - name: CH_ELASTICSEARCH_NAME
+    value: elasticsearch
+  - name: CH_ELASTICSEARCH_IMAGE_NAME
+    value: docker.elastic.co/elasticsearch/elasticsearch
+  - name: CH_ELASTICSEARCH_IMAGE_TAG
+    value: 7.2.0
+  - name: CH_ELASTICSEARCH_PORT
+    value: 9200
+  - name: CH_ELASTICSEARCH_NODEPORT
+    value: 9300
+  - name: CH_ELASTICSEARCH_STORAGE
+    value: latest0Gi
+  - name: CH_KIBANA_ENABLED
+    value: true
+  - name: CH_KIBANA_SECUREME
+    value: true
+  - name: CH_KIBANA_NAME
+    value: el-kibana
+  - name: CH_KIBANA_IMAGE_NAME
+    value: docker.elastic.co/kibana/kibana
+  - name: CH_KIBANA_IMAGE_TAG
+    value: 7.2.0
+  - name: CH_KIBANA_PORT
+    value: 5601
+  - name: CH_KIBANA_SUBDOMAIN
+    value: monitoring
+  - name: CH_KIBANA_GATEKEEPER_IMAGE
+    value: keycloak-gatekeeper
+  - name: CH_KIBANA_GATEKEEPER_TAG
+    value: latest
+  - name: CH_EVENTS_ENABLED
+    value: true
+  - name: CH_EVENTS_NAME
+    value: kafka-manager-gk
+  - name: CH_EVENTS_SUBDOMAIN
+    value: events
+  - name: CH_EVENTS_PORT
+    value: 80
+  - name: CH_KAFKA_NAME
+    value: bootstrap
+  - name: CH_KAFKA_PORT
+    value: 9092
+  - name: CH_ARGO_ENABLED
+    value: true
+  - name: CH_ARGO_NAME
+    value: argo-ui-gk
+  - name: CH_ARGO_SUBDOMAIN
+    value: argo
+  - name: CH_ARGO_PORT
+    value: 80
+  - name: CH_KEYCLOAK_GATEKEEPER_ENABLED
+    value: true
+  - name: CH_KEYCLOAK_GATEKEEPER_NAME
+    value: keycloak-gatekeeper
+  - name: CH_KEYCLOAK_GATEKEEPER_IMAGE_NAME
+    value: keycloak-gatekeeper
+  - name: CH_KEYCLOAK_GATEKEEPER_IMAGE_TAG
+    value: latest
+  - name: CH_WORKFLOWS_ENABLED
+    value: true
+  - name: CH_WORKFLOWS_NAME
+    value: workflows
+  - name: CH_WORKFLOWS_IMAGE_NAME
+    value: workflows
+  - name: CH_WORKFLOWS_IMAGE_TAG
+    value: latest
+  - name: CH_WORKFLOWS_HARVEST
+    value: false
+  - name: CH_WORKFLOWS_PORT
+    value: 8080
+  - name: CH_WORKFLOWS_SUBDOMAIN
+    value: workflows
+  - name: CH_KEYCLOAK_ENABLED
+    value: true
+  - name: CH_KEYCLOAK_NAME
+    value: keycloak
+  - name: CH_KEYCLOAK_IMAGE_NAME
+    value: keycloak
+  - name: CH_KEYCLOAK_IMAGE_TAG
+    value: latest
+  - name: CH_KEYCLOAK_ADMIN_PASS
+    value: metacell
+  - name: CH_KEYCLOAK_ADMIN_USER
+    value: admin
+  - name: CH_KEYCLOAK_ADMIN_ROLE
+    value: administrator
+  - name: CH_KEYCLOAK_CLIENT_ID
+    value: rest-client
+  - name: CH_KEYCLOAK_CLIENT_SECRET
+    value: 5678eb6e-9e2c-4ee5-bd54-34e7411339e8
+  - name: CH_KEYCLOAK_DB_IMAGE_NAME
+    value: postgres
+  - name: CH_KEYCLOAK_DB_IMAGE_TAG
+    value: latest0.4
+  - name: CH_KEYCLOAK_DB_INITIALDB
+    value: auth_db
+  - name: CH_KEYCLOAK_DB_NAME
+    value: keycloak-postgress
+  - name: CH_KEYCLOAK_DB_PASS
+    value: password
+  - name: CH_KEYCLOAK_DB_USER
+    value: user
+  - name: CH_KEYCLOAK_HARVEST
+    value: true
+  - name: CH_KEYCLOAK_WEBCLIENT_ID
+    value: web-client
+  - name: CH_KEYCLOAK_WEBCLIENT_SECRET
+    value: 452952ae-922c-4766-b912-7b106271e34b
+  - name: CH_KEYCLOAK_PORT
+    value: 8080
+  - name: CH_KEYCLOAK_REALM
+    value: cloudharness
+  - name: CH_KEYCLOAK_SUBDOMAIN
+    value: accounts
+  - name: CH_TEST_ENABLED
+    value: true
+  - name: CH_TEST_NAME
+    value: test
+  - name: CH_TEST_IMAGE_NAME
+    value: test
+  - name: CH_TEST_IMAGE_TAG
+    value: latest
+  - name: CH_TEST_HARVEST
+    value: true
+  - name: CH_TEST_PORT
+    value: 8080
+  - name: CH_TEST_SUBDOMAIN
+    value: test
+  - name: CH_DOCS_ENABLED
+    value: true
+  - name: CH_DOCS_NAME
+    value: docs
+  - name: CH_DOCS_IMAGE_NAME
+    value: docs
+  - name: CH_DOCS_IMAGE_TAG
+    value: latest
+  - name: CH_DOCS_HARVEST
+    value: false
+  - name: CH_DOCS_PORT
+    value: 8080
+  - name: CH_DOCS_SUBDOMAIN
+    value: docs
+  - name: CH_DOMAIN
+    value: cloudharness.metacell.us
+  - name: CH_IMAGE_REGISTRY
+    value: localhost:5000
+  - name: CH_IMAGE_TAG
+    value: latest
+fullnameOverride: ""
+ingress:
+  enabled: true
+  letsencrypt:
+    email: facundo@metacell.us
+  name: cloudharness-ingress
+minikube: true
+nameOverride: ""
+privenv:
+  - name: CH_SECRET
+    value: 'In God we trust; all others must bring data. ― W. Edwards Deming'
+registry: localhost:5000
+serviceaccount: argo-workflows
+tag: 1

@@ -1,0 +1,12 @@
+autoservice: true
+name: CHANGE ME
+image:
+  name: CHANGE ME
+  tag: ${{CF_REVISION}}
+resources:
+  requests:
+    memory: "32Mi"
+    cpu: "25m"
+  limits:
+    memory: "500Mi"
+    cpu: "500m"
