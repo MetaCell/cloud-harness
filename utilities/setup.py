@@ -21,7 +21,7 @@ VERSION = "0.1.0"
 # http://pypi.python.org/pypi/setuptools
 
 REQUIREMENTS = [
-    'pyaml',
+    'oyaml',
     'docker'
 ]
 
