@@ -14,7 +14,14 @@ steps:
   post_main_clone:
     title: Post main clone
     type: parallel
-    stage: prepare
+    stage: build
+    steps:
+      - title: Cloning cloud-harness repository...
+        type: git-clone
+        stage: prepare
+        repo: 'https://github.com/MetaCell/cloud-harness.git'
+        revision: '${{CLOUDHARNESS_BRANCH}}'
+        git: github
   build_base_images:
     title: Build base images
     type: parallel
@@ -41,7 +48,7 @@ steps:
     commands:
       - pip install -r cloud-harness/requirements.txt
       - harness-deployment . cloud-harness -t ${{CF_REVISION}} -d ${{DOMAIN}}
-  
+
   prepare_deployment_view:
     commands:
       - 'helm template ./deployment/helm --debug -n ${{NAME}}'
@@ -51,7 +58,7 @@ steps:
     image: codefresh/cfstep-helm:2.16.1
     stage: prepare
     title: 'View helm chart'
-  
+
   deployment:
     stage: deploy
     image: 'codefresh/cfstep-helm:2.16.1'

@@ -2,8 +2,7 @@ import glob
 import subprocess
 import os
 import collections
-import yaml
-import pyaml
+import oyaml as yaml
 import shutil
 import logging
 
@@ -110,7 +109,7 @@ def merge_to_yaml_file(content_src, fdest):
     if not os.path.exists(os.path.dirname(fdest)):
         os.makedirs(os.path.dirname(fdest))
     with open(fdest, "w") as f:
-        pyaml.dump(merged, f)
+        yaml.dump(merged, f)
     return merged
 
 

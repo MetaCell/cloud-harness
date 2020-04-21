@@ -15,13 +15,14 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
         description='Walk filesystem inside ./applications and define build and deploy scripts.')
-    parser.add_argument('paths', metavar='paths', default=ROOT, type=str, nargs='*',
-                        help='Base paths to start looking for applications. The paths will be processed in the given order.')
+    parser.add_argument('path', metavar='path', default=ROOT, type=str,
+                        help='Base path of the application.')
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
+    root_path = os.path.join(os.getcwd(), args.path) if not os.path.isabs(args.path) else args.path
     if unknown:
         print('There are unknown args. Make sure to call the script with the accepted args. Try --help')
         print(f'unknown: {unknown}')
     else:
-        create_codefresh_deployment_scripts(args.paths)
+        create_codefresh_deployment_scripts(root_path)
 
