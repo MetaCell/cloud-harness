@@ -52,7 +52,7 @@ def create_codefresh_deployment_scripts(deployment_root_path, tag="${{CF_REVISIO
         codefresh_build_step_from_base_path(os.path.join(CLOUD_HARNESS_PATH, APPS_PATH), BUILD_STEP_PARALLEL)
 
     codefresh['steps'] = {k: step for k, step in codefresh['steps'].items() if
-                          'type' not in step or step['type'] != 'parallel' or step['steps']}
+                          'type' not in step or step['type'] != 'parallel' or (step['steps'] if 'steps' in step else [])}
 
     codefresh_abs_path = os.path.join(deployment_root_path, DEPLOYMENT_PATH, codefresh_path)
     codefresh_dir = os.path.dirname(codefresh_abs_path)
