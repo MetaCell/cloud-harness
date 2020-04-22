@@ -1,3 +1,7 @@
+<p align="center">
+<img src="https://github.com/MetaCell/cloud-harness/blob/develop/cloudharness.png?raw=true" alt="drawing" width="200"/>
+</p>
+
 # CloudHarness
 CloudHarness is a base infrastructure facilitator for micro-service based applications deployed on Kubernetes.
 
