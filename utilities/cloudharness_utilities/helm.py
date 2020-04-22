@@ -6,7 +6,7 @@ import os
 import shutil
 import logging
 import subprocess
-
+from docker import from_env as DockerClient
 from .constants import VALUES_MANUAL_PATH, VALUE_TEMPLATE_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, HERE, DEPLOYMENT_CONFIGURATION_PATH
 from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, image_name_from_docker_path, \
     get_template, merge_configuration_directories, merge_to_yaml_file, dict_merge
@@ -29,6 +29,8 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
         copy_merge_base_deployment(dest_helm_chart_path=dest_deployment_path, base_helm_chart=os.path.join(root_path, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
         collect_apps_helm_templates(root_path, exclude=exclude, dest_helm_chart_path=dest_deployment_path)
         helm_values = dict_merge(helm_values, collect_helm_values(root_path, tag=tag, registry=registry, exclude=exclude))
+
+    create_tls_certificate(local, domain, secured, output_path, helm_values)
 
     finish_helm_values(values=helm_values, tag=tag, registry=registry, local=local, domain=domain, secured=secured)
     # Save values file for manual helm chart
@@ -200,3 +202,43 @@ def hosts_info(values):
                 app=appname, port=app['port'], namespace=namespace))
 
     print(f"127.0.0.1\t{' '.join(s + '.cloudharness' for s in services)}")
+
+
+def create_tls_certificate(local, domain, secured, output_path, helm_values):
+    helm_values['tls'] = domain.replace(".", "-") + "-tls"
+    
+    if not local or not secured:
+        return
+    
+    HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
+    ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
+    bootstrap_file_path = os.path.join(ROOT, 'utilities/cloudharness_utilities/scripts')
+    certs_folder_path = os.path.join(ROOT,'deployment/helm/resources/certs')
+    
+    if not os.path.exists(os.path.join(certs_folder_path)):
+        os.makedirs(certs_folder_path)
+    else:
+        # don't overwrite the certificate if it exists
+        return
+
+    try:
+        client = DockerClient()
+        client.ping()
+    except:
+        raise ConnectionRefusedError(
+            '\n\nIs docker running? Run "eval(minikube docker-env)" if you are using minikube...')
+
+    # Create CA and sign cert for domain
+    container = client.containers.run(image='frapsoft/openssl', 
+                        command='/bin/ash /mnt/vol1/bootstrap.sh',
+                        entrypoint="", 
+                        auto_remove=True, 
+                        environment=[f"DOMAIN={domain}"],
+                        volumes={
+                            bootstrap_file_path: {'bind': '/mnt/vol1', 'mode': 'ro'},
+                            certs_folder_path: {'bind': '/mnt/vol2', 'mode': 'rw'}
+                            }
+                        )
+    logging.info("Created certificates for local deployment")
+
+

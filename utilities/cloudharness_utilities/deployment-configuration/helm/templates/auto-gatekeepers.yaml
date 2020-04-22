@@ -23,10 +23,9 @@ data:
     - vpn-user
     resources:
     - uri: /*
-      methods:
-      - GET
       roles:
       - {{ .root.Values.apps.accounts.admin.role }}
+  cacert.crt: {{ .files.Get "resources/certs/cacert.crt" | quote }}
 ---
 apiVersion: v1
 kind: Service
@@ -80,6 +79,9 @@ spec:
         - name: "{{ .app.name }}-gk-proxy-config"
           mountPath: /opt/proxy.yml
           subPath: proxy.yml
+        - name: "{{ .app.name }}-gk-proxy-config"
+          mountPath: /usr/local/share/ca-certificates/cacert.crt
+          subPath: cacert.crt
         ports:
         - name: http
           containerPort: {{ .root.Values.apps.accounts.port | default 8080 }}
@@ -99,16 +101,17 @@ spec:
 ---
 {{- end }}
 {{- if .Values.secured_gatekeepers }}
+{{ $files := .Files }}
 {{- range $app := .Values.apps }}
   {{- if and (hasKey $app "port") ($app.secureme)   }}
 ---
-    {{ include "deploy_utils.securedservice" (dict "root" $ "app" $app) }}
+    {{ include "deploy_utils.securedservice" (dict "root" $ "app" $app "files" $files) }}
     {{- end }}
   {{- range $subapp := $app }}
   {{- if contains "map" (typeOf $subapp)  }}
   {{- if and (hasKey $subapp "port") $subapp.secureme }}
 ---
-      {{ include "deploy_utils.securedservice" (dict "root" $ "app" $subapp) }}
+      {{ include "deploy_utils.securedservice" (dict "root" $ "app" $subapp "files" $files) }}
   {{- end }}
   {{- end }}
   {{- end }}

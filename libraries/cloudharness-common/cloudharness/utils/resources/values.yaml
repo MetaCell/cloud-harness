@@ -74,6 +74,7 @@ apps:
     port: 8080
     subdomain: workflows
 domain: cloudharness.metacell.us
+tls: cloudharness-metacell-us-tls
 env:
   - name: CH_VERSION
     value: 0.0.1
