@@ -4,9 +4,11 @@ Utilities to create a helm chart from a CloudHarness directory structure
 import yaml
 import os
 import shutil
+import sys
 import logging
 import subprocess
 from docker import from_env as DockerClient
+from pathlib import Path
 from .constants import VALUES_MANUAL_PATH, VALUE_TEMPLATE_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, HERE, DEPLOYMENT_CONFIGURATION_PATH
 from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, image_name_from_docker_path, \
     get_template, merge_configuration_directories, merge_to_yaml_file, dict_merge
@@ -212,14 +214,36 @@ def create_tls_certificate(local, domain, secured, output_path, helm_values):
     
     HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
     ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
-    bootstrap_file_path = os.path.join(ROOT, 'utilities/cloudharness_utilities/scripts')
-    certs_folder_path = os.path.join(ROOT,'deployment/helm/resources/certs')
+    HOME = str(Path.home())
+    CH_TMP = '.cloudharness'
+    CH_HOME_TMP = os.path.join(HOME, CH_TMP)
+    CH_HOME_TMP_CERTS = os.path.join( CH_HOME_TMP, 'certs')
+    OS_USERFOLDER = os.path.basename(os.path.dirname(CH_HOME_TMP))
+
+    if sys.platform.startswith('darwin'):
+        # special for MacOS: minikube automounts /Users instead of $HOME
+        # see: https://github.com/kubernetes/minikube/search?q=DefaultMountDir&unscoped_q=DefaultMountDir
+        OS_USERFOLDER = os.path.join('Users', OS_USERFOLDER)
+
+    MINIKUBE_USER_HOME = os.path.join('/hosthome/', OS_USERFOLDER)
+    MINIKUBE_CH_TMP = os.path.join(MINIKUBE_USER_HOME, CH_TMP)
+    MINIKUBE_CH_TMP_CERTS = os.path.join(MINIKUBE_CH_TMP, 'certs')
     
-    if not os.path.exists(os.path.join(certs_folder_path)):
-        os.makedirs(certs_folder_path)
-    else:
+    bootstrap_file_path = os.path.join(ROOT, 'utilities/cloudharness_utilities/scripts')
+    bootstrap_file = 'bootstrap.sh'
+    certs_folder_path = os.path.join(ROOT,'infrastructure/deployment/helm/resources/certs')
+    
+    if os.path.exists(os.path.join(certs_folder_path)):
         # don't overwrite the certificate if it exists
         return
+
+    # try to remove temporay CH folder
+    shutil.rmtree(CH_HOME_TMP, ignore_errors=True)
+    os.makedirs(CH_HOME_TMP_CERTS)
+
+    shutil.copyfile( 
+        os.path.join(bootstrap_file_path, bootstrap_file), 
+        os.path.join(CH_HOME_TMP, bootstrap_file))
 
     try:
         client = DockerClient()
@@ -230,15 +254,22 @@ def create_tls_certificate(local, domain, secured, output_path, helm_values):
 
     # Create CA and sign cert for domain
     container = client.containers.run(image='frapsoft/openssl', 
-                        command='/bin/ash /mnt/vol1/bootstrap.sh',
+                        command=f'/bin/ash /mnt/vol1/{bootstrap_file}',
                         entrypoint="", 
                         auto_remove=True, 
                         environment=[f"DOMAIN={domain}"],
                         volumes={
-                            bootstrap_file_path: {'bind': '/mnt/vol1', 'mode': 'ro'},
-                            certs_folder_path: {'bind': '/mnt/vol2', 'mode': 'rw'}
+                            MINIKUBE_CH_TMP: {'bind': '/mnt/vol1', 'mode': 'ro'},
+                            MINIKUBE_CH_TMP_CERTS: {'bind': '/mnt/vol2', 'mode': 'rw'}
                             }
                         )
+    
+    # copy generated certificates to the resources certs folder
+    shutil.copytree(CH_HOME_TMP_CERTS, certs_folder_path)
+
+    # remove tmp CH folder
+    shutil.rmtree(CH_HOME_TMP, ignore_errors=True)
+
     logging.info("Created certificates for local deployment")
 
 
