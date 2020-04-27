@@ -8,7 +8,7 @@
         "adminTheme": "custom",
         "emailTheme": "custom",
         "registrationAllowed": true,
-        "registrationEmailAsUsername": true,
+        "registrationEmailAsUsername": false,
         "rememberMe": true,
         "verifyEmail": true,
         "loginWithEmailAllowed": true,
