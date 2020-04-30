@@ -7,6 +7,7 @@ import shutil
 import sys
 import logging
 import subprocess
+import tarfile
 from docker import from_env as DockerClient
 from pathlib import Path
 from .constants import VALUES_MANUAL_PATH, VALUE_TEMPLATE_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, HERE, DEPLOYMENT_CONFIGURATION_PATH
@@ -214,36 +215,15 @@ def create_tls_certificate(local, domain, secured, output_path, helm_values):
     
     HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
     ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
-    HOME = str(Path.home())
-    CH_TMP = '.cloudharness'
-    CH_HOME_TMP = os.path.join(HOME, CH_TMP)
-    CH_HOME_TMP_CERTS = os.path.join( CH_HOME_TMP, 'certs')
-    OS_USERFOLDER = os.path.basename(os.path.dirname(CH_HOME_TMP))
 
-    if sys.platform.startswith('darwin'):
-        # special for MacOS: minikube automounts /Users instead of $HOME
-        # see: https://github.com/kubernetes/minikube/search?q=DefaultMountDir&unscoped_q=DefaultMountDir
-        OS_USERFOLDER = os.path.join('Users', OS_USERFOLDER)
-
-    MINIKUBE_USER_HOME = os.path.join('/hosthome/', OS_USERFOLDER)
-    MINIKUBE_CH_TMP = os.path.join(MINIKUBE_USER_HOME, CH_TMP)
-    MINIKUBE_CH_TMP_CERTS = os.path.join(MINIKUBE_CH_TMP, 'certs')
-    
     bootstrap_file_path = os.path.join(ROOT, 'utilities/cloudharness_utilities/scripts')
     bootstrap_file = 'bootstrap.sh'
-    certs_folder_path = os.path.join(ROOT,'infrastructure/deployment/helm/resources/certs')
+    certs_parent_folder_path = os.path.join(ROOT,'infrastructure/deployment/helm/resources')
+    certs_folder_path = os.path.join(certs_parent_folder_path,'certs')
     
     if os.path.exists(os.path.join(certs_folder_path)):
         # don't overwrite the certificate if it exists
         return
-
-    # try to remove temporay CH folder
-    shutil.rmtree(CH_HOME_TMP, ignore_errors=True)
-    os.makedirs(CH_HOME_TMP_CERTS)
-
-    shutil.copyfile( 
-        os.path.join(bootstrap_file_path, bootstrap_file), 
-        os.path.join(CH_HOME_TMP, bootstrap_file))
 
     try:
         client = DockerClient()
@@ -254,21 +234,45 @@ def create_tls_certificate(local, domain, secured, output_path, helm_values):
 
     # Create CA and sign cert for domain
     container = client.containers.run(image='frapsoft/openssl', 
-                        command=f'/bin/ash /mnt/vol1/{bootstrap_file}',
+                        command=f'sleep 60',
                         entrypoint="", 
-                        auto_remove=True, 
+                        detach=True,
                         environment=[f"DOMAIN={domain}"],
-                        volumes={
-                            MINIKUBE_CH_TMP: {'bind': '/mnt/vol1', 'mode': 'ro'},
-                            MINIKUBE_CH_TMP_CERTS: {'bind': '/mnt/vol2', 'mode': 'rw'}
-                            }
                         )
-    
-    # copy generated certificates to the resources certs folder
-    shutil.copytree(CH_HOME_TMP_CERTS, certs_folder_path)
 
-    # remove tmp CH folder
-    shutil.rmtree(CH_HOME_TMP, ignore_errors=True)
+    container.exec_run('mkdir -p /mnt/vol1')
+    container.exec_run('mkdir -p /mnt/certs')
+
+    # copy bootstrap file
+    cur_dir = os.getcwd()
+    os.chdir(bootstrap_file_path)
+    tar = tarfile.open(bootstrap_file + '.tar', mode='w')
+    try:
+        tar.add(bootstrap_file)
+    finally:
+        tar.close()
+    data = open(bootstrap_file + '.tar', 'rb').read()
+    container.put_archive('/mnt/vol1', data)
+    os.chdir(cur_dir)
+    container.exec_run(f'tar x {bootstrap_file}.tar', workdir='/mnt/vol1')
+
+    # exec bootstrap file
+    container.exec_run(f'/bin/ash /mnt/vol1/{bootstrap_file}')
+
+    # retrieve the certs from the container
+    bits, stat = container.get_archive('/mnt/certs')
+    f = open(f'{certs_parent_folder_path}/certs.tar', 'wb')
+    for chunk in bits:
+        f.write(chunk)
+    f.close()
+    cf = tarfile.open(f'{certs_parent_folder_path}/certs.tar')
+    cf.extractall(path=certs_parent_folder_path)
+
+    logs = container.logs()
+    logging.info(f'openssl container logs: {logs}')
+    
+    # stop the container
+    container.kill()
 
     logging.info("Created certificates for local deployment")
 

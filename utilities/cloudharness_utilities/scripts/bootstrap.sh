@@ -29,6 +29,6 @@ openssl req -new -out server.csr -key tls.key -config server.cnf
 openssl x509 -req -sha256 -in server.csr -extfile server.cnf -extensions v3_req -out tls.crt -CAkey rootCA.key -CA rootCA.crt -days 365 -CAcreateserial -CAserial serial
 
 # Move to docker mounted volume
-mv tls.key /mnt/vol2/tls.key
-mv tls.crt /mnt/vol2/tls.crt
-mv rootCA.crt /mnt/vol2/cacert.crt
+mv tls.key /mnt/certs/tls.key
+mv tls.crt /mnt/certs/tls.crt
+mv rootCA.crt /mnt/certs/cacert.crt
