@@ -113,7 +113,33 @@
                     "offline_access",
                     "microprofile-jwt"
                 ]
-            }
+            },
+            {
+                "id": "9cbd2d65-132a-4203-b96c-c1a54de4cb12",
+                "clientId": {{ .Values.apps.accounts.frontend.id | quote }},
+                "baseUrl": {{ printf "https://%s.%s" .Values.apps.frontend.subdomain .Values.domain | quote }},
+                "surrogateAuthRequired": false,
+                "enabled": true,
+                "alwaysDisplayInConsole": false,
+                "clientAuthenticatorType": "client-secret",
+                "secret": {{ .Values.apps.accounts.frontend.secret | quote }},
+                "redirectUris": [
+                    "*"
+                ],
+                "webOrigins": [
+                    "+"
+                ],
+                "standardFlowEnabled": true,
+                "directAccessGrantsEnabled": true,
+                "publicClient": true,
+                "protocol": "openid-connect",
+                "fullScopeAllowed": true,
+                "defaultClientScopes": [
+                    "profile",
+                    "email"
+                ],
+                "optionalClientScopes": []
+              },          
         ],
         "clientScopes": [
             {
