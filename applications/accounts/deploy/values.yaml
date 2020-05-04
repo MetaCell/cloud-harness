@@ -16,8 +16,8 @@ harvest: true
 webclient:
   id: web-client
   secret: 452952ae-922c-4766-b912-7b106271e34b
-frontend:
-  id: web-frontend
+portal:
+  id: portal
   secret: 4a9e355d-7a90-4651-ac0f-59308cd90f46
 name: accounts
 port: 8080
