@@ -4,9 +4,12 @@ Utilities to create a helm chart from a CloudHarness directory structure
 import yaml
 import os
 import shutil
+import sys
 import logging
 import subprocess
+import tarfile
 from docker import from_env as DockerClient
+from pathlib import Path
 from .constants import VALUES_MANUAL_PATH, VALUE_TEMPLATE_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, HERE, DEPLOYMENT_CONFIGURATION_PATH
 from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, image_name_from_docker_path, \
     get_template, merge_configuration_directories, merge_to_yaml_file, dict_merge
@@ -212,12 +215,13 @@ def create_tls_certificate(local, domain, secured, output_path, helm_values):
     
     HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
     ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
+
     bootstrap_file_path = os.path.join(ROOT, 'utilities/cloudharness_utilities/scripts')
-    certs_folder_path = os.path.join(ROOT,'deployment/helm/resources/certs')
+    bootstrap_file = 'bootstrap.sh'
+    certs_parent_folder_path = os.path.join(ROOT,'infrastructure/deployment/helm/resources')
+    certs_folder_path = os.path.join(certs_parent_folder_path,'certs')
     
-    if not os.path.exists(os.path.join(certs_folder_path)):
-        os.makedirs(certs_folder_path)
-    else:
+    if os.path.exists(os.path.join(certs_folder_path)):
         # don't overwrite the certificate if it exists
         return
 
@@ -230,15 +234,46 @@ def create_tls_certificate(local, domain, secured, output_path, helm_values):
 
     # Create CA and sign cert for domain
     container = client.containers.run(image='frapsoft/openssl', 
-                        command='/bin/ash /mnt/vol1/bootstrap.sh',
+                        command=f'sleep 60',
                         entrypoint="", 
-                        auto_remove=True, 
+                        detach=True,
                         environment=[f"DOMAIN={domain}"],
-                        volumes={
-                            bootstrap_file_path: {'bind': '/mnt/vol1', 'mode': 'ro'},
-                            certs_folder_path: {'bind': '/mnt/vol2', 'mode': 'rw'}
-                            }
                         )
+
+    container.exec_run('mkdir -p /mnt/vol1')
+    container.exec_run('mkdir -p /mnt/certs')
+
+    # copy bootstrap file
+    cur_dir = os.getcwd()
+    os.chdir(bootstrap_file_path)
+    tar = tarfile.open(bootstrap_file + '.tar', mode='w')
+    try:
+        tar.add(bootstrap_file)
+    finally:
+        tar.close()
+    data = open(bootstrap_file + '.tar', 'rb').read()
+    container.put_archive('/mnt/vol1', data)
+    os.chdir(cur_dir)
+    container.exec_run(f'tar x {bootstrap_file}.tar', workdir='/mnt/vol1')
+
+    # exec bootstrap file
+    container.exec_run(f'/bin/ash /mnt/vol1/{bootstrap_file}')
+
+    # retrieve the certs from the container
+    bits, stat = container.get_archive('/mnt/certs')
+    f = open(f'{certs_parent_folder_path}/certs.tar', 'wb')
+    for chunk in bits:
+        f.write(chunk)
+    f.close()
+    cf = tarfile.open(f'{certs_parent_folder_path}/certs.tar')
+    cf.extractall(path=certs_parent_folder_path)
+
+    logs = container.logs()
+    logging.info(f'openssl container logs: {logs}')
+    
+    # stop the container
+    container.kill()
+
     logging.info("Created certificates for local deployment")
 
 
