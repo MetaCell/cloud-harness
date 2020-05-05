@@ -113,7 +113,33 @@
                     "offline_access",
                     "microprofile-jwt"
                 ]
-            }
+            },
+            {
+                "id": "9cbd2d65-132a-4203-b96c-c1a54de4cb12",
+                "clientId": {{ .Values.apps.accounts.portal.id | quote }},
+                "baseUrl": {{ printf "https://portal.%s" .Values.domain | quote }},
+                "surrogateAuthRequired": false,
+                "enabled": true,
+                "alwaysDisplayInConsole": false,
+                "clientAuthenticatorType": "client-secret",
+                "secret": {{ .Values.apps.accounts.portal.secret | quote }},
+                "redirectUris": [
+                    "*"
+                ],
+                "webOrigins": [
+                    {{ printf "https://portal.%s" .Values.domain | quote }}
+                ],
+                "standardFlowEnabled": true,
+                "directAccessGrantsEnabled": true,
+                "publicClient": true,
+                "protocol": "openid-connect",
+                "fullScopeAllowed": true,
+                "defaultClientScopes": [
+                    "profile",
+                    "email"
+                ],
+                "optionalClientScopes": []
+              }
         ],
         "clientScopes": [
             {
@@ -623,5 +649,5 @@
                 }
             }
         ],
-        "keycloakVersion": "6.0.1"
+        "keycloakVersion": "9.0.2"
     }
