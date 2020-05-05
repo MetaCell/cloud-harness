@@ -108,7 +108,12 @@ images are pushed after the build.
 Any public registry will work. The suggested way to go is to install a registry on localhost:5000 inside
 the kube cluster and push on that registry, also forwarded to localhost.
 
-More info inside `./registry/README.md`.
+On minikube can use the registry addon:
+
+`minikube addons enable registry`
+
+Then forward with:
+`kubectl port-forward --namespace kube-system $(kubectl get po -n kube-system | grep registry | grep -v proxy | \awk '{print $1;}') 5000:5000`
 
 ### Argo installation
 

@@ -261,6 +261,8 @@ def create_tls_certificate(local, domain, secured, output_path, helm_values):
 
     # retrieve the certs from the container
     bits, stat = container.get_archive('/mnt/certs')
+    if not os.path.exists(certs_folder_path):
+        os.makedirs(certs_folder_path)
     f = open(f'{certs_parent_folder_path}/certs.tar', 'wb')
     for chunk in bits:
         f.write(chunk)
