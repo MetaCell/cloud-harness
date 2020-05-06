@@ -216,11 +216,11 @@ def create_tls_certificate(local, domain, secured, output_path, helm_values):
     HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
     ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
 
-    bootstrap_file_path = os.path.join(ROOT, 'utilities/cloudharness_utilities/scripts')
+    bootstrap_file_path = os.path.join(ROOT, 'utilities', 'cloudharness_utilities', 'scripts')
     bootstrap_file = 'bootstrap.sh'
-    certs_parent_folder_path = os.path.join(ROOT,'infrastructure/deployment/helm/resources')
-    certs_folder_path = os.path.join(certs_parent_folder_path,'certs')
-    
+    certs_parent_folder_path = os.path.join(output_path, 'helm', 'resources')
+    certs_folder_path = os.path.join(certs_parent_folder_path, 'certs')
+
     if os.path.exists(os.path.join(certs_folder_path)):
         # don't overwrite the certificate if it exists
         return
