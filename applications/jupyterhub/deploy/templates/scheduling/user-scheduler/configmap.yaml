@@ -1,0 +1,11 @@
+{{- if .Values.apps.jupyterhub.scheduling.userScheduler.enabled -}}
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: user-scheduler
+  labels:
+    {{- include "jupyterhub.labels" . | nindent 4 }}
+data:
+  {{- $defaultPolicy := .Files.Get "resources/jupyterhub/userscheduler-defaultpolicy.yaml" | fromYaml }}
+  policy.cfg: {{ .Values.apps.jupyterhub.scheduling.userScheduler.policy | default $defaultPolicy | toJson | quote }}
+{{- end }}

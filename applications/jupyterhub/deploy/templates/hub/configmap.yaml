@@ -1,0 +1,40 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: hub-config
+  labels:
+    {{- include "jupyterhub.labels" . | nindent 4 }}
+data:
+{{- $values := pick .Values.apps.jupyterhub "auth" "cull" "custom" "debug" "hub" "scheduling" "singleuser" }}
+{{- /* trim secret .Values.apps.jupyterhub. Update here if new secrets are added! */ -}}
+{{- /* make a copy of .Values.apps.jupyterhub.auth to avoid modifying the original */ -}}
+{{- $_ := set $values "auth" (merge dict .Values.apps.jupyterhub.auth) }}
+{{- $_ := set $.Values.apps.jupyterhub.auth "state" (omit $.Values.apps.jupyterhub.auth.state "cryptoKey") }}
+{{- range $key, $auth := .Values.apps.jupyterhub.auth }}
+  {{- if typeIs "map[string]interface {}" $auth }}
+    {{- if (or $auth.clientSecret $auth.password) }}
+      {{- $_ := set $.Values.apps.jupyterhub.auth $key (omit $auth "clientSecret" "password") }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- $_ := set $values "hub" (omit $.Values.apps.jupyterhub.hub "cookieSecret" "extraEnv" "extraConfigMap") -}}
+{{- $_ := set $.Values.apps.jupyterhub.hub "services" dict }}
+{{- range $key, $service := .Values.apps.jupyterhub.hub.services }}
+  {{- if $service.apiToken }}
+    {{- $_ := set $.Values.apps.jupyterhub.hub.services $key (omit $service "apiToken") }}
+  {{- end }}
+{{- end }}
+{{- /* copy .Values.apps.jupyterhub.singleuser */ -}}
+{{- $_ := set $values "singleuser" (omit .Values.apps.jupyterhub.singleuser "imagePullSecret") }}
+{{- $_ := set $.Values.apps.jupyterhub.singleuser "imagePullSecret" (omit .Values.apps.jupyterhub.singleuser.imagePullSecret "password") }}
+{{- /* preserve behavior of deprecated hub.extraConfigMap */ -}}
+{{- $_ := set $values "custom" (merge dict $.Values.apps.jupyterhub.custom .Values.apps.jupyterhub.hub.extraConfigMap) }}
+{{- /* passthrough subset of Chart / Release */ -}}
+{{- $_ := set $values "Chart" (dict "Name" .Chart.Name "Version" .Chart.Version) }}
+{{- $_ := set $values "Release" (pick .Release "Name" "Namespace" "Service") }}
+  values.yaml: |
+    {{- $values | toYaml | nindent 4 }}
+
+  {{- /* Glob files to allow them to be mounted by the hub pod */ -}}
+  {{- /* key=filename: value=content */ -}}
+  {{- (.Files.Glob "resources/jupyterhub/hub/*").AsConfig | nindent 2 }}
