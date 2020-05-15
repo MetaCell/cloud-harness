@@ -202,8 +202,8 @@ singleuser:
     type: dynamic
     capacity: 2Mi
     dynamic:
-      pvcNameTemplate: osb-jupyter-{userid}
-      volumeNameTemplate: osb-jupyter-{userid}
+      pvcNameTemplate: jupyter-{userid}
+      volumeNameTemplate: jupyter-{userid}
     homeMountPath: /home/workspace
     extraLabels: {}
   image:
