@@ -23,6 +23,8 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
     """
     dest_deployment_path = os.path.join(output_path, HELM_CHART_PATH)
 
+    if os.path.exists(dest_deployment_path):
+        shutil.rmtree(dest_deployment_path)
     # Initialize with default
     copy_merge_base_deployment(dest_deployment_path, os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
     helm_values = collect_helm_values(HERE, tag=tag, registry=registry, exclude=exclude)
@@ -144,22 +146,69 @@ def finish_helm_values(values, tag='latest', registry='', local=True, domain=Non
     create_env_variables(values)
     return values
 
+
+def values_from_legacy(values):
+    harness = values['harness']
+
+    if 'name' in values:
+        harness['name'] = values['name']
+    if 'subdomain' in values:
+        harness['subdomain'] = values['subdomain']
+    if 'autodeploy' in values:
+        harness['deployment']['auto'] = values['autodeploy']
+    if 'autoservice' in values:
+        harness['service']['auto'] = values['autoservice']
+    if 'secureme' in values:
+        harness['secured'] = values['secureme']
+    if 'resources' in values:
+        harness['deployment']['resources'].update(values['resources'])
+    if 'replicas' in values:
+        harness['deployment']['replicas'] = values['replicas']
+    if 'image' in values:
+        harness['deployment']['image'] = values['image']
+    if 'port' in values:
+        harness['deployment']['port'] = values['port']
+        harness['service']['port'] = values['port']
+
+
+def values_set_legacy(values):
+    harness = values['harness']
+    if harness['deployment']['image']:
+        values['image'] = harness['deployment']['image']
+
+    values['name'] = harness['deployment']['name']
+    if harness['deployment']['port']:
+        values['port'] = harness['deployment']['port']
+    values['resources'] = harness['deployment']['resources']
+
 def create_values_spec(app_name, app_path, tag=None, registry='', template_path=VALUE_TEMPLATE_PATH):
     logging.info('Generating values script for ' + app_name)
 
     values = get_template(template_path)
-    if registry and registry[-1] != '/':
-        registry = registry + '/'
-    values['name'] = app_name
-
-    values['image'] = registry + get_image_name(app_name) + f':{tag}' if tag else ''
 
     specific_template_path = os.path.join(app_path, 'deploy', 'values.yaml')
     if os.path.exists(specific_template_path):
         logging.info("Specific values template found: " + specific_template_path)
         with open(specific_template_path) as f:
             values_specific = yaml.safe_load(f)
-        values.update(values_specific)
+        values = dict_merge(values_specific, values)
+
+    values_from_legacy(values)
+    harness = values['harness']
+
+    if not harness['name']:
+        harness['name'] = app_name
+    if not harness['service']['name']:
+        harness['service']['name'] = app_name
+    if not harness['deployment']['name']:
+        harness['deployment']['name'] = app_name
+    if not harness['deployment']['image']:
+        if registry and registry[-1] != '/':
+            registry = registry + '/'
+        harness['deployment']['image'] = registry + get_image_name(app_name) + f':{tag}' if tag else ''
+
+    values_set_legacy(values)
+
     return values
 
 

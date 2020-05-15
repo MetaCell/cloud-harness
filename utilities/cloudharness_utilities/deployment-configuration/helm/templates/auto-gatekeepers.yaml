@@ -3,9 +3,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: "{{ .app.name }}-gk"
+  name: "{{ .app.harness.service.name }}-gk"
   labels:
-    app: "{{ .app.name }}-gk"
+    app: "{{ .app.harness.service.name }}-gk"
 data:
   proxy.yml: |-
     verbose: true
@@ -16,9 +16,9 @@ data:
     enable-refresh-tokens: true
     tls-cert:
     tls-private-key:
-    redirection-url: https://{{ .app.subdomain }}.{{ .root.Values.domain }}
+    redirection-url: https://{{ .app.harness.subdomain }}.{{ .root.Values.domain }}
     encryption-key: AgXa7xRcoClDEU0ZDSH4X0XhL5Qy2Z2j
-    upstream-url: http://{{ .app.name }}.{{ .app.namespace | default .root.Release.Namespace }}:{{ .app.port | default 80}}
+    upstream-url: http://{{ .app.harness.subdomain }}.{{ .app.namespace | default .root.Release.Namespace }}:{{ .app.harness.service.port | default 80}}
     scopes:
     - vpn-user
     resources:
@@ -30,32 +30,32 @@ data:
 apiVersion: v1
 kind: Service
 metadata:
-  name: "{{ .app.name }}-gk"
+  name: "{{ .app.harness.service.name }}-gk"
   labels:
-    app: "{{ .app.name }}-gk"
+    app: "{{ .app.harness.service.name }}-gk"
 spec:
   ports:
   - name: http
     port: 80
   selector:
-    app: "{{ .app.name }}-gk"
+    app: "{{ .app.harness.service.name }}-gk"
   type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: "{{ .app.name }}-gk"
+  name: "{{ .app.harness.service.name }}-gk"
   labels:
-    app: "{{ .app.name }}-gk"
+    app: "{{ .app.harness.service.name }}-gk"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: "{{ .app.name }}-gk"
+      app: "{{ .app.harness.service.name }}-gk"
   template:
     metadata:
       labels:
-        app: "{{ .app.name }}-gk"
+        app: "{{ .app.harness.service.name }}-gk"
     spec:
       {{ if .root.Values.registry.secret }}
       imagePullSecrets:
@@ -63,7 +63,7 @@ spec:
       {{- end }}
 {{ include "deploy_utils.etcHosts" .root | indent 6 }}
       containers:
-      - name: {{ .app.name | quote }}
+      - name: {{ .app.harness.service.name | quote }}
         {{ if .root.Values.local }}
         image: {{ include "deploy_utils.registry" .root }}{{ .root.Values.apps.accounts.gatekeeper.image}}:{{ .root.Values.tag }}
         imagePullPolicy: {{ include "deploy_utils.pullpolicy" .root }}
@@ -76,10 +76,10 @@ spec:
         - name: PROXY_CONFIG_FILE
           value: /opt/proxy.yml
         volumeMounts:
-        - name: "{{ .app.name }}-gk-proxy-config"
+        - name: "{{ .app.harness.service.name }}-gk-proxy-config"
           mountPath: /opt/proxy.yml
           subPath: proxy.yml
-        - name: "{{ .app.name }}-gk-proxy-config"
+        - name: "{{ .app.harness.service.name }}-gk-proxy-config"
           mountPath: /usr/local/share/ca-certificates/cacert.crt
           subPath: cacert.crt
         ports:
@@ -95,23 +95,25 @@ spec:
             memory: "64Mi"
             cpu: "100m"
       volumes:
-      - name: "{{ .app.name }}-gk-proxy-config"
+      - name: "{{ .app.harness.service.name }}-gk-proxy-config"
         configMap:
-          name: "{{ .app.name }}-gk"
+          name: "{{ .app.harness.service.name }}-gk"
 ---
 {{- end }}
 {{- if .Values.secured_gatekeepers }}
 {{ $files := .Files }}
 {{- range $app := .Values.apps }}
-  {{- if and (hasKey $app "port") ($app.secureme)   }}
+  {{- if and (hasKey $app "port") ($app.harness.secured)   }}
 ---
     {{ include "deploy_utils.securedservice" (dict "root" $ "app" $app "files" $files) }}
     {{- end }}
   {{- range $subapp := $app }}
   {{- if contains "map" (typeOf $subapp)  }}
-  {{- if and (hasKey $subapp "port") $subapp.secureme }}
+    {{- if and (hasKey $subapp "harness.port") (hasKey $subapp "harness.secured") }}
+      {{- if $subapp.harness.secured }}
 ---
       {{ include "deploy_utils.securedservice" (dict "root" $ "app" $subapp "files" $files) }}
+    {{- end }}
   {{- end }}
   {{- end }}
   {{- end }}
