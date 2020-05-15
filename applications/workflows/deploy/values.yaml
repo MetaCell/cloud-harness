@@ -1,6 +1,9 @@
-harvest: false
-port: 8080
-subdomain: workflows
-autoservice: true
-autodeploy: true
-serviceaccount: argo-workflows
+harness:
+  subdomain: workflows
+  secured: false
+  service:
+    port: 8080
+    auto: true
+  deploy:
+    auto: true
+    port: 8080

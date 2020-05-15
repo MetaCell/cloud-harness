@@ -1,4 +1,9 @@
-port: 8080
-subdomain: samples
-autodeploy: true
-autoservice: true
+harness:
+  subdomain: samples
+  secured: true
+  service:
+    port: 8080
+    auto: true
+  deploy:
+    auto: true
+    port: 8080
