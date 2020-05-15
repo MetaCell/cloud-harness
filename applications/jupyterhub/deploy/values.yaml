@@ -1,10 +1,9 @@
-autoservice: false
-autodeploy: false
-subdomain: jupyterhub
 harness:
-
+  subdomain: jupyterhub
   service:
     auto: false
+    port: 80
+    name: proxy-public
   deployment:
     auto: false
 custom: {}
