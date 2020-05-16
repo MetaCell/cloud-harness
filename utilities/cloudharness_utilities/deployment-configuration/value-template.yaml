@@ -1,12 +1,22 @@
-autoservice: true
-name: CHANGE ME
-image:
-  name: CHANGE ME
-  tag: ${{CF_REVISION}}
-resources:
-  requests:
-    memory: "32Mi"
-    cpu: "25m"
-  limits:
-    memory: "500Mi"
-    cpu: "500m"
+harness:
+  name:
+  subdomain:
+  domain:
+  secured: false
+  deployment:
+    auto: false
+    replicas: 1
+    image:
+    name:
+    port: 8081
+    resources:
+      requests:
+        memory: "32Mi"
+        cpu: "25m"
+      limits:
+        memory: "500Mi"
+        cpu: "500m"
+  service:
+    auto: true
+    name:
+    port: 80

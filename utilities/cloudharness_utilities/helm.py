@@ -14,8 +14,10 @@ from .constants import VALUES_MANUAL_PATH, VALUE_TEMPLATE_PATH, HELM_CHART_PATH,
 from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, image_name_from_docker_path, \
     get_template, merge_configuration_directories, merge_to_yaml_file, dict_merge
 
-
-
+KEY_HARNESS = 'harness'
+KEY_SERVICE = 'service'
+KEY_DEPLOYMENT = 'deployment'
+KEY_APPS = 'apps'
 
 def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True, output_path='./deployment'):
     """
@@ -23,6 +25,8 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
     """
     dest_deployment_path = os.path.join(output_path, HELM_CHART_PATH)
 
+    if os.path.exists(dest_deployment_path):
+        shutil.rmtree(dest_deployment_path)
     # Initialize with default
     copy_merge_base_deployment(dest_deployment_path, os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
     helm_values = collect_helm_values(HERE, tag=tag, registry=registry, exclude=exclude)
@@ -103,7 +107,7 @@ def collect_helm_values(deployment_root, exclude=(), tag='latest', registry=''):
     else:
         values = get_template(values_template_path)
 
-    values['apps'] = {}
+    values[KEY_APPS] = {}
 
     app_base_path = os.path.join(deployment_root, APPS_PATH)
     for app_path in get_sub_paths(app_base_path):
@@ -113,7 +117,7 @@ def collect_helm_values(deployment_root, exclude=(), tag='latest', registry=''):
             continue
 
         app_values = create_values_spec(app_name, app_path, tag=tag, registry=registry, template_path=value_spec_template_path)
-        values['apps'][app_name.replace('-', '_')] = app_values
+        values[KEY_APPS][app_name.replace('-', '_')] = app_values
 
     return values
 
@@ -144,22 +148,75 @@ def finish_helm_values(values, tag='latest', registry='', local=True, domain=Non
     create_env_variables(values)
     return values
 
+
+def values_from_legacy(values):
+    harness = values[KEY_HARNESS]
+
+    if 'name' in values:
+        harness['name'] = values['name']
+    if 'subdomain' in values:
+        harness['subdomain'] = values['subdomain']
+    if 'autodeploy' in values:
+        harness[KEY_DEPLOYMENT]['auto'] = values['autodeploy']
+    if 'autoservice' in values:
+        harness[KEY_SERVICE]['auto'] = values['autoservice']
+    if 'secureme' in values:
+        harness['secured'] = values['secureme']
+    if 'resources' in values:
+        harness[KEY_DEPLOYMENT]['resources'].update(values['resources'])
+    if 'replicas' in values:
+        harness[KEY_DEPLOYMENT]['replicas'] = values['replicas']
+    if 'image' in values:
+        harness[KEY_DEPLOYMENT]['image'] = values['image']
+    if 'port' in values:
+        harness[KEY_DEPLOYMENT]['port'] = values['port']
+        harness[KEY_SERVICE]['port'] = values['port']
+
+
+def values_set_legacy(values):
+    harness = values[KEY_HARNESS]
+    if harness[KEY_DEPLOYMENT]['image']:
+        values['image'] = harness[KEY_DEPLOYMENT]['image']
+
+    values['name'] = harness['name']
+    if harness[KEY_DEPLOYMENT]['port']:
+        values['port'] = harness[KEY_DEPLOYMENT]['port']
+    values['resources'] = harness[KEY_DEPLOYMENT]['resources']
+
 def create_values_spec(app_name, app_path, tag=None, registry='', template_path=VALUE_TEMPLATE_PATH):
     logging.info('Generating values script for ' + app_name)
 
-    values = get_template(template_path)
-    if registry and registry[-1] != '/':
-        registry = registry + '/'
-    values['name'] = app_name
-
-    values['image'] = registry + get_image_name(app_name) + f':{tag}' if tag else ''
+    values_default = get_template(template_path)
 
     specific_template_path = os.path.join(app_path, 'deploy', 'values.yaml')
     if os.path.exists(specific_template_path):
         logging.info("Specific values template found: " + specific_template_path)
         with open(specific_template_path) as f:
             values_specific = yaml.safe_load(f)
-        values.update(values_specific)
+        values = dict_merge(values_default, values_specific)
+    else:
+        values = values_default
+
+    values_from_legacy(values)
+    harness = values[KEY_HARNESS]
+
+    if not harness['name']:
+        harness['name'] = app_name
+    if not harness[KEY_SERVICE]['name']:
+        harness[KEY_SERVICE]['name'] = app_name
+    if not harness[KEY_DEPLOYMENT]['name']:
+        harness[KEY_DEPLOYMENT]['name'] = app_name
+    if not harness[KEY_DEPLOYMENT]['image']:
+        if registry and registry[-1] != '/':
+            registry = registry + '/'
+        harness[KEY_DEPLOYMENT]['image'] = registry + get_image_name(app_name) + f':{tag}' if tag else ''
+
+    values_set_legacy(values)
+
+    for k in values:
+        if isinstance(values[k], dict) and KEY_HARNESS in values[k]:
+            values[k][KEY_HARNESS] = dict_merge(values[k][KEY_HARNESS], values_default[KEY_HARNESS])
+
     return values
 
 
@@ -176,8 +233,9 @@ def extract_env_variables_from_values(values, envs=tuple(), prefix=''):
 
 
 def create_env_variables(values):
-    for app_name, value in values['apps'].items():
-        values['env'].extend(extract_env_variables_from_values(value, prefix='CH_' + app_name))
+    for app_name, value in values[KEY_APPS].items():
+        if KEY_HARNESS in value:
+            values['env'].extend(extract_env_variables_from_values(value[KEY_HARNESS], prefix='CH_' + app_name))
     values['env'].append(env_variable('CH_DOMAIN', values['domain']))
     values['env'].append(env_variable('CH_IMAGE_REGISTRY', values['registry']['name']))
     values['env'].append(env_variable('CH_IMAGE_TAG', values['tag']))
@@ -187,18 +245,18 @@ def hosts_info(values):
 
     domain = values['domain']
     namespace = values['namespace']
-    subdomains = (app['subdomain'] for app in values['apps'].values() if 'subdomain' in app and app['subdomain'])
+    subdomains = (app[KEY_HARNESS]['subdomain'] for app in values[KEY_APPS].values() if 'subdomain' in app and app[KEY_HARNESS]['subdomain'])
     try:
         ip = get_cluster_ip()
     except:
         return
     logging.info("\nTo test locally, update your hosts file" + f"\n{ip}\t{' '.join(sd + '.' + domain for sd in subdomains)}")
 
-    services = (app['name'].replace("-", "_") for app in values['apps'].values() if 'name' in app)
+    services = (app['name'].replace("-", "_") for app in values[KEY_APPS].values() if 'name' in app)
 
     logging.info("\nTo run locally some apps, also those references may be needed")
-    for appname in values['apps']:
-        app = values['apps'][appname]
+    for appname in values[KEY_APPS]:
+        app = values[KEY_APPS][appname]
         if 'name' not in app or 'port' not in app: continue
         print(
             "kubectl port-forward -n {namespace} deployment/{app} {port}:{port}".format(

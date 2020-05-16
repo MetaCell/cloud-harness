@@ -105,8 +105,8 @@ hostAliases:
     hostnames:
     {{ printf "- %s" .Values.domain }}
     {{- range $app := .Values.apps }}
-    {{- if $app.subdomain }}
-    {{ printf "- %s.%s" $app.subdomain $domain }}
+    {{- if $app.harness.subdomain }}
+    {{ printf "- %s.%s" $app.harness.subdomain $domain }}
     {{- end }}
     {{- end }}
 {{- end }}

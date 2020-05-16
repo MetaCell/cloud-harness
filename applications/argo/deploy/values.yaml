@@ -1,9 +1,11 @@
-enabled: true
-name: argo-server
-subdomain: argo
-port: 2746
+harness:
+  subdomain: argo
+  secured: true
+  service:
+    port: 2746
+    auto: false
+
+  name: argo-server
 serviceaccount: argo-workflows
 namespace: argo
 workflows_namespace: argo-workflows
-secureme: true
-autoservice: false

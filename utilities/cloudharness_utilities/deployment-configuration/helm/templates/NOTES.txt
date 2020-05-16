@@ -4,8 +4,8 @@
   https://{{ printf "%s" $.Values.domain }}
 
 {{- range $app := .Values.apps }}
-{{- if and $app.subdomain }}
-  https://{{ printf "%s.%s" $app.subdomain $.Values.domain }}
+{{- if and $app.harness.subdomain }}
+  https://{{ printf "%s.%s" $app.harness.subdomain $.Values.domain }}
 {{- end}}
 {{- end }}
 {{- end }}
