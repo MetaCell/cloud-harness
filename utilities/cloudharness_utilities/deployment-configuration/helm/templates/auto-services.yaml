@@ -11,17 +11,17 @@ spec:
   selector:
     app: {{ .app.deploymentname | quote }}
   ports:
-    - port: {{ .app.harness.deployment.port }}
+    - port: {{ .app.harness.service.port }}
       name: http
 {{- end }}
 
 
 {{- range $app := .Values.apps }}
-  {{- if and (hasKey $app "port") $app.autoservice  }}
+  {{- if $app.harness.service.auto  }}
 ---
   {{- range $subapp := $app }}
   {{- if contains "map" (typeOf $subapp)  }}
-  {{- if and (hasKey $subapp "port") $subapp.autoservice }}
+  {{- if and (hasKey $subapp "harness") $subapp.harness.service.auto }}
 ---
       {{ include "deploy_utils.service" (dict "root" $ "app" $subapp) }}
   {{- end }}
