@@ -9,7 +9,7 @@ metadata:
 {{ include "deploy_utils.labels" .root | indent 4 }}
 spec:
   selector:
-    app: {{ .app.deploymentname | quote }}
+    app: {{ .app.harness.deployment.name| quote }}
   ports:
     - port: {{ .app.harness.service.port }}
       name: http
@@ -21,9 +21,11 @@ spec:
 ---
   {{- range $subapp := $app }}
   {{- if contains "map" (typeOf $subapp)  }}
-  {{- if and (hasKey $subapp "harness") $subapp.harness.service.auto }}
+  {{- if hasKey $subapp "harness"}}
+  {{- if and (hasKey $subapp.harness "service") $subapp.harness.service.auto }}
 ---
       {{ include "deploy_utils.service" (dict "root" $ "app" $subapp) }}
+  {{- end }}
   {{- end }}
   {{- end }}
   {{- end }}
