@@ -1,5 +1,6 @@
 {{/* Services */}}
 {{- define "deploy_utils.service" }}
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -13,24 +14,19 @@ spec:
   ports:
     - port: {{ .app.harness.service.port }}
       name: http
+---
 {{- end }}
-
-
 {{- range $app := .Values.apps }}
   {{- if $app.harness.service.auto  }}
----
+     {{ include "deploy_utils.service" (dict "root" $ "app" $app) }}
+  {{- end }}
   {{- range $subapp := $app }}
   {{- if contains "map" (typeOf $subapp)  }}
   {{- if hasKey $subapp "harness"}}
   {{- if and (hasKey $subapp.harness "service") $subapp.harness.service.auto }}
----
       {{ include "deploy_utils.service" (dict "root" $ "app" $subapp) }}
   {{- end }}
   {{- end }}
   {{- end }}
   {{- end }}
-
   {{- end }}
-  {{- end }}
-
-

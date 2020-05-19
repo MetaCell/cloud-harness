@@ -245,14 +245,14 @@ def hosts_info(values):
 
     domain = values['domain']
     namespace = values['namespace']
-    subdomains = (app[KEY_HARNESS]['subdomain'] for app in values[KEY_APPS].values() if 'subdomain' in app and app[KEY_HARNESS]['subdomain'])
+    subdomains = (app[KEY_HARNESS]['subdomain'] for app in values[KEY_APPS].values() if KEY_HARNESS in app and app[KEY_HARNESS]['subdomain'])
     try:
         ip = get_cluster_ip()
     except:
         return
     logging.info("\nTo test locally, update your hosts file" + f"\n{ip}\t{' '.join(sd + '.' + domain for sd in subdomains)}")
 
-    services = (app['name'].replace("-", "_") for app in values[KEY_APPS].values() if 'name' in app)
+    deployments = (app[KEY_HARNESS][KEY_DEPLOYMENT]['name'] for app in values[KEY_APPS].values() if KEY_HARNESS in app)
 
     logging.info("\nTo run locally some apps, also those references may be needed")
     for appname in values[KEY_APPS]:
@@ -262,7 +262,7 @@ def hosts_info(values):
             "kubectl port-forward -n {namespace} deployment/{app} {port}:{port}".format(
                 app=appname, port=app['port'], namespace=namespace))
 
-    print(f"127.0.0.1\t{' '.join(s + '.cloudharness' for s in services)}")
+    print(f"127.0.0.1\t{' '.join(s + '.cloudharness' for s in deployments)}")
 
 
 def create_tls_certificate(local, domain, secured, output_path, helm_values):
