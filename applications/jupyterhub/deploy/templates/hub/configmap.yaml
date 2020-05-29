@@ -5,6 +5,8 @@ metadata:
   labels:
     {{- include "jupyterhub.labels" . | nindent 4 }}
 data:
+  allvalues.yaml: |
+    {{- .Values | toYaml | nindent 4 }}
 {{- $values := pick .Values.apps.jupyterhub "auth" "cull" "custom" "debug" "hub" "scheduling" "singleuser" }}
 {{- /* trim secret .Values.apps.jupyterhub. Update here if new secrets are added! */ -}}
 {{- /* make a copy of .Values.apps.jupyterhub.auth to avoid modifying the original */ -}}
