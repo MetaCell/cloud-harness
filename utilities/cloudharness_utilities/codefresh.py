@@ -33,7 +33,7 @@ def create_codefresh_deployment_scripts(deployment_root_path, tag="${{CF_REVISIO
             app_name = image_name_from_docker_path(app_relative_to_base)
             if app_name in K8S_IMAGE_EXCLUDE:
                 continue
-            build = codefresh_app_build_spec(app_name, os.path.relpath(root_context,
+            build = codefresh_app_build_spec(app_name=app_name, app_path=os.path.relpath(root_context,
                                                                        deployment_root_path) if root_context else app_relative_to_root,
                                              dockerfile_path=os.path.join(
                                                  os.path.relpath(dockerfile_path, root_context) if root_context else '',
@@ -47,7 +47,7 @@ def create_codefresh_deployment_scripts(deployment_root_path, tag="${{CF_REVISIO
     if os.path.exists(os.path.join(deployment_root_path, CLOUD_HARNESS_PATH)):
         logging.info('Create build steps for cloud-harness images')
         codefresh_build_step_from_base_path(os.path.join(CLOUD_HARNESS_PATH, BASE_IMAGES_PATH), BUILD_STEP_BASE,
-                                            root_context=deployment_root_path)
+                                            root_context=CLOUD_HARNESS_PATH)
         codefresh_build_step_from_base_path(os.path.join(CLOUD_HARNESS_PATH, STATIC_IMAGES_PATH), BUILD_STEP_STATIC)
         codefresh_build_step_from_base_path(os.path.join(CLOUD_HARNESS_PATH, APPS_PATH), BUILD_STEP_PARALLEL)
 
