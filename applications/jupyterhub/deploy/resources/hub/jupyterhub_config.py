@@ -1,10 +1,18 @@
 import os
 import re
 import sys
+import logging
 
 from tornado.httpclient import AsyncHTTPClient
 from kubernetes import client
 from jupyterhub.utils import url_path_join
+
+try:
+    from harness_jupyter.jupyterhub import harness_hub
+    harness_hub() # activates harness hooks on jupyterhub
+except Exception as e:
+    logging.error("could not import harness_jupyter", exc_info=True)
+
 
 # Make sure that modules placed in the same directory as the jupyterhub config are added to the pythonpath
 configuration_directory = os.path.dirname(os.path.realpath(__file__))
@@ -506,3 +514,5 @@ if isinstance(extra_config, str):
 for key, config_py in sorted(extra_config.items()):
     print("Loading extra config: %s" % key)
     exec(config_py)
+
+c.apps = get_config('apps')

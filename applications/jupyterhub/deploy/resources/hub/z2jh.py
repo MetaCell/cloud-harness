@@ -27,6 +27,13 @@ def _load_config():
             cfg = _merge_dictionaries(cfg, values)
         else:
             print(f"No config at {path}")
+
+    path = f"/etc/jupyterhub/config/allvalues.yaml"
+    if os.path.exists(path):
+        print("Loading global CloudHarness config")
+        with open(path) as f:
+            values = yaml.safe_load(f)
+        cfg = _merge_dictionaries(cfg, values)
     return cfg
 
 
