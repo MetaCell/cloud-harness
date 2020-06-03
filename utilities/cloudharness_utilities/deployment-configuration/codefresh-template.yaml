@@ -15,6 +15,23 @@ steps:
     title: Post main clone
     type: parallel
     stage: prepare
+  prepare_deployment:
+    title: "Prepare helm chart"
+    image: python:3.7
+    stage: prepare
+    working_directory: .
+    commands:
+      - pip install -r cloud-harness/requirements.txt
+      - harness-deployment . cloud-harness -t ${{CF_REVISION}} -d ${{DOMAIN}}
+  prepare_deployment_view:
+    commands:
+      - 'helm template ./deployment/helm --debug -n ${{NAME}}'
+    environment:
+      - ACTION=auth
+      - KUBE_CONTEXT=${{NAME}}
+    image: codefresh/cfstep-helm:2.16.1
+    stage: prepare
+    title: 'View helm chart'
   build_base_images:
     title: Build base images
     type: parallel
@@ -33,24 +50,7 @@ steps:
     steps:
       REPLACE_ME
 
-  prepare_deployment:
-    title: "Prepare helm chart"
-    image: python:3.7
-    stage: deploy
-    working_directory: .
-    commands:
-      - pip install -r cloud-harness/requirements.txt
-      - harness-deployment . cloud-harness -t ${{CF_REVISION}} -d ${{DOMAIN}}
-  
-  prepare_deployment_view:
-    commands:
-      - 'helm template ./deployment/helm --debug -n ${{NAME}}'
-    environment:
-      - ACTION=auth
-      - KUBE_CONTEXT=${{NAME}}
-    image: codefresh/cfstep-helm:2.16.1
-    stage: prepare
-    title: 'View helm chart'
+
   
   deployment:
     stage: deploy
