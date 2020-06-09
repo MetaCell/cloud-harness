@@ -59,15 +59,9 @@ spec:
       {{- end }}
       securityContext:
         fsGroup: {{ .Values.apps.jupyterhub.hub.fsGid }}
-      {{- if or .Values.apps.jupyterhub.hub.imagePullSecret.enabled .Values.apps.jupyterhub.hub.image.pullSecrets }}
+      {{- if and .Values.registry.secret (contains .Values.registry.name .Values.apps.jupyterhub.image) }}
       imagePullSecrets:
-        {{- if .Values.apps.jupyterhub.hub.imagePullSecret.enabled }}
-        - name: hub-image-credentials
-        {{ else }}
-        {{- range .Values.apps.jupyterhub.hub.image.pullSecrets }}
-        - name: {{ . }}
-        {{- end }}
-        {{- end }}
+        - name: {{ .Values.registry.secret }}
       {{- end }}
       {{- if .Values.apps.jupyterhub.hub.initContainers }}
       initContainers:
