@@ -27,6 +27,8 @@ if __name__ == "__main__":
 
     parser.add_argument('-r', '--registry', dest='registry', action="store", default='',
                         help='Specify image registry prefix')
+    parser.add_argument('-rs', '--registry-secret', dest='registry_secret', action="store", default='',
+                        help='Specify image registry secret')
     parser.add_argument('-o', '--output', dest='output_path', action="store", default='./deployment',
                         help='Specify helm chart base path (default `./deployment)`')
     parser.add_argument('-b', '--build', dest='build', action="store_true",
@@ -52,6 +54,15 @@ if __name__ == "__main__":
         if args.build or args.build_interactive:
             Builder(root_paths, args.image, tag=args.tag, registry=args.registry, interactive=args.build_interactive, exclude=args.exclude).run()
 
-        values_manual_deploy = create_helm_chart(root_paths, tag=args.tag, registry=args.registry, domain=args.domain, local=args.local, secured=not args.unsecured, output_path=args.output_path, exclude=args.exclude)
-        if args.local:
-            hosts_info(values_manual_deploy)
+        values_manual_deploy = create_helm_chart(
+            root_paths,
+            tag=args.tag,
+            registry=args.registry,
+            domain=args.domain,
+            local=args.local,
+            secured=not args.unsecured,
+            output_path=args.output_path,
+            exclude=args.exclude,
+            registry_secret=args.registry_secret
+        )
+        hosts_info(values_manual_deploy)

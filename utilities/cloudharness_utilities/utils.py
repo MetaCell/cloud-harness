@@ -41,8 +41,9 @@ def env_variable(name, value):
 
 
 def get_cluster_ip():
-    out = str(subprocess.check_output(['kubectl', 'cluster-info'], timeout=1))
-    ip = out.split('://')[1].split(':')[0]
+    out = subprocess.check_output(['kubectl', 'cluster-info'], timeout=3).decode("utf-8")
+    print(type(out))
+    ip = out.split('\n')[0].split('://')[1].split(':')[0]
     return ip
 
 

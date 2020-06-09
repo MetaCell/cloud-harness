@@ -6,7 +6,7 @@ domain: ${{DOMAIN}}
 namespace: ch
 registry:
   name: "localhost:5000"
-  secret: ${{REGISTRY_SECRET}}
+  secret:
 tag: latest
 serviceaccount: argo-workflows
 apps:

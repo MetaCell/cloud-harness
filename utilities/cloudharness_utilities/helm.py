@@ -19,7 +19,7 @@ KEY_SERVICE = 'service'
 KEY_DEPLOYMENT = 'deployment'
 KEY_APPS = 'apps'
 
-def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True, output_path='./deployment'):
+def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True, output_path='./deployment', registry_secret=None):
     """
     Creates values file for the helm chart
     """
@@ -39,7 +39,7 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
 
     create_tls_certificate(local, domain, secured, output_path, helm_values)
 
-    finish_helm_values(values=helm_values, tag=tag, registry=registry, local=local, domain=domain, secured=secured)
+    finish_helm_values(values=helm_values, tag=tag, registry=registry, local=local, domain=domain, secured=secured, registry_secret=registry_secret)
     # Save values file for manual helm chart
     merged_values = merge_to_yaml_file(helm_values, os.path.join(dest_deployment_path, VALUES_MANUAL_PATH))
     return merged_values
@@ -122,7 +122,7 @@ def collect_helm_values(deployment_root, exclude=(), tag='latest', registry=''):
     return values
 
 
-def finish_helm_values(values, tag='latest', registry='', local=True, domain=None, secured=True):
+def finish_helm_values(values, tag='latest', registry='', local=True, domain=None, secured=True, registry_secret=None):
     """
     Sets default overridden values
     """
@@ -130,8 +130,11 @@ def finish_helm_values(values, tag='latest', registry='', local=True, domain=Non
         logging.info(f"Registry set: {registry}")
     if local:
         values['registry']['secret'] = ''
-    values['registry']['name'] = registry  # Otherwise leave default for codefresh
-    values['tag'] = tag  # Otherwise leave default for codefresh
+    if registry_secret:
+        logging.info(f"Registry secret set")
+    values['registry']['name'] = registry
+    values['registry']['secret'] = registry_secret
+    values['tag'] = tag
     values['secured_gatekeepers'] = secured
 
     if domain:
@@ -249,6 +252,7 @@ def hosts_info(values):
     try:
         ip = get_cluster_ip()
     except:
+        logging.warning('Cannot get cluster ip')
         return
     logging.info("\nTo test locally, update your hosts file" + f"\n{ip}\t{' '.join(sd + '.' + domain for sd in subdomains)}")
 

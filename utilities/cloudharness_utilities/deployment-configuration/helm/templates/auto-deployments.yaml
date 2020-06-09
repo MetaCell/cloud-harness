@@ -24,7 +24,7 @@ spec:
         app: {{ .app.harness.deployment.name| quote }}
 {{- include "deploy_utils.labels" .root | indent 8 }}
     spec:
-      {{- if .root.Values.registry.secret }}
+      {{- if and .root.Values.registry.secret (contains .root.Values.registry.name .app.harness.deployment.image) }}
       imagePullSecrets:
       - name: {{ .root.Values.registry.secret }}
       {{- end }}

@@ -57,10 +57,6 @@ spec:
       labels:
         app: "{{ .app.harness.service.name }}-gk"
     spec:
-      {{ if .root.Values.registry.secret }}
-      imagePullSecrets:
-      - name: {{ .root.Values.registry.secret }}
-      {{- end }}
 {{ include "deploy_utils.etcHosts" .root | indent 6 }}
       containers:
       - name: {{ .app.harness.service.name | quote }}

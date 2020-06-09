@@ -1,8 +1,8 @@
 version: '1.0'
 stages:
-- prepare
-- build
-- deploy
+  - prepare
+  - build
+  - deploy
 steps:
   main_clone:
     title: Clone main repository
@@ -21,8 +21,8 @@ steps:
     stage: prepare
     working_directory: .
     commands:
-      - pip install -r cloud-harness/requirements.txt
-      - harness-deployment . cloud-harness -t ${{CF_REVISION}} -d ${{DOMAIN}}
+      - pip install cloud-harness/utilities
+      - harness-deployment . cloud-harness -t ${{CF_REVISION}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}}
   prepare_deployment_view:
     commands:
       - 'helm template ./deployment/helm --debug -n ${{NAME}}'
@@ -49,19 +49,15 @@ steps:
     stage: build
     steps:
       REPLACE_ME
-
-
-  
   deployment:
     stage: deploy
-    image: 'codefresh/cfstep-helm:2.16.1'
+    image: codefresh/cfstep-helm:3.0.3
     title: Installing chart
     environment:
       - CHART_REF=./deployment/helm
-      - RELEASE_NAME=${{NAME}}
-      - KUBE_CONTEXT=${{NAME}}
+      - RELEASE_NAME=${{NAMESPACE}}
+      - KUBE_CONTEXT=${{CLUSTER_NAME}}
       - NAMESPACE=${{NAMESPACE}}
-      - TILLER_NAMESPACE=kube-system
       - CHART_VERSION=0.0.1
       - HELM_REPO_USE_HTTP=false
       - HELM_REPO_CONTEXT_PATH=
