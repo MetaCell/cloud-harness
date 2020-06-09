@@ -18,6 +18,7 @@ def change_pod_manifest(self: KubeSpawner):
     subdomain = self.handler.request.host.split('.')[0]
     try:
         app_config = self.config['apps']
+        registry = self.config['registry']
         for app in app_config.values():
             if 'harness' in app:
 
@@ -26,6 +27,8 @@ def change_pod_manifest(self: KubeSpawner):
                         and 'subdomain' in harness and harness['subdomain'] == subdomain:
                     print('Change image to %s', harness['deployment']['image'])
                     self.image = harness['deployment']['image']
+                    if registry['name'] in self.image and registry['secret']:
+                        self.image_pull_secrets = registry['secret']
                     if 'args' in harness['jupyterhub']:
                         self.args = harness['jupyterhub']['args']
 
