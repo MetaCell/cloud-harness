@@ -64,7 +64,7 @@ spec:
         image: {{ include "deploy_utils.registry" .root }}{{ .root.Values.apps.accounts.gatekeeper.image}}:{{ .root.Values.tag }}
         imagePullPolicy: {{ include "deploy_utils.pullpolicy" .root }}
         {{ else }}
-        image: "keycloak/keycloak-gatekeeper:9.0.2"
+        image: "keycloak/keycloak-gatekeeper:7.0.0"
         imagePullPolicy: IfNotPresent
         {{- end }}
 
