@@ -1,0 +1,40 @@
+harness:
+  subdomain: sentry
+  secured: false
+  deployment:
+    auto: true
+  service:
+    auto: true
+    port: 9000
+    name: sentry
+  deployment:
+    auto: true
+    name: sentry
+    port: 9000
+    resources:
+      requests:
+        memory: 1024Mi
+        cpu: 500m
+      limits:
+        memory: 2048Mi
+        cpu: 2000m
+
+postgres:
+  name: sentry-postgres-svr
+  port: 5432
+  image: sentry-postgres
+  initialdb: sentry
+  user: sentry
+  pass: secret
+  pgdata: /var/lib/postgresql/data/pgdata
+
+redis:
+  name: sentry-redis-svr
+  image: sentry-redis
+  port: 6379
+
+postfix:
+  name: sentry-postfix-svr
+  image: sentry-postfix
+  port: 25
+  hostname: mail.opensourcebrain.org

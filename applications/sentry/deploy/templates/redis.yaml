@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.apps.sentry.redis.name }}
+  labels:
+    app: {{ .Values.apps.sentry.redis.name }}
+{{ include "deploy_utils.labels" $ | indent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+   - port: {{ .Values.apps.sentry.redis.port }}
+  selector:
+   app: {{ .Values.apps.sentry.redis.name }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.apps.sentry.redis.name }}
+  labels:
+    app: {{ .Values.apps.sentry.redis.name }}
+{{ include "deploy_utils.labels" $ | indent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.apps.sentry.redis.name | quote }}
+{{ include "deploy_utils.labels" $ | indent 6 }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.apps.sentry.redis.name }}
+{{ include "deploy_utils.labels" $ | indent 8 }}
+    spec:
+      containers:
+      - name: {{ .Values.apps.sentry.redis.name | default "redis" | quote }}
+        image: {{ .Values.apps.sentry.redis.image }}
+        imagePullPolicy: "IfNotPresent"
+        ports:
+          - containerPort: {{ .Values.apps.sentry.redis.port }}
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+---
