@@ -4,14 +4,16 @@ import yaml
 
 from .. import log
 
+from .config import conf
+
 TEST = 'TEST'
 PROD = 'PROD'
 
 VARIABLE_IMAGE_REGISTRY = 'CH_IMAGE_REGISTRY'
 
 SUFFIX_TAG = 'IMAGE_TAG'
-SUFFIX_PORT = 'PORT'
-SUFFIX_NAME = 'NAME'
+SUFFIX_PORT = 'SERVICE_PORT'
+SUFFIX_NAME = 'SERVICE_HOST'
 
 DEFAULT_IMAGE_REGISTRY = ''
 
@@ -19,12 +21,20 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 
 
 def set_default_environment():
-    with open(HERE + '/resources/values.yaml') as f:
-        values = yaml.safe_load(f)
-        os.environ.update({v['name']: str(v['value']) for v in values['env'] if v['name'] not in os.environ})
+    values = conf.allvalues
+    os.environ.update({v['name']: str(v["value"]) for v in values['env'] if v['name'] not in os.environ})
 
 
 set_default_environment()
+
+def get_namespace():
+    try:
+        namespace=conf.allvalues['namespace']
+    except IndexError:
+        namespace=''
+    return namespace
+
+namespace=get_namespace()
 
 class VariableNotFound(Exception):
     def __init__(self, variable_name):
@@ -79,21 +89,22 @@ def name_to_variable(application_name):
 
 # CloudHarness Events
 def get_cloudharness_events_client_id():
-    return get_variable('CH_KEYCLOAK_WEBCLIENT_ID')
+    accounts_app = conf.get_application_by_filter(name='accounts')
+    return accounts_app.webclient.id
 
 
 def get_cloudharness_events_service():
-    return get_service_cluster_address('CH_KAFKA')
+    return get_service_cluster_address('ARGO_GK')
 
 
 def get_service_cluster_address(cloudharness_app_name):
     if use_public_services():
         return get_service_public_address(cloudharness_app_name)
-    return cluster_service_address(get_sub_variable(cloudharness_app_name, SUFFIX_NAME)) + ':' + get_sub_variable(cloudharness_app_name, SUFFIX_PORT)
+    return get_sub_variable(cloudharness_app_name, SUFFIX_NAME) + ':' + get_sub_variable(cloudharness_app_name, SUFFIX_PORT)
 
 
 def cluster_service_address(service_name):
-    return  + f'{service_name}.{namespace}.svc.cluster.local'
+    return  f'{service_name}.{namespace}.svc.cluster.local'
 
 
 def use_public_services():
@@ -107,7 +118,7 @@ def get_sub_variable(*vars):
 
 
 def get_service_public_address(app_name):
-    return ".".join([get_sub_variable(app_name, 'SUBDOMAIN'), get_public_domain()])
+    return ".".join([get_sub_variable('CH', app_name, 'SUBDOMAIN'), get_public_domain()])
 
 
 def get_public_domain():
@@ -115,16 +126,16 @@ def get_public_domain():
 
 
 def get_cloudharness_workflows_service_url():
-    return get_service_public_address('CH_WORKFLOWS')
+    return get_service_public_address('WORKFLOWS')
 
 
 def get_auth_service_cluster_address():
-    return get_service_cluster_address('CH_KEYCLOAK')
+    return get_service_cluster_address('ACCOUNTS')
 
 
 def get_auth_service_url():
-    return get_service_public_address('CH_KEYCLOAK')
+    return get_service_public_address('ACCOUNTS')
 
 
 def get_auth_realm():
-    return get_variable('CH_KEYCLOAK_REALM')
+    return get_variable('CH_ACCOUNTS_REALM')
