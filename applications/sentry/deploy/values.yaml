@@ -25,7 +25,7 @@ postgres:
   image: sentry-postgres
   initialdb: sentry
   user: sentry
-  pass: secret
+  password: secret
   pgdata: /var/lib/postgresql/data/pgdata
 
 redis:
