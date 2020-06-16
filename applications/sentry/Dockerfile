@@ -1,6 +1,4 @@
-ARG REGISTRY
-ARG TAG=latest
-FROM sentry:${TAG}
+FROM sentry:9.1.2
 
 ADD sentryrunner.sh ./sentryrunner.sh
 RUN chmod +x ./sentryrunner.sh
