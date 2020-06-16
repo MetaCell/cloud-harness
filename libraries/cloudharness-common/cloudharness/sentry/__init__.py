@@ -17,7 +17,7 @@ def get_dsn(appname):
     Usage examples: 
         from cloudharness.sentry import get_dsn
         dsn = get_dsn('workspaces')
-    """
+    """ 
     url = get_cloudharness_chservice_service_url() + f'/api/sentry/getdsn/{appname}'
     response = requests.get(url, verify=False).json()
     return response['dsn']
