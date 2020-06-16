@@ -1,4 +1,1 @@
-ARG REGISTRY
-ARG TAG=latest
-
-FROM redis:${TAG}
+FROM redis:latest
