@@ -2,13 +2,23 @@ import yaml
 
 ALLVALUES_PATH = '/opt/cloudharness/resources/allvalues.yaml'
 
-class _ConfigObject(object):
+
+class ConfigObject(object):
     def __init__(self, dictionary):
+        self.conf = dictionary
         for key, val in dictionary.items():
             if isinstance(val, (list, tuple)):
-               setattr(self, key, [_ConfigObject(x) if isinstance(x, dict) else x for x in val])
+                setattr(self, key, [ConfigObject(x) if isinstance(x, dict) else x for x in val])
             else:
-               setattr(self, key, _ConfigObject(val) if isinstance(val, dict) else val)
+                setattr(self, key, ConfigObject(val) if isinstance(val, dict) else val)
+
+    def __getitem__(self, key_or_path):
+        obj = self.conf
+        for k in key_or_path.split('.'):
+            if not k in obj:
+                return None
+            obj = obj[k]
+        return obj
 
 class CloudharnessConfig:
     """
@@ -26,13 +36,11 @@ class CloudharnessConfig:
                 cls.allvalues = yaml.safe_load(f)
         return cls.allvalues
 
-    
     @classmethod
     def _get_apps(cls):
         if not hasattr(cls, 'apps'):
-            cls.apps = _ConfigObject(cls._get_all_values()['apps'])
+            cls.apps = ConfigObject(cls._get_all_values()['apps'])
         return cls.apps
-        
 
     @classmethod
     def get_application_by_filter(cls, **filter):
@@ -50,7 +58,7 @@ class CloudharnessConfig:
             conf.get_application_by_filter(harness__deployment__auto=True)
             conf.get_application_by_filter(name='workflows')
         """
-        apps=[]
+        apps = []
         filter_keys = next(iter(filter)).split('__')
         filter_value = next(iter(filter.values()))
         all_apps = cls._get_apps()
@@ -64,7 +72,6 @@ class CloudharnessConfig:
                     break
         return apps
 
-    
     @classmethod
     def get_configuration(cls):
         """
@@ -82,7 +89,6 @@ class CloudharnessConfig:
             workflows = ch_conf['apps']['workflows']
         """
         return cls._get_all_values()
-
 
     @classmethod
     def get_applications(cls):
