@@ -4,7 +4,7 @@ import yaml
 
 from .. import log
 
-from .config import conf
+from .config import CloudharnessConfig as conf
 
 TEST = 'TEST'
 PROD = 'PROD'
@@ -21,7 +21,7 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 
 
 def set_default_environment():
-    values = conf.allvalues
+    values = conf.get_configuration()
     os.environ.update({v['name']: str(v["value"]) for v in values['env'] if v['name'] not in os.environ})
 
 
@@ -29,7 +29,7 @@ set_default_environment()
 
 def get_namespace():
     try:
-        namespace=conf.allvalues['namespace']
+        namespace=conf.get_configuration()['namespace']
     except IndexError:
         namespace=''
     return namespace
