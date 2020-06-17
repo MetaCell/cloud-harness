@@ -1,6 +1,7 @@
 import os
 
 from flask import Flask
+from flask_cors import CORS
 
 import connexion
 
@@ -15,6 +16,7 @@ def main():
                 pythonic_params=True)
     from .repository.db import open_db
     open_db(app)
+    cors = CORS(app.app, resources={r"/api/*": {"origins": "*"}})
     app.run(port=8080)
 
 if __name__ == '__main__':
