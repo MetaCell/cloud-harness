@@ -16,3 +16,4 @@ pykafka==2.8.0
 pyaml
 kafka-python
 kubernetes
+sentry-sdk[flask]==0.14.4

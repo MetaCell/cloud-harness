@@ -14,7 +14,9 @@ VERSION = "0.1.0"
 REQUIREMENTS = [
     'kubernetes',
     'kafka-python',
-    'pyaml'
+    'pyaml',
+    'requests==2.21.0',
+    'sentry-sdk[flask]==0.14.4'
 ]
 
 

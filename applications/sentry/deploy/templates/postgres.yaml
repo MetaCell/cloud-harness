@@ -47,7 +47,7 @@ spec:
     spec:
       containers:
       - name: {{ .Values.apps.sentry.postgres.name | default "sentry-postgress" | quote }}
-        image: {{ .Values.apps.sentry.postgres.image }}
+        image: {{ .Values.apps.sentry.postgres.image | quote }}
         imagePullPolicy: "IfNotPresent"
         env:
         - name: POSTGRES_DB
@@ -55,7 +55,7 @@ spec:
         - name: POSTGRES_USER
           value: {{ .Values.apps.sentry.postgres.user | quote }}
         - name: POSTGRES_PASSWORD
-          value: {{ .Values.apps.sentry.postgres.pass | quote }}
+          value: {{ .Values.apps.sentry.postgres.password | quote }}
         - name: PGDATA
           value: {{ .Values.apps.sentry.postgres.pgdata }}
         ports:

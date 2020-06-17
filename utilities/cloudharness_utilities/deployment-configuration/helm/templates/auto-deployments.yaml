@@ -44,6 +44,15 @@ spec:
           limits:
             memory: {{ .app.harness.deployment.resources.limits.memory | default "64Mi" }}
             cpu: {{ .app.harness.deployment.resources.limits.cpu | default "50m" }}
+        volumeMounts:
+          - name: cloudharness-allvalues
+            mountPath: /opt/cloudharness/resources/allvalues.yaml
+            subPath: allvalues.yaml
+      volumes:
+        - name: cloudharness-allvalues
+          configMap:
+            name: cloudharness-allvalues
+        
 ---
 {{- end }}
 {{- range $app := .Values.apps }}

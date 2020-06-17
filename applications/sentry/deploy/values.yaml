@@ -1,5 +1,5 @@
 harness:
-  subdomain: sentry
+  subdomain: errormonitor
   secured: false
   deployment:
     auto: true
@@ -13,8 +13,8 @@ harness:
     port: 9000
     resources:
       requests:
-        memory: 1024Mi
-        cpu: 500m
+        memory: 1280Mi
+        cpu: 1000m
       limits:
         memory: 2048Mi
         cpu: 2000m
@@ -25,7 +25,7 @@ postgres:
   image: postgres:latest
   initialdb: sentry
   user: sentry
-  pass: secret
+  password: secret
   pgdata: /var/lib/postgresql/data/pgdata
 
 redis:
