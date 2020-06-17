@@ -20,21 +20,21 @@ harness:
         cpu: 2000m
 
 postgres:
-  name: sentry-postgres-svr
+  name: sentry-postgres-host
   port: 5432
-  image: sentry-postgres
+  image: postgres:latest
   initialdb: sentry
   user: sentry
   password: secret
   pgdata: /var/lib/postgresql/data/pgdata
 
 redis:
-  name: sentry-redis-svr
-  image: sentry-redis
+  name: sentry-redis-host
+  image: redis:latest
   port: 6379
 
 postfix:
-  name: sentry-postfix-svr
-  image: sentry-postfix
+  name: sentry-postfix-host
+  image: eeacms/postfix:latest
   port: 25
   hostname: mail.opensourcebrain.org
