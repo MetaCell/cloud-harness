@@ -20,7 +20,7 @@ def getdsn(appname):  # noqa: E501
 
     :rtype: str
     """
-    ch_app = applications.get_configuration(name=appname)
+    ch_app = applications.get_configuration(appname)
     if ch_app.is_sentry_enabled():
         try:
             dsn = get_dsn(appname)
