@@ -21,7 +21,7 @@ def getdsn(appname):  # noqa: E501
     :rtype: str
     """
     ch_app = conf.get_application_by_filter(name=appname)[0]
-    if getattr(ch_app.harness, 'sentry', False) == True:
+    if getattr(ch_app, 'sentry', False) == True:
         try:
             dsn =  get_dsn(appname)
         except SentryProjectNotFound as e:
@@ -34,5 +34,4 @@ def getdsn(appname):  # noqa: E501
             dsn =  get_dsn(appname)
     else:
         dsn = ''
-
     return {'dsn': dsn}
