@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sentry-db
+  labels:
+    app: {{ .Values.apps.sentry.postgres.name }}
+{{ include "deploy_utils.labels" $ | indent 4 }}
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.apps.sentry.postgres.name }}
+  labels:
+    app: {{ .Values.apps.sentry.postgres.name }}
+{{ include "deploy_utils.labels" $ | indent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+   - port: 5432
+  selector:
+   app: {{ .Values.apps.sentry.postgres.name }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.apps.sentry.postgres.name }}
+  labels:
+    app: {{ .Values.apps.sentry.postgres.name }}
+{{ include "deploy_utils.labels" $ | indent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.apps.sentry.postgres.name | quote }}
+{{ include "deploy_utils.labels" $ | indent 6 }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.apps.sentry.postgres.name }}
+{{ include "deploy_utils.labels" $ | indent 8 }}
+    spec:
+      containers:
+      - name: {{ .Values.apps.sentry.postgres.name | default "sentry-postgress" | quote }}
+        image: {{ .Values.apps.sentry.postgres.image }}
+        imagePullPolicy: "IfNotPresent"
+        env:
+        - name: POSTGRES_DB
+          value: {{ .Values.apps.sentry.postgres.initialdb | quote }}
+        - name: POSTGRES_USER
+          value: {{ .Values.apps.sentry.postgres.user | quote }}
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.apps.sentry.postgres.pass | quote }}
+        - name: PGDATA
+          value: {{ .Values.apps.sentry.postgres.pgdata }}
+        ports:
+          - containerPort: {{ .Values.apps.sentry.postgres.port }}
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "200m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: sentry-db
+          mountPath: {{ .Values.apps.sentry.postgres.pgdata }}
+      volumes:
+      - name: sentry-db
+        persistentVolumeClaim:
+          claimName: sentry-db
+---
