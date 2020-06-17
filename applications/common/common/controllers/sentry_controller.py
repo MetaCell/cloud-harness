@@ -23,7 +23,7 @@ def getdsn(appname):  # noqa: E501
     ch_app = conf.get_application_by_filter(name=appname)[0]
     if getattr(ch_app, 'sentry', False) == True:
         try:
-            dsn =  get_dsn(appname)
+            dsn = get_dsn(appname)
         except SentryProjectNotFound as e:
             # if project not found, create one
             sentry_api_token = get_token()

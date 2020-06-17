@@ -1,5 +1,7 @@
 from sqlalchemy.sql import text
 
+from cloudharness.utils.env import get_service_public_address
+
 from .db import get_db
 
 class SentryProjectNotFound(Exception):
@@ -39,7 +41,7 @@ def get_token():
 
 def get_dsn(appname):
     s = text('''
-    select public_key 
+    select public_key, p.id
     from sentry_projectkey pkey 
     join sentry_project p on pkey.project_id=p.id 
     where p.slug=:project_slug
@@ -50,5 +52,10 @@ def get_dsn(appname):
     if len(public_key) == 0:
         raise SentryProjectNotFound('Application not found!')
     else:
+        dsn = public_key[0][0]
+        app_id = public_key[0][1]
+        sentry_host = get_service_public_address('sentry')
+        dsn = f'https://{dsn}@{sentry_host}/{app_id}'
+
         # return the first column from the first row of the query result
-        return public_key[0][0]
+        return dsn

@@ -23,11 +23,9 @@ def get_dsn(appname):
     response = requests.get(url, verify=False).json()
     dsn = response['dsn']
     if dsn and len(dsn)>0:
-        sentry_host = get_service_public_address('sentry')
-        dsn = f'https://{dsn}@{sentry_host}/{appname}'
+        return dsn
     else:
-        dsn = None
-    return dsn
+        return None
 
 def init(appname):
     """
