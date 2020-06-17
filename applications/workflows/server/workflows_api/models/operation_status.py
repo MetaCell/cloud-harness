@@ -24,6 +24,7 @@ class OperationStatus(Model):
     SUCCEEDED = "Succeeded"
     SKIPPED = "Skipped"
     FAILED = "Failed"
+
     def __init__(self):  # noqa: E501
         """OperationStatus - a model defined in OpenAPI
 

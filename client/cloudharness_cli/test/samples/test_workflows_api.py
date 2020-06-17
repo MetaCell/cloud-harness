@@ -29,6 +29,13 @@ class TestWorkflowsApi(unittest.TestCase):
     def tearDown(self):
         pass
 
+    def test_error(self):
+        """Test case for error
+
+        test sentry is working  # noqa: E501
+        """
+        pass
+
     def test_submit_async(self):
         """Test case for submit_async
 

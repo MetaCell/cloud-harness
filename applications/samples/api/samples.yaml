@@ -35,6 +35,23 @@ paths:
         "400":
           description: bad input parameter
 
+  /error:
+    get:
+      summary: test sentry is working
+      operationId: error
+      tags:
+        - workflows
+      responses:
+        "500":
+          description: Sentry entry should come!
+        "200":
+          description: This won't happen
+          content:
+            application/json:
+              schema:
+                type: string
+
+
   /operation_sync:
     get:
       summary: Send a synchronous operation
