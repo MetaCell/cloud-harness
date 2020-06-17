@@ -1,1 +1,0 @@
-FROM eeacms/postfix:latest
