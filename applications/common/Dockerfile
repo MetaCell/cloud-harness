@@ -17,8 +17,8 @@ COPY . /usr/src/app
 EXPOSE 8080
 
 ENV FLASK_ENV=production
-ENV APP_SETTINGS=chservice.config.ProductionConfig
+ENV APP_SETTINGS=common.config.ProductionConfig
 
 ENTRYPOINT ["python3"]
 
-CMD ["-m", "chservice"]
+CMD ["-m", "common"]

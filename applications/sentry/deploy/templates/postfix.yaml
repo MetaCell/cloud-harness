@@ -28,7 +28,7 @@ spec:
       {{- end }}
       containers:
       - name: {{ .Values.apps.sentry.postfix.name | default "sentry-postfix" | quote }}
-        image: {{ .Values.apps.sentry.postfix.image }}
+        image: {{ .Values.apps.sentry.postfix.image | quote }}
         imagePullPolicy: {{ include "deploy_utils.pullpolicy" . }}
         env:
         - name: MTP_HOST

@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
       - name: {{ .Values.apps.sentry.redis.name | default "redis" | quote }}
-        image: {{ .Values.apps.sentry.redis.image }}
+        image: {{ .Values.apps.sentry.redis.image | quote }}
         imagePullPolicy: "IfNotPresent"
         ports:
           - containerPort: {{ .Values.apps.sentry.redis.port }}

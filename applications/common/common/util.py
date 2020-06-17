@@ -2,7 +2,7 @@ import datetime
 
 import six
 import typing
-from chservice import typing_utils
+from common import typing_utils
 
 
 def _deserialize(data, klass):

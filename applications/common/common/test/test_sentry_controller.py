@@ -6,7 +6,7 @@ import unittest
 from flask import json
 from six import BytesIO
 
-from chservice.test import BaseTestCase
+from common.test import BaseTestCase
 
 
 class TestSentryController(BaseTestCase):

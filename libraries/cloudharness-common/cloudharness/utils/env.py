@@ -118,7 +118,7 @@ def get_sub_variable(*vars):
 
 
 def get_service_public_address(app_name):
-    return ".".join([get_sub_variable('CH', app_name, 'SUBDOMAIN'), get_public_domain()])
+    return ".".join([get_sub_variable('CH', app_name.upper(), 'SUBDOMAIN'), get_public_domain()])
 
 
 def get_public_domain():
@@ -129,18 +129,18 @@ def get_cloudharness_workflows_service_url():
     return get_service_public_address('WORKFLOWS')
 
 def get_cloudharness_sentry_service_url():
-    return 'https://' + get_service_public_address('SENTRY')
+    return 'https://' + get_service_public_address('sentry')
 
 def get_sentry_service_cluster_address():
     sentry_app = conf.get_application_by_filter(name='sentry')[0]
     return f'http://{sentry_app.name}:{sentry_app.port}'
 
-def get_cloudharness_chservice_service_url():
-    return 'https://' + get_service_public_address('CHSERVICE')
+def get_cloudharness_common_service_url():
+    return 'https://' + get_service_public_address('common')
 
-def get_chservice_service_cluster_address():
-    chservice_app = conf.get_application_by_filter(name='chservice')[0]
-    return f'http://{chservice_app.name}:{chservice_app.port}'
+def get_common_service_cluster_address():
+    common_app = conf.get_application_by_filter(name='common')[0]
+    return f'http://{common_app.name}:{common_app.port}'
 
 def get_auth_service_cluster_address():
     return get_service_cluster_address('ACCOUNTS')

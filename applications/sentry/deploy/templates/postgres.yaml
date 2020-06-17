@@ -47,7 +47,7 @@ spec:
     spec:
       containers:
       - name: {{ .Values.apps.sentry.postgres.name | default "sentry-postgress" | quote }}
-        image: {{ .Values.apps.sentry.postgres.image }}
+        image: {{ .Values.apps.sentry.postgres.image | quote }}
         imagePullPolicy: "IfNotPresent"
         env:
         - name: POSTGRES_DB

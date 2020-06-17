@@ -3,9 +3,9 @@ import six
 import requests
 import urllib
 
-from chservice import util
+from common import util
 
-from chservice.repository.sentry import get_token, get_dsn, SentryProjectNotFound
+from common.repository.sentry import get_token, get_dsn, SentryProjectNotFound
 
 from cloudharness.utils.env import get_sentry_service_cluster_address
 from cloudharness.utils.config import CloudharnessConfig as conf

@@ -1,6 +1,6 @@
 import os
 
-from cloudharness.utils.config import conf
+from cloudharness.utils.config import CloudharnessConfig as conf
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 

@@ -1,13 +1,13 @@
 harness:
-    subdomain: chservice
+    subdomain: common
     secured: false
     service:
       auto: true
       port: 8080
-      name: chservice
+      name: common
     deployment:
       auto: true
-      name: chservice
+      name: common
       port: 8080
       resources:
         requests:

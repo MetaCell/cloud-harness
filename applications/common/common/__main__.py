@@ -4,7 +4,7 @@ from flask import Flask
 
 import connexion
 
-from chservice import encoder
+from common import encoder
 
 def main():
     app = connexion.App(__name__, specification_dir='./openapi/')
