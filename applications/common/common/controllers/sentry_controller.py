@@ -8,20 +8,20 @@ from common import util
 from common.repository.sentry import get_token, get_dsn, SentryProjectNotFound
 
 from cloudharness.utils.env import get_sentry_service_cluster_address
-from cloudharness.utils.config import CloudharnessConfig as conf
+from cloudharness import applications
 
 
 def getdsn(appname):  # noqa: E501
     """
     Gets the Sentry DSN for a given application
 
-    :param appname: 
+    :param appname:
     :type appname: str
 
     :rtype: str
     """
-    ch_app = conf.get_application_by_filter(name=appname)[0]
-    if getattr(ch_app, 'sentry', False) == True:
+    ch_app = applications.get_configuration(appname)
+    if ch_app.is_sentry_enabled():
         try:
             dsn = get_dsn(appname)
         except SentryProjectNotFound as e:
