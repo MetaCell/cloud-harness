@@ -15,7 +15,7 @@ def getdsn(appname):  # noqa: E501
     """
     Gets the Sentry DSN for a given application
 
-    :param appname: 
+    :param appname:
     :type appname: str
 
     :rtype: str
