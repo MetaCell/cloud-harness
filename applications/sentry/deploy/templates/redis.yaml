@@ -27,12 +27,17 @@ spec:
 {{ include "deploy_utils.labels" $ | indent 6 }}
   template:
     metadata:
+      {{- if .Values.apps.sentry.postfix.harvest }}
+      annotations:
+        co.elastic.logs/enabled: "true"
+        metricbeat: "true"
+      {{- end }}
       labels:
         app: {{ .Values.apps.sentry.redis.name }}
 {{ include "deploy_utils.labels" $ | indent 8 }}
     spec:
       containers:
-      - name: {{ .Values.apps.sentry.redis.name | default "redis" | quote }}
+      - name: {{ .Values.apps.sentry.redis.name | default "sentry-redis" | quote }}
         image: {{ .Values.apps.sentry.redis.image | quote }}
         imagePullPolicy: "IfNotPresent"
         ports:

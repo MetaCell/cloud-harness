@@ -13,8 +13,8 @@ harness:
     port: 9000
     resources:
       requests:
-        memory: 1280Mi
-        cpu: 1000m
+        memory: 1024Mi
+        cpu: 200m
       limits:
         memory: 2048Mi
         cpu: 2000m
@@ -26,7 +26,7 @@ postgres:
   initialdb: sentry
   user: sentry
   password: secret
-  pgdata: /var/lib/postgresql/data/pgdata
+  pgdata: /opt/data/pgdata
 
 redis:
   name: sentry-redis-host
