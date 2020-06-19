@@ -26,6 +26,7 @@ postgres:
   initialdb: sentry
   user: sentry
   password: secret
+  datavolume: /opt/data/
   pgdata: /opt/data/pgdata
 
 redis:
