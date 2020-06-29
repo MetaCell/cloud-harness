@@ -1,7 +1,8 @@
 harness:
   subdomain: samples
-  secured: true
+  secured: false
   sentry: true
+  port: 80
   service:
     port: 8080
     auto: true
