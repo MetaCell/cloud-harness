@@ -1,3 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.apps.sentry.postfix.name }}
+  labels:
+    app: {{ .Values.apps.sentry.postfix.name }}
+{{ include "deploy_utils.labels" $ | indent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+   - port: {{ .Values.apps.sentry.postfix.port }}
+  selector:
+   app: {{ .Values.apps.sentry.postfix.name }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -28,16 +42,15 @@ spec:
       {{- end }}
       containers:
       - name: {{ .Values.apps.sentry.postfix.name | default "sentry-postfix" | quote }}
-        image: {{ .Values.apps.sentry.postfix.image | quote }}
-        imagePullPolicy: {{ include "deploy_utils.pullpolicy" . }}
+        image: {{ .Values.apps.sentry.postfix.image }}
+        imagePullPolicy: {{ include "deploy_utils.pullpolicy" .root }}
         env:
         - name: MTP_HOST
           value: {{ printf "mail.%s" .Values.domain }}
-        {{- include "deploy_utils.env" . | nindent 8 }}
-        {{- include "deploy_utils.privenv" . | nindent 8 }}
+            {{- include "deploy_utils.env" .root | nindent 8 }}
+            {{- include "deploy_utils.privenv" .root | nindent 8 }}
         ports:
-        - name: smtp
-          containerPort: {{ .Values.apps.sentry.postfix.port | default 25 }}
+          - containerPort: {{ .Values.apps.sentry.postfix.port | default 25 }}
         resources:
           requests:
             memory: "128Mi"

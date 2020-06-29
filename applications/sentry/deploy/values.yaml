@@ -24,7 +24,8 @@ postgres:
   initialdb: sentry
   user: sentry
   password: secret
-  pgdata: /var/lib/postgresql/data/pgdata
+  datavolume: /opt/data/
+  pgdata: /opt/data/pgdata
 
 redis:
   name: sentry-redis-host

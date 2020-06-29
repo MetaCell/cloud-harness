@@ -28,7 +28,10 @@ def init(appname: str):
     """
     if not appname:
         raise NotCorrectlyInitialized
-    import cloudharness.sentry
-    sentry.init(appname)
+    try:
+        import cloudharness.sentry
+        sentry.init(appname)
+    except Exception as e:
+        log.warning(f'Error enabling Sentry for {appname}', exc_info=True)
 
 __all__ = ['log', 'init']

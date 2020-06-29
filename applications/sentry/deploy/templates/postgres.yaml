@@ -69,7 +69,7 @@ spec:
             cpu: "500m"
         volumeMounts:
         - name: sentry-db
-          mountPath: {{ .Values.apps.sentry.postgres.pgdata }}
+          mountPath: {{ .Values.apps.sentry.postgres.datavolume }}
       volumes:
       - name: sentry-db
         persistentVolumeClaim:
