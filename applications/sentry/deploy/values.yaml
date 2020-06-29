@@ -1,8 +1,6 @@
 harness:
   subdomain: errormonitor
   secured: false
-  deployment:
-    auto: true
   service:
     auto: true
     port: 9000
@@ -13,8 +11,8 @@ harness:
     port: 9000
     resources:
       requests:
-        memory: 1280Mi
-        cpu: 1000m
+        memory: 256Mi
+        cpu: 300m
       limits:
         memory: 2048Mi
         cpu: 2000m

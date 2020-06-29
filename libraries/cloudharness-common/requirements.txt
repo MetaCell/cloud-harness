@@ -4,6 +4,7 @@ cffi==1.12.2
 chardet==3.0.4
 cryptography==2.6.1
 idna==2.8
+jwt==1.0.0
 pycosat==0.6.3
 pycparser==2.19
 pyOpenSSL==19.0.0

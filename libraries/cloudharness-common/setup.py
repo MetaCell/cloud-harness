@@ -15,8 +15,9 @@ REQUIREMENTS = [
     'kubernetes',
     'kafka-python',
     'pyaml',
-    'requests==2.21.0',
-    'sentry-sdk[flask]==0.14.4'
+    'jwt',
+    'requests>=2.21.0',
+    'sentry-sdk[flask]>=0.14.4'
 ]
 
 
