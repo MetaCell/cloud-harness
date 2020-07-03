@@ -6,7 +6,6 @@ import os
 from cloudharness_utilities.build import Builder
 from cloudharness_utilities.helm import collect_apps_helm_templates, create_helm_chart, hosts_info
 
-
 HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
 ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
 
@@ -17,7 +16,8 @@ if __name__ == "__main__":
         description='Walk filesystem inside ./applications and define build and deploy scripts.')
 
     parser.add_argument('paths', metavar='paths', default=[ROOT], type=str, nargs='*',
-                        help='Base paths to start looking for applications. The paths will be processed in the given order.')
+                        help='Base paths to start looking for applications. The paths will be processed '
+                             'in the given order so determining the build and overriding precedence.')
 
     parser.add_argument('-i', '--image', dest='image', action="append", default=[],
                         help='Specify the images to build. Omit to build images for all Docker files.')
@@ -52,7 +52,8 @@ if __name__ == "__main__":
         print(f'unknown: {unknown}')
     else:
         if args.build or args.build_interactive:
-            Builder(root_paths, args.image, tag=args.tag, registry=args.registry, interactive=args.build_interactive, exclude=args.exclude).run()
+            Builder(root_paths, args.image, tag=args.tag, registry=args.registry, interactive=args.build_interactive,
+                    exclude=args.exclude).run()
 
         values_manual_deploy = create_helm_chart(
             root_paths,

@@ -7,6 +7,7 @@ import glob
 import urllib.request
 from cloudharness_utilities import HERE
 import logging
+
 CODEGEN = os.path.join(HERE, 'bin', 'openapi-generator-cli.jar')
 APPLICATIONS_SRC_PATH = os.path.join('applications')
 LIB_NAME = 'cloudharness_cli'
@@ -20,14 +21,14 @@ def generate_server(app_path):
     os.system(command)
 
 
-def generate_client(module, openapi_file, CLIENT_SRC_PATH):
+def generate_python_client(module, openapi_file, client_src_path, lib_name=LIB_NAME):
     with open('config-client.json', 'w') as f:
-        f.write(json.dumps(dict(packageName=f"{LIB_NAME}.{module}")))
+        f.write(json.dumps(dict(packageName=f"{lib_name}.{module}")))
     command = f"java -jar {CODEGEN} generate " \
-              f"-i {openapi_file} " \
-              f"-g python " \
-              f"-o {CLIENT_SRC_PATH}/tmp-{module} " \
-              f"-c config-client.json"
+        f"-i {openapi_file} " \
+        f"-g python " \
+        f"-o {client_src_path}/tmp-{module} " \
+        f"-c config-client.json"
     os.system(command)
     os.remove('config-client.json')
 

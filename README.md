@@ -16,6 +16,16 @@ What building your cluster application with CloudHarness gives to you:
   * Submit batch and asynchronous workflows - based on Argo
   * Orchestrate Micro-services - based on Kafka
 
+## Command line tools
+
+CloudHarness provides the following command line tools to help application scaffolding and deployment.
+
+* `harness-deployment` - generate the helm chart to deploy on Kubernetes. 
+* `harness-application` - create a new CloudHarness REST application.
+* `harness-codefresh` - generate the Codefresh continuous deployment specification.
+* `harness-generate` - generates server and client code for all CloudHarness REST applications.
+
+
 ## Get started
 
 ### Prerequisites

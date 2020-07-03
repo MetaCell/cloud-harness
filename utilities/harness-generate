@@ -3,29 +3,31 @@
 import glob
 import os
 import shutil
+import sys
 
-
-from cloudharness_utilities.openapi import LIB_NAME, generate_client, generate_server
+from cloudharness_utilities.openapi import LIB_NAME, generate_python_client, generate_server
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 ROOT = os.path.dirname(HERE)
-# MODULES = [ 'operations']
-OPENAPI_FILES = [path for path in glob.glob(ROOT + '/applications/*/api/*.yaml')]
-MODULES = [os.path.basename(os.path.dirname(os.path.dirname(path))) for path in OPENAPI_FILES]
-
-
-CLIENT_SRC_PATH = os.path.join(ROOT, 'client', LIB_NAME)
 
 
 
 
-def generate_servers():
+
+def get_openapi_file_paths(root_path):
+    return [path for path in glob.glob(root_path + '/applications/*/api/*.yaml')]
+
+def get_modules(openapi_files):
+    return [os.path.basename(os.path.dirname(os.path.dirname(path))) for path in openapi_files]
+
+def generate_servers(root_path):
     """
     Generates server stubs
     """
-
-    for i in range(len(MODULES)):
-        openapi_file =  OPENAPI_FILES[i]
+    openapi_files = get_openapi_file_paths(root_path)
+    modules = get_modules(openapi_files)
+    for i in range(len(modules)):
+        openapi_file =  openapi_files[i]
         application_root = os.path.dirname(os.path.dirname(openapi_file))
         generate_server(application_root)
 
@@ -48,12 +50,14 @@ def copymergedir(root_src_dir, root_dst_dir):
                 os.remove(dst_file)
             shutil.copy(src_file, dst_dir)
 
-def aggregate_packages():
-    DOCS_PATH = os.path.join(CLIENT_SRC_PATH, 'docs')
-    TEST_PATH = os.path.join(CLIENT_SRC_PATH,'test')
-    README = os.path.join(CLIENT_SRC_PATH, 'README.md')
-    REQUIREMENTS = os.path.join(CLIENT_SRC_PATH, 'requirements.txt')
-    TEST_REQUIREMENTS = os.path.join(CLIENT_SRC_PATH, 'test-requirements.txt' )
+
+def aggregate_packages(client_src_path):
+
+    DOCS_PATH = os.path.join(client_src_path, 'docs')
+    TEST_PATH = os.path.join(client_src_path, 'test')
+    README = os.path.join(client_src_path, 'README.md')
+    REQUIREMENTS = os.path.join(client_src_path, 'requirements.txt')
+    TEST_REQUIREMENTS = os.path.join(client_src_path, 'test-requirements.txt')
 
     if not os.path.exists(DOCS_PATH):
         os.mkdir(DOCS_PATH)
@@ -69,12 +73,12 @@ def aggregate_packages():
     req_lines_seen = set()
     test_req_lines_seen = set()
 
-    for MODULE_TMP_PATH in glob.glob(CLIENT_SRC_PATH + '/tmp-*'):
+    for MODULE_TMP_PATH in glob.glob(client_src_path + '/tmp-*'):
         module = MODULE_TMP_PATH.split(f'{LIB_NAME}/tmp-')[-1]
 
         # Moves package
 
-        code_dest_dir = os.path.join(CLIENT_SRC_PATH, LIB_NAME, module)
+        code_dest_dir = os.path.join(client_src_path, LIB_NAME, module)
         copymergedir(os.path.join(MODULE_TMP_PATH, LIB_NAME, module), code_dest_dir)
         copymergedir(f"{MODULE_TMP_PATH}/{LIB_NAME}.{module}", code_dest_dir) #Fixes a a bug with nested packages
 
@@ -83,10 +87,10 @@ def aggregate_packages():
         if not os.path.exists(module_doc_path):
 
             os.mkdir(module_doc_path)
-        copymergedir(f"{CLIENT_SRC_PATH}/tmp-{module}/docs", module_doc_path)
+        copymergedir(f"{client_src_path}/tmp-{module}/docs", module_doc_path)
 
         # Adds Tests
-        module_test_path = os.path.join(CLIENT_SRC_PATH, 'test', module)
+        module_test_path = os.path.join(client_src_path, 'test', module)
         copymergedir(os.path.join(MODULE_TMP_PATH, 'test'), module_test_path)
 
 
@@ -124,21 +128,41 @@ def aggregate_packages():
         shutil.rmtree(MODULE_TMP_PATH)
 
 
-def generate_clients():
+def generate_clients(root_path, client_lib_name=LIB_NAME):
     """
     Generates client stubs
     """
-    for i in range(len(MODULES)):
-        module = MODULES[i]
-        openapi_file = OPENAPI_FILES[i]
-        generate_client(module, openapi_file, CLIENT_SRC_PATH)
+    openapi_files = get_openapi_file_paths(root_path)
+    modules = get_modules(openapi_files)
+    client_src_path = os.path.join(root_path, 'client', client_lib_name)
+    for i in range(len(modules)):
+        module = modules[i]
+        openapi_file = openapi_files[i]
+        generate_python_client(module, openapi_file, client_src_path, lib_name=client_lib_name)
 
-    aggregate_packages()
-
-
+    aggregate_packages(client_src_path)
 
 
 
 if __name__ == "__main__":
-    generate_servers()
-    generate_clients()
+
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='Walk filesystem inside ./applications and define build and deploy scripts.')
+    parser.add_argument('path', metavar='path', default=ROOT, type=str,
+                        help='Base path of the application.')
+    parser.add_argument('-nc', '--no-client', dest='client', action="store_false",
+                        help='Specify for local deployments info and setup')
+    parser.add_argument('-ns' '--no-server', dest='server', action="store_false",
+                        help='Specify for local deployments info and setup')
+    parser.add_argument('-cn', '--client-name', dest='client_name', action="store", default=LIB_NAME,
+                        help='Specify image registry prefix')
+    args, unknown = parser.parse_known_args(sys.argv[1:])
+
+    root_path = os.path.join(os.getcwd(), args.path) if not os.path.isabs(args.path) else args.path
+
+    if args.server:
+        generate_servers(root_path)
+    if args.client:
+        generate_clients(root_path, args.client_name)
