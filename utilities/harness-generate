@@ -4,21 +4,21 @@ import glob
 import os
 import shutil
 import sys
+import logging
 
-from cloudharness_utilities.openapi import LIB_NAME, generate_python_client, generate_server
+from cloudharness_utilities.openapi import LIB_NAME, generate_python_client, generate_server, get_dependencies
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 ROOT = os.path.dirname(HERE)
 
 
-
-
-
 def get_openapi_file_paths(root_path):
     return [path for path in glob.glob(root_path + '/applications/*/api/*.yaml')]
 
+
 def get_modules(openapi_files):
     return [os.path.basename(os.path.dirname(os.path.dirname(path))) for path in openapi_files]
+
 
 def generate_servers(root_path):
     """
@@ -27,7 +27,7 @@ def generate_servers(root_path):
     openapi_files = get_openapi_file_paths(root_path)
     modules = get_modules(openapi_files)
     for i in range(len(modules)):
-        openapi_file =  openapi_files[i]
+        openapi_file = openapi_files[i]
         application_root = os.path.dirname(os.path.dirname(openapi_file))
         generate_server(application_root)
 
@@ -39,6 +39,7 @@ def copymergedir(root_src_dir, root_dst_dir):
     :param root_dst_dir:
     :return:
     """
+    logging.info('Copying directory %s to %s', root_src_dir, root_dst_dir)
     for src_dir, dirs, files in os.walk(root_src_dir):
         dst_dir = src_dir.replace(root_src_dir, root_dst_dir, 1)
         if not os.path.exists(dst_dir):
@@ -48,11 +49,13 @@ def copymergedir(root_src_dir, root_dst_dir):
             dst_file = os.path.join(dst_dir, file_)
             if os.path.exists(dst_file):
                 os.remove(dst_file)
-            shutil.copy(src_file, dst_dir)
+            try:
+                shutil.copy(src_file, dst_dir)
+            except:
+                logging.warning("Error copying file %s to %s.", src_file, dst_dir)
 
 
-def aggregate_packages(client_src_path):
-
+def aggregate_packages(client_src_path, lib_name=LIB_NAME):
     DOCS_PATH = os.path.join(client_src_path, 'docs')
     TEST_PATH = os.path.join(client_src_path, 'test')
     README = os.path.join(client_src_path, 'README.md')
@@ -74,18 +77,17 @@ def aggregate_packages(client_src_path):
     test_req_lines_seen = set()
 
     for MODULE_TMP_PATH in glob.glob(client_src_path + '/tmp-*'):
-        module = MODULE_TMP_PATH.split(f'{LIB_NAME}/tmp-')[-1]
+        module = MODULE_TMP_PATH.split(f'{lib_name}/tmp-')[-1].replace('-', '_')
 
         # Moves package
 
-        code_dest_dir = os.path.join(client_src_path, LIB_NAME, module)
-        copymergedir(os.path.join(MODULE_TMP_PATH, LIB_NAME, module), code_dest_dir)
-        copymergedir(f"{MODULE_TMP_PATH}/{LIB_NAME}.{module}", code_dest_dir) #Fixes a a bug with nested packages
+        code_dest_dir = os.path.join(client_src_path, lib_name, module)
+        copymergedir(os.path.join(MODULE_TMP_PATH, lib_name, module), code_dest_dir)
+        copymergedir(f"{MODULE_TMP_PATH}/{lib_name}.{module}", code_dest_dir)  # Fixes a a bug with nested packages
 
         # Adds Docs
         module_doc_path = os.path.join(DOCS_PATH, module)
         if not os.path.exists(module_doc_path):
-
             os.mkdir(module_doc_path)
         copymergedir(f"{client_src_path}/tmp-{module}/docs", module_doc_path)
 
@@ -93,10 +95,11 @@ def aggregate_packages(client_src_path):
         module_test_path = os.path.join(client_src_path, 'test', module)
         copymergedir(os.path.join(MODULE_TMP_PATH, 'test'), module_test_path)
 
-
-
         # Merges Readme
         readme_file = f"{MODULE_TMP_PATH}/README.md"
+        if not os.path.exists(readme_file):
+            logging.warning("Readme file not found: %s.", readme_file)
+            continue
         with open(README, 'a+') as outfile:
             with open(readme_file) as infile:
                 filedata = infile.read()
@@ -140,8 +143,7 @@ def generate_clients(root_path, client_lib_name=LIB_NAME):
         openapi_file = openapi_files[i]
         generate_python_client(module, openapi_file, client_src_path, lib_name=client_lib_name)
 
-    aggregate_packages(client_src_path)
-
+    aggregate_packages(client_src_path, client_lib_name)
 
 
 if __name__ == "__main__":
@@ -154,7 +156,7 @@ if __name__ == "__main__":
                         help='Base path of the application.')
     parser.add_argument('-nc', '--no-client', dest='client', action="store_false",
                         help='Specify for local deployments info and setup')
-    parser.add_argument('-ns' '--no-server', dest='server', action="store_false",
+    parser.add_argument('-ns', '--no-server', dest='server', action="store_false",
                         help='Specify for local deployments info and setup')
     parser.add_argument('-cn', '--client-name', dest='client_name', action="store", default=LIB_NAME,
                         help='Specify image registry prefix')
@@ -162,6 +164,7 @@ if __name__ == "__main__":
 
     root_path = os.path.join(os.getcwd(), args.path) if not os.path.isabs(args.path) else args.path
 
+    get_dependencies()
     if args.server:
         generate_servers(root_path)
     if args.client:

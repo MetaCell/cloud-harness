@@ -2,6 +2,7 @@ import os
 
 import subprocess
 import sys
+import shutil
 import json
 import glob
 import urllib.request
@@ -14,6 +15,7 @@ LIB_NAME = 'cloudharness_cli'
 
 OPENAPI_GEN_URL = 'https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/4.3.0/openapi-generator-cli-4.3.0.jar'
 
+
 def generate_server(app_path):
     openapi_dir = os.path.join(app_path, 'api')
     openapi_file = glob.glob(os.path.join(openapi_dir, '*.yaml'))[0]
@@ -22,15 +24,17 @@ def generate_server(app_path):
 
 
 def generate_python_client(module, openapi_file, client_src_path, lib_name=LIB_NAME):
-    with open('config-client.json', 'w') as f:
+    config_path = os.path.join(os.path.dirname(openapi_file), 'config.json')
+
+    module = module.replace('-', '_')
+    with open(config_path, 'w') as f:
         f.write(json.dumps(dict(packageName=f"{lib_name}.{module}")))
     command = f"java -jar {CODEGEN} generate " \
-        f"-i {openapi_file} " \
-        f"-g python " \
-        f"-o {client_src_path}/tmp-{module} " \
-        f"-c config-client.json"
+              f"-i {openapi_file} " \
+              f"-g python " \
+              f"-o {client_src_path}/tmp-{module} " \
+              f"-c {config_path}"
     os.system(command)
-    os.remove('config-client.json')
 
 
 def get_dependencies():
@@ -51,6 +55,3 @@ def get_dependencies():
         if not os.path.exists(cdir):
             os.makedirs(cdir)
         urllib.request.urlretrieve(OPENAPI_GEN_URL, CODEGEN)
-
-
-get_dependencies()
