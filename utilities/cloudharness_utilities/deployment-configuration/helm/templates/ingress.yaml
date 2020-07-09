@@ -13,6 +13,7 @@ metadata:
     cert-manager.io/cluster-issuer: letsencrypt
     {{- end }}
     nginx.ingress.kubernetes.io/ssl-redirect: 'false'
+    nginx.ingress.kubernetes.io/proxy-body-size: '10m'
 spec:
   rules:
   {{- range $app := .Values.apps }}
