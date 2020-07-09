@@ -48,10 +48,19 @@ spec:
           - name: cloudharness-allvalues
             mountPath: /opt/cloudharness/resources/allvalues.yaml
             subPath: allvalues.yaml
+          {{- if .app.harness.deployment.volume }}
+          - name: {{ .app.harness.deployment.volume.name }}
+            mountPath: {{ .app.harness.deployment.volume.mountpath }}
+          {{- end }}
       volumes:
         - name: cloudharness-allvalues
           configMap:
             name: cloudharness-allvalues
+        {{- if .app.harness.deployment.volume }}
+        - name: {{ .app.harness.deployment.volume.name }}
+          persistentVolumeClaim:
+            claimName: {{ .app.harness.deployment.volume.name }}
+        {{- end }}
         
 ---
 {{- end }}
