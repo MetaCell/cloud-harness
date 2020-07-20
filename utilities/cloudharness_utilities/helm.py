@@ -68,7 +68,7 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, exclude=(), i
 
     for app_path in get_sub_paths(app_base_path):
         app_name = image_name_from_docker_path(os.path.relpath(app_path, app_base_path))
-        if app_name in exclude or (include and app_name not in include):
+        if app_name in exclude or (include and not any (inc in app_name for inc in include)):
             continue
         template_dir = os.path.join(app_path, 'deploy/templates')
         if os.path.exists(template_dir):
@@ -119,7 +119,7 @@ def collect_helm_values(deployment_root, exclude=(), include=None, tag='latest',
     for app_path in get_sub_paths(app_base_path):
         app_name = image_name_from_docker_path(os.path.relpath(app_path, app_base_path))
 
-        if app_name in exclude or (include and app_name not in include):
+        if app_name in exclude or (include and not any(inc in app_name for inc in include)):
             continue
 
         app_values = create_values_spec(app_name, app_path, tag=tag, registry=registry,
