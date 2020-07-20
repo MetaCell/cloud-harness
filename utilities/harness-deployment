@@ -19,8 +19,9 @@ if __name__ == "__main__":
                         help='Base paths to start looking for applications. The paths will be processed '
                              'in the given order so determining the build and overriding precedence.')
 
-    parser.add_argument('-i', '--image', dest='image', action="append", default=[],
-                        help='Specify the images to build. Omit to build images for all Docker files.')
+    parser.add_argument('-i', '--include', dest='include', action="append", default=[],
+                        help='Specify the applications to include and exclude the rest. '
+                             'Omit to build images for all Docker files.')
 
     parser.add_argument('-t', '--tag', dest='tag', action="store", default='latest',
                         help='Add a tag with the current version (default `latest`)')
@@ -52,7 +53,7 @@ if __name__ == "__main__":
         print(f'unknown: {unknown}')
     else:
         if args.build or args.build_interactive:
-            Builder(root_paths, args.image, tag=args.tag, registry=args.registry, interactive=args.build_interactive,
+            Builder(root_paths, args.include, tag=args.tag, registry=args.registry, interactive=args.build_interactive,
                     exclude=args.exclude).run()
 
         values_manual_deploy = create_helm_chart(
@@ -64,6 +65,7 @@ if __name__ == "__main__":
             secured=not args.unsecured,
             output_path=args.output_path,
             exclude=args.exclude,
+            include=args.include,
             registry_secret=args.registry_secret
         )
         hosts_info(values_manual_deploy)

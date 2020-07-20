@@ -10,7 +10,8 @@ import subprocess
 import tarfile
 from docker import from_env as DockerClient
 from pathlib import Path
-from .constants import VALUES_MANUAL_PATH, VALUE_TEMPLATE_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, HERE, DEPLOYMENT_CONFIGURATION_PATH
+from .constants import VALUES_MANUAL_PATH, VALUE_TEMPLATE_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, HERE, \
+    DEPLOYMENT_CONFIGURATION_PATH
 from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, image_name_from_docker_path, \
     get_template, merge_configuration_directories, merge_to_yaml_file, dict_merge
 
@@ -19,7 +20,9 @@ KEY_SERVICE = 'service'
 KEY_DEPLOYMENT = 'deployment'
 KEY_APPS = 'apps'
 
-def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True, output_path='./deployment', registry_secret=None):
+
+def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True,
+                      output_path='./deployment', include=None, registry_secret=None):
     """
     Creates values file for the helm chart
     """
@@ -29,17 +32,20 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
         shutil.rmtree(dest_deployment_path)
     # Initialize with default
     copy_merge_base_deployment(dest_deployment_path, os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
-    helm_values = collect_helm_values(HERE, tag=tag, registry=registry, exclude=exclude)
+    helm_values = collect_helm_values(HERE, tag=tag, registry=registry, exclude=exclude, include=include)
 
     # Override for every cloudharness scaffolding
     for root_path in root_paths:
-        copy_merge_base_deployment(dest_helm_chart_path=dest_deployment_path, base_helm_chart=os.path.join(root_path, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
-        collect_apps_helm_templates(root_path, exclude=exclude, dest_helm_chart_path=dest_deployment_path)
-        helm_values = dict_merge(helm_values, collect_helm_values(root_path, tag=tag, registry=registry, exclude=exclude))
+        copy_merge_base_deployment(dest_helm_chart_path=dest_deployment_path,
+                                   base_helm_chart=os.path.join(root_path, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
+        collect_apps_helm_templates(root_path, exclude=exclude, include=include, dest_helm_chart_path=dest_deployment_path)
+        helm_values = dict_merge(helm_values,
+                                 collect_helm_values(root_path, tag=tag, registry=registry, exclude=exclude, include=include))
 
     create_tls_certificate(local, domain, secured, output_path, helm_values)
 
-    finish_helm_values(values=helm_values, tag=tag, registry=registry, local=local, domain=domain, secured=secured, registry_secret=registry_secret)
+    finish_helm_values(values=helm_values, tag=tag, registry=registry, local=local, domain=domain, secured=secured,
+                       registry_secret=registry_secret)
     # Save values file for manual helm chart
     merged_values = merge_to_yaml_file(helm_values, os.path.join(dest_deployment_path, VALUES_MANUAL_PATH))
     return merged_values
@@ -49,7 +55,7 @@ def merge_helm_chart(source_templates_path, dest_helm_chart_path=HELM_CHART_PATH
     pass
 
 
-def collect_apps_helm_templates(search_root, dest_helm_chart_path, exclude=()):
+def collect_apps_helm_templates(search_root, dest_helm_chart_path, exclude=(), include=None):
     """
     Searches recursively for helm templates inside the applications and collects the templates in the destination
 
@@ -62,7 +68,7 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, exclude=()):
 
     for app_path in get_sub_paths(app_base_path):
         app_name = image_name_from_docker_path(os.path.relpath(app_path, app_base_path))
-        if app_name in exclude:
+        if app_name in exclude or (include and app_name not in include):
             continue
         template_dir = os.path.join(app_path, 'deploy/templates')
         if os.path.exists(template_dir):
@@ -95,7 +101,7 @@ def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart):
         shutil.copytree(base_helm_chart, dest_helm_chart_path)
 
 
-def collect_helm_values(deployment_root, exclude=(), tag='latest', registry=''):
+def collect_helm_values(deployment_root, exclude=(), include=None, tag='latest', registry=''):
     """
     Creates helm values from a cloudharness deployment scaffolding
     """
@@ -113,10 +119,11 @@ def collect_helm_values(deployment_root, exclude=(), tag='latest', registry=''):
     for app_path in get_sub_paths(app_base_path):
         app_name = image_name_from_docker_path(os.path.relpath(app_path, app_base_path))
 
-        if app_name in exclude:
+        if app_name in exclude or (include and app_name not in include):
             continue
 
-        app_values = create_values_spec(app_name, app_path, tag=tag, registry=registry, template_path=value_spec_template_path)
+        app_values = create_values_spec(app_name, app_path, tag=tag, registry=registry,
+                                        template_path=value_spec_template_path)
         values[KEY_APPS][app_name.replace('-', '_')] = app_values
 
     return values
@@ -186,6 +193,7 @@ def values_set_legacy(values):
         values['port'] = harness[KEY_DEPLOYMENT]['port']
     values['resources'] = harness[KEY_DEPLOYMENT]['resources']
 
+
 def create_values_spec(app_name, app_path, tag=None, registry='', template_path=VALUE_TEMPLATE_PATH):
     logging.info('Generating values script for ' + app_name)
 
@@ -245,16 +253,17 @@ def create_env_variables(values):
 
 
 def hosts_info(values):
-
     domain = values['domain']
     namespace = values['namespace']
-    subdomains = (app[KEY_HARNESS]['subdomain'] for app in values[KEY_APPS].values() if KEY_HARNESS in app and app[KEY_HARNESS]['subdomain'])
+    subdomains = (app[KEY_HARNESS]['subdomain'] for app in values[KEY_APPS].values() if
+                  KEY_HARNESS in app and app[KEY_HARNESS]['subdomain'])
     try:
         ip = get_cluster_ip()
     except:
         logging.warning('Cannot get cluster ip')
         return
-    logging.info("\nTo test locally, update your hosts file" + f"\n{ip}\t{' '.join(sd + '.' + domain for sd in subdomains)}")
+    logging.info(
+        "\nTo test locally, update your hosts file" + f"\n{ip}\t{' '.join(sd + '.' + domain for sd in subdomains)}")
 
     deployments = (app[KEY_HARNESS][KEY_DEPLOYMENT]['name'] for app in values[KEY_APPS].values() if KEY_HARNESS in app)
 
@@ -271,10 +280,10 @@ def hosts_info(values):
 
 def create_tls_certificate(local, domain, secured, output_path, helm_values):
     helm_values['tls'] = domain.replace(".", "-") + "-tls"
-    
+
     if not local or not secured:
         return
-    
+
     HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
     ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
 
@@ -295,12 +304,12 @@ def create_tls_certificate(local, domain, secured, output_path, helm_values):
             '\n\nIs docker running? Run "eval(minikube docker-env)" if you are using minikube...')
 
     # Create CA and sign cert for domain
-    container = client.containers.run(image='frapsoft/openssl', 
-                        command=f'sleep 60',
-                        entrypoint="", 
-                        detach=True,
-                        environment=[f"DOMAIN={domain}"],
-                        )
+    container = client.containers.run(image='frapsoft/openssl',
+                                      command=f'sleep 60',
+                                      entrypoint="",
+                                      detach=True,
+                                      environment=[f"DOMAIN={domain}"],
+                                      )
 
     container.exec_run('mkdir -p /mnt/vol1')
     container.exec_run('mkdir -p /mnt/certs')
@@ -334,10 +343,8 @@ def create_tls_certificate(local, domain, secured, output_path, helm_values):
 
     logs = container.logs()
     logging.info(f'openssl container logs: {logs}')
-    
+
     # stop the container
     container.kill()
 
     logging.info("Created certificates for local deployment")
-
-

@@ -9,13 +9,16 @@ from .utils import find_dockerfiles_paths, image_name_from_docker_path
 
 class Builder:
 
-    def __init__(self, root_paths, images, tag, registry='', interactive=False, exclude=tuple()):
-        self.images = images
+    def __init__(self, root_paths, include, tag, registry='', interactive=False, exclude=tuple()):
+        self.included = include or []
         self.tag = tag
         self.root_paths = root_paths
         self.registry = registry
         self.interactive = interactive
         self.exclude = exclude
+
+        if include:
+            logging.info('Building the following subpaths: %s.', ', '.join(include))
 
         # connect to docker
         try:
@@ -36,18 +39,18 @@ class Builder:
 
             # filter the images to build
 
-    def should_build_image(self, image_name) -> bool:
-        if image_name in self.exclude:
+    def should_build_image(self, image_path) -> bool:
+        if image_path in self.exclude:
             return False
-        if len(self.images) == 0:
+        if not self.included:
             if self.interactive:
-                answer = input("Do you want to build " + image_name + "? [Y/n]")
+                answer = input("Do you want to build " + image_path + "? [Y/n]")
                 return answer.upper() != 'N'
             return True
 
-        if image_name in self.images:
+        if any(inc in image_path for inc in self.included):
             return True
-        logging.info("Skipping build for image", image_name)
+        logging.info("Skipping build for image %s", image_path)
         return False
 
     def run(self):
@@ -58,18 +61,17 @@ class Builder:
 
             self.find_and_build_under_path(APPS_PATH, root_path=root_path)
 
-
     def find_and_build_under_path(self, base_path, context_path=None, root_path=None):
         abs_base_path = os.path.join(root_path, base_path)
         docker_files = (path for path in find_dockerfiles_paths(abs_base_path) if
                         self.should_build_image(path))
 
         for dockerfile_path in docker_files:
-
             dockerfile_rel_path = "" if not context_path else os.path.relpath(dockerfile_path, start=context_path)
             # extract image name
             image_name = image_name_from_docker_path(os.path.relpath(dockerfile_path, start=abs_base_path))
-            self.build_image(image_name, dockerfile_rel_path, context_path=context_path if context_path else dockerfile_path)
+            self.build_image(image_name, dockerfile_rel_path,
+                             context_path=context_path if context_path else dockerfile_path)
 
     def build_image(self, image_name, dockerfile_rel_path, context_path=None):
 
@@ -86,7 +88,8 @@ class Builder:
         image, response = self.client.images.build(path=context_path,
                                                    tag=image_tag,
                                                    buildargs=buildargs,
-                                                   dockerfile=os.path.join(dockerfile_rel_path, "Dockerfile") if dockerfile_rel_path else None
+                                                   dockerfile=os.path.join(dockerfile_rel_path,
+                                                                           "Dockerfile") if dockerfile_rel_path else None
                                                    )
 
         # log stream
