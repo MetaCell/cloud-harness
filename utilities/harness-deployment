@@ -26,6 +26,9 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--tag', dest='tag', action="store", default='latest',
                         help='Add a tag with the current version (default `latest`)')
 
+    parser.add_argument('-n', '--namespace', dest='namespace', action="store", default='osb2',
+                        help='Specify the namespace of the deployment (default `osb2`)')
+
     parser.add_argument('-r', '--registry', dest='registry', action="store", default='',
                         help='Specify image registry prefix')
     parser.add_argument('-rs', '--registry-secret', dest='registry_secret', action="store", default='',
@@ -54,7 +57,7 @@ if __name__ == "__main__":
     else:
         if args.build or args.build_interactive:
             Builder(root_paths, args.include, tag=args.tag, registry=args.registry, interactive=args.build_interactive,
-                    exclude=args.exclude).run()
+                    exclude=args.exclude, namespace=args.namespace, domain=args.domain).run()
 
         values_manual_deploy = create_helm_chart(
             root_paths,
