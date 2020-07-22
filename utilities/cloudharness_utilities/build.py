@@ -9,7 +9,7 @@ from .utils import find_dockerfiles_paths, image_name_from_docker_path
 
 class Builder:
 
-    def __init__(self, root_paths, include, tag, registry='', interactive=False, exclude=tuple(), namespace, domain):
+    def __init__(self, root_paths, include, tag, namespace, domain, registry='', interactive=False, exclude=tuple()):
         self.included = include or []
         self.tag = tag
         self.root_paths = root_paths
