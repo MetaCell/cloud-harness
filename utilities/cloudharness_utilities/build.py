@@ -9,13 +9,15 @@ from .utils import find_dockerfiles_paths, image_name_from_docker_path
 
 class Builder:
 
-    def __init__(self, root_paths, include, tag, registry='', interactive=False, exclude=tuple()):
+    def __init__(self, root_paths, include, tag, registry='', interactive=False, exclude=tuple(), namespace, domain):
         self.included = include or []
         self.tag = tag
         self.root_paths = root_paths
         self.registry = registry
         self.interactive = interactive
         self.exclude = exclude
+        self.namespace = namespace
+        self.domain = domain
 
         if include:
             logging.info('Building the following subpaths: %s.', ', '.join(include))
@@ -79,7 +81,7 @@ class Builder:
         # build image
         image_tag = f'{registry}{image_name}:{self.tag}' if self.tag else image_name
 
-        buildargs = dict(TAG=self.tag, REGISTRY=registry)
+        buildargs = dict(TAG=self.tag, REGISTRY=registry, NAMESPACE=self.namespace, DOMAIN=self.domain)
 
         # print header
         logging.info(f'\n{80 * "#"}\nBuilding {image_tag} \n{80 * "#"}\n')

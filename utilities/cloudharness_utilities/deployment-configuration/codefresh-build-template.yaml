@@ -5,3 +5,5 @@ dockerfile: Dockerfile
 build_arguments:
   - REGISTRY=${{REGISTRY}}
   - TAG=${{CF_REVISION}}
+  - NAMESPACE=${{NAMESPACE}}
+  - DOMAIN=${{DOMAIN}}
