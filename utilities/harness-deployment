@@ -26,8 +26,8 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--tag', dest='tag', action="store", default='latest',
                         help='Add a tag with the current version (default `latest`)')
 
-    parser.add_argument('-n', '--namespace', dest='namespace', action="store", default='osb2',
-                        help='Specify the namespace of the deployment (default `osb2`)')
+    parser.add_argument('-n', '--namespace', dest='namespace', action="store", default='default',
+                        help='Specify the namespace of the deployment (default `default`)')
 
     parser.add_argument('-r', '--registry', dest='registry', action="store", default='',
                         help='Specify image registry prefix')
