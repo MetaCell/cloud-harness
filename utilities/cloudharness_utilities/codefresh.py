@@ -11,9 +11,7 @@ from .utils import find_dockerfiles_paths, image_name_from_docker_path, \
 
 logging.getLogger().setLevel(logging.INFO)
 
-import cloudharness_utilities
-# CLOUD_HARNESS_PATH = "cloud-harness"
-CLOUD_HARNESS_PATH = cloudharness_utilities.__file__.split('/utilities/')[0]
+CLOUD_HARNESS_PATH = "cloud-harness"
 
 
 def create_codefresh_deployment_scripts(deployment_root_path, tag="${{CF_REVISION}}", codefresh_path=CODEFRESH_PATH):
