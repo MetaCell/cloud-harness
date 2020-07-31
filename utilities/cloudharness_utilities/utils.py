@@ -328,18 +328,14 @@ def merge_app_directories(root_paths, validate)->None:
         in the cloud-harness based project, then the directories are 
         merged together in cloudharness directory and the other directory
         is deleted.
-
-        Args:
-            dpaths: A list of list of dics as regturned by collect_under_paths
-        
         """
-        dpaths = collect_under_paths(root_paths, validate)
-        if len(dpaths) != 1:
-            log_merging_operation(dpaths)
-            for index, dpath in enumerate(dpaths):
-                if index != 0:
-                    merge_configuration_directories(dpath['abs_path'], dpath['abs_path'][0])
-                    shutil.rmtree(dpath['abs_path'])
+        for dpaths in collect_under_paths(root_paths, validate):
+            if len(dpaths) != 1:
+                log_merging_operation(dpaths)
+                for index, dpath in enumerate(dpaths):
+                    if index != 0:
+                        merge_configuration_directories(dpath['abs_path'], dpath['abs_path'][0])
+                        shutil.rmtree(dpath['abs_path'])
 
 
 def log_merging_operation(dpaths:[dict]) -> None:
