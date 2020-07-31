@@ -4,6 +4,7 @@ import sys
 import os
 
 from cloudharness_utilities.build import Builder
+from cloudharness_utilities.utils import merge_app_directories
 from cloudharness_utilities.helm import collect_apps_helm_templates, create_helm_chart, hosts_info
 
 HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
@@ -48,6 +49,10 @@ if __name__ == "__main__":
                         help='Disable secured gatekeepers access')
     parser.add_argument('-e', '--exclude', dest='exclude', action="append", default=(),
                         help='Specify application to exclude from the deployment')
+
+    parser.add_argument('-m', '--merge', dest='merge', action="store_true",
+                        help='Merge folders if they are both in cloud-harness and the cloudharness project')
+
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
     root_paths = [os.path.join(os.getcwd(), path) for path in args.paths]
@@ -55,9 +60,14 @@ if __name__ == "__main__":
         print('There are unknown args. Make sure to call the script with the accepted args. Try --help')
         print(f'unknown: {unknown}')
     else:
+
+        builder = Builder(root_paths, args.include, tag=args.tag, registry=args.registry, interactive=args.build_interactive,
+                    exclude=args.exclude, namespace=args.namespace, domain=args.domain)
+        
+        if args.merge:
+            merge_app_directories(builder.root_paths, builder.should_build_image)
         if args.build or args.build_interactive:
-            Builder(root_paths, args.include, tag=args.tag, registry=args.registry, interactive=args.build_interactive,
-                    exclude=args.exclude, namespace=args.namespace, domain=args.domain).run()
+            builder.run()
 
         values_manual_deploy = create_helm_chart(
             root_paths,
