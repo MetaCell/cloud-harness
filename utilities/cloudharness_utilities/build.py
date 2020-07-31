@@ -23,6 +23,7 @@ class Builder:
         if include:
             logging.info('Building the following subpaths: %s.', ', '.join(include))
 
+    def set_docker_client(self):
         # connect to docker
         try:
             self.client = DockerClient()
@@ -57,6 +58,7 @@ class Builder:
         return False
 
     def run(self):
+        self.set_docker_client()
         for dpaths in collect_under_paths(self.root_paths, self.should_build_image):
             self.merge_and_build_under_path(dpaths)
 
