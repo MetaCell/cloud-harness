@@ -337,7 +337,8 @@ def merge_app_directories(root_paths, validate)->None:
                         logging.info("[MERGE] (%s) into (%s)" % (dpath['abs_path'], dpaths[0]['abs_path']))
                         merge_configuration_directories(dpath['abs_path'], dpaths[0]['abs_path'])
                         shutil.rmtree(dpath['abs_path'])
-
+                logging.info(os.listdir(dpaths[0]['abs_path']+'/themes/custom'))
+                logging.info(os.listdir(dpaths[0]['abs_path']+'/themes/custom/login'))
 
 def log_merging_operation(dpaths:[dict]) -> None:
         logging_message = f"\n\nFound multiple dockerfiles for the next image ({dpaths[0]['name']}):\n\n"
