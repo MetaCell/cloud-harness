@@ -18,7 +18,7 @@ spec:
   rules:
   {{- range $app := .Values.apps }}
     {{- if $app.harness.domain }}
-  - host: {{ $app.harness.domain | quote }}
+  - host: {{ $domain | quote }}
     http:
       paths:
       - path: /
@@ -55,7 +55,7 @@ spec:
           {{- if $app.harness.subdomain }}
       - {{ printf "%s.%s" $app.harness.subdomain $domain | quote }}
           {{- else if $app.domain }}
-      - {{ $app.domain | quote }}
+      - {{ $domain | quote }}
           {{- end }}
       {{- end }}
     secretName: {{ $tls | quote }}
