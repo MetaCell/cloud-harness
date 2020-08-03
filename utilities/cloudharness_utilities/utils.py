@@ -335,7 +335,7 @@ def merge_app_directories(root_paths, validate)->None:
                 for index, dpath in enumerate(dpaths):
                     if index != 0:
                         logging.info("[MERGE] (%s) into (%s)" % (dpath['abs_path'], dpaths[0]['abs_path']))
-                        merge_configuration_directories(dpath['abs_path'], dpaths['abs_path'][0])
+                        merge_configuration_directories(dpath['abs_path'], dpaths[0]['abs_path'])
                         shutil.rmtree(dpath['abs_path'])
 
 
