@@ -82,8 +82,13 @@ def codefresh_app_build_spec(app_name, app_path, dockerfile_path="Dockerfile"):
 
     specific_build_template_path = os.path.join(app_path, 'build.yaml')
     if os.path.exists(specific_build_template_path):
-        logging.info("Specific build template found:", specific_build_template_path)
+        logging.info("Specific build template found: %s" %(specific_build_template_path))
         with open(specific_build_template_path) as f:
             build_specific = yaml.safe_load(f)
+
+        if 'build_arguments' in build_specific:
+            build_args = build_specific.pop('build_arguments')
         build.update(build_specific)
+        build.update({'build_arguments': build['build_arguments'] + build_args})
+
     return build
