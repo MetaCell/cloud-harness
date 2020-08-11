@@ -5,7 +5,10 @@ import yaml
 from cloudharness.utils.config import CloudharnessConfig as conf
 
 def _get_api():
-    configuration = kubernetes.config.load_incluster_config()
+    try:
+        configuration = kubernetes.config.load_incluster_config()
+    except:
+        configuration = kubernetes.config.load_kube_config()
     api_instance = kubernetes.client.CoreV1Api(kubernetes.client.ApiClient(configuration))
     return api_instance
 
