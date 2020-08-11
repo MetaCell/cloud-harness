@@ -3,9 +3,7 @@ import jwt
 import sys
 import json
 import requests
-from typing import List
-from urllib.parse import urljoin
-
+from z2jh import get_config
 
 def get_keycloak_data(token):
     print(f'Token: {token}')
@@ -33,7 +31,7 @@ def _decode_token(token):
     AUTH_SERVICE_HOST = os.getenv('ACCOUNTS_SERVICE_HOST')
     AUTH_SERVICE_PORT = os.getenv('ACCOUNTS_SERVICE_PORT_HTTP')
     AUTH_DOMAIN = f'{AUTH_SERVICE_HOST}:{AUTH_SERVICE_PORT}'
-    AUTH_REALM = 'osb2'
+    AUTH_REALM = get_config('namespace')
     BASE_PATH = f'{AUTH_DOMAIN}/auth/realms/{AUTH_REALM}'
     AUTH_PUBLIC_KEY_URL = f'{SCHEMA}{BASE_PATH}'
     print(f'auth pub key url: {AUTH_PUBLIC_KEY_URL}')
