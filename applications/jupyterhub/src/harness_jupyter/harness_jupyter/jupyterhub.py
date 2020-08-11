@@ -1,5 +1,6 @@
 import logging
 import sys
+import imp
 
 from kubespawner.spawner import KubeSpawner
 
@@ -34,6 +35,11 @@ def change_pod_manifest(self: KubeSpawner):
 
                     # TODO add hook for application to override or add specific behaviours (like dynamic volumes)
                     # Use plugin name convention harness_jupyterhub_*, see also  https://packaging.python.org/guides/creating-and-discovering-plugins/
+                    if 'applicationHook' in harness['jupyterhub']:
+                        func_name = harness['jupyterhub']['applicationHook'].split('.')
+                        module = __import__('.'.join(func_name[:-1]))
+                        f = getattr(module, func_name[-1])
+                        f(self=self)
                     break
     except Exception as e:
         logging.error("Harness error changing manifest", exc_info=True)

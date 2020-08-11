@@ -17,6 +17,11 @@ class CloudHarnessAuthenticateHandler(BaseHandler):
         self.force_new_server = force_new_server
         self.process_user = process_user
 
+    def change_pod_manifest(self):
+        print('*'*80)
+        print('IN HANDLER CHANGE POD MANIFEST')
+        print('*'*80)
+
     @gen.coroutine
     def get(self):
         raw_user = yield self.get_current_user()
