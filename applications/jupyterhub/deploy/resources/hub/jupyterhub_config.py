@@ -351,6 +351,8 @@ elif auth_type == 'dummy':
     set_config_if_not_none(c.DummyAuthenticator, 'password', 'auth.dummy.password')
 elif auth_type == 'tmp':
     c.JupyterHub.authenticator_class = 'tmpauthenticator.TmpAuthenticator'
+elif auth_type == 'ch':
+    c.JupyterHub.authenticator_class = 'chauthenticator.CloudHarnessAuthenticator'
 elif auth_type == 'lti':
     c.JupyterHub.authenticator_class = 'ltiauthenticator.LTIAuthenticator'
     set_config_if_not_none(c.LTIAuthenticator, 'consumers', 'auth.lti.consumers')
