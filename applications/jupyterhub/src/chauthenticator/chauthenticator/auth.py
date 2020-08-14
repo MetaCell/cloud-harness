@@ -17,11 +17,6 @@ class CloudHarnessAuthenticateHandler(BaseHandler):
         self.force_new_server = force_new_server
         self.process_user = process_user
 
-    def change_pod_manifest(self):
-        print('*'*80)
-        print('IN HANDLER CHANGE POD MANIFEST')
-        print('*'*80)
-
     @gen.coroutine
     def get(self):
         raw_user = yield self.get_current_user()
@@ -35,8 +30,10 @@ class CloudHarnessAuthenticateHandler(BaseHandler):
         else:
             accessToken = self.request.cookies.get('accessToken', None)
 
-            if accessToken:
-                accessToken = accessToken.value
+            if accessToken == '-1' or not accessToken:
+                self.redirect('/hub/logout')
+
+            accessToken = accessToken.value
             keycloak_id, keycloak_data = get_keycloak_data(accessToken)
             username = keycloak_id
             raw_user = self.user_from_username(username)
