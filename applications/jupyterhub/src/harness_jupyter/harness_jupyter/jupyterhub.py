@@ -33,8 +33,14 @@ def change_pod_manifest(self: KubeSpawner):
                     if 'args' in harness['jupyterhub']:
                         self.args = harness['jupyterhub']['args']
 
-                    # TODO add hook for application to override or add specific behaviours (like dynamic volumes)
-                    # Use plugin name convention harness_jupyterhub_*, see also  https://packaging.python.org/guides/creating-and-discovering-plugins/
+                    # check if there is an applicationHook defined in the values.yaml
+                    # if so then execute the applicationHook function with "self" as parameter
+                    #
+                    # e.g.
+                    #   jupyterhub:
+                    #       applicationHook: "jupyter.change_pod_manifest"
+                    #
+                    # this will execute jupyter.change_pod_manifest(self=self)
                     if 'applicationHook' in harness['jupyterhub']:
                         func_name = harness['jupyterhub']['applicationHook'].split('.')
                         module = __import__('.'.join(func_name[:-1]))
