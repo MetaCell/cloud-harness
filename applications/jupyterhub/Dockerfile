@@ -6,6 +6,7 @@ USER root
 # COPY ./src/kubespawner /usr/local/lib/python3.6/dist-packages/
 COPY src src
 RUN pip install ./src/harness_jupyter
+RUN pip install ./src/chauthenticator
 RUN chmod 777 /usr/local/lib/python3.6/dist-packages/  -R
 USER jovyan
 

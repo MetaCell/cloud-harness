@@ -1,1 +1,2 @@
 include cloudharness/utils/resources/*
+include cloudharness/service/templates/*
