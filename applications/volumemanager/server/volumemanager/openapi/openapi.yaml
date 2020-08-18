@@ -84,7 +84,7 @@ components:
       example:
         size: 2Gi (see also https://github.com/kubernetes/community/blob/master/contributors/design-proposals/scheduling/resources.md#resource-quantities)
         name: pvc-1
-        namespace: osb2
+        namespace: ch
         accessmode: ReadWriteMany
       properties:
         name:
@@ -93,7 +93,7 @@ components:
           type: string
         namespace:
           description: The namespace where the Persistent Volume Claim resides in
-          example: osb2
+          example: ch
           type: string
         accessmode:
           description: The accessmode of the Persistent Volume Claim

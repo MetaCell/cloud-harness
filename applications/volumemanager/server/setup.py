@@ -33,7 +33,7 @@ setup(
     entry_points={
         'console_scripts': ['volumemanager=volumemanager.__main__:main']},
     long_description="""\
-    Opensource Brain Platform - Reference Volumes manager API
+    CloudHarness Volumes manager API
     """
 )
 
