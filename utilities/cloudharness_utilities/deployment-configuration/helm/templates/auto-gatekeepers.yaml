@@ -18,7 +18,7 @@ data:
     tls-private-key:
     redirection-url: https://{{ .app.harness.subdomain }}.{{ .root.Values.domain }}
     encryption-key: AgXa7xRcoClDEU0ZDSH4X0XhL5Qy2Z2j
-    upstream-url: http://{{ .app.harness.subdomain }}.{{ .app.namespace | default .root.Release.Namespace }}:{{ .app.harness.service.port | default 80}}
+    upstream-url: http://{{ .app.harness.service.name }}.{{ .app.namespace | default .root.Release.Namespace }}:{{ .app.harness.service.port | default 80}}
     scopes:
     - vpn-user
     resources:

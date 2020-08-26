@@ -76,7 +76,7 @@ Defines docker registry
 */}}
 {{- define "deploy_utils.registry" }}
 {{- if not (eq .Values.registry.name "") }}
-{{- printf "%s/" .Values.registry.name }}
+{{- printf "%s" .Values.registry.name }}
 {{- end }}
 {{- end }}
 

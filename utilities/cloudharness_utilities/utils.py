@@ -6,10 +6,7 @@ import oyaml as yaml
 import shutil
 import logging
 
-
-
-from .constants import HERE, NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH
-
+from .constants import HERE, NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, APPS_PATH
 
 def image_name_from_docker_path(dockerfile_path):
     return get_image_name("-".join(p for p in dockerfile_path.split("/") if p not in NEUTRAL_PATHS))
@@ -150,3 +147,200 @@ def dict_merge(dct, merge_dct, add_keys=True):
             dct[k] = merge_dct[k]
 
     return dct
+
+
+def find_under_path(base_path, context_path=None, root_path=None, validate=None):
+    """ Finds dockerfiles and creates a list containig path info for each dockerfile.
+
+    Find all dockerfiles inside a folder and creates a list of dictionaries containing
+    path information to build the docker images.
+
+    Returns:
+        A List with the required information to build each docker image. For example:
+
+        [
+            {
+                "name": "cloudharness-base"
+                "rel_path": "infrastructure/base-images/cloudharness-base",
+                "abs_path": "/opt/cloud-harness/infrastructure/base-images/cloudharness-base",
+                "context_path": "/opt/cloud-harness",
+                "origin": "infrastructure/base-images"
+            },
+            ...
+        ]
+    """
+    founds = []
+    abs_base_path = os.path.join(root_path, base_path)
+    if validate is None:
+        docker_files = [path for path in find_dockerfiles_paths(abs_base_path)]
+    else:
+        docker_files = (path for path in find_dockerfiles_paths(abs_base_path) if validate(path))
+
+    for dockerfile_path in docker_files:
+        dockerfile_rel_path = "" if not context_path else os.path.relpath(dockerfile_path, start=context_path)
+        # extract image name
+        image_name = image_name_from_docker_path(os.path.relpath(dockerfile_path, start=abs_base_path))
+        founds.append({'name': image_name,
+                       'rel_path': dockerfile_rel_path,
+                       'abs_path': dockerfile_path,
+                       'context_path': context_path,
+                       'origin': base_path})
+    return founds
+
+
+def merge_found_paths(new:[dict], found: [[dict]] = [])->None:
+    """ Add new dockerfile paths to list of found paths
+
+    In case cloud-harness and a cloud-harness based project both are building the
+    same image, two items will be returned (see example below).
+
+    Example:
+        >>> found = [
+            [
+                {
+                    "name": "cloudharness-base"
+                    "rel_path": "infrastructure/base-images/cloudharness-base",
+                    "abs_path": "/opt/cloud-harness/infrastructure/base-images/cloudharness-base",
+                    "context_path": "/opt/cloud-harness",
+                    "origin": "infrastructure/base-images"
+                }
+            ],
+            [
+                {
+                    "name": "accounts"
+                    "rel_path": "",
+                    "abs_path": "/opt/cloud-harness/applications/accounts",
+                    "context_path": None,
+                    "origin": "applications"
+                }
+            ]
+        ]
+        >>> new = [
+            {
+                "name": "accounts"
+                "rel_path": "",
+                "abs_path": "/opt/my-harness-project/./applications/accounts",
+                "context_path": None,
+                "origin": "applications"
+            }
+        ]
+        >>> merge_found_paths(new, found)
+        [
+            [
+                {
+                    "name": "cloudharness-base"
+                    "rel_path": "infrastructure/base-images/cloudharness-base",
+                    "abs_path": "/opt/cloud-harness/infrastructure/base-images/cloudharness-base",
+                    "context_path": "/opt/cloud-harness",
+                    "origin": "infrastructure/base-images"
+                }
+            ],
+            [
+                {
+                    "name": "accounts"
+                    "rel_path": "",
+                    "abs_path": "/opt/cloud-harness/applications/accounts",
+                    "context_path": None,
+                    "origin": "applications"
+                },
+                {
+                    "name": "accounts"
+                    "rel_path": "",
+                    "abs_path": "/opt/my-harness-project/./applications/accounts",
+                    "context_path": None,
+                    "origin": "applications"
+                }
+            ]
+        ]
+    """
+    found_names = {}
+    for item in found:
+        found_names[item[0]['name']] = True
+
+    # merge new items into found collection
+    for new_item in new:
+        if found_names.get(new_item['name'], False):
+            for found_item in found:
+                if found_item[0]['name'] == new_item['name']:
+                    found_item.append(new_item)
+                    break
+        else:
+            found.append([new_item])
+
+
+def collect_under_paths(root_paths, validate) -> [[dict]]:
+        """ Collect all path information in a CH project to build the docker images
+
+        In case cloud-harness and a cloud-harness based project both are building the
+        same image, two items will be created (see example below).
+
+        Returns:
+            A List with the required information to build each docker image. For example:
+            [
+                [
+                    {
+                        "name": "cloudharness-base"
+                        "rel_path": "infrastructure/base-images/cloudharness-base",
+                        "abs_path": "/opt/cloud-harness/infrastructure/base-images/cloudharness-base",
+                        "context_path": "/opt/cloud-harness",
+                        "origin": "infrastructure/base-images"
+                    }
+                ],
+                [
+                    {
+                        "name": "accounts"
+                        "rel_path": "",
+                        "abs_path": "/opt/cloud-harness/applications/accounts",
+                        "context_path": None,
+                        "origin": "applications"
+                    },
+                    {
+                        "name": "accounts"
+                        "rel_path": "",
+                        "abs_path": "/opt/my-harness-project/./applications/accounts",
+                        "context_path": None,
+                        "origin": "applications"
+                    }
+                ],
+                ...
+            ]
+        """
+        collected = []
+
+        for root_path in root_paths:
+            batch = []
+            batch += find_under_path(BASE_IMAGES_PATH, context_path=root_path, 
+                                     root_path=root_path, validate=validate)
+            # Build static images that will be use as base for other images
+            batch += find_under_path(STATIC_IMAGES_PATH, root_path=root_path, validate=validate)
+            batch += find_under_path(APPS_PATH, root_path=root_path, validate=validate)
+            
+            merge_found_paths(batch, collected)
+
+        return collected
+
+
+
+def merge_app_directories(root_paths, validate)->None:
+        """ Merge directories if they refer to the same application
+        
+        If an application's folder is found both in cloud-harness and
+        in the cloud-harness based project, then the directories are 
+        merged together in cloudharness directory and the other directory
+        is deleted.
+        """
+        for dpaths in collect_under_paths(root_paths, validate):
+            if len(dpaths) != 1:
+                log_merging_operation(dpaths)
+                for index, dpath in enumerate(dpaths):
+                    if index != 0:
+                        logging.info("[MERGE] (%s) into (%s)" % (dpath['abs_path'], dpaths[0]['abs_path']))
+                        merge_configuration_directories(dpath['abs_path'], dpaths[0]['abs_path'])
+                        shutil.rmtree(dpath['abs_path'])
+
+def log_merging_operation(dpaths:[dict]) -> None:
+        logging_message = f"\n\nFound multiple dockerfiles for the next image ({dpaths[0]['name']}):\n\n"
+        for dpath in dpaths:
+            logging_message += f"{dpath['abs_path']}\n"
+        logging_message += "\nWill proceed to merge the two folder.\n\n"
+        logging.info(logging_message)

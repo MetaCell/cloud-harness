@@ -6,6 +6,7 @@ metadata:
   labels:
     app: {{ .app.harness.deployment.name| quote }}
 spec:
+  storageClassName: standard
   accessModes:
   - ReadWriteOnce
   resources:

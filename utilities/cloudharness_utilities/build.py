@@ -1,15 +1,16 @@
 import os
 import logging
+import tempfile
 
 from docker import from_env as DockerClient
 
+from .utils import collect_under_paths, find_dockerfiles_paths, image_name_from_docker_path, merge_configuration_directories
 from .constants import NODE_BUILD_IMAGE, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH
-from .utils import find_dockerfiles_paths, image_name_from_docker_path
-
 
 class Builder:
 
-    def __init__(self, root_paths, include, tag, namespace, domain, registry='', interactive=False, exclude=tuple()):
+    def __init__(self, root_paths, include, tag, namespace, domain, registry='', interactive=False, 
+                 exclude=tuple()):
         self.included = include or []
         self.tag = tag
         self.root_paths = root_paths
@@ -22,6 +23,7 @@ class Builder:
         if include:
             logging.info('Building the following subpaths: %s.', ', '.join(include))
 
+    def set_docker_client(self):
         # connect to docker
         try:
             self.client = DockerClient()
@@ -56,12 +58,9 @@ class Builder:
         return False
 
     def run(self):
-        for root_path in self.root_paths:
-            self.find_and_build_under_path(BASE_IMAGES_PATH, context_path=root_path, root_path=root_path)
-            # Build static images that will be use as base for other images
-            self.find_and_build_under_path(STATIC_IMAGES_PATH, root_path=root_path)
-
-            self.find_and_build_under_path(APPS_PATH, root_path=root_path)
+        self.set_docker_client()
+        for dpaths in collect_under_paths(self.root_paths, self.should_build_image):
+            self.merge_and_build_under_path(dpaths)
 
     def find_and_build_under_path(self, base_path, context_path=None, root_path=None):
         abs_base_path = os.path.join(root_path, base_path)
@@ -74,6 +73,38 @@ class Builder:
             image_name = image_name_from_docker_path(os.path.relpath(dockerfile_path, start=abs_base_path))
             self.build_image(image_name, dockerfile_rel_path,
                              context_path=context_path if context_path else dockerfile_path)
+
+    def merge_and_build_under_path(self, dpaths):
+        """ Merge directories and builds image 
+        
+        If the same folder is found both in cloud-harness and
+        a cloud-harness based project, then the directories are 
+        merged together in a temporary directory and the image 
+        is built on the resulting merge.
+        """
+        # no folder merge operation required
+        if len(dpaths) == 1:
+            self.build_under_path(dpaths[0])
+        else:
+            self.log_merging_operation(dpaths)
+            
+            # merge using temporary directory
+            with tempfile.TemporaryDirectory() as tmpdirname:
+                for dpath in dpaths:
+                    merge_configuration_directories(dpath['abs_path'], tmpdirname)
+                dpaths[0]['abs_path'] = tmpdirname
+                self.build_under_path(dpaths[0])
+
+    def build_under_path(self, dpath):
+        """ Uses docker sdk to build a docker images from path information """
+        image_name = dpath['name']
+        dockerfile_rel_path = dpath['rel_path']
+        context_path = dpath['context_path']
+        dockerfile_path = dpath['abs_path']
+
+        self.build_image(image_name, dockerfile_rel_path,
+                             context_path=context_path if context_path else dockerfile_path)
+
 
     def build_image(self, image_name, dockerfile_rel_path, context_path=None):
 
@@ -100,3 +131,11 @@ class Builder:
                 logging.info(line['stream'].replace('\n', ' ').replace('\r', ''))
         if self.registry:
             self.push(image_tag)
+
+
+    def log_merging_operation(self, dpaths:[dict]) -> None:
+        logging_message = f"\n\nFound multiple dockerfiles for the next image ({dpaths[0]['name']}):\n\n"
+        for dpath in dpaths:
+            logging_message += f"{dpath['abs_path']}\n"
+        logging_message += "\nWill proceed to merge the two folder and build from the result\n\n"
+        logging.info(logging_message)
