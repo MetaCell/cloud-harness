@@ -52,6 +52,10 @@ spec:
           - name: {{ .app.harness.deployment.volume.name }}
             mountPath: {{ .app.harness.deployment.volume.mountpath }}
           {{- end }}
+          {{- if .app.harness.secrets }}
+          - name: {{ .app.harness.deployment.name }}
+            mountPath: /opt/secrets
+          {{- end }}
       volumes:
         - name: cloudharness-allvalues
           configMap:
@@ -60,6 +64,11 @@ spec:
         - name: {{ .app.harness.deployment.volume.name }}
           persistentVolumeClaim:
             claimName: {{ .app.harness.deployment.volume.name }}
+        {{- end }}
+        {{- if .app.harness.secrets }}
+        - name: {{ .app.harness.deployment.name }}
+          secret:
+            secretName: {{ .app.harness.deployment.name }}
         {{- end }}
         
 ---
