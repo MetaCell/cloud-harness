@@ -69,6 +69,7 @@ class ContainerizedOperation(ManagedOperation):
     def spec(self):
         return {
             'entrypoint': self.entrypoint,
+            'TTLSecondsAfterFinished': 24*60*60 # remove the workflow & pod after 1 day
             'templates': tuple(self.modify_template(template) for template in self.templates),
             'serviceAccountName': SERVICE_ACCOUNT,
             'imagePullSecrets': [{'name': CODEFRESH_PULL_SECRET}]
@@ -104,7 +105,7 @@ class ContainerizedOperation(ManagedOperation):
         return False
 
     def name_from_path(self, path):
-        return path.replace('/', '').lower()
+        return path.replace('/', '').replace('_', '').lower()
 
 
 class SyncOperation(ManagedOperation):
@@ -229,34 +230,53 @@ class CompositeOperation(AsyncOperation):
     def spec(self):
         spec = super().spec()
         if self.volumes:
-            spec['volumeClaimTemplates'] = [self.spec_volume(volume) for volume in self.volumes]
+            spec['volumeClaimTemplates'] = [self.spec_volumeclaim(volume) for volume in self.volumes if ':' not in volume] # without PVC prefix (e.g. /location)
+            spec['volumes'] = [self.spec_volume(volume) for volume in self.volumes if ':' in volume] # with PVC prefix (e.g. pvc-001:/location)
         return spec
 
     def modify_template(self, template):
         # TODO verify the following condition. Can we mount volumes also with source based templates
         if self.volumes and 'container' in template:
             template['container']['volumeMounts'] = \
-                [{'name': self.name_from_path(volume), 'mountPath': volume} for volume in self.volumes]
+                [self.volume_template(volume) for volume in self.volumes]
         return template
 
-    def spec_volume(self, volume):
-        return {
-            'metadata': {
-                'name': self.name_from_path(volume),
-            },
-            'spec': {
-                'accessModes': ["ReadWriteOnce"],
-                'resources': {
-                    'requests':
-                        {
-                            'storage': f'{self.shared_volume_size}Mi'
-                        }
+    def volume_template(self, volume):
+        path = volume
+        if ":" in path:
+            path = volume.split(':')[-1]
+        return dict({'name': self.name_from_path(path), 'mountPath': path })
 
+    def spec_volumeclaim(self, volume):
+        # when the volume is NOT prefixed by a PVC (e.g. /location) then create a temporary PVC for the workflow
+        if ':' not in volume:
+            return {
+                'metadata': {
+                    'name': self.name_from_path(volume.split(':')[0]),
+                },
+                'spec': {
+                    'accessModes': ["ReadWriteOnce"],
+                    'resources': {
+                        'requests':
+                            {
+                                'storage': f'{self.shared_volume_size}Mi'
+                            }
+                    }
                 }
-
             }
-        }
+        return {}
 
+    def spec_volume(self, volume):
+        # when the volume is prefixed by a PVC (e.g. pvc-001:/location) then add the PVC to the volumes of the workflow
+        if ':' in volume:
+            pvc, path = volume.split(':')
+            return {
+                'name': self.name_from_path(path),
+                'persistentVolumeClaim': {
+                    'claimName': pvc
+                }
+            }
+        return {}
 
 class PipelineOperation(CompositeOperation):
 
