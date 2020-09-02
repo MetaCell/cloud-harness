@@ -84,7 +84,6 @@ class ContainerizedOperation(ManagedOperation):
         op = self.to_workflow()
 
         log.debug("Submitting workflow\n" + pyaml.dump(op))
-        print("Submitting workflow\n" + pyaml.dump(op)) # TODO remove this line!
 
         self.persisted = argo.submit_workflow(op)  # TODO use rest api for that? Include this into cloudharness.workflows?
 
