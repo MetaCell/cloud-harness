@@ -1,4 +1,6 @@
-FROM python:3.7-alpine
+ARG REGISTRY
+ARG TAG=latest
+FROM ${REGISTRY}cloudharness-base:${TAG}
 
 ADD . /
 

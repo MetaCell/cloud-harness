@@ -35,6 +35,15 @@ spec:
         env:
           {{- include "deploy_utils.env" .root | nindent 8 }}
           {{- include "deploy_utils.privenv" .root | nindent 8 }}
+          {{- if .app.harness.secrets }}
+            {{- range $secret := .app.harness.secrets }}
+        - name: {{ print $secret.name "-" $secret.key }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ print $secret.name }}
+              key: {{ print $secret.key }}
+            {{- end }}
+          {{- end }}
         ports:
           - containerPort: {{ .app.harness.deployment.port | default 8080 }}
         resources:
@@ -52,10 +61,6 @@ spec:
           - name: {{ .app.harness.deployment.volume.name }}
             mountPath: {{ .app.harness.deployment.volume.mountpath }}
           {{- end }}
-          {{- if .app.harness.secrets }}
-          - name: {{ .app.harness.deployment.name }}
-            mountPath: /opt/secrets
-          {{- end }}
       volumes:
         - name: cloudharness-allvalues
           configMap:
@@ -64,11 +69,6 @@ spec:
         - name: {{ .app.harness.deployment.volume.name }}
           persistentVolumeClaim:
             claimName: {{ .app.harness.deployment.volume.name }}
-        {{- end }}
-        {{- if .app.harness.secrets }}
-        - name: {{ .app.harness.deployment.name }}
-          secret:
-            secretName: {{ .app.harness.deployment.name }}
         {{- end }}
         
 ---

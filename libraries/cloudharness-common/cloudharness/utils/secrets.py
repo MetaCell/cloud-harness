@@ -1,12 +1,13 @@
-import base64
+import os
 
-def get_secret(secret_name: str):
+def get_secret(name: str, key: str):
     """
     Helper class for the CloudHarness application secrets
 
     The application secret will be read from the secret file
     
+    Args:
+        name (str): name of the secret
+        key (str): name of the data key in the secret
     """
-    path = f"/opt/secrets/{secret_name}"
-    with open(path, "r") as f:
-        return base64.b64decode(f.readline()) ### ToDo: this should go into a secret !!!!
+    return os.environ.get(f'{name}-{key}', None)
