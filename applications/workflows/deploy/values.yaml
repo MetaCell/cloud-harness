@@ -4,6 +4,6 @@ harness:
   service:
     port: 8080
     auto: true
-  deploy:
+  deployment:
     auto: true
     port: 8080
