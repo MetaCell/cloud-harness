@@ -1,0 +1,9 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: argo
+spec:
+  type: ExternalName
+  externalName: argo-ui.argo.svc.cluster.local
+  ports:
+  - port: 80

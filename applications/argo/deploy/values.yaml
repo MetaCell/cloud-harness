@@ -2,8 +2,9 @@ harness:
   subdomain: argo
   secured: true
   service:
-    port: 2746
+    port: 80
     auto: false
+    name: argo
 
   name: argo-server
 serviceaccount: argo-workflows
