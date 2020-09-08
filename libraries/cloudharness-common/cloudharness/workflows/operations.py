@@ -69,7 +69,7 @@ class ContainerizedOperation(ManagedOperation):
     def spec(self):
         return {
             'entrypoint': self.entrypoint,
-            'TTLSecondsAfterFinished': 24*60*60 # remove the workflow & pod after 1 day
+            'TTLSecondsAfterFinished': 24*60*60,  # remove the workflow & pod after 1 day
             'templates': tuple(self.modify_template(template) for template in self.templates),
             'serviceAccountName': SERVICE_ACCOUNT,
             'imagePullSecrets': [{'name': CODEFRESH_PULL_SECRET}]
