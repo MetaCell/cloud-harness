@@ -1,4 +1,4 @@
-ARG REGISTRY=r.cfcr.io/tarelli/
+ARG REGISTRY
 ARG TAG=latest
 FROM ${REGISTRY}cloudharness-base:${TAG}
 

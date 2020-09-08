@@ -10,7 +10,7 @@ In order to use all `cloudharness` functionalities inside the cluster you must
 define your Dockerfile depending on the base cloudharness as following:
 
 ```Dockerfile
-ARG REGISTRY=r.cfcr.io/tarelli/
+ARG REGISTRY
 ARG TAG=latest
 FROM ${REGISTRY}cloudharness-base:${TAG}
 ```
