@@ -1,12 +1,12 @@
 harness:
   subdomain: argo
   secured: true
+  name: argo-proxy1
   service:
     port: 80
     auto: false
-    name: argo
+    name: argo-ui
 
-  name: argo-server
 serviceaccount: argo-workflows
-namespace: argo
+namespace: argo.svc.cluster.local
 workflows_namespace: argo-workflows
