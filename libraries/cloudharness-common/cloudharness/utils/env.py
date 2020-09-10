@@ -89,12 +89,12 @@ def name_to_variable(application_name):
 
 # CloudHarness Events
 def get_cloudharness_events_client_id():
-    accounts_app = conf.get_application_by_filter(name='accounts')
+    accounts_app = conf.get_application_by_filter(name='accounts')[0]
     return accounts_app.webclient.id
 
 
 def get_cloudharness_events_service():
-    return get_service_cluster_address('ARGO_GK')
+    return get_service_cluster_address('BOOTSTRAP')
 
 
 def get_service_cluster_address(cloudharness_app_name):
