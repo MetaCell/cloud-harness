@@ -1,7 +1,7 @@
 import json
 import requests
 
-from cloudharness.utils.env import get_cloudharness_common_service_url, get_service_public_address
+from cloudharness.utils.env import get_common_service_cluster_address
 
 def get_dsn(appname):
     """
@@ -19,7 +19,7 @@ def get_dsn(appname):
         from cloudharness.sentry import get_dsn
         dsn = get_dsn('workspaces')
     """ 
-    url = get_cloudharness_common_service_url() + f'/api/sentry/getdsn/{appname}'
+    url = get_common_service_cluster_address() + f'/api/sentry/getdsn/{appname}'
     response = requests.get(url, verify=False).json()
     dsn = response['dsn']
     if dsn and len(dsn)>0:
