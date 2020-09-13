@@ -1,5 +1,6 @@
 import os
 
+from cloudharness.events.client import EventClient
 from cloudharness.utils.env import get_variable
 
 WORKFLOW_NAME_VARIABLE_NAME = "CH_WORKFLOW_NAME"
@@ -15,3 +16,7 @@ def get_workflow_name():
 
 def get_shared_directory():
     return os.getenv(SHARED_DIRECTORY_VARIABLE_NAME)
+
+def notify_queue(queue, message):
+    client = EventClient(queue)
+    client.produce(message)

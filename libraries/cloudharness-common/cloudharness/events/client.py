@@ -1,6 +1,8 @@
 import os
 import sys
 import threading
+import traceback
+
 from time import sleep
 from json import dumps, loads
 from kafka import KafkaProducer, KafkaConsumer
@@ -103,20 +105,28 @@ class EventClient:
         if getattr(self, '_consumer_thread'):
             self._consumer_thread.cancel()
 
-    def _consume_task(self, group_id, handler):
+    def _consume_task(self, app=None, group_id=None, handler=None):
         log.info(f'Kafka consumer thread started, listening for messages in queue: {self.topic_id}')
         while True:
             consumer = self._get_consumer(group_id)
             for message in consumer:
-                handler(message.value)
+                try:
+                    handler(app, message.value)
+                except Exception as e:
+                    log.error(f"Ups... there was an error during execution of the consumer Topc {self.topic_id} --> {e}")
+                    log.error(traceback.print_exc())
             consumer.close()
         log.info(f'Kafka consumer thread {self.topic_id} stopped')
 
-    def async_consume(self, handler=None, group_id='default'):
+    def async_consume(self, app=None, handler=None, group_id='default'):
         log.debug('creating thread')
+        if app:
+            log.debug('get current object from app')
+            app = app._get_current_object()
         self._consumer_thread = threading.Thread(
             target=self._consume_task, 
-            kwargs={'group_id': group_id,
+            kwargs={'app': app,
+                    'group_id': group_id,
                     'handler': handler})
         self._consumer_thread.start()
         log.debug('thread started')

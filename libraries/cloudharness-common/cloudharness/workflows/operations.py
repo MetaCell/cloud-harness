@@ -11,7 +11,7 @@ from cloudharness.utils import env
 
 from . import argo
 
-from .tasks import Task, SendResultTask
+from .tasks import Task, SendResultTask, CustomTask
 
 from cloudharness import log
 
@@ -27,8 +27,9 @@ class ManagedOperation:
     based on a collection of tasks that run according to the operation type and configuration.
     """
 
-    def __init__(self, name):
+    def __init__(self, name, *args, **kwargs):
         self.name = name
+        self.on_exit_notify = kwargs.get('on_exit_notify', None)
 
     def execute(self, **parameters):
         raise NotImplementedError(f"{self.__class__.__name__} is abstract")
@@ -39,12 +40,12 @@ class ContainerizedOperation(ManagedOperation):
     Abstract Containarized operation based on an argo workflow
     """
 
-    def __init__(self, basename):
+    def __init__(self, basename, *args, **kwargs):
         """
         :param status:
         :param parameters:
         """
-        super(ContainerizedOperation, self).__init__(basename)
+        super(ContainerizedOperation, self).__init__(basename, *args, **kwargs)
 
         self.persisted = None
 
@@ -67,13 +68,38 @@ class ContainerizedOperation(ManagedOperation):
         return workflow
 
     def spec(self):
-        return {
+        spec = {
             'entrypoint': self.entrypoint,
             'TTLSecondsAfterFinished': 24*60*60,  # remove the workflow & pod after 1 day
-            'templates': tuple(self.modify_template(template) for template in self.templates),
+            'templates': [self.modify_template(template) for template in self.templates],
             'serviceAccountName': SERVICE_ACCOUNT,
-            'imagePullSecrets': [{'name': CODEFRESH_PULL_SECRET}]
+            'imagePullSecrets': [{'name': CODEFRESH_PULL_SECRET}],
+            'volumes': [{
+                'name': 'cloudharness-allvalues', 
+                'configMap': {
+                    'name': 'cloudharness-allvalues'
+                }
+            }] # mount allvalues so we can use the cloudharness Python library
         }
+        if self.on_exit_notify:
+            spec = self.add_on_exit_notify_handler(spec)
+        return spec
+
+    def add_on_exit_notify_handler(self, spec):
+        queue = self.on_exit_notify['queue']
+        payload = self.on_exit_notify['payload']
+        exit_task = CustomTask(
+            name="exit-handler",
+            image_name='workflows-notify-queue',
+            workflow_result='{{workflow.status}}',
+            queue_name=queue,
+            payload=payload
+        )
+        spec['onExit'] = 'exit-handler'
+        spec['templates'].append(
+            self.modify_template(exit_task.spec())
+        )
+        return spec
 
     def modify_template(self, template):
         """Hook to modify templates (e.g. add volumes)"""
@@ -84,6 +110,8 @@ class ContainerizedOperation(ManagedOperation):
         op = self.to_workflow()
 
         log.debug("Submitting workflow\n" + pyaml.dump(op))
+        log.error(pyaml.dump(op))
+        print(pyaml.dump(op))
 
         self.persisted = argo.submit_workflow(op)  # TODO use rest api for that? Include this into cloudharness.workflows?
 
@@ -193,7 +221,7 @@ class AsyncOperation(ContainerizedOperation):
 class CompositeOperation(AsyncOperation):
     """Operation with multiple tasks"""
 
-    def __init__(self, basename, tasks, shared_directory="", shared_volume_size=10):
+    def __init__(self, basename, tasks, *args, shared_directory="", shared_volume_size=10, **kwargs):
         """
 
         :param basename:
@@ -202,7 +230,7 @@ class CompositeOperation(AsyncOperation):
         will also be available from the container as environment variable `shared_directory`
         :param shared_volume_size: size of the shared volume in MB (is shared_directory is not set, it is ignored)
         """
-        AsyncOperation.__init__(self, basename)
+        AsyncOperation.__init__(self, basename, *args, **kwargs)
         self.tasks = tasks
 
         if shared_directory:
@@ -231,14 +259,13 @@ class CompositeOperation(AsyncOperation):
         spec = super().spec()
         if self.volumes:
             spec['volumeClaimTemplates'] = [self.spec_volumeclaim(volume) for volume in self.volumes if ':' not in volume] # without PVC prefix (e.g. /location)
-            spec['volumes'] = [self.spec_volume(volume) for volume in self.volumes if ':' in volume] # with PVC prefix (e.g. pvc-001:/location)
+            spec['volumes'] += [self.spec_volume(volume) for volume in self.volumes if ':' in volume] # with PVC prefix (e.g. pvc-001:/location)
         return spec
 
     def modify_template(self, template):
         # TODO verify the following condition. Can we mount volumes also with source based templates
         if self.volumes and 'container' in template:
-            template['container']['volumeMounts'] = \
-                [self.volume_template(volume) for volume in self.volumes]
+            template['container']['volumeMounts'] += [self.volume_template(volume) for volume in self.volumes]
         return template
 
     def volume_template(self, volume):
