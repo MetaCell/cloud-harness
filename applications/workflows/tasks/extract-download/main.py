@@ -3,7 +3,7 @@ import sys
 import logging
 import os, stat
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 assert len(sys.argv) > 2, 'Arguments not specified. Cannot download'
 
