@@ -12,7 +12,7 @@ data:
     discovery-url: https://{{ .root.Values.apps.accounts.subdomain }}.{{ .root.Values.domain }}/auth/realms/{{ .root.Values.namespace }}
     client-id: {{ .root.Values.apps.accounts.webclient.id | quote }}
     client-secret: {{ .root.Values.apps.accounts.webclient.secret }}
-    listen: 0.0.0.0:80
+    listen: 0.0.0.0:8080
     enable-refresh-tokens: true
     tls-cert:
     tls-private-key:
@@ -25,6 +25,9 @@ data:
     - uri: /*
       roles:
       - {{ .root.Values.apps.accounts.admin.role }}
+    {{ if .root.Values.local }}
+    skip-openid-provider-tls-verify: true
+    {{- end }}
   cacert.crt: {{ .files.Get "resources/certs/cacert.crt" | quote }}
 ---
 apiVersion: v1
@@ -36,7 +39,7 @@ metadata:
 spec:
   ports:
   - name: http
-    port: 80
+    port: 8080
   selector:
     app: "{{ .app.harness.service.name }}-gk"
   type: ClusterIP
@@ -60,14 +63,18 @@ spec:
 {{ include "deploy_utils.etcHosts" .root | indent 6 }}
       containers:
       - name: {{ .app.harness.service.name | quote }}
-        {{ if .root.Values.local }}
-        image: {{ include "deploy_utils.registry" .root }}{{ .root.Values.apps.accounts.gatekeeper.image}}:{{ .root.Values.tag }}
-        imagePullPolicy: {{ include "deploy_utils.pullpolicy" .root }}
-        {{ else }}
-        image: "keycloak/keycloak-gatekeeper:7.0.0"
+        image: "quay.io/louketo/louketo-proxy:1.0.0"
         imagePullPolicy: IfNotPresent
+        {{ if .root.Values.local }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 0
+        command: 
+        - "/bin/bash"
+        - "-c"
+        args:
+        - "sleep 10 && /bin/update-ca-trust force enable && /bin/update-ca-trust && /opt/louketo/louketo-proxy"
         {{- end }}
-
         env:
         - name: PROXY_CONFIG_FILE
           value: /opt/proxy.yml
@@ -76,11 +83,11 @@ spec:
           mountPath: /opt/proxy.yml
           subPath: proxy.yml
         - name: "{{ .app.harness.service.name }}-gk-proxy-config"
-          mountPath: /usr/local/share/ca-certificates/cacert.crt
+          mountPath: /etc/pki/ca-trust/source/anchors/cacert.crt
           subPath: cacert.crt
         ports:
         - name: http
-          containerPort: {{ .root.Values.apps.accounts.port | default 8080 }}
+          containerPort: 8080
         - name: https
           containerPort: 8443
         resources:
