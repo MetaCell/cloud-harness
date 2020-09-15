@@ -58,7 +58,7 @@ def get_image_full_tag(image_repository_name):
     tagged = f"{image_repository_name}:{get_image_tag(image_repository_name)}"
     registry = get_image_registry()
     if registry:
-        return registry + '/' + tagged
+        return registry.strip('/') + '/' + tagged
     return tagged
 
 
