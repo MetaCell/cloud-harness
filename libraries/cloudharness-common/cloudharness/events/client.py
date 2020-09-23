@@ -1,6 +1,7 @@
 import os
 import sys
 import threading
+import time
 import traceback
 
 from time import sleep
@@ -108,14 +109,20 @@ class EventClient:
     def _consume_task(self, app=None, group_id=None, handler=None):
         log.info(f'Kafka consumer thread started, listening for messages in queue: {self.topic_id}')
         while True:
-            consumer = self._get_consumer(group_id)
-            for message in consumer:
-                try:
-                    handler(app, message.value)
-                except Exception as e:
+            try:
+                consumer = self._get_consumer(group_id)
+                for message in consumer:
+                    try:
+                        handler(app, message.value)
+                    except Exception as e:
+                        log.error(f"Ups... there was an error during execution of the consumer Topc {self.topic_id} --> {e}")
+                        log.error(traceback.print_exc())
+                consumer.close()
+            except Exception as e:
                     log.error(f"Ups... there was an error during execution of the consumer Topc {self.topic_id} --> {e}")
                     log.error(traceback.print_exc())
-            consumer.close()
+                    time.sleep(10)
+
         log.info(f'Kafka consumer thread {self.topic_id} stopped')
 
     def async_consume(self, app=None, handler=None, group_id='default'):
