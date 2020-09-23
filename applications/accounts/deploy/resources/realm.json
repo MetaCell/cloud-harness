@@ -84,7 +84,7 @@
             {
                 "id": "111caf43-3d26-484d-8dc9-7fa911ac221c",
                 "clientId": {{ .Values.apps.accounts.webclient.id | quote }},
-                "baseUrl": {{ printf "https://%s.%s" .Values.apps.events.harness.subdomain .Values.domain | quote }},
+                "baseUrl": {{ printf "https://%s"  .Values.domain | quote }},
                 "surrogateAuthRequired": false,
                 "enabled": true,
                 "clientAuthenticatorType": "client-secret",
