@@ -108,7 +108,7 @@ class Builder:
 
     def build_image(self, image_name, dockerfile_rel_path, context_path=None):
 
-        registry = "" if not self.registry else self.registry + '/'
+        registry = "" if not self.registry else self.registry.strip('/') + '/'  # make sure the registry ends with only one single /
         # build image
         image_tag = f'{registry}{image_name}:{self.tag}' if self.tag else image_name
 
