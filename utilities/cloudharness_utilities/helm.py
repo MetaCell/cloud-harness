@@ -22,7 +22,7 @@ KEY_APPS = 'apps'
 
 
 def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True,
-                      output_path='./deployment', include=None, registry_secret=None):
+                      output_path='./deployment', include=None, registry_secret=None, tls=True):
     """
     Creates values file for the helm chart
     """
@@ -38,14 +38,16 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
     for root_path in root_paths:
         copy_merge_base_deployment(dest_helm_chart_path=dest_deployment_path,
                                    base_helm_chart=os.path.join(root_path, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
-        collect_apps_helm_templates(root_path, exclude=exclude, include=include, dest_helm_chart_path=dest_deployment_path)
+        collect_apps_helm_templates(root_path, exclude=exclude, include=include,
+                                    dest_helm_chart_path=dest_deployment_path)
         helm_values = dict_merge(helm_values,
-                                 collect_helm_values(root_path, tag=tag, registry=registry, exclude=exclude, include=include))
+                                 collect_helm_values(root_path, tag=tag, registry=registry, exclude=exclude,
+                                                     include=include))
 
-    create_tls_certificate(local, domain, secured, output_path, helm_values)
+    create_tls_certificate(local, domain, tls, output_path, helm_values)
 
     finish_helm_values(values=helm_values, tag=tag, registry=registry, local=local, domain=domain, secured=secured,
-                       registry_secret=registry_secret)
+                       registry_secret=registry_secret, tls=tls)
     # Save values file for manual helm chart
     merged_values = merge_to_yaml_file(helm_values, os.path.join(dest_deployment_path, VALUES_MANUAL_PATH))
     return merged_values
@@ -68,7 +70,7 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, exclude=(), i
 
     for app_path in get_sub_paths(app_base_path):
         app_name = image_name_from_docker_path(os.path.relpath(app_path, app_base_path))
-        if app_name in exclude or (include and not any (inc in app_name for inc in include)):
+        if app_name in exclude or (include and not any(inc in app_name for inc in include)):
             continue
         template_dir = os.path.join(app_path, 'deploy/templates')
         if os.path.exists(template_dir):
@@ -129,7 +131,7 @@ def collect_helm_values(deployment_root, exclude=(), include=None, tag='latest',
     return values
 
 
-def finish_helm_values(values, tag='latest', registry='', local=True, domain=None, secured=True, registry_secret=None):
+def finish_helm_values(values, tag='latest', registry='', local=True, domain=None, secured=True, registry_secret=None, tls=True):
     """
     Sets default overridden values
     """
@@ -143,6 +145,7 @@ def finish_helm_values(values, tag='latest', registry='', local=True, domain=Non
     values['registry']['secret'] = registry_secret
     values['tag'] = tag
     values['secured_gatekeepers'] = secured
+    values['ingress']['ssl_redirect'] = values['ingress']['ssl_redirect'] and tls
 
     if domain:
         values['domain'] = domain
@@ -278,12 +281,11 @@ def hosts_info(values):
     print(f"127.0.0.1\t{' '.join(s + '.cloudharness' for s in deployments)}")
 
 
-def create_tls_certificate(local, domain, secured, output_path, helm_values):
-    helm_values['tls'] = domain.replace(".", "-") + "-tls"
-
-    if not local or not secured:
+def create_tls_certificate(local, domain, tls, output_path, helm_values):
+    if not local or not tls:
+        helm_values['tls'] = None
         return
-
+    helm_values['tls'] = domain.replace(".", "-") + "-tls"
     HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
     ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
 
