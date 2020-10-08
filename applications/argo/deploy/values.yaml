@@ -8,5 +8,5 @@ harness:
     name: argo-ui
 
 serviceaccount: argo-workflows
-namespace: argoa
+namespace: argo.svc.cluster.local
 workflows_namespace: argo-workflows
