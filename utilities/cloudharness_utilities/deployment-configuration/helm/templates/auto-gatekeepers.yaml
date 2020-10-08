@@ -27,7 +27,7 @@ data:
     - uri: /*
       roles:
       - {{ .root.Values.apps.accounts.admin.role }}
-    {{ if or .root.Values.local (not .root.Values.tls) }}
+    {{ if or .root.Values.local (not $tls) }}
     skip-openid-provider-tls-verify: true
     {{- end }}
   cacert.crt: {{ .files.Get "resources/certs/cacert.crt" | quote }}
