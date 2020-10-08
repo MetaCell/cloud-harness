@@ -1,5 +1,7 @@
 {{/* Secured Services/Deployments */}}
+
 {{- define "deploy_utils.securedservice" }}
+{{- $tls := not (not .root.Values.tls) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,14 +11,14 @@ metadata:
 data:
   proxy.yml: |-
     verbose: true
-    discovery-url: https://{{ .root.Values.apps.accounts.subdomain }}.{{ .root.Values.domain }}/auth/realms/{{ .root.Values.namespace }}
+    discovery-url: {{ ternary "https" "http" $tls}}://{{ .root.Values.apps.accounts.subdomain }}.{{ .root.Values.domain }}/auth/realms/{{ .root.Values.namespace }}
     client-id: {{ .root.Values.apps.accounts.webclient.id | quote }}
     client-secret: {{ .root.Values.apps.accounts.webclient.secret }}
     listen: 0.0.0.0:8080
     enable-refresh-tokens: true
     tls-cert:
     tls-private-key:
-    redirection-url: https://{{ .app.harness.subdomain }}.{{ .root.Values.domain }}
+    redirection-url: {{ ternary "https" "http" $tls }}://{{ .app.harness.subdomain }}.{{ .root.Values.domain }}
     encryption-key: AgXa7xRcoClDEU0ZDSH4X0XhL5Qy2Z2j
     upstream-url: http://{{ .app.harness.service.name }}.{{ .app.namespace | default .root.Release.Namespace }}:{{ .app.harness.service.port | default 80}}
     scopes:
@@ -25,7 +27,7 @@ data:
     - uri: /*
       roles:
       - {{ .root.Values.apps.accounts.admin.role }}
-    {{ if .root.Values.local }}
+    {{ if or .root.Values.local (not .root.Values.tls) }}
     skip-openid-provider-tls-verify: true
     {{- end }}
   cacert.crt: {{ .files.Get "resources/certs/cacert.crt" | quote }}

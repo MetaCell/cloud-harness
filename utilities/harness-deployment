@@ -53,6 +53,9 @@ if __name__ == "__main__":
     parser.add_argument('-m', '--merge', dest='merge', action="store_true",
                         help='Merge folders if they are both in cloud-harness and the cloudharness project')
 
+    parser.add_argument('-dtls', '--disable-tls', dest='no_tls', action="store_true",
+                        help='Merge folders if they are both in cloud-harness and the cloudharness project')
+
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
     root_paths = [os.path.join(os.getcwd(), path) for path in args.paths]
@@ -79,6 +82,7 @@ if __name__ == "__main__":
             output_path=args.output_path,
             exclude=args.exclude,
             include=args.include,
-            registry_secret=args.registry_secret
+            registry_secret=args.registry_secret,
+            tls=not args.no_tls
         )
         hosts_info(values_manual_deploy)
