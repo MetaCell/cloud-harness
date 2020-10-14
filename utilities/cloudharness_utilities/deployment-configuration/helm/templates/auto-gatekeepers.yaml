@@ -14,6 +14,7 @@ data:
     discovery-url: {{ ternary "https" "http" $tls}}://{{ .root.Values.apps.accounts.subdomain }}.{{ .root.Values.domain }}/auth/realms/{{ .root.Values.namespace }}
     client-id: {{ .root.Values.apps.accounts.webclient.id | quote }}
     client-secret: {{ .root.Values.apps.accounts.webclient.secret }}
+    secure-cookie: {{ $tls }}
     listen: 0.0.0.0:8080
     enable-refresh-tokens: true
     tls-cert:
