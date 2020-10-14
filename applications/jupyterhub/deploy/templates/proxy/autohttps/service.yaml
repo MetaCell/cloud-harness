@@ -1,4 +1,4 @@
-{{- $HTTPS := (and .Values.apps.jupyterhub.proxy.https.hosts .Values.apps.jupyterhub.proxy.https.enabled) }}
+{{- $HTTPS := (and .Values.apps.jupyterhub.proxy.https.hosts (not (not .Values.tls))) }}
 {{- $autoHTTPS := (and $HTTPS (eq .Values.apps.jupyterhub.proxy.https.type "letsencrypt")) }}
 {{- if $autoHTTPS -}}
 apiVersion: v1

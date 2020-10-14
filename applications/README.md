@@ -34,7 +34,7 @@ Dockerfile
 
 ## Define an application without openapi
 1. Add the application inside `applications/[APPLICATION_NAME]` with a Docker file in it. The Docker file must inherit
-from `r.cfcr.io/tarelli/cloudharness-base` in order to get access to cloudharness libraries.
+from `cloudharness-base` in order to get access to cloudharness libraries.
 1. Define values.yaml inside the file in order to specify custom values for the application
 
 
