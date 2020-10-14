@@ -1,5 +1,5 @@
-{{- $manualHTTPS := and .Values.apps.jupyterhub.proxy.https.enabled (eq .Values.apps.jupyterhub.proxy.https.type "manual") -}}
-{{- $manualHTTPSwithsecret := and .Values.apps.jupyterhub.proxy.https.enabled (eq .Values.apps.jupyterhub.proxy.https.type "secret") -}}
+{{- $manualHTTPS := and (not (not .Values.tls)) (eq .Values.apps.jupyterhub.proxy.https.type "manual") -}}
+{{- $manualHTTPSwithsecret := and (not (not .Values.tls)) (eq .Values.apps.jupyterhub.proxy.https.type "secret") -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
