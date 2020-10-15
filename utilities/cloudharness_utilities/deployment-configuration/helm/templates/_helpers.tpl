@@ -48,6 +48,7 @@ Add environmental variables to all containers
 - name: {{ $pair.name | quote }}
   value: {{ $pair.value | quote }}
 {{- end }}
+{{- if .Values.apps.accounts }}
 - name: CH_ACCOUNTS_CLIENT_SECRET
   value: {{ .Values.apps.accounts.client.secret | quote }}
 - name: CH_ACCOUNTS_REALM
@@ -58,6 +59,7 @@ Add environmental variables to all containers
   value: {{ .Values.apps.accounts.client.id | quote }}
 - name: DOMAIN
   value: {{ .Values.domain | quote }}
+{{- end -}}
 {{- end -}}
 {{/*
 Add private environmental variables to all containers
