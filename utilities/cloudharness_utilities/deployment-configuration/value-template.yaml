@@ -3,6 +3,10 @@ harness:
   subdomain:
   domain:
   secured: false
+  uri_role_mapping:
+    - uri: /*
+      roles:
+      - administrator
   deployment:
     auto: false
     replicas: 1
