@@ -282,8 +282,10 @@ def hosts_info(values):
 
 
 def create_tls_certificate(local, domain, tls, output_path, helm_values):
-    if local or not tls:
+    if not tls:
         helm_values['tls'] = None
+        return
+    if not local:
         return
     helm_values['tls'] = domain.replace(".", "-") + "-tls"
     HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
