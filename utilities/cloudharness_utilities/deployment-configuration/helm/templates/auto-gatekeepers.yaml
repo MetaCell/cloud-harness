@@ -24,10 +24,12 @@ data:
     upstream-url: http://{{ .app.harness.service.name }}.{{ .app.namespace | default .root.Release.Namespace }}:{{ .app.harness.service.port | default 80}}
     scopes:
     - vpn-user
+    {{ if .app.harness.secured }}
+      {{ with .app.harness.uri_role_mapping }}
     resources:
-    - uri: /*
-      roles:
-      - {{ .root.Values.apps.accounts.admin.role }}
+    {{. | toYaml | nindent 4 }}
+      {{- end }}
+    {{- end }}
     {{ if or .root.Values.local (not $tls) }}
     skip-openid-provider-tls-verify: true
     {{- end }}
