@@ -2,7 +2,7 @@
 apiVersion: cert-manager.io/v1alpha2
 kind: ClusterIssuer
 metadata:
-  name: {{ printf "%s-%s" "letsencrypt-" .Values.namespace }}
+  name: {{ printf "%s-%s" "letsencrypt" .Values.namespace }}
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
