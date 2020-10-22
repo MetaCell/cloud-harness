@@ -14,6 +14,7 @@ metadata:
     {{- end }}
     nginx.ingress.kubernetes.io/ssl-redirect: {{ (and $tls .Values.ingress.ssl_redirect) | quote }}
     nginx.ingress.kubernetes.io/proxy-body-size: '10m'
+    nginx.ingress.kubernetes.io/from-to-www-redirect: 'true'
 spec:
   rules:
   {{- range $app := .Values.apps }}
