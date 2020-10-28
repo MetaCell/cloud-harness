@@ -2,6 +2,7 @@ import urllib.request
 import sys
 import logging
 import os, stat
+from pathlib import Path
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
@@ -10,7 +11,16 @@ assert len(sys.argv) > 2, 'Arguments not specified. Cannot download'
 url = sys.argv[1]
 download_path = sys.argv[2].split(':')[-1]
 
+if len(sys.argv) == 4:
+    folder = sys.argv[3]
+else:
+    folder = "."
+
+download_path = os.path.join(download_path, folder)
+Path(download_path).mkdir(parents=True, exist_ok=True)
+
 dest = os.path.join(download_path, url.split('/')[-1])
+
 logging.info("Downloading {} to {}".format(url, dest))
 
 urllib.request.urlretrieve(url, dest)
