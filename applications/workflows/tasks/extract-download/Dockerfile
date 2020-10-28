@@ -7,4 +7,4 @@ ADD . /
 ENV url 'https://www.google.com'
 ENV shared_directory /
 
-CMD python main.py $url $shared_directory
+CMD env && python main.py $url $shared_directory $folder
