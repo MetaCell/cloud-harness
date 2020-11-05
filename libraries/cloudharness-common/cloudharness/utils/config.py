@@ -1,4 +1,5 @@
 import yaml
+import os
 
 ALLVALUES_PATH = '/opt/cloudharness/resources/allvalues.yaml'
 
@@ -28,10 +29,11 @@ class CloudharnessConfig:
     via the harness-deployment script
     
     """
+    allvalues=None
 
     @classmethod
     def _get_all_values(cls):
-        if not hasattr(cls, 'allvalues'):
+        if not cls.allvalues and os.path.exists(ALLVALUES_PATH):
             with open(ALLVALUES_PATH) as f:
                 cls.allvalues = yaml.safe_load(f)
         return cls.allvalues
