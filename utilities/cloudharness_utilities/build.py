@@ -75,7 +75,7 @@ class Builder:
             dockerfile_rel_path = "" if not context_path else os.path.relpath(dockerfile_path, start=context_path)
             # extract image name
             image_name = app_name_from_path(os.path.relpath(dockerfile_path, start=abs_base_path))
-            if self.should_build_image(dockerfile_rel_path):
+            if self.should_build_image(os.path.relpath(dockerfile_path, start=abs_base_path)):
                 self.build_image(image_name, dockerfile_rel_path,
                                  context_path=context_path if context_path else dockerfile_path)
 
