@@ -50,11 +50,11 @@ if __name__ == "__main__":
     parser.add_argument('-e', '--exclude', dest='exclude', action="append", default=(),
                         help='Specify application to exclude from the deployment')
 
-    parser.add_argument('-m', '--merge', dest='merge', action="store_true",
-                        help='Merge folders if they are both in cloud-harness and the cloudharness project')
+    parser.add_argument('-m', '--merge', dest='merge', action="store", default=None,
+                        help='Merge application folders and build in the given directory')
 
     parser.add_argument('-dtls', '--disable-tls', dest='no_tls', action="store_true",
-                        help='Merge folders if they are both in cloud-harness and the cloudharness project')
+                        help='Disable tls (serve on http)')
 
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
@@ -68,7 +68,8 @@ if __name__ == "__main__":
                     exclude=args.exclude, namespace=args.namespace, domain=args.domain)
         
         if args.merge:
-            merge_app_directories(builder.root_paths, builder.should_build_image)
+            merge_app_directories(builder.root_paths, destination=args.merge)
+            builder.root_paths = [args.merge]
         if args.build or args.build_interactive:
             builder.run()
 

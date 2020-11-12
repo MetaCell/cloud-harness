@@ -6,7 +6,7 @@ from .constants import HERE, BUILD_STEP_BASE, BUILD_STEP_STATIC, BUILD_STEP_PARA
     CODEFRESH_REGISTRY, K8S_IMAGE_EXCLUDE, CODEFRESH_PATH, CODEFRESH_BUILD_PATH, \
     CODEFRESH_TEMPLATE_PATH, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH, DEPLOYMENT_PATH
 from .helm import collect_helm_values
-from .utils import find_dockerfiles_paths, image_name_from_docker_path, \
+from .utils import find_dockerfiles_paths, app_name_from_path, \
     get_image_name, get_template, merge_to_yaml_file
 
 logging.getLogger().setLevel(logging.INFO)
@@ -14,7 +14,7 @@ logging.getLogger().setLevel(logging.INFO)
 CLOUD_HARNESS_PATH = "cloud-harness"
 
 
-def create_codefresh_deployment_scripts(deployment_root_path, tag="${{CF_REVISION}}", codefresh_path=CODEFRESH_PATH):
+def create_codefresh_deployment_scripts(deployment_root_path, codefresh_path=CODEFRESH_PATH):
     """
     Entry point to create deployment scripts for codefresh: codefresh.yaml and helm chart
     """
@@ -30,7 +30,7 @@ def create_codefresh_deployment_scripts(deployment_root_path, tag="${{CF_REVISIO
         for dockerfile_path in find_dockerfiles_paths(abs_base_path):
             app_relative_to_root = os.path.relpath(dockerfile_path, deployment_root_path)
             app_relative_to_base = os.path.relpath(dockerfile_path, abs_base_path)
-            app_name = image_name_from_docker_path(app_relative_to_base)
+            app_name = app_name_from_path(app_relative_to_base)
             if app_name in K8S_IMAGE_EXCLUDE:
                 continue
             build = codefresh_app_build_spec(app_name=app_name, app_path=os.path.relpath(root_context,

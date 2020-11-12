@@ -4,7 +4,7 @@ import tempfile
 
 from docker import from_env as DockerClient
 
-from .utils import collect_under_paths, find_dockerfiles_paths, image_name_from_docker_path, merge_configuration_directories
+from .utils import find_dockerfiles_paths, app_name_from_path, merge_configuration_directories
 from .constants import NODE_BUILD_IMAGE, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH
 
 class Builder:
@@ -59,8 +59,8 @@ class Builder:
 
     def run(self):
         self.set_docker_client()
-        for dpaths in collect_under_paths(self.root_paths, self.should_build_image):
-            self.merge_and_build_under_path(dpaths)
+        for dpath in self.root_paths:
+            self.merge_and_build_under_path(dpath)
 
     def find_and_build_under_path(self, base_path, context_path=None, root_path=None):
         abs_base_path = os.path.join(root_path, base_path)
@@ -70,9 +70,10 @@ class Builder:
         for dockerfile_path in docker_files:
             dockerfile_rel_path = "" if not context_path else os.path.relpath(dockerfile_path, start=context_path)
             # extract image name
-            image_name = image_name_from_docker_path(os.path.relpath(dockerfile_path, start=abs_base_path))
-            self.build_image(image_name, dockerfile_rel_path,
-                             context_path=context_path if context_path else dockerfile_path)
+            image_name = app_name_from_path(os.path.relpath(dockerfile_path, start=abs_base_path))
+            if self.should_build_image(dockerfile_rel_path):
+                self.build_image(image_name, dockerfile_rel_path,
+                                 context_path=context_path if context_path else dockerfile_path)
 
     def merge_and_build_under_path(self, dpaths):
         """ Merge directories and builds image 

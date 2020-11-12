@@ -12,7 +12,7 @@ from docker import from_env as DockerClient
 from pathlib import Path
 from .constants import VALUES_MANUAL_PATH, VALUE_TEMPLATE_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, HERE, \
     DEPLOYMENT_CONFIGURATION_PATH
-from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, image_name_from_docker_path, \
+from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, app_name_from_path, \
     get_template, merge_configuration_directories, merge_to_yaml_file, dict_merge
 
 KEY_HARNESS = 'harness'
@@ -69,16 +69,16 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, exclude=(), i
     app_base_path = os.path.join(search_root, APPS_PATH)
 
     for app_path in get_sub_paths(app_base_path):
-        app_name = image_name_from_docker_path(os.path.relpath(app_path, app_base_path))
+        app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
         if app_name in exclude or (include and not any(inc in app_name for inc in include)):
             continue
         template_dir = os.path.join(app_path, 'deploy/templates')
         if os.path.exists(template_dir):
             dest_dir = os.path.join(dest_helm_chart_path, 'templates', app_name)
 
-            logging.info(f"Collecting templates for application {app_name} to {dest_dir}")
+            logging.info("Collecting templates for application %s to %s", app_name, dest_dir)
             if os.path.exists(dest_dir):
-                logging.warning("Merging/overriding all files in directory " + dest_dir)
+                logging.warning("Merging/overriding all files in directory %s", dest_dir)
                 merge_configuration_directories(template_dir, dest_dir)
             else:
                 shutil.copytree(template_dir, dest_dir)
@@ -86,7 +86,7 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, exclude=(), i
         if os.path.exists(resources_dir):
             dest_dir = os.path.join(dest_helm_chart_path, 'resources', app_name)
 
-            logging.info(f"Collecting resources for application {app_name} to {dest_dir}")
+            logging.info("Collecting resources for application  %s to %s", app_name, dest_dir)
             if os.path.exists(dest_dir):
                 shutil.rmtree(dest_dir)
             shutil.copytree(resources_dir, dest_dir)
@@ -96,10 +96,10 @@ def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart):
     if not os.path.exists(base_helm_chart):
         return
     if os.path.exists(dest_helm_chart_path):
-        logging.info("Merging/overriding all files in directory {}".format(dest_helm_chart_path))
+        logging.info("Merging/overriding all files in directory %s", dest_helm_chart_path)
         merge_configuration_directories(base_helm_chart, dest_helm_chart_path)
     else:
-        logging.info("Copying base deployment chart from {} to {}".format(base_helm_chart, dest_helm_chart_path))
+        logging.info("Copying base deployment chart from %s to %s", base_helm_chart, dest_helm_chart_path)
         shutil.copytree(base_helm_chart, dest_helm_chart_path)
 
 
@@ -119,7 +119,7 @@ def collect_helm_values(deployment_root, exclude=(), include=None, tag='latest',
 
     app_base_path = os.path.join(deployment_root, APPS_PATH)
     for app_path in get_sub_paths(app_base_path):
-        app_name = image_name_from_docker_path(os.path.relpath(app_path, app_base_path))
+        app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
 
         if app_name in exclude or (include and not any(inc in app_name for inc in include)):
             continue
