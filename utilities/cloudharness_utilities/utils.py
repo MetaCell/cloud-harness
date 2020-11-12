@@ -160,7 +160,10 @@ def merge_app_directories(root_paths, destination) -> None:
     Directories are merged in the destination from the root_paths list. The latter overrides the former.
     Yaml files are merged, other files are overwritten.
     """
-    shutil.rmtree(destination)
+    if not os.path.exists(destination):
+        os.makedirs(destination)
+    else:
+        shutil.rmtree(destination)
 
     for rpath in root_paths:
         merge_configuration_directories(os.path.join(rpath, BASE_IMAGES_PATH),
