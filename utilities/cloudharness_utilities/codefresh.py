@@ -36,23 +36,23 @@ def create_codefresh_deployment_scripts(root_paths, codefresh_path=CODEFRESH_PAT
             del tpl['steps'][BUILD_STEP_PARALLEL]
             codefresh = dict_merge(codefresh, tpl)
 
-        def codefresh_build_step_from_base_path(base_path, build_step, root_context=None):
+        def codefresh_build_step_from_base_path(base_path, build_step, fixed_context=None):
             abs_base_path = os.path.join(os.getcwd(), base_path)
             for dockerfile_path in find_dockerfiles_paths(abs_base_path):
-                app_relative_to_root = os.path.relpath(dockerfile_path, root_path)
+                app_relative_to_root = os.path.relpath(dockerfile_path, '.')
                 app_relative_to_base = os.path.relpath(dockerfile_path, abs_base_path)
                 app_name = app_name_from_path(app_relative_to_base)
                 if include and not any(inc in dockerfile_path for inc in include):
                     continue
-                build = codefresh_app_build_spec(app_name=app_name, app_path=os.path.relpath(root_context,
-                                                                                             root_path) if root_context else app_relative_to_root,
+                build = codefresh_app_build_spec(app_name=app_name, app_context_path=os.path.relpath(fixed_context,
+                                                                                                     '.') if fixed_context else app_relative_to_root,
                                                  dockerfile_path=os.path.join(
-                                                     os.path.relpath(dockerfile_path, root_context) if root_context else '',
+                                                     os.path.relpath(dockerfile_path, root_path) if fixed_context else '',
                                                      "Dockerfile"))
                 codefresh['steps'][build_step]['steps'][app_name] = build
 
         codefresh_build_step_from_base_path(os.path.join(root_path, BASE_IMAGES_PATH), BUILD_STEP_BASE,
-                                            root_context=root_path)
+                                            fixed_context=root_path)
         codefresh_build_step_from_base_path(os.path.join(root_path, STATIC_IMAGES_PATH), BUILD_STEP_STATIC)
         codefresh_build_step_from_base_path(os.path.join(root_path, APPS_PATH), BUILD_STEP_PARALLEL)
 
@@ -81,13 +81,13 @@ def codefresh_build_spec(**kwargs):
     return build
 
 
-def codefresh_app_build_spec(app_name, app_path, dockerfile_path="Dockerfile"):
+def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Dockerfile"):
     logging.info('Generating build script for ' + app_name)
     title = app_name.capitalize().replace('-', ' ').replace('/', ' ').replace('.', ' ').strip()
-    build = codefresh_build_spec(image_name=get_image_name(app_name), title=title, working_directory='./' + app_path,
+    build = codefresh_build_spec(image_name=get_image_name(app_name), title=title, working_directory='./' + app_context_path,
                                  dockerfile=dockerfile_path)
 
-    specific_build_template_path = os.path.join(app_path, 'build.yaml')
+    specific_build_template_path = os.path.join(app_context_path, 'build.yaml')
     if os.path.exists(specific_build_template_path):
         logging.info("Specific build template found: %s" %(specific_build_template_path))
         with open(specific_build_template_path) as f:

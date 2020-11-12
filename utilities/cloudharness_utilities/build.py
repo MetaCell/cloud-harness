@@ -63,7 +63,7 @@ class Builder:
         for rpath in self.root_paths:
             logging.info('Building from root directory %s', rpath)
             self.find_and_build_under_path(BASE_IMAGES_PATH, rpath, rpath)
-            self.find_and_build_under_path(STATIC_IMAGES_PATH, rpath, rpath)
+            self.find_and_build_under_path(STATIC_IMAGES_PATH, None, rpath)
             self.find_and_build_under_path(APPS_PATH, None, rpath)
 
     def find_and_build_under_path(self, base_path, context_path=None, root_path=None):
