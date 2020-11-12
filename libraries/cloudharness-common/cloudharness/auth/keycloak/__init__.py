@@ -23,6 +23,7 @@ try:
 except:
     AUTH_REALM = 'mnp'
     AUTH_DOMAIN = 'localhost'
+    HOST = 'localhost'
     PORT = '8080'
     USER = 'mnp'
     PASSWD = 'metacell'
