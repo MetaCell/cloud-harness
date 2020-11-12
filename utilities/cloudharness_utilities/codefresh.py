@@ -47,8 +47,8 @@ def create_codefresh_deployment_scripts(root_paths, codefresh_path=CODEFRESH_PAT
                     continue
                 build = codefresh_app_build_spec(
                     app_name=app_name,
-                    app_context_path=os.path.relpath(fixed_context, root_path) if fixed_context else app_relative_to_root,
-                    dockerfile_path=os.path.join(os.path.relpath(dockerfile_path, '.') if fixed_context else '',
+                    app_context_path=os.path.relpath(fixed_context, '.') if fixed_context else app_relative_to_root,
+                    dockerfile_path=os.path.join(os.path.relpath(dockerfile_path, fixed_context) if fixed_context else '',
                                                  "Dockerfile"))
                 codefresh['steps'][build_step]['steps'][app_name] = build
 
