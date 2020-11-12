@@ -5,11 +5,13 @@ import json
 import requests
 from urllib.parse import urljoin
 from typing import List
-from flask import current_app
+from flask import current_app, request
+from keycloak import KeycloakAdmin
+
+from typing import List
+from urllib.parse import urljoin
 
 from cloudharness.utils import env
-
-from keycloak import KeycloakAdmin
 
 try:
     from cloudharness.utils.config import CloudharnessConfig as conf
@@ -30,35 +32,6 @@ except:
 
 SERVER_URL = f'http://{HOST}:{PORT}/auth/'
 
-def decode_token(token):
-    """
-    Check and retrieve authentication information from custom bearer token.
-    Returned value will be passed in 'token_info' parameter of your operation function, if there is one.
-    'sub' or 'uid' will be set in 'user' parameter of your operation function, if there is one.
-
-    :param token Token provided by Authorization header
-    :type token: str
-    :return: Decoded token information or None if token is invalid
-    :rtype: dict | None
-    """
-    SCHEMA = 'https://'
-    BASE_PATH = f"//{os.path.join(AUTH_DOMAIN, 'auth/realms', AUTH_REALM)}"
-    AUTH_PUBLIC_KEY_URL = urljoin(SCHEMA, BASE_PATH)
-
-    KEY = json.loads(requests.get(AUTH_PUBLIC_KEY_URL, verify=False).text)['public_key']
-
-    KEY = f"-----BEGIN PUBLIC KEY-----\n{KEY}\n-----END PUBLIC KEY-----"
-
-    try:
-        decoded = jwt.decode(token, KEY, audience='accounts', algorithms='RS256')
-    except:
-        current_app.logger.debug(f"Error validating user: {sys.exc_info()}")
-        return None
-
-    valid = 'offline_access' in decoded['realm_access']['roles']
-    current_app.logger.debug(valid)
-    return {'uid': 'user_id'}
-
 def _get_keycloak_admin_client():
     """ Setup and return a keycloak admin client
     
@@ -75,6 +48,61 @@ def _get_keycloak_admin_client():
                          realm_name=AUTH_REALM,
                          user_realm_name='master',
                          verify=True)
+
+def _decode_token(token):
+    """
+    Check and retrieve authentication information from custom bearer token.
+    Returned value will be passed in 'token_info' parameter of your operation function, if there is one.
+    'sub' or 'uid' will be set in 'user' parameter of your operation function, if there is one.
+
+    :param token Token provided by Authorization header
+    :type token: str
+    :return: Decoded token information or None if token is invalid
+    :rtype: dict | None
+    """
+    SCHEMA = 'http://'
+    AUTH_SERVICE_HOST = env.get_variable('ACCOUNTS_SERVICE_HOST')
+    AUTH_SERVICE_PORT = env.get_variable('ACCOUNTS_SERVICE_PORT')
+    AUTH_DOMAIN = f'{AUTH_SERVICE_HOST}:{AUTH_SERVICE_PORT}'
+    AUTH_REALM = env.get_variable('CH_ACCOUNTS_REALM')
+    BASE_PATH = f'{AUTH_DOMAIN}/auth/realms/{AUTH_REALM}'
+    AUTH_PUBLIC_KEY_URL = f'{SCHEMA}{BASE_PATH}'
+    current_app.logger.debug(f'auth pub key url: {AUTH_PUBLIC_KEY_URL}')
+
+    KEY = json.loads(requests.get(AUTH_PUBLIC_KEY_URL, verify=False).text)['public_key']
+    KEY = b"-----BEGIN PUBLIC KEY-----\n" + str.encode(KEY) + b"\n-----END PUBLIC KEY-----"
+
+    decoded = jwt.decode(token, KEY, algorithms='RS256', audience='account')
+    return decoded
+
+def decode_token(token):
+    """
+    Check and retrieve authentication information from custom bearer token.
+    Returned value will be passed in 'token_info' parameter of your operation function, if there is one.
+    'sub' or 'uid' will be set in 'user' parameter of your operation function, if there is one.
+
+    :param token Token provided by Authorization header
+    :type token: str
+    :return: Decoded token information or None if token is invalid
+    :rtype: dict | None
+    """
+
+    decoded = _decode_token(token)
+    valid = 'offline_access' in decoded['realm_access']['roles']
+    current_app.logger.debug(valid)
+    return {'uid': 'user_id'}
+
+def _get_keycloak_user_id():
+    bearer = request.headers.get('Authorization', None)
+    current_app.logger.debug(f'Bearer: {bearer}')
+    if not bearer or bearer == 'Bearer undefined':
+        decoded_token = None
+        keycloak_user_id = -1  # No authorization --> no user
+    else:
+        token = bearer.split(' ')[1]
+        decoded_token = _decode_token(token)
+        keycloak_user_id = decoded_token['sub']
+    return keycloak_user_id
 
 def get_groups():
     """
@@ -128,3 +156,17 @@ def get_user(user_id):
     user = keycloak_admin.get_user(user_id)
     user.update({'userGroups': keycloak_admin.get_user_groups(user_id)})
     return user
+
+def get_current_user():
+    """
+    Get the current user including the user groups
+
+    UserRepresentation
+    https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_userrepresentation
+
+    GroupRepresentation
+    https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_grouprepresentation
+
+    :return: UserRepresentation + GroupRepresentation
+    """
+    return get_user(_get_keycloak_user_id())
