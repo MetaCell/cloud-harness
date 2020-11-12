@@ -78,7 +78,7 @@ def merge_configuration_directories(source, dest):
             continue
 
         if not os.path.exists(fdest):
-            shutil.copy(fname, fdest)
+            shutil.copy2(fname, fdest)
         elif file_is_yaml(fname):
 
             try:
@@ -86,10 +86,10 @@ def merge_configuration_directories(source, dest):
                 logging.info(f"Merged/overridden file content of {fdest} with {fname}")
             except yaml.YAMLError as e:
                 logging.warning(f"Overwriting file {fdest} with {fname}")
-                shutil.copy(fname, fdest)
+                shutil.copy2(fname, fdest)
         else:
             logging.warning(f"Overwriting file {fdest} with {fname}")
-            shutil.copy(fname, fdest)
+            shutil.copy2(fname, fdest)
 
 
 def merge_yaml_files(fname, fdest):
