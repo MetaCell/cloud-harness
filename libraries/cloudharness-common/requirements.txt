@@ -18,3 +18,4 @@ pyaml
 kafka-python
 kubernetes
 sentry-sdk[flask]==0.14.4
+python-keycloak==0.22.0
