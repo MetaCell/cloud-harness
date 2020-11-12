@@ -59,8 +59,12 @@ class Builder:
 
     def run(self):
         self.set_docker_client()
-        for dpath in self.root_paths:
-            self.merge_and_build_under_path(dpath)
+        logging.info('Start building docker images')
+        for rpath in self.root_paths:
+            logging.info('Building from root directory %s', rpath)
+            self.find_and_build_under_path(BASE_IMAGES_PATH, rpath, rpath)
+            self.find_and_build_under_path(STATIC_IMAGES_PATH, rpath, rpath)
+            self.find_and_build_under_path(APPS_PATH, None, rpath)
 
     def find_and_build_under_path(self, base_path, context_path=None, root_path=None):
         abs_base_path = os.path.join(root_path, base_path)
@@ -75,26 +79,6 @@ class Builder:
                 self.build_image(image_name, dockerfile_rel_path,
                                  context_path=context_path if context_path else dockerfile_path)
 
-    def merge_and_build_under_path(self, dpaths):
-        """ Merge directories and builds image 
-        
-        If the same folder is found both in cloud-harness and
-        a cloud-harness based project, then the directories are 
-        merged together in a temporary directory and the image 
-        is built on the resulting merge.
-        """
-        # no folder merge operation required
-        if len(dpaths) == 1:
-            self.build_under_path(dpaths[0])
-        else:
-            self.log_merging_operation(dpaths)
-            
-            # merge using temporary directory
-            with tempfile.TemporaryDirectory() as tmpdirname:
-                for dpath in dpaths:
-                    merge_configuration_directories(dpath['abs_path'], tmpdirname)
-                dpaths[0]['abs_path'] = tmpdirname
-                self.build_under_path(dpaths[0])
 
     def build_under_path(self, dpath):
         """ Uses docker sdk to build a docker images from path information """

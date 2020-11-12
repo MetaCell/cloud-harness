@@ -169,3 +169,7 @@ def merge_app_directories(root_paths, destination) -> None:
                                         os.path.join(destination, STATIC_IMAGES_PATH))
         merge_configuration_directories(os.path.join(rpath, APPS_PATH),
                                         os.path.join(destination, APPS_PATH))
+        merge_configuration_directories(os.path.join(rpath, 'libraries'),
+                                        os.path.join(destination, 'libraries'))
+        merge_configuration_directories(os.path.join(rpath, 'client'),
+                                        os.path.join(destination, 'client'))

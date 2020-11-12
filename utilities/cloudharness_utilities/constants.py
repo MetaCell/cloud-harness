@@ -27,7 +27,6 @@ VALUE_TEMPLATE_PATH = f'{DEPLOYMENT_CONFIGURATION_PATH}/value-template.yaml'
 
 CH_BASE_IMAGES = {'cloudharness-base': 'python:3.7-alpine', 'cloudharness-base-debian': 'python:3'}
 
-K8S_IMAGE_EXCLUDE = ('accounts-keycloak-gatekeeper',)
 
 BUILD_STEP_BASE = 'build_base_images'
 BUILD_STEP_STATIC = 'build_static_images'

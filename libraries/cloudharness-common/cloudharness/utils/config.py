@@ -1,4 +1,5 @@
 import yaml
+import os
 
 ALLVALUES_PATH = '/opt/cloudharness/resources/allvalues.yaml'
 
@@ -28,10 +29,11 @@ class CloudharnessConfig:
     via the harness-deployment script
     
     """
+    allvalues=None
 
     @classmethod
     def _get_all_values(cls):
-        if not hasattr(cls, 'allvalues'):
+        if not cls.allvalues and os.path.exists(ALLVALUES_PATH):
             with open(ALLVALUES_PATH) as f:
                 cls.allvalues = yaml.safe_load(f)
         return cls.allvalues
@@ -65,11 +67,15 @@ class CloudharnessConfig:
         for app_key in cls.get_applications():
             app = getattr(all_apps, app_key)
             tmp_obj = app
-            for key in (key for key in filter_keys if hasattr(tmp_obj, key)):
-                tmp_obj = getattr(tmp_obj, key)
-                if tmp_obj == filter_value:
+            try:
+                for key in filter_keys:
+                    tmp_obj = getattr(tmp_obj, key)
+                if (tmp_obj == filter_value) or \
+                    (filter_value == False and tmp_obj is None) or \
+                    (filter_value == True and tmp_obj is not None):
                     apps.append(app)
-                    break
+            except AttributeError:
+                pass
         return apps
 
     @classmethod
