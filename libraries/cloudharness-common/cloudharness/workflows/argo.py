@@ -19,7 +19,7 @@ plural = 'workflows'
 # determine the namespace of the current app and run the workflow in that namespace
 from cloudharness.utils.config import CloudharnessConfig as conf
 ch_conf = conf.get_configuration()
-namespace = ch_conf.get('namespace','argo-workflows')
+namespace = ch_conf and ch_conf.get('namespace','argo-workflows')
 
 CUSTOM_OBJECT_URL = f"/apis/{group}/{version}/{plural}"
 
@@ -152,7 +152,7 @@ try:
     check_namespace()
 except Exception as e:
     log.error('Namespace for argo workflows not found', exc_info=e)
-    log.info("Creating namespace " + namespace)
+    log.info("Creating namespace %s", namespace)
     try:
         create_namespace()
     except Exception as e:

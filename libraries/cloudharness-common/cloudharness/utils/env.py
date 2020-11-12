@@ -22,7 +22,8 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 
 def set_default_environment():
     values = conf.get_configuration()
-    os.environ.update({v['name']: str(v["value"]) for v in values['env'] if v['name'] not in os.environ})
+    if values:
+         os.environ.update({v['name']: str(v["value"]) for v in values['env'] if v['name'] not in os.environ})
 
 
 set_default_environment()
@@ -30,7 +31,7 @@ set_default_environment()
 def get_namespace():
     try:
         namespace=conf.get_configuration()['namespace']
-    except IndexError:
+    except:
         namespace=''
     return namespace
 
