@@ -33,3 +33,5 @@ BUILD_STEP_STATIC = 'build_static_images'
 BUILD_STEP_PARALLEL = 'build_application_images'
 BUILD_STEP_INSTALL = 'deployment'
 
+BUILD_FILENAMES = ('node_modules',)
+
