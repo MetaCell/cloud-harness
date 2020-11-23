@@ -11,16 +11,14 @@ VERSION = "0.1.0"
 # prerequisite: setuptools
 # http://pypi.python.org/pypi/setuptools
 
-REQUIREMENTS = [
-    'kubernetes',
-    'kafka-python',
-    'pyaml',
-    'jwt',
-    'requests>=2.21.0',
-    'sentry-sdk[flask]>=0.14.4'
-]
+def _get_requirements(requirement_file):
+    with open(requirement_file) as f:
+        reqs = []
+        for l in f.read().splitlines():
+            reqs.append(l)
+        return reqs
 
-
+REQUIREMENTS = _get_requirements("requirements.txt")
 
 setup(
     name=NAME,
