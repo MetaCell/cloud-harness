@@ -23,11 +23,11 @@ try:
     USER = getattr(accounts_app.admin,'user')
     PASSWD = getattr(accounts_app.admin,'pass')
 except:
-    AUTH_REALM = 'ifn'
+    AUTH_REALM = 'mnp'
     SCHEMA = 'https'
-    HOST = 'accounts.ifn.mnp.metacell.us'
+    HOST = 'accounts.mnp.metacell.us'
     PORT = '443'
-    USER = 'admin'
+    USER = 'mnp'
     PASSWD = 'metacell'
 
 SERVER_URL = f'{SCHEMA}://{HOST}:{PORT}/auth/'
