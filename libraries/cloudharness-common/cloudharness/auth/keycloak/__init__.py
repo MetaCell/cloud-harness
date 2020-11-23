@@ -53,7 +53,27 @@ def decode_token(token):
 class AuthClient():
 
     @staticmethod
-    def _get_keycloak_admin_client():
+    def _get_keycloak_user_id():
+        bearer = request.headers.get('Authorization', None)
+        current_app.logger.debug(f'Bearer: {bearer}')
+        if not bearer or bearer == 'Bearer undefined':
+            decoded_token = None
+            keycloak_user_id = -1  # No authorization --> no user
+        else:
+            token = bearer.split(' ')[1]
+            decoded_token = AuthClient.decode_token(token)
+            keycloak_user_id = decoded_token['sub']
+        return keycloak_user_id
+
+    def __init__(self):
+        """
+        Init the class and checks the connectivity to the KeyCloak server
+        """
+        # test if we can connect to the Keycloak server
+        dummy_client = AuthClient.get_keycloak_admin_client()          
+
+    @staticmethod
+    def get_keycloak_admin_client():
         """
         Setup and return a keycloak admin client
         
@@ -70,19 +90,6 @@ class AuthClient():
                             realm_name=AUTH_REALM,
                             user_realm_name='master',
                             verify=True)
-
-    @staticmethod
-    def _get_keycloak_user_id():
-        bearer = request.headers.get('Authorization', None)
-        current_app.logger.debug(f'Bearer: {bearer}')
-        if not bearer or bearer == 'Bearer undefined':
-            decoded_token = None
-            keycloak_user_id = -1  # No authorization --> no user
-        else:
-            token = bearer.split(' ')[1]
-            decoded_token = AuthClient.decode_token(token)
-            keycloak_user_id = decoded_token['sub']
-        return keycloak_user_id
 
     @staticmethod
     def decode_token(token):
@@ -105,15 +112,17 @@ class AuthClient():
         decoded = jwt.decode(token, KEY, algorithms='RS256', audience='account')
         return decoded
 
-    def __init__(self):
-        """
-        Init the class and checks the connectivity to the KeyCloak server
-        """
-        # test if we can connect to the Keycloak server
-        dummy_client = AuthClient._get_keycloak_admin_client()          
-
     @staticmethod
-    def _get_group(admin_client, group_id, with_members=False):
+    def get_group(admin_client, group_id, with_members=False):
+        """
+        Return the group in the application realm
+
+        GroupRepresentation
+        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_grouprepresentation
+
+        :param with_members: If set the members (users) of the group are added to the group. Defaults to False
+        :return: GroupRepresentation + UserRepresentation
+        """
         group = admin_client.get_group(group_id)
         if with_members:
             members = admin_client.get_group_members(group_id)
@@ -131,10 +140,10 @@ class AuthClient():
         :param with_members: If set the members (users) of the group(s) are added to the group. Defaults to False
         :return: List(GroupRepresentation)
         """
-        admin_client = AuthClient._get_keycloak_admin_client()
+        admin_client = AuthClient.get_keycloak_admin_client()
         groups = []
         for group in admin_client.get_groups():
-            groups.append(AuthClient._get_group(admin_client, group['id'], with_members))
+            groups.append(AuthClient.get_group(admin_client, group['id'], with_members))
         return groups
 
     @staticmethod
@@ -150,7 +159,7 @@ class AuthClient():
 
         :return: List(UserRepresentation + GroupRepresentation)
         """
-        admin_client = AuthClient._get_keycloak_admin_client()
+        admin_client = AuthClient.get_keycloak_admin_client()
         users = []
         for user in admin_client.get_users():
             user.update({'userGroups': admin_client.get_user_groups(user['id'])})
@@ -172,7 +181,7 @@ class AuthClient():
 
         :return: UserRepresentation + GroupRepresentation
         """
-        admin_client = AuthClient._get_keycloak_admin_client()
+        admin_client = AuthClient.get_keycloak_admin_client()
         user = admin_client.get_user(user_id)
         user.update({'userGroups': admin_client.get_user_groups(user_id)})
         return user
