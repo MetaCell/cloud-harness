@@ -225,9 +225,8 @@ class AuthClient():
         :param client_name: Client name
         :return: UserRepresentation + GroupRepresentation
         """
-        admin_client = self.get_admin_client()
-        cur_user = AuthClient.get_current_user()
-        return AuthClient.get_client_roles_of_user(admin_client, cur_user['id'], client_name)
+        cur_user_id = self._get_keycloak_user_id()
+        return self.get_user_client_roles(cur_user_id, client_name)
 
     def user_has_client_role(self, user_id, client_name, role):
         """
@@ -250,6 +249,6 @@ class AuthClient():
         :return: (array RoleRepresentation)
         """
         return self.user_has_client_role(
-            self.get_current_user(),
+            self._get_keycloak_user_id(),
             client_name,
             role)
