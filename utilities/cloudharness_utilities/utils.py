@@ -62,6 +62,8 @@ def file_is_yaml(fname):
 
 
 def merge_configuration_directories(source, dest):
+    if not os.path.exists(source):
+        return
     if not os.path.exists(dest):
         shutil.copytree(source, dest)
         return
@@ -176,3 +178,5 @@ def merge_app_directories(root_paths, destination) -> None:
                                         os.path.join(destination, 'libraries'))
         merge_configuration_directories(os.path.join(rpath, 'client'),
                                         os.path.join(destination, 'client'))
+        merge_configuration_directories(os.path.join(rpath, 'deployment-configuration'),
+                                        os.path.join(destination, 'deployment-configuration'))
