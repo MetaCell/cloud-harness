@@ -61,7 +61,7 @@ class AuthClient():
             if current_app.config['ENV'] == 'development':
                 # when development and not using KeyCloak (no current user), 
                 # get id from X-Current-User-Id header
-                keycloak_user_id = request.headers.get["X-Current-User-Id", "-1"]
+                keycloak_user_id = request.headers.get("X-Current-User-Id", "-1")
             else:
                 keycloak_user_id = "-1"  # No authorization --> no user
         else:
