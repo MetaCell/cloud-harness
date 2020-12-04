@@ -121,6 +121,81 @@ class AuthClient():
         decoded = jwt.decode(token, KEY, algorithms='RS256', audience='account')
         return decoded
 
+    def get_client(self, client_name):
+        """
+        Return the KC client
+
+        ClientRepresentation
+        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_clientrepresentation
+
+        :param client_name: Name of the client to retrieve
+        :return: ClientRepresentation or False when not found
+        """
+        admin_client = self.get_admin_client()
+        try:
+            client_id = admin_client.get_client_id(client_name)
+            client = admin_client.get_client(client_id)
+        except:
+            return False
+        return client
+
+    def create_client(self, 
+                      client_name, 
+                      protocol="openid-connect",
+                      enabled=True,
+                      public=True,
+                      standard_flow_enabled=True,
+                      direct_access_grants_enable=True,
+                      redirect_uris=["*"],
+                      web_origins=["*","+"]):
+        """
+        Creates a new KC client
+
+        :param client_name: Name of the client
+        :param protocol: defaults to openid-connect
+        :param enabled: defaults to True
+        :param public: defaults to True
+        :param standard_flow_enabled: defaults to True
+        :param direct_access_grants_enable: defaults to True
+        :param redirect_uris: defaults to ["*"],
+        :param web_origins: defaults to ["*","+"]
+        :return: True on success or exception
+        """
+        admin_client = self.get_admin_client()
+        admin_client.create_client({
+            'id': client_name,
+            'name': client_name,
+            'protocol': protocol,
+            'enabled': enabled,
+            'publicClient': public,
+            'standardFlowEnabled': standard_flow_enabled,
+            'directAccessGrantsEnabled': direct_access_grants_enable,
+            'redirectUris': redirect_uris,
+            'webOrigins': web_origins
+        })
+        return True
+
+    def create_client_role(self, client_id, role):
+        """
+        Creates a new client role if not exists
+
+        :param client_id: the id of the client under which the role will be created
+        :param role: the name of the client role
+        :return: True on success, False on error
+        """
+        admin_client = self.get_admin_client()
+        try:
+            admin_client.create_client_role(
+                client_id,
+                {
+                    'name': role,
+                    'clientRole': True
+                }
+            )
+        except:
+            return False
+        return True
+
     def get_group(self, group_id, with_members=False):
         """
         Return the group in the application realm
