@@ -338,18 +338,15 @@ class AuthClient():
         :return: boolean True on success
         """
         admin_client = self.get_admin_client()
-        try:
-            user = self.get_user(user_id)
-            attributes = user.get('attributes', [])
-            attributes[attribute_name] = attribute_value
-            admin_client.update_user(
-                user_id,
-                {
-                    'attributes': attributes
-                })
-            return True
-        except:
-            return False
+        user = self.get_user(user_id)
+        attributes = user.get('attributes', {})
+        attributes[attribute_name] = attribute_value
+        admin_client.update_user(
+            user_id,
+            {
+                'attributes': attributes
+            })
+        return True
 
     def user_delete_attribute(self, user_id, attribute_name):
         """
@@ -357,19 +354,17 @@ class AuthClient():
 
         param user_id: id of the user
         param attribute_name: name of the attribute to delete
-        :return: boolean True on success
+        :return: boolean True on success, False is attribute not in user attributes
         """
         admin_client = self.get_admin_client()
-        try:
-            user = self.get_user(user_id)
-            attributes = user.get('attributes', None)
-            if attributes:
-                del attributes[attribute_name]
+        user = self.get_user(user_id)
+        attributes = user.get('attributes', None)
+        if attributes and attribute_name in attributes:
+            del attributes[attribute_name]
             admin_client.update_user(
                 user_id,
                 {
                     'attributes': attributes
                 })
             return True
-        except:
-            return False
+        return False
