@@ -229,7 +229,7 @@ class AuthClient():
             groups.append(self.get_group(group['id'], with_members))
         return groups
 
-    def get_users(self):
+    def get_users(self, query=None):
         """
         Return a list of all users in the application realm
 
@@ -239,11 +239,12 @@ class AuthClient():
         GroupRepresentation
         https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_grouprepresentation
 
+        :param query: query filtering the users see https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_users_resource
         :return: List(UserRepresentation + GroupRepresentation)
         """
         admin_client = self.get_admin_client()
         users = []
-        for user in admin_client.get_users():
+        for user in admin_client.get_users(query=query):
             user.update({'userGroups': admin_client.get_user_groups(user['id'])})
             users.append(user)
         return users
