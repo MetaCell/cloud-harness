@@ -18,7 +18,7 @@ REQUIREMENTS = [
     'jwt',
     'requests>=2.21.0',
     'sentry-sdk[flask]>=0.14.4',
-    'python-keycloak==0.22.0'
+    'python-keycloak==0.23.0'
 ]
 
 
