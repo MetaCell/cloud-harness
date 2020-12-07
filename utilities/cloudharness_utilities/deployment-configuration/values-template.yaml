@@ -6,7 +6,7 @@ domain: ${{DOMAIN}}
 namespace: ch
 registry:
   name: "localhost:5000"
-  secret: ${{REGISTRY_SECRET}}
+  secret:
 tag: latest
 serviceaccount: argo-workflows
 apps:
@@ -22,5 +22,6 @@ privenv:
 ingress:
   enabled: true
   name: cloudharness-ingress
+  ssl_redirect: true
   letsencrypt:
     email: facundo@metacell.us

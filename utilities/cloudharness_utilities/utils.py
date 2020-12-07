@@ -6,12 +6,11 @@ import oyaml as yaml
 import shutil
 import logging
 
+from .constants import HERE, NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
+    APPS_PATH, BUILD_FILENAMES
 
 
-from .constants import HERE, NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH
-
-
-def image_name_from_docker_path(dockerfile_path):
+def app_name_from_path(dockerfile_path):
     return get_image_name("-".join(p for p in dockerfile_path.split("/") if p not in NEUTRAL_PATHS))
 
 
@@ -41,8 +40,9 @@ def env_variable(name, value):
 
 
 def get_cluster_ip():
-    out = str(subprocess.check_output(['kubectl', 'cluster-info'], timeout=1))
-    ip = out.split('://')[1].split(':')[0]
+    out = subprocess.check_output(['kubectl', 'cluster-info'], timeout=10).decode("utf-8")
+    print(type(out))
+    ip = out.split('\n')[0].split('://')[1].split(':')[0]
     return ip
 
 
@@ -62,6 +62,8 @@ def file_is_yaml(fname):
 
 
 def merge_configuration_directories(source, dest):
+    if not os.path.exists(source):
+        return
     if not os.path.exists(dest):
         shutil.copytree(source, dest)
         return
@@ -70,12 +72,15 @@ def merge_configuration_directories(source, dest):
         frel = os.path.relpath(fname, start=source)
         fdest = os.path.join(dest, frel)
 
+        if os.path.basename(fname) in BUILD_FILENAMES:
+            continue
+
         if os.path.isdir(fname):
             merge_configuration_directories(fname, fdest)
             continue
 
         if not os.path.exists(fdest):
-            shutil.copy(fname, fdest)
+            shutil.copy2(fname, fdest)
         elif file_is_yaml(fname):
 
             try:
@@ -83,10 +88,10 @@ def merge_configuration_directories(source, dest):
                 logging.info(f"Merged/overridden file content of {fdest} with {fname}")
             except yaml.YAMLError as e:
                 logging.warning(f"Overwriting file {fdest} with {fname}")
-                shutil.copy(fname, fdest)
+                shutil.copy2(fname, fdest)
         else:
             logging.warning(f"Overwriting file {fdest} with {fname}")
-            shutil.copy(fname, fdest)
+            shutil.copy2(fname, fdest)
 
 
 def merge_yaml_files(fname, fdest):
@@ -149,3 +154,29 @@ def dict_merge(dct, merge_dct, add_keys=True):
             dct[k] = merge_dct[k]
 
     return dct
+
+
+def merge_app_directories(root_paths, destination) -> None:
+    """ Merge directories if they refer to the same application
+
+    Directories are merged in the destination from the root_paths list. The latter overrides the former.
+    Yaml files are merged, other files are overwritten.
+    """
+    if not os.path.exists(destination):
+        os.makedirs(destination)
+    else:
+        shutil.rmtree(destination)
+
+    for rpath in root_paths:
+        merge_configuration_directories(os.path.join(rpath, BASE_IMAGES_PATH),
+                                        os.path.join(destination, BASE_IMAGES_PATH))
+        merge_configuration_directories(os.path.join(rpath, STATIC_IMAGES_PATH),
+                                        os.path.join(destination, STATIC_IMAGES_PATH))
+        merge_configuration_directories(os.path.join(rpath, APPS_PATH),
+                                        os.path.join(destination, APPS_PATH))
+        merge_configuration_directories(os.path.join(rpath, 'libraries'),
+                                        os.path.join(destination, 'libraries'))
+        merge_configuration_directories(os.path.join(rpath, 'client'),
+                                        os.path.join(destination, 'client'))
+        merge_configuration_directories(os.path.join(rpath, 'deployment-configuration'),
+                                        os.path.join(destination, 'deployment-configuration'))

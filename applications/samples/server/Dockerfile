@@ -1,4 +1,6 @@
-FROM python:3-alpine
+ARG REGISTRY
+ARG TAG=latest
+FROM ${REGISTRY}cloudharness-base:${TAG}
 
 RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app

@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hub
+  labels:
+    {{- include "jupyterhub.labels" . | nindent 4 }}
+  annotations:
+    {{- if not (index .Values.apps.jupyterhub.hub.service.annotations "prometheus.io/scrape") }}
+    prometheus.io/scrape: "true"
+    {{- end }}
+    {{- if not (index .Values.apps.jupyterhub.hub.service.annotations "prometheus.io/path") }}
+    prometheus.io/path: {{ .Values.apps.jupyterhub.hub.baseUrl }}hub/metrics
+    {{- end }}
+    {{- if .Values.apps.jupyterhub.hub.service.annotations }}
+    {{- .Values.apps.jupyterhub.hub.service.annotations | toYaml | nindent 4 }}
+    {{- end }}
+spec:
+  type: {{ .Values.apps.jupyterhub.hub.service.type }}
+  {{- if .Values.apps.jupyterhub.hub.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.apps.jupyterhub.hub.service.loadBalancerIP }}
+  {{- end }}
+  selector:
+    {{- include "jupyterhub.matchLabels" . | nindent 4 }}
+  ports:
+    - protocol: TCP
+      port: 8081
+      targetPort: 8081
+      {{- if .Values.apps.jupyterhub.hub.service.ports.nodePort }}
+      nodePort: {{ .Values.apps.jupyterhub.hub.service.ports.nodePort }}
+      {{- end }}

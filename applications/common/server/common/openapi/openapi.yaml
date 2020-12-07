@@ -1,0 +1,39 @@
+openapi: 3.0.0
+info:
+  description: Cloud Harness Platform - Reference CH service API
+  license:
+    name: UNLICENSED
+  title: CH common service API
+  version: 0.1.0
+servers:
+- description: SwaggerHub API Auto Mocking
+  url: /api
+tags:
+- description: Sentry
+  name: Sentry
+paths:
+  /sentry/getdsn/{appname}:
+    get:
+      description: Gets the Sentry DSN for a given application
+      operationId: getdsn
+      parameters:
+      - explode: false
+        in: path
+        name: appname
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Sentry DSN for the given application
+      summary: Gets the Sentry DSN for a given application
+      tags:
+      - Sentry
+      x-openapi-router-controller: common.controllers.sentry_controller
+components:
+  schemas: {}

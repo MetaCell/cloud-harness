@@ -1,7 +1,6 @@
 # coding: utf-8
 
 from __future__ import absolute_import
-import unittest
 
 from flask import json
 from six import BytesIO
@@ -16,19 +15,15 @@ class TestAuthController(BaseTestCase):
     def test_valid_token(self):
         """Test case for valid_token
 
-        Check if the token is valid. Get a token by logging into the base url
+        Check if the token is valid
         """
-        headers = { 
-            'Accept': 'application/json',
-            'Authorization': 'Bearer special-key',
-        }
         response = self.client.open(
-            '/api/valid',
-            method='GET',
-            headers=headers)
+            '/0.1.0/valid',
+            method='GET')
         self.assert200(response,
                        'Response body is : ' + response.data.decode('utf-8'))
 
 
 if __name__ == '__main__':
+    import unittest
     unittest.main()

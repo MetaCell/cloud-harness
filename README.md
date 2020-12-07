@@ -1,3 +1,7 @@
+<p align="center">
+<img src="https://github.com/MetaCell/cloud-harness/blob/develop/cloudharness.png?raw=true" alt="drawing" width="200"/>
+</p>
+
 # CloudHarness
 CloudHarness is a base infrastructure facilitator for micro-service based applications deployed on Kubernetes.
 
@@ -11,6 +15,16 @@ What building your cluster application with CloudHarness gives to you:
   * Log in and user management - based on Keycloak
   * Submit batch and asynchronous workflows - based on Argo
   * Orchestrate Micro-services - based on Kafka
+
+## Command line tools
+
+CloudHarness provides the following command line tools to help application scaffolding and deployment.
+
+* `harness-deployment` - generate the helm chart to deploy on Kubernetes. 
+* `harness-application` - create a new CloudHarness REST application.
+* `harness-codefresh` - generate the Codefresh continuous deployment specification.
+* `harness-generate` - generates server and client code for all CloudHarness REST applications.
+
 
 ## Get started
 
@@ -104,7 +118,12 @@ images are pushed after the build.
 Any public registry will work. The suggested way to go is to install a registry on localhost:5000 inside
 the kube cluster and push on that registry, also forwarded to localhost.
 
-More info inside `./registry/README.md`.
+On minikube can use the registry addon:
+
+`minikube addons enable registry`
+
+Then forward with:
+`kubectl port-forward --namespace kube-system $(kubectl get po -n kube-system | grep registry | grep -v proxy | \awk '{print $1;}') 5000:5000`
 
 ### Argo installation
 

@@ -62,7 +62,12 @@ class ContainerizedTask(Task):
                 'image': self.image_name,
                 'env': self.envs,
                 'resources': self.resources,
-                'imagePullPolicy': self.image_pull_policy
+                'imagePullPolicy': self.image_pull_policy,
+                'volumeMounts': [{
+                        'name': 'cloudharness-allvalues',
+                        'mountPath': '/opt/cloudharness/resources/allvalues.yaml',
+                        'subPath': 'allvalues.yaml'
+                    }],
             },
             'inputs': {},
             'metadata': {},

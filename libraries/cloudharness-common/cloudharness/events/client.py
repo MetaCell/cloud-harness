@@ -1,5 +1,9 @@
 import os
 import sys
+import threading
+import time
+import traceback
+
 from time import sleep
 from json import dumps, loads
 from kafka import KafkaProducer, KafkaConsumer
@@ -16,6 +20,15 @@ class EventClient:
         self.client_id = env.get_cloudharness_events_client_id()
         self.topic_id = topic_id
         self.service = env.get_cloudharness_events_service()
+
+    def _get_consumer(self, group_id='default') -> KafkaConsumer:
+        return KafkaConsumer(self.topic_id,
+                             bootstrap_servers=self.service,
+                             auto_offset_reset='earliest',
+                             enable_auto_commit=True,
+                             group_id=group_id,
+                             value_deserializer=lambda x: loads(x.decode('utf-8')))
+
 
     def create_topic(self):
         """ Connects to cloudharness Events and creates a new topic
@@ -61,12 +74,7 @@ class EventClient:
     def consume_all(self, group_id='default') -> list:
         ''' Return a list of messages published in the topic '''
 
-        consumer = KafkaConsumer(self.topic_id,
-                                 bootstrap_servers=self.service,
-                                 auto_offset_reset='earliest',
-                                 enable_auto_commit=True,
-                                 group_id=group_id,
-                                 value_deserializer=lambda x: loads(x.decode('utf-8')))
+        consumer = _get_consumer(group_id)
         try:
             for topic in consumer.poll(10000).values():
                 return [record.value for record in topic]
@@ -94,11 +102,46 @@ class EventClient:
             log.error(f"Ups... We had an error deleteing the Topic {self.topic_id} --> {e}")
             raise EventGeneralException from e
 
+    def close(self):
+        if getattr(self, '_consumer_thread'):
+            self._consumer_thread.cancel()
+
+    def _consume_task(self, app=None, group_id=None, handler=None):
+        log.info(f'Kafka consumer thread started, listening for messages in queue: {self.topic_id}')
+        while True:
+            try:
+                consumer = self._get_consumer(group_id)
+                for message in consumer:
+                    try:
+                        handler(app, message.value)
+                    except Exception as e:
+                        log.error(f"Ups... there was an error during execution of the consumer Topc {self.topic_id} --> {e}")
+                        log.error(traceback.print_exc())
+                consumer.close()
+            except Exception as e:
+                    log.error(f"Ups... there was an error during execution of the consumer Topc {self.topic_id} --> {e}")
+                    log.error(traceback.print_exc())
+                    time.sleep(10)
+
+        log.info(f'Kafka consumer thread {self.topic_id} stopped')
+
+    def async_consume(self, app=None, handler=None, group_id='default'):
+        log.debug('creating thread')
+        if app:
+            log.debug('get current object from app')
+            app = app._get_current_object()
+        self._consumer_thread = threading.Thread(
+            target=self._consume_task, 
+            kwargs={'app': app,
+                    'group_id': group_id,
+                    'handler': handler})
+        self._consumer_thread.start()
+        log.debug('thread started')
 
 if __name__ == "__main__":
     # creat the required os env variables
-    os.environ['CLOUDHARNESS_EVENTS_CLIENT_ID'] = 'my-client'
-    os.environ['CLOUDHARNESS_EVENTS_SERVICE'] = 'bootstrap.cloudharness.svc.cluster.local:9092'
+    os.environ['CLOUDHARNESS_EVENTS_CLIENT_ID'] = env.get_cloudharness_events_client_id()
+    os.environ['CLOUDHARNESS_EVENTS_SERVICE'] = env.get_cloudharness_events_service()
 
     # instantiate the client
     client = EventClient('test-sync-op-results-qcwbc')

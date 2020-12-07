@@ -1,0 +1,93 @@
+{{- $HTTPS := (and .Values.apps.jupyterhub.proxy.https.hosts (not (not .Values.tls))) }}
+{{- $autoHTTPS := (and $HTTPS (eq .Values.apps.jupyterhub.proxy.https.type "letsencrypt")) }}
+{{- if $autoHTTPS -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autohttps
+  labels:
+    {{- include "jupyterhub.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "jupyterhub.matchLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "jupyterhub.matchLabels" . | nindent 8 }}
+        hub.jupyter.org/network-access-proxy-http: "true"
+      annotations:
+        checksum/config-map: {{ include (print .Template.BasePath "/jupyterhub/proxy/autohttps/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- if .Values.apps.jupyterhub.rbac.enabled }}
+      serviceAccountName: autohttps
+      {{- end }}
+      {{- if .Values.apps.jupyterhub.scheduling.podPriority.enabled }}
+      priorityClassName: {{ .Release.Name }}-default-priority
+      {{- end }}
+      nodeSelector: {{ toJson .Values.apps.jupyterhub.proxy.nodeSelector }}
+      {{- include "jupyterhub.coreAffinity" . | nindent 6 }}
+      volumes:
+        - name: certificates
+          emptyDir: {}
+        - name: traefik-config
+          configMap:
+            name: traefik-proxy-config
+      initContainers:
+      - name: load-acme
+        image: "{{ .Values.apps.jupyterhub.proxy.secretSync.image.name }}:{{ .Values.apps.jupyterhub.proxy.secretSync.image.tag }}"
+        {{- with .Values.apps.jupyterhub.proxy.secretSync.image.pullPolicy }}
+        imagePullPolicy: {{ . }}
+        {{- end }}
+        command: ["/usr/local/bin/secret-sync.py", "load", "proxy-public-tls-acme", "acme.json", "/etc/acme/acme.json"]
+        env:
+        # We need this to get logs immediately
+        - name: PYTHONUNBUFFERED
+          value: "True"
+        volumeMounts:
+          - name: certificates
+            mountPath: /etc/acme
+      containers:
+        - name: traefik
+          image: "{{ .Values.apps.jupyterhub.proxy.traefik.image.name }}:{{ .Values.apps.jupyterhub.proxy.traefik.image.tag }}"
+          {{- with .Values.apps.jupyterhub.proxy.traefik.image.pullPolicy }}
+          imagePullPolicy: {{ . }}
+          {{- end }}
+          resources:
+            {{- .Values.apps.jupyterhub.proxy.traefik.resources | toYaml | trimSuffix "\n" | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+            - name: https
+              containerPort: 443
+              protocol: TCP
+          volumeMounts:
+            - name: traefik-config
+              mountPath: /etc/traefik
+            - name: certificates
+              mountPath: /etc/acme
+        - name: secret-sync
+          image: "{{ .Values.apps.jupyterhub.proxy.secretSync.image.name }}:{{ .Values.apps.jupyterhub.proxy.secretSync.image.tag }}"
+          {{- with .Values.apps.jupyterhub.proxy.secretSync.image.pullPolicy }}
+          imagePullPolicy: {{ . }}
+          {{- end }}
+          command:
+            - /usr/local/bin/secret-sync.py
+            - watch-save
+            - --label=app={{ include "jupyterhub.appLabel" . }}
+            - --label=release={{ .Release.Name }}
+            - --label=chart={{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+            - --label=heritage=secret-sync
+            - proxy-public-tls-acme
+            - acme.json
+            - /etc/acme/acme.json
+          env:
+          # We need this to get logs immediately
+          - name: PYTHONUNBUFFERED
+            value: "True"
+          volumeMounts:
+            - name: certificates
+              mountPath: /etc/acme
+{{- end }}

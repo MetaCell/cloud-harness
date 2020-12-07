@@ -1,8 +1,8 @@
 version: '1.0'
 stages:
-- prepare
-- build
-- deploy
+  - prepare
+  - build
+  - deploy
 steps:
   main_clone:
     title: Clone main repository
@@ -15,6 +15,23 @@ steps:
     title: Post main clone
     type: parallel
     stage: prepare
+  prepare_deployment:
+    title: "Prepare helm chart"
+    image: python:3.7
+    stage: prepare
+    working_directory: .
+    commands:
+      - pip install cloud-harness/utilities
+      - harness-deployment . cloud-harness -m build -t ${{CF_REVISION}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}}
+  prepare_deployment_view:
+    commands:
+      - 'helm template ./deployment/helm --debug -n ${{NAME}}'
+    environment:
+      - ACTION=auth
+      - KUBE_CONTEXT=${{NAME}}
+    image: codefresh/cfstep-helm:2.16.1
+    stage: prepare
+    title: 'View helm chart'
   build_base_images:
     title: Build base images
     type: parallel
@@ -32,36 +49,15 @@ steps:
     stage: build
     steps:
       REPLACE_ME
-
-  prepare_deployment:
-    title: "Prepare helm chart"
-    image: python:3.7
-    stage: deploy
-    working_directory: .
-    commands:
-      - pip install -r cloud-harness/requirements.txt
-      - harness-deployment . cloud-harness -t ${{CF_REVISION}} -d ${{DOMAIN}}
-  
-  prepare_deployment_view:
-    commands:
-      - 'helm template ./deployment/helm --debug -n ${{NAME}}'
-    environment:
-      - ACTION=auth
-      - KUBE_CONTEXT=${{NAME}}
-    image: codefresh/cfstep-helm:2.16.1
-    stage: prepare
-    title: 'View helm chart'
-  
   deployment:
     stage: deploy
-    image: 'codefresh/cfstep-helm:2.16.1'
+    image: codefresh/cfstep-helm:3.0.3
     title: Installing chart
     environment:
       - CHART_REF=./deployment/helm
-      - RELEASE_NAME=${{NAME}}
-      - KUBE_CONTEXT=${{NAME}}
+      - RELEASE_NAME=${{NAMESPACE}}
+      - KUBE_CONTEXT=${{CLUSTER_NAME}}
       - NAMESPACE=${{NAMESPACE}}
-      - TILLER_NAMESPACE=kube-system
       - CHART_VERSION=0.0.1
       - HELM_REPO_USE_HTTP=false
       - HELM_REPO_CONTEXT_PATH=

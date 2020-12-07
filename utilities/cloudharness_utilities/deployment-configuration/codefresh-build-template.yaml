@@ -2,7 +2,8 @@ type: build
 stage: build
 tag: '${{CF_REVISION}}'
 dockerfile: Dockerfile
-when:
-  branch:
-    only:
-      - '${{CF_BRANCH}}'
+build_arguments:
+  - REGISTRY=${{REGISTRY}}
+  - TAG=${{CF_REVISION}}
+  - NAMESPACE=${{NAMESPACE}}
+  - DOMAIN=${{DOMAIN}}

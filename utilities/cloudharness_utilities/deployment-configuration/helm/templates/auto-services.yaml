@@ -1,35 +1,32 @@
 {{/* Services */}}
 {{- define "deploy_utils.service" }}
+---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .app.name | quote }}
+  name: {{ .app.harness.service.name | quote }}
   labels:
-    app: {{ .app.name | quote }}
+    app: {{ .app.harness.deployment.name | quote }}
 {{ include "deploy_utils.labels" .root | indent 4 }}
 spec:
   selector:
-    app: {{ .app.name | quote }}
+    app: {{ .app.harness.deployment.name| quote }}
   ports:
-    - port: {{ .app.port }}
+    - port: {{ .app.harness.service.port }}
       name: http
-{{- end }}
-
-
-{{- range $app := .Values.apps }}
-  {{- if and (hasKey $app "port") ($app.autoservice | default true)  }}
 ---
-  {{ include "deploy_utils.service" (dict "root" $ "app" $app) }}
+{{- end }}
+{{- range $app := .Values.apps }}
+  {{- if $app.harness.service.auto  }}
+     {{ include "deploy_utils.service" (dict "root" $ "app" $app) }}
+  {{- end }}
   {{- range $subapp := $app }}
   {{- if contains "map" (typeOf $subapp)  }}
-  {{- if and (hasKey $subapp "port") ($subapp.autoservice | default false) }}
----
+  {{- if hasKey $subapp "harness"}}
+  {{- if and (hasKey $subapp.harness "service") $subapp.harness.service.auto }}
       {{ include "deploy_utils.service" (dict "root" $ "app" $subapp) }}
   {{- end }}
   {{- end }}
   {{- end }}
-
   {{- end }}
   {{- end }}
-
-
