@@ -328,6 +328,18 @@ class AuthClient():
             client_name,
             role)
 
+    def get_client_role_members(self, client_name, role):
+        """
+        Get all users for the specified client and role
+
+        :param client_name: Client name
+        :param role: Role name
+        :return: List(UserRepresentation)
+        """
+        admin_client = self.get_admin_client()
+        client_id = admin_client.get_client_id(client_name)
+        return admin_client.get_client_role_members(client_id, role)
+
     def user_add_update_attribute(self, user_id, attribute_name, attribute_value):
         """
         Adds or when exists updates the attribute to/of the User with the attribute value
