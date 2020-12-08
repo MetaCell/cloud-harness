@@ -68,7 +68,7 @@ spec:
 {{ include "deploy_utils.etcHosts" .root | indent 6 }}
       containers:
       - name: {{ .app.harness.service.name | quote }}
-        image: "quay.io/louketo/louketo-proxy:1.0.0"
+        image: "gcr.io/metacellllc/louketo-proxy:1.0.0"
         imagePullPolicy: IfNotPresent
         {{ if .root.Values.local }}
         securityContext:
