@@ -47,7 +47,7 @@ class EventClient:
             return admin_client.create_topics(new_topics=topic_list, validate_only=False)
         except TopicAlreadyExistsError as e:
             log.error(f"Topic {self.topic_id} already exists.")
-            raise EventTopicCreationException from e
+            raise TopicAlreadyExistsError from e
         except Exception as e:
             log.error(f"Ups... We had an error creating the new Topic --> {e}")
             raise EventGeneralException from e
@@ -103,7 +103,7 @@ class EventClient:
             raise EventGeneralException from e
 
     def close(self):
-        if getattr(self, '_consumer_thread'):
+        if hasattr(self, '_consumer_thread'):
             self._consumer_thread.cancel()
 
     def _consume_task(self, app=None, group_id=None, handler=None):
@@ -113,7 +113,7 @@ class EventClient:
                 consumer = self._get_consumer(group_id)
                 for message in consumer:
                     try:
-                        handler(app, message.value)
+                        handler(event_client=self, app=app, message=message.value)
                     except Exception as e:
                         log.error(f"Ups... there was an error during execution of the consumer Topc {self.topic_id} --> {e}")
                         log.error(traceback.print_exc())
