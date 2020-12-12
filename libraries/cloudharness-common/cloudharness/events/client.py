@@ -74,7 +74,7 @@ class EventClient:
     def consume_all(self, group_id='default') -> list:
         ''' Return a list of messages published in the topic '''
 
-        consumer = _get_consumer(group_id)
+        consumer = self._get_consumer(group_id)
         try:
             for topic in consumer.poll(10000).values():
                 return [record.value for record in topic]
