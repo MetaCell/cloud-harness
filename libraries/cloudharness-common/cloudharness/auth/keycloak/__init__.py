@@ -19,8 +19,12 @@ try:
     accounts_app = conf.get_application_by_filter(name='accounts')[0]
     AUTH_REALM = env.get_auth_realm()
     SCHEMA = 'http'
-    HOST = getattr(accounts_app,'subdomain') + "." + conf.get_configuration().get('domain', 'localhost')
+    HOST = getattr(accounts_app,'subdomain')
     PORT = getattr(accounts_app,'port')
+    if not os.environ.get('KUBERNETES_SERVICE_HOST', None):
+        # running outside kubernetes
+        HOST +=  '.' + conf.get_configuration().get('domain', 'localhost')
+        PORT = '80'
     USER = getattr(accounts_app.admin,'user')
     PASSWD = getattr(accounts_app.admin,'pass')
 except:
