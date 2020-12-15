@@ -55,7 +55,7 @@ kind: ClusterRoleBinding
 metadata:
   labels:
     origin: github.com_Yolean_kubernetes-kafka
-  name: {{ print .Release.Namespace "-" kafka-node-reader }}
+  name: {{ print .Release.Namespace "-" "kafka-node-reader" }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
