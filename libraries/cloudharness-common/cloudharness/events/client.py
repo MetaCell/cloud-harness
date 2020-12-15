@@ -104,26 +104,26 @@ class EventClient:
 
     def close(self):
         if hasattr(self, '_consumer_thread'):
-            self._consumer_thread.cancel()
+            # for now no cleanup tasks to do
+            pass
 
     def _consume_task(self, app=None, group_id=None, handler=None):
         log.info(f'Kafka consumer thread started, listening for messages in queue: {self.topic_id}')
         while True:
             try:
-                consumer = self._get_consumer(group_id)
-                for message in consumer:
+                self.consumer = self._get_consumer(group_id)
+                for message in self.consumer:
                     try:
                         handler(event_client=self, app=app, message=message.value)
                     except Exception as e:
-                        log.error(f"Ups... there was an error during execution of the consumer Topc {self.topic_id} --> {e}")
+                        log.error(f"Ups... there was an error during execution of the consumer Topic {self.topic_id} --> {e}")
                         log.error(traceback.print_exc())
-                consumer.close()
+                self.consumer.close()
             except Exception as e:
-                    log.error(f"Ups... there was an error during execution of the consumer Topc {self.topic_id} --> {e}")
+                    log.error(f"Ups... there was an error during execution of the consumer Topic {self.topic_id} --> {e}")
                     log.error(traceback.print_exc())
                     time.sleep(10)
-
-        log.info(f'Kafka consumer thread {self.topic_id} stopped')
+        # log.info(f'Kafka consumer thread {self.topic_id} stopped')
 
     def async_consume(self, app=None, handler=None, group_id='default'):
         log.debug('creating thread')
@@ -135,6 +135,7 @@ class EventClient:
             kwargs={'app': app,
                     'group_id': group_id,
                     'handler': handler})
+        self._consumer_thread.daemon = True
         self._consumer_thread.start()
         log.debug('thread started')
 
