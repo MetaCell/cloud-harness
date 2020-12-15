@@ -19,7 +19,7 @@ try:
     accounts_app = conf.get_application_by_filter(name='accounts')[0]
     AUTH_REALM = env.get_auth_realm()
     SCHEMA = 'http'
-    HOST = getattr(accounts_app,'subdomain')
+    HOST = getattr(accounts_app,'subdomain') + "." + conf.get_configuration().get('domain', 'localhost')
     PORT = getattr(accounts_app,'port')
     USER = getattr(accounts_app.admin,'user')
     PASSWD = getattr(accounts_app.admin,'pass')
