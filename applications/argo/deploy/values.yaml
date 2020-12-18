@@ -1,6 +1,6 @@
 harness:
   subdomain: argo
-  secured: false
+  secured: true
   name: argo-server
   service:
     port: 2746
