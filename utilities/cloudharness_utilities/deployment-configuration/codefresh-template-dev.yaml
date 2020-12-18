@@ -3,6 +3,7 @@ stages:
   - prepare
   - build
   - deploy
+  - publish
 steps:
   main_clone:
     title: Clone main repository
@@ -63,3 +64,8 @@ steps:
       - HELM_REPO_CONTEXT_PATH=
       - TIMEOUT=600
       - VALUESFILE_values=./deployment/helm/values.yaml
+  publish:
+    type: parallel
+    stage: publish
+    steps:
+      REPLACE_ME

@@ -28,11 +28,7 @@ def get_parent_app_name(app_relative_path):
 
 
 def get_image_name(app_name, base_name=None):
-    return base_name + '-' + app_name if base_name else app_name
-
-
-def get_image_name_from_dockerfile_path(self, dockerfile_path, base_name):
-    return get_image_name(os.path.basename(os.path.dirname(dockerfile_path)), base_name)
+    return base_name + '/' + app_name if base_name else app_name
 
 
 def env_variable(name, value):

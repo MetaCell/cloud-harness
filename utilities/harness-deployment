@@ -87,5 +87,8 @@ if __name__ == "__main__":
             registry_secret=args.registry_secret,
             tls=not args.no_tls
         )
-        create_codefresh_deployment_scripts(builder.root_paths, include=args.include)
+        create_codefresh_deployment_scripts(builder.root_paths, include=args.include) # LEGACY
+        create_codefresh_deployment_scripts(builder.root_paths, include=args.include, template_name='codefresh-template-dev.yaml', out_filename="codefresh-dev.yaml")
+        create_codefresh_deployment_scripts(builder.root_paths, include=args.include,
+                                            template_name='codefresh-template-prod.yaml', out_filename="codefresh-prod.yaml")
         hosts_info(values_manual_deploy)
