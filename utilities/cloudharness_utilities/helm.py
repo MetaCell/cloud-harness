@@ -20,6 +20,13 @@ KEY_SERVICE = 'service'
 KEY_DEPLOYMENT = 'deployment'
 KEY_APPS = 'apps'
 
+def deploy(namespace, output_path='./deployment'):
+    helm_path = os.path.join(output_path, HELM_CHART_PATH)
+    logging.info('Deploying helm chart %s', helm_path)
+    subprocess.run("helm dependency update".split(), cwd=helm_path)
+
+    subprocess.run(
+        f"helm upgrade ch {helm_path} -n {namespace} --install --reset-values".split())
 
 def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True,
                       output_path='./deployment', include=None, registry_secret=None, tls=True):
@@ -90,6 +97,17 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, exclude=(), i
             if os.path.exists(dest_dir):
                 shutil.rmtree(dest_dir)
             shutil.copytree(resources_dir, dest_dir)
+
+        subchart_dir = os.path.join(app_path, 'deploy/charts')
+        if os.path.exists(subchart_dir):
+            dest_dir = os.path.join(dest_helm_chart_path, 'charts', app_name)
+
+            logging.info("Collecting templates for application %s to %s", app_name, dest_dir)
+            if os.path.exists(dest_dir):
+                logging.warning("Merging/overriding all files in directory %s", dest_dir)
+                merge_configuration_directories(subchart_dir, dest_dir)
+            else:
+                shutil.copytree(subchart_dir, dest_dir)
 
 
 def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart):
