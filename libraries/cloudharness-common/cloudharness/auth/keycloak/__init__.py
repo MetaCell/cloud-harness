@@ -1,16 +1,10 @@
 import os
 import jwt
-import sys
 import json
 import requests
-from urllib.parse import urljoin
-from typing import List
 from flask import current_app, request
 from keycloak import KeycloakAdmin
 from keycloak.exceptions import KeycloakAuthenticationError
-
-from typing import List
-from urllib.parse import urljoin
 
 from cloudharness.utils import env
 
@@ -36,6 +30,15 @@ except:
     PASSWD = 'metacell'
 
 SERVER_URL = f'{SCHEMA}://{HOST}:{PORT}/auth/'
+
+def with_refreshtoken(func):
+    def wrapper(self, *args, **kwargs):
+        try:
+            return func(self, *args, **kwargs)
+        except KeycloakAuthenticationError:
+            self._admin_client.refresh_token() 
+            return func(self, *args, **kwargs)
+    return wrapper
 
 def decode_token(token):
     """
@@ -98,11 +101,6 @@ class AuthClient():
                 realm_name=AUTH_REALM,
                 user_realm_name='master',
                 verify=True)
-        try:
-            # test if the connection still is authenticated, if not refresh the token
-            dummy = self._admin_client.get_realms()
-        except KeycloakAuthenticationError:
-            self._admin_client.refresh_token()
         return self._admin_client
 
     @staticmethod
@@ -125,6 +123,7 @@ class AuthClient():
         decoded = jwt.decode(token, KEY, algorithms='RS256', audience='account')
         return decoded
 
+    @with_refreshtoken
     def get_client(self, client_name):
         """
         Return the KC client
@@ -136,13 +135,11 @@ class AuthClient():
         :return: ClientRepresentation or False when not found
         """
         admin_client = self.get_admin_client()
-        try:
-            client_id = admin_client.get_client_id(client_name)
-            client = admin_client.get_client(client_id)
-        except:
-            return False
+        client_id = admin_client.get_client_id(client_name)
+        client = admin_client.get_client(client_id)
         return client
 
+    @with_refreshtoken
     def create_client(self, 
                       client_name, 
                       protocol="openid-connect",
@@ -179,6 +176,7 @@ class AuthClient():
         })
         return True
 
+    @with_refreshtoken
     def create_client_role(self, client_id, role):
         """
         Creates a new client role if not exists
@@ -188,18 +186,16 @@ class AuthClient():
         :return: True on success, False on error
         """
         admin_client = self.get_admin_client()
-        try:
-            admin_client.create_client_role(
-                client_id,
-                {
-                    'name': role,
-                    'clientRole': True
-                }
-            )
-        except:
-            return False
+        admin_client.create_client_role(
+            client_id,
+            {
+                'name': role,
+                'clientRole': True
+            }
+        )
         return True
 
+    @with_refreshtoken
     def get_group(self, group_id, with_members=False):
         """
         Return the group in the application realm
@@ -217,6 +213,7 @@ class AuthClient():
             group.update({'members': members})
         return group
 
+    @with_refreshtoken
     def get_groups(self, with_members=False):
         """
         Return a list of all groups in the application realm
@@ -233,6 +230,7 @@ class AuthClient():
             groups.append(self.get_group(group['id'], with_members))
         return groups
 
+    @with_refreshtoken
     def get_users(self, query=None):
         """
         Return a list of all users in the application realm
@@ -253,6 +251,7 @@ class AuthClient():
             users.append(user)
         return users
 
+    @with_refreshtoken
     def get_user(self, user_id):
         """
         Get the user including the user groups
@@ -286,6 +285,7 @@ class AuthClient():
         """
         return self.get_user(self._get_keycloak_user_id())
 
+    @with_refreshtoken
     def get_user_client_roles(self, user_id, client_name):
         """
         Get the user including the user resource access
@@ -333,6 +333,7 @@ class AuthClient():
             client_name,
             role)
 
+    @with_refreshtoken
     def get_client_role_members(self, client_name, role):
         """
         Get all users for the specified client and role
@@ -345,6 +346,7 @@ class AuthClient():
         client_id = admin_client.get_client_id(client_name)
         return admin_client.get_client_role_members(client_id, role)
 
+    @with_refreshtoken
     def user_add_update_attribute(self, user_id, attribute_name, attribute_value):
         """
         Adds or when exists updates the attribute to/of the User with the attribute value
@@ -365,6 +367,7 @@ class AuthClient():
             })
         return True
 
+    @with_refreshtoken
     def user_delete_attribute(self, user_id, attribute_name):
         """
         Deletes the attribute to/of the User with the attribute value
