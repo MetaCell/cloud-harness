@@ -32,6 +32,10 @@ harness:
     user: mnp
     pass: metacell
     port: 27017
+    postgres:
+      initialdb: cloudharness
+      datavolume: /opt/data/
+      pgdata: /opt/data/pgdata
     resources:
       requests:
         memory: "64Mi"
