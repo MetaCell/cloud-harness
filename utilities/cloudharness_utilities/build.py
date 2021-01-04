@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 import tempfile
 
@@ -6,6 +7,8 @@ from docker import from_env as DockerClient
 
 from .utils import find_dockerfiles_paths, app_name_from_path, merge_configuration_directories
 from .constants import NODE_BUILD_IMAGE, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH
+
+EXCLUDE_PATHS = ['node_modules', '.git', 'test']
 
 class Builder:
 
@@ -45,6 +48,8 @@ class Builder:
 
     def should_build_image(self, image_path) -> bool:
         if image_path in self.exclude:
+            return False
+        if any(excluded_path in image_path for excluded_path in EXCLUDE_PATHS):
             return False
         if not self.included:
             if self.interactive:
@@ -103,11 +108,13 @@ class Builder:
         logging.info(f'\n{80 * "#"}\nBuilding {image_tag} \n{80 * "#"}\n')
 
         logging.info("Build args: " + ",".join(key + ':' + value for key, value in buildargs.items()))
+
         image, response = self.client.images.build(path=context_path,
                                                    tag=image_tag,
                                                    buildargs=buildargs,
                                                    dockerfile=os.path.join(dockerfile_rel_path,
                                                                            "Dockerfile") if dockerfile_rel_path else None
+
                                                    )
 
         # log stream

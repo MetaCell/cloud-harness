@@ -28,6 +28,9 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
     except FileNotFoundError as e:
         if template_name != CF_TEMPLATE_PATH:
             logging.warning("Template file %s not found", template_name)
+            if os.path.exists(os.path.join(HERE, CF_TEMPLATE_PATH)):
+                logging.info("Loading legacy template %s", CF_TEMPLATE_PATH)
+                codefresh = get_template(os.path.join(HERE, CF_TEMPLATE_PATH))
         return
 
     if CF_BUILD_STEP_BASE in codefresh['steps']:
@@ -64,7 +67,7 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
                             "Dockerfile"))
                     codefresh['steps'][build_step]['steps'][app_name] = build
                 if CF_STEP_PUBLISH in codefresh['steps']:
-                    codefresh['steps'][CF_STEP_PUBLISH]['steps'][app_name] = codefresh_app_publish_spec(
+                    codefresh['steps'][CF_STEP_PUBLISH]['steps']['publish_' + app_name] = codefresh_app_publish_spec(
                         app_name=app_name)
 
         codefresh_build_step_from_base_path(os.path.join(root_path, BASE_IMAGES_PATH), CF_BUILD_STEP_BASE,

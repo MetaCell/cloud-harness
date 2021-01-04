@@ -34,7 +34,8 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
     Creates values file for the helm chart
     """
     dest_deployment_path = os.path.join(output_path, HELM_CHART_PATH)
-
+    if registry and registry[-1] != '/':
+        registry = registry + '/'
     if os.path.exists(dest_deployment_path):
         shutil.rmtree(dest_deployment_path)
     # Initialize with default
@@ -239,8 +240,7 @@ def create_values_spec(app_name, app_path, tag=None, registry='', template_path=
     if not harness[KEY_DEPLOYMENT]['name']:
         harness[KEY_DEPLOYMENT]['name'] = app_name
     if not harness[KEY_DEPLOYMENT]['image']:
-        if registry and registry[-1] != '/':
-            registry = registry + '/'
+
         harness[KEY_DEPLOYMENT]['image'] = registry + get_image_name(app_name) + f':{tag}' if tag else ''
 
     values_set_legacy(values)

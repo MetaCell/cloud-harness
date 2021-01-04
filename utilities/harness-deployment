@@ -48,7 +48,7 @@ if __name__ == "__main__":
                         help='Specify for local deployments info and setup')
     parser.add_argument('-u', '--disable-security', dest='unsecured', action="store_true",
                         help='Disable secured gatekeepers access')
-    parser.add_argument('-e', '--exclude', dest='exclude', action="append", default=(),
+    parser.add_argument('-e', '--exclude', dest='exclude', action="append", default=[],
                         help='Specify application to exclude from the deployment')
 
     parser.add_argument('-m', '--merge', dest='merge', action="store", default=None,
