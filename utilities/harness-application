@@ -5,10 +5,11 @@ import os
 import shutil
 
 from cloudharness_utilities import HERE
+from cloudharness_utilities.constants import APPLICATION_TEMPLATE_PATH
 import cloudharness_utilities.openapi
 from cloudharness_utilities.openapi import generate_server, APPLICATIONS_SRC_PATH
 
-APPLICATION_TEMPLATE = os.path.join(HERE, 'application-template')
+APPLICATION_TEMPLATE = os.path.join(APPLICATION_TEMPLATE_PATH, 'base')
 
 if __name__ == "__main__":
     import argparse
