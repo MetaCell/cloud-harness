@@ -3,7 +3,7 @@ import oyaml as yaml
 import logging
 
 from .constants import HERE, CF_BUILD_STEP_BASE, CF_BUILD_STEP_STATIC, CF_BUILD_STEP_PARALLEL, CF_STEP_PUBLISH, \
-    CODEFRESH_PATH, CF_BUILD_PATH, CF_TEMPLATE_PUBLISH_PATH, \
+    CODEFRESH_PATH, CF_BUILD_PATH, CF_TEMPLATE_PUBLISH_PATH, DEPLOYMENT_CONFIGURATION_PATH,\
     CF_TEMPLATE_PATH, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH, DEPLOYMENT_PATH
 from .helm import collect_helm_values
 from .utils import find_dockerfiles_paths, app_name_from_path, \
@@ -41,7 +41,7 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
         codefresh['steps'][CF_STEP_PUBLISH]['steps'] = {}
 
     for root_path in root_paths:
-        template_path = os.path.join(root_path, template_name)
+        template_path = os.path.join(root_path, DEPLOYMENT_CONFIGURATION_PATH, template_name)
         if os.path.exists(template_path):
             tpl = get_template(template_path)
             del tpl['steps'][CF_BUILD_STEP_BASE]
@@ -75,6 +75,7 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
         codefresh_build_step_from_base_path(os.path.join(root_path, STATIC_IMAGES_PATH), CF_BUILD_STEP_STATIC)
         codefresh_build_step_from_base_path(os.path.join(root_path, APPS_PATH), CF_BUILD_STEP_PARALLEL)
 
+    # Remove useless steps
     codefresh['steps'] = {k: step for k, step in codefresh['steps'].items() if
                           'type' not in step or step['type'] != 'parallel' or (
                               step['steps'] if 'steps' in step else [])}
