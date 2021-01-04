@@ -1,0 +1,110 @@
+{{/* Services */}}
+{{- define "deploy_utils.database.mongodb" }}
+        image: mongo:latest
+        env:
+          - name: MONGO_INITDB_ROOT_USERNAME
+            value: {{ .app.harness.database.user | quote }}
+          - name: MONGO_INITDB_ROOT_PASSWORD
+            value: {{ .app.harness.database.pass | quote }}
+        ports:
+        - name: http
+          containerPort: {{ .app.harness.database.port }}
+        livenessProbe:
+          exec:
+            command:
+            - mongo
+            - --eval
+            - "db.adminCommand('ping')"
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 6
+        readinessProbe:
+          exec:
+            command:
+            - mongo
+            - --eval
+            - "db.adminCommand('ping')"
+          initialDelaySeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 6
+        volumeMounts:
+          - name: {{ .app.harness.database.name | quote }}
+            mountPath: /data/db
+{{- end }}
+{{- define "deploy_utils.database" }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ .app.harness.database.name | quote }}
+  namespace: {{ .root.Values.namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .app.harness.database.size }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .app.harness.database.name | quote }}
+  namespace: {{ .root.Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .app.harness.database.name | quote }}
+  template:
+    metadata:
+      labels:
+        app: {{ .app.harness.database.name | quote }}
+    spec:
+      containers:
+      - name: {{ .app.harness.database.name | quote }}
+        imagePullPolicy: IfNotPresent
+{{- if eq .app.harness.database.type "mongodb" }}
+  {{ include "deploy_utils.database.mongodb" (dict "root" .root "app" .app) }}
+{{- end }}
+        resources:
+          requests:
+            memory: {{ .app.harness.database.resources.requests.memory | default "32Mi" }}
+            cpu: {{ .app.harness.database.resources.requests.cpu | default "25m" }}
+          limits:
+            memory: {{ .app.harness.database.resources.limits.memory | default "64Mi" }}
+            cpu: {{ .app.harness.database.resources.limits.cpu | default "50m" }}
+      volumes:
+      - name: {{ .app.harness.database.name | quote }}
+        persistentVolumeClaim:
+          claimName: {{ .app.harness.database.name | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .app.harness.database.name | quote }}
+  namespace: {{ .root.Values.namespace }}
+  labels:
+    app: {{ .app.harness.deployment.name | quote }}
+{{ include "deploy_utils.labels" .root | indent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .app.harness.database.name| quote }}
+  ports:
+  - port: {{ .app.harness.database.port }}
+---
+{{- end }}
+{{- range $app := .Values.apps }}
+  {{- if $app.harness.database.auto  }}
+     {{ include "deploy_utils.database" (dict "root" $ "app" $app) }}
+  {{- end }}
+  {{- range $subapp := $app }}
+  {{- if contains "map" (typeOf $subapp)  }}
+  {{- if hasKey $subapp "harness"}}
+  {{- if and (hasKey $subapp.harness "database") $subapp.harness.database.auto }}
+      {{ include "deploy_utils.database" (dict "root" $ "app" $subapp) }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- end }}

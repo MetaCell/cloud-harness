@@ -24,3 +24,18 @@ harness:
     auto: true
     name:
     port: 80
+  database:
+    auto: false
+    name:
+    type:
+    size: 1Gi
+    user: mnp
+    pass: metacell
+    port: 27017
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "500Mi"
+        cpu: "500m"
