@@ -36,7 +36,7 @@ def with_refreshtoken(func):
         try:
             return func(self, *args, **kwargs)
         except KeycloakAuthenticationError:
-            self._admin_client.refresh_token() 
+            self.refresh_token() 
             return func(self, *args, **kwargs)
     return wrapper
 
@@ -103,6 +103,14 @@ class AuthClient():
                 verify=True)
         return self._admin_client
 
+    def refresh_token(self):
+        try:
+            self._admin_client.refresh_token() 
+        except Exception as e:
+            # reset the internal admin client to create a new one
+            self._admin_client = None
+            self.get_admin_client()
+
     @staticmethod
     def decode_token(token):
         """
@@ -163,7 +171,7 @@ class AuthClient():
         :return: True on success or exception
         """
         admin_client = self.get_admin_client()
-        admin_client.create_client({
+        x= admin_client.create_client({
             'id': client_name,
             'name': client_name,
             'protocol': protocol,
