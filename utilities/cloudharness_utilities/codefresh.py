@@ -86,7 +86,7 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
                     codefresh['steps'][build_step]['steps'][app_name] = build
                 if CF_STEP_PUBLISH in codefresh['steps']:
                     codefresh['steps'][CF_STEP_PUBLISH]['steps']['publish_' + app_name] = codefresh_app_publish_spec(
-                        app_name=app_name)
+                        app_name=app_name, tag=build['tag'])
 
         codefresh_build_step_from_base_path(os.path.join(root_path, BASE_IMAGES_PATH), CF_BUILD_STEP_BASE,
                                             fixed_context=root_path)
@@ -118,11 +118,11 @@ def codefresh_template_spec(template_path, **kwargs):
     return build
 
 
-def codefresh_app_publish_spec(app_name):
+def codefresh_app_publish_spec(app_name, tag):
     title = app_name.capitalize().replace('-', ' ').replace('/', ' ').replace('.', ' ').strip()
     step_spec = codefresh_template_spec(
         template_path=CF_TEMPLATE_PUBLISH_PATH,
-        candidate="${{%s}}" % get_image_name(app_name),
+        candidate="${{REGISTRY}}%s:%s" % (get_image_name(app_name), tag),
         title=title,
     )
     # step_spec['tags'].append(app_specific_tag_variable(app_name))
