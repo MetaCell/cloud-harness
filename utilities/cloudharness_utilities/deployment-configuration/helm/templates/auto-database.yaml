@@ -1,6 +1,6 @@
 {{/* Services */}}
 {{- define "deploy_utils.database.postgres" }}
-        image: postgres:latest
+        image: {{ .app.harness.database.postgres.image }}
         env:
         - name: POSTGRES_DB
           value: {{ .app.harness.database.postgres.initialdb | quote }}
@@ -17,8 +17,8 @@
           - name: {{ .app.harness.database.name | quote }}
             mountPath: {{ .app.harness.database.postgres.datavolume }}
 {{- end }}
-{{- define "deploy_utils.database.mongodb" }}
-        image: mongo:latest
+{{- define "deploy_utils.database.mongo" }}
+        image: {{ .app.harness.database.mongo.image }}
         env:
           - name: MONGO_INITDB_ROOT_USERNAME
             value: {{ .app.harness.database.user | quote }}
@@ -81,8 +81,8 @@ spec:
       containers:
       - name: {{ .app.harness.database.name | quote }}
         imagePullPolicy: IfNotPresent
-{{- if eq .app.harness.database.type "mongodb" }}
-  {{ include "deploy_utils.database.mongodb" (dict "root" .root "app" .app) }}
+{{- if eq .app.harness.database.type "mongo" }}
+  {{ include "deploy_utils.database.mongo" (dict "root" .root "app" .app) }}
 {{- end }}
 {{- if eq .app.harness.database.type "postgres" }}
   {{ include "deploy_utils.database.postgres" (dict "root" .root "app" .app) }}
