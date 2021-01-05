@@ -28,7 +28,7 @@ harness:
     auto: false
     name:
     type:
-    # supported db types: mongo, postgres
+    # supported db types: mongo, postgres, neo4j
     size: 1Gi
     user: mnp
     pass: metacell
