@@ -44,7 +44,7 @@ steps:
       - CHART_VERSION=0.0.1
       - HELM_REPO_USE_HTTP=false
       - HELM_REPO_CONTEXT_PATH=
-      - TIMEOUT=600
+      - TIMEOUT=600s
       - VALUESFILE_values=./deployment/helm/values.yaml
   approval:
     type: pending-approval
@@ -59,3 +59,10 @@ steps:
     stage: publish
     steps:
       REPLACE_ME
+  git-tag:
+    title: Performing git tagging
+    image: alpine/git:latest
+    commands:
+      - rm -rf ruby-on-rails-sample-app
+      - git tag ${{DEPLOYMENT_TAG}}
+      - git push origin --tags
