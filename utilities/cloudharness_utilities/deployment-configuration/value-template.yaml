@@ -43,10 +43,25 @@ harness:
       ports:
         - name: http
           port: 5432
+    neo4j:
+      image: neo4j:latest
+      memory:
+        size: 256M
+        pagecache:
+          size: 64M
+        heap:
+          initial: 64M
+          max: 128M
+      dbms_security_auth_enabled: "false"
+      ports:
+        - name: http
+          port: 7474
+        - name: bolt
+          port: 7687
     resources:
       requests:
-        memory: "64Mi"
-        cpu: "50m"
+        memory: "512Mi"
+        cpu: "200m"
       limits:
-        memory: "500Mi"
-        cpu: "500m"
+        memory: "2Gi"
+        cpu: "1000m"
