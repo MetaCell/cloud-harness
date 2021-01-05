@@ -122,7 +122,7 @@ def codefresh_app_publish_spec(app_name):
     title = app_name.capitalize().replace('-', ' ').replace('/', ' ').replace('.', ' ').strip()
     step_spec = codefresh_template_spec(
         template_path=CF_TEMPLATE_PUBLISH_PATH,
-        candidate=get_image_name(app_name),
+        candidate="${{%s}}" % get_image_name(app_name),
         title=title,
     )
     step_spec['tags'].append(app_specific_tag_variable(app_name))
