@@ -125,7 +125,7 @@ def codefresh_app_publish_spec(app_name):
         candidate="${{%s}}" % get_image_name(app_name),
         title=title,
     )
-    step_spec['tags'].append(app_specific_tag_variable(app_name))
+    # step_spec['tags'].append(app_specific_tag_variable(app_name))
     return step_spec
 
 
