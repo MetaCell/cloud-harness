@@ -4,4 +4,4 @@ title: REPLACE_ME
 candidate: REPLACE_ME
 tags:
   - ${{DEPLOYMENT_PUBLISH_TAG}}
-registry: ${{REGISTRY}}
+registry: ${{REGISTRY_PUBLISH_URL}}
