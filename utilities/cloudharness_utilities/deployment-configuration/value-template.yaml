@@ -32,14 +32,17 @@ harness:
     size: 1Gi
     user: mnp
     pass: metacell
-    port: 27017
-    mongodb:
+    mongo:
       image: mongo:latest
+      ports:
+        - name: http
+          port: 27017
     postgres:
       image: postgres:latest
       initialdb: cloudharness
-      datavolume: /opt/data/
-      pgdata: /opt/data/pgdata
+      ports:
+        - name: http
+          port: 5432
     resources:
       requests:
         memory: "64Mi"

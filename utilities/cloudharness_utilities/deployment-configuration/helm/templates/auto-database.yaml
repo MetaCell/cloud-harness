@@ -9,13 +9,7 @@
         - name: POSTGRES_PASSWORD
           value: {{ .app.harness.database.pass | quote }}
         - name: PGDATA
-          value: {{ .app.harness.database.postgres.pgdata }}
-        ports:
-        - name: http
-          containerPort: {{ .app.harness.database.port }}
-        volumeMounts:
-          - name: {{ .app.harness.database.name | quote }}
-            mountPath: {{ .app.harness.database.postgres.datavolume }}
+          value: pgdata
 {{- end }}
 {{- define "deploy_utils.database.mongo" }}
         image: {{ .app.harness.database.mongo.image }}
@@ -24,9 +18,6 @@
             value: {{ .app.harness.database.user | quote }}
           - name: MONGO_INITDB_ROOT_PASSWORD
             value: {{ .app.harness.database.pass | quote }}
-        ports:
-        - name: http
-          containerPort: {{ .app.harness.database.port }}
         livenessProbe:
           exec:
             command:
@@ -45,9 +36,6 @@
           initialDelaySeconds: 5
           timeoutSeconds: 5
           failureThreshold: 6
-        volumeMounts:
-          - name: {{ .app.harness.database.name | quote }}
-            mountPath: /data/db
 {{- end }}
 {{- define "deploy_utils.database" }}
 ---
@@ -81,12 +69,12 @@ spec:
       containers:
       - name: {{ .app.harness.database.name | quote }}
         imagePullPolicy: IfNotPresent
-{{- if eq .app.harness.database.type "mongo" }}
-  {{ include "deploy_utils.database.mongo" (dict "root" .root "app" .app) }}
-{{- end }}
-{{- if eq .app.harness.database.type "postgres" }}
-  {{ include "deploy_utils.database.postgres" (dict "root" .root "app" .app) }}
-{{- end }}
+        {{ include (print "deploy_utils.database." .app.harness.database.type) (dict "root" .root "app" .app) }}
+        ports:
+        {{- range $port := (index .app.harness.database .app.harness.database.type).ports }}
+        - name: {{ $port.name }}
+          containerPort: {{ $port.port }}
+        {{- end }}
         resources:
           requests:
             memory: {{ .app.harness.database.resources.requests.memory | default "32Mi" }}
@@ -94,6 +82,9 @@ spec:
           limits:
             memory: {{ .app.harness.database.resources.limits.memory | default "64Mi" }}
             cpu: {{ .app.harness.database.resources.limits.cpu | default "50m" }}
+        volumeMounts:
+          - name: {{ .app.harness.database.name | quote }}
+            mountPath: /data/db
       volumes:
       - name: {{ .app.harness.database.name | quote }}
         persistentVolumeClaim:
@@ -112,7 +103,10 @@ spec:
   selector:
     app: {{ .app.harness.database.name| quote }}
   ports:
-  - port: {{ .app.harness.database.port }}
+  {{- range $port := (index .app.harness.database .app.harness.database.type).ports }}
+  - name: {{ $port.name }}
+    port: {{ $port.port }}
+  {{- end }}
 ---
 {{- end }}
 {{- range $app := .Values.apps }}
