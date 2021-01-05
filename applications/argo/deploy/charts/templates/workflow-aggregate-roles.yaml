@@ -1,6 +1,6 @@
 {{- if .Values.createAggregateRoles }}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
   annotations:
     helm.sh/hook: pre-install
@@ -26,7 +26,7 @@ rules:
   - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
   annotations:
     helm.sh/hook: pre-install
@@ -57,7 +57,7 @@ rules:
   - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
   annotations:
     helm.sh/hook: pre-install

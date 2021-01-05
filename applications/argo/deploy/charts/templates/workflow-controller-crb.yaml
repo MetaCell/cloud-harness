@@ -2,13 +2,13 @@ apiVersion: rbac.authorization.k8s.io/v1
 {{- if .Values.singleNamespace }}
 kind: RoleBinding
 {{ else }}
-kind: RoleBinding
+kind: ClusterRoleBinding
 {{- end }}
 metadata:
   name: argo-{{ .Values.controller.name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: Role
+  kind: ClusterRole
   name: argo-{{ .Values.controller.name }}
 subjects:
   - kind: ServiceAccount
@@ -27,12 +27,12 @@ subjects:
 {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
   name: argo-{{ .Values.controller.name }}-cluster-template
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: Role
+  kind: ClusterRole
   name: argo-{{ .Values.controller.name }}-cluster-template
 subjects:
   - kind: ServiceAccount
