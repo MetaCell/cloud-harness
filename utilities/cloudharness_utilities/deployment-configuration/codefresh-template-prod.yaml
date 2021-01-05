@@ -69,6 +69,7 @@ steps:
       REPLACE_ME
   git-tag:
     title: Performing git tagging
+    stage: publish
     image: alpine/git:latest
     commands:
       - rm -rf ruby-on-rails-sample-app
