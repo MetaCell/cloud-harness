@@ -1,5 +1,8 @@
 import os
 import oyaml as yaml
+import yaml.representer
+
+
 import logging
 
 from .constants import HERE, CF_BUILD_STEP_BASE, CF_BUILD_STEP_STATIC, CF_BUILD_STEP_PARALLEL, CF_STEP_PUBLISH, \
@@ -13,6 +16,16 @@ logging.getLogger().setLevel(logging.INFO)
 
 CLOUD_HARNESS_PATH = "cloud-harness"
 
+
+# Codefresh variables may need quotes: adjust yaml dump accordingly
+def literal_presenter(dumper, data):
+  if isinstance(data, str) and "\n" in data:
+      return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
+  if isinstance(data, str) and data.startswith('${{'):
+    return dumper.represent_scalar('tag:yaml.org,2002:str', data, style="'")
+  return dumper.represent_scalar('tag:yaml.org,2002:str', data)
+
+yaml.add_representer(str, literal_presenter)
 
 def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH, include=(),
                                         template_name=CF_TEMPLATE_PATH):
@@ -124,6 +137,7 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
         title=title,
         working_directory='./' + app_context_path,
         dockerfile=dockerfile_path)
+
 
     specific_build_template_path = os.path.join(app_context_path, 'build.yaml')
     if os.path.exists(specific_build_template_path):
