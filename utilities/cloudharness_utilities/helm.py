@@ -17,6 +17,7 @@ from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, 
 
 KEY_HARNESS = 'harness'
 KEY_SERVICE = 'service'
+KEY_DATABASE = 'database'
 KEY_DEPLOYMENT = 'deployment'
 KEY_APPS = 'apps'
 
@@ -239,6 +240,8 @@ def create_values_spec(app_name, app_path, tag=None, registry='', template_path=
         harness[KEY_SERVICE]['name'] = app_name
     if not harness[KEY_DEPLOYMENT]['name']:
         harness[KEY_DEPLOYMENT]['name'] = app_name
+    if not harness[KEY_DATABASE]['name']:
+        harness[KEY_DATABASE]['name'] = app_name.strip() + '-db'
     if not harness[KEY_DEPLOYMENT]['image']:
 
         harness[KEY_DEPLOYMENT]['image'] = registry + get_image_name(app_name) + f':{tag}' if tag else ''

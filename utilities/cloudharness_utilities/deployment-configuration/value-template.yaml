@@ -24,3 +24,44 @@ harness:
     auto: true
     name:
     port: 80
+  database:
+    auto: false
+    name:
+    type:
+    # supported db types: mongo, postgres, neo4j
+    size: 1Gi
+    user: mnp
+    pass: metacell
+    mongo:
+      image: mongo:latest
+      ports:
+        - name: http
+          port: 27017
+    postgres:
+      image: postgres:latest
+      initialdb: cloudharness
+      ports:
+        - name: http
+          port: 5432
+    neo4j:
+      image: neo4j:latest
+      memory:
+        size: 256M
+        pagecache:
+          size: 64M
+        heap:
+          initial: 64M
+          max: 128M
+      dbms_security_auth_enabled: "false"
+      ports:
+        - name: http
+          port: 7474
+        - name: bolt
+          port: 7687
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "200m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
