@@ -7,7 +7,7 @@ import logging
 
 from .constants import HERE, CF_BUILD_STEP_BASE, CF_BUILD_STEP_STATIC, CF_BUILD_STEP_PARALLEL, CF_STEP_PUBLISH, \
     CODEFRESH_PATH, CF_BUILD_PATH, CF_TEMPLATE_PUBLISH_PATH, DEPLOYMENT_CONFIGURATION_PATH,\
-    CF_TEMPLATE_PATH, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH, DEPLOYMENT_PATH
+    CF_TEMPLATE_PATH, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH, DEPLOYMENT_PATH, EXCLUDE_PATHS
 from .helm import collect_helm_values
 from .utils import find_dockerfiles_paths, app_name_from_path, \
     get_image_name, get_template, merge_to_yaml_file, dict_merge
@@ -27,7 +27,7 @@ def literal_presenter(dumper, data):
 
 yaml.add_representer(str, literal_presenter)
 
-def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH, include=(),
+def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH, include=(), exclude=(),
                                         template_name=CF_TEMPLATE_PATH):
     """
     Entry point to create deployment scripts for codefresh: codefresh.yaml and helm chart
@@ -35,6 +35,9 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
 
     if include:
         logging.info('Including the following subpaths to the build: %s.', ', '.join(include))
+
+    if exclude:
+        logging.info('Excluding the following subpaths to the build: %s.', ', '.join(exclude))
 
     try:
         codefresh = get_template(os.path.join(HERE, template_name))
@@ -70,6 +73,8 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
                 app_relative_to_base = os.path.relpath(dockerfile_path, abs_base_path)
                 app_name = app_name_from_path(app_relative_to_base)
                 if include and not any(inc in dockerfile_path for inc in include):
+                    continue
+                if any(inc in dockerfile_path for inc in (list(exclude) + EXCLUDE_PATHS)):
                     continue
                 if CF_BUILD_STEP_BASE in codefresh['steps']:
                     build = codefresh_app_build_spec(
