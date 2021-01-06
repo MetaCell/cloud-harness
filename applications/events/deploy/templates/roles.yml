@@ -22,9 +22,9 @@ rules:
   - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
-  name: {{ print .Release.Namespace "-" "node-reader" }}
+  name: {{ .Release.Name }}-node-reader
   labels:
     origin: github.com_Yolean_kubernetes-kafka
 rules:
@@ -51,15 +51,15 @@ subjects:
   namespace: {{ .Release.Namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
   labels:
     origin: github.com_Yolean_kubernetes-kafka
-  name: {{ print .Release.Namespace "-" "kafka-node-reader" }}
+  name: {{ .Release.Name }}-kafka-node-reader
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: {{ print .Release.Namespace "-" "node-reader" }}
+  kind: ClusterRole
+  name: {{ .Release.Name }}-node-reader
 subjects:
 - kind: ServiceAccount
   name: kafka
