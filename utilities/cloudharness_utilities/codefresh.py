@@ -58,12 +58,16 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
 
     for root_path in root_paths:
         template_path = os.path.join(root_path, DEPLOYMENT_CONFIGURATION_PATH, template_name)
-        if os.path.exists(template_path):
+        if os.path.exists(template_path) :
             tpl = get_template(template_path)
-            del tpl['steps'][CF_BUILD_STEP_BASE]
-            del tpl['steps'][CF_BUILD_STEP_STATIC]
-            del tpl['steps'][CF_BUILD_STEP_PARALLEL]
-            del tpl['steps'][CF_STEP_PUBLISH]
+            if CF_BUILD_STEP_BASE in codefresh['steps']:
+                del tpl['steps'][CF_BUILD_STEP_BASE]
+            if CF_BUILD_STEP_STATIC in codefresh['steps']:
+                del tpl['steps'][CF_BUILD_STEP_STATIC]
+            if CF_BUILD_STEP_PARALLEL in codefresh['steps']:
+                del tpl['steps'][CF_BUILD_STEP_PARALLEL]
+            if CF_STEP_PUBLISH in codefresh['steps']:
+                del tpl['steps'][CF_STEP_PUBLISH]
             codefresh = dict_merge(codefresh, tpl)
 
         def codefresh_build_step_from_base_path(base_path, build_step, fixed_context=None):
