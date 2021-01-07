@@ -1,10 +1,13 @@
 import os
 import oyaml as yaml
+import yaml.representer
+
+
 import logging
 
 from .constants import HERE, CF_BUILD_STEP_BASE, CF_BUILD_STEP_STATIC, CF_BUILD_STEP_PARALLEL, CF_STEP_PUBLISH, \
-    CODEFRESH_PATH, CF_BUILD_PATH, CF_TEMPLATE_PUBLISH_PATH, \
-    CF_TEMPLATE_PATH, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH, DEPLOYMENT_PATH
+    CODEFRESH_PATH, CF_BUILD_PATH, CF_TEMPLATE_PUBLISH_PATH, DEPLOYMENT_CONFIGURATION_PATH,\
+    CF_TEMPLATE_PATH, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH, DEPLOYMENT_PATH, EXCLUDE_PATHS
 from .helm import collect_helm_values
 from .utils import find_dockerfiles_paths, app_name_from_path, \
     get_image_name, get_template, merge_to_yaml_file, dict_merge
@@ -14,7 +17,17 @@ logging.getLogger().setLevel(logging.INFO)
 CLOUD_HARNESS_PATH = "cloud-harness"
 
 
-def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH, include=(),
+# Codefresh variables may need quotes: adjust yaml dump accordingly
+def literal_presenter(dumper, data):
+  if isinstance(data, str) and "\n" in data:
+      return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
+  if isinstance(data, str) and data.startswith('${{'):
+    return dumper.represent_scalar('tag:yaml.org,2002:str', data, style="'")
+  return dumper.represent_scalar('tag:yaml.org,2002:str', data)
+
+yaml.add_representer(str, literal_presenter)
+
+def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH, include=(), exclude=(),
                                         template_name=CF_TEMPLATE_PATH):
     """
     Entry point to create deployment scripts for codefresh: codefresh.yaml and helm chart
@@ -23,11 +36,17 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
     if include:
         logging.info('Including the following subpaths to the build: %s.', ', '.join(include))
 
+    if exclude:
+        logging.info('Excluding the following subpaths to the build: %s.', ', '.join(exclude))
+
     try:
         codefresh = get_template(os.path.join(HERE, template_name))
     except FileNotFoundError as e:
         if template_name != CF_TEMPLATE_PATH:
             logging.warning("Template file %s not found", template_name)
+            if os.path.exists(os.path.join(HERE, CF_TEMPLATE_PATH)):
+                logging.info("Loading legacy template %s", CF_TEMPLATE_PATH)
+                codefresh = get_template(os.path.join(HERE, CF_TEMPLATE_PATH))
         return
 
     if CF_BUILD_STEP_BASE in codefresh['steps']:
@@ -38,13 +57,17 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
         codefresh['steps'][CF_STEP_PUBLISH]['steps'] = {}
 
     for root_path in root_paths:
-        template_path = os.path.join(root_path, template_name)
-        if os.path.exists(template_path):
+        template_path = os.path.join(root_path, DEPLOYMENT_CONFIGURATION_PATH, template_name)
+        if os.path.exists(template_path) :
             tpl = get_template(template_path)
-            del tpl['steps'][CF_BUILD_STEP_BASE]
-            del tpl['steps'][CF_BUILD_STEP_STATIC]
-            del tpl['steps'][CF_BUILD_STEP_PARALLEL]
-            del tpl['steps'][CF_STEP_PUBLISH]
+            if CF_BUILD_STEP_BASE in codefresh['steps']:
+                del tpl['steps'][CF_BUILD_STEP_BASE]
+            if CF_BUILD_STEP_STATIC in codefresh['steps']:
+                del tpl['steps'][CF_BUILD_STEP_STATIC]
+            if CF_BUILD_STEP_PARALLEL in codefresh['steps']:
+                del tpl['steps'][CF_BUILD_STEP_PARALLEL]
+            if CF_STEP_PUBLISH in codefresh['steps']:
+                del tpl['steps'][CF_STEP_PUBLISH]
             codefresh = dict_merge(codefresh, tpl)
 
         def codefresh_build_step_from_base_path(base_path, build_step, fixed_context=None):
@@ -55,6 +78,9 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
                 app_name = app_name_from_path(app_relative_to_base)
                 if include and not any(inc in dockerfile_path for inc in include):
                     continue
+                if any(inc in dockerfile_path for inc in (list(exclude) + EXCLUDE_PATHS)):
+                    continue
+                build = None
                 if CF_BUILD_STEP_BASE in codefresh['steps']:
                     build = codefresh_app_build_spec(
                         app_name=app_name,
@@ -64,14 +90,15 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
                             "Dockerfile"))
                     codefresh['steps'][build_step]['steps'][app_name] = build
                 if CF_STEP_PUBLISH in codefresh['steps']:
-                    codefresh['steps'][CF_STEP_PUBLISH]['steps'][app_name] = codefresh_app_publish_spec(
-                        app_name=app_name)
+                    codefresh['steps'][CF_STEP_PUBLISH]['steps']['publish_' + app_name] = codefresh_app_publish_spec(
+                        app_name=app_name, build_tag=build and build['tag'])
 
         codefresh_build_step_from_base_path(os.path.join(root_path, BASE_IMAGES_PATH), CF_BUILD_STEP_BASE,
                                             fixed_context=root_path)
         codefresh_build_step_from_base_path(os.path.join(root_path, STATIC_IMAGES_PATH), CF_BUILD_STEP_STATIC)
         codefresh_build_step_from_base_path(os.path.join(root_path, APPS_PATH), CF_BUILD_STEP_PARALLEL)
 
+    # Remove useless steps
     codefresh['steps'] = {k: step for k, step in codefresh['steps'].items() if
                           'type' not in step or step['type'] != 'parallel' or (
                               step['steps'] if 'steps' in step else [])}
@@ -96,14 +123,17 @@ def codefresh_template_spec(template_path, **kwargs):
     return build
 
 
-def codefresh_app_publish_spec(app_name):
+def codefresh_app_publish_spec(app_name, build_tag):
     title = app_name.capitalize().replace('-', ' ').replace('/', ' ').replace('.', ' ').strip()
+
     step_spec = codefresh_template_spec(
         template_path=CF_TEMPLATE_PUBLISH_PATH,
-        candidate=get_image_name(app_name),
+        candidate="${{REGISTRY}}/%s:%s" % (get_image_name(app_name), build_tag or '${{DEPLOYMENT_TAG}}'),
         title=title,
     )
-    step_spec['tags'].append(app_specific_tag_variable(app_name))
+    if not build_tag:
+        # if not build tag we are reusing old images and deploying on a production env
+        step_spec['tags'].append('latest')
     return step_spec
 
 
@@ -120,6 +150,7 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
         title=title,
         working_directory='./' + app_context_path,
         dockerfile=dockerfile_path)
+
 
     specific_build_template_path = os.path.join(app_context_path, 'build.yaml')
     if os.path.exists(specific_build_template_path):

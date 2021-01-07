@@ -7,7 +7,7 @@ metadata:
   labels:
     {{- include "jupyterhub.labels" . | nindent 4 }}
 ---
-kind: ClusterRoleBinding
+kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ .Release.Name }}-user-scheduler-base
@@ -19,11 +19,11 @@ subjects:
     name: user-scheduler
     namespace: {{ .Release.Namespace }}
 roleRef:
-  kind: ClusterRole
+  kind: Role
   name: system:kube-scheduler
   apiGroup: rbac.authorization.k8s.io
 ---
-kind: ClusterRole
+kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ .Release.Name }}-user-scheduler-complementary
@@ -45,7 +45,7 @@ rules:
     resources: ["persistentvolume", "persistentvolumeclaims"]
     verbs: ["update"]
 ---
-kind: ClusterRoleBinding
+kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ .Release.Name }}-user-scheduler-complementary
@@ -57,7 +57,7 @@ subjects:
     name: user-scheduler
     namespace: {{ .Release.Namespace }}
 roleRef:
-  kind: ClusterRole
+  kind: Role
   name: {{ .Release.Name }}-user-scheduler-complementary
   apiGroup: rbac.authorization.k8s.io
 {{- end }}

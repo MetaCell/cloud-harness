@@ -78,11 +78,10 @@ for instance with a Google Cloud cluster or a local Minikube.
 1. Create the namespace `kubectl create ns ch`
 1. Create the namespace `kubectl create ns argo-workflows`
 1. (Optional) Try the helm chart with `helm install helm --name ch --namespace ch --dry-run`
-1. Install the helm chart with `helm install --name=ch deployment/helm  --namespace ch` (`helm install ch helm  --namespace ch` on helm 3)
-1. Install Argo (see below)
+1. Install or upgrade the helm chart with `helm install ch deployment/helm  -n ch --dependency-update` on helm 3)
 
 To upgrade an already existing chart, run
-`helm upgrade ch deployment/helm --namespace ch --install --force --reset-values`
+`helm upgrade ch deployment/helm -n ch --install --reset-values `
 
 ### Continuous deployment with Codefresh
 The codefresh pipeline setup is provided in `codefresh/codefresh.yaml`.
@@ -124,23 +123,6 @@ On minikube can use the registry addon:
 
 Then forward with:
 `kubectl port-forward --namespace kube-system $(kubectl get po -n kube-system | grep registry | grep -v proxy | \awk '{print $1;}') 5000:5000`
-
-### Argo installation
-
-Argo is not yet part of the helm chart
-
-In order to install it in the cluster, run
-
-```
-kubectl create ns argo
-kubectl apply -n argo -f https://raw.githubusercontent.com/argoproj/argo/v2.4.3/manifests/install.yaml
-kubectl apply -f argo/argo-service-account.yaml -n argo-workflows
-kubectl create rolebinding argo-workflows --clusterrole=admin --serviceaccount=argo-workflows:argo-workflows -n argo-workflows
-```
-
-See also https://argoproj.github.io/docs/argo/demo.html#2-install-the-controller-and-ui
-
-
 
 ### Details about deployment generation
 

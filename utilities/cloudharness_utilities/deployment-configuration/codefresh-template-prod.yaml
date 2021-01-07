@@ -15,6 +15,14 @@ steps:
     title: Post main clone
     type: parallel
     stage: prepare
+    steps:
+      - title: Cloning cloud-harness repository...
+        type: git-clone
+        stage: prepare
+        repo: 'https://github.com/MetaCell/cloud-harness.git'
+        revision: '${{CLOUDHARNESS_BRANCH}}'
+        working_directory: .
+        git: github
   prepare_deployment:
     title: "Prepare helm chart"
     image: python:3.7
@@ -29,25 +37,44 @@ steps:
     environment:
       - ACTION=auth
       - KUBE_CONTEXT=${{NAME}}
-    image: codefresh/cfstep-helm:3.0.3
+    image: codefresh/cfstep-helm:3.4.1
     stage: prepare
     title: 'View helm chart'
   deployment:
     stage: deploy
-    image: codefresh/cfstep-helm:3.0.3
+    image: codefresh/cfstep-helm:3.4.1
     title: Installing chart
     environment:
       - CHART_REF=./deployment/helm
       - RELEASE_NAME=${{NAMESPACE}}
       - KUBE_CONTEXT=${{CLUSTER_NAME}}
       - NAMESPACE=${{NAMESPACE}}
-      - CHART_VERSION=0.0.1
+      - CHART_VERSION=${{DEPLOYMENT_PUBLISH_TAG}}
       - HELM_REPO_USE_HTTP=false
       - HELM_REPO_CONTEXT_PATH=
-      - TIMEOUT=600
+      - TIMEOUT=600s
       - VALUESFILE_values=./deployment/helm/values.yaml
+  approval:
+    type: pending-approval
+    stage: publish
+    title: Approve
+    description: Approve publication
+    timeout:
+      duration: 168
+      finalState: approved
   publish:
     type: parallel
     stage: publish
     steps:
       REPLACE_ME
+  git-tag:
+    title: Performing git tagging
+    stage: publish
+    image: alpine/git:latest
+    commands:
+      - git tag ${{DEPLOYMENT_TAG}}
+      - ORIGIN=$(git remote get-url origin)
+      - PROTOCOL=https://
+      - REPLACEMENT=${PROTOCOL}${{REPO_TOKEN}}@
+      - git remote set-url origin ${ORIGIN/$PROTOCOL/$REPLACEMENT}
+      - git push origin --tags

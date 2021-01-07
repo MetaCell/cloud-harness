@@ -1,9 +1,9 @@
 type: build
 stage: build
-tag: '${{CF_REVISION}}'
+tag: '${{CF_BUILD_ID}}'
 dockerfile: Dockerfile
 build_arguments:
-  - REGISTRY=${{REGISTRY}}
-  - TAG=${{CF_REVISION}}
+  - REGISTRY=${{REGISTRY}}/
+  - TAG=${{CF_BUILD_ID}}
   - NAMESPACE=${{NAMESPACE}}
   - DOMAIN=${{DOMAIN}}

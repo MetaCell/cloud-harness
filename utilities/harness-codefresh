@@ -28,5 +28,8 @@ if __name__ == "__main__":
         print('There are unknown args. Make sure to call the script with the accepted args. Try --help')
         print(f'unknown: {unknown}')
     else:
-        create_codefresh_deployment_scripts(args.paths, include=args.include)
+        create_codefresh_deployment_scripts(args.paths, include=args.include, template_name='codefresh-template-dev.yaml', out_filename="codefresh-dev.yaml")
+        create_codefresh_deployment_scripts(args.paths, include=args.include,
+                                            template_name='codefresh-template-prod.yaml',
+                                            out_filename="codefresh-prod.yaml")
 

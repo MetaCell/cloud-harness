@@ -8,7 +8,6 @@ registry:
   name: "localhost:5000"
   secret:
 tag: latest
-serviceaccount: argo-workflows
 apps:
   FILL_ME
 env:
@@ -24,4 +23,4 @@ ingress:
   name: cloudharness-ingress
   ssl_redirect: true
   letsencrypt:
-    email: facundo@metacell.us
+    email: filippo@metacell.us
