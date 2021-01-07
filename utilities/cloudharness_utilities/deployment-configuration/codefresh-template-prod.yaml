@@ -73,4 +73,9 @@ steps:
     image: alpine/git:latest
     commands:
       - git tag ${{DEPLOYMENT_TAG}}
+      - ORIGIN=$(git remote get-url origin)
+      - PROTOCOL=https://
+      - REPLACEMENT=${PROTOCOL}${{REPO_TOKEN}}@
+      - echo ${ORIGIN/$PROTOCOL/$REPLACEMENT}
+      - git remote set-url origin ${ORIGIN/$PROTOCOL/$REPLACEMENT}
       - git push origin --tags
