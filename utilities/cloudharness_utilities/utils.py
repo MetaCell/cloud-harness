@@ -5,6 +5,7 @@ import collections
 import oyaml as yaml
 import shutil
 import logging
+import fileinput
 
 from .constants import HERE, NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
     APPS_PATH, BUILD_FILENAMES
@@ -56,6 +57,42 @@ def get_template(yaml_path):
 def file_is_yaml(fname):
     return fname[-4:] == 'yaml' or fname[-3:] == 'yml'
 
+def replaceindir(root_src_dir, source, replace):
+    """
+    Does copy and merge (shutil.copytree requires that the destination does not exist)
+    :param root_src_dir:
+    :param root_dst_dir:
+    :return:
+    """
+    logging.info('Replacing in directory %s to %s', source, replace)
+    for src_dir, dirs, files in os.walk(root_src_dir):
+        for file_ in files:
+            src_file = os.path.join(src_dir, file_)
+            with fileinput.FileInput(src_file, inplace=True) as file:
+                for line in file:
+                    print(line.replace(source, replace), end='')
+
+def copymergedir(root_src_dir, root_dst_dir):
+    """
+    Does copy and merge (shutil.copytree requires that the destination does not exist)
+    :param root_src_dir:
+    :param root_dst_dir:
+    :return:
+    """
+    logging.info('Copying directory %s to %s', root_src_dir, root_dst_dir)
+    for src_dir, dirs, files in os.walk(root_src_dir):
+        dst_dir = src_dir.replace(root_src_dir, root_dst_dir, 1)
+        if not os.path.exists(dst_dir):
+            os.makedirs(dst_dir)
+        for file_ in files:
+            src_file = os.path.join(src_dir, file_)
+            dst_file = os.path.join(dst_dir, file_)
+            if os.path.exists(dst_file):
+                os.remove(dst_file)
+            try:
+                shutil.copy(src_file, dst_dir)
+            except:
+                logging.warning("Error copying file %s to %s.", src_file, dst_dir)
 
 def merge_configuration_directories(source, dest):
     if not os.path.exists(source):

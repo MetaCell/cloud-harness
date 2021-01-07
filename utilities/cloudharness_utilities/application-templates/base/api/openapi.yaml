@@ -1,8 +1,8 @@
 openapi: 3.0.0
 info:
-  description: CloudHarness Sample api
+  description: __APP_NAME__
   version: 0.1.0
-  title: CloudHarness Sample API
+  title: __APP_NAME__
   contact:
     email: cloudharness@metacell.us
   license:
@@ -31,7 +31,7 @@ paths:
 
 
 servers:
-  - url: https://samples.cloudharness.metacell.us/api
+  - url: https://__APP_NAME__.cloudharness.metacell.us/api
 components:
   securitySchemes:
     bearerAuth:
