@@ -23,5 +23,5 @@
 #!docs/README.md
 setup.py
 */controllers/*
-*/models/*
 Dockerfile
+src/__main__.py

@@ -40,7 +40,7 @@ paths:
       summary: test sentry is working
       operationId: error
       tags:
-        - workflows
+        - test
       responses:
         "500":
           description: Sentry entry should come!
@@ -50,7 +50,21 @@ paths:
             application/json:
               schema:
                 type: string
-
+  /ping:
+    get:
+      summary: test the application is up
+      operationId: ping
+      tags:
+        - test
+      responses:
+        "500":
+          description: This shouldn't happen
+        "200":
+          description: What we want
+          content:
+            application/json:
+              schema:
+                type: string
 
   /operation_sync:
     get:

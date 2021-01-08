@@ -94,6 +94,27 @@ def copymergedir(root_src_dir, root_dst_dir):
             except:
                 logging.warning("Error copying file %s to %s.", src_file, dst_dir)
 
+def movedircontent(root_src_dir, root_dst_dir):
+    """
+    Does copy and merge (shutil.copytree requires that the destination does not exist)
+    :param root_src_dir:
+    :param root_dst_dir:
+    :return:
+    """
+    logging.info('Moving directory content from %s to %s', root_src_dir, root_dst_dir)
+    for src_dir, dirs, files in os.walk(root_src_dir):
+        dst_dir = src_dir.replace(root_src_dir, root_dst_dir, 1)
+        if not os.path.exists(dst_dir):
+            os.makedirs(dst_dir)
+        for file_ in files:
+            src_file = os.path.join(src_dir, file_)
+            dst_file = os.path.join(dst_dir, file_)
+
+            try:
+                shutil.move(src_file, os.path.join(dst_dir, os.path.basename(src_file)))
+            except:
+                logging.warning("Error moving file %s to %s.", src_file, dst_dir, exc_info=True)
+
 def merge_configuration_directories(source, dest):
     if not os.path.exists(source):
         return

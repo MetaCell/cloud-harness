@@ -27,8 +27,8 @@ paths:
           description: This won't happen
       summary: test sentry is working
       tags:
-      - workflows
-      x-openapi-router-controller: api_samples.controllers.workflows_controller
+      - test
+      x-openapi-router-controller: api_samples.controllers.test_controller
   /operation_async:
     get:
       operationId: submit_async
@@ -91,6 +91,22 @@ paths:
       tags:
       - workflows
       x-openapi-router-controller: api_samples.controllers.workflows_controller
+  /ping:
+    get:
+      operationId: ping
+      responses:
+        "500":
+          description: This shouldn't happen
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: What we want
+      summary: test the application is up
+      tags:
+      - test
+      x-openapi-router-controller: api_samples.controllers.test_controller
   /valid:
     get:
       description: |

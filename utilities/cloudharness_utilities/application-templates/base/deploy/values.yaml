@@ -1,4 +1,4 @@
 port: 8080
-subdomain: samples
+subdomain: __APP_NAME__
 autodeploy: true
 autoservice: true
