@@ -7,12 +7,12 @@ metadata:
 {{ else }}
 kind: ClusterRoleBinding
 metadata:
-  name: argo-{{ .Values.server.name}}
+  name: {{ .Release.Namespace }}-argo-{{ .Values.server.name}}
 {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: argo-{{ .Values.server.name}}
+  name: {{ .Release.Namespace }}-argo-{{ .Values.server.name}}
 subjects:
 - kind: ServiceAccount
   name: {{ .Values.server.serviceAccount }}
@@ -21,11 +21,11 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: argo-{{ .Values.server.name}}-cluster-template
+  name: {{ .Release.Namespace }}-argo-{{ .Values.server.name}}-cluster-template
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: argo-{{ .Values.server.name}}-cluster-template
+  name: {{ .Release.Namespace }}-argo-{{ .Values.server.name}}-cluster-template
 subjects:
 - kind: ServiceAccount
   name: {{ .Values.server.serviceAccount }}
