@@ -1,10 +1,10 @@
 import connexion
 import six
 
-from api_samples.models.inline_response202 import InlineResponse202  # noqa: E501
-from api_samples import util
-from api_samples.models import InlineResponse202
-from api_samples.models.inline_response202_task import InlineResponse202Task
+from samples.models.inline_response202 import InlineResponse202  # noqa: E501
+from samples import util
+from samples.models import InlineResponse202
+from samples.models.inline_response202_task import InlineResponse202Task
 from flask.json import jsonify
 
 from cloudharness import log
@@ -12,7 +12,7 @@ from cloudharness import log
 try:
     from cloudharness.workflows import operations, tasks
 except Exception as e:
-    log.error("Cannot start workflows module. Probably this is related some problem with the kubectl configuration", e)
+    log.error("Cannot start workflows module. Probably this is related some problem with the kubectl configuration", exc_info=True)
 
 
 def submit_async():  # noqa: E501
@@ -71,13 +71,3 @@ def submit_sync_with_results(a=1, b=2):  # noqa: E501
         return jsonify(str(e)), 200
 
 
-
-def error():  # noqa: E501
-    """test sentry is working
-
-     # noqa: E501
-
-
-    :rtype: str
-    """
-    return "a"[2]

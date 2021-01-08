@@ -3,7 +3,7 @@
 import sys
 from setuptools import setup, find_packages
 
-NAME = "api_samples"
+NAME = "samples"
 VERSION = "1.0.0"
 
 # To install the library, run the following
@@ -33,7 +33,7 @@ setup(
     package_data={'': ['openapi/openapi.yaml']},
     include_package_data=True,
     entry_points={
-        'console_scripts': ['api_samples=api_samples.__main__:main']},
+        'console_scripts': ['samples=samples.__main__:main']},
     long_description="""\
     CloudHarness Sample api
     """

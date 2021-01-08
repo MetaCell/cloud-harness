@@ -1,8 +1,8 @@
 import connexion
 import six
 
-from api_samples.models.valid import Valid  # noqa: E501
-from api_samples import util
+from samples.models.valid import Valid  # noqa: E501
+from samples import util
 
 
 def valid_token():  # noqa: E501

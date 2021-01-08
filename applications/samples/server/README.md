@@ -15,7 +15,7 @@ To run the server, please execute the following from the root directory:
 
 ```
 pip3 install -r requirements.txt
-python3 -m api_samples
+python3 -m samples
 ```
 
 and open your browser to here:
@@ -42,8 +42,8 @@ To run the server on a Docker container, please execute the following from the r
 
 ```bash
 # building the image
-docker build -t api_samples .
+docker build -t samples .
 
 # starting up a container
-docker run -p 8080:8080 api_samples
+docker run -p 8080:8080 samples
 ```

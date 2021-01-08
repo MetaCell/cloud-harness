@@ -16,4 +16,4 @@ COPY ./requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 EXPOSE $PORT
-ENTRYPOINT ["gunicorn", "--workers=$WORKERS", "--bind=0.0.0.0:$PORT", "$MODULE_NAME.__main__:app"]
+ENTRYPOINT gunicorn --workers=$WORKERS --bind=0.0.0.0:$PORT $MODULE_NAME.__main__.app
