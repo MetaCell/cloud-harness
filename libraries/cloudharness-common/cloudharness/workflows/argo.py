@@ -137,7 +137,7 @@ def check_namespace():
         api_response = api_instance.read_namespace(namespace, exact=True)
     except kubernetes.client.rest.ApiException as e:
 
-        raise Exception("Namespace for argo workflows does not exist:" + namespace) from e
+        raise Exception(f"Namespace for argo workflows does not exist: {namespace}") from e
 
 def create_namespace():
     api_instance = kubernetes.client.CoreV1Api(kubernetes.client.ApiClient(get_configuration()))
@@ -147,7 +147,7 @@ def create_namespace():
     try:
         api_response = api_instance.create_namespace(body)
     except Exception  as e:
-        raise Exception("Error creating namespace:" + namespace) from e
+        raise Exception(f"Error creating namespace: {namespace}") from e
 try:
     check_namespace()
 except Exception as e:
