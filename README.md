@@ -67,8 +67,6 @@ or simply copy the *blueprint* folder
 
 ## Deployment
 
-
-
 ### Manually deploy on a kube cluster
 The Kubernetes client `kubectl` must be set up and working on the local machine,
 for instance with a Google Cloud cluster or a local Minikube.
