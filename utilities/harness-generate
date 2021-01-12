@@ -115,6 +115,9 @@ def generate_clients(root_path, client_lib_name=LIB_NAME, interactive=False):
     """
     Generates client stubs
     """
+    if interactive and input("Do you want to generate client libraries? [Y/n]").upper() == 'N':
+        return
+
     openapi_files = get_openapi_file_paths(root_path)
     applications = get_application_paths(openapi_files)
 
