@@ -1,0 +1,168 @@
+openapi: 3.0.0
+info:
+  contact:
+    email: cloudharness@metacell.us
+  description: CloudHarness Sample api
+  license:
+    name: UNLICENSED
+  title: CloudHarness Sample API
+  version: 0.1.0
+servers:
+- url: /api
+tags:
+- name: auth
+- name: workflows
+paths:
+  /error:
+    get:
+      operationId: error
+      responses:
+        "500":
+          description: Sentry entry should come!
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: This won't happen
+      summary: test sentry is working
+      tags:
+      - test
+      x-openapi-router-controller: cloudharness_cli.samples.controllers.test_controller
+  /operation_async:
+    get:
+      operationId: submit_async
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/inline_response_202'
+          description: Submitted operation. See also https://restfulapi.net/http-status-202-accepted/
+      summary: Send an asynchronous operation
+      tags:
+      - workflows
+      x-openapi-router-controller: cloudharness_cli.samples.controllers.workflows_controller
+  /operation_sync:
+    get:
+      operationId: submit_sync
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Operation result
+      summary: Send a synchronous operation
+      tags:
+      - workflows
+      x-openapi-router-controller: cloudharness_cli.samples.controllers.workflows_controller
+  /operation_sync_results:
+    get:
+      operationId: submit_sync_with_results
+      parameters:
+      - description: first number to sum
+        example: 10
+        explode: true
+        in: query
+        name: a
+        required: false
+        schema:
+          type: number
+        style: form
+      - description: second number to sum
+        example: 10
+        explode: true
+        in: query
+        name: b
+        required: false
+        schema:
+          type: number
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Operation result
+      summary: Send a synchronous operation and get results using the event queue.
+        Just a sum, but in the cloud
+      tags:
+      - workflows
+      x-openapi-router-controller: cloudharness_cli.samples.controllers.workflows_controller
+  /ping:
+    get:
+      operationId: ping
+      responses:
+        "500":
+          description: This shouldn't happen
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: What we want
+      summary: test the application is up
+      tags:
+      - test
+      x-openapi-router-controller: cloudharness_cli.samples.controllers.test_controller
+  /valid:
+    get:
+      description: |
+        Check if the token is valid
+      operationId: valid_token
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Valid'
+                type: array
+          description: Check if token is valid
+        "400":
+          description: bad input parameter
+      security:
+      - bearerAuth: []
+      summary: Check if the token is valid. Get a token by logging into the base url
+      tags:
+      - auth
+      x-openapi-router-controller: cloudharness_cli.samples.controllers.auth_controller
+components:
+  schemas:
+    Valid:
+      example:
+        response: response
+      properties:
+        response:
+          type: string
+      type: object
+    inline_response_202_task:
+      example:
+        name: my-op
+        href: http://workflows.cloudharness.metacell.us/api/operation/my-op
+      properties:
+        href:
+          description: the url where to check the operation status
+          example: http://workflows.cloudharness.metacell.us/api/operation/my-op
+          type: string
+        name:
+          example: my-op
+          type: string
+      type: object
+    inline_response_202:
+      example:
+        task:
+          name: my-op
+          href: http://workflows.cloudharness.metacell.us/api/operation/my-op
+      properties:
+        task:
+          $ref: '#/components/schemas/inline_response_202_task'
+      type: object
+  securitySchemes:
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http
+      x-bearerInfoFunc: cloudharness.auth.decode_token
