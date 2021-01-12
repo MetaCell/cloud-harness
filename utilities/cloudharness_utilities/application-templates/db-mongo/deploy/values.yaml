@@ -1,0 +1,5 @@
+harness:
+  database:
+    auto: true
+    name: __APP_NAME__-mongo-db
+    type: mongo

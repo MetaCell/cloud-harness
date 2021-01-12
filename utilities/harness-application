@@ -8,7 +8,7 @@ from cloudharness_utilities import HERE
 from cloudharness_utilities.constants import APPLICATION_TEMPLATE_PATH
 import cloudharness_utilities.openapi
 from cloudharness_utilities.openapi import generate_server, APPLICATIONS_SRC_PATH, generate_ts_client
-from cloudharness_utilities.utils import copymergedir, replaceindir
+from cloudharness_utilities.utils import merge_configuration_directories, replaceindir
 
 PLACEHOLDER = '__APP_NAME__'
 
@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
                 template_path = os.path.join(base_path, APPLICATION_TEMPLATE_PATH, template_name)
                 if os.path.exists(template_path):
-                    copymergedir(template_path, app_path)
+                    merge_configuration_directories(template_path, app_path)
 
         replaceindir(app_path, PLACEHOLDER, args.name)
         if 'webapp' in args.templates:
