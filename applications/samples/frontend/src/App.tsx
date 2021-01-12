@@ -1,11 +1,14 @@
 import React from 'react';
 import './styles/style.less';
-import './styles/styles';
+
+import RestTest from './components/RestTest';
+
 
 const Main = () => (
     <>
       <img src="/static/icon.png" />
       <h1>Sample React application is working!</h1>
+      <RestTest />
     </>
 );
 

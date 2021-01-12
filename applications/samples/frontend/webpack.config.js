@@ -16,24 +16,22 @@ module.exports = function webpacking(envVariables) {
   if (!env.mode) {
     env.mode = 'production';
   }
-  if (!env.port) {
-    env.devPort = 5000;
-  }
+
 
   console.log('####################');
   console.log('####################');
   console.log('BUILD bundle with parameters:');
-  console.log(env);
+  console.log( env);
   console.log('####################');
   console.log('####################');
 
   const { mode } = env;
-  const devtool = env.mode === 'production' ? undefined :'source-map';
+  const devtool = env.mode === 'source-map';
 
 
   const output = {
     path: path.resolve(__dirname, 'dist'),
-    filename: '[name].[hash].js'
+    filename: '[name].[contenthash].js'
   };
 
   const module = {
@@ -44,8 +42,18 @@ module.exports = function webpacking(envVariables) {
         loader: 'babel-loader'
       },
       {
+        test: /\.ts|tsx?$/,
+        loader: "awesome-typescript-loader"
+      },
+      {
         test: /\.(css)$/,
-        loader: ['style-loader', 'css-loader'],
+        use: [
+          {
+            loader: "style-loader",
+          },
+          {
+            loader: "css-loader",
+          }],
       },
       {
         test: /\.less$/,
@@ -70,10 +78,7 @@ module.exports = function webpacking(envVariables) {
         test: /\.(png|jpg|gif|eot|woff|woff2|svg|ttf)$/,
         loader: 'file-loader'
       },
-      {
-        test: /\.ts|tsx?$/,
-        loader: "awesome-typescript-loader"
-      },
+
     ]
   };
 
@@ -82,27 +87,7 @@ module.exports = function webpacking(envVariables) {
     symlinks: false
   };
 
-  const theDomain = env && env.DOMAIN ? env.DOMAIN : 'localhost' + env.devPort;
-  console.log(theDomain);
-  const replaceHost = (uri, appName) => uri.replace("__APP_NAME__", appName + '.' + theDomain);
-  const proxyTarget = 'http://__APP_NAME__/';
-
-  const devServer = {
-    contentBase: path.join(__dirname, 'dist'),
-    compress: true,
-    port: Number(env.devPort),
-    hot: true,
-    proxy: {
-      '/api': {
-        target: replaceHost( proxyTarget, 'checkout'),
-        secure: false,
-        headers: {
-          'X-Current-User-Id': '<put your keycloak user id here>'
-        }
-      }
-    },
-    historyApiFallback: true
-  };
+ 
 
   const plugins = [
     new CleanWebpackPlugin(),
@@ -120,7 +105,6 @@ module.exports = function webpacking(envVariables) {
     output,
     module,
     resolve,
-    devServer,
     plugins
   };
 };

@@ -18,9 +18,6 @@ with app.app_context():
     app.logger.handlers = gunicorn_logger.handlers
     app.logger.setLevel(gunicorn_logger.level)
 
-
-
-
     connexion_app.add_api("openapi.yaml", arguments={"title": "samples"}, pythonic_params=True)
     try:
         # init_app can be defined to add behaviours to the wsgi app

@@ -131,7 +131,7 @@ paths:
                         type: string
                         example: my-op
 servers:
-  - url: https://samples.cloudharness.metacell.us/api
+  - url: /api
 components:
   securitySchemes:
     bearerAuth:

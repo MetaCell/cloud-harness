@@ -23,4 +23,5 @@ def ping():  # noqa: E501
 
     :rtype: str
     """
-    return 'pong'
+    import time
+    return time.time()

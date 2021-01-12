@@ -1,1 +1,1 @@
-# __APP_NAME__
+# samples
