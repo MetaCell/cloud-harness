@@ -118,7 +118,7 @@ def generate_clients(root_path, client_lib_name=LIB_NAME, interactive=False):
     openapi_files = get_openapi_file_paths(root_path)
     applications = get_application_paths(openapi_files)
 
-    client_src_path = os.path.join(root_path, 'client', client_lib_name)
+    client_src_path = os.path.join(root_path, 'libraries/client', client_lib_name)
     for i in range(len(applications)):
         app_name = applications[i]
         openapi_file = openapi_files[i]
