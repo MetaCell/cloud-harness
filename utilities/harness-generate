@@ -6,7 +6,7 @@ import shutil
 import sys
 import logging
 
-from cloudharness_utilities.openapi import LIB_NAME, generate_python_client, generate_server, get_dependencies
+from cloudharness_utilities.openapi import LIB_NAME, generate_python_client, generate_server, get_dependencies, generate_ts_client
 from cloudharness_utilities.utils import copymergedir
 
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -17,7 +17,7 @@ def get_openapi_file_paths(root_path):
     return [path for path in glob.glob(root_path + '/applications/*/api/*.yaml')]
 
 
-def get_modules(openapi_files):
+def get_application_paths(openapi_files):
     return [os.path.basename(os.path.dirname(os.path.dirname(path))) for path in openapi_files]
 
 
@@ -26,7 +26,7 @@ def generate_servers(root_path, interactive=False):
     Generates server stubs
     """
     openapi_files = get_openapi_file_paths(root_path)
-    modules = get_modules(openapi_files)
+    modules = get_application_paths(openapi_files)
     for i in range(len(modules)):
         if not interactive or input("Do you want to generate " + openapi_files[i] + "? [Y/n]").upper() != 'N':
             openapi_file = openapi_files[i]
@@ -111,17 +111,21 @@ def aggregate_packages(client_src_path, lib_name=LIB_NAME):
         shutil.rmtree(MODULE_TMP_PATH)
 
 
-def generate_clients(root_path, client_lib_name=LIB_NAME):
+def generate_clients(root_path, client_lib_name=LIB_NAME, interactive=False):
     """
     Generates client stubs
     """
     openapi_files = get_openapi_file_paths(root_path)
-    modules = get_modules(openapi_files)
+    applications = get_application_paths(openapi_files)
+
     client_src_path = os.path.join(root_path, 'client', client_lib_name)
-    for i in range(len(modules)):
-        module = modules[i]
+    for i in range(len(applications)):
+        app_name = applications[i]
         openapi_file = openapi_files[i]
-        generate_python_client(module, openapi_file, client_src_path, lib_name=client_lib_name)
+        app_dir = os.path.dirname(os.path.dirname(openapi_file))
+        generate_python_client(app_name, openapi_file, client_src_path, lib_name=client_lib_name)
+        if os.path.exists(os.path.join(app_dir, 'frontend')):
+            generate_ts_client(openapi_file)
 
     aggregate_packages(client_src_path, client_lib_name)
 
@@ -131,13 +135,9 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description='Walk filesystem inside ./applications and define build and deploy scripts.')
+        description='Walk filesystem inside ./applications create application scaffolding.')
     parser.add_argument('path', metavar='path', default=ROOT, type=str,
                         help='Base path of the application.')
-    parser.add_argument('-nc', '--no-client', dest='client', action="store_false",
-                        help='Specify for local deployments info and setup')
-    parser.add_argument('-ns', '--no-server', dest='server', action="store_false",
-                        help='Specify for local deployments info and setup')
     parser.add_argument('-cn', '--client-name', dest='client_name', action="store", default=LIB_NAME,
                         help='Specify image registry prefix')
     parser.add_argument('-i', '--interactive', dest='interactive', action="store_true",
@@ -147,7 +147,6 @@ if __name__ == "__main__":
     root_path = os.path.join(os.getcwd(), args.path) if not os.path.isabs(args.path) else args.path
 
     get_dependencies()
-    if args.server:
-        generate_servers(root_path, interactive=args.interactive)
-    if args.client:
-        generate_clients(root_path, args.client_name, interactive=args.interactive)
+    generate_servers(root_path, interactive=args.interactive)
+
+    generate_clients(root_path, args.client_name, interactive=args.interactive)

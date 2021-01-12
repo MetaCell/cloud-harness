@@ -8,16 +8,15 @@ import glob
 import urllib.request
 from cloudharness_utilities import HERE
 from cloudharness_utilities.utils import copymergedir, replaceindir, movedircontent
-from .constants import APPLICATION_TEMPLATE_PATH
 import logging
 
 CODEGEN = os.path.join(HERE, 'bin', 'openapi-generator-cli.jar')
 APPLICATIONS_SRC_PATH = os.path.join('applications')
 LIB_NAME = 'cloudharness_cli'
 
-OPENAPI_GEN_URL = 'https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/4.3.0/openapi-generator-cli-4.3.0.jar'
+OPENAPI_GEN_URL = 'https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/5.0.0/openapi-generator-cli-5.0.0.jar'
 
-PLACEHOLDER = '__APP_NAME__'
+
 
 def generate_server(app_path):
     openapi_dir = os.path.join(app_path, 'api')
@@ -26,11 +25,7 @@ def generate_server(app_path):
     out_path=f"{app_path}/{out_name}"
     command = f"java -jar {CODEGEN} generate -i {openapi_file} -g python-flask -o {out_path} -c {openapi_dir}/config.json"
     os.system(command)
-    copymergedir(os.path.join(APPLICATION_TEMPLATE_PATH, 'backend'), out_path)
 
-    app_name = os.path.basename(app_path)
-    movedircontent(f"{out_path}/{PLACEHOLDER}/", f"{out_path}/{app_name}")
-    replaceindir(app_path, PLACEHOLDER, app_name)
 
 
 def generate_python_client(module, openapi_file, client_src_path, lib_name=LIB_NAME):
@@ -45,6 +40,17 @@ def generate_python_client(module, openapi_file, client_src_path, lib_name=LIB_N
               f"-o {client_src_path}/tmp-{module} " \
               f"-c {config_path}"
     os.system(command)
+
+def generate_ts_client(openapi_file):
+    config_path = os.path.join(os.path.dirname(openapi_file), 'config.json')
+    out_dir = f"{os.path.dirname(os.path.dirname(openapi_file))}/frontend/src/rest"
+    command = f"java -jar {CODEGEN} generate " \
+              f"-i {openapi_file} " \
+              f"-g typescript-axios " \
+              f"-o {out_dir}"
+    os.system(command)
+
+    replaceindir(out_dir, "http://localhost", '')
 
 
 def get_dependencies():

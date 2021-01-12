@@ -25,3 +25,5 @@ setup.py
 */controllers/*
 Dockerfile
 src/__main__.py
+requirements.txt
+test-requirements.txt

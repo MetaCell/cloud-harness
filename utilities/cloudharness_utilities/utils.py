@@ -8,8 +8,9 @@ import logging
 import fileinput
 
 from .constants import HERE, NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
-    APPS_PATH, BUILD_FILENAMES
+    APPS_PATH, BUILD_FILENAMES, EXCLUDE_PATHS
 
+REPLACE_TEXT_FILES_EXTENSIONS = ('.js', '.md', '.py', '.js', '.ts', '.tsx', '.txt', 'Dockerfile', 'yaml', 'json', '.ejs')
 
 def app_name_from_path(dockerfile_path):
     return get_image_name("-".join(p for p in dockerfile_path.split("/") if p not in NEUTRAL_PATHS))
@@ -66,11 +67,26 @@ def replaceindir(root_src_dir, source, replace):
     """
     logging.info('Replacing in directory %s to %s', source, replace)
     for src_dir, dirs, files in os.walk(root_src_dir):
+        if any(path in src_dir for path in EXCLUDE_PATHS):
+            continue
+
+        for dirname in dirs:
+            if source in dirname:
+                dirpath = os.path.join(src_dir, dirname)
+                movedircontent(dirpath, dirpath.replace(source, replace))
+
+    for src_dir, dirs, files in os.walk(root_src_dir):
         for file_ in files:
+            if not any(file_.endswith(ext) for ext in REPLACE_TEXT_FILES_EXTENSIONS):
+                continue
+
             src_file = os.path.join(src_dir, file_)
             with fileinput.FileInput(src_file, inplace=True) as file:
-                for line in file:
-                    print(line.replace(source, replace), end='')
+                try:
+                    for line in file:
+                        print(line.replace(source, replace), end='')
+                except UnicodeDecodeError:
+                    pass
 
 def copymergedir(root_src_dir, root_dst_dir):
     """
@@ -114,6 +130,7 @@ def movedircontent(root_src_dir, root_dst_dir):
                 shutil.move(src_file, os.path.join(dst_dir, os.path.basename(src_file)))
             except:
                 logging.warning("Error moving file %s to %s.", src_file, dst_dir, exc_info=True)
+    shutil.rmtree(root_src_dir)
 
 def merge_configuration_directories(source, dest):
     if not os.path.exists(source):

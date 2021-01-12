@@ -9,29 +9,28 @@ info:
     name: UNLICENSED
 
 tags:
-  - name: auth
-  - name: workflows
+  - name: test
 
 paths:
-  /test:
+  /ping:
     get:
-      summary: Test
-      security:
-        - bearerAuth: []
+      summary: test the application is up
+      operationId: ping
       tags:
-        - auth
-      operationId: test
-      description: |
-        Check if the token is valid
+        - test
       responses:
+        "500":
+          description: This shouldn't happen
         "200":
-          description: Check if the application works
-        "400":
-          description: bad input parameter
+          description: What we want
+          content:
+            application/json:
+              schema:
+                type: string
 
 
 servers:
-  - url: https://__APP_NAME__.cloudharness.metacell.us/api
+  - url: /api
 components:
   securitySchemes:
     bearerAuth:
