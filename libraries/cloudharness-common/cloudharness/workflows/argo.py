@@ -19,7 +19,7 @@ plural = 'workflows'
 # determine the namespace of the current app and run the workflow in that namespace
 from cloudharness.utils.config import CloudharnessConfig as conf
 ch_conf = conf.get_configuration()
-namespace = ch_conf and ch_conf.get('namespace','argo-workflows')
+namespace = (ch_conf and ch_conf.get('namespace','argo-workflows')) or 'default'
 
 CUSTOM_OBJECT_URL = f"/apis/{group}/{version}/{plural}"
 
@@ -119,25 +119,26 @@ def get_configuration():
         log.warning('Kubernetes cluster configuration not found. Trying local configuration')
 
         try:
-            configuration = kubernetes.config.load_kube_config(
-                config_file=os.path.join(str(Path.home()), '.kube', 'config'))
+            configuration = kubernetes.config.load_kube_config()
         except:
             log.warning('Kubernetes local configuration not found. Using localhost proxy')
             configuration = kubernetes.client.configuration.Configuration()
-            host = 'http://localhost:8001'
-            configuration.host = host
     return configuration
 
 
 api_instance = get_api_client()
 
 def check_namespace():
-    api_instance = kubernetes.client.CoreV1Api(kubernetes.client.ApiClient(get_configuration()))
-    try:
-        api_response = api_instance.read_namespace(namespace, exact=True)
-    except kubernetes.client.rest.ApiException as e:
+    configuration = get_configuration()
+    if configuration:
+        api_instance = kubernetes.client.CoreV1Api(kubernetes.client.ApiClient())
+        try:
+            api_response = api_instance.read_namespace(namespace, exact=True)
+        except kubernetes.client.rest.ApiException as e:
 
-        raise Exception(f"Namespace for argo workflows does not exist: {namespace}") from e
+            raise Exception(f"Namespace for argo workflows does not exist: {namespace}") from e
+    else:
+        log.warning(f"Failed to retrieve cluster configuration: Kubernetes api features are not available")
 
 def create_namespace():
     api_instance = kubernetes.client.CoreV1Api(kubernetes.client.ApiClient(get_configuration()))

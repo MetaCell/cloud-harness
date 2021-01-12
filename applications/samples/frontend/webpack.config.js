@@ -5,7 +5,7 @@ const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 const copyPaths = [
-  { from: path.resolve(__dirname, "src/assets"), to: 'static' },
+  { from: path.resolve(__dirname, "src/assets"), to: 'assets' },
 ];
 
 module.exports = function webpacking(envVariables) {

@@ -10,4 +10,5 @@ harness:
     auto: true
     port: 8080
   env:
-    - WORKERS=3
+    - name: WORKERS
+      value: "3"

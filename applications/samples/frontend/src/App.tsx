@@ -6,7 +6,7 @@ import RestTest from './components/RestTest';
 
 const Main = () => (
     <>
-      <img src="/static/icon.png" />
+      <img src="/assets/icon.png" />
       <h1>Sample React application is working!</h1>
       <RestTest />
     </>
