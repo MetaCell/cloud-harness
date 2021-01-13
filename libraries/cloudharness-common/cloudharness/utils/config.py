@@ -29,7 +29,7 @@ class CloudharnessConfig:
     via the harness-deployment script
     
     """
-    allvalues=None
+    allvalues={}
 
     @classmethod
     def _get_all_values(cls):

@@ -41,5 +41,8 @@ mode_dir = mode_file | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH # for dirs als
 for dirpath, dirnames, filenames in os.walk(download_path):
     os.chmod(dirpath, mode_dir)
     for filename in filenames:
-        os.chmod(os.path.join(dirpath, filename), mode_file)
-        logging.info(f"chmod {dirpath}/{filename} to {mode_file}")
+        try:
+            logging.info(f"chmod {dirpath}/{filename} to {mode_file}")
+            os.chmod(os.path.join(dirpath, filename), mode_file)
+        except:
+            logging.error("Cannot change file permissions: %s", filename, exc_info=True)

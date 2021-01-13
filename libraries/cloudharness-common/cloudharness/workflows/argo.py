@@ -19,7 +19,7 @@ plural = 'workflows'
 # determine the namespace of the current app and run the workflow in that namespace
 from cloudharness.utils.config import CloudharnessConfig as conf
 ch_conf = conf.get_configuration()
-namespace = (ch_conf and ch_conf.get('namespace','argo-workflows')) or 'default'
+namespace = (ch_conf and ch_conf.get('namespace','argo')) or 'default'
 
 CUSTOM_OBJECT_URL = f"/apis/{group}/{version}/{plural}"
 

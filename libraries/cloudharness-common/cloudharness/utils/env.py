@@ -22,8 +22,11 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 
 def set_default_environment():
     values = conf.get_configuration()
-    if values:
+
+    if values and 'env' in values:
          os.environ.update({v['name']: str(v["value"]) for v in values['env'] if v['name'] not in os.environ})
+
+
 
 
 set_default_environment()

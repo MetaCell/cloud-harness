@@ -30,7 +30,7 @@ workflow:
     annotations: {}
     name: "argo-workflow"  # Service account which is used to run workflows
   rbac:
-    create: false  # adds Role and RoleBinding for the above specified service account to be able to run workflows
+    create: true  # adds Role and RoleBinding for the above specified service account to be able to run workflows
 
 controller:
   image:
