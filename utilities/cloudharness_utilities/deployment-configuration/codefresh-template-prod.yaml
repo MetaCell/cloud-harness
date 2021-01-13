@@ -72,7 +72,7 @@ steps:
     stage: publish
     image: alpine/git:latest
     commands:
-      - git tag ${{DEPLOYMENT_TAG}}
+      - git tag ${{DEPLOYMENT_PUBLISH_TAG}}
       - ORIGIN=$(git remote get-url origin)
       - PROTOCOL=https://
       - REPLACEMENT=${PROTOCOL}${{REPO_TOKEN}}@
