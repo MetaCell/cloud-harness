@@ -26,7 +26,7 @@ except:
     SCHEMA = 'https'
     HOST = 'accounts.mnp.metacell.us'
     PORT = '443'
-    USER = 'mnp'
+    USER = 'admin'
     PASSWD = 'metacell'
 
 SERVER_URL = f'{SCHEMA}://{HOST}:{PORT}/auth/'
