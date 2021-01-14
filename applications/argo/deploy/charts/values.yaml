@@ -94,10 +94,10 @@ controller:
   instanceID:
     # `instanceID.enabled` configures the controller to filter workflow submissions
     # to only those which have a matching instanceID attribute.
-    enabled: false
+    enabled: true
     # NOTE: If `instanceID.enabled` is set to `true` then either `instanceID.userReleaseName`
     # or `instanceID.explicitID` must be defined.
-    # useReleaseName: true
+    useReleaseName: true
     # explicitID: unique-argo-controller-identifier
   logging:
     level: info

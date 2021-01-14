@@ -12,6 +12,7 @@ RUN apk add gcc libc-dev g++ python3-dev libffi-dev openssl-dev
 COPY libraries/cloudharness-common /libraries/cloudharness-common
 COPY libraries/client/cloudharness_cli /libraries/client/cloudharness_cli
 
+# RUN pip install -r /libraries/cloudharness-common/requirements.txt
 RUN pip install /libraries/cloudharness-common
 RUN pip install /libraries/client/cloudharness_cli
 

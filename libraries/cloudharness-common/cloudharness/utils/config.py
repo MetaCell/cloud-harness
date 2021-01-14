@@ -45,6 +45,22 @@ class CloudharnessConfig:
         return cls.apps
 
     @classmethod
+    def get_namespace(cls):
+        return cls.get_configuration()['namespace']
+
+    @classmethod
+    def get_domain(cls):
+        return cls.get_configuration()['domain']
+
+    @classmethod
+    def is_secured(cls):
+        return bool(cls.get_configuration()['tls'])
+
+    @classmethod
+    def is_test(cls):
+        return 'test' in cls.get_configuration() and cls.get_configuration()['test']
+
+    @classmethod
     def get_application_by_filter(cls, **filter):
         """
         Helper function for filtering CH app objects

@@ -26,6 +26,7 @@ spec:
         backend:
           serviceName: {{- if (and $app.harness.secured $secured_gatekeepers) }} "{{ $app.harness.service.name }}-gk" {{- else }} {{ $app.harness.service.name | quote }}{{- end }}
           servicePort: {{- if (and $app.harness.secured $secured_gatekeepers) }} 8080 {{- else }} {{ $app.harness.service.port | default 80  }}{{- end }}
+
     {{- else if $app.harness.subdomain }}
   - host: {{ printf "%s.%s" $app.harness.subdomain $domain | quote }}
     http: 

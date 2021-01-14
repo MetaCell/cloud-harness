@@ -1097,6 +1097,8 @@ env:
   value: localhost:5000/
 - name: CH_IMAGE_TAG
   value: latest
+- name: ARGO_INSTANCEID
+  value: ch
 privenv:
 - name: CH_SECRET
   value: "In God we trust; all others must bring data. \u2015 W. Edwards Deming"
@@ -1108,3 +1110,4 @@ ingress:
     email: filippo@metacell.us
 tls: null
 localIp: 192.168.99.104
+test: true

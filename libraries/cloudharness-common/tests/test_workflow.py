@@ -1,11 +1,14 @@
 """Notice, this test needs a fully operating kubernetes with argo environment in the container running the test"""
 import time
+import requests
 from cloudharness.utils.config import CloudharnessConfig as conf
 from .test_env import set_test_environment
 set_test_environment()
 
 from cloudharness.workflows import operations, tasks
 from cloudharness import set_debug
+from cloudharness.workflows import argo
+from pprint import pprint
 
 set_debug()
 
@@ -88,6 +91,38 @@ def test_result_task_workflow():
     print('\n', yaml.dump(op.to_workflow()))
     print(op.execute())
 
+def test_get_workflows():
+    assert len(argo.get_workflows())
 
+def test_submit_workflow():
+    WORKFLOW = 'https://raw.githubusercontent.com/argoproj/argo/v2.12.2/examples/dag-diamond-steps.yaml'
 
-# op = operations.ParallelOperation('my_op', [task, operations.CustomTask('my-coreg', 'coregistration-init')])
+    resp = requests.get(WORKFLOW)
+    manifest: dict = yaml.safe_load(resp.text)
+    wf = argo.submit_workflow(manifest)
+    assert wf
+    assert wf.name
+
+def test_get_workflow():
+    WORKFLOW = 'https://raw.githubusercontent.com/argoproj/argo/v2.12.2/examples/dag-diamond-steps.yaml'
+
+    resp = requests.get(WORKFLOW)
+    manifest: dict = yaml.safe_load(resp.text)
+    wf = argo.submit_workflow(manifest)
+    wf = argo.get_workflow(wf.name)
+    assert wf
+    assert wf.name
+    try:
+        argo.get_workflow('riuhfsdhsdfsfisdf')
+        assert 1 == 0 # not found raises exception
+    except:
+        pass
+
+def test_get_workflow_logs():
+    WORKFLOW = 'https://raw.githubusercontent.com/argoproj/argo/v2.12.2/examples/dag-diamond-steps.yaml'
+
+    resp = requests.get(WORKFLOW)
+    manifest: dict = yaml.safe_load(resp.text)
+    wf = argo.submit_workflow(manifest)
+    logs = argo.get_workflow_logs(wf.name)
+    assert all(log for log in logs)
