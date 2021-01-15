@@ -56,7 +56,7 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
 
     create_tls_certificate(local, domain, tls, output_path, helm_values)
 
-    finish_helm_values(values=helm_values, tag=tag, registry=registry, local=local, domain=domain, secured=secured,
+    values, include = finish_helm_values(values=helm_values, tag=tag, registry=registry, local=local, domain=domain, secured=secured,
                        registry_secret=registry_secret, tls=tls, include=include)
 
     for root_path in root_paths:
@@ -211,7 +211,7 @@ def finish_helm_values(values, tag='latest', registry='', local=True, domain=Non
                 del apps[v]
     # Create environment variables
     create_env_variables(values)
-    return values
+    return values, include
 
 
 def values_from_legacy(values):
