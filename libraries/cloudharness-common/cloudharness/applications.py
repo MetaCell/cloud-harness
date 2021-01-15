@@ -65,9 +65,10 @@ def get_configurations(**kwargs):
 
 
 def get_configuration(app_name) -> ApplicationConfiguration:
-    conf = CloudharnessConfig.get_applications()[app_name]
+    conf = CloudharnessConfig.get_application_by_filter(harness__name=app_name)
+    if len(conf) > 1:
+        raise ConfigurationCallException(f'Application {app_name} is not unique inside the current deployment.')
     if not conf:
-        if len(conf) > 1:
-            raise ConfigurationCallException(f'Application {app_name} is not part of the current deployment.')
-    return ApplicationConfiguration(conf)
+        raise ConfigurationCallException(f'Application {app_name} is not part of the current deployment.')
+    return ApplicationConfiguration(conf[0])
 

@@ -396,7 +396,7 @@ apps:
     resources: *id005
   argo:
     harness:
-      name: argo-server
+      name: argo
       subdomain: argo
       domain: null
       secured: true
