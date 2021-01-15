@@ -16,7 +16,7 @@ harness:
     resources:
       requests:
         memory: "32Mi"
-        cpu: "25m"
+        cpu: "10m"
       limits:
         memory: "500Mi"
         cpu: "500m"
@@ -61,7 +61,7 @@ harness:
     resources:
       requests:
         memory: "512Mi"
-        cpu: "200m"
+        cpu: "100m"
       limits:
         memory: "2Gi"
         cpu: "1000m"
