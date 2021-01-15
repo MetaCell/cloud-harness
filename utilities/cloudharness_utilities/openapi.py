@@ -7,7 +7,7 @@ import json
 import glob
 import urllib.request
 from cloudharness_utilities import HERE
-from cloudharness_utilities.utils import copymergedir, replaceindir, movedircontent
+from cloudharness_utilities.utils import copymergedir, replaceindir, movedircontent, replace_in_file
 import logging
 
 CODEGEN = os.path.join(HERE, 'bin', 'openapi-generator-cli.jar')

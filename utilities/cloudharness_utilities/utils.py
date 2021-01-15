@@ -72,7 +72,7 @@ def replaceindir(root_src_dir, source, replace):
         for dirname in dirs:
             if source in dirname:
                 dirpath = os.path.join(src_dir, dirname)
-                movedircontent(dirpath, dirpath.replace(source, replace))
+                movedircontent(dirpath, dirpath.replace(source, replace.replace('-', '_')))
 
     for src_dir, dirs, files in os.walk(root_src_dir):
         for file_ in files:
@@ -80,12 +80,20 @@ def replaceindir(root_src_dir, source, replace):
                 continue
 
             src_file = os.path.join(src_dir, file_)
-            with fileinput.FileInput(src_file, inplace=True) as file:
-                try:
-                    for line in file:
-                        print(line.replace(source, replace), end='')
-                except UnicodeDecodeError:
-                    pass
+
+            replace_in_file(src_file, source, replace )
+
+
+def replace_in_file(src_file, source, replace):
+    if src_file.endswith('.py'):
+        replace = replace.replace('-', '_')
+    with fileinput.FileInput(src_file, inplace=True) as file:
+        try:
+            for line in file:
+                print(line.replace(source, replace), end='')
+        except UnicodeDecodeError:
+            pass
+
 
 def copymergedir(root_src_dir, root_dst_dir):
     """
@@ -138,30 +146,30 @@ def merge_configuration_directories(source, dest):
         shutil.copytree(source, dest)
         return
 
-    for fname in glob.glob(source + "/*"):
-        frel = os.path.relpath(fname, start=source)
-        fdest = os.path.join(dest, frel)
+    for src_dir, dirs, files in os.walk(source):
 
-        if os.path.basename(fname) in BUILD_FILENAMES:
-            continue
+        dst_dir = src_dir.replace(source, dest, 1)
+        if not os.path.exists(dst_dir):
+            os.makedirs(dst_dir)
+        for fname in files:
+            if fname in BUILD_FILENAMES:
+                continue
+            fpath = os.path.join(src_dir, fname)
+            frel = os.path.relpath(fpath, start=source)
+            fdest = os.path.join(dest, frel)
+            if not os.path.exists(fdest):
+                shutil.copy2(fpath, fdest)
+            elif file_is_yaml(fpath):
 
-        if os.path.isdir(fname):
-            merge_configuration_directories(fname, fdest)
-            continue
-
-        if not os.path.exists(fdest):
-            shutil.copy2(fname, fdest)
-        elif file_is_yaml(fname):
-
-            try:
-                merge_yaml_files(fname, fdest)
-                logging.info(f"Merged/overridden file content of {fdest} with {fname}")
-            except yaml.YAMLError as e:
-                logging.warning(f"Overwriting file {fdest} with {fname}")
-                shutil.copy2(fname, fdest)
-        else:
-            logging.warning(f"Overwriting file {fdest} with {fname}")
-            shutil.copy2(fname, fdest)
+                try:
+                    merge_yaml_files(fpath, fdest)
+                    logging.info(f"Merged/overridden file content of {fdest} with {fpath}")
+                except yaml.YAMLError as e:
+                    logging.warning(f"Overwriting file {fdest} with {fpath}")
+                    shutil.copy2(fname, fdest)
+            else:
+                logging.warning(f"Overwriting file {fdest} with {fpath}")
+                shutil.copy2(fpath, fdest)
 
 
 def merge_yaml_files(fname, fdest):
