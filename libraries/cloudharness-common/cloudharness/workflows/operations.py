@@ -111,8 +111,6 @@ class ContainerizedOperation(ManagedOperation):
 
         log.debug("Submitting workflow\n" + pyaml.dump(op))
 
-        print(pyaml.dump(op))
-
         self.persisted = argo.submit_workflow(op)  # TODO use rest api for that? Include this into cloudharness.workflows?
 
         return self.persisted
