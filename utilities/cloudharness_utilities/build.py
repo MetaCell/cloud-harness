@@ -55,7 +55,7 @@ class Builder:
                 return answer.upper() != 'N'
             return True
 
-        if any(inc in image_path for inc in self.included):
+        if any(f"/{inc}/" in image_path or image_path.endswith(f"/{inc}") for inc in self.included):
             return True
         logging.info("Skipping build for image %s", image_path)
         return False
@@ -78,8 +78,8 @@ class Builder:
             dockerfile_rel_path = "" if not context_path else os.path.relpath(dockerfile_path, start=context_path)
             # extract image name
             image_name = app_name_from_path(os.path.relpath(dockerfile_path, start=abs_base_path))
-            if self.should_build_image(os.path.relpath(dockerfile_path, start=abs_base_path)):
-                self.build_image(image_name, dockerfile_rel_path,
+
+            self.build_image(image_name, dockerfile_rel_path,
                                  context_path=context_path if context_path else dockerfile_path)
 
 

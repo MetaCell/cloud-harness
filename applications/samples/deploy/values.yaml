@@ -12,3 +12,14 @@ harness:
   env:
     - name: WORKERS
       value: "3"
+  dependencies:
+    soft:
+      - argo
+      - events
+    build:
+      - cloudharness-base
+      - cloudharness-frontend-build
+      - cloudharness-flask
+      - workflows/tasks
+
+

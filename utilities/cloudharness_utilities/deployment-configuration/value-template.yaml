@@ -2,6 +2,10 @@ harness:
   name:
   subdomain:
   domain:
+  dependencies:
+    hard: []
+    soft: []
+    build: []
   secured: false
   uri_role_mapping:
     - uri: /*

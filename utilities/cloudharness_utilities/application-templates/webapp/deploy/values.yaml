@@ -1,0 +1,6 @@
+harness:
+  dependencies:
+    build:
+      - cloudharness-base
+      - cloudharness-frontend-build
+      - cloudharness-flask

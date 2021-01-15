@@ -76,7 +76,7 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
                 app_relative_to_root = os.path.relpath(dockerfile_path, '.')
                 app_relative_to_base = os.path.relpath(dockerfile_path, abs_base_path)
                 app_name = app_name_from_path(app_relative_to_base)
-                if include and not any(inc in dockerfile_path for inc in include):
+                if include and not any(f"/{inc}/" in dockerfile_path or dockerfile_path.endswith(f"/{inc}") for inc in include):
                     continue
                 if any(inc in dockerfile_path for inc in (list(exclude) + EXCLUDE_PATHS)):
                     continue

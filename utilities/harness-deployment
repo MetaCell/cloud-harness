@@ -67,14 +67,9 @@ if __name__ == "__main__":
         print(f'unknown: {unknown}')
     else:
 
-        builder = Builder(root_paths, args.include, tag=args.tag, registry=args.registry, interactive=args.build_interactive,
-                    exclude=args.exclude, namespace=args.namespace, domain=args.domain)
-        
         if args.merge:
-            merge_app_directories(builder.root_paths, destination=args.merge)
-            builder.root_paths = [args.merge]
-        if args.build or args.build_interactive:
-            builder.run()
+            merge_app_directories(root_paths, destination=args.merge)
+            root_paths = [args.merge]
 
         values_manual_deploy = create_helm_chart(
             root_paths,
@@ -89,10 +84,27 @@ if __name__ == "__main__":
             registry_secret=args.registry_secret,
             tls=not args.no_tls
         )
-        create_codefresh_deployment_scripts(builder.root_paths, include=args.include) # LEGACY
-        create_codefresh_deployment_scripts(builder.root_paths, include=args.include, template_name='codefresh-template-dev.yaml', out_filename="codefresh-dev.yaml")
-        create_codefresh_deployment_scripts(builder.root_paths, include=args.include,
+
+        build_included = set()
+        for app in values_manual_deploy['apps'].values():
+            build_included.add(app['harness']['name'])
+            build_included.update(app['harness']['dependencies']['build'])
+
+
+        create_codefresh_deployment_scripts(root_paths, include=build_included) # LEGACY
+        create_codefresh_deployment_scripts(root_paths, include=build_included, template_name='codefresh-template-dev.yaml', out_filename="codefresh-dev.yaml")
+        create_codefresh_deployment_scripts(root_paths, include=build_included,
                                             template_name='codefresh-template-prod.yaml', out_filename="codefresh-prod.yaml")
+
+
+
+
+        if args.build or args.build_interactive:
+            builder = Builder(root_paths, build_included, tag=args.tag, registry=args.registry,
+                              interactive=args.build_interactive,
+                              exclude=args.exclude, namespace=args.namespace, domain=args.domain)
+            builder.run()
+
         hosts_info(values_manual_deploy)
 
     if args.deploy:
