@@ -47,7 +47,7 @@ def submit_sync():  # noqa: E501
 
     op = operations.DistributedSyncOperation('test-sync-op-', task)
     workflow = op.execute()
-    return workflow.raw
+    return workflow.raw.to_dict()
 
 
 def submit_sync_with_results(a=1, b=2):  # noqa: E501

@@ -40,7 +40,7 @@ def send_static(path):
 
 def main():
     connexion_app.debug=True
-    connexion_app.run(port=5000)
+    connexion_app.run(port=5001)
 
 
 if __name__ == "__main__":

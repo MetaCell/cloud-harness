@@ -19,6 +19,7 @@ OPENAPI_GEN_URL = 'https://repo1.maven.org/maven2/org/openapitools/openapi-gener
 
 
 def generate_server(app_path):
+    get_dependencies()
     openapi_dir = os.path.join(app_path, 'api')
     openapi_file = glob.glob(os.path.join(openapi_dir, '*.yaml'))[0]
     out_name = f"backend" if not os.path.exists(f"{app_path}/server") else f"server"
@@ -29,6 +30,7 @@ def generate_server(app_path):
 
 
 def generate_python_client(module, openapi_file, client_src_path, lib_name=LIB_NAME):
+    get_dependencies()
     config_path = os.path.join(os.path.dirname(openapi_file), 'config.json')
 
     module = module.replace('-', '_')
@@ -66,7 +68,7 @@ def get_dependencies():
         sys.exit('java not found')
 
     if not os.path.exists(CODEGEN):
-        logging.warning("Code generator client not found \n")
+        logging.warning("Code generator client not found: downloading \n")
         cdir = os.path.dirname(CODEGEN)
         if not os.path.exists(cdir):
             os.makedirs(cdir)

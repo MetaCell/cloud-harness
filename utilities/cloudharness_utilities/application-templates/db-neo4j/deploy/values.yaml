@@ -1,5 +1,4 @@
 harness:
   database:
     auto: true
-    name: __APP_NAME__-neo4j-db
     type: neo4j

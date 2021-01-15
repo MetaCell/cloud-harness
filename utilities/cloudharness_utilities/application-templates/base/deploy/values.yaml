@@ -1,7 +1,6 @@
 harness:
   subdomain: __APP_NAME__
   secured: false
-  port: 80
   service:
     port: 8080
     auto: true
