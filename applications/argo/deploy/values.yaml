@@ -1,7 +1,7 @@
 harness:
   subdomain: argo
   secured: true
-  name: argo-server
+  name: argo
   service:
     port: 2746
     auto: false

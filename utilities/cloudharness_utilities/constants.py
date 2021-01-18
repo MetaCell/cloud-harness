@@ -5,6 +5,8 @@ NODE_BUILD_IMAGE = 'node:8.16.1-alpine'
 HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
 ROOT = os.path.dirname(HERE)
 
+APPLICATION_TEMPLATE_PATH = 'application-templates'
+
 HELM_PATH = "helm"
 HELM_CHART_PATH = HELM_PATH
 
@@ -15,7 +17,7 @@ NEUTRAL_PATHS = ('src', 'tasks', 'server')
 APPS_PATH = 'applications'
 DEPLOYMENT_PATH = 'deployment'
 CODEFRESH_PATH = 'codefresh/codefresh.yaml'
-EXCLUDE_PATHS = ['node_modules', '.git', 'test']
+EXCLUDE_PATHS = ['node_modules', '.git', '/test', '/dist']
 
 DEPLOYMENT_CONFIGURATION_PATH = 'deployment-configuration'
 

@@ -9,3 +9,6 @@ harness:
   deployment:
     auto: true
     port: 8080
+  env:
+    - name: WORKERS
+      value: "3"

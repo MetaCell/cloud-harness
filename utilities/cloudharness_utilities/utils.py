@@ -5,10 +5,12 @@ import collections
 import oyaml as yaml
 import shutil
 import logging
+import fileinput
 
 from .constants import HERE, NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
-    APPS_PATH, BUILD_FILENAMES
+    APPS_PATH, BUILD_FILENAMES, EXCLUDE_PATHS
 
+REPLACE_TEXT_FILES_EXTENSIONS = ('.js', '.md', '.py', '.js', '.ts', '.tsx', '.txt', 'Dockerfile', 'yaml', 'json', '.ejs')
 
 def app_name_from_path(dockerfile_path):
     return get_image_name("-".join(p for p in dockerfile_path.split("/") if p not in NEUTRAL_PATHS))
@@ -37,7 +39,6 @@ def env_variable(name, value):
 
 def get_cluster_ip():
     out = subprocess.check_output(['kubectl', 'cluster-info'], timeout=10).decode("utf-8")
-    print(type(out))
     ip = out.split('\n')[0].split('://')[1].split(':')[0]
     return ip
 
@@ -56,6 +57,87 @@ def get_template(yaml_path):
 def file_is_yaml(fname):
     return fname[-4:] == 'yaml' or fname[-3:] == 'yml'
 
+def replaceindir(root_src_dir, source, replace):
+    """
+    Does copy and merge (shutil.copytree requires that the destination does not exist)
+    :param root_src_dir:
+    :param root_dst_dir:
+    :return:
+    """
+    logging.info('Replacing in directory %s to %s', source, replace)
+    for src_dir, dirs, files in os.walk(root_src_dir):
+        if any(path in src_dir for path in EXCLUDE_PATHS):
+            continue
+
+        for dirname in dirs:
+            if source in dirname:
+                dirpath = os.path.join(src_dir, dirname)
+                movedircontent(dirpath, dirpath.replace(source, replace.replace('-', '_')))
+
+    for src_dir, dirs, files in os.walk(root_src_dir):
+        for file_ in files:
+            if not any(file_.endswith(ext) for ext in REPLACE_TEXT_FILES_EXTENSIONS):
+                continue
+
+            src_file = os.path.join(src_dir, file_)
+
+            replace_in_file(src_file, source, replace )
+
+
+def replace_in_file(src_file, source, replace):
+    if src_file.endswith('.py'):
+        replace = replace.replace('-', '_')
+    with fileinput.FileInput(src_file, inplace=True) as file:
+        try:
+            for line in file:
+                print(line.replace(source, replace), end='')
+        except UnicodeDecodeError:
+            pass
+
+
+def copymergedir(root_src_dir, root_dst_dir):
+    """
+    Does copy and merge (shutil.copytree requires that the destination does not exist)
+    :param root_src_dir:
+    :param root_dst_dir:
+    :return:
+    """
+    logging.info('Copying directory %s to %s', root_src_dir, root_dst_dir)
+    for src_dir, dirs, files in os.walk(root_src_dir):
+        dst_dir = src_dir.replace(root_src_dir, root_dst_dir, 1)
+        if not os.path.exists(dst_dir):
+            os.makedirs(dst_dir)
+        for file_ in files:
+            src_file = os.path.join(src_dir, file_)
+            dst_file = os.path.join(dst_dir, file_)
+            if os.path.exists(dst_file):
+                os.remove(dst_file)
+            try:
+                shutil.copy(src_file, dst_dir)
+            except:
+                logging.warning("Error copying file %s to %s.", src_file, dst_dir)
+
+def movedircontent(root_src_dir, root_dst_dir):
+    """
+    Does copy and merge (shutil.copytree requires that the destination does not exist)
+    :param root_src_dir:
+    :param root_dst_dir:
+    :return:
+    """
+    logging.info('Moving directory content from %s to %s', root_src_dir, root_dst_dir)
+    for src_dir, dirs, files in os.walk(root_src_dir):
+        dst_dir = src_dir.replace(root_src_dir, root_dst_dir, 1)
+        if not os.path.exists(dst_dir):
+            os.makedirs(dst_dir)
+        for file_ in files:
+            src_file = os.path.join(src_dir, file_)
+            dst_file = os.path.join(dst_dir, file_)
+
+            try:
+                shutil.move(src_file, os.path.join(dst_dir, os.path.basename(src_file)))
+            except:
+                logging.warning("Error moving file %s to %s.", src_file, dst_dir, exc_info=True)
+    shutil.rmtree(root_src_dir)
 
 def merge_configuration_directories(source, dest):
     if not os.path.exists(source):
@@ -64,30 +146,30 @@ def merge_configuration_directories(source, dest):
         shutil.copytree(source, dest)
         return
 
-    for fname in glob.glob(source + "/*"):
-        frel = os.path.relpath(fname, start=source)
-        fdest = os.path.join(dest, frel)
+    for src_dir, dirs, files in os.walk(source):
 
-        if os.path.basename(fname) in BUILD_FILENAMES:
-            continue
+        dst_dir = src_dir.replace(source, dest, 1)
+        if not os.path.exists(dst_dir):
+            os.makedirs(dst_dir)
+        for fname in files:
+            if fname in BUILD_FILENAMES:
+                continue
+            fpath = os.path.join(src_dir, fname)
+            frel = os.path.relpath(fpath, start=source)
+            fdest = os.path.join(dest, frel)
+            if not os.path.exists(fdest):
+                shutil.copy2(fpath, fdest)
+            elif file_is_yaml(fpath):
 
-        if os.path.isdir(fname):
-            merge_configuration_directories(fname, fdest)
-            continue
-
-        if not os.path.exists(fdest):
-            shutil.copy2(fname, fdest)
-        elif file_is_yaml(fname):
-
-            try:
-                merge_yaml_files(fname, fdest)
-                logging.info(f"Merged/overridden file content of {fdest} with {fname}")
-            except yaml.YAMLError as e:
-                logging.warning(f"Overwriting file {fdest} with {fname}")
-                shutil.copy2(fname, fdest)
-        else:
-            logging.warning(f"Overwriting file {fdest} with {fname}")
-            shutil.copy2(fname, fdest)
+                try:
+                    merge_yaml_files(fpath, fdest)
+                    logging.info(f"Merged/overridden file content of {fdest} with {fpath}")
+                except yaml.YAMLError as e:
+                    logging.warning(f"Overwriting file {fdest} with {fpath}")
+                    shutil.copy2(fname, fdest)
+            else:
+                logging.warning(f"Overwriting file {fdest} with {fpath}")
+                shutil.copy2(fpath, fdest)
 
 
 def merge_yaml_files(fname, fdest):

@@ -1,0 +1,46 @@
+openapi: 3.0.0
+info:
+  description: __APP_NAME__
+  version: 0.1.0
+  title: __APP_NAME__
+  contact:
+    email: cloudharness@metacell.us
+  license:
+    name: UNLICENSED
+
+tags:
+  - name: test
+
+paths:
+  /ping:
+    get:
+      summary: test the application is up
+      operationId: ping
+      tags:
+        - test
+      responses:
+        "500":
+          description: This shouldn't happen
+        "200":
+          description: What we want
+          content:
+            application/json:
+              schema:
+                type: string
+
+
+servers:
+  - url: /api
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      x-bearerInfoFunc: cloudharness.auth.decode_token
+  schemas:
+    Valid:
+      type: object
+      properties:
+        response:
+          type: string

@@ -35,6 +35,9 @@ spec:
         env:
           {{- include "deploy_utils.env" .root | nindent 8 }}
           {{- include "deploy_utils.privenv" .root | nindent 8 }}
+          {{- if .app.harness.env }}
+            {{- .app.harness.env | toYaml | nindent 8 }}
+          {{- end }}
           {{- if .app.harness.secrets }}
             {{- range $secret := .app.harness.secrets }}
         - name: {{ print $secret.name "-" $secret.key }}
