@@ -85,10 +85,7 @@ if __name__ == "__main__":
             tls=not args.no_tls
         )
 
-        build_included = set()
-        for app in values_manual_deploy['apps'].values():
-            build_included.add(app['harness']['name'])
-            build_included.update(app['harness']['dependencies']['build'])
+        build_included = args.include
 
 
         create_codefresh_deployment_scripts(root_paths, include=build_included) # LEGACY

@@ -28,6 +28,8 @@ harness:
     auto: true
     name:
     port: 80
+  use_services: []
+    # e.g. - name: mnp-checkout
   database:
     auto: false
     name:
