@@ -6,7 +6,8 @@ import shutil
 import sys
 import logging
 
-from cloudharness_utilities.openapi import LIB_NAME, generate_python_client, generate_server, get_dependencies
+from cloudharness_utilities.openapi import LIB_NAME, generate_python_client, generate_server, get_dependencies, generate_ts_client
+from cloudharness_utilities.utils import copymergedir
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -16,43 +17,22 @@ def get_openapi_file_paths(root_path):
     return [path for path in glob.glob(root_path + '/applications/*/api/*.yaml')]
 
 
-def get_modules(openapi_files):
+def get_application_paths(openapi_files):
     return [os.path.basename(os.path.dirname(os.path.dirname(path))) for path in openapi_files]
 
 
-def generate_servers(root_path):
+def generate_servers(root_path, interactive=False):
     """
     Generates server stubs
     """
     openapi_files = get_openapi_file_paths(root_path)
-    modules = get_modules(openapi_files)
+    modules = get_application_paths(openapi_files)
     for i in range(len(modules)):
-        openapi_file = openapi_files[i]
-        application_root = os.path.dirname(os.path.dirname(openapi_file))
-        generate_server(application_root)
+        if not interactive or input("Do you want to generate " + openapi_files[i] + "? [Y/n]").upper() != 'N':
+            openapi_file = openapi_files[i]
+            application_root = os.path.dirname(os.path.dirname(openapi_file))
+            generate_server(application_root)
 
-
-def copymergedir(root_src_dir, root_dst_dir):
-    """
-    Does copy and merge (shutil.copytree requires that the destination does not exist)
-    :param root_src_dir:
-    :param root_dst_dir:
-    :return:
-    """
-    logging.info('Copying directory %s to %s', root_src_dir, root_dst_dir)
-    for src_dir, dirs, files in os.walk(root_src_dir):
-        dst_dir = src_dir.replace(root_src_dir, root_dst_dir, 1)
-        if not os.path.exists(dst_dir):
-            os.makedirs(dst_dir)
-        for file_ in files:
-            src_file = os.path.join(src_dir, file_)
-            dst_file = os.path.join(dst_dir, file_)
-            if os.path.exists(dst_file):
-                os.remove(dst_file)
-            try:
-                shutil.copy(src_file, dst_dir)
-            except:
-                logging.warning("Error copying file %s to %s.", src_file, dst_dir)
 
 
 def aggregate_packages(client_src_path, lib_name=LIB_NAME):
@@ -131,17 +111,24 @@ def aggregate_packages(client_src_path, lib_name=LIB_NAME):
         shutil.rmtree(MODULE_TMP_PATH)
 
 
-def generate_clients(root_path, client_lib_name=LIB_NAME):
+def generate_clients(root_path, client_lib_name=LIB_NAME, interactive=False):
     """
     Generates client stubs
     """
+    if interactive and input("Do you want to generate client libraries? [Y/n]").upper() == 'N':
+        return
+
     openapi_files = get_openapi_file_paths(root_path)
-    modules = get_modules(openapi_files)
-    client_src_path = os.path.join(root_path, 'client', client_lib_name)
-    for i in range(len(modules)):
-        module = modules[i]
+    applications = get_application_paths(openapi_files)
+
+    client_src_path = os.path.join(root_path, 'libraries/client', client_lib_name)
+    for i in range(len(applications)):
+        app_name = applications[i]
         openapi_file = openapi_files[i]
-        generate_python_client(module, openapi_file, client_src_path, lib_name=client_lib_name)
+        app_dir = os.path.dirname(os.path.dirname(openapi_file))
+        generate_python_client(app_name, openapi_file, client_src_path, lib_name=client_lib_name)
+        if os.path.exists(os.path.join(app_dir, 'frontend')):
+            generate_ts_client(openapi_file)
 
     aggregate_packages(client_src_path, client_lib_name)
 
@@ -151,21 +138,18 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description='Walk filesystem inside ./applications and define build and deploy scripts.')
+        description='Walk filesystem inside ./applications create application scaffolding.')
     parser.add_argument('path', metavar='path', default=ROOT, type=str,
                         help='Base path of the application.')
-    parser.add_argument('-nc', '--no-client', dest='client', action="store_false",
-                        help='Specify for local deployments info and setup')
-    parser.add_argument('-ns', '--no-server', dest='server', action="store_false",
-                        help='Specify for local deployments info and setup')
     parser.add_argument('-cn', '--client-name', dest='client_name', action="store", default=LIB_NAME,
                         help='Specify image registry prefix')
+    parser.add_argument('-i', '--interactive', dest='interactive', action="store_true",
+                        help='Asks before generate')
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
     root_path = os.path.join(os.getcwd(), args.path) if not os.path.isabs(args.path) else args.path
 
     get_dependencies()
-    if args.server:
-        generate_servers(root_path)
-    if args.client:
-        generate_clients(root_path, args.client_name)
+    generate_servers(root_path, interactive=args.interactive)
+
+    generate_clients(root_path, args.client_name, interactive=args.interactive)

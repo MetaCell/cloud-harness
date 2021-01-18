@@ -5,10 +5,12 @@ import os
 import shutil
 
 from cloudharness_utilities import HERE
+from cloudharness_utilities.constants import APPLICATION_TEMPLATE_PATH
 import cloudharness_utilities.openapi
-from cloudharness_utilities.openapi import generate_server, APPLICATIONS_SRC_PATH
+from cloudharness_utilities.openapi import generate_server, APPLICATIONS_SRC_PATH, generate_ts_client
+from cloudharness_utilities.utils import merge_configuration_directories, replaceindir, replace_in_file
 
-APPLICATION_TEMPLATE = os.path.join(HERE, 'application-template')
+PLACEHOLDER = '__APP_NAME__'
 
 if __name__ == "__main__":
     import argparse
@@ -17,6 +19,16 @@ if __name__ == "__main__":
         description='Creates a new Application.')
     parser.add_argument('name', metavar='name', type=str,
                         help='Application name')
+    parser.add_argument('-t', '--template', dest='templates', action="append", default=['base', 'server'],
+                        help="""Add a template name. 
+                        
+                        Available templates:
+                        - base (backend flask app based on openapi, always included)
+                        - webapp (webapp including backend and frontend)
+                        - db-postgres
+                        - db-neo4j
+                        - db-mongo
+                        """)
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
     if unknown:
@@ -24,8 +36,26 @@ if __name__ == "__main__":
         print(f'unknown: {unknown}')
     else:
         app_path = os.path.join(APPLICATIONS_SRC_PATH, args.name)
-        shutil.copytree(APPLICATION_TEMPLATE, app_path) # TODO replace the name inside the template
-        generate_server(app_path)
+
+
+        for template_name in args.templates:
+            if template_name == 'server':
+                generate_server(app_path)
+
+            for base_path in (HERE, os.getcwd()):
+
+                template_path = os.path.join(base_path, APPLICATION_TEMPLATE_PATH, template_name)
+                if os.path.exists(template_path):
+                    merge_configuration_directories(template_path, app_path)
+
+            replace_in_file(os.path.join(app_path, 'api/config.json'), PLACEHOLDER, args.name.replace('-', '_'))
+        replaceindir(app_path, PLACEHOLDER, args.name)
+        if 'webapp' in args.templates:
+            os.remove(os.path.join(app_path, 'backend', 'Dockerfile'))
+            generate_ts_client(openapi_file=os.path.join(app_path, 'api/openapi.yaml'))
+
+
+
 
 
 

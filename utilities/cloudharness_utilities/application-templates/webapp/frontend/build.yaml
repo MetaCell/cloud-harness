@@ -1,0 +1,2 @@
+build_arguments:
+  - MY_ARG=${{MY_ARG}}

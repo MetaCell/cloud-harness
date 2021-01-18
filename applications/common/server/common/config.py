@@ -1,5 +1,5 @@
 import os
-import logging
+from cloudharness import log
 
 from cloudharness.utils.config import CloudharnessConfig as conf
 
@@ -19,7 +19,7 @@ class Config(object):
         SENTRY_APP = conf.get_application_by_filter(name='sentry')[0].name
         SQLALCHEMY_DATABASE_URI = f'postgresql+psycopg2://{SENTRY_POSTGRES_APP.user}:{SENTRY_POSTGRES_APP.password}@{SENTRY_POSTGRES_APP.name}:{SENTRY_POSTGRES_APP.port}/{SENTRY_POSTGRES_APP.initialdb}'
     except:
-        logging.error("Cannot configure SENTRY")
+        log.error("Cannot configure SENTRY")
 
 
 

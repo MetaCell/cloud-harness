@@ -30,7 +30,7 @@ workflow:
     annotations: {}
     name: "argo-workflow"  # Service account which is used to run workflows
   rbac:
-    create: false  # adds Role and RoleBinding for the above specified service account to be able to run workflows
+    create: true  # adds Role and RoleBinding for the above specified service account to be able to run workflows
 
 controller:
   image:
@@ -94,10 +94,10 @@ controller:
   instanceID:
     # `instanceID.enabled` configures the controller to filter workflow submissions
     # to only those which have a matching instanceID attribute.
-    enabled: false
+    enabled: true
     # NOTE: If `instanceID.enabled` is set to `true` then either `instanceID.userReleaseName`
     # or `instanceID.explicitID` must be defined.
-    # useReleaseName: true
+    useReleaseName: true
     # explicitID: unique-argo-controller-identifier
   logging:
     level: info
