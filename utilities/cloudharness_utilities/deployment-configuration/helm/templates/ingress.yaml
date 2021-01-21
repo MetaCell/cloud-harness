@@ -69,7 +69,7 @@ spec:
           {{- if $app.harness.subdomain }}
       - {{ printf "%s.%s" $app.harness.subdomain $domain | quote }}
           {{- end }}
-          {{- if (and $app.harness.domain (ne $app.harness.domain $domain)) }}
+          {{- if (and (not not $app.harness.domain) (ne $app.harness.domain $domain)) }}
       - {{ $app.harness.domain | quote }}
           {{- end }}
       {{- end }}
