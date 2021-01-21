@@ -4,6 +4,7 @@ nameOverride: ""
 fullnameOverride: ""
 domain: ${{DOMAIN}}
 namespace: ch
+mainapp: samples
 registry:
   name: "localhost:5000"
   secret:

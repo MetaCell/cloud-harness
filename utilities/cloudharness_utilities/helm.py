@@ -287,17 +287,17 @@ def hosts_info(values):
         logging.warning('Cannot get cluster ip')
         return
     logging.info(
-        "\nTo test locally, update your hosts file" + f"\n{ip}\t{' '.join(sd + '.' + domain for sd in subdomains)}")
+        "\nTo test locally, update your hosts file" + f"\n{ip}\t{domain + ' ' + ' '.join(sd + '.' + domain for sd in subdomains)}")
 
     deployments = (app[KEY_HARNESS][KEY_DEPLOYMENT]['name'] for app in values[KEY_APPS].values() if KEY_HARNESS in app)
 
     logging.info("\nTo run locally some apps, also those references may be needed")
     for appname in values[KEY_APPS]:
-        app = values[KEY_APPS][appname]
-        if 'name' not in app or 'port' not in app: continue
+        app = values[KEY_APPS][appname]['harness']
+        if 'deployment' not in app: continue
         print(
             "kubectl port-forward -n {namespace} deployment/{app} {port}:{port}".format(
-                app=appname, port=app['port'], namespace=namespace))
+                app=app['deployment']['name'], port=app['deployment']['port'], namespace=namespace))
 
     print(f"127.0.0.1\t{' '.join(s + '.cloudharness' for s in deployments)}")
 
