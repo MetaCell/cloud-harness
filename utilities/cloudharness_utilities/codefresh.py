@@ -70,13 +70,13 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
                 del tpl['steps'][CF_STEP_PUBLISH]
             codefresh = dict_merge(codefresh, tpl)
 
-        def codefresh_build_step_from_base_path(base_path, build_step, fixed_context=None):
+        def codefresh_build_step_from_base_path(base_path, build_step, fixed_context=None, include=include):
             abs_base_path = os.path.join(os.getcwd(), base_path)
             for dockerfile_path in find_dockerfiles_paths(abs_base_path):
                 app_relative_to_root = os.path.relpath(dockerfile_path, '.')
                 app_relative_to_base = os.path.relpath(dockerfile_path, abs_base_path)
                 app_name = app_name_from_path(app_relative_to_base)
-                if include and not any(inc in dockerfile_path for inc in include):
+                if include and not any(f"/{inc}/" in dockerfile_path or dockerfile_path.endswith(f"/{inc}") for inc in include):
                     continue
                 if any(inc in dockerfile_path for inc in (list(exclude) + EXCLUDE_PATHS)):
                     continue
@@ -94,8 +94,8 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
                         app_name=app_name, build_tag=build and build['tag'])
 
         codefresh_build_step_from_base_path(os.path.join(root_path, BASE_IMAGES_PATH), CF_BUILD_STEP_BASE,
-                                            fixed_context=root_path)
-        codefresh_build_step_from_base_path(os.path.join(root_path, STATIC_IMAGES_PATH), CF_BUILD_STEP_STATIC)
+                                            fixed_context=root_path, include=None)
+        codefresh_build_step_from_base_path(os.path.join(root_path, STATIC_IMAGES_PATH), CF_BUILD_STEP_STATIC, include=None)
         codefresh_build_step_from_base_path(os.path.join(root_path, APPS_PATH), CF_BUILD_STEP_PARALLEL)
 
     # Remove useless steps

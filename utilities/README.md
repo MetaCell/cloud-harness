@@ -39,18 +39,6 @@ harness-application myapp -t webapp -t db-mongo
 
 For more info, `harness-application --help`
 
-## harness-codefresh
-
-Generates the Codefresh continuous deployment specification.
-
-Usage:
-
-```bash
-harness-codefresh .
-```
-
-For more info, `harness-codefresh --help`
-
 ## harness-generate
 
 Generates server and client code for all standard harness REST applications.

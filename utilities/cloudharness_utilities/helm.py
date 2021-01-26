@@ -21,6 +21,7 @@ KEY_DATABASE = 'database'
 KEY_DEPLOYMENT = 'deployment'
 KEY_APPS = 'apps'
 
+
 def deploy(namespace, output_path='./deployment'):
     helm_path = os.path.join(output_path, HELM_CHART_PATH)
     logging.info('Deploying helm chart %s', helm_path)
@@ -28,6 +29,7 @@ def deploy(namespace, output_path='./deployment'):
 
     subprocess.run(
         f"helm upgrade ch {helm_path} -n {namespace} --install --reset-values".split())
+
 
 def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True,
                       output_path='./deployment', include=None, registry_secret=None, tls=True):
@@ -41,7 +43,7 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
         shutil.rmtree(dest_deployment_path)
     # Initialize with default
     copy_merge_base_deployment(dest_deployment_path, os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
-    helm_values = collect_helm_values(HERE, tag=tag, registry=registry, exclude=exclude, include=include)
+    helm_values = collect_helm_values(HERE, tag=tag, registry=registry, exclude=exclude)
 
     # Override for every cloudharness scaffolding
     for root_path in root_paths:
@@ -50,16 +52,35 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
         collect_apps_helm_templates(root_path, exclude=exclude, include=include,
                                     dest_helm_chart_path=dest_deployment_path)
         helm_values = dict_merge(helm_values,
-                                 collect_helm_values(root_path, tag=tag, registry=registry, exclude=exclude,
-                                                     include=include))
+                                 collect_helm_values(root_path, tag=tag, registry=registry, exclude=exclude))
 
     create_tls_certificate(local, domain, tls, output_path, helm_values)
 
-    finish_helm_values(values=helm_values, tag=tag, registry=registry, local=local, domain=domain, secured=secured,
-                       registry_secret=registry_secret, tls=tls)
+    values, include = finish_helm_values(values=helm_values, tag=tag, registry=registry, local=local, domain=domain, secured=secured,
+                       registry_secret=registry_secret, tls=tls, include=include)
+
+    for root_path in root_paths:
+        collect_apps_helm_templates(root_path, exclude=exclude, include=include,
+                                    dest_helm_chart_path=dest_deployment_path)
     # Save values file for manual helm chart
     merged_values = merge_to_yaml_file(helm_values, os.path.join(dest_deployment_path, VALUES_MANUAL_PATH))
     return merged_values
+
+
+def get_included_with_dependencies(values, include):
+
+    app_values = values['apps'].values()
+    directly_included = [app for app in app_values if any(inc == app['harness']['name'] for inc in include)]
+
+    dependent = set(include)
+    for app in app_values:
+        dependent.update(set(app['harness']['dependencies']['hard']))
+        dependent.update(set(app['harness']['dependencies']['soft']))
+        if values['secured_gatekeepers'] and app['harness']['secured']:
+            dependent.add('accounts')
+    if len(dependent) == len(include):
+        return dependent
+    return get_included_with_dependencies(values, dependent)
 
 
 def merge_helm_chart(source_templates_path, dest_helm_chart_path=HELM_CHART_PATH):
@@ -123,7 +144,7 @@ def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart):
         shutil.copytree(base_helm_chart, dest_helm_chart_path)
 
 
-def collect_helm_values(deployment_root, exclude=(), include=None, tag='latest', registry=''):
+def collect_helm_values(deployment_root, exclude=(), tag='latest', registry=''):
     """
     Creates helm values from a cloudharness deployment scaffolding
     """
@@ -141,7 +162,7 @@ def collect_helm_values(deployment_root, exclude=(), include=None, tag='latest',
     for app_path in get_sub_paths(app_base_path):
         app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
 
-        if app_name in exclude or (include and not any(inc in app_name for inc in include)):
+        if app_name in exclude:
             continue
 
         app_values = create_values_spec(app_name, app_path, tag=tag, registry=registry,
@@ -151,10 +172,13 @@ def collect_helm_values(deployment_root, exclude=(), include=None, tag='latest',
     return values
 
 
-def finish_helm_values(values, tag='latest', registry='', local=True, domain=None, secured=True, registry_secret=None, tls=True):
+def finish_helm_values(values, tag='latest', registry='', local=True, domain=None, secured=True, registry_secret=None,
+                       tls=True, include=None):
     """
     Sets default overridden values
     """
+
+
     if registry:
         logging.info(f"Registry set: {registry}")
     if local:
@@ -177,9 +201,17 @@ def finish_helm_values(values, tag='latest', registry='', local=True, domain=Non
         except subprocess.TimeoutExpired:
             logging.warning("Minikube not available")
 
+    if include:
+
+        include = get_included_with_dependencies(values, set(include))
+        logging.info('Selecting included applications')
+        apps = values['apps']
+        for v in [v for v in apps]:
+            if apps[v]['harness']['name'] not in include:
+                del apps[v]
     # Create environment variables
     create_env_variables(values)
-    return values
+    return values, include
 
 
 def values_from_legacy(values):
@@ -243,7 +275,6 @@ def create_values_spec(app_name, app_path, tag=None, registry='', template_path=
     if not harness[KEY_DATABASE]['name']:
         harness[KEY_DATABASE]['name'] = app_name.strip() + '-db'
     if not harness[KEY_DEPLOYMENT]['image']:
-
         harness[KEY_DEPLOYMENT]['image'] = registry + get_image_name(app_name) + f':{tag}' if tag else ''
 
     values_set_legacy(values)
@@ -303,7 +334,6 @@ def hosts_info(values):
 
 
 def create_tls_certificate(local, domain, tls, output_path, helm_values):
-
     if not tls:
         helm_values['tls'] = None
         return
