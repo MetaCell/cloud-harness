@@ -48,9 +48,10 @@ if __name__ == "__main__":
                         help='Specify for local deployments info and setup')
     parser.add_argument('-u', '--disable-security', dest='unsecured', action="store_true",
                         help='Disable secured gatekeepers access')
-    parser.add_argument('-e', '--exclude', dest='exclude', action="append", default=[],
+    parser.add_argument('-ex', '--exclude', dest='exclude', action="append", default=[],
                         help='Specify application to exclude from the deployment')
-
+    parser.add_argument('-e', '--env', dest='env', action="store", default=None,
+                        help='Specify application to exclude from the deployment')
     parser.add_argument('-m', '--merge', dest='merge', action="store", default=None,
                         help='Merge application folders and build in the given directory')
 
@@ -82,7 +83,8 @@ if __name__ == "__main__":
             exclude=args.exclude,
             include=args.include,
             registry_secret=args.registry_secret,
-            tls=not args.no_tls
+            tls=not args.no_tls,
+            env=args.env
         )
 
         build_included = args.include

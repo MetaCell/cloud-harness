@@ -31,7 +31,7 @@ steps:
     working_directory: .
     commands:
       - pip install cloud-harness/utilities
-      - harness-deployment cloud-harness . -m build -t ${{CF_BUILD_ID}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}}
+      - harness-deployment cloud-harness . -m build -t ${{CF_BUILD_ID}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e dev
   prepare_deployment_view:
     commands:
       - 'helm template ./deployment/helm --debug -n ${{NAME}}'
