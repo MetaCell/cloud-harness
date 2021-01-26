@@ -32,7 +32,7 @@ def deploy(namespace, output_path='./deployment'):
 
 
 def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True,
-                      output_path='./deployment', include=None, registry_secret=None, tls=True):
+                      output_path='./deployment', include=None, registry_secret=None, tls=True, env=None):
     """
     Creates values file for the helm chart
     """
@@ -52,7 +52,7 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
         collect_apps_helm_templates(root_path, exclude=exclude, include=include,
                                     dest_helm_chart_path=dest_deployment_path)
         helm_values = dict_merge(helm_values,
-                                 collect_helm_values(root_path, tag=tag, registry=registry, exclude=exclude))
+                                 collect_helm_values(root_path, tag=tag, registry=registry, exclude=exclude, env=env))
 
     create_tls_certificate(local, domain, tls, output_path, helm_values)
 
@@ -144,7 +144,8 @@ def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart):
         shutil.copytree(base_helm_chart, dest_helm_chart_path)
 
 
-def collect_helm_values(deployment_root, exclude=(), tag='latest', registry=''):
+
+def collect_helm_values(deployment_root, exclude=(), tag='latest', registry='', env=None):
     """
     Creates helm values from a cloudharness deployment scaffolding
     """
@@ -166,7 +167,7 @@ def collect_helm_values(deployment_root, exclude=(), tag='latest', registry=''):
             continue
 
         app_values = create_values_spec(app_name, app_path, tag=tag, registry=registry,
-                                        template_path=value_spec_template_path)
+                                        template_path=value_spec_template_path, env=env)
         values[KEY_APPS][app_name.replace('-', '_')] = app_values
 
     return values
@@ -177,8 +178,6 @@ def finish_helm_values(values, tag='latest', registry='', local=True, domain=Non
     """
     Sets default overridden values
     """
-
-
     if registry:
         logging.info(f"Registry set: {registry}")
     if local:
@@ -249,7 +248,7 @@ def values_set_legacy(values):
     values['resources'] = harness[KEY_DEPLOYMENT]['resources']
 
 
-def create_values_spec(app_name, app_path, tag=None, registry='', template_path=VALUE_TEMPLATE_PATH):
+def create_values_spec(app_name, app_path, tag=None, registry='', template_path=VALUE_TEMPLATE_PATH, env=None):
     logging.info('Generating values script for ' + app_name)
 
     values_default = get_template(template_path)
@@ -262,6 +261,14 @@ def create_values_spec(app_name, app_path, tag=None, registry='', template_path=
         values = dict_merge(values_default, values_specific)
     else:
         values = values_default
+
+    if env is not None:
+        specific_template_path = os.path.join(app_path, 'deploy', f'values-{env}.yaml')
+        if os.path.exists(specific_template_path):
+            logging.info("Specific environment values template found: " + specific_template_path)
+            with open(specific_template_path) as f:
+                values_env_specific = yaml.safe_load(f)
+            values = dict_merge(values, values_env_specific)
 
     values_from_legacy(values)
     harness = values[KEY_HARNESS]

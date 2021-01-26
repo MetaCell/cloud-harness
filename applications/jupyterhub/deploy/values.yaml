@@ -106,8 +106,8 @@ proxy:
       enabled: false
     resources:
       requests:
-        cpu: 200m
-        memory: 512Mi
+        cpu: 50m
+        memory: 128Mi
   nginx:
     image:
       name: quay.io/kubernetes-ingress-controller/nginx-ingress-controller
@@ -215,11 +215,11 @@ singleuser:
     enabled: false
   startTimeout: 300
   cpu:
-    limit: null
-    guarantee: null
+    limit: 400m
+    guarantee: 50m
   memory:
-    limit: null
-    guarantee: 0.5G
+    limit: 0.5G
+    guarantee: 0.1G
   extraResource:
     limits: {}
     guarantees: {}
@@ -240,7 +240,7 @@ scheduling:
     resources:
       requests:
         cpu: 50m
-        memory: 256Mi
+        memory: 128Mi
   podPriority:
     enabled: false
   userPlaceholder:

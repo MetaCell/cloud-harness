@@ -1,0 +1,5 @@
+harness:
+  deployment:
+     resources:
+        requests:
+          memory: "33Mi"
