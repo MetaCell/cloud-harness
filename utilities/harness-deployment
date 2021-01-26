@@ -87,7 +87,7 @@ if __name__ == "__main__":
             env=args.env
         )
 
-        build_included = args.include
+        build_included = [app['harness']['name'] for app in values_manual_deploy['apps'].values() if 'harness' in app]
 
 
         create_codefresh_deployment_scripts(root_paths, include=build_included) # LEGACY

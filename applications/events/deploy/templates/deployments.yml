@@ -60,7 +60,7 @@ spec:
             cpu: 500m
             memory: 600Mi
           requests:
-            cpu: 100m
+            cpu: 50m
             memory: 100Mi
         volumeMounts:
         - mountPath: /etc/kafka

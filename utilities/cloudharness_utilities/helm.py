@@ -73,7 +73,7 @@ def get_included_with_dependencies(values, include):
     directly_included = [app for app in app_values if any(inc == app['harness']['name'] for inc in include)]
 
     dependent = set(include)
-    for app in app_values:
+    for app in directly_included:
         dependent.update(set(app['harness']['dependencies']['hard']))
         dependent.update(set(app['harness']['dependencies']['soft']))
         if values['secured_gatekeepers'] and app['harness']['secured']:
