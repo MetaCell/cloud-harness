@@ -165,12 +165,24 @@ spec:
               port: {{ .app.harness.database.backup.healthcheck_port }}
             initialDelaySeconds: 15
           volumeMounts:
-            - name: {{ .app.harness.database.name | quote }}
-              mountPath: /data/db
+            - name: "{{ .app.harness.database.name }}-backup"
+              mountPath: /backups
       volumes:
-        - name: {{ .app.harness.database.name | quote }}
+        - name: "{{ .app.harness.database.name }}-backup"
           persistentVolumeClaim:
-            claimName: {{ .app.harness.database.name | quote }}
+            claimName: "{{ .app.harness.database.name }}-backup"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: "{{ .app.harness.database.name }}-backup"
+  namespace: {{ .root.Values.namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .app.harness.database.size }}
 ---
 {{ end }}
 apiVersion: v1
