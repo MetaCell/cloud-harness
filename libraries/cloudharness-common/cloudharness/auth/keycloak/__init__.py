@@ -256,6 +256,7 @@ class AuthClient():
         users = []
         for user in admin_client.get_users(query=query):
             user.update({'userGroups': admin_client.get_user_groups(user['id'])})
+            user.update({'userRoles': admin_client.get_realm_roles_of_user(user['id'])})
             users.append(user)
         return users
 
@@ -277,6 +278,7 @@ class AuthClient():
         admin_client = self.get_admin_client()
         user = admin_client.get_user(user_id)
         user.update({'userGroups': admin_client.get_user_groups(user_id)})
+        user.update({'userRoles': admin_client.get_realm_roles_of_user(user_id)})
         return user
 
     def get_current_user(self):
