@@ -69,15 +69,15 @@ or simply copy the *blueprint* folder
 The Kubernetes client `kubectl` must be set up and working on the local machine,
 for instance with a Google Cloud cluster or a local Minikube.
 
-1. Locally build the images with `harness-deployment -b -l
+1. Locally build the images with `harness-deployment . -b -l
 [--registry localhost:5000] [--tag 0.0.1]`
 1. Create the namespace `kubectl create ns ch`
 1. Create the namespace `kubectl create ns argo-workflows`
-1. (Optional) Try the helm chart with `helm install helm --name ch --namespace ch --dry-run`
+1. (Optional) Try the helm chart with `helm install ch deployment/helm -n ch --dry-run`
 1. Install or upgrade the helm chart with `helm install ch deployment/helm  -n ch --dependency-update` on helm 3)
 
 To upgrade an already existing chart, run
-`helm upgrade ch deployment/helm -n ch --install --reset-values `
+`helm upgrade ch deployment/helm -n ch --install --reset-values`
 
 ### Continuous deployment with Codefresh
 The codefresh pipeline setup is provided in `codefresh/codefresh.yaml`.
@@ -209,7 +209,7 @@ outside Codefresh, for instance for local testing with Minikube.
 
 #### How to build
 
-Run `harness-deployment -b -l` (all images are built unless `-i` option is provided).
+Run `harness-deployment . -b -l` (all images are built unless `-i` option is provided).
 
 For further information, run `harness-deployment --help`
 
