@@ -126,6 +126,9 @@ spec:
       labels:
         app: "{{ .app.harness.database.name }}-backup"
     spec:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
       containers:
         - name: "{{ .app.harness.database.name }}-backup"
           imagePullPolicy: IfNotPresent
