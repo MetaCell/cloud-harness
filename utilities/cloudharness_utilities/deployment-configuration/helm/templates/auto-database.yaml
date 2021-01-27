@@ -154,11 +154,11 @@ spec:
               value: {{ .app.harness.database.backup.healthcheck_port | quote }}
           resources:
             requests:
-              memory: "32Mi"
-              cpu: "25m"
+              memory: {{ .app.harness.database.backup.resources.requests.memory | default "32Mi" }}
+              cpu: {{ .app.harness.database.backup.resources.requests.cpu | default "25Mi" }}
             limits:
-              memory: "64Mi"
-              cpu: "50m"
+              memory: {{ .app.harness.database.backup.resources.limits.memory | default "64Mi" }}
+              cpu: {{ .app.harness.database.backup.resources.limits.cpu | default "50mi" }}
           livenessProbe:
             httpGet:
               path: /
