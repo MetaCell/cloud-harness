@@ -171,6 +171,47 @@ spec:
         - name: "{{ .app.harness.database.name }}-backup"
           persistentVolumeClaim:
             claimName: "{{ .app.harness.database.name }}-backup"
+{{ end }}
+{{ if eq .app.harness.database.type "mongo" }}
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: "{{ .app.harness.database.name }}-backup"
+spec:
+  schedule: {{ .app.harness.database.backup.schedule | quote }}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: mongodb-backup
+              image: {{ .app.harness.database.mongo.image }}
+              imagePullPolicy: IfNotPresent
+              command: ["/bin/sh"]
+              args:
+                - -c
+                - >-
+                  echo Started backup;
+                  FILE=/backups/$(date "+%Y-%m-%d").gz;
+                  /usr/bin/mongodump -h $DB_HOST -u $DB_USER -p $DB_PASS --archive=$FILE --gzip;
+                  ls -lisah /backups;
+                  echo Finished backup;
+              env:
+                - name: DB_USER
+                  value: {{ .app.harness.database.user }}
+                - name: DB_PASS
+                  value: {{ .app.harness.database.pass }}
+                - name: DB_HOST
+                  value: {{ .app.harness.database.name }}
+              volumeMounts:
+                - name: "{{ .app.harness.database.name }}-backup"
+                  mountPath: /backups
+          restartPolicy: OnFailure
+          volumes:
+            - name: "{{ .app.harness.database.name }}-backup"
+              persistentVolumeClaim:
+                claimName: "{{ .app.harness.database.name }}-backup"
+{{ end }}
 ---
 kind: PersistentVolumeClaim
 apiVersion: v1
@@ -184,7 +225,6 @@ spec:
     requests:
       storage: {{ .app.harness.database.size }}
 ---
-{{ end }}
 apiVersion: v1
 kind: Service
 metadata:
