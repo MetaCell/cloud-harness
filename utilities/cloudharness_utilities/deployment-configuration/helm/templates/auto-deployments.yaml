@@ -47,6 +47,22 @@ spec:
               key: {{ print $secret.key }}
             {{- end }}
           {{- end }}
+{{ if .app.harness.livenessProbe }}
+        livenessProbe:
+          httpGet:
+            path: {{ .app.harness.livenessProbe.path }}
+            port: {{ .app.harness.deployment.port | default 8080 }}
+          periodSeconds: {{ .app.harness.livenessProbe.periodSeconds | default 10 }}
+          initialDelaySeconds: {{ .app.harness.livenessProbe.initialDelaySeconds | default 0 }}
+{{ end }}
+{{ if .app.harness.readinessProbe }}
+        readinessProbe:
+          httpGet:
+            path: {{ .app.harness.readinessProbe.path }}
+            port: {{ .app.harness.deployment.port | default 8080 }}
+          periodSeconds: {{ .app.harness.livenessProbe.periodSeconds | default 10 }}
+          initialDelaySeconds: {{ .app.harness.readinessProbe.initialDelaySeconds | default 0 }}
+{{ end }}
         ports:
           - containerPort: {{ .app.harness.deployment.port | default 8080 }}
         resources:
