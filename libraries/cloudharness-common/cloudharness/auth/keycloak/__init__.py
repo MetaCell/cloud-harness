@@ -284,7 +284,7 @@ class AuthClient():
     @with_refreshtoken
     def get_user_realm_roles(self, user_id):
         """
-        Get the user including the user groups
+        Get the user including the user roles within the current realm
 
         :param user_id: User id
 
@@ -312,7 +312,7 @@ class AuthClient():
 
     def get_current_user_realm_roles(self):
         """
-        Get the user including the user groups
+        Get the user including the user roles within the current realm
 
         :param user_id: User id
 
@@ -360,7 +360,7 @@ class AuthClient():
 
     def user_has_realm_role(self, user_id, role):
         """
-        Tests if the user has the given role within the given client
+        Tests if the user has the given role within the current realm
 
         :param user_id: User id
         :param role: Name of the role
@@ -384,7 +384,7 @@ class AuthClient():
 
     def current_user_has_realm_role(self, role):
         """
-        Tests if the current user has the given role within the given client
+        Tests if the current user has the given role within the current realm
 
         :param role: Name of the role
         :return: (array RoleRepresentation)
