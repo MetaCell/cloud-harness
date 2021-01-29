@@ -81,12 +81,12 @@ class AuthClient():
         Init the class and checks the connectivity to the KeyCloak server
         """
         # test if we can connect to the Keycloak server
-        dummy_client = self.get_admin_client()          
+        dummy_client = self.get_admin_client()
 
     def get_admin_client(self):
         """
         Setup and return a keycloak admin client
-        
+
         The client will connect to the Keycloak server with the default admin credentials
         and connects to the 'master' realm. The client uses the application realm for read/write
         to the Keycloak server
@@ -256,6 +256,7 @@ class AuthClient():
         users = []
         for user in admin_client.get_users(query=query):
             user.update({'userGroups': admin_client.get_user_groups(user['id'])})
+            user.update({'realmRoles': admin_client.get_realm_roles_of_user(user['id'])})
             users.append(user)
         return users
 
@@ -277,7 +278,23 @@ class AuthClient():
         admin_client = self.get_admin_client()
         user = admin_client.get_user(user_id)
         user.update({'userGroups': admin_client.get_user_groups(user_id)})
+        user.update({'realmRoles': admin_client.get_realm_roles_of_user(user_id)})
         return user
+
+    @with_refreshtoken
+    def get_user_realm_roles(self, user_id):
+        """
+        Get the user including the user roles within the current realm
+
+        :param user_id: User id
+
+        RoleRepresentation
+        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_rolerepresentation
+
+        :return: (array RoleRepresentation)
+        """
+        admin_client = self.get_admin_client()
+        return admin_client.get_realm_roles_of_user(user_id)
 
     def get_current_user(self):
         """
@@ -292,6 +309,19 @@ class AuthClient():
         :return: UserRepresentation + GroupRepresentation
         """
         return self.get_user(self._get_keycloak_user_id())
+
+    def get_current_user_realm_roles(self):
+        """
+        Get the user including the user roles within the current realm
+
+        :param user_id: User id
+
+        RoleRepresentation
+        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_rolerepresentation
+
+        :return: (array RoleRepresentation)
+        """
+        return self.get_user_realm_roles(self._get_keycloak_user_id())
 
     @with_refreshtoken
     def get_user_client_roles(self, user_id, client_name):
@@ -328,6 +358,17 @@ class AuthClient():
         roles = [user_client_role for user_client_role in self.get_user_client_roles(user_id, client_name) if user_client_role['name'] == role]
         return roles != []
 
+    def user_has_realm_role(self, user_id, role):
+        """
+        Tests if the user has the given role within the current realm
+
+        :param user_id: User id
+        :param role: Name of the role
+        :return: (array RoleRepresentation)
+        """
+        roles = [user_realm_role for user_realm_role in self.get_user_realm_roles(user_id) if user_realm_role['name'] == role]
+        return roles != []
+
     def current_user_has_client_role(self, client_name, role):
         """
         Tests if the current user has the given role within the given client
@@ -339,6 +380,17 @@ class AuthClient():
         return self.user_has_client_role(
             self._get_keycloak_user_id(),
             client_name,
+            role)
+
+    def current_user_has_realm_role(self, role):
+        """
+        Tests if the current user has the given role within the current realm
+
+        :param role: Name of the role
+        :return: (array RoleRepresentation)
+        """
+        return self.user_has_realm_role(
+            self._get_keycloak_user_id(),
             role)
 
     @with_refreshtoken
