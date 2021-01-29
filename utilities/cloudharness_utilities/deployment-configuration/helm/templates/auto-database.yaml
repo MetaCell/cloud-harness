@@ -1,64 +1,5 @@
 {{/* Services */}}
-{{- define "deploy_utils.database.postgres" }}
-        image: {{ .app.harness.database.postgres.image }}
-        env:
-        - name: POSTGRES_DB
-          value: {{ .app.harness.database.postgres.initialdb | quote }}
-        - name: POSTGRES_USER
-          value: {{ .app.harness.database.user | quote }}
-        - name: POSTGRES_PASSWORD
-          value: {{ .app.harness.database.pass | quote }}
-        - name: PGDATA
-          value: /data/db/pgdata
-{{- end }}
-{{- define "deploy_utils.database.mongo" }}
-        image: {{ .app.harness.database.mongo.image }}
-        env:
-          - name: MONGO_INITDB_ROOT_USERNAME
-            value: {{ .app.harness.database.user | quote }}
-          - name: MONGO_INITDB_ROOT_PASSWORD
-            value: {{ .app.harness.database.pass | quote }}
-        livenessProbe:
-          exec:
-            command:
-            - mongo
-            - --eval
-            - "db.adminCommand('ping')"
-          initialDelaySeconds: 30
-          timeoutSeconds: 5
-          failureThreshold: 6
-        readinessProbe:
-          exec:
-            command:
-            - mongo
-            - --eval
-            - "db.adminCommand('ping')"
-          initialDelaySeconds: 5
-          timeoutSeconds: 5
-          failureThreshold: 6
-{{- end }}
-{{- define "deploy_utils.database.neo4j" }}
-        image: {{ .app.harness.database.neo4j.image }}
-        env:
-          - name: NEO4J_dbms_directories_data
-            value: /data/db/data
-          - name: NEO4J_dbms_directories_logs
-            value: /data/db/logs
-          - name: NEO4J_dbms_directories_metrics
-            value: /data/db/metrics
-          - name: NEO4J_dbms_memory_size
-            value: {{ .app.harness.database.neo4j.memory.size }}
-          - name: NEO4J_dbms_memory_pagecache_size
-            value: {{ .app.harness.database.neo4j.memory.pagecache.size }}
-          - name: NEO4J_dbms_memory_heap_initial__size
-            value: {{ .app.harness.database.neo4j.memory.heap.initial }}
-          - name: NEO4J_dbms_memory_heap_max__size
-            value: {{ .app.harness.database.neo4j.memory.heap.max }}
-          - name: NEO4J_dbms_security_auth__enabled
-            value: {{ .app.harness.database.neo4j.dbms_security_auth_enabled | quote }}
-{{- end }}
 {{- define "deploy_utils.database" }}
----
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
@@ -110,109 +51,8 @@ spec:
         persistentVolumeClaim:
           claimName: {{ .app.harness.database.name | quote }}
 ---
-{{ if .root.Values.backup.active }}
-  {{ if eq .app.harness.database.type "postgres" }}
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: "{{ .app.harness.database.name }}-backup"
-  namespace: {{ .root.Values.namespace }}
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: "{{ .app.harness.database.name }}-backup"
-  template:
-    metadata:
-      labels:
-        app: "{{ .app.harness.database.name }}-backup"
-    spec:
-      securityContext:
-        runAsUser: 999
-        runAsGroup: 999
-      containers:
-        - name: "{{ .app.harness.database.name }}-backup"
-          imagePullPolicy: IfNotPresent
-          image: prodrigestivill/postgres-backup-local
-          env:
-            - name: POSTGRES_HOST
-              value: {{ .app.harness.database.name | quote }}
-            - name: POSTGRES_DB
-              value: {{ (index .app.harness.database .app.harness.database.type).initialdb | quote }}
-            - name: POSTGRES_USER
-              value: {{ .app.harness.database.user | quote }}
-            - name: POSTGRES_PASSWORD
-              value: {{ .app.harness.database.pass | quote }}
-            - name: SCHEDULE
-              value: {{ .root.Values.backup.schedule | quote }}
-            - name: BACKUP_KEEP_DAYS
-              value: {{ .app.harness.database.backup.keep_days | quote }}
-            - name: BACKUP_KEEP_WEEKS
-              value: {{ .app.harness.database.backup.keep_weeks |quote }}
-            - name: BACKUP_KEEP_MONTHS
-              value: {{ .app.harness.database.backup.keep_months | quote }}
-            - name: HEALTHCHECK_PORT
-              value: {{ .app.harness.database.backup.healthcheck_port | quote }}
-          resources:
-            requests:
-              memory: {{ .app.harness.database.backup.resources.requests.memory | default "32Mi" }}
-              cpu: {{ .app.harness.database.backup.resources.requests.cpu | default "25Mi" }}
-            limits:
-              memory: {{ .app.harness.database.backup.resources.limits.memory | default "64Mi" }}
-              cpu: {{ .app.harness.database.backup.resources.limits.cpu | default "50mi" }}
-          livenessProbe:
-            httpGet:
-              path: /
-              port: {{ .app.harness.database.backup.healthcheck_port }}
-            initialDelaySeconds: 15
-          volumeMounts:
-            - name: "{{ .app.harness.database.name }}-backup"
-              mountPath: /backups
-      volumes:
-        - name: "{{ .app.harness.database.name }}-backup"
-          persistentVolumeClaim:
-            claimName: "{{ .app.harness.database.name }}-backup"
-  {{ end }}
-  {{ if eq .app.harness.database.type "mongo" }}
-apiVersion: batch/v1beta1
-kind: CronJob
-metadata:
-  name: "{{ .app.harness.database.name }}-backup"
-spec:
-  schedule: {{ .app.harness.database.backup.schedule | quote }}
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          containers:
-            - name: mongodb-backup
-              image: {{ .app.harness.database.mongo.image }}
-              imagePullPolicy: IfNotPresent
-              command: ["/bin/sh"]
-              args:
-                - -c
-                - >-
-                  echo Started backup;
-                  FILE=/backups/$(date "+%Y-%m-%d").gz;
-                  /usr/bin/mongodump -h $DB_HOST -u $DB_USER -p $DB_PASS --archive=$FILE --gzip;
-                  ls -lisah /backups;
-                  echo Finished backup;
-              env:
-                - name: DB_USER
-                  value: {{ .app.harness.database.user }}
-                - name: DB_PASS
-                  value: {{ .app.harness.database.pass }}
-                - name: DB_HOST
-                  value: {{ .app.harness.database.name }}
-              volumeMounts:
-                - name: "{{ .app.harness.database.name }}-backup"
-                  mountPath: /backups
-          restartPolicy: OnFailure
-          volumes:
-            - name: "{{ .app.harness.database.name }}-backup"
-              persistentVolumeClaim:
-                claimName: "{{ .app.harness.database.name }}-backup"
-  {{ end }}
+{{- if .root.Values.backup.active }}
+{{- include (print "deploy_utils.database." .app.harness.database.type ".backup") . }}
 ---
 kind: PersistentVolumeClaim
 apiVersion: v1
@@ -225,8 +65,8 @@ spec:
   resources:
     requests:
       storage: {{ .app.harness.database.size }}
-{{ end }}
 ---
+{{- end }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -245,7 +85,7 @@ spec:
     port: {{ $port.port }}
   {{- end }}
 ---
-{{- end }}
+{{ end }}
 {{- range $app := .Values.apps }}
   {{- if $app.harness.database.auto  }}
      {{ include "deploy_utils.database" (dict "root" $ "app" $app) }}
