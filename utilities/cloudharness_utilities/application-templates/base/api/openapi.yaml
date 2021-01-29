@@ -10,7 +10,8 @@ info:
 
 tags:
   - name: test
-
+  - name: live
+  - name: ready
 paths:
   /ping:
     get:
@@ -27,8 +28,36 @@ paths:
             application/json:
               schema:
                 type: string
-
-
+  /live:
+    get:
+      summary: Test if application is healthy
+      operationId: live
+      tags:
+        - live
+      responses:
+        "500":
+          description: Application is not healthy
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                type: string
+  /ready:
+    get:
+      summary: Test if application is ready to take requests
+      operationId: ready
+      tags:
+        - ready
+      responses:
+        "500":
+          description: Application is not ready yet
+        "200":
+          description: Ready
+          content:
+            application/json:
+              schema:
+                type: string
 servers:
   - url: /api
 components:
