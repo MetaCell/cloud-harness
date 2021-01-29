@@ -25,3 +25,6 @@ ingress:
   ssl_redirect: true
   letsencrypt:
     email: filippo@metacell.us
+backup:
+  active: false
+  schedule: "@daily"
