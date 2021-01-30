@@ -2,8 +2,7 @@ ARG REGISTRY
 ARG TAG=latest
 FROM ${REGISTRY}cloudharness-base:${TAG}
 
-RUN apk update && apk add postgresql-dev gcc python3-dev musl-dev
-#RUN apk add psycopg2 libpq-dev python-dev
+RUN apk add postgresql-dev python3-dev musl-dev
 
 RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app

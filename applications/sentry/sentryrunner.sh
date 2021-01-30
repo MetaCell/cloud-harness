@@ -2,7 +2,9 @@
 
 echo "**** S:INI ****"
 export SENTRY_SECRET_KEY=$(sentry config generate-secret-key)
-export SENTRY_SERVER_EMAIL=${SENTRY_EMAIL_FROM}@${DOMAIN}
+if [ -z ${SENTRY_SERVER_EMAIL} ]; then
+  export SENTRY_SERVER_EMAIL=sentry@${DOMAIN}
+fi
 
 # create / update database
 set -e
@@ -36,7 +38,7 @@ set -e
 if [ $userExists -eq 1 ]; then
 sleep 15
 echo creating new user
-sentry createuser --email ${SENTRY_ADMIN_USER}@${DOMAIN} --password ${SENTRY_ADMIN_PASSWORD} --superuser --no-input
+sentry createuser --email ${SENTRY_SERVER_EMAIL} --password ${SENTRY_ADMIN_PASSWORD} --superuser --no-input
 fi
 echo "**** E:USR ****"
 

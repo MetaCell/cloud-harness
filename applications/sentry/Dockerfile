@@ -1,6 +1,8 @@
 FROM sentry:9.1.2
 
 ADD sentryrunner.sh ./sentryrunner.sh
+ADD deploy/resources/sentry/config.yml /etc/sentry/config.yml
+
 RUN chmod +x ./sentryrunner.sh
 
 ENV SENTRY_REDIS_HOST=sentry-redis-host
@@ -13,6 +15,5 @@ ENV SENTRY_DB_PASSWORD=secret
 ENV SENTRY_EMAIL_HOST=sentry-postfix-host
 ENV SENTRY_ADMIN_USER=sentry
 ENV SENTRY_ADMIN_PASSWORD=secret
-ENV SENTRY_EMAIL_FROM=sentry
 
 ENTRYPOINT ["./sentryrunner.sh"]

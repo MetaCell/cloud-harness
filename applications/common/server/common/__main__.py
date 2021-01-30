@@ -14,8 +14,6 @@ def main():
     app.add_api('openapi.yaml',
                 arguments={'title': 'CH service API'},
                 pythonic_params=True)
-    from .repository.db import open_db
-    open_db(app)
     cors = CORS(app.app, resources={r"/api/*": {"origins": "*"}})
     app.run(port=8080)
 

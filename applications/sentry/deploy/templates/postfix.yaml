@@ -46,9 +46,11 @@ spec:
         imagePullPolicy: {{ include "deploy_utils.pullpolicy" .root }}
         env:
         - name: MTP_HOST
-          value: {{ printf "mail.%s" .Values.domain }}
+          value: {{ .Values.apps.sentry.postfix.hostname }}
             {{- include "deploy_utils.env" .root | nindent 8 }}
             {{- include "deploy_utils.privenv" .root | nindent 8 }}
+        - name: MTP_PROTOCOLS
+          value: ipv4
         ports:
           - containerPort: {{ .Values.apps.sentry.postfix.port | default 25 }}
         resources:

@@ -16,6 +16,9 @@ harness:
       limits:
         memory: 2048Mi
         cpu: 2000m
+  env:
+  - name: SENTRY_SERVER_EMAIL
+    value:
 
 postgres:
   name: sentry-postgres-host
@@ -36,4 +39,4 @@ postfix:
   name: sentry-postfix-host
   image: eeacms/postfix:latest
   port: 25
-  hostname: mail.opensourcebrain.org
+  hostname: mail.cloudharness.org
