@@ -1,62 +1,53 @@
-{{ define "deploy_utils.database.postgres.backup" }}
-apiVersion: apps/v1
-kind: Deployment
+{{ define "deploy_utils.database.postgres.backup"}}
+apiVersion: batch/v1beta1
+kind: CronJob
 metadata:
   name: "{{ .app.harness.database.name }}-backup"
-  namespace: {{ .root.Values.namespace }}
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: "{{ .app.harness.database.name }}-backup"
-  template:
-    metadata:
-      labels:
-        app: "{{ .app.harness.database.name }}-backup"
+  schedule: {{ .root.Values.backup.schedule | quote }}
+  jobTemplate:
     spec:
-      securityContext:
-        runAsUser: 999
-        runAsGroup: 999
-      containers:
-        - name: "{{ .app.harness.database.name }}-backup"
-          imagePullPolicy: IfNotPresent
-          image: prodrigestivill/postgres-backup-local
-          env:
-            - name: POSTGRES_HOST
-              value: {{ .app.harness.database.name | quote }}
-            - name: POSTGRES_DB
-              value: {{ (index .app.harness.database .app.harness.database.type).initialdb | quote }}
-            - name: POSTGRES_USER
-              value: {{ .app.harness.database.user | quote }}
-            - name: POSTGRES_PASSWORD
-              value: {{ .app.harness.database.pass | quote }}
-            - name: SCHEDULE
-              value: {{ .root.Values.backup.schedule | quote }}
-            - name: BACKUP_KEEP_DAYS
-              value: {{ .app.harness.database.backup.keep_days | quote }}
-            - name: BACKUP_KEEP_WEEKS
-              value: {{ .app.harness.database.backup.keep_weeks |quote }}
-            - name: BACKUP_KEEP_MONTHS
-              value: {{ .app.harness.database.backup.keep_months | quote }}
-            - name: HEALTHCHECK_PORT
-              value: {{ .app.harness.database.backup.healthcheck_port | quote }}
-          resources:
-            requests:
-              memory: {{ .app.harness.database.backup.resources.requests.memory | default "32Mi" }}
-              cpu: {{ .app.harness.database.backup.resources.requests.cpu | default "25Mi" }}
-            limits:
-              memory: {{ .app.harness.database.backup.resources.limits.memory | default "64Mi" }}
-              cpu: {{ .app.harness.database.backup.resources.limits.cpu | default "50mi" }}
-          livenessProbe:
-            httpGet:
-              path: /
-              port: {{ .app.harness.database.backup.healthcheck_port }}
-            initialDelaySeconds: 15
-          volumeMounts:
+      template:
+        spec:
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+          containers:
             - name: "{{ .app.harness.database.name }}-backup"
-              mountPath: /backups
-      volumes:
-        - name: "{{ .app.harness.database.name }}-backup"
-          persistentVolumeClaim:
-            claimName: "{{ .app.harness.database.name }}-backup"
-{{ end}}
+              imagePullPolicy: IfNotPresent
+              image: prodrigestivill/postgres-backup-local
+              command: ["/bin/sh"]
+              args: ["-c" , "./backup.sh"]
+              env:
+                - name: POSTGRES_HOST
+                  value: {{ .app.harness.database.name | quote }}
+                - name: POSTGRES_DB
+                  value: {{ (index .app.harness.database .app.harness.database.type).initialdb | quote }}
+                - name: POSTGRES_USER
+                  value: {{ .app.harness.database.user | quote }}
+                - name: POSTGRES_PASSWORD
+                  value: {{ .app.harness.database.pass | quote }}
+                - name: SCHEDULE
+                  value: {{ .root.Values.backup.schedule | quote }}
+                - name: BACKUP_KEEP_DAYS
+                  value: {{ .app.harness.database.backup.keep_days | quote }}
+                - name: BACKUP_KEEP_WEEKS
+                  value: {{ .app.harness.database.backup.keep_weeks |quote }}
+                - name: BACKUP_KEEP_MONTHS
+                  value: {{ .app.harness.database.backup.keep_months | quote }}
+              volumeMounts:
+                - name: "{{ .app.harness.database.name }}-backup"
+                  mountPath: /backups
+              resources:
+                requests:
+                  memory: {{ .app.harness.database.backup.resources.requests.memory | default "32Mi" }}
+                  cpu: {{ .app.harness.database.backup.resources.requests.cpu | default "25Mi" }}
+                limits:
+                  memory: {{ .app.harness.database.backup.resources.limits.memory | default "64Mi" }}
+                  cpu: {{ .app.harness.database.backup.resources.limits.cpu | default "50mi" }}
+          restartPolicy: OnFailure
+          volumes:
+            - name: "{{ .app.harness.database.name }}-backup"
+              persistentVolumeClaim:
+                claimName: "{{ .app.harness.database.name }}-backup"
+  {{ end }}
