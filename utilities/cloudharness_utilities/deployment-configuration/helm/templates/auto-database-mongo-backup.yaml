@@ -10,7 +10,7 @@ spec:
       template:
         spec:
           containers:
-            - name: mongodb-backup
+            - name: "{{ .app.harness.database.name }}-backup"
               image: {{ .app.harness.database.mongo.image }}
               imagePullPolicy: IfNotPresent
               command: ["/bin/sh"]
@@ -18,20 +18,40 @@ spec:
                 - -c
                 - |
                   /bin/bash << 'EOF'
-                  # Create new backup
-                  echo Started backup
-                  FILE=/backups/$(date "+%Y-%m-%d-%H-%M").gz
-                  /usr/bin/mongodump -h $DB_HOST -u $DB_USER -p $DB_PASS --archive=$FILE --gzip
-                  echo Added new backup $FILE
+                  KEEP_DAYS=${BACKUP_KEEP_DAYS}
+                  KEEP_WEEKS=`expr $(((${BACKUP_KEEP_WEEKS} * 7) + 1))`
+                  KEEP_MONTHS=`expr $(((${BACKUP_KEEP_MONTHS} * 31) + 1))`
 
-                  # Cleanup procedure
-                  EXISTING=$(find backups/*.gz | wc -l)
-                  echo Found $EXISTING backups
-                  if [ $EXISTING -gt $KEEP_DAYS ]; then
-                      echo Start cleaing ...
-                      find backups/* -mtime +$KEEP_DAYS -delete -print
-                      echo Finished cleaning
+                  mkdir -p "${BACKUP_DIR}/daily/" "${BACKUP_DIR}/weekly/" "${BACKUP_DIR}/monthly/"
+                  DFILE="${BACKUP_DIR}/daily/`date +%Y-%m-%d-%H%M%S`${BACKUP_SUFFIX}"
+                  WFILE="${BACKUP_DIR}/weekly/`date +%G-%V`${BACKUP_SUFFIX}"
+                  MFILE="${BACKUP_DIR}/monthly/`date +%Y-%m`${BACKUP_SUFFIX}"
+
+                  # Dump mongo database
+                  /usr/bin/mongodump -h $DB_HOST -u $DB_USER -p $DB_PASS --archive=$DFILE --gzip
+                  ls backups/*
+
+                  # Use hardlink instead of copy to save space
+                  if [ -d "${DFILE}" ]; then
+                      WFILENEW="${WFILE}-new"
+                      MFILENEW="${MFILE}-new"
+                      rm -rf "${WFILENEW}" "${MFILENEW}"
+                      mkdir "${WFILENEW}" "${MFILENEW}"
+                      ln -f "${DFILE}/"* "${WFILENEW}/"
+                      ln -f "${DFILE}/"* "${MFILENEW}/"
+                      rm -rf "${WFILE}" "${MFILE}"
+                      mv -v "${WFILENEW}" "${WFILE}"
+                      mv -v "${MFILENEW}" "${MFILE}"
+                  else
+                      ln -vf "${DFILE}" "${WFILE}"
+                      ln -vf "${DFILE}" "${MFILE}"
                   fi
+
+                  # Clean old files
+                  echo "Cleaning backups older than ${KEEP_DAYS} ..."
+                  find "${BACKUP_DIR}/daily" -maxdepth 1 -mtime +${KEEP_DAYS} -name "*${BACKUP_SUFFIX}" -print -delete
+                  find "${BACKUP_DIR}/weekly" -maxdepth 1 -mtime +${KEEP_WEEKS} -name "*${BACKUP_SUFFIX}" -print -delete
+                  find "${BACKUP_DIR}/monthly" -maxdepth 1 -mtime +${KEEP_MONTHS} -name "*${BACKUP_SUFFIX}" -print -delete
                   EOF
               env:
                 - name: DB_USER
@@ -40,11 +60,26 @@ spec:
                   value: {{ .app.harness.database.pass }}
                 - name: DB_HOST
                   value: {{ .app.harness.database.name }}
-                - name: KEEP_DAYS
+                - name: BACKUP_KEEP_DAYS
                   value: {{ .app.harness.database.backup.keep_days | quote }}
+                - name: BACKUP_KEEP_WEEKS
+                  value: {{ .app.harness.database.backup.keep_weeks |quote }}
+                - name: BACKUP_KEEP_MONTHS
+                  value: {{ .app.harness.database.backup.keep_months | quote }}
+                - name: BACKUP_SUFFIX
+                  value: ".gz"
+                - name: BACKUP_DIR
+                  value: "/backups"
               volumeMounts:
                 - name: "{{ .app.harness.database.name }}-backup"
                   mountPath: /backups
+              resources:
+                requests:
+                  memory: {{ .app.harness.database.backup.resources.requests.memory | default "32Mi" }}
+                  cpu: {{ .app.harness.database.backup.resources.requests.cpu | default "25Mi" }}
+                limits:
+                  memory: {{ .app.harness.database.backup.resources.limits.memory | default "64Mi" }}
+                  cpu: {{ .app.harness.database.backup.resources.limits.cpu | default "50mi" }}
           restartPolicy: OnFailure
           volumes:
             - name: "{{ .app.harness.database.name }}-backup"
