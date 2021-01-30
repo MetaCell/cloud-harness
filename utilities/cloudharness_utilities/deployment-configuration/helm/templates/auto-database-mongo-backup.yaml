@@ -16,12 +16,23 @@ spec:
               command: ["/bin/sh"]
               args:
                 - -c
-                - >-
-                  echo Started backup;
-                  FILE=/backups/$(date "+%Y-%m-%d").gz;
-                  /usr/bin/mongodump -h $DB_HOST -u $DB_USER -p $DB_PASS --archive=$FILE --gzip;
-                  ls -lisah /backups;
-                  echo Finished backup;
+                - |
+                  /bin/bash << 'EOF'
+                  # Create new backup
+                  echo Started backup
+                  FILE=/backups/$(date "+%Y-%m-%d-%H-%M").gz
+                  /usr/bin/mongodump -h $DB_HOST -u $DB_USER -p $DB_PASS --archive=$FILE --gzip
+                  echo Added new backup $FILE
+
+                  # Cleanup procedure
+                  EXISTING=$(find backups/*.gz | wc -l)
+                  echo Found $EXISTING backups
+                  if [ $EXISTING -gt $KEEP_DAYS ]; then
+                      echo Start cleaing ...
+                      find backups/* -mtime +$KEEP_DAYS -delete -print
+                      echo Finished cleaning
+                  fi
+                  EOF
               env:
                 - name: DB_USER
                   value: {{ .app.harness.database.user }}
@@ -29,6 +40,8 @@ spec:
                   value: {{ .app.harness.database.pass }}
                 - name: DB_HOST
                   value: {{ .app.harness.database.name }}
+                - name: KEEP_DAYS
+                  value: {{ .app.harness.database.backup.keep_days | quote }}
               volumeMounts:
                 - name: "{{ .app.harness.database.name }}-backup"
                   mountPath: /backups
