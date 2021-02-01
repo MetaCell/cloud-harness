@@ -2,7 +2,7 @@ from sqlalchemy.sql import text
 
 from cloudharness.utils.env import get_service_public_address
 
-from .db import get_db
+from .db import open_db
 
 class SentryProjectNotFound(Exception):
     pass
@@ -14,7 +14,7 @@ def _get_api_token():
     select token from sentry_apitoken 
     where token=:api_token
     ''')
-    token = get_db().engine.execute(s, 
+    token = open_db().engine.execute(s, 
         api_token=api_token
         ).fetchall()
     if len(token) == 0:
@@ -23,7 +23,7 @@ def _get_api_token():
         insert into sentry_apitoken(user_id, token, scopes, date_added, scope_list)
         values (1, :api_token, 0, now(), :scope_list)
         ''')
-        get_db().engine.execute(s, 
+        open_db().engine.execute(s, 
             api_token=api_token,
             scope_list='{event:admin,event:read,'
                         'member:read,member:admin,'
@@ -46,7 +46,7 @@ def get_dsn(appname):
     join sentry_project p on pkey.project_id=p.id 
     where p.slug=:project_slug
     ''')
-    public_key = get_db().engine.execute(s, 
+    public_key = open_db().engine.execute(s, 
         project_slug=appname
         ).fetchall()
     if len(public_key) == 0:

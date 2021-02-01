@@ -16,16 +16,24 @@ harness:
       limits:
         memory: 2048Mi
         cpu: 2000m
-
-postgres:
-  name: sentry-postgres-host
-  port: 5432
-  image: postgres:latest
-  initialdb: sentry
-  user: sentry
-  password: secret
-  datavolume: /opt/data/
-  pgdata: /opt/data/pgdata
+  database:
+    auto: true
+    type: postgres
+    size: 2Gi
+    user: sentry
+    pass: secret
+    postgres:
+      initialdb: sentry
+  env:
+  - name: SENTRY_SERVER_EMAIL
+    value: zoran@metacell.us
+  secrets:
+    - name: ch-sentry
+      key: server-email
+    - name: ch-sentry
+      key: email-user
+    - name: ch-sentry
+      key: email-password
 
 redis:
   name: sentry-redis-host
