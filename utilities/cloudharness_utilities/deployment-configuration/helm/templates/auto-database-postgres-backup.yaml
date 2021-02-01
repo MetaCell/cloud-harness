@@ -50,4 +50,4 @@ spec:
             - name: "{{ .app.harness.database.name }}-backup"
               persistentVolumeClaim:
                 claimName: "{{ .app.harness.database.name }}-backup"
-  {{ end }}
+{{ end }}
