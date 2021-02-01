@@ -1,0 +1,12 @@
+{{- define "deploy_utils.database.postgres" }}
+        image: {{ .app.harness.database.postgres.image }}
+        env:
+          - name: POSTGRES_DB
+            value: {{ .app.harness.database.postgres.initialdb | quote }}
+          - name: POSTGRES_USER
+            value: {{ .app.harness.database.user | quote }}
+          - name: POSTGRES_PASSWORD
+            value: {{ .app.harness.database.pass | quote }}
+          - name: PGDATA
+            value: /data/db/pgdata
+{{- end }}
