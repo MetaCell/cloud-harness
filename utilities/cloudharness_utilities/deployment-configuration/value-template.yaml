@@ -72,9 +72,6 @@ harness:
         memory: "2Gi"
         cpu: "1000m"
     backup:
-      keep_days: "7"
-      keep_weeks: "4"
-      keep_months: "6"
       resources:
         requests:
           memory: "32Mi"

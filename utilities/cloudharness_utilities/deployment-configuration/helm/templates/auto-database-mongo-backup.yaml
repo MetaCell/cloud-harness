@@ -28,15 +28,15 @@ spec:
                 - name: DB_HOST
                   value: {{ .app.harness.database.name }}
                 - name: BACKUP_KEEP_DAYS
-                  value: {{ .app.harness.database.backup.keep_days | quote }}
+                  value: {{ .root.Values.backup.keep_days | quote }}
                 - name: BACKUP_KEEP_WEEKS
-                  value: {{ .app.harness.database.backup.keep_weeks |quote }}
+                  value: {{ .root.Values.backup.keep_weeks | quote }}
                 - name: BACKUP_KEEP_MONTHS
-                  value: {{ .app.harness.database.backup.keep_months | quote }}
+                  value: {{ .root.Values.backup.keep_months | quote }}
                 - name: BACKUP_SUFFIX
-                  value: ".gz"
+                  value: {{ .root.Values.backup.suffix | quote }}
                 - name: BACKUP_DIR
-                  value: "/backups"
+                  value: {{ .root.Values.backup.dir | quote }}
               volumeMounts:
                 - name: "{{ .app.harness.database.name }}-backup"
                   mountPath: /backups
