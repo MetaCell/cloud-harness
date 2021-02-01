@@ -26,10 +26,17 @@ ingress:
   letsencrypt:
     email: filippo@metacell.us
 backup:
-  active: false
+  active: true
   keep_days: "7"
   keep_weeks: "4"
   keep_months: "6"
   schedule: "@daily"
   suffix: ".gz"
   dir: "/backups"
+  resources:
+    requests:
+      memory: "32Mi"
+      cpu: "25m"
+    limits:
+      memory: "64Mi"
+      cpu: "50m"

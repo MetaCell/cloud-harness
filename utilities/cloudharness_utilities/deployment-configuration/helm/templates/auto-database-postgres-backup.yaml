@@ -44,11 +44,11 @@ spec:
                   mountPath: /backups
               resources:
                 requests:
-                  memory: {{ .app.harness.database.backup.resources.requests.memory | default "32Mi" }}
-                  cpu: {{ .app.harness.database.backup.resources.requests.cpu | default "25Mi" }}
+                  memory: {{ .root.Values.backup.resources.requests.memory | default "32Mi" }}
+                  cpu: {{ .root.Values.backup.resources.requests.cpu | default "25Mi" }}
                 limits:
-                  memory: {{ .app.harness.database.backup.resources.limits.memory | default "64Mi" }}
-                  cpu: {{ .app.harness.database.backup.resources.limits.cpu | default "50mi" }}
+                  memory: {{ .root.Values.backup.resources.limits.memory | default "64Mi" }}
+                  cpu: {{ .root.Values.backup.resources.limits.cpu | default "50mi" }}
           restartPolicy: OnFailure
           volumes:
             - name: "{{ .app.harness.database.name }}-backup"
