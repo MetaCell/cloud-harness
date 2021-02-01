@@ -16,7 +16,7 @@ spec:
             - name: "{{ .app.harness.database.name }}-backup"
               imagePullPolicy: IfNotPresent
               image: prodrigestivill/postgres-backup-local
-              command: ["/bin/sh"]
+              command: ["/bin/bash"]
               args: ["-c" , "./backup.sh"]
               env:
                 - name: POSTGRES_HOST

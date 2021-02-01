@@ -13,13 +13,12 @@ spec:
             - name: "{{ .app.harness.database.name }}-backup"
               image: {{ .app.harness.database.mongo.image }}
               imagePullPolicy: IfNotPresent
-              command: ["/bin/sh"]
+              command: ["/bin/bash"]
               args:
                 - -c
                 - | {{ range .root.Files.Lines "files/db-mongo-backup.sh" }}
                   {{ . }}
                 {{ end }}
-
               env:
                 - name: DB_USER
                   value: {{ .app.harness.database.user }}
