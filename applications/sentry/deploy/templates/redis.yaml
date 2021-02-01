@@ -27,7 +27,7 @@ spec:
 {{ include "deploy_utils.labels" $ | indent 6 }}
   template:
     metadata:
-      {{- if .Values.apps.sentry.postfix.harvest }}
+      {{- if .Values.apps.sentry.redis.harvest }}
       annotations:
         co.elastic.logs/enabled: "true"
         metricbeat: "true"
@@ -45,8 +45,8 @@ spec:
         resources:
           requests:
             memory: "64Mi"
-            cpu: "100m"
+            cpu: "25m"
           limits:
             memory: "128Mi"
-            cpu: "200m"
+            cpu: "100m"
 ---
