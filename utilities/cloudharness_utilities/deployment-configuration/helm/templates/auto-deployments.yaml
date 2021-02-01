@@ -60,7 +60,7 @@ spec:
           httpGet:
             path: {{ .app.harness.readinessProbe.path }}
             port: {{ .app.harness.deployment.port | default 8080 }}
-          periodSeconds: {{ .app.harness.livenessProbe.periodSeconds | default 10 }}
+          periodSeconds: {{ .app.harness.readinessProbe.periodSeconds | default 10 }}
           initialDelaySeconds: {{ .app.harness.readinessProbe.initialDelaySeconds | default 0 }}
 {{ end }}
         ports:
