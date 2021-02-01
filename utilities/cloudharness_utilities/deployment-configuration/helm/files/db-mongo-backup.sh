@@ -10,7 +10,6 @@ MFILE="${BACKUP_DIR}/monthly/`date +%Y-%m`${BACKUP_SUFFIX}"
 
 # Dump mongo database
 /usr/bin/mongodump -h $DB_HOST -u $DB_USER -p $DB_PASS --archive=$DFILE --gzip
-ls backups/*
 
 # Use hardlink instead of copy to save space
 if [ -d "${DFILE}" ]; then
