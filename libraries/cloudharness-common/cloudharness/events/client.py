@@ -41,16 +41,29 @@ class EventClient:
                                         client_id=self.client_id)
         # ## Create topic
 
-        topic_list = [NewTopic(name=self.topic_id, num_partitions=1, replication_factor=1)]
+        topic_list = []
+        for topic in [NewTopic(name=self.topic_id, num_partitions=1, replication_factor=1)]:
+            try:
+                # validate if the Topic already exists
+                admin_client.create_topics(new_topics=[topic], validate_only=True)
+                # if not then add it to the topic_list
+                topic_list.append(topic)
+            except TopicAlreadyExistsError as e:
+                pass
+            except Exception as e:
+                log.error(f"Ups... We had an error creating the new Topic --> {e}")
+                raise EventGeneralException from e
 
+        # now create the missing topics
         try:
             return admin_client.create_topics(new_topics=topic_list, validate_only=False)
         except TopicAlreadyExistsError as e:
-            log.error(f"Topic {self.topic_id} already exists.")
-            raise TopicAlreadyExistsError from e
+            # topic already exists "no worries", proceed
+            pass
         except Exception as e:
             log.error(f"Ups... We had an error creating the new Topic --> {e}")
             raise EventGeneralException from e
+        return True
 
     def produce(self, message: dict):
         ''' Write a message to the current topic
