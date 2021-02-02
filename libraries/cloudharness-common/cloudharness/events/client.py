@@ -51,7 +51,7 @@ class EventClient:
             except TopicAlreadyExistsError as e:
                 pass
             except Exception as e:
-                log.error(f"Ups... We had an error creating the new Topic --> {e}")
+                log.error(f"Ups... We had an error validating the creation of topic {topic.name} --> {e}", exc_info=True)
                 raise EventGeneralException from e
 
         # now create the missing topics
@@ -61,7 +61,7 @@ class EventClient:
             # topic already exists "no worries", proceed
             pass
         except Exception as e:
-            log.error(f"Ups... We had an error creating the new Topic --> {e}")
+            log.error(f"Ups... We had an error creating the new Topics --> {e}", exc_info=True)
             raise EventGeneralException from e
 
     def produce(self, message: dict):
@@ -76,10 +76,11 @@ class EventClient:
         try:
             return producer.send(self.topic_id, value=message)
         except KafkaTimeoutError as e:
-            log.error("Ups... Not able to fetch topic metadata")
+            log.error("Ups... Not able to fetch topic metadata", exc_info=True)
             raise EventTopicProduceException from e
         except Exception as e:
-            raise EventGeneralException(f"Ups... We had an error creating the new Topic --> {e}") from e
+            log.error(f"Ups... We had an error produce to topic {self.topic_id} --> {e}", exc_info=True)
+            raise EventGeneralException from e
         finally:
             producer.close()
 
@@ -91,7 +92,7 @@ class EventClient:
             for topic in consumer.poll(10000).values():
                 return [record.value for record in topic]
         except Exception as e:
-            log.error(f"Ups... We had an error trying to create a CloudHarnessEvents consumer for topic {self.topic_id} --> {e}")
+            log.error(f"Ups... We had an error trying to consume all from topic {self.topic_id} --> {e}", exc_info=True)
             raise EventTopicConsumeException from e
         finally:
             consumer.close()
@@ -111,7 +112,7 @@ class EventClient:
             raise EventTopicDeleteException from e
 
         except Exception as e:
-            log.error(f"Ups... We had an error deleteing the Topic {self.topic_id} --> {e}")
+            log.error(f"Ups... We had an error deleting the Topic {self.topic_id} --> {e}", exc_info=True)
             raise EventGeneralException from e
 
     def close(self):
@@ -128,11 +129,11 @@ class EventClient:
                     try:
                         handler(event_client=self, app=app, message=message.value)
                     except Exception as e:
-                        log.error(f"Ups... there was an error during execution of the consumer Topic {self.topic_id} --> {e}")
+                        log.error(f"Ups... there was an error during execution of the consumer Topic {self.topic_id} --> {e}", exc_info=True)
                         log.error(traceback.print_exc())
                 self.consumer.close()
             except Exception as e:
-                    log.error(f"Ups... there was an error during execution of the consumer Topic {self.topic_id} --> {e}")
+                    log.error(f"Ups... there was an error during execution of the consumer Topic {self.topic_id} --> {e}", exc_info=True)
                     log.error(traceback.print_exc())
                     time.sleep(10)
         # log.info(f'Kafka consumer thread {self.topic_id} stopped')
