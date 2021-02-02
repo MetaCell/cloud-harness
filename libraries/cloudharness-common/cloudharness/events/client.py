@@ -63,7 +63,6 @@ class EventClient:
         except Exception as e:
             log.error(f"Ups... We had an error creating the new Topic --> {e}")
             raise EventGeneralException from e
-        return True
 
     def produce(self, message: dict):
         ''' Write a message to the current topic
