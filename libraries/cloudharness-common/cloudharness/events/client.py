@@ -41,25 +41,12 @@ class EventClient:
                                         client_id=self.client_id)
         # ## Create topic
 
-        topic_list = []
-        for topic in [NewTopic(name=self.topic_id, num_partitions=1, replication_factor=1)]:
-            try:
-                # validate if the Topic already exists
-                admin_client.create_topics(new_topics=[topic], validate_only=True)
-                # if not then add it to the topic_list
-                topic_list.append(topic)
-            except TopicAlreadyExistsError as e:
-                pass
-            except Exception as e:
-                log.error(f"Ups... We had an error validating the creation of topic {topic.name} --> {e}", exc_info=True)
-                raise EventGeneralException from e
-
-        # now create the missing topics
+        new_topic = NewTopic(name=self.topic_id, num_partitions=1, replication_factor=1)
         try:
-            return admin_client.create_topics(new_topics=topic_list, validate_only=False)
+            return admin_client.create_topics(new_topics=[new_topic], validate_only=False)
         except TopicAlreadyExistsError as e:
             # topic already exists "no worries", proceed
-            pass
+            return True
         except Exception as e:
             log.error(f"Ups... We had an error creating the new Topics --> {e}", exc_info=True)
             raise EventGeneralException from e
