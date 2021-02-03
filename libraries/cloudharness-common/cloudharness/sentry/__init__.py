@@ -1,7 +1,10 @@
 import json
+import os
 import requests
 
 from cloudharness.utils.env import get_common_service_cluster_address
+
+sentry_environment = os.environ.get("DOMAIN", "Production")
 
 def get_dsn(appname):
     """
@@ -49,6 +52,7 @@ def init(appname):
             integrations = []
         sentry_sdk.init(
             dsn=dsn,
+            environment=sentry_environment,
             integrations=[FlaskIntegration()]
         )
 
