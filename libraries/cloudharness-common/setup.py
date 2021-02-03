@@ -16,7 +16,7 @@ REQUIREMENTS = [
     'kafka-python',
     'pyaml',
     'jwt',
-    'pyjwt>=1.7.1',
+    'pyjwt>=1.7.1,<2',
     'requests>=2.21.0',
     'sentry-sdk[flask]>=0.14.4',
     'python-keycloak==0.23.0',
