@@ -43,7 +43,9 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
         shutil.rmtree(dest_deployment_path)
     # Initialize with default
     copy_merge_base_deployment(dest_deployment_path, os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
-    helm_values = collect_helm_values(HERE, tag=tag, registry=registry, exclude=exclude)
+    helm_values = get_template(os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH, 'values.yaml'))
+    helm_values = dict_merge(helm_values,
+                             collect_helm_values(HERE, tag=tag, registry=registry, exclude=exclude, env=env))
 
     # Override for every cloudharness scaffolding
     for root_path in root_paths:
@@ -56,8 +58,9 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
 
     create_tls_certificate(local, domain, tls, output_path, helm_values)
 
-    values, include = finish_helm_values(values=helm_values, tag=tag, registry=registry, local=local, domain=domain, secured=secured,
-                       registry_secret=registry_secret, tls=tls, include=include)
+    values, include = finish_helm_values(values=helm_values, tag=tag, registry=registry, local=local, domain=domain,
+                                         secured=secured,
+                                         registry_secret=registry_secret, tls=tls, include=include)
 
     for root_path in root_paths:
         collect_apps_helm_templates(root_path, exclude=exclude, include=include,
@@ -68,7 +71,6 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
 
 
 def get_included_with_dependencies(values, include):
-
     app_values = values['apps'].values()
     directly_included = [app for app in app_values if any(inc == app['harness']['name'] for inc in include)]
 
@@ -144,31 +146,45 @@ def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart):
         shutil.copytree(base_helm_chart, dest_helm_chart_path)
 
 
-
 def collect_helm_values(deployment_root, exclude=(), tag='latest', registry='', env=None):
     """
     Creates helm values from a cloudharness deployment scaffolding
     """
 
     values_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'values-template.yaml')
-    value_spec_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
-    if not os.path.exists(values_template_path):
-        values = {}
-    else:
-        values = get_template(values_template_path)
+
+    values = get_template(values_template_path)
+
+    if env is not None:
+        specific_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH,
+                                              f'values-template-{env}.yaml')
+        if os.path.exists(specific_template_path):
+            logging.info("Specific environment values template found: " + specific_template_path)
+            with open(specific_template_path) as f:
+                values_env_specific = yaml.safe_load(f)
+            values = dict_merge(values, values_env_specific)
 
     values[KEY_APPS] = {}
 
     app_base_path = os.path.join(deployment_root, APPS_PATH)
+    value_spec_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
+
     for app_path in get_sub_paths(app_base_path):
         app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
 
         if app_name in exclude:
             continue
+        app_key = app_name.replace('-', '_')
+
+
+
+        if app_key not in values[KEY_APPS]:
+            values[KEY_APPS][app_key]  = get_template(os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml'))
 
         app_values = create_values_spec(app_name, app_path, tag=tag, registry=registry,
                                         template_path=value_spec_template_path, env=env)
-        values[KEY_APPS][app_name.replace('-', '_')] = app_values
+
+        values[KEY_APPS][app_key] = dict_merge(values[KEY_APPS][app_key], app_values)
 
     return values
 
@@ -243,24 +259,21 @@ def values_set_legacy(values):
         values['image'] = harness[KEY_DEPLOYMENT]['image']
 
     values['name'] = harness['name']
-    if harness[KEY_DEPLOYMENT]['port']:
+    if harness[KEY_DEPLOYMENT].get('port', None):
         values['port'] = harness[KEY_DEPLOYMENT]['port']
-    values['resources'] = harness[KEY_DEPLOYMENT]['resources']
+    if 'resources' in harness[KEY_DEPLOYMENT]:
+        values['resources'] = harness[KEY_DEPLOYMENT]['resources']
 
 
 def create_values_spec(app_name, app_path, tag=None, registry='', template_path=VALUE_TEMPLATE_PATH, env=None):
     logging.info('Generating values script for ' + app_name)
 
-    values_default = get_template(template_path)
-
     specific_template_path = os.path.join(app_path, 'deploy', 'values.yaml')
     if os.path.exists(specific_template_path):
         logging.info("Specific values template found: " + specific_template_path)
-        with open(specific_template_path) as f:
-            values_specific = yaml.safe_load(f)
-        values = dict_merge(values_default, values_specific)
+        values = get_template(specific_template_path)
     else:
-        values = values_default
+        values = {}
 
     if env is not None:
         specific_template_path = os.path.join(app_path, 'deploy', f'values-{env}.yaml')
@@ -270,18 +283,31 @@ def create_values_spec(app_name, app_path, tag=None, registry='', template_path=
                 values_env_specific = yaml.safe_load(f)
             values = dict_merge(values, values_env_specific)
 
-    values_from_legacy(values)
+    if not KEY_HARNESS in values:
+        values[KEY_HARNESS] = {}
     harness = values[KEY_HARNESS]
+    if KEY_SERVICE not in harness:
+        harness[KEY_SERVICE] = {}
+    if KEY_DEPLOYMENT not in harness:
+        harness[KEY_DEPLOYMENT] = {}
+    if KEY_DATABASE not in harness:
+        harness[KEY_DATABASE] = {}
 
-    if not harness['name']:
+    values_from_legacy(values)
+
+
+
+
+    if not harness.get('name', None):
         harness['name'] = app_name
-    if not harness[KEY_SERVICE]['name']:
+
+    if not harness[KEY_SERVICE].get('name', None):
         harness[KEY_SERVICE]['name'] = app_name
-    if not harness[KEY_DEPLOYMENT]['name']:
+    if not harness[KEY_DEPLOYMENT].get('name', None):
         harness[KEY_DEPLOYMENT]['name'] = app_name
-    if not harness[KEY_DATABASE]['name']:
+    if not harness[KEY_DATABASE].get('name', None):
         harness[KEY_DATABASE]['name'] = app_name.strip() + '-db'
-    if not harness[KEY_DEPLOYMENT]['image']:
+    if not harness[KEY_DEPLOYMENT].get('image', None):
         harness[KEY_DEPLOYMENT]['image'] = registry + get_image_name(app_name) + f':{tag}' if tag else ''
 
     values_set_legacy(values)

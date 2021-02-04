@@ -39,14 +39,15 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
     if exclude:
         logging.info('Excluding the following subpaths to the build: %s.', ', '.join(exclude))
 
-    try:
-        codefresh = get_template(os.path.join(HERE, template_name))
-    except FileNotFoundError as e:
+
+    codefresh = get_template(os.path.join(HERE, template_name), True)
+
+    if not codefresh:
         if template_name != CF_TEMPLATE_PATH:
             logging.warning("Template file %s not found", template_name)
             if os.path.exists(os.path.join(HERE, CF_TEMPLATE_PATH)):
                 logging.info("Loading legacy template %s", CF_TEMPLATE_PATH)
-                codefresh = get_template(os.path.join(HERE, CF_TEMPLATE_PATH))
+                codefresh = get_template(os.path.join(HERE, CF_TEMPLATE_PATH), True)
         return
 
     if CF_BUILD_STEP_BASE in codefresh['steps']:
@@ -59,7 +60,7 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
     for root_path in root_paths:
         template_path = os.path.join(root_path, DEPLOYMENT_CONFIGURATION_PATH, template_name)
         if os.path.exists(template_path) :
-            tpl = get_template(template_path)
+            tpl = get_template(template_path, True)
             if CF_BUILD_STEP_BASE in codefresh['steps']:
                 del tpl['steps'][CF_BUILD_STEP_BASE]
             if CF_BUILD_STEP_STATIC in codefresh['steps']:
@@ -117,7 +118,7 @@ def codefresh_template_spec(template_path, **kwargs):
     :return:
     """
 
-    build = get_template(template_path)
+    build = get_template(template_path, True)
 
     build.update(kwargs)
     return build

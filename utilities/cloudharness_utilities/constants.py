@@ -17,7 +17,7 @@ NEUTRAL_PATHS = ('src', 'tasks', 'server')
 APPS_PATH = 'applications'
 DEPLOYMENT_PATH = 'deployment'
 CODEFRESH_PATH = 'codefresh/codefresh.yaml'
-EXCLUDE_PATHS = ['node_modules', '.git', '/test', '/dist']
+EXCLUDE_PATHS = ['node_modules', '.git', '/dist', '.tox']
 
 DEPLOYMENT_CONFIGURATION_PATH = 'deployment-configuration'
 
