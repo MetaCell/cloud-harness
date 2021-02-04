@@ -43,15 +43,18 @@ def get_cluster_ip():
     return ip
 
 
-def get_template(yaml_path):
-    with open(os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, os.path.basename(yaml_path))) as f:
-        dict_template = yaml.safe_load(f)
+def get_template(yaml_path, base_default=False):
+    default_template_path = os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, os.path.basename(yaml_path))
+    dict_template = {}
+    if base_default and os.path.exists(default_template_path):
+        with open(default_template_path) as f:
+            dict_template = yaml.safe_load(f)
     if os.path.exists(yaml_path):
         with open(yaml_path) as f:
             override_tpl = yaml.safe_load(f)
             if override_tpl:
-                dict_template = dict_merge(dict_template, override_tpl)
-    return dict_template
+                dict_template = dict_merge(dict_template or {}, override_tpl)
+    return dict_template or {}
 
 
 def file_is_yaml(fname):
@@ -104,6 +107,7 @@ def copymergedir(root_src_dir, root_dst_dir):
     """
     logging.info('Copying directory %s to %s', root_src_dir, root_dst_dir)
     for src_dir, dirs, files in os.walk(root_src_dir):
+
         dst_dir = src_dir.replace(root_src_dir, root_dst_dir, 1)
         if not os.path.exists(dst_dir):
             os.makedirs(dst_dir)
@@ -143,11 +147,12 @@ def merge_configuration_directories(source, dest):
     if not os.path.exists(source):
         return
     if not os.path.exists(dest):
-        shutil.copytree(source, dest)
+        shutil.copytree(source, dest, ignore=shutil.ignore_patterns(*EXCLUDE_PATHS))
         return
 
     for src_dir, dirs, files in os.walk(source):
-
+        if any(path in src_dir for path in EXCLUDE_PATHS):
+            continue
         dst_dir = src_dir.replace(source, dest, 1)
         if not os.path.exists(dst_dir):
             os.makedirs(dst_dir)
