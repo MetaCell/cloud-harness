@@ -216,15 +216,20 @@ def finish_helm_values(values, tag='latest', registry='', local=True, domain=Non
         except subprocess.TimeoutExpired:
             logging.warning("Minikube not available")
 
+    apps = values[KEY_APPS]
     if include:
-
         include = get_included_with_dependencies(values, set(include))
         logging.info('Selecting included applications')
-        apps = values['apps']
+
         for v in [v for v in apps]:
             if apps[v]['harness']['name'] not in include:
                 del apps[v]
-    # Create environment variables
+                # Create environment variables
+
+    for v in apps.values():
+        values_from_legacy(v)
+        values_set_legacy(v)
+
     create_env_variables(values)
     return values, include
 
@@ -293,7 +298,7 @@ def create_values_spec(app_name, app_path, tag=None, registry='', template_path=
     if KEY_DATABASE not in harness:
         harness[KEY_DATABASE] = {}
 
-    values_from_legacy(values)
+
 
 
 
@@ -310,7 +315,6 @@ def create_values_spec(app_name, app_path, tag=None, registry='', template_path=
     if not harness[KEY_DEPLOYMENT].get('image', None):
         harness[KEY_DEPLOYMENT]['image'] = registry + get_image_name(app_name) + f':{tag}' if tag else ''
 
-    values_set_legacy(values)
 
     for k in values:
         if isinstance(values[k], dict) and KEY_HARNESS in values[k]:
