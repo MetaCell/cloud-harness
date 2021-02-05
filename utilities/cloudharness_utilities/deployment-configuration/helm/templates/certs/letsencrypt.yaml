@@ -8,7 +8,7 @@ spec:
     server: https://acme-v02.api.letsencrypt.org/directory
     email:  {{ .Values.ingress.letsencrypt.email }}
     privateKeySecretRef:
-      name: {{ .Values.tls }}
+      name: tls-secret
     solvers:
     - http01:
         ingress:
