@@ -3,7 +3,8 @@ import sys
 
 log = logging
 
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+FORMAT = "%(asctime)s [%(levelname)s] %(module)s.%(funcName)s: %(message)s"
+logging.basicConfig(stream=sys.stdout, format=FORMAT, level=logging.INFO)
 
 def set_debug():
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
