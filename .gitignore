@@ -9,4 +9,4 @@ node_modules
 deployment
 *.egg-info
 *.idea
-build
+/build
