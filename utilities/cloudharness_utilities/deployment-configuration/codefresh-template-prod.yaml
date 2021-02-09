@@ -86,4 +86,5 @@ steps:
       condition:
         all:
           whenVarExists: 'includes("${{DEPLOYMENT_PUBLISH_TAG}}", "{{DEPLOYMENT_PUBLISH_TAG}}") == false'
+          whenVarExists2: 'includes("${{REPO_TOKEN}}", "{{REPO_TOKEN}}") == false'
 
