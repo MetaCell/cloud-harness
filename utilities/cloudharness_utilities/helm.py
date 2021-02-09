@@ -28,7 +28,7 @@ def deploy(namespace, output_path='./deployment'):
     subprocess.run("helm dependency update".split(), cwd=helm_path)
 
     subprocess.run(
-        f"helm upgrade ch {helm_path} -n {namespace} --install --reset-values".split())
+        f"helm upgrade {namespace} {helm_path} -n {namespace} --install --reset-values".split())
 
 
 def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True,

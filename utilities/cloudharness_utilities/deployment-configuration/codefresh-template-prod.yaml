@@ -33,10 +33,10 @@ steps:
       - harness-deployment . cloud-harness -m build -t ${{DEPLOYMENT_TAG}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e prod
   prepare_deployment_view:
     commands:
-      - 'helm template ./deployment/helm --debug -n ${{NAME}}'
+      - 'helm template ./deployment/helm --debug -n ${{NAMESPACE}}'
     environment:
       - ACTION=auth
-      - KUBE_CONTEXT=${{NAME}}
+      - KUBE_CONTEXT=${{NAMESPACE}}
     image: codefresh/cfstep-helm:3.4.1
     stage: prepare
     title: 'View helm chart'
@@ -49,7 +49,7 @@ steps:
       - RELEASE_NAME=${{NAMESPACE}}
       - KUBE_CONTEXT=${{CLUSTER_NAME}}
       - NAMESPACE=${{NAMESPACE}}
-      - CHART_VERSION=${{DEPLOYMENT_PUBLISH_TAG}}
+      - CHART_VERSION=${{DEPLOYMENT_TAG}}
       - HELM_REPO_USE_HTTP=false
       - HELM_REPO_CONTEXT_PATH=
       - TIMEOUT=600s
@@ -86,4 +86,5 @@ steps:
       condition:
         all:
           whenVarExists: 'includes("${{DEPLOYMENT_PUBLISH_TAG}}", "{{DEPLOYMENT_PUBLISH_TAG}}") == false'
+          whenVarExists2: 'includes("${{REPO_TOKEN}}", "{{REPO_TOKEN}}") == false'
 

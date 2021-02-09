@@ -34,10 +34,10 @@ steps:
       - harness-deployment cloud-harness . -m build -t ${{CF_BUILD_ID}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e dev
   prepare_deployment_view:
     commands:
-      - 'helm template ./deployment/helm --debug -n ${{NAME}}'
+      - 'helm template ./deployment/helm --debug -n ${{NAMESPACE}}'
     environment:
       - ACTION=auth
-      - KUBE_CONTEXT=${{NAME}}
+      - KUBE_CONTEXT=${{NAMESPACE}}
     image: codefresh/cfstep-helm:3.4.1
     stage: prepare
     title: 'View helm chart'
