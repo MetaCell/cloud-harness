@@ -67,6 +67,10 @@ steps:
     stage: publish
     steps:
       REPLACE_ME
+    when:
+      condition:
+        all:
+          whenVarExists: 'includes("${{DEPLOYMENT_PUBLISH_TAG}}", "{{DEPLOYMENT_PUBLISH_TAG}}") == false'
   git-tag:
     title: Performing git tagging
     stage: publish
@@ -78,3 +82,8 @@ steps:
       - REPLACEMENT=${PROTOCOL}${{REPO_TOKEN}}@
       - git remote set-url origin ${ORIGIN/$PROTOCOL/$REPLACEMENT}
       - git push origin --tags
+    when:
+      condition:
+        all:
+          whenVarExists: 'includes("${{DEPLOYMENT_PUBLISH_TAG}}", "{{DEPLOYMENT_PUBLISH_TAG}}") == false'
+
