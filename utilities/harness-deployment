@@ -28,8 +28,8 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--tag', dest='tag', action="store", default='latest',
                         help='Add a tag with the current version (default `latest`)')
 
-    parser.add_argument('-n', '--namespace', dest='namespace', action="store", default='default',
-                        help='Specify the namespace of the deployment (default `default`)')
+    parser.add_argument('-n', '--namespace', dest='namespace', action="store", default=None,
+                        help='Specify the namespace of the deployment (default taken from values.yaml)')
 
     parser.add_argument('-r', '--registry', dest='registry', action="store", default='',
                         help='Specify image registry prefix')

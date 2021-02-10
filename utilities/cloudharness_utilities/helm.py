@@ -67,6 +67,8 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
                                     dest_helm_chart_path=dest_deployment_path)
     # Save values file for manual helm chart
     merged_values = merge_to_yaml_file(helm_values, os.path.join(dest_deployment_path, VALUES_MANUAL_PATH))
+    if namespace:
+        merge_to_yaml_file({'metadata': {'namespace': namespace}}, os.path.join(dest_deployment_path, 'Chart.yaml'))
     return merged_values
 
 
@@ -203,7 +205,8 @@ def finish_helm_values(values, namespace, tag='latest', registry='', local=True,
     values['registry']['name'] = registry
     values['registry']['secret'] = registry_secret
     values['tag'] = tag
-    values['namespace'] = namespace
+    if namespace:
+        values['namespace'] = namespace
     values['secured_gatekeepers'] = secured
     values['ingress']['ssl_redirect'] = values['ingress']['ssl_redirect'] and tls
 
