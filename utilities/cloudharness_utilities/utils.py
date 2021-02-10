@@ -10,7 +10,10 @@ import fileinput
 from .constants import HERE, NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
     APPS_PATH, BUILD_FILENAMES, EXCLUDE_PATHS
 
-REPLACE_TEXT_FILES_EXTENSIONS = ('.js', '.md', '.py', '.js', '.ts', '.tsx', '.txt', 'Dockerfile', 'yaml', 'json', '.ejs')
+REPLACE_TEXT_FILES_EXTENSIONS = (
+    '.js', '.md', '.py', '.js', '.ts', '.tsx', '.txt', 'Dockerfile', 'yaml', 'json', '.ejs'
+)
+
 
 def app_name_from_path(dockerfile_path):
     return get_image_name("-".join(p for p in dockerfile_path.split("/") if p not in NEUTRAL_PATHS))
@@ -60,6 +63,7 @@ def get_template(yaml_path, base_default=False):
 def file_is_yaml(fname):
     return fname[-4:] == 'yaml' or fname[-3:] == 'yml'
 
+
 def replaceindir(root_src_dir, source, replace):
     """
     Does copy and merge (shutil.copytree requires that the destination does not exist)
@@ -75,7 +79,7 @@ def replaceindir(root_src_dir, source, replace):
         for dirname in dirs:
             if source in dirname:
                 dirpath = os.path.join(src_dir, dirname)
-                movedircontent(dirpath, dirpath.replace(source, replace.replace('-', '_')))
+                movedircontent(dirpath, dirpath.replace(source, to_python_module(replace)))
 
     for src_dir, dirs, files in os.walk(root_src_dir):
         for file_ in files:
@@ -83,13 +87,12 @@ def replaceindir(root_src_dir, source, replace):
                 continue
 
             src_file = os.path.join(src_dir, file_)
-
-            replace_in_file(src_file, source, replace )
+            replace_in_file(src_file, source, replace)
 
 
 def replace_in_file(src_file, source, replace):
-    if src_file.endswith('.py'):
-        replace = replace.replace('-', '_')
+    if src_file.endswith('.py') or os.path.basename(src_file) == 'Dockerfile':
+        replace = to_python_module(replace)
     with fileinput.FileInput(src_file, inplace=True) as file:
         try:
             for line in file:
@@ -121,6 +124,7 @@ def copymergedir(root_src_dir, root_dst_dir):
             except:
                 logging.warning("Error copying file %s to %s.", src_file, dst_dir)
 
+
 def movedircontent(root_src_dir, root_dst_dir):
     """
     Does copy and merge (shutil.copytree requires that the destination does not exist)
@@ -142,6 +146,7 @@ def movedircontent(root_src_dir, root_dst_dir):
             except:
                 logging.warning("Error moving file %s to %s.", src_file, dst_dir, exc_info=True)
     shutil.rmtree(root_src_dir)
+
 
 def merge_configuration_directories(source, dest):
     if not os.path.exists(source):
@@ -263,3 +268,7 @@ def merge_app_directories(root_paths, destination) -> None:
                                         os.path.join(destination, 'client'))
         merge_configuration_directories(os.path.join(rpath, 'deployment-configuration'),
                                         os.path.join(destination, 'deployment-configuration'))
+
+
+def to_python_module(name):
+    return name.replace('-', '_')
