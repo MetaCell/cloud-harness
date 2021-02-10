@@ -44,7 +44,8 @@ if __name__ == "__main__":
     try:
         match = name_pattern.match(args.name)
         if not match:
-            print(f"Application name did not match regular expression: {name_pattern.pattern}")
+            print("Invalid application name")
+            print(f"Application name must start and end with lowercased alphabetical characters and may contain '-' as separator. Used expression: '{name_pattern.pattern}'")
             exit(1)
     except re.error:
         print("Invalid regex")
