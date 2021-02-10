@@ -84,7 +84,8 @@ if __name__ == "__main__":
             include=args.include,
             registry_secret=args.registry_secret,
             tls=not args.no_tls,
-            env=args.env
+            env=args.env,
+            namespace=args.namespace
         )
 
         build_included = [app['harness']['name'] for app in values_manual_deploy['apps'].values() if 'harness' in app]
