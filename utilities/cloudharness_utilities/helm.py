@@ -32,7 +32,7 @@ def deploy(namespace, output_path='./deployment'):
 
 
 def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True,
-                      output_path='./deployment', include=None, registry_secret=None, tls=True, env=None):
+                      output_path='./deployment', include=None, registry_secret=None, tls=True, env=None, namespace=None):
     """
     Creates values file for the helm chart
     """
@@ -58,7 +58,7 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
 
     create_tls_certificate(local, domain, tls, output_path, helm_values)
 
-    values, include = finish_helm_values(values=helm_values, tag=tag, registry=registry, local=local, domain=domain,
+    values, include = finish_helm_values(values=helm_values, namespace=namespace, tag=tag, registry=registry, local=local, domain=domain,
                                          secured=secured,
                                          registry_secret=registry_secret, tls=tls, include=include)
 
@@ -67,6 +67,8 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
                                     dest_helm_chart_path=dest_deployment_path)
     # Save values file for manual helm chart
     merged_values = merge_to_yaml_file(helm_values, os.path.join(dest_deployment_path, VALUES_MANUAL_PATH))
+    if namespace:
+        merge_to_yaml_file({'metadata': {'namespace': namespace}}, os.path.join(dest_deployment_path, 'Chart.yaml'))
     return merged_values
 
 
@@ -189,7 +191,7 @@ def collect_helm_values(deployment_root, exclude=(), tag='latest', registry='', 
     return values
 
 
-def finish_helm_values(values, tag='latest', registry='', local=True, domain=None, secured=True, registry_secret=None,
+def finish_helm_values(values, namespace, tag='latest', registry='', local=True, domain=None, secured=True, registry_secret=None,
                        tls=True, include=None):
     """
     Sets default overridden values
@@ -203,6 +205,8 @@ def finish_helm_values(values, tag='latest', registry='', local=True, domain=Non
     values['registry']['name'] = registry
     values['registry']['secret'] = registry_secret
     values['tag'] = tag
+    if namespace:
+        values['namespace'] = namespace
     values['secured_gatekeepers'] = secured
     values['ingress']['ssl_redirect'] = values['ingress']['ssl_redirect'] and tls
 
