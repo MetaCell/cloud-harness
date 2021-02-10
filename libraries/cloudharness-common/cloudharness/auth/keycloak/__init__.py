@@ -13,7 +13,7 @@ try:
     from cloudharness.applications import get_configuration
     accounts_app = get_configuration('accounts')
     AUTH_REALM = env.get_auth_realm()
-    SERVER_URL = accounts_app.get_service_address()
+    SERVER_URL = accounts_app.get_service_address() + '/auth/'
     if not os.environ.get('KUBERNETES_SERVICE_HOST', None):
         # running outside kubernetes
         SERVER_URL = accounts_app.get_public_address()
