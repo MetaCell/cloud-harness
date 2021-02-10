@@ -51,6 +51,7 @@ def decode_token(token):
 
 
 class AuthClient():
+    __public_key=None
 
     @staticmethod
     def _get_keycloak_user_id():
