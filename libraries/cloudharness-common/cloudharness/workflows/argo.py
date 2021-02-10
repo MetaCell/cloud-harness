@@ -133,7 +133,7 @@ def get_workflows(status=None, limit=10, continue_token=None, timeout_seconds=3)
 
 
     # pprint(service.list_workflows('ch', V1alpha1WorkflowList()))
-    api_response = service.list_workflows(namespace, list_options_limit=limit, list_options_continue_token=continue_token, list_options_timeout_seconds=timeout_seconds)
+    api_response = service.list_workflows(namespace, list_options_limit=limit, list_options_continue=continue_token, list_options_timeout_seconds=timeout_seconds)
 
     return SearchResult(api_response)
 
