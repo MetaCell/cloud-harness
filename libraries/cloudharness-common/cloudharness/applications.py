@@ -21,7 +21,7 @@ class ApplicationConfiguration:
 
     def __getitem__(self, key_or_path):
         item = self.conf[key_or_path]
-        if (isinstance(item, ConfigObject) or isinstance(item, dict)) and item['harness']:
+        if (isinstance(item, ConfigObject) or isinstance(item, dict)) and 'harness' in item and item['harness']:
             item = ApplicationConfiguration(item)
         return item
 

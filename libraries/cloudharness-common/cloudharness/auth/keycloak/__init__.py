@@ -5,31 +5,23 @@ import requests
 from flask import current_app, request
 from keycloak import KeycloakAdmin
 from keycloak.exceptions import KeycloakAuthenticationError
-
+from cloudharness import log
 from cloudharness.utils import env
 
 try:
-    from cloudharness.utils.config import CloudharnessConfig as conf
-    accounts_app = conf.get_application_by_filter(name='accounts')[0]
+    from cloudharness.utils.config import CloudharnessConfig as conf, ALLVALUES_PATH
+    from cloudharness.applications import get_configuration
+    accounts_app = get_configuration('accounts')
     AUTH_REALM = env.get_auth_realm()
-    SCHEMA = 'http'
-    HOST = getattr(accounts_app,'subdomain')
-    PORT = getattr(accounts_app,'port')
+    SERVER_URL = accounts_app.get_service_address()
     if not os.environ.get('KUBERNETES_SERVICE_HOST', None):
         # running outside kubernetes
-        HOST +=  '.' + conf.get_configuration().get('domain', 'localhost')
-        PORT = '80'
+        SERVER_URL = accounts_app.get_public_address()
     USER = getattr(accounts_app.admin,'user')
     PASSWD = getattr(accounts_app.admin,'pass')
 except:
-    AUTH_REALM = 'mnp'
-    SCHEMA = 'https'
-    HOST = 'accounts.mnp.metacell.us'
-    PORT = '443'
-    USER = 'admin'
-    PASSWD = 'metacell'
+    log.error("Error on cloudharness configuration. Check that the values file %s your deployment.", ALLVALUES_PATH, exc_info=True)
 
-SERVER_URL = f'{SCHEMA}://{HOST}:{PORT}/auth/'
 
 def with_refreshtoken(func):
     def wrapper(self, *args, **kwargs):
@@ -111,8 +103,17 @@ class AuthClient():
             self._admin_client = None
             self.get_admin_client()
 
-    @staticmethod
-    def decode_token(token):
+    @classmethod
+    def get_public_key(cls):
+        if not cls.__public_key:
+            AUTH_PUBLIC_KEY_URL = os.path.join(SERVER_URL, "realms", AUTH_REALM)
+
+            KEY = json.loads(requests.get(AUTH_PUBLIC_KEY_URL, verify=False).text)['public_key']
+            cls.__public_key = b"-----BEGIN PUBLIC KEY-----\n" + str.encode(KEY) + b"\n-----END PUBLIC KEY-----"
+        return cls.__public_key
+
+    @classmethod
+    def decode_token(cls, token):
         """
         Check and retrieve authentication information from custom bearer token.
         Returned value will be passed in 'token_info' parameter of your operation function, if there is one.
@@ -123,12 +124,9 @@ class AuthClient():
         :return: Decoded token information or None if token is invalid
         :rtype: dict | None
         """
-        AUTH_PUBLIC_KEY_URL = f'{SERVER_URL}realms/{AUTH_REALM}'
 
-        KEY = json.loads(requests.get(AUTH_PUBLIC_KEY_URL, verify=False).text)['public_key']
-        KEY = b"-----BEGIN PUBLIC KEY-----\n" + str.encode(KEY) + b"\n-----END PUBLIC KEY-----"
 
-        decoded = jwt.decode(token, KEY, algorithms='RS256', audience='account')
+        decoded = jwt.decode(token, cls.get_public_key(), algorithms='RS256', audience='account')
         return decoded
 
     @with_refreshtoken
