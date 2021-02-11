@@ -16,5 +16,10 @@ harness:
     soft:
       - argo
       - events
-
+  resources:
+    - name: my-config
+      # src file, relative to ./resources
+      src: "myConfig.json"
+      # dst file, target path in mounted volume of pod
+      dst: "/tmp/myConfig.json"
 
