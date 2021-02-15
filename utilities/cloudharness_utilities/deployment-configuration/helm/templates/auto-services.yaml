@@ -13,6 +13,7 @@ spec:
     app: {{ .app.harness.deployment.name| quote }}
   ports:
     - port: {{ .app.harness.service.port }}
+      targetPort: {{ .app.harness.deployment.port }}
       name: http
 ---
 {{- end }}
