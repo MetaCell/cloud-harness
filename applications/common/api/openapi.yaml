@@ -33,3 +33,28 @@ paths:
                 type: string
       summary: Gets the Sentry DSN for a given application
       x-openapi-router-controller: common.controllers.sentry_controller
+  /accounts/config:
+    get:
+      tags:
+      - Accounts
+      description: Gets the config for logging in into accounts
+      operationId: get_config
+      responses:
+        '200':
+          description: Config for accounts log in
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    description: The auth URL.
+                  realm:
+                    type: string
+                    description: The realm.
+                  clientId:
+                    type: string
+                    description: The clientID.
+      summary: Gets the config for logging in into accounts
+      x-openapi-router-controller: common.controllers.accounts_controller

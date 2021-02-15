@@ -54,7 +54,10 @@ class CloudharnessConfig:
 
     @classmethod
     def is_secured(cls):
-        return bool(cls.get_configuration()['tls'])
+        try:
+            return bool(cls.get_configuration()['tls'])
+        except KeyError:
+            return False
 
     @classmethod
     def is_test(cls):
