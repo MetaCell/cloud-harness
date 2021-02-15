@@ -1,22 +1,9 @@
-# Keycloak realm configuration
-client:
-  id: rest-client
-  secret: 5678eb6e-9e2c-4ee5-bd54-34e7411339e8
-webclient:
-  id: web-client
-  secret: 452952ae-922c-4766-b912-7b106271e34b
-enabled: true
-harvest: true
-admin:
-  role: administrator
-
 # Deployment & Database
 harness:
   name: accounts
   subdomain: accounts
   deployment:
     auto: true
-    # TODO: need to be able to specify a list of ports
     port: 8080
   env:
     - name: KEYCLOAK_IMPORT
@@ -54,8 +41,14 @@ harness:
   readinessProbe:
     path: /auth/realms/master
 
-
-# TODO: do we still need this?
-# only use in minikube (with letsencrypt, we use default image)
-gatekeeper:
-  image: accounts-keycloak-gatekeeper
+# Keycloak realm configuration
+client:
+  id: rest-client
+  secret: 5678eb6e-9e2c-4ee5-bd54-34e7411339e8
+webclient:
+  id: web-client
+  secret: 452952ae-922c-4766-b912-7b106271e34b
+enabled: true
+harvest: true
+admin:
+  role: administrator
