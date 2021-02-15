@@ -32,6 +32,12 @@ spec:
       - name: {{ .app.harness.deployment.name| default "cloudharness-docs" | quote }}
         image: {{ .app.harness.deployment.image }}
         imagePullPolicy: {{ include "deploy_utils.pullpolicy" .root }}
+        {{- if .app.harness.deployment.command }}
+        command: {{ .app.harness.deployment.command }}
+        {{- end }}
+        {{- if .app.harness.deployment.args }}
+        args: {{ .app.harness.deployment.args }}
+        {{- end }}
         env:
           {{- include "deploy_utils.env" .root | nindent 8 }}
           {{- include "deploy_utils.privenv" .root | nindent 8 }}
