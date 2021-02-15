@@ -90,8 +90,8 @@ spec:
           {{- range $resource := .app.harness.resources }}
           - name: "{{ $app.harness.deployment.name }}-{{ $resource.name }}"
             mountPath: {{ $resource.dst }}
-            # using trimPrefix func: e.g. /tmp/myConfig.json -> myConfig.json
-            subPath: {{ trimPrefix "/" $resource.dst }}
+            subPath: {{ base $resource.dst }}
+            readOnly: true
           {{- end}}
       volumes:
         - name: cloudharness-allvalues
@@ -120,7 +120,7 @@ metadata:
     app: {{ .app.harness.deployment.name | quote }}
   {{ include "deploy_utils.labels" .root | indent 4 }}
 data:
-  realm.json: {{ tpl (.root.Files.Get (print "resources/" .app.harness.deployment.name "/" .resource.src)) .root | quote }}
+  {{ base .resource.dst }}: {{ tpl (.root.Files.Get (print "resources/" .app.harness.deployment.name "/" .resource.src)) .root | quote }}
 ---
 {{- end}}
 

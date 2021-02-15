@@ -18,8 +18,9 @@ harness:
       - events
   resources:
     - name: my-config
-      # src file, relative to ./resources
       src: "myConfig.json"
-      # dst file, target path in mounted volume of pod
-      dst: "/tmp/myConfig.json"
+      dst: "/tmp/resources/myConfig.json"
+    - name: example
+      src: "example.yaml"
+      dst: "/usr/src/app/important_config.yaml"
 
