@@ -16,7 +16,7 @@ try:
     SERVER_URL = accounts_app.get_service_address() + '/auth/'
     if not os.environ.get('KUBERNETES_SERVICE_HOST', None):
         # running outside kubernetes
-        SERVER_URL = accounts_app.get_public_address()
+        SERVER_URL = accounts_app.get_public_address() + '/auth/'
     USER = accounts_app.admin['user']
     PASSWD = accounts_app.admin['pass']
 except:
@@ -28,7 +28,7 @@ def with_refreshtoken(func):
         try:
             return func(self, *args, **kwargs)
         except KeycloakAuthenticationError:
-            self.refresh_token() 
+            self.refresh_token()
             return func(self, *args, **kwargs)
     return wrapper
 
