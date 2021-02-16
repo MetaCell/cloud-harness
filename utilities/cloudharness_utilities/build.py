@@ -105,14 +105,21 @@ class Builder:
 
         logging.info("Build args: " + ",".join(key + ':' + value for key, value in buildargs.items()))
 
-        image, response = self.client.images.build(path=context_path,
-                                                   tag=image_tag,
-                                                   buildargs=buildargs,
-                                                   dockerfile=os.path.join(dockerfile_rel_path,
-                                                                           "Dockerfile") if dockerfile_rel_path else None
+        try:
+            image, response = self.client.images.build(path=context_path,
+                                                       tag=image_tag,
+                                                       buildargs=buildargs,
+                                                       dockerfile=os.path.join(dockerfile_rel_path,
+                                                                               "Dockerfile") if dockerfile_rel_path else None
 
-                                                   )
+                                                       )
+        except Exception as e:
+            for line in e.build_log:
+                if 'stream' in line and line['stream'] != '\n':
+                    logging.info(line['stream'].replace('\n', ' ').replace('\r', ''))
+            logging.error("Build failed with message:\n%s", ",".join(e.args))
 
+            sys.exit(1)
         # log stream
         for line in response:
             if 'stream' in line and line['stream'] != '\n':
