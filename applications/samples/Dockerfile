@@ -31,3 +31,4 @@ COPY backend/ /usr/src/app
 
 COPY --from=frontend app/dist/ /usr/src/app/www
 
+RUN pip3 install -e .

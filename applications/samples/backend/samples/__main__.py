@@ -8,7 +8,7 @@ from samples import encoder
 
 
 # setup connection app
-connexion_app = connexion.App(__name__, specification_dir="./openapi/", debug=True)
+connexion_app = connexion.App(__name__, specification_dir="./openapi/")
 app = connexion_app.app
 app.json_encoder = encoder.JSONEncoder
 
@@ -39,8 +39,7 @@ def send_static(path):
     return flask.send_from_directory('../www/static', path)
 
 def main():
-    connexion_app.debug=True
-    connexion_app.run(port=5001)
+    app.run(port=8080)
 
 
 if __name__ == "__main__":

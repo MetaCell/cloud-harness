@@ -4,12 +4,10 @@ Utilities to create a helm chart from a CloudHarness directory structure
 import yaml
 import os
 import shutil
-import sys
 import logging
 import subprocess
 import tarfile
 from docker import from_env as DockerClient
-from pathlib import Path
 from .constants import VALUES_MANUAL_PATH, VALUE_TEMPLATE_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, HERE, \
     DEPLOYMENT_CONFIGURATION_PATH
 from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, app_name_from_path, \
@@ -32,7 +30,8 @@ def deploy(namespace, output_path='./deployment'):
 
 
 def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True,
-                      output_path='./deployment', include=None, registry_secret=None, tls=True, env=None, namespace=None):
+                      output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
+                      namespace=None):
     """
     Creates values file for the helm chart
     """
@@ -58,7 +57,8 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
 
     create_tls_certificate(local, domain, tls, output_path, helm_values)
 
-    values, include = finish_helm_values(values=helm_values, namespace=namespace, tag=tag, registry=registry, local=local, domain=domain,
+    values, include = finish_helm_values(values=helm_values, namespace=namespace, tag=tag, registry=registry,
+                                         local=local, domain=domain,
                                          secured=secured,
                                          registry_secret=registry_secret, tls=tls, include=include)
 
@@ -178,10 +178,9 @@ def collect_helm_values(deployment_root, exclude=(), tag='latest', registry='', 
             continue
         app_key = app_name.replace('-', '_')
 
-
-
         if app_key not in values[KEY_APPS]:
-            values[KEY_APPS][app_key]  = get_template(os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml'))
+            values[KEY_APPS][app_key] = get_template(
+                os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml'))
 
         app_values = create_values_spec(app_name, app_path, tag=tag, registry=registry,
                                         template_path=value_spec_template_path, env=env)
@@ -191,7 +190,8 @@ def collect_helm_values(deployment_root, exclude=(), tag='latest', registry='', 
     return values
 
 
-def finish_helm_values(values, namespace, tag='latest', registry='', local=True, domain=None, secured=True, registry_secret=None,
+def finish_helm_values(values, namespace, tag='latest', registry='', local=True, domain=None, secured=True,
+                       registry_secret=None,
                        tls=True, include=None):
     """
     Sets default overridden values
@@ -302,11 +302,6 @@ def create_values_spec(app_name, app_path, tag=None, registry='', template_path=
     if KEY_DATABASE not in harness:
         harness[KEY_DATABASE] = {}
 
-
-
-
-
-
     if not harness.get('name', None):
         harness['name'] = app_name
 
@@ -318,7 +313,6 @@ def create_values_spec(app_name, app_path, tag=None, registry='', template_path=
         harness[KEY_DATABASE]['name'] = app_name.strip() + '-db'
     if not harness[KEY_DEPLOYMENT].get('image', None):
         harness[KEY_DEPLOYMENT]['image'] = registry + get_image_name(app_name) + f':{tag}' if tag else ''
-
 
     for k in values:
         if isinstance(values[k], dict) and KEY_HARNESS in values[k]:

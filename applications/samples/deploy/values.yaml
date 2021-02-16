@@ -14,7 +14,7 @@ harness:
       value: "3"
   dependencies:
     soft:
-      - argo
+      - workflows
       - events
 
 
