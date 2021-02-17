@@ -16,5 +16,11 @@ harness:
     soft:
       - argo
       - events
-
+  resources:
+    - name: my-config
+      src: "myConfig.json"
+      dst: "/tmp/resources/myConfig.json"
+    - name: example
+      src: "example.yaml"
+      dst: "/usr/src/app/important_config.yaml"
 

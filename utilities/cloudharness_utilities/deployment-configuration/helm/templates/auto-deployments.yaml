@@ -86,6 +86,13 @@ spec:
           - name: {{ .app.harness.deployment.volume.name }}
             mountPath: {{ .app.harness.deployment.volume.mountpath }}
           {{- end }}
+          {{- $app := .app}}
+          {{- range $resource := .app.harness.resources }}
+          - name: "{{ $app.harness.deployment.name }}-{{ $resource.name }}"
+            mountPath: {{ $resource.dst }}
+            subPath: {{ base $resource.dst }}
+            readOnly: true
+          {{- end}}
       volumes:
         - name: cloudharness-allvalues
           configMap:
@@ -95,14 +102,36 @@ spec:
           persistentVolumeClaim:
             claimName: {{ .app.harness.deployment.volume.name }}
         {{- end }}
-        
+        {{ $app := .app }}
+        {{- range $resource := .app.harness.resources }}
+        - name: "{{ $app.harness.deployment.name }}-{{ $resource.name }}"
+          configMap:
+            name: "{{ $app.harness.deployment.name }}-{{ $resource.name }}"
+        {{- end }}
 ---
 {{- end }}
+
+{{- define "deploy_utils.resource"}}
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: "{{ .app.harness.deployment.name }}-{{ .resource.name }}"
+  labels:
+    app: {{ .app.harness.deployment.name | quote }}
+  {{ include "deploy_utils.labels" .root | indent 4 }}
+data:
+  {{ base .resource.dst }}: {{ tpl (.root.Files.Get (print "resources/" .app.harness.deployment.name "/" .resource.src)) .root | quote }}
+---
+{{- end}}
+
 {{- range $app := .Values.apps }}
   {{- if and (hasKey $app "port") $app.harness.deployment.auto | default false  }}
 ---
     {{- include "deploy_utils.deployment" (dict "root" $ "app" $app) }}
+    {{- range $resource := $app.harness.resources }}
+    {{- include "deploy_utils.resource" (dict "app" $app "resource" $resource "root" $) }}
     {{- end }}
+  {{- end }}
   {{- range $subapp := $app }}
   {{- if contains "map" (typeOf $subapp)  }}
   {{- if hasKey $subapp "harness" }}
