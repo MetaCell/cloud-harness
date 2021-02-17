@@ -1,0 +1,1 @@
+FROM solsson/kafka-manager
