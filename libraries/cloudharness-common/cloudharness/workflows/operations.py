@@ -1,21 +1,20 @@
-from collections.abc import Iterable
 import time
-import yaml, pyaml
+import pyaml
 
-SERVICE_ACCOUNT = 'argo-workflows'
+from collections.abc import Iterable
+
 from cloudharness_cli.workflows.models.operation_status import OperationStatus
 
 from cloudharness.events.client import EventClient
 from cloudharness.utils.settings import CODEFRESH_PULL_SECRET
 from cloudharness.utils import env
-
-from . import argo
-
-from .tasks import Task, SendResultTask, CustomTask
-
 from cloudharness import log
 
+from . import argo
+from .tasks import Task, SendResultTask, CustomTask
+
 POLLING_WAIT_SECONDS = 1
+SERVICE_ACCOUNT = 'argo-workflows'
 
 
 class BadOperationConfiguration(RuntimeError):
@@ -58,28 +57,31 @@ class ContainerizedOperation(ManagedOperation):
         raise NotImplemented
 
     def to_workflow(self, **arguments):
-        workflow = {
+        return {
             'apiVersion': 'argoproj.io/v1alpha1',
             'kind': 'Workflow',
             'metadata': {'generateName': self.name},
             'spec': self.spec()
-
         }
-        return workflow
 
     def spec(self):
         spec = {
             'entrypoint': self.entrypoint,
-            'TTLSecondsAfterFinished': 24*60*60,  # remove the workflow & pod after 1 day
+            'ttlStrategy': {
+                'secondsAfterCompletion': 60 * 60,
+                'secondsAfterSuccess': 60 * 20,
+                'secondsAfterFailure': 60 * 120,
+            },
             'templates': [self.modify_template(template) for template in self.templates],
             'serviceAccountName': SERVICE_ACCOUNT,
             'imagePullSecrets': [{'name': CODEFRESH_PULL_SECRET}],
             'volumes': [{
-                'name': 'cloudharness-allvalues', 
+                # mount allvalues so we can use the cloudharness Python library
+                'name': 'cloudharness-allvalues',
                 'configMap': {
                     'name': 'cloudharness-allvalues'
                 }
-            }] # mount allvalues so we can use the cloudharness Python library
+            }]
         }
         if self.on_exit_notify:
             spec = self.add_on_exit_notify_handler(spec)
@@ -111,8 +113,8 @@ class ContainerizedOperation(ManagedOperation):
 
         log.debug("Submitting workflow\n" + pyaml.dump(op))
 
-        self.persisted = argo.submit_workflow(op)  # TODO use rest api for that? Include this into cloudharness.workflows?
-
+        # TODO use rest api for that? Include this into cloudharness.workflows?
+        self.persisted = argo.submit_workflow(op)
         return self.persisted
 
     def is_running(self):
@@ -256,8 +258,10 @@ class CompositeOperation(AsyncOperation):
     def spec(self):
         spec = super().spec()
         if self.volumes:
-            spec['volumeClaimTemplates'] = [self.spec_volumeclaim(volume) for volume in self.volumes if ':' not in volume] # without PVC prefix (e.g. /location)
-            spec['volumes'] += [self.spec_volume(volume) for volume in self.volumes if ':' in volume] # with PVC prefix (e.g. pvc-001:/location)
+            spec['volumeClaimTemplates'] = [self.spec_volumeclaim(volume) for volume in self.volumes if
+                                            ':' not in volume]  # without PVC prefix (e.g. /location)
+            spec['volumes'] += [self.spec_volume(volume) for volume in self.volumes if
+                                ':' in volume]  # with PVC prefix (e.g. pvc-001:/location)
         return spec
 
     def modify_template(self, template):
@@ -270,7 +274,7 @@ class CompositeOperation(AsyncOperation):
         path = volume
         if ":" in path:
             path = volume.split(':')[-1]
-        return dict({'name': self.name_from_path(path), 'mountPath': path })
+        return dict({'name': self.name_from_path(path), 'mountPath': path})
 
     def spec_volumeclaim(self, volume):
         # when the volume is NOT prefixed by a PVC (e.g. /location) then create a temporary PVC for the workflow
@@ -303,6 +307,7 @@ class CompositeOperation(AsyncOperation):
             }
         return {}
 
+
 class PipelineOperation(CompositeOperation):
 
     def steps_spec(self):
@@ -332,10 +337,10 @@ class DistributedSyncOperationWithResults(PipelineOperation, ExecuteAndWaitOpera
 
         result = self.client.consume_all()
         if result is None:
-            raise RuntimeError("Operation `" + op.name + "` did not put results in the queue. Check your workflow configuration")
+            raise RuntimeError(
+                "Operation `" + op.name + "` did not put results in the queue. Check your workflow configuration")
         self.client.delete_topic()
         return result
-
 
 
 class ParallelOperation(CompositeOperation):

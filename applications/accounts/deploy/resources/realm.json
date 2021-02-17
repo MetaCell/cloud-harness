@@ -2,7 +2,7 @@
         "id": {{ .Values.namespace | quote }},
         "realm": {{ .Values.namespace | quote }},
         "enabled": true,
-        "sslRequired": "external",
+        "sslRequired": {{ ternary "none" "external" (not .Values.tls) | quote }},
         "loginTheme": "keycloak",
         "accountTheme": "keycloak",
         "adminTheme": "keycloak",

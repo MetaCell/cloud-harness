@@ -1,20 +1,15 @@
 """Notice, this test needs a fully operating kubernetes with argo environment in the container running the test"""
-import time
 import requests
-from cloudharness.utils.config import CloudharnessConfig as conf
-from .test_env import set_test_environment
-set_test_environment()
+import yaml
 
 from cloudharness.workflows import operations, tasks
 from cloudharness import set_debug
 from cloudharness.workflows import argo
-from pprint import pprint
 
+from .test_env import set_test_environment
+
+set_test_environment()
 set_debug()
-
-import yaml
-
-
 
 
 def test_sync_workflow():
@@ -60,39 +55,46 @@ def test_simpledag_workflow():
 
     # p3 runs after p1 and p2 finish
     op = operations.SimpleDagOperation('test-dag-op-', (tasks.PythonTask('p1', f), tasks.PythonTask('p2', f)),
-                                tasks.PythonTask('p3', f))
+                                       tasks.PythonTask('p3', f))
     print('\n', yaml.dump(op.to_workflow()))
     print(op.execute())
 
+
 def test_custom_task_workflow():
     task = operations.CustomTask('download-file', 'workflows-extract-download', url='https://www.bing.com')
-    op = operations.PipelineOperation('test-custom-op-', (task, ))
+    op = operations.PipelineOperation('test-custom-op-', (task,))
     print('\n', yaml.dump(op.to_workflow()))
     print(op.execute())
 
 
 def test_custom_connected_task_workflow():
     shared_directory = '/mnt/shared'
-    task_write = operations.CustomTask('download-file', 'workflows-extract-download', shared_directory = shared_directory, url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
-    task_print = operations.CustomTask('print-file', 'workflows-print-file', shared_directory = shared_directory, file_path=shared_directory + '/README.md')
-    op = operations.PipelineOperation('test-custom-connected-op-', (task_write, task_print), shared_directory=shared_directory, shared_volume_size = 100)
+    task_write = operations.CustomTask('download-file', 'workflows-extract-download',
+                                       shared_directory=shared_directory,
+                                       url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
+    task_print = operations.CustomTask('print-file', 'workflows-print-file', shared_directory=shared_directory,
+                                       file_path=shared_directory + '/README.md')
+    op = operations.PipelineOperation('test-custom-connected-op-', (task_write, task_print),
+                                      shared_directory=shared_directory, shared_volume_size=100)
     # op.execute()
     print('\n', yaml.dump(op.to_workflow()))
     print(op.execute())
 
 
 def test_result_task_workflow():
-    task_write = operations.CustomTask('download-file', 'workflows-extract-download', url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
+    task_write = operations.CustomTask('download-file', 'workflows-extract-download',
+                                       url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
 
     op = operations.DistributedSyncOperationWithResults('test-sync-results-', task_write)
-
 
     # op.execute()
     print('\n', yaml.dump(op.to_workflow()))
     print(op.execute())
 
+
 def test_get_workflows():
     assert len(argo.get_workflows())
+
 
 def test_submit_workflow():
     WORKFLOW = 'https://raw.githubusercontent.com/argoproj/argo/v2.12.2/examples/dag-diamond-steps.yaml'
@@ -102,6 +104,7 @@ def test_submit_workflow():
     wf = argo.submit_workflow(manifest)
     assert wf
     assert wf.name
+
 
 def test_get_workflow():
     WORKFLOW = 'https://raw.githubusercontent.com/argoproj/argo/v2.12.2/examples/dag-diamond-steps.yaml'
@@ -114,9 +117,10 @@ def test_get_workflow():
     assert wf.name
     try:
         argo.get_workflow('riuhfsdhsdfsfisdf')
-        assert 1 == 0 # not found raises exception
+        assert 1 == 0  # not found raises exception
     except:
         pass
+
 
 def test_get_workflow_logs():
     WORKFLOW = 'https://raw.githubusercontent.com/argoproj/argo/v2.12.2/examples/dag-diamond-steps.yaml'
