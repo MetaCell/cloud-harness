@@ -54,4 +54,6 @@ webclient:
 enabled: true
 harvest: true
 admin:
+  pass: metacell
+  user: admin
   role: administrator
