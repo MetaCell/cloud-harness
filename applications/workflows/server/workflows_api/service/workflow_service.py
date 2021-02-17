@@ -43,7 +43,7 @@ def list_operations(status=None, continue_token=None, limit=None) -> OperationSe
     return result
 
 
-def log_operation(name:str) -> str:
+def log_operation(name: str) -> str:
     """get operation logs
     :param name: workflow name
     :rtype: str
