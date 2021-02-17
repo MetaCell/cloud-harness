@@ -1,9 +1,7 @@
-import urllib.request
 import sys
-from cloudharness import log
 import os
 
-
+from cloudharness import log
 
 assert len(sys.argv) > 1, 'File path not specified'
 
