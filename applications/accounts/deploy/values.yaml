@@ -1,24 +1,54 @@
-admin:
-  pass: metacell
-  user: admin
-  role: administrator
+# Deployment & Database
+harness:
+  subdomain: accounts
+  secured: false
+  deployment:
+    auto: true
+    port: 8080
+  env:
+    - name: KEYCLOAK_IMPORT
+      value: "/tmp/realm.json"
+    - name: KEYCLOAK_USER
+      value: "admin"
+    - name: KEYCLOAK_PASSWORD
+      value: "metacell"
+    - name: PROXY_ADDRESS_FORWARDING
+      value: "true"
+    - name: DB_VENDOR
+      value: "POSTGRES"
+    - name: DB_ADDR
+      value: "keycloak-postgres"
+    - name: DB_DATABASE
+      value: "auth_db"
+    - name: DB_USER
+      value: "user"
+    - name: DB_PASSWORD
+      value: "password"
+  database:
+    auto: true
+    name: keycloak-postgres
+    type: postgres
+    size: 2Gi
+    postgres:
+      image: postgres:10.4
+      initialdb: auth_db
+    user: user
+    pass: password
+  resources:
+    - name: realm-config
+      src: realm.json
+      dst: /tmp/realm.json
+  readinessProbe:
+    path: /auth/realms/master
+
+# Keycloak realm configuration
 client:
   id: rest-client
   secret: 5678eb6e-9e2c-4ee5-bd54-34e7411339e8
-db:
-  image: postgres:10.4
-  initialdb: auth_db
-  name: keycloak-postgress
-  pass: password
-  user: user
-enabled: true
-harvest: true
 webclient:
   id: web-client
   secret: 452952ae-922c-4766-b912-7b106271e34b
-name: accounts
-port: 8080
-subdomain: accounts
-# only use in minikube (with letsencrypt, we use default image)
-gatekeeper:
-  image: accounts-keycloak-gatekeeper
+enabled: true
+harvest: true
+admin:
+  role: administrator

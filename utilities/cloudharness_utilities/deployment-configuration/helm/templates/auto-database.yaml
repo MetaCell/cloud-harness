@@ -78,7 +78,7 @@ metadata:
 spec:
   type: ClusterIP
   selector:
-    app: {{ .app.harness.database.name| quote }}
+    app: {{ .app.harness.database.name | quote }}
   ports:
   {{- range $port := (index .app.harness.database .app.harness.database.type).ports }}
   - name: {{ $port.name }}
