@@ -5,6 +5,9 @@ harness:
   deployment:
     auto: true
     port: 8080
+  service:
+    auto: true
+    port: 8080
   env:
     - name: KEYCLOAK_IMPORT
       value: "/tmp/realm.json"
@@ -51,4 +54,6 @@ webclient:
 enabled: true
 harvest: true
 admin:
+  pass: metacell
+  user: admin
   role: administrator

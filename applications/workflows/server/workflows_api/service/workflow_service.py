@@ -7,8 +7,10 @@ BadParam = argo.BadParam
 
 
 def argo_workflow_to_operation(workflow: argo.Workflow):
-    return Operation(name=workflow.name, status=workflow.status, create_time=workflow.create_time,
-                     workflow=workflow.raw)
+    return Operation(name=workflow.name,
+                     status=workflow.status,
+                     create_time=workflow.create_time,
+                     workflow=workflow.raw.to_str())
 
 
 def delete_operation(name):
