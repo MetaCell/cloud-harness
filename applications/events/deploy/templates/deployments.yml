@@ -54,7 +54,9 @@ spec:
         readinessProbe:
           tcpSocket:
             port: 9092
-          timeoutSeconds: 1
+          timeoutSeconds: 2
+          initialDelaySeconds: 30
+          periodSeconds: 30
         resources:
           limits:
             cpu: 500m
@@ -166,9 +168,21 @@ spec:
             - /bin/sh
             - -c
             - '[ "imok" = "$(echo ruok | nc -w 1 -q 1 127.0.0.1 2181)" ]'
+          timeoutSeconds: 3
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - '[ "imok" = "$(echo ruok | nc -w 1 -q 1 127.0.0.1 2181)" ]'
+          timeoutSeconds: 3
+          initialDelaySeconds: 12
+          periodSeconds: 60
         resources:
           limits:
-            memory: 120Mi
+            memory: 500Mi
           requests:
             cpu: 10m
             memory: 100Mi
@@ -264,9 +278,21 @@ spec:
             - /bin/sh
             - -c
             - '[ "imok" = "$(echo ruok | nc -w 1 -q 1 127.0.0.1 2181)" ]'
+          timeoutSeconds: 3
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - '[ "imok" = "$(echo ruok | nc -w 1 -q 1 127.0.0.1 2181)" ]'
+          timeoutSeconds: 3
+          initialDelaySeconds: 12
+          periodSeconds: 60
         resources:
           limits:
-            memory: 120Mi
+            memory: 500Mi
           requests:
             cpu: 10m
             memory: 100Mi
@@ -314,29 +340,3 @@ spec:
         requests:
           storage: 1Gi
       storageClassName: standard
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: {{ .Values.apps.events.name }}
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: {{ .Values.apps.events.name }}
-  template:
-    metadata:
-      labels:
-        app: {{ .Values.apps.events.name }}
-    spec:
-      containers:
-      - name: kafka-manager
-        image: solsson/kafka-manager@sha256:9da595ecbb733074a1d3c6091a1e0c384da4f4e1f19f4e16276062278da8e592
-        ports:
-        - containerPort: 80
-        env:
-        - name: ZK_HOSTS
-          value: zookeeper.{{ .Values.namespace }}:2181
-        command:
-        - ./bin/kafka-manager
-        - -Dhttp.port=80
