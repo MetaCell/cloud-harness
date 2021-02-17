@@ -40,9 +40,10 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.'):
             app_relative_to_root = os.path.relpath(dockerfile_path, '.')
             app_relative_to_base = os.path.relpath(dockerfile_path, apps_path)
             app_name = app_name_from_path(app_relative_to_base)
-            if app_name not in apps.keys():
+            app_key = app_name.replace('-', '_')
+            if app_key not in apps.keys():
                 continue
-            artifacts[app_name] = {
+            artifacts[app_key] = {
                 'image': app_name,
                 'context': app_relative_to_skaffold,
                 'docker': {
@@ -57,7 +58,7 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.'):
             flask_main = find_file_paths(app_relative_to_root, '__main__.py')
 
             if flask_main:
-                release_config['overrides']['apps'][app_name] = \
+                release_config['overrides']['apps'][app_key] = \
                     {
                         'harness': {
                             'deployment': {
@@ -100,12 +101,16 @@ def create_vscode_debug_configuration(root_paths, values_manual_deploy):
             app_relative_to_base = os.path.relpath(os.path.dirname(path), apps_path)
             app_relative_to_root = os.path.relpath(os.path.dirname(path), '.')
             app_name = app_name_from_path(app_relative_to_base.split('/')[0])
-            if app_name in apps.keys():
+            app_key = app_name.replace('-', '_')
+            if app_key in apps.keys():
                 debug_conf["debug"].append({
                     "image": app_name,
                     "sourceFileMap": {
                         f"${{workspaceFolder}}/{app_relative_to_root}": "/usr/src/app"
                     }
                 })
+
+    if not os.path.exists(os.path.dirname(vscode_launch_path)):
+        os.makedirs(os.path.dirname(vscode_launch_path))
     with open(vscode_launch_path, 'w') as f:
         json.dump(vs_conf, f, indent=2, sort_keys=True)

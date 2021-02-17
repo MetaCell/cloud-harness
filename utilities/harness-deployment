@@ -99,7 +99,7 @@ if __name__ == "__main__":
 
 
         create_skaffold_configuration(root_paths, values_manual_deploy)
-        create_vscode_debug_configuration(root_paths, values_manual_deploy)
+        create_vscode_debug_configuration([os.path.join(os.getcwd(), path) for path in args.paths], values_manual_deploy)
 
         if args.build or args.build_interactive:
             builder = Builder(root_paths, build_included, tag=args.tag, registry=args.registry,

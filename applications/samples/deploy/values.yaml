@@ -16,6 +16,7 @@ harness:
     soft:
       - workflows
       - events
+      - accounts
   resources:
     - name: my-config
       src: "myConfig.json"
