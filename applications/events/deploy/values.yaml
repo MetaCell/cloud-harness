@@ -2,8 +2,15 @@ harness:
   subdomain: events
   secured: true
   service:
-    port: 80
     auto: true
+    port: 80
+  deployment:
+    auto: true
+    port: 9000
+    name: events
+  env:
+    - name: ZK_HOSTS
+      value: zookeeper:2181    
 kafka:
   name: bootstrap
   port: 9092
