@@ -8,4 +8,3 @@ metadata:
 {{ include "deploy_utils.labels" $ | indent 4 }}
 data:
   realm.json: {{ tpl (.Files.Get "resources/accounts/realm.json") . | quote }}
-

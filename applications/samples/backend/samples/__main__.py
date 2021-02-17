@@ -39,7 +39,7 @@ def send_static(path):
     return flask.send_from_directory('../www/static', path)
 
 def main():
-    app.run(port=8080)
+    app.run(host='0.0.0.0', port=8080)
 
 
 if __name__ == "__main__":

@@ -5,19 +5,13 @@ https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/CustomOb
 """
 
 import yaml
-import os
-from pathlib import Path
 
 from argo.workflows.client import ApiClient, WorkflowServiceApi, Configuration, V1alpha1WorkflowCreateRequest, \
-    V1alpha1WorkflowList, V1alpha1Workflow, V1alpha1WorkflowSpec
-
-import argo.workflows.client as argo_api
+    V1alpha1Workflow
 
 # determine the namespace of the current app and run the workflow in that namespace
 from cloudharness.utils.config import CloudharnessConfig as conf
-from cloudharness.utils import env
 from cloudharness import log, applications
-
 
 ch_conf = conf.get_configuration()
 namespace = conf.get_namespace()
@@ -130,11 +124,9 @@ def get_workflows(status=None, limit=10, continue_token=None, timeout_seconds=3)
 
     service = WorkflowServiceApi(api_client=get_api_client())
 
-
-
     # pprint(service.list_workflows('ch', V1alpha1WorkflowList()))
-    api_response = service.list_workflows(namespace, list_options_limit=limit, list_options_continue=continue_token, list_options_timeout_seconds=timeout_seconds)
-
+    api_response = service.list_workflows(namespace, list_options_limit=limit, list_options_continue=continue_token,
+                                          list_options_timeout_seconds=timeout_seconds)
     return SearchResult(api_response)
 
 
@@ -175,8 +167,10 @@ def get_workflow(workflow_name) -> Workflow:
 
     return workflow
 
+
 def get_workflow_logs(workflow_name) -> str:
     return '\n'.join(get_workflow_logs_list(workflow_name))
+
 
 def get_workflow_logs_list(workflow_name):
     from ..infrastructure import k8s
@@ -186,7 +180,6 @@ def get_workflow_logs_list(workflow_name):
     if len(pod_names) == 0:
         return ''
     return [k8s.get_pod_logs(pod_name) for pod_name in pod_names]
-
 
 
 if __name__ == '__main__':
