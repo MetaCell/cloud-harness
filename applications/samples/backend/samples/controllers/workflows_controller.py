@@ -24,13 +24,16 @@ def submit_async():  # noqa: E501
     :rtype: InlineResponse202
     """
     shared_directory = '/mnt/shared'
-    task_write = tasks.CustomTask('download-file', 'workflows-extract-download', url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
-    task_print = tasks.CustomTask('print-file', 'workflows-print-file', file_path=shared_directory + '/README.md')
-    op = operations.PipelineOperation('test-custom-connected-op-', (task_write, task_print), shared_directory=shared_directory)
+    task_write = tasks.CustomTask('download-file', 'workflows-extract-download',
+                                  url='https://github.com/MetaCell/cloud-harness/blob/master/README.md')
+    task_print = tasks.CustomTask(
+        'print-file', 'workflows-print-file', file_path=shared_directory + '/README.md')
+    op = operations.PipelineOperation(
+        'test-custom-connected-op-', (task_write, task_print), shared_directory=shared_directory)
 
     submitted = op.execute()
     if not op.is_error():
-        return InlineResponse202(task= InlineResponse202Task(href=op.get_operation_update_url(), name=submitted.name)), 202
+        return InlineResponse202(task=InlineResponse202Task(href=op.get_operation_update_url(), name=submitted.name)), 202
     else:
         return 'Error submitting operation', 500
 
@@ -43,11 +46,16 @@ def submit_sync():  # noqa: E501
 
     :rtype: str
     """
-    task = tasks.CustomTask('download-file', 'workflows-extract-download', url='https://www.metacell.us')
+    task = tasks.CustomTask(
+        'download-file', 'workflows-extract-download', url='https://github.com/MetaCell/cloud-harness/blob/master/README.md')
 
     op = operations.DistributedSyncOperation('test-sync-op-', task)
-    workflow = op.execute()
-    return workflow.raw.to_dict()
+    try:
+        workflow = op.execute()
+        return workflow.raw.to_dict()
+    except Exception as e:
+        log.error('Error submitting sync operation', exc_info=True)
+        return 'Error submitting operation: %s' % e, 500
 
 
 def submit_sync_with_results(a=1, b=2):  # noqa: E501
@@ -64,10 +72,9 @@ def submit_sync_with_results(a=1, b=2):  # noqa: E501
     """
     task = tasks.CustomTask('test-sum', 'samples-sum', a=a, b=b)
     try:
-        op = operations.DistributedSyncOperationWithResults('test-sync-op-results-', task)
+        op = operations.DistributedSyncOperationWithResults(
+            'test-sync-op-results-', task)
         result = op.execute()
         return result
     except Exception as e:
         return jsonify(str(e)), 200
-
-

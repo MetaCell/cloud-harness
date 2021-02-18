@@ -106,7 +106,8 @@ def create_vscode_debug_configuration(root_paths, values_manual_deploy):
                 debug_conf["debug"].append({
                     "image": app_name,
                     "sourceFileMap": {
-                        f"${{workspaceFolder}}/{app_relative_to_root}": "/usr/src/app"
+                        f"${{workspaceFolder}}/{app_relative_to_root}": "/usr/src/app",
+                        "${workspaceFolder}/cloud-harness/libraries": "/libraries"
                     }
                 })
 
