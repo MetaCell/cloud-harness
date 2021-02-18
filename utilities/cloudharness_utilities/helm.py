@@ -54,7 +54,7 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
         collect_apps_helm_templates(root_path, exclude=exclude, include=include,
                                     dest_helm_chart_path=dest_deployment_path)
         helm_values = dict_merge(helm_values,
-                                 collect_helm_values(root_path, tag=tag, registry=registry, exclude=exclude, env=env))
+                                 collect_helm_values(root_path, tag=tag, registry=registry, exclude=exclude, env=env, values=helm_values))
 
     create_tls_certificate(local, domain, tls, output_path, helm_values)
 
@@ -148,25 +148,26 @@ def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart):
         shutil.copytree(base_helm_chart, dest_helm_chart_path)
 
 
-def collect_helm_values(deployment_root, exclude=(), tag='latest', registry='', env=None):
+def collect_helm_values(deployment_root, exclude=(), tag='latest', registry='', env=None, values=None):
     """
     Creates helm values from a cloudharness deployment scaffolding
     """
 
-    values_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'values-template.yaml')
+    if not values:
+        values_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'values-template.yaml')
 
-    values = get_template(values_template_path)
+        values = get_template(values_template_path)
 
-    if env is not None:
-        specific_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH,
-                                              f'values-template-{env}.yaml')
-        if os.path.exists(specific_template_path):
-            logging.info("Specific environment values template found: " + specific_template_path)
-            with open(specific_template_path) as f:
-                values_env_specific = yaml.safe_load(f)
-            values = dict_merge(values, values_env_specific)
+        if env is not None:
+            specific_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH,
+                                                  f'values-template-{env}.yaml')
+            if os.path.exists(specific_template_path):
+                logging.info("Specific environment values template found: " + specific_template_path)
+                with open(specific_template_path) as f:
+                    values_env_specific = yaml.safe_load(f)
+                values = dict_merge(values, values_env_specific)
 
-    values[KEY_APPS] = {}
+        values[KEY_APPS] = {}
 
     app_base_path = os.path.join(deployment_root, APPS_PATH)
     value_spec_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
