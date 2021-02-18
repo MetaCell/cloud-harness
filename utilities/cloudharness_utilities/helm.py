@@ -222,6 +222,34 @@ def finish_helm_values(values, namespace, tag='latest', registry='', local=True,
             logging.warning("Minikube not available")
 
     apps = values[KEY_APPS]
+
+
+    for app_key in apps:
+        v = apps[app_key]
+
+        values_from_legacy(v)
+        if KEY_HARNESS not in v:
+            v[KEY_HARNESS] = {}
+        harness = v[KEY_HARNESS]
+        if KEY_SERVICE not in harness:
+            harness[KEY_SERVICE] = {}
+        if KEY_DEPLOYMENT not in harness:
+            harness[KEY_DEPLOYMENT] = {}
+        if KEY_DATABASE not in harness:
+            harness[KEY_DATABASE] = {}
+        app_name = v[KEY_HARNESS]['name'] or app_key
+        if not harness.get('name', None):
+            harness['name'] = app_name
+        if not harness[KEY_SERVICE].get('name', None):
+            harness[KEY_SERVICE]['name'] = app_name
+        if not harness[KEY_DEPLOYMENT].get('name', None):
+            harness[KEY_DEPLOYMENT]['name'] = app_name
+        if not harness[KEY_DATABASE].get('name', None):
+            harness[KEY_DATABASE]['name'] = app_name.strip() + '-db'
+        if not harness[KEY_DEPLOYMENT].get('image', None):
+            harness[KEY_DEPLOYMENT]['image'] = registry + get_image_name(app_name) + f':{tag}' if tag else ''
+        values_set_legacy(v)
+
     if include:
         include = get_included_with_dependencies(values, set(include))
         logging.info('Selecting included applications')
@@ -230,11 +258,6 @@ def finish_helm_values(values, namespace, tag='latest', registry='', local=True,
             if apps[v]['harness']['name'] not in include:
                 del apps[v]
                 # Create environment variables
-
-    for v in apps.values():
-        values_from_legacy(v)
-        values_set_legacy(v)
-
     create_env_variables(values)
     return values, include
 
@@ -292,38 +315,6 @@ def create_values_spec(app_name, app_path, tag=None, registry='', template_path=
             with open(specific_template_path) as f:
                 values_env_specific = yaml.safe_load(f)
             values = dict_merge(values, values_env_specific)
-
-    if not KEY_HARNESS in values:
-        values[KEY_HARNESS] = {}
-    harness = values[KEY_HARNESS]
-    if KEY_SERVICE not in harness:
-        harness[KEY_SERVICE] = {}
-    if KEY_DEPLOYMENT not in harness:
-        harness[KEY_DEPLOYMENT] = {}
-    if KEY_DATABASE not in harness:
-        harness[KEY_DATABASE] = {}
-
-
-
-
-
-
-    if not harness.get('name', None):
-        harness['name'] = app_name
-
-    if not harness[KEY_SERVICE].get('name', None):
-        harness[KEY_SERVICE]['name'] = app_name
-    if not harness[KEY_DEPLOYMENT].get('name', None):
-        harness[KEY_DEPLOYMENT]['name'] = app_name
-    if not harness[KEY_DATABASE].get('name', None):
-        harness[KEY_DATABASE]['name'] = app_name.strip() + '-db'
-    if not harness[KEY_DEPLOYMENT].get('image', None):
-        harness[KEY_DEPLOYMENT]['image'] = registry + get_image_name(app_name) + f':{tag}' if tag else ''
-
-
-    for k in values:
-        if isinstance(values[k], dict) and KEY_HARNESS in values[k]:
-            values[k][KEY_HARNESS] = dict_merge(values[k][KEY_HARNESS], values_default[KEY_HARNESS])
 
     return values
 
