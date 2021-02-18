@@ -1,5 +1,4 @@
 {{/* Secured Services/Deployments */}}
-
 {{- define "deploy_utils.securedservice" }}
 {{- $tls := not (not .root.Values.tls) }}
 apiVersion: v1
