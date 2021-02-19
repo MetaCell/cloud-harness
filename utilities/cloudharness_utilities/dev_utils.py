@@ -56,17 +56,6 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.'):
         app_dockerfiles = (path for path in find_dockerfiles_paths(apps_path) if 'tasks' not in path)
 
         release_config['artifactOverrides'][KEY_APPS] = {}
-        for app_key in apps:
-            app = apps[app_key]
-            if app[KEY_HARNESS][KEY_DEPLOYMENT]['auto']:
-                release_config['artifactOverrides']['apps'][app_key] = \
-                    {
-                        'harness': {
-                            'deployment': {
-                                'image': app['harness']['name']
-                            }
-                        }
-                    }
 
         for dockerfile_path in app_dockerfiles:
             app_relative_to_skaffold = os.path.relpath(dockerfile_path, output_path)
@@ -76,6 +65,20 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.'):
             app_key = app_name.replace('-', '_')
             if app_key not in apps.keys():
                 continue
+
+
+
+            app = apps[app_key]
+            if app[KEY_HARNESS][KEY_DEPLOYMENT]['image']:
+                release_config['artifactOverrides']['apps'][app_key] = \
+                    {
+                        'harness': {
+                            'deployment': {
+                                'image': app[KEY_HARNESS]['name']
+                            }
+                        }
+                    }
+
             build_requirements=apps[app_key][KEY_HARNESS]['dependencies'].get('build', [])
             artifacts[app_key] = build_artifact(app_name, app_relative_to_skaffold, build_requirements)
 
