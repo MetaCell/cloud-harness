@@ -33,6 +33,7 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.'):
             artifact_spec['requires'] = [{'image': req, 'alias': req.replace('-', '_').upper()} for req in requirements]
         return artifact_spec
 
+    release_config['artifactOverrides'][KEY_APPS] = {}
     for root_path in root_paths:
         skaffold_conf = dict_merge(skaffold_conf, get_template(
             os.path.join(root_path, DEPLOYMENT_CONFIGURATION_PATH, 'skaffold-template.yaml')))
@@ -48,14 +49,14 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.'):
             artifacts[app_name] = build_artifact(app_name, context_path, dockerfile_path=os.path.relpath(dockerfile_path, context_path))
 
         static_dockerfiles = find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH))
+        static_images = []
         for dockerfile_path in static_dockerfiles:
             context_path = os.path.relpath(dockerfile_path, output_path)
             app_name = app_name_from_path(os.path.basename(context_path))
+            static_images.append(app_name)
             artifacts[app_name] = build_artifact(app_name, context_path, base_images)
 
-        app_dockerfiles = (path for path in find_dockerfiles_paths(apps_path) if 'tasks' not in path)
-
-        release_config['artifactOverrides'][KEY_APPS] = {}
+        app_dockerfiles = find_dockerfiles_paths(apps_path)
 
         for dockerfile_path in app_dockerfiles:
             app_relative_to_skaffold = os.path.relpath(dockerfile_path, output_path)
@@ -63,9 +64,18 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.'):
             app_relative_to_base = os.path.relpath(dockerfile_path, apps_path)
             app_name = app_name_from_path(app_relative_to_base)
             app_key = app_name.replace('-', '_')
-            if app_key not in apps.keys():
+            if app_key not in apps:
+                if 'tasks' in app_relative_to_base:
+                    parent_app_name = app_name_from_path(app_relative_to_base.split('/tasks')[0])
+                    parent_app_key = parent_app_name.replace('-', '_')
+
+                    if parent_app_key in apps:
+                        artifacts[app_key] = build_artifact(app_name, app_relative_to_skaffold, base_images + static_images)
+
                 continue
 
+            build_requirements = apps[app_key][KEY_HARNESS]['dependencies'].get('build', [])
+            artifacts[app_key] = build_artifact(app_name, app_relative_to_skaffold, build_requirements)
 
 
             app = apps[app_key]
@@ -79,8 +89,8 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.'):
                         }
                     }
 
-            build_requirements=apps[app_key][KEY_HARNESS]['dependencies'].get('build', [])
-            artifacts[app_key] = build_artifact(app_name, app_relative_to_skaffold, build_requirements)
+
+
 
             flask_main = find_file_paths(context_path, '__main__.py')
 
@@ -95,8 +105,8 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.'):
                         }
                     }
 
-            skaffold_conf['build']['artifacts'] = [v for v in artifacts.values()]
-            merge_to_yaml_file(skaffold_conf, os.path.join(output_path, 'skaffold.yaml'))
+        skaffold_conf['build']['artifacts'] = [v for v in artifacts.values()]
+        merge_to_yaml_file(skaffold_conf, os.path.join(output_path, 'skaffold.yaml'))
 
 
 def create_vscode_debug_configuration(root_paths, values_manual_deploy):

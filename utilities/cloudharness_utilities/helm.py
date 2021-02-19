@@ -237,9 +237,9 @@ def finish_helm_values(values, namespace, tag='latest', registry='', local=True,
             harness[KEY_DEPLOYMENT] = {}
         if KEY_DATABASE not in harness:
             harness[KEY_DATABASE] = {}
-        app_name = v[KEY_HARNESS]['name'] or app_key.replace('_', '-')
-        if not harness.get('name', None):
-            harness['name'] = app_name
+        app_name = app_key.replace('_', '-')
+
+        harness['name'] = app_name
         if not harness[KEY_SERVICE].get('name', None):
             harness[KEY_SERVICE]['name'] = app_name
         if not harness[KEY_DEPLOYMENT].get('name', None):
@@ -315,7 +315,8 @@ def create_values_spec(app_name, app_path, tag=None, registry='', template_path=
             with open(specific_template_path) as f:
                 values_env_specific = yaml.safe_load(f)
             values = dict_merge(values, values_env_specific)
-
+    if KEY_HARNESS in values and 'name' in values[KEY_HARNESS] and values[KEY_HARNESS]['name']:
+        logging.warning('Name is automatically set in applications: name %s will be ignored', values[KEY_HARNESS]['name'])
     return values
 
 

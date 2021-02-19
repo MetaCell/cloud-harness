@@ -224,7 +224,7 @@ Can build and deploy with Skaffold with:
 
 `skaffold dev --namespace=[NAMESPACE]` (local minikube)
 
-`skaffold dev --namespace=osb2 --default-repo=[DOCKER_REGISTRY]` (external cluster or forwarded minikube)
+`skaffold dev --namespace=[NAMESPACE] --default-repo=[DOCKER_REGISTRY]` (external cluster or forwarded minikube)
 
 #### Build conventions
 
