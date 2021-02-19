@@ -237,7 +237,7 @@ def finish_helm_values(values, namespace, tag='latest', registry='', local=True,
             harness[KEY_DEPLOYMENT] = {}
         if KEY_DATABASE not in harness:
             harness[KEY_DATABASE] = {}
-        app_name = v[KEY_HARNESS]['name'] or app_key
+        app_name = v[KEY_HARNESS]['name'] or app_key.replace('_', '-')
         if not harness.get('name', None):
             harness['name'] = app_name
         if not harness[KEY_SERVICE].get('name', None):
