@@ -2,9 +2,18 @@
 harness:
   subdomain: accounts
   secured: false
+  service:
+    auto: true
   deployment:
     auto: true
     port: 8080
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "10m"
+      limits:
+        memory: "1024Mi"
+        cpu: "500m"
   service:
     auto: true
     port: 8080

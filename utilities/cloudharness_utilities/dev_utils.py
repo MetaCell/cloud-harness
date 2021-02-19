@@ -2,7 +2,8 @@ import os
 import logging
 import json
 
-from cloudharness_utilities.constants import HELM_CHART_PATH, DEPLOYMENT_CONFIGURATION_PATH, DEPLOYMENT_PATH
+from cloudharness_utilities.constants import HELM_CHART_PATH, DEPLOYMENT_CONFIGURATION_PATH, DEPLOYMENT_PATH,\
+    BASE_IMAGES_PATH, STATIC_IMAGES_PATH
 from cloudharness_utilities.helm import KEY_APPS, KEY_HARNESS, KEY_DEPLOYMENT
 from cloudharness_utilities.utils import get_template, dict_merge, find_dockerfiles_paths, app_name_from_path, \
     find_file_paths, merge_to_yaml_file, get_json_template
@@ -16,10 +17,42 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.'):
     release_config = skaffold_conf['deploy']['helm']['releases'][0]
     release_config['name'] = helm_values['namespace']
 
+    def build_artifact(app_name, root_path, requirements = None, dockerfile_path=''):
+        artifact_spec = {
+            'image': app_name,
+            'context': root_path,
+            'docker': {
+                'dockerfile': os.path.join(dockerfile_path, 'Dockerfile'),
+                'buildArgs': {
+                    'REGISTRY': helm_values["registry"]["name"],
+                    'TAG': helm_values["tag"]
+                }
+            }
+        }
+        if requirements:
+            artifact_spec['requires'] = [{'image': req, 'alias': req.replace('-', '_').upper()} for req in requirements]
+        return artifact_spec
+
     for root_path in root_paths:
         skaffold_conf = dict_merge(skaffold_conf, get_template(
             os.path.join(root_path, DEPLOYMENT_CONFIGURATION_PATH, 'skaffold-template.yaml')))
         apps_path = os.path.join(root_path, 'applications')
+
+        base_dockerfiles = find_dockerfiles_paths(os.path.join(root_path, BASE_IMAGES_PATH))
+
+        base_images = []
+        for dockerfile_path in base_dockerfiles:
+            context_path = os.path.relpath(root_path, output_path)
+            app_name = app_name_from_path(os.path.basename(dockerfile_path))
+            base_images.append(app_name)
+            artifacts[app_name] = build_artifact(app_name, context_path, dockerfile_path=os.path.relpath(dockerfile_path, context_path))
+
+        static_dockerfiles = find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH))
+        for dockerfile_path in static_dockerfiles:
+            context_path = os.path.relpath(dockerfile_path, output_path)
+            app_name = app_name_from_path(os.path.basename(context_path))
+            artifacts[app_name] = build_artifact(app_name, context_path, base_images)
+
         app_dockerfiles = (path for path in find_dockerfiles_paths(apps_path) if 'tasks' not in path)
 
         release_config['artifactOverrides'][KEY_APPS] = {}
@@ -37,25 +70,16 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.'):
 
         for dockerfile_path in app_dockerfiles:
             app_relative_to_skaffold = os.path.relpath(dockerfile_path, output_path)
-            app_relative_to_root = os.path.relpath(dockerfile_path, '.')
+            context_path = os.path.relpath(dockerfile_path, '.')
             app_relative_to_base = os.path.relpath(dockerfile_path, apps_path)
             app_name = app_name_from_path(app_relative_to_base)
             app_key = app_name.replace('-', '_')
             if app_key not in apps.keys():
                 continue
-            artifacts[app_key] = {
-                'image': app_name,
-                'context': app_relative_to_skaffold,
-                'docker': {
-                    'dockerfile': 'Dockerfile',
-                    'buildArgs': {
-                        'REGISTRY': helm_values["registry"]["name"],
-                        'TAG': helm_values["tag"]
-                    }
-                }
-            }
+            build_requirements=apps[app_key][KEY_HARNESS]['dependencies'].get('build', [])
+            artifacts[app_key] = build_artifact(app_name, app_relative_to_skaffold, build_requirements)
 
-            flask_main = find_file_paths(app_relative_to_root, '__main__.py')
+            flask_main = find_file_paths(context_path, '__main__.py')
 
             if flask_main:
                 release_config['overrides']['apps'][app_key] = \
@@ -105,6 +129,7 @@ def create_vscode_debug_configuration(root_paths, values_manual_deploy):
             if app_key in apps.keys():
                 debug_conf["debug"].append({
                     "image": app_name,
+                    # the double source map doesn't work at the moment. Hopefully will be fixed in future skaffold updates
                     "sourceFileMap": {
                         f"${{workspaceFolder}}/{app_relative_to_root}": "/usr/src/app",
                         "${workspaceFolder}/cloud-harness/libraries": "/libraries"

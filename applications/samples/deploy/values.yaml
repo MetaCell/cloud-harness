@@ -17,6 +17,9 @@ harness:
       - workflows
       - events
       - accounts
+    build:
+      - cloudharness-flask
+      - cloudharness-frontend-build
   resources:
     - name: my-config
       src: "myConfig.json"
