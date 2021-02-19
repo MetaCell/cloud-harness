@@ -29,5 +29,5 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 COPY backend/ /usr/src/app
 
 COPY --from=frontend app/dist/ /usr/src/app/www
-EXPOSE $PORT
+
 RUN pip3 install -e .
