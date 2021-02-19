@@ -1,6 +1,8 @@
 ARG REGISTRY
 ARG TAG=latest
-FROM ${REGISTRY}cloudharness-flask:${TAG}
+ARG CLOUDHARNESS_FLASK=${REGISTRY}cloudharness-flask:${TAG}
+
+FROM $CLOUDHARNESS_FLASK
 
 ENV MODULE_NAME=workflows_api
 
@@ -12,3 +14,5 @@ COPY . /usr/src/app
 
 EXPOSE 8080
 RUN pip3 install -e .
+
+ENTRYPOINT gunicorn --workers=$WORKERS --bind=0.0.0.0:$PORT $MODULE_NAME.__main__:app

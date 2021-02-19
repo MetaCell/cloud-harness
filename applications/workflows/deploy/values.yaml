@@ -10,3 +10,5 @@ harness:
   dependencies:
     hard:
       - argo
+    build:
+      - cloudharness-flask

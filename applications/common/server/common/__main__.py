@@ -2,7 +2,7 @@
 
 from cloudharness.utils.server import init_flask, main
 from flask_cors import CORS
-from .repository.db import open_db
+from common.repository.db import open_db
 
 def init_fn(app):
     cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
