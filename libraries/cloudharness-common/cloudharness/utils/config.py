@@ -1,7 +1,8 @@
 import yaml
+
 import os
 
-ALLVALUES_PATH = '/opt/cloudharness/resources/allvalues.yaml'
+ALLVALUES_PATH = os.getenv("CH_VALUES_PATH", '/opt/cloudharness/resources/allvalues.yaml')
 
 
 class ConfigObject(object):

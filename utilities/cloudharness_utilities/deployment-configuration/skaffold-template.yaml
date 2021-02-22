@@ -1,0 +1,23 @@
+apiVersion: skaffold/v2beta11
+kind: Config
+build:
+  tagPolicy:
+    sha256: {}
+  artifacts: []
+deploy:
+
+  helm:
+    flags:
+      upgrade:
+        - --install
+    releases:
+    - name:
+      chartPath: deployment/helm
+      #wait: true
+      #valuesFiles:
+      #- helm-skaffold-values.yaml
+      skipBuildDependencies: true # Skip helm dep build
+      artifactOverrides:
+        apps:
+      overrides:
+        apps: {}

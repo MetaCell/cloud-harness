@@ -1,12 +1,13 @@
 ARG REGISTRY
 ARG TAG=latest
-FROM ${REGISTRY}cloudharness-base:${TAG}
+ARG CLOUDHARNESS_FLASK=${REGISTRY}cloudharness-flask:${TAG}
 
-RUN apk update
-RUN apk upgrade
+FROM $CLOUDHARNESS_FLASK as frontend
 
-RUN mkdir -p /usr/src/app
-WORKDIR /usr/src/app
+ENV MODULE_NAME=volumemanager
+
+ENV WORKERS=2
+ENV PORT=8080
 
 COPY requirements.txt /usr/src/app/
 
@@ -14,8 +15,6 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 
 COPY . /usr/src/app
 
-EXPOSE 8080
+RUN pip3 install -e .
 
-ENTRYPOINT ["python3"]
-
-CMD ["-m", "volumemanager"]
+ENTRYPOINT gunicorn --workers=$WORKERS --bind=0.0.0.0:$PORT $MODULE_NAME.__main__:app

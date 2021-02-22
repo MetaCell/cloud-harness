@@ -1,24 +1,23 @@
 ARG REGISTRY
 ARG TAG=latest
-FROM ${REGISTRY}cloudharness-base:${TAG}
+ARG CLOUDHARNESS_FLASK=${REGISTRY}cloudharness-flask:${TAG}
 
-RUN apk update && apk add postgresql-dev gcc python3-dev musl-dev
-#RUN apk add psycopg2 libpq-dev python-dev
+FROM $CLOUDHARNESS_FLASK
 
-RUN mkdir -p /usr/src/app
-WORKDIR /usr/src/app
+ENV MODULE_NAME=common
 
-COPY requirements.txt /usr/src/app/
+ENV WORKERS=2
+ENV PORT=8080
+RUN apk update
+RUN apk add postgresql-dev
+
+COPY ./requirements.txt /usr/src/app/
 
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 COPY . /usr/src/app
 
-EXPOSE 8080
-
 ENV FLASK_ENV=production
 ENV APP_SETTINGS=common.config.ProductionConfig
-
-ENTRYPOINT ["python3"]
-
-CMD ["-m", "common"]
+RUN pip3 install -e /usr/src/app
+ENTRYPOINT gunicorn --workers=$WORKERS --bind=0.0.0.0:$PORT $MODULE_NAME.__main__:app
