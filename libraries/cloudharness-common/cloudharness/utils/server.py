@@ -65,7 +65,7 @@ def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_enco
 
     connexion_app = connexion.App(__name__)
     app = connexion_app.app
-    obj_config = os.environ.get('APP_SETTINGS', Config)
+    obj_config = os.environ.get('APP_SETTINGS', config)
     if obj_config:
         app.config.from_object(obj_config)
     app.json_encoder = json_encoder
