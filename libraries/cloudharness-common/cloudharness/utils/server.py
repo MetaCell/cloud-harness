@@ -51,7 +51,7 @@ class Config(object):
     TESTING = False
     CSRF_ENABLED = True
 
-def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_encoder=JSONEncoder):
+def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_encoder=JSONEncoder, resolver=None, config=Config):
     """
 
     """
@@ -80,17 +80,12 @@ def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_enco
             init_webapp_routes(app, www_path=os.path.join(os.path.dirname(caller_path), 'www'))
         connexion_app.add_api(os.path.join(caller_path, 'openapi/openapi.yaml'),
                               arguments={'title': title},
-                              pythonic_params=True)
+                              pythonic_params=True, resolver=resolver)
 
         if init_app_fn:
             init_app_fn(app)
 
     return app
-
-
-
-
-
 
 def main():
     app.run( host='0.0.0.0', port=os.getenv('PORT', 5001))

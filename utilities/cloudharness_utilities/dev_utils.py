@@ -9,7 +9,7 @@ from cloudharness_utilities.utils import get_template, dict_merge, find_dockerfi
     find_file_paths, merge_to_yaml_file, get_json_template
 
 
-def create_skaffold_configuration(root_paths, helm_values, output_path='.'):
+def create_skaffold_configuration(root_paths, helm_values, output_path='.', manage_task_images=True):
     skaffold_conf = get_template('skaffold-template.yaml', True)
     apps = helm_values[KEY_APPS]
     artifacts = {}
@@ -65,7 +65,7 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.'):
             app_name = app_name_from_path(app_relative_to_base)
             app_key = app_name.replace('-', '_')
             if app_key not in apps:
-                if 'tasks' in app_relative_to_base:
+                if 'tasks' in app_relative_to_base and manage_task_images:
                     parent_app_name = app_name_from_path(app_relative_to_base.split('/tasks')[0])
                     parent_app_key = parent_app_name.replace('-', '_')
 
