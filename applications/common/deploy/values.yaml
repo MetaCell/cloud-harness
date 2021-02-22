@@ -17,7 +17,5 @@ harness:
         memory: 256Mi
         cpu: 200m
   dependencies:
-    soft:
-      - sentry
     build:
       - cloudharness-flask
