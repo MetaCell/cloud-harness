@@ -2,7 +2,7 @@
 
 from cloudharness.utils.server import init_flask, main
 
-init_flask()
+app = init_flask()
 
 if __name__ == '__main__':
     main()

@@ -8,6 +8,7 @@ ENV MODULE_NAME=common
 
 ENV WORKERS=2
 ENV PORT=8080
+RUN apk update
 RUN apk add postgresql-dev
 
 COPY ./requirements.txt /usr/src/app/

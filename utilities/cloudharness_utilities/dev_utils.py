@@ -16,6 +16,7 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
     overrides = {}
     release_config = skaffold_conf['deploy']['helm']['releases'][0]
     release_config['name'] = helm_values['namespace']
+    release_config['namespace'] = helm_values['namespace']
 
     def build_artifact(app_name, root_path, requirements = None, dockerfile_path=''):
         artifact_spec = {

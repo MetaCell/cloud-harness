@@ -3,7 +3,7 @@
 from cloudharness.utils.server import init_flask, main
 
 
-init_flask()
+app = init_flask(title="Volume manager")
 
 if __name__ == '__main__':
     main()

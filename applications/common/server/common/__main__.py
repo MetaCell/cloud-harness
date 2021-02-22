@@ -8,7 +8,7 @@ def init_fn(app):
     cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
     open_db(app)
 
-init_flask(init_app_fn=open_db)
+app = init_flask(init_app_fn=open_db)
 
 if __name__ == '__main__':
     main()
