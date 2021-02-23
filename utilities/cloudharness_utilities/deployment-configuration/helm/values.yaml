@@ -21,8 +21,7 @@ registry:
 tag: latest
 # -- List of applications.
 # @default -- Will be filled automatically.
-apps:
-  FILL_ME
+apps: {}
 env:
   # -- Cloud Harness version
   - name: CH_VERSION

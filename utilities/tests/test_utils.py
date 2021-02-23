@@ -10,7 +10,7 @@ def test_image_name_from_docker_path():
     assert app_name_from_path("a/b") == 'a-b'
     assert app_name_from_path("a/src/b") == 'a-b'
     assert app_name_from_path("a/tasks/b") == 'a-b'
-    assert app_name_from_path("cloudharness/a/b") == 'a-b'
+    assert app_name_from_path("cloudharness/a/b") == 'cloudharness-a-b'
 
 
 def test_merge_configuration_directories():

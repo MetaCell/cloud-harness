@@ -35,6 +35,9 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
     """
     Creates values file for the helm chart
     """
+
+
+    assert domain, 'A domain must be specified'
     dest_deployment_path = os.path.join(output_path, HELM_CHART_PATH)
     if registry and registry[-1] != '/':
         registry = registry + '/'
@@ -53,7 +56,21 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
         collect_apps_helm_templates(root_path, exclude=exclude, include=include,
                                     dest_helm_chart_path=dest_deployment_path)
         helm_values = dict_merge(helm_values,
-                                 collect_helm_values(root_path, tag=tag, registry=registry, exclude=exclude, env=env, values=helm_values))
+                                 collect_helm_values(root_path, tag=tag, registry=registry, exclude=exclude, env=env))
+
+    # Override for every cloudharness scaffolding
+    helm_values[KEY_APPS] = {}
+
+    for root_path in root_paths:
+        app_values = init_app_values(root_path, exclude=exclude, values=helm_values[KEY_APPS])
+        helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
+                                           app_values)
+
+    # Override for every cloudharness scaffolding
+    for root_path in root_paths:
+        app_values = collect_app_values(root_path, tag=tag, registry=registry, exclude=exclude, env=env)
+        helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
+                                           app_values)
 
     create_tls_certificate(local, domain, tls, output_path, helm_values)
 
@@ -121,9 +138,8 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, exclude=(), i
             dest_dir = os.path.join(dest_helm_chart_path, 'resources', app_name)
 
             logging.info("Collecting resources for application  %s to %s", app_name, dest_dir)
-            if os.path.exists(dest_dir):
-                shutil.rmtree(dest_dir)
-            shutil.copytree(resources_dir, dest_dir)
+
+            merge_configuration_directories(resources_dir, dest_dir)
 
         subchart_dir = os.path.join(app_path, 'deploy/charts')
         if os.path.exists(subchart_dir):
@@ -148,30 +164,54 @@ def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart):
         shutil.copytree(base_helm_chart, dest_helm_chart_path)
 
 
-def collect_helm_values(deployment_root, exclude=(), tag='latest', registry='', env=None, values=None):
+
+def collect_helm_values(deployment_root, exclude=(), tag='latest', registry='', env=None):
     """
     Creates helm values from a cloudharness deployment scaffolding
     """
 
-    if not values:
-        values_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'values-template.yaml')
 
-        values = get_template(values_template_path)
+    values_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'values-template.yaml')
 
-        if env is not None:
-            specific_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH,
-                                                  f'values-template-{env}.yaml')
-            if os.path.exists(specific_template_path):
-                logging.info("Specific environment values template found: " + specific_template_path)
-                with open(specific_template_path) as f:
-                    values_env_specific = yaml.safe_load(f)
-                values = dict_merge(values, values_env_specific)
+    values = get_template(values_template_path)
 
-        values[KEY_APPS] = {}
+    if env is not None:
+        specific_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH,
+                                              f'values-template-{env}.yaml')
+        if os.path.exists(specific_template_path):
+            logging.info("Specific environment values template found: " + specific_template_path)
+            with open(specific_template_path) as f:
+                values_env_specific = yaml.safe_load(f)
+            values = dict_merge(values, values_env_specific)
+    return values
 
+
+
+def init_app_values(deployment_root, exclude, values={}):
     app_base_path = os.path.join(deployment_root, APPS_PATH)
-    value_spec_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
+    overridden_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
+    default_values_path = os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
 
+    for app_path in get_sub_paths(app_base_path):
+
+
+        app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
+
+        if app_name in exclude:
+            continue
+        app_key = app_name.replace('-', '_')
+        if app_key not in values:
+            default_values = get_template(default_values_path)
+            values[app_key] = default_values
+        overridden_defaults = get_template(overridden_template_path)
+        values[app_key] = dict_merge(values[app_key], overridden_defaults)
+
+    return values
+
+def collect_app_values(deployment_root, exclude=(), tag='latest', registry='', env=None):
+    app_base_path = os.path.join(deployment_root, APPS_PATH)
+
+    values = {}
     for app_path in get_sub_paths(app_base_path):
         app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
 
@@ -179,14 +219,10 @@ def collect_helm_values(deployment_root, exclude=(), tag='latest', registry='', 
             continue
         app_key = app_name.replace('-', '_')
 
-        if app_key not in values[KEY_APPS]:
-            values[KEY_APPS][app_key] = get_template(
-                os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml'))
+        app_values = create_values_spec(app_name, app_path, tag=tag, registry=registry, env=env)
 
-        app_values = create_values_spec(app_name, app_path, tag=tag, registry=registry,
-                                        template_path=value_spec_template_path, env=env)
 
-        values[KEY_APPS][app_key] = dict_merge(values[KEY_APPS][app_key], app_values)
+        values[app_key] = dict_merge(values[app_key], app_values) if app_key in values else app_values
 
     return values
 
@@ -220,6 +256,8 @@ def finish_helm_values(values, namespace, tag='latest', registry='', local=True,
             values['localIp'] = get_cluster_ip()
         except subprocess.TimeoutExpired:
             logging.warning("Minikube not available")
+        except:
+            logging.warning("Kubectl not available")
 
     apps = values[KEY_APPS]
 
@@ -228,8 +266,8 @@ def finish_helm_values(values, namespace, tag='latest', registry='', local=True,
         v = apps[app_key]
 
         values_from_legacy(v)
-        if KEY_HARNESS not in v:
-            v[KEY_HARNESS] = {}
+        assert KEY_HARNESS in v, 'Default app value loading is broken'
+
         harness = v[KEY_HARNESS]
         if KEY_SERVICE not in harness:
             harness[KEY_SERVICE] = {}
@@ -298,7 +336,7 @@ def values_set_legacy(values):
         values['resources'] = harness[KEY_DEPLOYMENT]['resources']
 
 
-def create_values_spec(app_name, app_path, tag=None, registry='', template_path=VALUE_TEMPLATE_PATH, env=None):
+def create_values_spec(app_name, app_path, tag=None, registry='', env=None):
     logging.info('Generating values script for ' + app_name)
 
     specific_template_path = os.path.join(app_path, 'deploy', 'values.yaml')
@@ -371,9 +409,10 @@ def create_tls_certificate(local, domain, tls, output_path, helm_values):
     if not tls:
         helm_values['tls'] = None
         return
-    helm_values['tls'] = domain.replace(".", "-") + "-tls"
     if not local:
         return
+    helm_values['tls'] = domain.replace(".", "-") + "-tls"
+
 
     HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
     ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
