@@ -1,0 +1,12 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: persisted
+reclaimPolicy: Retain
+{{- if .Values.local }}
+provisioner: k8s.io/minikube-hostpath
+{{- else }}
+provisioner: {{ .Values.volumeProvisioner }}
+{{- end }}
+volumeBindingMode: Immediate
+---

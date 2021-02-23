@@ -1,22 +1,36 @@
 harness:
-  name:
+  # -- If specified, an ingress will be created at [subdomain].[.Values.domain]
   subdomain:
+  # -- If specified, an ingress will be created at [domain]
   domain:
+  # -- Application dependencies are used to define what is required in the deployment when --include (-i) is used. Specify application names in the list.
   dependencies:
+    # -- Hard dependencies indicate that the application may not start without these other applications.
     hard: []
+    # -- Hard dependencies indicate that the application will work partially without these other applications.
     soft: []
+    # -- Hard dependencies indicate that the application Docker image build requires these base/common images
     build: []
+  # -- When true, the application is shielded with a getekeeper
   secured: false
+  # -- Uri/Role mapping for the gatekeeper
   uri_role_mapping:
     - uri: /*
       roles:
       - administrator
+  # -- Defines reference deployment parameters. Values maps to k8s spec
   deployment:
+    # -- When true, enables automatic deployment
     auto: false
+    # -- Number of pod replicas for the deployment.
     replicas: 1
+    # -- Docker image url. Leave blank to leave Cloudharness automatic image name assignment.
     image:
+    # -- Deployment name. Leave blank to leave Cloudharness automatic image name assignment.
     name:
+    # -- Deployment port.
     port: 8080
+    # -- Deployment resources.
     resources:
       requests:
         memory: "32Mi"
@@ -24,31 +38,43 @@ harness:
       limits:
         memory: "500Mi"
         cpu: "500m"
+  # -- Defines automatic service parameters.
   service:
+    # -- When true, enables automatic service
     auto: true
+    # -- Service name. Leave blank to leave Cloudharness automatic image name assignment.
     name:
+    # -- Service port.
     port: 80
+  # -- Specify which services this application uses in the frontend to create proxy ingresses. e.g. - name: mnp-checkout
   use_services: []
-    # e.g. - name: mnp-checkout
+  # -- Reference database specs
   database:
+    # -- When true, enables automatic database deployment
     auto: false
+    # -- Database deployment name. Leave blank to leave Cloudharness automatic image name assignment.
     name:
+    # -- supported db types: mongo, postgres, neo4j
     type:
-    # supported db types: mongo, postgres, neo4j
     size: 1Gi
+    # -- database username
     user: mnp
+    # -- database password
     pass: metacell
+    # -- settings for mongo database (for type==mongo)
     mongo:
       image: mongo:latest
       ports:
         - name: http
           port: 27017
+    # -- settings for postgers database (for type==postgres)
     postgres:
       image: postgres:latest
       initialdb: cloudharness
       ports:
         - name: http
           port: 5432
+    # -- settings for neo4j database (for type==neo4j)
     neo4j:
       image: neo4j:latest
       memory:
@@ -64,6 +90,7 @@ harness:
           port: 7474
         - name: bolt
           port: 7687
+    # -- database deployment resources
     resources:
       requests:
         memory: "512Mi"
