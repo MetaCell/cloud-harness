@@ -10,7 +10,13 @@ CLOUDHARNESS_ROOT = os.path.dirname(os.path.dirname(HERE))
 
 def test_collect_helm_values():
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, include=['samples', 'myapp'], exclude=['events'], domain="my.local",
-                               namespace='test', env='dev', local=False)
+                               namespace='test', env='dev', local=False, tag=1, registry='reg')
+
+    # Auto values
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/myapp:1'
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
+    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'reg/accounts:1'
 
     # First level include apps
     assert 'samples' in values[KEY_APPS]
@@ -20,8 +26,8 @@ def test_collect_helm_values():
     assert 'jupyterhub' not in values[KEY_APPS]
 
     # Dependency include first level
-    assert 'workflows' in values[KEY_APPS]
     assert 'accounts' in values[KEY_APPS]
+    assert 'legacy' in values[KEY_APPS]
 
     # Dependency include second level
     assert 'argo' in values[KEY_APPS]
@@ -32,6 +38,10 @@ def test_collect_helm_values():
     # Base values kept
     assert values[KEY_APPS]['accounts'][KEY_HARNESS]['subdomain'] == 'accounts'
 
+    # Defaults
+    assert 'service' in values[KEY_APPS]['legacy'][KEY_HARNESS]
+    assert 'common' in values[KEY_APPS]['legacy']
+    assert 'common' in values[KEY_APPS]['accounts']
     # Values overriding
     assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['port'] == 'overridden'
 
@@ -42,6 +52,7 @@ def test_collect_helm_values():
 
     # legacy reading
     assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['auto'] == 'overridden'
+    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['deployment']['auto'] == 'legacy'
 
     helm_path = os.path.join(OUT, HELM_CHART_PATH)
 

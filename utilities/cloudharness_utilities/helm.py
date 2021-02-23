@@ -59,8 +59,10 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
                                  collect_helm_values(root_path, tag=tag, registry=registry, exclude=exclude, env=env))
 
     # Override for every cloudharness scaffolding
+    helm_values[KEY_APPS] = {}
+
     for root_path in root_paths:
-        app_values = init_app_values(root_path, exclude=exclude)
+        app_values = init_app_values(root_path, exclude=exclude, values=helm_values[KEY_APPS])
         helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
                                            app_values)
 
@@ -183,25 +185,32 @@ def collect_helm_values(deployment_root, exclude=(), tag='latest', registry='', 
             values = dict_merge(values, values_env_specific)
     return values
 
-def init_app_values(deployment_root, exclude):
+
+
+def init_app_values(deployment_root, exclude, values={}):
     app_base_path = os.path.join(deployment_root, APPS_PATH)
-    value_spec_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
-    values = {}
-    default_values = get_template(
-        os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml'))
+    overridden_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
+    default_values_path = os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
+
     for app_path in get_sub_paths(app_base_path):
+
+
         app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
 
         if app_name in exclude:
             continue
         app_key = app_name.replace('-', '_')
-        values[app_key] = default_values
+        if app_key not in values:
+            default_values = get_template(default_values_path)
+            values[app_key] = default_values
+        overridden_defaults = get_template(overridden_template_path)
+        values[app_key] = dict_merge(values[app_key], overridden_defaults)
 
     return values
 
 def collect_app_values(deployment_root, exclude=(), tag='latest', registry='', env=None):
     app_base_path = os.path.join(deployment_root, APPS_PATH)
-    value_spec_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
+
     values = {}
     for app_path in get_sub_paths(app_base_path):
         app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
@@ -210,8 +219,7 @@ def collect_app_values(deployment_root, exclude=(), tag='latest', registry='', e
             continue
         app_key = app_name.replace('-', '_')
 
-        app_values = create_values_spec(app_name, app_path, tag=tag, registry=registry,
-                                        template_path=value_spec_template_path, env=env)
+        app_values = create_values_spec(app_name, app_path, tag=tag, registry=registry, env=env)
 
 
         values[app_key] = dict_merge(values[app_key], app_values) if app_key in values else app_values
@@ -258,8 +266,8 @@ def finish_helm_values(values, namespace, tag='latest', registry='', local=True,
         v = apps[app_key]
 
         values_from_legacy(v)
-        if KEY_HARNESS not in v:
-            v[KEY_HARNESS] = {}
+        assert KEY_HARNESS in v, 'Default app value loading is broken'
+
         harness = v[KEY_HARNESS]
         if KEY_SERVICE not in harness:
             harness[KEY_SERVICE] = {}
@@ -328,7 +336,7 @@ def values_set_legacy(values):
         values['resources'] = harness[KEY_DEPLOYMENT]['resources']
 
 
-def create_values_spec(app_name, app_path, tag=None, registry='', template_path=VALUE_TEMPLATE_PATH, env=None):
+def create_values_spec(app_name, app_path, tag=None, registry='', env=None):
     logging.info('Generating values script for ' + app_name)
 
     specific_template_path = os.path.join(app_path, 'deploy', 'values.yaml')
