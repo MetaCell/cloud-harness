@@ -1,4 +1,27 @@
-{{/* Services */}}
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: persisted
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+---
+{{- if .Values.backup.active }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: "db-backup"
+  namespace: {{ .Values.namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: "persisted"
+  resources:
+    requests:
+      storage: {{ .Values.backup.volumesize }}
+---
+{{- end }}
 {{- define "deploy_utils.database" }}
 kind: PersistentVolumeClaim
 apiVersion: v1
@@ -8,6 +31,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
+  storageClassName: "persisted"
   resources:
     requests:
       storage: {{ .app.harness.database.size }}
@@ -46,26 +70,22 @@ spec:
         volumeMounts:
           - name: {{ .app.harness.database.name | quote }}
             mountPath: /data/db
+          {{- if .root.Values.backup.active }}
+          - name: "db-backup"
+            mountPath: /backup
+          {{- end }}
       volumes:
       - name: {{ .app.harness.database.name | quote }}
         persistentVolumeClaim:
           claimName: {{ .app.harness.database.name | quote }}
+      {{- if .root.Values.backup.active }}
+      - name: "db-backup"
+        persistentVolumeClaim:
+          claimName: "db-backup"
+      {{- end }}
 ---
 {{- if .root.Values.backup.active }}
 {{- include (print "deploy_utils.database." .app.harness.database.type ".backup") . }}
----
-kind: PersistentVolumeClaim
-apiVersion: v1
-metadata:
-  name: "{{ .app.harness.database.name }}-backup"
-  namespace: {{ .root.Values.namespace }}
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: {{ .app.harness.database.size }}
----
 {{- end }}
 apiVersion: v1
 kind: Service

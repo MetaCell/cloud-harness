@@ -57,6 +57,8 @@ backup:
   schedule: "@daily"
   # -- The file suffix added to backup files.
   suffix: ".gz"
+  # -- The volume size for backups (all backups share the same volume)
+  volumesize: "2Gi"
   # -- Target directory of backups, the mount point of the persistent volume.
   dir: "/backups"
   resources:
