@@ -60,8 +60,15 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
 
     # Override for every cloudharness scaffolding
     for root_path in root_paths:
+        app_values = init_app_values(root_path, exclude=exclude)
         helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
-                                 collect_app_values(root_path, tag=tag, registry=registry, exclude=exclude, env=env))
+                                           app_values)
+
+    # Override for every cloudharness scaffolding
+    for root_path in root_paths:
+        app_values = collect_app_values(root_path, tag=tag, registry=registry, exclude=exclude, env=env)
+        helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
+                                           app_values)
 
     create_tls_certificate(local, domain, tls, output_path, helm_values)
 
@@ -176,6 +183,22 @@ def collect_helm_values(deployment_root, exclude=(), tag='latest', registry='', 
             values = dict_merge(values, values_env_specific)
     return values
 
+def init_app_values(deployment_root, exclude):
+    app_base_path = os.path.join(deployment_root, APPS_PATH)
+    value_spec_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
+    values = {}
+    default_values = get_template(
+        os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml'))
+    for app_path in get_sub_paths(app_base_path):
+        app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
+
+        if app_name in exclude:
+            continue
+        app_key = app_name.replace('-', '_')
+        values[app_key] = default_values
+
+    return values
+
 def collect_app_values(deployment_root, exclude=(), tag='latest', registry='', env=None):
     app_base_path = os.path.join(deployment_root, APPS_PATH)
     value_spec_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
@@ -187,14 +210,11 @@ def collect_app_values(deployment_root, exclude=(), tag='latest', registry='', e
             continue
         app_key = app_name.replace('-', '_')
 
-        if app_key not in values:
-            values[app_key] = get_template(
-                os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml'))
-
         app_values = create_values_spec(app_name, app_path, tag=tag, registry=registry,
                                         template_path=value_spec_template_path, env=env)
 
-        values[app_key] = dict_merge(values[app_key], app_values)
+
+        values[app_key] = dict_merge(values[app_key], app_values) if app_key in values else app_values
 
     return values
 
