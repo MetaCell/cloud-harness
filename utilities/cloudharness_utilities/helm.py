@@ -35,6 +35,9 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
     """
     Creates values file for the helm chart
     """
+
+
+    assert domain, 'A domain must be specified'
     dest_deployment_path = os.path.join(output_path, HELM_CHART_PATH)
     if registry and registry[-1] != '/':
         registry = registry + '/'
@@ -126,9 +129,8 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, exclude=(), i
             dest_dir = os.path.join(dest_helm_chart_path, 'resources', app_name)
 
             logging.info("Collecting resources for application  %s to %s", app_name, dest_dir)
-            if os.path.exists(dest_dir):
-                shutil.rmtree(dest_dir)
-            shutil.copytree(resources_dir, dest_dir)
+
+            merge_configuration_directories(resources_dir, dest_dir)
 
         subchart_dir = os.path.join(app_path, 'deploy/charts')
         if os.path.exists(subchart_dir):
@@ -377,9 +379,10 @@ def create_tls_certificate(local, domain, tls, output_path, helm_values):
     if not tls:
         helm_values['tls'] = None
         return
-    helm_values['tls'] = domain.replace(".", "-") + "-tls"
     if not local:
         return
+    helm_values['tls'] = domain.replace(".", "-") + "-tls"
+
 
     HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
     ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')

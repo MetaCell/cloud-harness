@@ -1,0 +1,3 @@
+harness:
+  subdomain: mysubdomain
+a: b
