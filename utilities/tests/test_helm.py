@@ -10,7 +10,7 @@ CLOUDHARNESS_ROOT = os.path.dirname(os.path.dirname(HERE))
 
 def test_collect_helm_values():
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, include=['samples', 'myapp'], exclude=['events'], domain="my.local",
-                               namespace='test', env='dev')
+                               namespace='test', env='dev', local=False)
 
     # First level include apps
     assert 'samples' in values[KEY_APPS]
