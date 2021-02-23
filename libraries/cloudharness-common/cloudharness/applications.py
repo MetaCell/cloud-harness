@@ -13,7 +13,7 @@ class ApplicationConfiguration:
 
     @property
     def name(self):
-        return self.conf.name
+        return self['harness.name']
 
     @property
     def harness(self):

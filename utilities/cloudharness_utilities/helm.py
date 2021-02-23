@@ -228,6 +228,8 @@ def finish_helm_values(values, namespace, tag='latest', registry='', local=True,
             values['localIp'] = get_cluster_ip()
         except subprocess.TimeoutExpired:
             logging.warning("Minikube not available")
+        except:
+            logging.warning("Kubectl not available")
 
     apps = values[KEY_APPS]
 
