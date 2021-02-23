@@ -79,6 +79,7 @@ spec:
 {{- if .root.Values.backup.active }}
 {{- include (print "deploy_utils.database." .app.harness.database.type ".backup") . }}
 {{- end }}
+---
 apiVersion: v1
 kind: Service
 metadata:
