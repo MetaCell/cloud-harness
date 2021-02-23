@@ -71,4 +71,3 @@ backup:
       memory: "64Mi"
       # -- K8s cpu resource definition.
       cpu: "50m"
-volumeProvisioner: kubernetes.io/gce-pd

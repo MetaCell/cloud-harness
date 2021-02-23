@@ -3,10 +3,6 @@ kind: StorageClass
 metadata:
   name: persisted
 reclaimPolicy: Retain
-{{- if .Values.local }}
-provisioner: k8s.io/minikube-hostpath
-{{- else }}
-provisioner: {{ .Values.volumeProvisioner }}
-{{- end }}
+volumeProvisioner: kubernetes.io/gce-pd
 volumeBindingMode: Immediate
 ---
