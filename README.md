@@ -253,3 +253,4 @@ A CloudHarness application can specify a Kubernetes deployment also using extern
 Create a new CloudHarness application with the helm templates inside the *deploy* subdirectory 
 
 
+[![Codefresh build status]( https://g.codefresh.io/api/badges/pipeline/tarelli/Cloudharness%2Funittests?type=cf-1&key=eyJhbGciOiJIUzI1NiJ9.NWFkNzMyNDIzNjQ1YWMwMDAxMTJkN2Rl.-gUEkJxH6NCCIRgSIgEikVDte-Q0BsGZKEs4uahgpzs)]( https://g.codefresh.io/pipelines/edit/new/builds?id=6034cfce1036693697cd602b&pipeline=unittests&projects=Cloudharness&projectId=6034cfb83bb11c399e85c71b)
