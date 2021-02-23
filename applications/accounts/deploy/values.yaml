@@ -2,8 +2,6 @@
 harness:
   subdomain: accounts
   secured: false
-  service:
-    auto: true
   deployment:
     auto: true
     port: 8080

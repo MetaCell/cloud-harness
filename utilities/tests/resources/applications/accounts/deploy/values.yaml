@@ -1,4 +1,5 @@
-harness:
-  subdomain: overridden
 a: b
 autodeploy: overridden
+harness:
+  deployment:
+    port: overridden

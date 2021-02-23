@@ -29,9 +29,11 @@ def test_collect_helm_values():
     # Explicit exclude overrides include
     assert 'events' not in values[KEY_APPS]
 
+    # Base values kept
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['subdomain'] == 'accounts'
 
     # Values overriding
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['subdomain'] == 'overridden'
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['port'] == 'overridden'
 
     # Environment specific overriding
     assert values[KEY_APPS]['accounts']['a'] == 'dev'
