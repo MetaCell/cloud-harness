@@ -1,8 +1,9 @@
 from cloudharness.applications import ApplicationConfiguration, get_configuration
 
 conf_1 = {
-    'name': 'app1',
+
     'harness': {
+        'name': 'app1',
         'service': {
             'auto': False
         },
@@ -14,8 +15,9 @@ conf_1 = {
 }
 
 conf_2 = {
-    'name': 'app2',
+
     'harness': {
+        'name': 'app2',
         'service': {
             'auto': False
         },
@@ -27,8 +29,9 @@ conf_2 = {
 }
 
 conf_2sub = {
-    'name': 'app2sub',
+
     'harness': {
+        'name': 'app2sub',
         'service': {
             'auto': True
         },
@@ -69,7 +72,6 @@ def test_get_configuration():
     assert not uut.is_auto_service()
     assert not uut.is_auto_deployment()
     assert uut.is_sentry_enabled()
-
 
     # uut = get_configuration('app2sub') # FIXME this should work
     uut = uut.subapp

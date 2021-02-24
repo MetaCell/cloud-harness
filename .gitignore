@@ -11,3 +11,4 @@ deployment
 *.idea
 /build
 skaffold.yaml
+.tox
