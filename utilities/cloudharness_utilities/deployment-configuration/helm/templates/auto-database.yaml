@@ -23,7 +23,6 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: "persisted"
   resources:
     requests:
       storage: {{ .app.harness.database.size }}
