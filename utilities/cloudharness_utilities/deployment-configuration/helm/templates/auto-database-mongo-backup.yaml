@@ -9,6 +9,16 @@ spec:
     spec:
       template:
         spec:
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchExpressions:
+                  - key: service
+                    operator: In
+                    values:
+                    - db
+                topologyKey: kubernetes.io/hostname
           containers:
             - name: "{{ .app.harness.database.name }}-backup"
               image: {{ .app.harness.database.mongo.image }}

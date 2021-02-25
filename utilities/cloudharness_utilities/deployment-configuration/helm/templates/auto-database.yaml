@@ -40,7 +40,18 @@ spec:
     metadata:
       labels:
         app: {{ .app.harness.database.name | quote }}
+        service: db
     spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: service
+                    operator: In
+                    values:
+                      - db
+              topologyKey: kubernetes.io/hostname
       containers:
       - name: {{ .app.harness.database.name | quote }}
         imagePullPolicy: IfNotPresent
