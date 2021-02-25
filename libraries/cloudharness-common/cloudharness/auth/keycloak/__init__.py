@@ -217,6 +217,9 @@ class AuthClient():
         group = admin_client.get_group(group_id)
         if with_members:
             members = admin_client.get_group_members(group_id)
+            for user in members:
+                user.update({'userGroups': admin_client.get_user_groups(user['id'])})
+                user.update({'realmRoles': admin_client.get_realm_roles_of_user(user['id'])})
             group.update({'members': members})
         return group
 
