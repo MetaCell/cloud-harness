@@ -146,9 +146,16 @@ def create_vscode_debug_configuration(root_paths, values_manual_deploy):
                     # the double source map doesn't work at the moment. Hopefully will be fixed in future skaffold updates
                     "sourceFileMap": {
                         f"${{workspaceFolder}}/{app_relative_to_root}": "/usr/src/app",
+                    }
+                })
+                debug_conf["debug"].append({
+                    "image": app_name,
+                    "sourceFileMap": {
                         "${workspaceFolder}/cloud-harness/libraries": "/libraries"
                     }
                 })
+
+
 
     if not os.path.exists(os.path.dirname(vscode_launch_path)):
         os.makedirs(os.path.dirname(vscode_launch_path))
