@@ -36,7 +36,6 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
     Creates values file for the helm chart
     """
 
-
     assert domain, 'A domain must be specified'
     dest_deployment_path = os.path.join(output_path, HELM_CHART_PATH)
     if registry and registry[-1] != '/':
@@ -164,12 +163,10 @@ def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart):
         shutil.copytree(base_helm_chart, dest_helm_chart_path)
 
 
-
 def collect_helm_values(deployment_root, exclude=(), tag='latest', registry='', env=None):
     """
     Creates helm values from a cloudharness deployment scaffolding
     """
-
 
     values_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'values-template.yaml')
 
@@ -186,14 +183,12 @@ def collect_helm_values(deployment_root, exclude=(), tag='latest', registry='', 
     return values
 
 
-
 def init_app_values(deployment_root, exclude, values={}):
     app_base_path = os.path.join(deployment_root, APPS_PATH)
     overridden_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
     default_values_path = os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
 
     for app_path in get_sub_paths(app_base_path):
-
 
         app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
 
@@ -208,6 +203,7 @@ def init_app_values(deployment_root, exclude, values={}):
 
     return values
 
+
 def collect_app_values(deployment_root, exclude=(), tag='latest', registry='', env=None):
     app_base_path = os.path.join(deployment_root, APPS_PATH)
 
@@ -220,7 +216,6 @@ def collect_app_values(deployment_root, exclude=(), tag='latest', registry='', e
         app_key = app_name.replace('-', '_')
 
         app_values = create_values_spec(app_name, app_path, tag=tag, registry=registry, env=env)
-
 
         values[app_key] = dict_merge(values[app_key], app_values) if app_key in values else app_values
 
@@ -260,7 +255,6 @@ def finish_helm_values(values, namespace, tag='latest', registry='', local=True,
             logging.warning("Kubectl not available")
 
     apps = values[KEY_APPS]
-
 
     for app_key in apps:
         v = apps[app_key]
@@ -354,7 +348,8 @@ def create_values_spec(app_name, app_path, tag=None, registry='', env=None):
                 values_env_specific = yaml.safe_load(f)
             values = dict_merge(values, values_env_specific)
     if KEY_HARNESS in values and 'name' in values[KEY_HARNESS] and values[KEY_HARNESS]['name']:
-        logging.warning('Name is automatically set in applications: name %s will be ignored', values[KEY_HARNESS]['name'])
+        logging.warning('Name is automatically set in applications: name %s will be ignored',
+                        values[KEY_HARNESS]['name'])
     return values
 
 
@@ -412,7 +407,6 @@ def create_tls_certificate(local, domain, tls, output_path, helm_values):
     if not local:
         return
     helm_values['tls'] = domain.replace(".", "-") + "-tls"
-
 
     HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
     ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')

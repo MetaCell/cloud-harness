@@ -5,6 +5,7 @@ from cloudharness_utilities.utils import *
 
 HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
 
+
 def test_image_name_from_docker_path():
     assert app_name_from_path("a") == 'a'
     assert app_name_from_path("a/b") == 'a-b'
@@ -26,7 +27,6 @@ def test_merge_configuration_directories():
     assert os.path.exists(os.path.join(res_path, "b.yaml"))
     assert os.path.exists(os.path.join(res_path, "c.yaml"))
 
-
     assert os.path.exists(os.path.join(res_path, "sub", "a.yaml"))
     assert os.path.exists(os.path.join(res_path, "sub", "b.yaml"))
     assert os.path.exists(os.path.join(res_path, "sub", "c.yaml"))
@@ -37,7 +37,6 @@ def test_merge_configuration_directories():
     assert a['b']['ba'] == 'ba1'
     assert a['b']['bb'] == 'bb'
     assert a['b']['bc'] == 'bc'
-
 
     with open(os.path.join(res_path, "sub", "a.yaml")) as f:
         a = yaml.safe_load(f)

@@ -2,7 +2,7 @@ import os
 import logging
 import json
 
-from cloudharness_utilities.constants import HELM_CHART_PATH, DEPLOYMENT_CONFIGURATION_PATH, DEPLOYMENT_PATH,\
+from cloudharness_utilities.constants import HELM_CHART_PATH, DEPLOYMENT_CONFIGURATION_PATH, DEPLOYMENT_PATH, \
     BASE_IMAGES_PATH, STATIC_IMAGES_PATH
 from cloudharness_utilities.helm import KEY_APPS, KEY_HARNESS, KEY_DEPLOYMENT
 from cloudharness_utilities.utils import get_template, dict_merge, find_dockerfiles_paths, app_name_from_path, \
@@ -18,7 +18,7 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
     release_config['name'] = helm_values['namespace']
     release_config['namespace'] = helm_values['namespace']
 
-    def build_artifact(app_name, root_path, requirements = None, dockerfile_path=''):
+    def build_artifact(app_name, root_path, requirements=None, dockerfile_path=''):
         artifact_spec = {
             'image': app_name,
             'context': root_path,
@@ -47,7 +47,8 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
             context_path = os.path.relpath(root_path, output_path)
             app_name = app_name_from_path(os.path.basename(dockerfile_path))
             base_images.append(app_name)
-            artifacts[app_name] = build_artifact(app_name, context_path, dockerfile_path=os.path.relpath(dockerfile_path, context_path))
+            artifacts[app_name] = build_artifact(app_name, context_path,
+                                                 dockerfile_path=os.path.relpath(dockerfile_path, context_path))
 
         static_dockerfiles = find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH))
         static_images = []
@@ -71,13 +72,13 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
                     parent_app_key = parent_app_name.replace('-', '_')
 
                     if parent_app_key in apps:
-                        artifacts[app_key] = build_artifact(app_name, app_relative_to_skaffold, base_images + static_images)
+                        artifacts[app_key] = build_artifact(app_name, app_relative_to_skaffold,
+                                                            base_images + static_images)
 
                 continue
 
             build_requirements = apps[app_key][KEY_HARNESS]['dependencies'].get('build', [])
             artifacts[app_key] = build_artifact(app_name, app_relative_to_skaffold, build_requirements)
-
 
             app = apps[app_key]
             if app[KEY_HARNESS][KEY_DEPLOYMENT]['image']:
@@ -89,9 +90,6 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
                             }
                         }
                     }
-
-
-
 
             flask_main = find_file_paths(context_path, '__main__.py')
 
@@ -120,7 +118,7 @@ def create_vscode_debug_configuration(root_paths, values_manual_deploy):
     debug_conf = get_json_template('vscode-debug-template.json', True)
 
     if values_manual_deploy['registry'].get('name', None):
-        debug_conf["imageRegistry"] = values_manual_deploy['registry']['name'][:-1] # remove trailing /
+        debug_conf["imageRegistry"] = values_manual_deploy['registry']['name'][:-1]  # remove trailing /
     for i in range(len(vs_conf['configurations'])):
         conf = vs_conf['configurations'][i]
         if conf['name'] == debug_conf['name']:
@@ -154,8 +152,6 @@ def create_vscode_debug_configuration(root_paths, values_manual_deploy):
                         "${workspaceFolder}/cloud-harness/libraries": "/libraries"
                     }
                 })
-
-
 
     if not os.path.exists(os.path.dirname(vscode_launch_path)):
         os.makedirs(os.path.dirname(vscode_launch_path))
