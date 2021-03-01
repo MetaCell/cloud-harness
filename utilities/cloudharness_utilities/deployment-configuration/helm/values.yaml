@@ -53,9 +53,11 @@ backup:
   # -- Number of months to keep backups.
   keep_months: "6"
   # -- Schedule as cronjob expression.
-  schedule: "@daily"
+  schedule: "*/5 * * * *"
   # -- The file suffix added to backup files.
   suffix: ".gz"
+  # -- The volume size for backups (all backups share the same volume)
+  volumesize: "2Gi"
   # -- Target directory of backups, the mount point of the persistent volume.
   dir: "/backups"
   resources:

@@ -2,11 +2,10 @@ import os
 import oyaml as yaml
 import yaml.representer
 
-
 import logging
 
 from .constants import HERE, CF_BUILD_STEP_BASE, CF_BUILD_STEP_STATIC, CF_BUILD_STEP_PARALLEL, CF_STEP_PUBLISH, \
-    CODEFRESH_PATH, CF_BUILD_PATH, CF_TEMPLATE_PUBLISH_PATH, DEPLOYMENT_CONFIGURATION_PATH,\
+    CODEFRESH_PATH, CF_BUILD_PATH, CF_TEMPLATE_PUBLISH_PATH, DEPLOYMENT_CONFIGURATION_PATH, \
     CF_TEMPLATE_PATH, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH, DEPLOYMENT_PATH, EXCLUDE_PATHS
 from .helm import collect_helm_values
 from .utils import find_dockerfiles_paths, app_name_from_path, \
@@ -19,13 +18,15 @@ CLOUD_HARNESS_PATH = "cloud-harness"
 
 # Codefresh variables may need quotes: adjust yaml dump accordingly
 def literal_presenter(dumper, data):
-  if isinstance(data, str) and "\n" in data:
-      return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
-  if isinstance(data, str) and data.startswith('${{'):
-    return dumper.represent_scalar('tag:yaml.org,2002:str', data, style="'")
-  return dumper.represent_scalar('tag:yaml.org,2002:str', data)
+    if isinstance(data, str) and "\n" in data:
+        return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
+    if isinstance(data, str) and data.startswith('${{'):
+        return dumper.represent_scalar('tag:yaml.org,2002:str', data, style="'")
+    return dumper.represent_scalar('tag:yaml.org,2002:str', data)
+
 
 yaml.add_representer(str, literal_presenter)
+
 
 def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH, include=(), exclude=(),
                                         template_name=CF_TEMPLATE_PATH):
@@ -38,7 +39,6 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
 
     if exclude:
         logging.info('Excluding the following subpaths to the build: %s.', ', '.join(exclude))
-
 
     codefresh = get_template(os.path.join(HERE, template_name), True)
 
@@ -59,7 +59,7 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
 
     for root_path in root_paths:
         template_path = os.path.join(root_path, DEPLOYMENT_CONFIGURATION_PATH, template_name)
-        if os.path.exists(template_path) :
+        if os.path.exists(template_path):
             tpl = get_template(template_path, True)
             if CF_BUILD_STEP_BASE in codefresh['steps']:
                 del tpl['steps'][CF_BUILD_STEP_BASE]
@@ -77,7 +77,8 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
                 app_relative_to_root = os.path.relpath(dockerfile_path, '.')
                 app_relative_to_base = os.path.relpath(dockerfile_path, abs_base_path)
                 app_name = app_name_from_path(app_relative_to_base)
-                if include and not any(f"/{inc}/" in dockerfile_path or dockerfile_path.endswith(f"/{inc}") for inc in include):
+                if include and not any(
+                        f"/{inc}/" in dockerfile_path or dockerfile_path.endswith(f"/{inc}") for inc in include):
                     continue
                 if any(inc in dockerfile_path for inc in (list(exclude) + EXCLUDE_PATHS)):
                     continue
@@ -96,7 +97,8 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
 
         codefresh_build_step_from_base_path(os.path.join(root_path, BASE_IMAGES_PATH), CF_BUILD_STEP_BASE,
                                             fixed_context=root_path, include=None)
-        codefresh_build_step_from_base_path(os.path.join(root_path, STATIC_IMAGES_PATH), CF_BUILD_STEP_STATIC, include=None)
+        codefresh_build_step_from_base_path(os.path.join(root_path, STATIC_IMAGES_PATH), CF_BUILD_STEP_STATIC,
+                                            include=None)
         codefresh_build_step_from_base_path(os.path.join(root_path, APPS_PATH), CF_BUILD_STEP_PARALLEL)
 
     # Remove useless steps
@@ -151,7 +153,6 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
         title=title,
         working_directory='./' + app_context_path,
         dockerfile=dockerfile_path)
-
 
     specific_build_template_path = os.path.join(app_context_path, 'build.yaml')
     if os.path.exists(specific_build_template_path):

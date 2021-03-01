@@ -6,7 +6,6 @@ from .test_env import set_test_environment
 
 set_test_environment()
 
-
 from cloudharness.workflows import operations, tasks
 from cloudharness import set_debug
 from cloudharness.workflows import argo
@@ -14,6 +13,7 @@ from cloudharness.workflows import argo
 set_debug()
 
 execute = False
+
 
 def test_sync_workflow():
     def f():

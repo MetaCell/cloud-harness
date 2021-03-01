@@ -38,9 +38,9 @@ spec:
                 - name: BACKUP_SUFFIX
                   value: {{ .root.Values.backup.suffix | quote }}
                 - name: BACKUP_DIR
-                  value: {{ .root.Values.backup.dir | quote }}
+                  value: {{ (printf "%s/postgres/%s" .root.Values.backup.dir .app.harness.database.name) | quote }}
               volumeMounts:
-                - name: "{{ .app.harness.database.name }}-backup"
+                - name: "db-backup"
                   mountPath: /backups
               resources:
                 requests:
@@ -51,7 +51,8 @@ spec:
                   cpu: {{ .root.Values.backup.resources.limits.cpu | default "50mi" }}
           restartPolicy: OnFailure
           volumes:
-            - name: "{{ .app.harness.database.name }}-backup"
+            - name: "db-backup"
               persistentVolumeClaim:
-                claimName: "{{ .app.harness.database.name }}-backup"
+                claimName: "db-backup"
+
 {{ end }}

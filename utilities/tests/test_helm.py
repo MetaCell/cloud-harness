@@ -8,8 +8,10 @@ RESOURCES = os.path.join(HERE, 'resources')
 OUT = './deployment'
 CLOUDHARNESS_ROOT = os.path.dirname(os.path.dirname(HERE))
 
+
 def test_collect_helm_values():
-    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, include=['samples', 'myapp'], exclude=['events'], domain="my.local",
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, include=['samples', 'myapp'],
+                               exclude=['events'], domain="my.local",
                                namespace='test', env='dev', local=False, tag=1, registry='reg')
 
     # Auto values
@@ -58,6 +60,7 @@ def test_collect_helm_values():
 
     def exists(*args):
         return os.path.exists(os.path.join(*args))
+
     # Check files
     assert exists(helm_path)
     assert exists(helm_path, 'values.yaml')
@@ -67,4 +70,3 @@ def test_collect_helm_values():
     assert exists(helm_path, 'templates/myapp/mytemplate.yaml')
 
     shutil.rmtree(OUT)
-

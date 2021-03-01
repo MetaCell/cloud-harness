@@ -6,7 +6,8 @@ import shutil
 import sys
 import logging
 
-from cloudharness_utilities.openapi import LIB_NAME, generate_python_client, generate_server, get_dependencies, generate_ts_client
+from cloudharness_utilities.openapi import LIB_NAME, generate_python_client, generate_server, get_dependencies, \
+    generate_ts_client
 from cloudharness_utilities.utils import copymergedir
 
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -32,7 +33,6 @@ def generate_servers(root_path, interactive=False):
             openapi_file = openapi_files[i]
             application_root = os.path.dirname(os.path.dirname(openapi_file))
             generate_server(application_root)
-
 
 
 def aggregate_packages(client_src_path, lib_name=LIB_NAME):
@@ -134,7 +134,6 @@ def generate_clients(root_path, client_lib_name=LIB_NAME, interactive=False):
 
 
 if __name__ == "__main__":
-
     import argparse
 
     parser = argparse.ArgumentParser(
