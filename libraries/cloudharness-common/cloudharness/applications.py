@@ -13,7 +13,7 @@ class ApplicationConfiguration:
 
     @property
     def name(self):
-        return self.conf.name
+        return self['harness.name']
 
     @property
     def harness(self):
@@ -34,9 +34,27 @@ class ApplicationConfiguration:
     def is_auto_deployment(self):
         return self['harness.deployment.auto']
 
+    def is_auto_db(self):
+        return self['harness.database.auto']
+
     def is_sentry_enabled(self):
         return self['harness.sentry']
 
+    def get_db_connection_string(self):
+        if not self.is_auto_db():
+            raise ConfigurationCallException(f"Cannot get configuration string: application {self.name} has no database enabled.")
+        if self.db_type == 'mongo':
+            return f"mongodb://{self['harness.database.user']}:{self['harness.database.pass']}@{self.db_name}:{self['harness.database.mongo.ports'][0]['port']}/"
+        else:
+            raise NotImplementedError(f'Database connection string discovery not yet supported for databse type {self.db_type}')
+
+    @property
+    def db_name(self):
+        return self['harness.database.name']
+
+    @property
+    def db_type(self):
+        return self['harness.database.type']
     @property
     def service_name(self):
         name = self['harness.service.name']

@@ -6,6 +6,7 @@ import os
 from cloudharness_utilities.build import Builder
 from cloudharness_utilities.utils import merge_app_directories
 from cloudharness_utilities.helm import create_helm_chart, hosts_info, deploy
+from cloudharness_utilities.dev_utils import create_skaffold_configuration, create_vscode_debug_configuration
 from cloudharness_utilities.codefresh import create_codefresh_deployment_scripts
 
 HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
@@ -97,7 +98,8 @@ if __name__ == "__main__":
                                             template_name='codefresh-template-prod.yaml', out_filename="codefresh-prod.yaml")
 
 
-
+        create_skaffold_configuration(root_paths, values_manual_deploy)
+        create_vscode_debug_configuration([os.path.join(os.getcwd(), path) for path in args.paths], values_manual_deploy)
 
         if args.build or args.build_interactive:
             builder = Builder(root_paths, build_included, tag=args.tag, registry=args.registry,

@@ -9,7 +9,7 @@ info:
   version: 0.1.0
 servers:
 - description: Metacell host
-  url: https://workflows.cloudharness.metacell.us
+  url: https://workflows.cloudharness.metacell.us/api
 tags:
 - description: standard creation, listing and retrieve
   name: Create and Access

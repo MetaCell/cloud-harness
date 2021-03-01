@@ -1,0 +1,13 @@
+{
+  "name": "CloudHarness: Run/Debug",
+  "type": "cloudcode.kubernetes",
+  "request": "launch",
+  "skaffoldConfig": "${workspaceFolder}/skaffold.yaml",
+  "watch": true,
+  "cleanUp": false,
+  "portForward": true,
+  "imageRegistry": "localhost:5000",
+  "debug": [
+
+  ]
+}

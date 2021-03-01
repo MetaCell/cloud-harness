@@ -2,15 +2,18 @@
 import requests
 import yaml
 
+from .test_env import set_test_environment
+
+set_test_environment()
+
+
 from cloudharness.workflows import operations, tasks
 from cloudharness import set_debug
 from cloudharness.workflows import argo
 
-from .test_env import set_test_environment
-
-set_test_environment()
 set_debug()
 
+execute = False
 
 def test_sync_workflow():
     def f():
@@ -22,7 +25,8 @@ def test_sync_workflow():
 
     op = operations.DistributedSyncOperation('test-sync-op-', task)
     print('\n', yaml.dump(op.to_workflow()))
-    print(op.execute())
+    if execute:
+        print(op.execute())
 
 
 def test_pipeline_workflow():
@@ -33,7 +37,8 @@ def test_pipeline_workflow():
 
     op = operations.PipelineOperation('test-pipeline-op-', (tasks.PythonTask('step1', f), tasks.PythonTask('step2', f)))
     print('\n', yaml.dump(op.to_workflow()))
-    print(op.execute())
+    if execute:
+        print(op.execute())
 
 
 def test_parallel_workflow():
@@ -44,7 +49,8 @@ def test_parallel_workflow():
 
     op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f), tasks.PythonTask('p2', f)))
     print('\n', yaml.dump(op.to_workflow()))
-    print(op.execute())
+    if execute:
+        print(op.execute())
 
 
 def test_simpledag_workflow():
@@ -57,14 +63,16 @@ def test_simpledag_workflow():
     op = operations.SimpleDagOperation('test-dag-op-', (tasks.PythonTask('p1', f), tasks.PythonTask('p2', f)),
                                        tasks.PythonTask('p3', f))
     print('\n', yaml.dump(op.to_workflow()))
-    print(op.execute())
+    if execute:
+        print(op.execute())
 
 
 def test_custom_task_workflow():
     task = operations.CustomTask('download-file', 'workflows-extract-download', url='https://www.bing.com')
     op = operations.PipelineOperation('test-custom-op-', (task,))
     print('\n', yaml.dump(op.to_workflow()))
-    print(op.execute())
+    if execute:
+        print(op.execute())
 
 
 def test_custom_connected_task_workflow():
@@ -78,7 +86,8 @@ def test_custom_connected_task_workflow():
                                       shared_directory=shared_directory, shared_volume_size=100)
     # op.execute()
     print('\n', yaml.dump(op.to_workflow()))
-    print(op.execute())
+    if execute:
+        print(op.execute())
 
 
 def test_result_task_workflow():
@@ -89,11 +98,13 @@ def test_result_task_workflow():
 
     # op.execute()
     print('\n', yaml.dump(op.to_workflow()))
-    print(op.execute())
+    if execute:
+        print(op.execute())
 
 
 def test_get_workflows():
-    assert len(argo.get_workflows())
+    if execute:
+        assert len(argo.get_workflows())
 
 
 def test_submit_workflow():
@@ -101,12 +112,15 @@ def test_submit_workflow():
 
     resp = requests.get(WORKFLOW)
     manifest: dict = yaml.safe_load(resp.text)
-    wf = argo.submit_workflow(manifest)
-    assert wf
-    assert wf.name
+    if execute:
+        wf = argo.submit_workflow(manifest)
+        assert wf
+        assert wf.name
 
 
 def test_get_workflow():
+    if not execute:
+        return
     WORKFLOW = 'https://raw.githubusercontent.com/argoproj/argo/v2.12.2/examples/dag-diamond-steps.yaml'
 
     resp = requests.get(WORKFLOW)
@@ -123,6 +137,8 @@ def test_get_workflow():
 
 
 def test_get_workflow_logs():
+    if not execute:
+        return
     WORKFLOW = 'https://raw.githubusercontent.com/argoproj/argo/v2.12.2/examples/dag-diamond-steps.yaml'
 
     resp = requests.get(WORKFLOW)

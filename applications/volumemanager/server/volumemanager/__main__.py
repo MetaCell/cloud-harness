@@ -1,18 +1,9 @@
 #!/usr/bin/env python3
 
-import connexion
-
-from volumemanager import encoder
+from cloudharness.utils.server import init_flask, main
 
 
-def main():
-    app = connexion.App(__name__, specification_dir='./openapi/')
-    app.app.json_encoder = encoder.JSONEncoder
-    app.add_api('openapi.yaml',
-                arguments={'title': 'Volumes manager API'},
-                pythonic_params=True)
-    app.run(port=8080)
-
+app = init_flask(title="Volume manager")
 
 if __name__ == '__main__':
     main()

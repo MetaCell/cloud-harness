@@ -36,3 +36,4 @@ def init(appname: str):
         log.warning(f'Error enabling Sentry for {appname}', exc_info=True)
 
 __all__ = ['log', 'init']
+

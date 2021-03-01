@@ -14,8 +14,12 @@ harness:
       value: "3"
   dependencies:
     soft:
-      - argo
+      - workflows
       - events
+      - accounts
+    build:
+      - cloudharness-flask
+      - cloudharness-frontend-build
   resources:
     - name: my-config
       src: "myConfig.json"

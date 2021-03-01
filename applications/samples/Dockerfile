@@ -1,6 +1,9 @@
 ARG REGISTRY
 ARG TAG=latest
-FROM ${REGISTRY}cloudharness-frontend-build:${TAG} as frontend
+ARG CLOUDHARNESS_FRONTEND_BUILD=${REGISTRY}cloudharness-frontend-build:${TAG}
+ARG CLOUDHARNESS_FLASK=${REGISTRY}cloudharness-flask:${TAG}
+
+FROM $CLOUDHARNESS_FRONTEND_BUILD as frontend
 
 ENV APP_DIR=/app
 
@@ -13,11 +16,7 @@ COPY frontend ${APP_DIR}
 RUN npm run build
 
 #####
-
-ARG REGISTRY
-ARG TAG=latest
-FROM ${REGISTRY}cloudharness-flask:${TAG}
-
+FROM $CLOUDHARNESS_FLASK
 ENV MODULE_NAME=samples
 
 ENV WORKERS=2
@@ -31,3 +30,4 @@ COPY backend/ /usr/src/app
 
 COPY --from=frontend app/dist/ /usr/src/app/www
 
+RUN pip3 install -e .

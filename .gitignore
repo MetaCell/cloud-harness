@@ -10,3 +10,5 @@ deployment
 *.egg-info
 *.idea
 /build
+skaffold.yaml
+.tox

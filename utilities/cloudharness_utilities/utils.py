@@ -1,6 +1,7 @@
 import glob
 import subprocess
 import os
+import json
 import collections
 import oyaml as yaml
 import shutil
@@ -23,9 +24,13 @@ def get_sub_paths(base_path):
     return tuple(path for path in glob.glob(base_path + "/*") if os.path.isdir(path))
 
 
-def find_dockerfiles_paths(base_directory):
+def find_file_paths(base_directory, file_name):
     return tuple(os.path.dirname(path).replace(os.path.sep, "/") for path in
-                 glob.glob(f"{base_directory}/**/Dockerfile", recursive=True))
+                 glob.glob(f"{base_directory}/**/{file_name}", recursive=True))
+
+
+def find_dockerfiles_paths(base_directory):
+    return find_file_paths(base_directory, 'Dockerfile')
 
 
 def get_parent_app_name(app_relative_path):
@@ -46,6 +51,30 @@ def get_cluster_ip():
     return ip
 
 
+def robust_load_json(json_path):
+    """
+    Supports json with // comments
+    """
+    try:
+        with open(json_path) as f:
+            return json.load(f)
+    except:
+        with open(json_path) as f:
+            return json.loads("".join(line for line in f if "//" not in line))
+
+
+def get_json_template(json_path, base_default=False):
+    default_template_path = os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, os.path.basename(json_path))
+    dict_template = {}
+    if base_default and os.path.exists(default_template_path):
+        dict_template = robust_load_json(default_template_path)
+    if os.path.exists(json_path):
+        override_tpl = robust_load_json(json_path)
+        if override_tpl:
+            dict_template = dict_merge(dict_template or {}, override_tpl)
+    return dict_template or {}
+
+
 def get_template(yaml_path, base_default=False):
     default_template_path = os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, os.path.basename(yaml_path))
     dict_template = {}
@@ -62,7 +91,6 @@ def get_template(yaml_path, base_default=False):
 
 def file_is_yaml(fname):
     return fname[-4:] == 'yaml' or fname[-3:] == 'yml'
-
 
 def replaceindir(root_src_dir, source, replace):
     """

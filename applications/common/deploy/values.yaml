@@ -1,19 +1,21 @@
 harness:
-    subdomain: common
-    secured: false
-    service:
-      auto: true
-      port: 8080
-      name: common
-    deployment:
-      auto: true
-      name: common
-      port: 8080
-      resources:
-        requests:
-          memory: 128Mi
-          cpu: 100m
-        limits:
-          memory: 256Mi
-          cpu: 200m
- 
+  subdomain: common
+  secured: false
+  service:
+    auto: true
+    port: 8080
+    name: common
+  deployment:
+    auto: true
+    name: common
+    port: 8080
+    resources:
+      requests:
+        memory: 128Mi
+        cpu: 50m
+      limits:
+        memory: 256Mi
+        cpu: 200m
+  dependencies:
+    build:
+      - cloudharness-flask

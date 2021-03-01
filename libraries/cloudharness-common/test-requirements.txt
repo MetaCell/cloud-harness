@@ -5,3 +5,5 @@ py>=1.4.31
 randomize>=0.13
 pytest>=5.0.0
 pytest-cov
+-e .
+-e ../client/cloudharness_cli

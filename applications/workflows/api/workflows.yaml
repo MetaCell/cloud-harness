@@ -2,7 +2,7 @@ openapi: 3.0.0
 
 servers:
   - description: Metacell host
-    url: https://workflows.cloudharness.metacell.us
+    url: https://workflows.cloudharness.metacell.us/api
 
 info:
   description: Workflows API
