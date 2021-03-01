@@ -22,8 +22,11 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 
 def set_default_environment():
     values = conf.get_configuration()
-    if values:
+
+    if values and 'env' in values:
          os.environ.update({v['name']: str(v["value"]) for v in values['env'] if v['name'] not in os.environ})
+
+
 
 
 set_default_environment()
@@ -101,7 +104,7 @@ def get_cloudharness_events_service():
 def get_service_cluster_address(cloudharness_app_name):
     if use_public_services():
         return get_service_public_address(cloudharness_app_name)
-    return get_sub_variable(cloudharness_app_name, SUFFIX_NAME) + ':' + get_sub_variable(cloudharness_app_name, SUFFIX_PORT)
+    return cluster_service_address(cloudharness_app_name)
 
 
 def cluster_service_address(service_name):

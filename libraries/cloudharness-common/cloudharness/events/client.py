@@ -41,15 +41,14 @@ class EventClient:
                                         client_id=self.client_id)
         # ## Create topic
 
-        topic_list = [NewTopic(name=self.topic_id, num_partitions=1, replication_factor=1)]
-
+        new_topic = NewTopic(name=self.topic_id, num_partitions=1, replication_factor=1)
         try:
-            return admin_client.create_topics(new_topics=topic_list, validate_only=False)
+            return admin_client.create_topics(new_topics=[new_topic], validate_only=False)
         except TopicAlreadyExistsError as e:
-            log.error(f"Topic {self.topic_id} already exists.")
-            raise EventTopicCreationException from e
+            # topic already exists "no worries", proceed
+            return True
         except Exception as e:
-            log.error(f"Ups... We had an error creating the new Topic --> {e}")
+            log.error(f"Ups... We had an error creating the new Topics --> {e}", exc_info=True)
             raise EventGeneralException from e
 
     def produce(self, message: dict):
@@ -64,22 +63,23 @@ class EventClient:
         try:
             return producer.send(self.topic_id, value=message)
         except KafkaTimeoutError as e:
-            log.error("Ups... Not able to fetch topic metadata")
+            log.error("Ups... Not able to fetch topic metadata", exc_info=True)
             raise EventTopicProduceException from e
         except Exception as e:
-            raise EventGeneralException(f"Ups... We had an error creating the new Topic --> {e}") from e
+            log.error(f"Ups... We had an error produce to topic {self.topic_id} --> {e}", exc_info=True)
+            raise EventGeneralException from e
         finally:
             producer.close()
 
     def consume_all(self, group_id='default') -> list:
         ''' Return a list of messages published in the topic '''
 
-        consumer = _get_consumer(group_id)
+        consumer = self._get_consumer(group_id)
         try:
             for topic in consumer.poll(10000).values():
                 return [record.value for record in topic]
         except Exception as e:
-            log.error(f"Ups... We had an error trying to create a CloudHarnessEvents consumer for topic {self.topic_id} --> {e}")
+            log.error(f"Ups... We had an error trying to consume all from topic {self.topic_id} --> {e}", exc_info=True)
             raise EventTopicConsumeException from e
         finally:
             consumer.close()
@@ -99,31 +99,31 @@ class EventClient:
             raise EventTopicDeleteException from e
 
         except Exception as e:
-            log.error(f"Ups... We had an error deleteing the Topic {self.topic_id} --> {e}")
+            log.error(f"Ups... We had an error deleting the Topic {self.topic_id} --> {e}", exc_info=True)
             raise EventGeneralException from e
 
     def close(self):
-        if getattr(self, '_consumer_thread'):
-            self._consumer_thread.cancel()
+        if hasattr(self, '_consumer_thread'):
+            # for now no cleanup tasks to do
+            pass
 
     def _consume_task(self, app=None, group_id=None, handler=None):
         log.info(f'Kafka consumer thread started, listening for messages in queue: {self.topic_id}')
         while True:
             try:
-                consumer = self._get_consumer(group_id)
-                for message in consumer:
+                self.consumer = self._get_consumer(group_id)
+                for message in self.consumer:
                     try:
-                        handler(app, message.value)
+                        handler(event_client=self, app=app, message=message.value)
                     except Exception as e:
-                        log.error(f"Ups... there was an error during execution of the consumer Topc {self.topic_id} --> {e}")
+                        log.error(f"Ups... there was an error during execution of the consumer Topic {self.topic_id} --> {e}", exc_info=True)
                         log.error(traceback.print_exc())
-                consumer.close()
+                self.consumer.close()
             except Exception as e:
-                    log.error(f"Ups... there was an error during execution of the consumer Topc {self.topic_id} --> {e}")
+                    log.error(f"Ups... there was an error during execution of the consumer Topic {self.topic_id} --> {e}", exc_info=True)
                     log.error(traceback.print_exc())
                     time.sleep(10)
-
-        log.info(f'Kafka consumer thread {self.topic_id} stopped')
+        # log.info(f'Kafka consumer thread {self.topic_id} stopped')
 
     def async_consume(self, app=None, handler=None, group_id='default'):
         log.debug('creating thread')
@@ -135,6 +135,7 @@ class EventClient:
             kwargs={'app': app,
                     'group_id': group_id,
                     'handler': handler})
+        self._consumer_thread.daemon = True
         self._consumer_thread.start()
         log.debug('thread started')
 

@@ -3,25 +3,18 @@ Access workflows using Argo REST API
 Reference: https://argoproj.github.io/docs/argo/docs/rest-api.html
 https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/CustomObjectsApi.md
 """
-import kubernetes
 
 import yaml
-import os
-from pathlib import Path
 
-from cloudharness import log
-
-group = 'argoproj.io'
-version = 'v1alpha1'
-
-plural = 'workflows'
+from argo.workflows.client import ApiClient, WorkflowServiceApi, Configuration, V1alpha1WorkflowCreateRequest, \
+    V1alpha1Workflow
 
 # determine the namespace of the current app and run the workflow in that namespace
 from cloudharness.utils.config import CloudharnessConfig as conf
-ch_conf = conf.get_configuration()
-namespace = ch_conf and ch_conf.get('namespace','argo-workflows')
+from cloudharness import log, applications
 
-CUSTOM_OBJECT_URL = f"/apis/{group}/{version}/{plural}"
+ch_conf = conf.get_configuration()
+namespace = conf.get_namespace()
 
 
 class WorkflowException(Exception):
@@ -67,11 +60,11 @@ class Phase:
 
 
 class Workflow:
-    def __init__(self, raw_dict):
-        self.name = raw_dict['metadata']['name']
-        self.status = raw_dict['status']['phase'] if 'status' in raw_dict else None
-        self.create_time = raw_dict['metadata']['creationTimestamp']
-        self.raw = raw_dict
+    def __init__(self, api_workflow: V1alpha1Workflow):
+        self.name = api_workflow.metadata.name
+        self.status = api_workflow.status.phase if api_workflow.status else None
+        self.create_time = api_workflow.metadata.creation_timestamp
+        self.raw = api_workflow
 
     def is_finished(self):
         return self.status in (Phase.NodeError, Phase.NodeSucceeded, Phase.NodeSkipped, Phase.NodeFailed)
@@ -86,12 +79,17 @@ class Workflow:
         return self.status == Phase.NodeFailed
 
     def get_status_message(self):
-        return self.raw['status']['message']
+        return self.raw.status.message
+
+    @property
+    def pod_names(self):
+        return [node.id for node in self.raw.status.nodes.values() if not node.children]
+
 
 class SearchResult:
     def __init__(self, raw_dict):
-        self.items = tuple(Workflow(item) for item in raw_dict['items'])
-        self.continue_token = raw_dict['metadata']['continue']
+        self.items = tuple(Workflow(item) for item in raw_dict.items)
+        self.continue_token = raw_dict.metadata._continue
         self.raw = raw_dict
 
     def __str__(self):
@@ -107,56 +105,16 @@ def get_api_client():
     configuration = get_configuration()
 
     # configuration.api_key['authorization'] = 'YOUR_API_KEY' # TODO verify if we need an api key
-    api_instance = kubernetes.client.CustomObjectsApi(kubernetes.client.ApiClient(configuration))
+    api_instance = ApiClient(configuration)
     return api_instance
 
 
 def get_configuration():
-    try:
-        configuration = kubernetes.config.load_incluster_config()
-
-    except:
-        log.warning('Kubernetes cluster configuration not found. Trying local configuration')
-
-        try:
-            configuration = kubernetes.config.load_kube_config(
-                config_file=os.path.join(str(Path.home()), '.kube', 'config'))
-        except:
-            log.warning('Kubernetes local configuration not found. Using localhost proxy')
-            configuration = kubernetes.client.configuration.Configuration()
-            host = 'http://localhost:8001'
-            configuration.host = host
-    return configuration
-
-
-api_instance = get_api_client()
-
-def check_namespace():
-    api_instance = kubernetes.client.CoreV1Api(kubernetes.client.ApiClient(get_configuration()))
-    try:
-        api_response = api_instance.read_namespace(namespace, exact=True)
-    except kubernetes.client.rest.ApiException as e:
-
-        raise Exception("Namespace for argo workflows does not exist:" + namespace) from e
-
-def create_namespace():
-    api_instance = kubernetes.client.CoreV1Api(kubernetes.client.ApiClient(get_configuration()))
-    body = kubernetes.client.V1Namespace(metadata=kubernetes.client.V1ObjectMeta(name=namespace))  # V1Namespace |
-
-
-    try:
-        api_response = api_instance.create_namespace(body)
-    except Exception  as e:
-        raise Exception("Error creating namespace:" + namespace) from e
-try:
-    check_namespace()
-except Exception as e:
-    log.error('Namespace for argo workflows not found', exc_info=e)
-    log.info("Creating namespace %s", namespace)
-    try:
-        create_namespace()
-    except Exception as e:
-        log.error('Cannot connect with argo', exc_info=e)
+    if not conf.is_test():
+        host = applications.get_configuration('argo').get_service_address()
+    else:
+        host = applications.get_configuration('argo').get_public_address()
+    return Configuration(host=host)
 
 
 def get_workflows(status=None, limit=10, continue_token=None, timeout_seconds=3) -> SearchResult:
@@ -164,27 +122,24 @@ def get_workflows(status=None, limit=10, continue_token=None, timeout_seconds=3)
     # Notice: field selector doesn't work though advertised, except fot metadata.name and metadata.namespace https://github.com/kubernetes/kubernetes/issues/51046
     # The filtering by phase can be obtained through labels: https://github.com/argoproj/argo/issues/496
 
-    params = dict(pretty=False, timeout_seconds=timeout_seconds)
-    if status is not None:
-        if (status not in Phase.phases()):
-            raise BadParam(status, 'Status must be one of {}'.format(Phase.phases()))
-        params['label_selector'] = f'workflows.argoproj.io/phase={status}'
-    api_response = api_instance.list_namespaced_custom_object(group, version, namespace, plural, **params)
+    service = WorkflowServiceApi(api_client=get_api_client())
 
-    # TODO implement limit and continue, see https://github.com/kubernetes-client/python/issues/965
-    # api_response = api_instance.list_cluster_custom_object(group, version, plural, pretty=False, timeout_seconds=timeout_seconds, watch=watch, limit=limit, continue_token=continue_token)
+    # pprint(service.list_workflows('ch', V1alpha1WorkflowList()))
+    api_response = service.list_workflows(namespace, list_options_limit=limit, list_options_continue=continue_token,
+                                          list_options_timeout_seconds=timeout_seconds)
     return SearchResult(api_response)
 
 
 def submit_workflow(spec) -> Workflow:
-    """https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/CustomObjectsApi.md#create_namespaced_custom_object"""
-    log.debug(f"Submitting workflow\n{spec}")
-    workflow = Workflow(
-        api_instance.create_namespaced_custom_object(group, version, namespace, plural, spec, pretty=False))
-    log.info(f"Submitted argo workflow {workflow.name}")
-    if workflow.failed():
-        raise WorkflowException("Workflow failed: " + workflow.get_status_message())
-    return workflow
+    log.debug(f"Submitting workflow %s", spec)
+
+    service = WorkflowServiceApi(api_client=get_api_client())
+
+    req = V1alpha1WorkflowCreateRequest(workflow=spec, instance_id=namespace, namespace=namespace)
+
+    # pprint(service.list_workflows('ch', V1alpha1WorkflowList()))
+    wf = service.create_workflow(namespace, req)
+    return Workflow(wf)
 
 
 def delete_workflow(workflow_name):
@@ -199,37 +154,32 @@ def delete_workflow(workflow_name):
 
 
 def get_workflow(workflow_name) -> Workflow:
+    service = WorkflowServiceApi(api_client=get_api_client())
     try:
-        workflow = Workflow(api_instance.get_namespaced_custom_object(group, version, namespace, plural, workflow_name))
-    except kubernetes.client.rest.ApiException as e:
+        api_response = service.get_workflow(namespace, name=workflow_name)
+    except Exception as e:
         if e.status == 404:
             raise WorkflowNotFound()
-        raise WorkflowException(e.status) from e
+        raise WorkflowException("Workflow get error") from e
+    workflow = Workflow(api_response)
     if workflow.failed():
         raise WorkflowException("Workflow failed: " + workflow.get_status_message())
+
     return workflow
 
+
 def get_workflow_logs(workflow_name) -> str:
-    core_api_instance = kubernetes.client.CoreV1Api(kubernetes.client.ApiClient(get_configuration()))
-    
-    try:
-        wf = api_instance.get_namespaced_custom_object(group, version, namespace, plural, workflow_name)
-    except kubernetes.client.rest.ApiException as e:
-        if e.status == 404:
-            raise WorkflowNotFound()
-        raise WorkflowException(e.status) from e
-    
-    pod_names = [node['id'] for node in wf['status']['nodes'].values() if not 'children' in node]
-    
+    return '\n'.join(get_workflow_logs_list(workflow_name))
+
+
+def get_workflow_logs_list(workflow_name):
+    from ..infrastructure import k8s
+
+    workflow = get_workflow(workflow_name)
+    pod_names = workflow.pod_names
     if len(pod_names) == 0:
         return ''
-
-    try:
-        return core_api_instance.read_namespaced_pod_log(name=pod_names[0], namespace=namespace, container="main")
-    except kubernetes.client.rest.ApiException as e:
-        if e.status == 400:
-            return "This step has not emitted logs yet..."
-        raise WorkflowException(e.status) from e
+    return [k8s.get_pod_logs(pod_name) for pod_name in pod_names]
 
 
 if __name__ == '__main__':

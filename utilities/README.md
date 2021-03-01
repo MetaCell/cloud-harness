@@ -1,4 +1,4 @@
-#CloudHarness Deploy
+# CloudHarness Deploy
 
 CloudHarness Deploy is a collection of Python utilities to create CloudHarness deployments.
 
@@ -25,19 +25,19 @@ Usage:
 harness-application myapp
 ```
 
-For more info, `harness-application --help`
+Other examples:
 
-## harness-codefresh
-
-Generates the Codefresh continuous deployment specification.
-
-Usage:
-
+Create a web application
 ```bash
-harness-codefresh .
+harness-application myapp -t webapp
 ```
 
-For more info, `harness-codefresh --help`
+Create a web application with Mongo database
+```bash
+harness-application myapp -t webapp -t db-mongo
+```
+
+For more info, `harness-application --help`
 
 ## harness-generate
 

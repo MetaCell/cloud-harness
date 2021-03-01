@@ -5,7 +5,8 @@ import os
 
 from cloudharness_utilities.build import Builder
 from cloudharness_utilities.utils import merge_app_directories
-from cloudharness_utilities.helm import create_helm_chart, hosts_info
+from cloudharness_utilities.helm import create_helm_chart, hosts_info, deploy
+from cloudharness_utilities.dev_utils import create_skaffold_configuration, create_vscode_debug_configuration
 from cloudharness_utilities.codefresh import create_codefresh_deployment_scripts
 
 HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
@@ -28,8 +29,8 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--tag', dest='tag', action="store", default='latest',
                         help='Add a tag with the current version (default `latest`)')
 
-    parser.add_argument('-n', '--namespace', dest='namespace', action="store", default='default',
-                        help='Specify the namespace of the deployment (default `default`)')
+    parser.add_argument('-n', '--namespace', dest='namespace', action="store", default=None,
+                        help='Specify the namespace of the deployment (default taken from values.yaml)')
 
     parser.add_argument('-r', '--registry', dest='registry', action="store", default='',
                         help='Specify image registry prefix')
@@ -48,14 +49,17 @@ if __name__ == "__main__":
                         help='Specify for local deployments info and setup')
     parser.add_argument('-u', '--disable-security', dest='unsecured', action="store_true",
                         help='Disable secured gatekeepers access')
-    parser.add_argument('-e', '--exclude', dest='exclude', action="append", default=(),
+    parser.add_argument('-ex', '--exclude', dest='exclude', action="append", default=[],
                         help='Specify application to exclude from the deployment')
-
+    parser.add_argument('-e', '--env', dest='env', action="store", default=None,
+                        help='Specify application to exclude from the deployment')
     parser.add_argument('-m', '--merge', dest='merge', action="store", default=None,
                         help='Merge application folders and build in the given directory')
 
     parser.add_argument('-dtls', '--disable-tls', dest='no_tls', action="store_true",
                         help='Disable tls (serve on http)')
+    parser.add_argument('--deploy', dest='deploy', action="store_true",
+                        help='Deploy helm chart')
 
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
@@ -65,14 +69,9 @@ if __name__ == "__main__":
         print(f'unknown: {unknown}')
     else:
 
-        builder = Builder(root_paths, args.include, tag=args.tag, registry=args.registry, interactive=args.build_interactive,
-                    exclude=args.exclude, namespace=args.namespace, domain=args.domain)
-        
         if args.merge:
-            merge_app_directories(builder.root_paths, destination=args.merge)
-            builder.root_paths = [args.merge]
-        if args.build or args.build_interactive:
-            builder.run()
+            merge_app_directories(root_paths, destination=args.merge)
+            root_paths = [args.merge]
 
         values_manual_deploy = create_helm_chart(
             root_paths,
@@ -85,7 +84,32 @@ if __name__ == "__main__":
             exclude=args.exclude,
             include=args.include,
             registry_secret=args.registry_secret,
-            tls=not args.no_tls
+            tls=not args.no_tls,
+            env=args.env,
+            namespace=args.namespace
         )
-        create_codefresh_deployment_scripts(builder.root_paths, include=args.include)
+
+        build_included = [app['harness']['name'] for app in values_manual_deploy['apps'].values() if 'harness' in app]
+
+        create_codefresh_deployment_scripts(root_paths, include=build_included)  # LEGACY
+        create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                            template_name='codefresh-template-dev.yaml',
+                                            out_filename="codefresh-dev.yaml")
+        create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                            template_name='codefresh-template-prod.yaml',
+                                            out_filename="codefresh-prod.yaml")
+
+        create_skaffold_configuration(root_paths, values_manual_deploy)
+        create_vscode_debug_configuration([os.path.join(os.getcwd(), path) for path in args.paths],
+                                          values_manual_deploy)
+
+        if args.build or args.build_interactive:
+            builder = Builder(root_paths, build_included, tag=args.tag, registry=args.registry,
+                              interactive=args.build_interactive,
+                              exclude=args.exclude, namespace=args.namespace, domain=args.domain)
+            builder.run()
+
         hosts_info(values_manual_deploy)
+
+    if args.deploy:
+        deploy(args.namespace, args.output_path)

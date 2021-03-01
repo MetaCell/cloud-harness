@@ -1,4 +1,4 @@
-{{ if not .Values.local }}
+{{- if and (not .Values.local) (not (not .Values.tls)) }}
 apiVersion: cert-manager.io/v1alpha2
 kind: ClusterIssuer
 metadata:
@@ -8,7 +8,7 @@ spec:
     server: https://acme-v02.api.letsencrypt.org/directory
     email:  {{ .Values.ingress.letsencrypt.email }}
     privateKeySecretRef:
-      name: {{ .Values.tls }}
+      name: tls-secret
     solvers:
     - http01:
         ingress:

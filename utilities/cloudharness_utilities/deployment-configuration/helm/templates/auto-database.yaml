@@ -1,0 +1,124 @@
+{{- if .Values.backup.active }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: "db-backup"
+  namespace: {{ .Values.namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.backup.volumesize }}
+---
+{{- end }}
+{{- define "deploy_utils.database" }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ .app.harness.database.name | quote }}
+  namespace: {{ .root.Values.namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .app.harness.database.size }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .app.harness.database.name | quote }}
+  namespace: {{ .root.Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .app.harness.database.name | quote }}
+  template:
+    metadata:
+      labels:
+        app: {{ .app.harness.database.name | quote }}
+        service: db
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: service
+                    operator: In
+                    values:
+                      - db
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: {{ .app.harness.database.name | quote }}
+        imagePullPolicy: IfNotPresent
+        {{ include (print "deploy_utils.database." .app.harness.database.type) (dict "root" .root "app" .app) }}
+        ports:
+        {{- range $port := (index .app.harness.database .app.harness.database.type).ports }}
+        - name: {{ $port.name }}
+          containerPort: {{ $port.port }}
+        {{- end }}
+        resources:
+          requests:
+            memory: {{ .app.harness.database.resources.requests.memory | default "32Mi" }}
+            cpu: {{ .app.harness.database.resources.requests.cpu | default "25m" }}
+          limits:
+            memory: {{ .app.harness.database.resources.limits.memory | default "64Mi" }}
+            cpu: {{ .app.harness.database.resources.limits.cpu | default "50m" }}
+        volumeMounts:
+          - name: {{ .app.harness.database.name | quote }}
+            mountPath: /data/db
+          {{- if .root.Values.backup.active }}
+          - name: "db-backup"
+            mountPath: /backup
+          {{- end }}
+      volumes:
+      - name: {{ .app.harness.database.name | quote }}
+        persistentVolumeClaim:
+          claimName: {{ .app.harness.database.name | quote }}
+      {{- if .root.Values.backup.active }}
+      - name: "db-backup"
+        persistentVolumeClaim:
+          claimName: "db-backup"
+      {{- end }}
+---
+{{- if .root.Values.backup.active }}
+{{- include (print "deploy_utils.database." .app.harness.database.type ".backup") . }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .app.harness.database.name | quote }}
+  namespace: {{ .root.Values.namespace }}
+  labels:
+    app: {{ .app.harness.deployment.name | quote }}
+{{ include "deploy_utils.labels" .root | indent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .app.harness.database.name | quote }}
+  ports:
+  {{- range $port := (index .app.harness.database .app.harness.database.type).ports }}
+  - name: {{ $port.name }}
+    port: {{ $port.port }}
+  {{- end }}
+---
+{{ end }}
+{{- range $app := .Values.apps }}
+  {{- if $app.harness.database.auto  }}
+     {{ include "deploy_utils.database" (dict "root" $ "app" $app) }}
+  {{- end }}
+  {{- range $subapp := $app }}
+  {{- if contains "map" (typeOf $subapp)  }}
+  {{- if hasKey $subapp "harness"}}
+  {{- if and (hasKey $subapp.harness "database") $subapp.harness.database.auto }}
+      {{ include "deploy_utils.database" (dict "root" $ "app" $subapp) }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- end }}

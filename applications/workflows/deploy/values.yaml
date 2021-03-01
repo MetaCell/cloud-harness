@@ -7,3 +7,8 @@ harness:
   deployment:
     auto: true
     port: 8080
+  dependencies:
+    hard:
+      - argo
+    build:
+      - cloudharness-flask

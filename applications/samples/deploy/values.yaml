@@ -9,3 +9,22 @@ harness:
   deployment:
     auto: true
     port: 8080
+  env:
+    - name: WORKERS
+      value: "3"
+  dependencies:
+    soft:
+      - workflows
+      - events
+      - accounts
+    build:
+      - cloudharness-flask
+      - cloudharness-frontend-build
+  resources:
+    - name: my-config
+      src: "myConfig.json"
+      dst: "/tmp/resources/myConfig.json"
+    - name: example
+      src: "example.yaml"
+      dst: "/usr/src/app/important_config.yaml"
+

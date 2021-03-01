@@ -12,7 +12,7 @@ from setuptools import setup, find_packages
 
 
 NAME = "cloudharness-utilities"
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 # To install the library, run the following
 #
 # python setup.py install
@@ -37,7 +37,7 @@ setup(
     install_requires=REQUIREMENTS,
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,
-    scripts=['harness-codefresh', 'harness-deployment', 'harness-generate', 'harness-application'],
+    scripts=['harness-deployment', 'harness-generate', 'harness-application'],
     long_description="""\
     MetaCell Neuroscience Platform - CloudHarness deploy library
     """

@@ -1,37 +1,36 @@
 import os
 import jwt
-import sys
 import json
 import requests
-from urllib.parse import urljoin
-from typing import List
 from flask import current_app, request
 from keycloak import KeycloakAdmin
 from keycloak.exceptions import KeycloakAuthenticationError
-
-from typing import List
-from urllib.parse import urljoin
-
+from cloudharness import log
 from cloudharness.utils import env
 
 try:
-    from cloudharness.utils.config import CloudharnessConfig as conf
-    accounts_app = conf.get_application_by_filter(name='accounts')[0]
+    from cloudharness.utils.config import CloudharnessConfig as conf, ALLVALUES_PATH
+    from cloudharness.applications import get_configuration
+    accounts_app = get_configuration('accounts')
     AUTH_REALM = env.get_auth_realm()
-    SCHEMA = 'http'
-    HOST = getattr(accounts_app,'subdomain')
-    PORT = getattr(accounts_app,'port')
-    USER = getattr(accounts_app.admin,'user')
-    PASSWD = getattr(accounts_app.admin,'pass')
+    SERVER_URL = accounts_app.get_service_address() + '/auth/'
+    if not os.environ.get('KUBERNETES_SERVICE_HOST', None):
+        # running outside kubernetes
+        SERVER_URL = accounts_app.get_public_address() + '/auth/'
+    USER = accounts_app.admin['user']
+    PASSWD = accounts_app.admin['pass']
 except:
-    AUTH_REALM = 'mnp'
-    SCHEMA = 'https'
-    HOST = 'accounts.mnp.metacell.us'
-    PORT = '443'
-    USER = 'mnp'
-    PASSWD = 'metacell'
+    log.error("Error on cloudharness configuration. Check that the values file %s your deployment.", ALLVALUES_PATH, exc_info=True)
 
-SERVER_URL = f'{SCHEMA}://{HOST}:{PORT}/auth/'
+
+def with_refreshtoken(func):
+    def wrapper(self, *args, **kwargs):
+        try:
+            return func(self, *args, **kwargs)
+        except KeycloakAuthenticationError:
+            self.refresh_token()
+            return func(self, *args, **kwargs)
+    return wrapper
 
 def decode_token(token):
     """
@@ -52,6 +51,7 @@ def decode_token(token):
 
 
 class AuthClient():
+    __public_key=None
 
     @staticmethod
     def _get_keycloak_user_id():
@@ -74,12 +74,12 @@ class AuthClient():
         Init the class and checks the connectivity to the KeyCloak server
         """
         # test if we can connect to the Keycloak server
-        dummy_client = self.get_admin_client()          
+        dummy_client = self.get_admin_client()
 
     def get_admin_client(self):
         """
         Setup and return a keycloak admin client
-        
+
         The client will connect to the Keycloak server with the default admin credentials
         and connects to the 'master' realm. The client uses the application realm for read/write
         to the Keycloak server
@@ -94,15 +94,27 @@ class AuthClient():
                 realm_name=AUTH_REALM,
                 user_realm_name='master',
                 verify=True)
-        try:
-            # test if the connection still is authenticated, if not refresh the token
-            dummy = self._admin_client.get_realms()
-        except KeycloakAuthenticationError:
-            self._admin_client.refresh_token()
         return self._admin_client
 
-    @staticmethod
-    def decode_token(token):
+    def refresh_token(self):
+        try:
+            self._admin_client.refresh_token() 
+        except Exception as e:
+            # reset the internal admin client to create a new one
+            self._admin_client = None
+            self.get_admin_client()
+
+    @classmethod
+    def get_public_key(cls):
+        if not cls.__public_key:
+            AUTH_PUBLIC_KEY_URL = os.path.join(SERVER_URL, "realms", AUTH_REALM)
+
+            KEY = json.loads(requests.get(AUTH_PUBLIC_KEY_URL, verify=False).text)['public_key']
+            cls.__public_key = b"-----BEGIN PUBLIC KEY-----\n" + str.encode(KEY) + b"\n-----END PUBLIC KEY-----"
+        return cls.__public_key
+
+    @classmethod
+    def decode_token(cls, token):
         """
         Check and retrieve authentication information from custom bearer token.
         Returned value will be passed in 'token_info' parameter of your operation function, if there is one.
@@ -113,14 +125,12 @@ class AuthClient():
         :return: Decoded token information or None if token is invalid
         :rtype: dict | None
         """
-        AUTH_PUBLIC_KEY_URL = f'{SERVER_URL}realms/{AUTH_REALM}'
 
-        KEY = json.loads(requests.get(AUTH_PUBLIC_KEY_URL, verify=False).text)['public_key']
-        KEY = b"-----BEGIN PUBLIC KEY-----\n" + str.encode(KEY) + b"\n-----END PUBLIC KEY-----"
 
-        decoded = jwt.decode(token, KEY, algorithms='RS256', audience='account')
+        decoded = jwt.decode(token, cls.get_public_key(), algorithms='RS256', audience='account')
         return decoded
 
+    @with_refreshtoken
     def get_client(self, client_name):
         """
         Return the KC client
@@ -132,13 +142,11 @@ class AuthClient():
         :return: ClientRepresentation or False when not found
         """
         admin_client = self.get_admin_client()
-        try:
-            client_id = admin_client.get_client_id(client_name)
-            client = admin_client.get_client(client_id)
-        except:
-            return False
+        client_id = admin_client.get_client_id(client_name)
+        client = admin_client.get_client(client_id)
         return client
 
+    @with_refreshtoken
     def create_client(self, 
                       client_name, 
                       protocol="openid-connect",
@@ -162,7 +170,7 @@ class AuthClient():
         :return: True on success or exception
         """
         admin_client = self.get_admin_client()
-        admin_client.create_client({
+        x= admin_client.create_client({
             'id': client_name,
             'name': client_name,
             'protocol': protocol,
@@ -175,6 +183,7 @@ class AuthClient():
         })
         return True
 
+    @with_refreshtoken
     def create_client_role(self, client_id, role):
         """
         Creates a new client role if not exists
@@ -184,18 +193,16 @@ class AuthClient():
         :return: True on success, False on error
         """
         admin_client = self.get_admin_client()
-        try:
-            admin_client.create_client_role(
-                client_id,
-                {
-                    'name': role,
-                    'clientRole': True
-                }
-            )
-        except:
-            return False
+        admin_client.create_client_role(
+            client_id,
+            {
+                'name': role,
+                'clientRole': True
+            }
+        )
         return True
 
+    @with_refreshtoken
     def get_group(self, group_id, with_members=False):
         """
         Return the group in the application realm
@@ -210,9 +217,13 @@ class AuthClient():
         group = admin_client.get_group(group_id)
         if with_members:
             members = admin_client.get_group_members(group_id)
+            for user in members:
+                user.update({'userGroups': admin_client.get_user_groups(user['id'])})
+                user.update({'realmRoles': admin_client.get_realm_roles_of_user(user['id'])})
             group.update({'members': members})
         return group
 
+    @with_refreshtoken
     def get_groups(self, with_members=False):
         """
         Return a list of all groups in the application realm
@@ -229,7 +240,8 @@ class AuthClient():
             groups.append(self.get_group(group['id'], with_members))
         return groups
 
-    def get_users(self):
+    @with_refreshtoken
+    def get_users(self, query=None):
         """
         Return a list of all users in the application realm
 
@@ -239,15 +251,18 @@ class AuthClient():
         GroupRepresentation
         https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_grouprepresentation
 
+        :param query: query filtering the users see https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_users_resource
         :return: List(UserRepresentation + GroupRepresentation)
         """
         admin_client = self.get_admin_client()
         users = []
-        for user in admin_client.get_users():
+        for user in admin_client.get_users(query=query):
             user.update({'userGroups': admin_client.get_user_groups(user['id'])})
+            user.update({'realmRoles': admin_client.get_realm_roles_of_user(user['id'])})
             users.append(user)
         return users
 
+    @with_refreshtoken
     def get_user(self, user_id):
         """
         Get the user including the user groups
@@ -265,7 +280,23 @@ class AuthClient():
         admin_client = self.get_admin_client()
         user = admin_client.get_user(user_id)
         user.update({'userGroups': admin_client.get_user_groups(user_id)})
+        user.update({'realmRoles': admin_client.get_realm_roles_of_user(user_id)})
         return user
+
+    @with_refreshtoken
+    def get_user_realm_roles(self, user_id):
+        """
+        Get the user including the user roles within the current realm
+
+        :param user_id: User id
+
+        RoleRepresentation
+        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_rolerepresentation
+
+        :return: (array RoleRepresentation)
+        """
+        admin_client = self.get_admin_client()
+        return admin_client.get_realm_roles_of_user(user_id)
 
     def get_current_user(self):
         """
@@ -281,6 +312,20 @@ class AuthClient():
         """
         return self.get_user(self._get_keycloak_user_id())
 
+    def get_current_user_realm_roles(self):
+        """
+        Get the user including the user roles within the current realm
+
+        :param user_id: User id
+
+        RoleRepresentation
+        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_rolerepresentation
+
+        :return: (array RoleRepresentation)
+        """
+        return self.get_user_realm_roles(self._get_keycloak_user_id())
+
+    @with_refreshtoken
     def get_user_client_roles(self, user_id, client_name):
         """
         Get the user including the user resource access
@@ -315,6 +360,17 @@ class AuthClient():
         roles = [user_client_role for user_client_role in self.get_user_client_roles(user_id, client_name) if user_client_role['name'] == role]
         return roles != []
 
+    def user_has_realm_role(self, user_id, role):
+        """
+        Tests if the user has the given role within the current realm
+
+        :param user_id: User id
+        :param role: Name of the role
+        :return: (array RoleRepresentation)
+        """
+        roles = [user_realm_role for user_realm_role in self.get_user_realm_roles(user_id) if user_realm_role['name'] == role]
+        return roles != []
+
     def current_user_has_client_role(self, client_name, role):
         """
         Tests if the current user has the given role within the given client
@@ -328,6 +384,18 @@ class AuthClient():
             client_name,
             role)
 
+    def current_user_has_realm_role(self, role):
+        """
+        Tests if the current user has the given role within the current realm
+
+        :param role: Name of the role
+        :return: (array RoleRepresentation)
+        """
+        return self.user_has_realm_role(
+            self._get_keycloak_user_id(),
+            role)
+
+    @with_refreshtoken
     def get_client_role_members(self, client_name, role):
         """
         Get all users for the specified client and role
@@ -340,6 +408,7 @@ class AuthClient():
         client_id = admin_client.get_client_id(client_name)
         return admin_client.get_client_role_members(client_id, role)
 
+    @with_refreshtoken
     def user_add_update_attribute(self, user_id, attribute_name, attribute_value):
         """
         Adds or when exists updates the attribute to/of the User with the attribute value
@@ -360,6 +429,7 @@ class AuthClient():
             })
         return True
 
+    @with_refreshtoken
     def user_delete_attribute(self, user_id, attribute_name):
         """
         Deletes the attribute to/of the User with the attribute value

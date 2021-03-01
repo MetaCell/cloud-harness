@@ -1,12 +1,10 @@
 from . import argo
-import time
+
+from cloudharness.utils.env import get_cloudharness_variables, get_image_full_tag
+from .utils import WORKFLOW_NAME_VARIABLE_NAME
 
 SERVICE_ACCOUNT = 'argo-workflows'
 
-from cloudharness import log
-from cloudharness.utils.env import get_cloudharness_variables, get_image_full_tag
-
-from .utils import WORKFLOW_NAME_VARIABLE_NAME
 
 class Task(argo.ArgoObject):
     """
@@ -64,10 +62,10 @@ class ContainerizedTask(Task):
                 'resources': self.resources,
                 'imagePullPolicy': self.image_pull_policy,
                 'volumeMounts': [{
-                        'name': 'cloudharness-allvalues',
-                        'mountPath': '/opt/cloudharness/resources/allvalues.yaml',
-                        'subPath': 'allvalues.yaml'
-                    }],
+                    'name': 'cloudharness-allvalues',
+                    'mountPath': '/opt/cloudharness/resources/allvalues.yaml',
+                    'subPath': 'allvalues.yaml'
+                }],
             },
             'inputs': {},
             'metadata': {},

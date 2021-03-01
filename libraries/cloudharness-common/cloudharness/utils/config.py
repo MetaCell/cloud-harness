@@ -1,7 +1,8 @@
 import yaml
+
 import os
 
-ALLVALUES_PATH = '/opt/cloudharness/resources/allvalues.yaml'
+ALLVALUES_PATH = os.getenv("CH_VALUES_PATH", '/opt/cloudharness/resources/allvalues.yaml')
 
 
 class ConfigObject(object):
@@ -29,7 +30,7 @@ class CloudharnessConfig:
     via the harness-deployment script
     
     """
-    allvalues=None
+    allvalues={}
 
     @classmethod
     def _get_all_values(cls):
@@ -43,6 +44,25 @@ class CloudharnessConfig:
         if not hasattr(cls, 'apps'):
             cls.apps = ConfigObject(cls._get_all_values()['apps'])
         return cls.apps
+
+    @classmethod
+    def get_namespace(cls):
+        return cls.get_configuration()['namespace']
+
+    @classmethod
+    def get_domain(cls):
+        return cls.get_configuration()['domain']
+
+    @classmethod
+    def is_secured(cls):
+        try:
+            return bool(cls.get_configuration()['tls'])
+        except KeyError:
+            return False
+
+    @classmethod
+    def is_test(cls):
+        return 'test' in cls.get_configuration() and cls.get_configuration()['test']
 
     @classmethod
     def get_application_by_filter(cls, **filter):

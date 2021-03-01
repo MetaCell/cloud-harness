@@ -2,11 +2,8 @@ asn1crypto==0.24.0
 certifi==2019.3.9
 cffi==1.12.2
 chardet==3.0.4
-cryptography==3.2
 idna==2.8
-jwt==1.0.0
-pycosat==0.6.3
-pycparser==2.19
+pyjwt>=1.7.1,<2
 pyOpenSSL==19.0.0
 PySocks==1.6.8
 requests==2.21.0
@@ -19,3 +16,4 @@ kafka-python
 kubernetes
 sentry-sdk[flask]==0.14.4
 python-keycloak==0.23.0
+argo-workflows==5.0.0

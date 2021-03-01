@@ -1,0 +1,20 @@
+{{- define "deploy_utils.database.neo4j" }}
+        image: {{ .app.harness.database.neo4j.image }}
+        env:
+          - name: NEO4J_dbms_directories_data
+            value: /data/db/data
+          - name: NEO4J_dbms_directories_logs
+            value: /data/db/logs
+          - name: NEO4J_dbms_directories_metrics
+            value: /data/db/metrics
+          - name: NEO4J_dbms_memory_size
+            value: {{ .app.harness.database.neo4j.memory.size }}
+          - name: NEO4J_dbms_memory_pagecache_size
+            value: {{ .app.harness.database.neo4j.memory.pagecache.size }}
+          - name: NEO4J_dbms_memory_heap_initial__size
+            value: {{ .app.harness.database.neo4j.memory.heap.initial }}
+          - name: NEO4J_dbms_memory_heap_max__size
+            value: {{ .app.harness.database.neo4j.memory.heap.max }}
+          - name: NEO4J_dbms_security_auth__enabled
+            value: {{ .app.harness.database.neo4j.dbms_security_auth_enabled | quote }}
+{{- end }}

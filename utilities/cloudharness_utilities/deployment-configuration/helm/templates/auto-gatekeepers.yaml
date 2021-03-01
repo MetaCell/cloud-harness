@@ -1,5 +1,4 @@
 {{/* Secured Services/Deployments */}}
-
 {{- define "deploy_utils.securedservice" }}
 {{- $tls := not (not .root.Values.tls) }}
 apiVersion: v1
@@ -11,7 +10,7 @@ metadata:
 data:
   proxy.yml: |-
     verbose: true
-    discovery-url: {{ ternary "https" "http" $tls}}://{{ .root.Values.apps.accounts.subdomain }}.{{ .root.Values.domain }}/auth/realms/{{ .root.Values.namespace }}
+    discovery-url: {{ ternary "https" "http" $tls}}://{{ .root.Values.apps.accounts.harness.subdomain }}.{{ .root.Values.domain }}/auth/realms/{{ .root.Values.namespace }}
     client-id: {{ .root.Values.apps.accounts.webclient.id | quote }}
     client-secret: {{ .root.Values.apps.accounts.webclient.secret }}
     secure-cookie: {{ $tls }}
@@ -22,8 +21,6 @@ data:
     redirection-url: {{ ternary "https" "http" $tls }}://{{ .app.harness.subdomain }}.{{ .root.Values.domain }}
     encryption-key: AgXa7xRcoClDEU0ZDSH4X0XhL5Qy2Z2j
     upstream-url: http://{{ .app.harness.service.name }}.{{ .app.namespace | default .root.Release.Namespace }}:{{ .app.harness.service.port | default 80}}
-    scopes:
-    - vpn-user
     {{ if .app.harness.secured }}
       {{ with .app.harness.uri_role_mapping }}
     resources:
@@ -68,7 +65,7 @@ spec:
 {{ include "deploy_utils.etcHosts" .root | indent 6 }}
       containers:
       - name: {{ .app.harness.service.name | quote }}
-        image: "quay.io/louketo/louketo-proxy:1.0.0"
+        image: "gcr.io/metacellllc/louketo-proxy:1.0.0"
         imagePullPolicy: IfNotPresent
         {{ if .root.Values.local }}
         securityContext:
