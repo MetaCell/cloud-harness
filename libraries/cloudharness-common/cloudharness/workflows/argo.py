@@ -121,13 +121,15 @@ def get_workflows(status=None, limit=10, continue_token=None, timeout_seconds=3)
     """https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/CustomObjectsApi.md#list_namespaced_custom_object"""
     # Notice: field selector doesn't work though advertised, except fot metadata.name and metadata.namespace https://github.com/kubernetes/kubernetes/issues/51046
     # The filtering by phase can be obtained through labels: https://github.com/argoproj/argo/issues/496
-
     service = WorkflowServiceApi(api_client=get_api_client())
 
-    # pprint(service.list_workflows('ch', V1alpha1WorkflowList()))
-    api_response = service.list_workflows(namespace, list_options_limit=limit, list_options_continue=continue_token,
-                                          list_options_timeout_seconds=timeout_seconds)
-    return SearchResult(api_response)
+    try:
+        api_response = service.list_workflows(namespace, list_options_limit=limit, list_options_continue=continue_token)
+    except ValueError:
+        log.exception("Couldn't find any workflows")
+        return None
+    else:
+        return SearchResult(api_response)
 
 
 def submit_workflow(spec) -> Workflow:
