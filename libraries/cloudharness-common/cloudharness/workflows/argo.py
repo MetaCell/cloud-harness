@@ -145,14 +145,13 @@ def submit_workflow(spec) -> Workflow:
 
 
 def delete_workflow(workflow_name):
-    """https://github.com/kubernetes-client/python/blob/release-11.0/kubernetes/docs/CustomObjectsApi.md#delete_namespaced_custom_object"""
+    service = WorkflowServiceApi(api_client=get_api_client())
     try:
-        api_instance.delete_namespaced_custom_object(group, version, namespace, plural, workflow_name,
-                                                     kubernetes.client.V1DeleteOptions(), grace_period_seconds=0)
-    except kubernetes.client.rest.ApiException as e:
+        service.delete_workflow(namespace, workflow_name, delete_options_grace_period_seconds=0)
+    except Exception as e:
         if e.status == 404:
             raise WorkflowNotFound()
-        raise WorkflowException(e.status) from e
+        raise WorkflowException("Workflow delete error") from e
 
 
 def get_workflow(workflow_name) -> Workflow:
