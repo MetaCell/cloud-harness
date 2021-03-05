@@ -39,6 +39,9 @@ spec:
         - name: config
           configMap:
             name: hub-config
+        - name: cloudharness-allvalues
+          configMap:
+            name: cloudharness-allvalues
         - name: secret
           secret:
             {{- if .Values.apps.jupyterhub.hub.existingSecret }}
@@ -114,6 +117,9 @@ spec:
               name: config
             - mountPath: /etc/jupyterhub/secret/
               name: secret
+            - name: cloudharness-allvalues
+              mountPath: /opt/cloudharness/resources/allvalues.yaml
+              subPath: allvalues.yaml
             {{- if .Values.apps.jupyterhub.hub.extraVolumeMounts }}
             {{- .Values.apps.jupyterhub.hub.extraVolumeMounts | toYaml | trimSuffix "\n" | nindent 12 }}
             {{- end }}
