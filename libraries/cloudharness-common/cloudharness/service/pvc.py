@@ -3,6 +3,7 @@ import kubernetes
 import yaml
 
 from cloudharness.utils.config import CloudharnessConfig as conf
+from cloudharness.utils import dict_merge
 
 def _get_api():
     try:
@@ -22,7 +23,7 @@ def create_persistent_volume_claim(name, size, logger, **kwargs):
         name (string): the name of the PVC
         size (string): the size of the PVC, e.g. 2Gi for a 2Gb PVC
         logger (logger): the logger where the information message is sent to
-
+        **kwargs - the dictionary is used to override the default template
     Returns:
         -
     """
@@ -33,7 +34,7 @@ def create_persistent_volume_claim(name, size, logger, **kwargs):
         path = os.path.join(os.path.dirname(__file__), 'templates', 'pvc.yaml')
         tmpl = open(path, 'rt').read()
         text = tmpl.format(name=name, size=size)
-        data = yaml.safe_load(text)
+        data = dict_merge(yaml.safe_load(text), kwargs)
 
         obj = _get_api().create_namespaced_persistent_volume_claim(
             namespace=conf.get_configuration()['namespace'],
