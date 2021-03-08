@@ -1,5 +1,5 @@
 harness:
-  subdomain: errormonitor
+  subdomain: sentry
   secured: false
   service:
     auto: true
