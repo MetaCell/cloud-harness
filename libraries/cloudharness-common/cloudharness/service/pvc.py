@@ -3,6 +3,8 @@ import kubernetes
 import yaml
 
 from cloudharness.utils.config import CloudharnessConfig as conf
+from cloudharness.utils import dict_merge
+
 
 def _get_api():
     try:
@@ -11,6 +13,7 @@ def _get_api():
         configuration = kubernetes.config.load_kube_config()
     api_instance = kubernetes.client.CoreV1Api(kubernetes.client.ApiClient(configuration))
     return api_instance
+
 
 def create_persistent_volume_claim(name, size, logger, **kwargs):
     """
@@ -22,7 +25,7 @@ def create_persistent_volume_claim(name, size, logger, **kwargs):
         name (string): the name of the PVC
         size (string): the size of the PVC, e.g. 2Gi for a 2Gb PVC
         logger (logger): the logger where the information message is sent to
-
+        **kwargs - the dictionary is used to override the default template
     Returns:
         -
     """
@@ -33,13 +36,14 @@ def create_persistent_volume_claim(name, size, logger, **kwargs):
         path = os.path.join(os.path.dirname(__file__), 'templates', 'pvc.yaml')
         tmpl = open(path, 'rt').read()
         text = tmpl.format(name=name, size=size)
-        data = yaml.safe_load(text)
+        data = dict_merge(yaml.safe_load(text), kwargs)
 
         obj = _get_api().create_namespaced_persistent_volume_claim(
             namespace=conf.get_configuration()['namespace'],
             body=data,
         )
         logger.info(f"PVC child is created: %s", obj)
+
 
 def persistent_volume_claim_exists(name):
     """
@@ -55,6 +59,7 @@ def persistent_volume_claim_exists(name):
         return True
     return False
 
+
 def get_persistent_volume_claim(name):
     """
     Get the Persistent Volume Claim with the given name from the Kubernetes
@@ -69,6 +74,12 @@ def get_persistent_volume_claim(name):
     foundPVCs = _get_api().list_namespaced_persistent_volume_claim(
         namespace=conf.get_configuration()['namespace'],
         field_selector=f'metadata.name={name}')
-    if len(foundPVCs.items)>0:
+    if len(foundPVCs.items) > 0:
         return foundPVCs.items[0]
     return None
+
+
+def delete_persistent_volume_claim(name):
+    _get_api().delete_namespaced_persistent_volume_claim(
+        name=name,
+        namespace=conf.get_configuration()['namespace'])

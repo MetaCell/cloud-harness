@@ -8,6 +8,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
+    - ReadOnlyMany
   resources:
     requests:
       storage: {{ .Values.backup.volumesize }}
@@ -42,16 +43,6 @@ spec:
         app: {{ .app.harness.database.name | quote }}
         service: db
     spec:
-      affinity:
-        podAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: service
-                    operator: In
-                    values:
-                      - db
-              topologyKey: kubernetes.io/hostname
       containers:
       - name: {{ .app.harness.database.name | quote }}
         imagePullPolicy: IfNotPresent
@@ -74,6 +65,7 @@ spec:
           {{- if .root.Values.backup.active }}
           - name: "db-backup"
             mountPath: /backup
+            readOnly: true
           {{- end }}
       volumes:
       - name: {{ .app.harness.database.name | quote }}

@@ -131,11 +131,11 @@ def create_vscode_debug_configuration(root_paths, values_manual_deploy):
     for root_path in root_paths:
         apps_path = os.path.join(root_path, 'applications')
 
-        flask_main_paths = find_file_paths(apps_path, '__main__.py')
+        src_root_paths = find_file_paths(apps_path, 'setup.py')
 
-        for path in flask_main_paths:
-            app_relative_to_base = os.path.relpath(os.path.dirname(path), apps_path)
-            app_relative_to_root = os.path.relpath(os.path.dirname(path), '.')
+        for path in src_root_paths:
+            app_relative_to_base = os.path.relpath(path, apps_path)
+            app_relative_to_root = os.path.relpath(path, '.')
             app_name = app_name_from_path(app_relative_to_base.split('/')[0])
             app_key = app_name.replace('-', '_')
             if app_key in apps.keys():
@@ -143,7 +143,7 @@ def create_vscode_debug_configuration(root_paths, values_manual_deploy):
                     "image": app_name,
                     # the double source map doesn't work at the moment. Hopefully will be fixed in future skaffold updates
                     "sourceFileMap": {
-                        f"${{workspaceFolder}}/{app_relative_to_root}": "/usr/src/app",
+                        f"${{workspaceFolder}}/{app_relative_to_root}": apps[app_key][KEY_HARNESS].get('sourceRoot', "/usr/src/app"),
                     }
                 })
                 debug_conf["debug"].append({
