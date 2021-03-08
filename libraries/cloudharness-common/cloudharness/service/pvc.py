@@ -5,6 +5,7 @@ import yaml
 from cloudharness.utils.config import CloudharnessConfig as conf
 from cloudharness.utils import dict_merge
 
+
 def _get_api():
     try:
         configuration = kubernetes.config.load_incluster_config()
@@ -12,6 +13,7 @@ def _get_api():
         configuration = kubernetes.config.load_kube_config()
     api_instance = kubernetes.client.CoreV1Api(kubernetes.client.ApiClient(configuration))
     return api_instance
+
 
 def create_persistent_volume_claim(name, size, logger, **kwargs):
     """
@@ -42,6 +44,7 @@ def create_persistent_volume_claim(name, size, logger, **kwargs):
         )
         logger.info(f"PVC child is created: %s", obj)
 
+
 def persistent_volume_claim_exists(name):
     """
     Check if the PVC with the given name already exists.
@@ -55,6 +58,7 @@ def persistent_volume_claim_exists(name):
     if get_persistent_volume_claim(name):
         return True
     return False
+
 
 def get_persistent_volume_claim(name):
     """
@@ -70,6 +74,12 @@ def get_persistent_volume_claim(name):
     foundPVCs = _get_api().list_namespaced_persistent_volume_claim(
         namespace=conf.get_configuration()['namespace'],
         field_selector=f'metadata.name={name}')
-    if len(foundPVCs.items)>0:
+    if len(foundPVCs.items) > 0:
         return foundPVCs.items[0]
     return None
+
+
+def delete_persistent_volume_claim(name):
+    _get_api().delete_namespaced_persistent_volume_claim(
+        name=name,
+        namespace=conf.get_configuration()['namespace'])
