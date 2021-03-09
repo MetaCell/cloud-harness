@@ -399,7 +399,7 @@ class ParallelOperation(CompositeOperation):
 class SimpleDagOperation(CompositeOperation):
     """Simple DAG definition limited to a pipeline of parallel operations"""
 
-    def __init__(self, basename, pod_context: PodExecutionContext, *task_groups, shared_directory=None):
+    def __init__(self, basename, *task_groups, shared_directory=None, pod_context: PodExecutionContext=None):
         task_groups = tuple(
             task_group if isinstance(task_group, Iterable) else (task_group,) for task_group in task_groups)
         super().__init__(basename, pod_context=pod_context, tasks=task_groups, shared_directory=shared_directory)
