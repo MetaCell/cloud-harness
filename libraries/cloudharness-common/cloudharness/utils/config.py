@@ -53,6 +53,15 @@ class CloudharnessConfig:
     def get_domain(cls):
         return cls.get_configuration()['domain']
 
+
+    @classmethod
+    def get_registry_name(cls):
+        return cls.get_configuration()['registry']['name']
+
+    @classmethod
+    def get_registry_secret(cls):
+        return cls.get_configuration()['registry']['secret']
+
     @classmethod
     def is_secured(cls):
         try:
