@@ -2,6 +2,8 @@
 import requests
 import yaml
 
+
+
 from .test_env import set_test_environment
 
 set_test_environment()
@@ -9,11 +11,13 @@ set_test_environment()
 from cloudharness.workflows import operations, tasks
 from cloudharness import set_debug
 from cloudharness.workflows import argo
+from cloudharness.utils.config import CloudharnessConfig
 
 set_debug()
 
 execute = False
 
+assert 'registry' in CloudharnessConfig.get_configuration()
 
 def test_sync_workflow():
     def f():
@@ -22,9 +26,10 @@ def test_sync_workflow():
         print('whatever')
 
     task = tasks.PythonTask('my-task', f)
-
+    assert 'registry' in CloudharnessConfig.get_configuration()
     op = operations.DistributedSyncOperation('test-sync-op-', task)
     print('\n', yaml.dump(op.to_workflow()))
+
     if execute:
         print(op.execute())
 
