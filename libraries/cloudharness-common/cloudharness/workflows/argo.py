@@ -121,13 +121,15 @@ def get_workflows(status=None, limit=10, continue_token=None, timeout_seconds=3)
     """https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/CustomObjectsApi.md#list_namespaced_custom_object"""
     # Notice: field selector doesn't work though advertised, except fot metadata.name and metadata.namespace https://github.com/kubernetes/kubernetes/issues/51046
     # The filtering by phase can be obtained through labels: https://github.com/argoproj/argo/issues/496
-
     service = WorkflowServiceApi(api_client=get_api_client())
 
-    # pprint(service.list_workflows('ch', V1alpha1WorkflowList()))
-    api_response = service.list_workflows(namespace, list_options_limit=limit, list_options_continue=continue_token,
-                                          list_options_timeout_seconds=timeout_seconds)
-    return SearchResult(api_response)
+    try:
+        api_response = service.list_workflows(namespace, list_options_limit=limit, list_options_continue=continue_token)
+    except ValueError:
+        log.exception("Couldn't find any workflows")
+        return None
+    else:
+        return SearchResult(api_response)
 
 
 def submit_workflow(spec) -> Workflow:
@@ -143,14 +145,13 @@ def submit_workflow(spec) -> Workflow:
 
 
 def delete_workflow(workflow_name):
-    """https://github.com/kubernetes-client/python/blob/release-11.0/kubernetes/docs/CustomObjectsApi.md#delete_namespaced_custom_object"""
+    service = WorkflowServiceApi(api_client=get_api_client())
     try:
-        api_instance.delete_namespaced_custom_object(group, version, namespace, plural, workflow_name,
-                                                     kubernetes.client.V1DeleteOptions(), grace_period_seconds=0)
-    except kubernetes.client.rest.ApiException as e:
+        service.delete_workflow(namespace, workflow_name, delete_options_grace_period_seconds=0)
+    except Exception as e:
         if e.status == 404:
             raise WorkflowNotFound()
-        raise WorkflowException(e.status) from e
+        raise WorkflowException("Workflow delete error") from e
 
 
 def get_workflow(workflow_name) -> Workflow:
