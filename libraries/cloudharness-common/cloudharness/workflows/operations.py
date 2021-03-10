@@ -26,9 +26,10 @@ class PodExecutionContext:
     Automatically assigns meta data and pod affinity
     """
 
-    def __init__(self, key, value):
+    def __init__(self, key, value, required=False):
         self.key = str(key)
         self.value = str(value)
+        self.required = required
 
 
 class ManagedOperation:
@@ -101,25 +102,39 @@ class ContainerizedOperation(ManagedOperation):
         return spec
 
     def affinity_spec(self):
-        return {
-            'podAffinity':
+
+        term = {
+            'labelSelector':
                 {
-                    'requiredDuringSchedulingIgnoredDuringExecution':[
+                    'matchExpressions': [
                         {
-                            'labelSelector':
-                                {
-                                    'matchExpressions': [
-                                        {
-                                            'key': self.pod_context.key,
-                                            'operator': 'In',
-                                            'values': [self.pod_context.value]
-                                        },
-                                    ]
-                                },
-                            'topologyKey': 'topology.kubernetes.io/zone'
-                        }]
-                }
+                            'key': self.pod_context.key,
+                            'operator': 'In',
+                            'values': [self.pod_context.value]
+                        },
+                    ]
+                },
+            'topologyKey': 'kubernetes.io/hostname'
         }
+        if not self.pod_context.required:
+            return {
+                'podAffinity':
+                    {
+                        'preferredDuringSchedulingIgnoredDuringExecution': [
+                            {
+                                'weight': 100,
+                                'podAffinityTerm': term
+
+                            }]
+                    }
+            }
+        else:
+            return {
+                'podAffinity':
+                    {
+                        'requiredDuringSchedulingIgnoredDuringExecution': [term]
+                    }
+            }
 
     def add_on_exit_notify_handler(self, spec):
         queue = self.on_exit_notify['queue']
@@ -261,7 +276,8 @@ class AsyncOperation(ContainerizedOperation):
 class CompositeOperation(AsyncOperation):
     """Operation with multiple tasks"""
 
-    def __init__(self, basename, tasks, shared_directory="", shared_volume_size=10, pod_context: PodExecutionContext = None,
+    def __init__(self, basename, tasks, shared_directory="", shared_volume_size=10,
+                 pod_context: PodExecutionContext = None,
                  *args, **kwargs):
         """
 
@@ -365,7 +381,8 @@ class DistributedSyncOperationWithResults(PipelineOperation, ExecuteAndWaitOpera
     """Synchronously returns the result from the workflow. Uses a shared volume and a queue"""
 
     def __init__(self, name, task: Task, *args, **kwargs):
-        PipelineOperation.__init__(self, name, [task, SendResultTask()], shared_directory="/mnt/shared", *args, **kwargs)
+        PipelineOperation.__init__(self, name, [task, SendResultTask()], shared_directory="/mnt/shared", *args,
+                                   **kwargs)
         self.client = None
 
     def submit(self):
@@ -399,7 +416,7 @@ class ParallelOperation(CompositeOperation):
 class SimpleDagOperation(CompositeOperation):
     """Simple DAG definition limited to a pipeline of parallel operations"""
 
-    def __init__(self, basename, *task_groups, shared_directory=None, pod_context: PodExecutionContext=None):
+    def __init__(self, basename, *task_groups, shared_directory=None, pod_context: PodExecutionContext = None):
         task_groups = tuple(
             task_group if isinstance(task_group, Iterable) else (task_group,) for task_group in task_groups)
         super().__init__(basename, pod_context=pod_context, tasks=task_groups, shared_directory=shared_directory)
