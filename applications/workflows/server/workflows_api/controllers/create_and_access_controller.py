@@ -12,13 +12,12 @@ from workflows_api.service.workflow_service import OperationNotFound, OperationE
 
 from cloudharness import log
 
-
 def delete_operation(name):  # noqa: E501
     """deletes operation by name
 
     delete operation by its name  # noqa: E501
 
-    :param name: 
+    :param name:
     :type name: str
 
     :rtype: None
@@ -37,7 +36,7 @@ def get_operation(name):  # noqa: E501
 
     retrieves an operation by its name  # noqa: E501
 
-    :param name: 
+    :param name:
     :type name: str
 
     :rtype: List[Operation]
@@ -79,7 +78,7 @@ def log_operation(name):  # noqa: E501
 
     retrieves an operation log by its name  # noqa: E501
 
-    :param name: 
+    :param name:
     :type name: str
 
     :rtype: str
@@ -87,4 +86,10 @@ def log_operation(name):  # noqa: E501
     if not name or name == '':
         return ''
 
-    return workflow_service.log_operation(name)
+    try:
+        return workflow_service.log_operation(name)
+    except OperationNotFound:
+        return (f'{name} not found', 404)
+    except OperationException as e:
+        log.error(f'Unhandled remote exception while retrieving workflows', exc_info=e)
+        return '', e.status

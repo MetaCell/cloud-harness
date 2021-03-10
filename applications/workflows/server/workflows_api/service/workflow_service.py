@@ -40,8 +40,13 @@ def list_operations(status=None, continue_token=None, limit=None) -> OperationSe
 
     argo_raw_result = argo.get_workflows(status, limit=limit, continue_token=continue_token)
     result = OperationSearchResult()
-    result.items = tuple(argo_workflow_to_operation(item) for item in argo_raw_result.items)
-    result.meta = SearchResultData(continue_token=argo_raw_result.continue_token)
+    if argo_raw_result:
+        result.items = tuple(argo_workflow_to_operation(item) for item in argo_raw_result.items)
+        result.meta = SearchResultData(continue_token=argo_raw_result.continue_token)
+    else:
+        result.items = []
+        result.meta = SearchResultData()
+
     return result
 
 
@@ -50,5 +55,4 @@ def log_operation(name: str) -> str:
     :param name: workflow name
     :rtype: str
     """
-
     return argo.get_workflow_logs(name)
