@@ -6,6 +6,9 @@ metadata:
   namespace: {{ .root.Values.namespace }}
   labels:
     app: {{ .app.harness.deployment.name| quote }}
+    {{- if .app.harness.deployment.volume }}
+    usesvolume: {{ .app.harness.deployment.volume.name }}
+    {{- end }}
 {{- include "deploy_utils.labels" .root | indent 4 }}
 spec:
   replicas: {{ .app.harness.deployment.replicas | default 1 }}
@@ -22,11 +25,26 @@ spec:
       {{- end }}
       labels:
         app: {{ .app.harness.deployment.name| quote }}
+        {{- if .app.harness.deployment.volume }}
+        usesvolume: {{ .app.harness.deployment.volume.name }}
+        {{- end }}
 {{- include "deploy_utils.labels" .root | indent 8 }}
     spec:
       {{- if and .root.Values.registry.secret (contains .root.Values.registry.name .app.harness.deployment.image) }}
       imagePullSecrets:
       - name: {{ .root.Values.registry.secret }}
+      {{- end }}
+      {{- if and .app.harness.deployment.volume }}
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: usesvolume
+                    operator: In
+                    values:
+                      - {{ .app.harness.deployment.volume.name }}
+              topologyKey: "kubernetes.io/hostname"
       {{- end }}
       containers:
       - name: {{ .app.harness.deployment.name| default "cloudharness-docs" | quote }}
@@ -78,6 +96,7 @@ spec:
           limits:
             memory: {{ .app.harness.deployment.resources.limits.memory | default "64Mi" }}
             cpu: {{ .app.harness.deployment.resources.limits.cpu | default "50m" }}
+
         volumeMounts:
           - name: cloudharness-allvalues
             mountPath: /opt/cloudharness/resources/allvalues.yaml
@@ -85,6 +104,7 @@ spec:
           {{- if .app.harness.deployment.volume }}
           - name: {{ .app.harness.deployment.volume.name }}
             mountPath: {{ .app.harness.deployment.volume.mountpath }}
+            readOnly: {{ .app.harness.deployment.volume.readonly | default false }}
           {{- end }}
           {{- $app := .app}}
           {{- range $resource := .app.harness.resources }}
