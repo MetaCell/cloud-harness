@@ -6,8 +6,7 @@ from collections.abc import Iterable
 from cloudharness_cli.workflows.models.operation_status import OperationStatus
 
 from cloudharness.events.client import EventClient
-from cloudharness.utils.settings import CODEFRESH_PULL_SECRET
-from cloudharness.utils import env
+from cloudharness.utils import env, config
 from cloudharness import log
 
 from . import argo
@@ -19,6 +18,17 @@ SERVICE_ACCOUNT = 'argo-workflows'
 
 class BadOperationConfiguration(RuntimeError):
     pass
+
+
+class PodExecutionContext:
+    """
+    Key-value pair representing the execution context with other pods.
+    Automatically assigns meta data and pod affinity
+    """
+
+    def __init__(self, key, value):
+        self.key = str(key)
+        self.value = str(value)
 
 
 class ManagedOperation:
@@ -39,13 +49,13 @@ class ContainerizedOperation(ManagedOperation):
     Abstract Containarized operation based on an argo workflow
     """
 
-    def __init__(self, basename, *args, **kwargs):
+    def __init__(self, basename: str, pod_context: PodExecutionContext = None, *args, **kwargs):
         """
-        :param status:
-        :param parameters:
+        :param basename:
+        :param pod_context: PodExecutionContext - represents affinity with other pods in the system
         """
         super(ContainerizedOperation, self).__init__(basename, *args, **kwargs)
-
+        self.pod_context = pod_context
         self.persisted = None
 
     @property
@@ -74,7 +84,7 @@ class ContainerizedOperation(ManagedOperation):
             },
             'templates': [self.modify_template(template) for template in self.templates],
             'serviceAccountName': SERVICE_ACCOUNT,
-            'imagePullSecrets': [{'name': CODEFRESH_PULL_SECRET}],
+            'imagePullSecrets': [{'name': config.CloudharnessConfig.get_registry_secret()}],
             'volumes': [{
                 # mount allvalues so we can use the cloudharness Python library
                 'name': 'cloudharness-allvalues',
@@ -85,7 +95,31 @@ class ContainerizedOperation(ManagedOperation):
         }
         if self.on_exit_notify:
             spec = self.add_on_exit_notify_handler(spec)
+
+        if self.pod_context:
+            spec['affinity'] = self.affinity_spec()
         return spec
+
+    def affinity_spec(self):
+        return {
+            'podAffinity':
+                {
+                    'requiredDuringSchedulingIgnoredDuringExecution':[
+                        {
+                            'labelSelector':
+                                {
+                                    'matchExpressions': [
+                                        {
+                                            'key': self.pod_context.key,
+                                            'operator': 'In',
+                                            'values': [self.pod_context.value]
+                                        },
+                                    ]
+                                },
+                            'topologyKey': 'topology.kubernetes.io/zone'
+                        }]
+                }
+        }
 
     def add_on_exit_notify_handler(self, spec):
         queue = self.on_exit_notify['queue']
@@ -105,6 +139,12 @@ class ContainerizedOperation(ManagedOperation):
 
     def modify_template(self, template):
         """Hook to modify templates (e.g. add volumes)"""
+        if self.pod_context:
+            if 'metadata' not in template:
+                template['metadata'] = {}
+            if 'labels' not in template['metadata']:
+                template['metadata']['labels'] = {}
+            template['metadata']['labels'][self.pod_context.key] = self.pod_context.value
         return template
 
     def submit(self):
@@ -164,12 +204,12 @@ class DataQueryOperation(DirectOperation):
 
 
 class SingleTaskOperation(ContainerizedOperation):
-    def __init__(self, name, task: Task):
+    def __init__(self, name, task: Task, *args, **kwargs):
         """
         Using a single task is a simplification we may want to
         :param task:
         """
-        super().__init__(name)
+        super().__init__(name, *args, **kwargs)
         self.task = task
 
     @property
@@ -188,9 +228,9 @@ class ExecuteAndWaitOperation(ContainerizedOperation, SyncOperation):
         start_time = time.time()
         while not self.persisted.is_finished():
             time.sleep(POLLING_WAIT_SECONDS)
-            log.info(f"Polling argo workflow {self.persisted.name}")
+            log.debug(f"Polling argo workflow {self.persisted.name}")
             self.persisted = argo.get_workflow(self.persisted.name)
-            log.info(f"Polling succeeded for {self.persisted.name}. Current phase: {self.persisted.status}")
+            log.debug(f"Polling succeeded for {self.persisted.name}. Current phase: {self.persisted.status}")
             if timeout and time.time() - start_time > timeout:
                 log.error("Timeout exceeded while polling for results")
                 return self.persisted
@@ -221,16 +261,18 @@ class AsyncOperation(ContainerizedOperation):
 class CompositeOperation(AsyncOperation):
     """Operation with multiple tasks"""
 
-    def __init__(self, basename, tasks, *args, shared_directory="", shared_volume_size=10, **kwargs):
+    def __init__(self, basename, tasks, shared_directory="", shared_volume_size=10, pod_context: PodExecutionContext = None,
+                 *args, **kwargs):
         """
 
         :param basename:
         :param tasks:
         :param shared_directory: can set to True or a path. If set, tasks will use that directory to store results. It
         will also be available from the container as environment variable `shared_directory`
-        :param shared_volume_size: size of the shared volume in MB (is shared_directory is not set, it is ignored)
+        :param shared_volume_size: size of the shared volume in MB (if shared_directory is not set, it is ignored)
+        :param pod_context: PodExecutionContext - represents affinity with other pods in the system
         """
-        AsyncOperation.__init__(self, basename, *args, **kwargs)
+        AsyncOperation.__init__(self, basename, pod_context, *args, **kwargs)
         self.tasks = tasks
 
         if shared_directory:
@@ -266,6 +308,7 @@ class CompositeOperation(AsyncOperation):
 
     def modify_template(self, template):
         # TODO verify the following condition. Can we mount volumes also with source based templates
+        super().modify_template(template)
         if self.volumes and 'container' in template:
             template['container']['volumeMounts'] += [self.volume_template(volume) for volume in self.volumes]
         return template
@@ -321,8 +364,8 @@ class PipelineOperation(CompositeOperation):
 class DistributedSyncOperationWithResults(PipelineOperation, ExecuteAndWaitOperation, SyncOperation):
     """Synchronously returns the result from the workflow. Uses a shared volume and a queue"""
 
-    def __init__(self, name, task: Task):
-        PipelineOperation.__init__(self, name, [task, SendResultTask()], shared_directory="/mnt/shared")
+    def __init__(self, name, task: Task, *args, **kwargs):
+        PipelineOperation.__init__(self, name, [task, SendResultTask()], shared_directory="/mnt/shared", *args, **kwargs)
         self.client = None
 
     def submit(self):
@@ -356,10 +399,10 @@ class ParallelOperation(CompositeOperation):
 class SimpleDagOperation(CompositeOperation):
     """Simple DAG definition limited to a pipeline of parallel operations"""
 
-    def __init__(self, basename, *task_groups, shared_directory=None):
+    def __init__(self, basename, *task_groups, shared_directory=None, pod_context: PodExecutionContext=None):
         task_groups = tuple(
             task_group if isinstance(task_group, Iterable) else (task_group,) for task_group in task_groups)
-        super().__init__(basename, tasks=task_groups, shared_directory=shared_directory)
+        super().__init__(basename, pod_context=pod_context, tasks=task_groups, shared_directory=shared_directory)
 
     def steps_spec(self):
         return [[task.instance() for task in task_group] for task_group in self.tasks]
