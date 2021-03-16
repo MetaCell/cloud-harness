@@ -9,10 +9,13 @@ set_test_environment()
 from cloudharness.workflows import operations, tasks
 from cloudharness import set_debug
 from cloudharness.workflows import argo
+from cloudharness.utils.config import CloudharnessConfig
 
 set_debug()
 
 execute = False
+
+assert 'registry' in CloudharnessConfig.get_configuration()
 
 
 def test_sync_workflow():
@@ -22,9 +25,10 @@ def test_sync_workflow():
         print('whatever')
 
     task = tasks.PythonTask('my-task', f)
-
+    assert 'registry' in CloudharnessConfig.get_configuration()
     op = operations.DistributedSyncOperation('test-sync-op-', task)
     print('\n', yaml.dump(op.to_workflow()))
+
     if execute:
         print(op.execute())
 
@@ -146,3 +150,35 @@ def test_get_workflow_logs():
     wf = argo.submit_workflow(manifest)
     logs = argo.get_workflow_logs(wf.name)
     assert all(log for log in logs)
+
+
+def test_workflow_with_context():
+    def f():
+        import time
+        time.sleep(2)
+        print('whatever')
+
+    op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f), tasks.PythonTask('p2', f)),
+                                      pod_context=operations.PodExecutionContext('a', 'b'))
+    workflow = op.to_workflow()
+    assert 'affinity' in workflow['spec']
+    affinity_expr = workflow['spec']['affinity']['podAffinity']['preferredDuringSchedulingIgnoredDuringExecution'][0][
+        'podAffinityTerm']['labelSelector']['matchExpressions'][0]
+    assert affinity_expr['key'] == 'a'
+    assert affinity_expr['values'][0] == 'b'
+
+    for task in workflow['spec']['templates']:
+        assert task['metadata']['labels']['a'] == 'b'
+
+    op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f), tasks.PythonTask('p2', f)),
+                                      pod_context=operations.PodExecutionContext('a', 'b', required=True))
+    workflow = op.to_workflow()
+    affinity_expr = \
+        workflow['spec']['affinity']['podAffinity']['requiredDuringSchedulingIgnoredDuringExecution'][0][
+            'labelSelector'][
+            'matchExpressions'][0]
+    assert affinity_expr['key'] == 'a'
+    assert affinity_expr['values'][0] == 'b'
+
+    for task in workflow['spec']['templates']:
+        assert task['metadata']['labels']['a'] == 'b'

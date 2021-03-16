@@ -54,13 +54,14 @@ def test_application_conf():
 
 def test_get_configuration():
     from cloudharness.utils.config import CloudharnessConfig
-    CloudharnessConfig.allvalues = {
+
+    CloudharnessConfig.get_configuration().update({
         'apps': {
             'a': conf_1,
             'b': conf_2
         }
-
     }
+    )
     uut = get_configuration('app1')
     assert uut.name == 'app1'
     assert not uut.is_auto_service()

@@ -12,7 +12,7 @@ try:
     from cloudharness.utils.config import CloudharnessConfig as conf, ALLVALUES_PATH
     from cloudharness.applications import get_configuration
     accounts_app = get_configuration('accounts')
-    AUTH_REALM = env.get_auth_realm()
+    AUTH_REALM = conf.get_namespace()
     SERVER_URL = accounts_app.get_service_address() + '/auth/'
     if not os.environ.get('KUBERNETES_SERVICE_HOST', None):
         # running outside kubernetes
@@ -20,7 +20,8 @@ try:
     USER = accounts_app.admin['user']
     PASSWD = accounts_app.admin['pass']
 except:
-    log.error("Error on cloudharness configuration. Check that the values file %s your deployment.", ALLVALUES_PATH, exc_info=True)
+    log.error("Error on cloudharness configuration. Check that the values file %s your deployment.",
+              ALLVALUES_PATH, exc_info=True)
 
 
 def with_refreshtoken(func):
@@ -31,6 +32,7 @@ def with_refreshtoken(func):
             self.refresh_token()
             return func(self, *args, **kwargs)
     return wrapper
+
 
 def decode_token(token):
     """
@@ -51,7 +53,7 @@ def decode_token(token):
 
 
 class AuthClient():
-    __public_key=None
+    __public_key = None
 
     @staticmethod
     def _get_keycloak_user_id():
@@ -59,9 +61,10 @@ class AuthClient():
         current_app.logger.debug(f'Bearer: {bearer}')
         if not bearer or bearer == 'Bearer undefined':
             if current_app.config['ENV'] == 'development':
-                # when development and not using KeyCloak (no current user), 
+                # when development and not using KeyCloak (no current user),
                 # get id from X-Current-User-Id header
-                keycloak_user_id = request.headers.get("X-Current-User-Id", "-1")
+                keycloak_user_id = request.headers.get(
+                    "X-Current-User-Id", "-1")
             else:
                 keycloak_user_id = "-1"  # No authorization --> no user
         else:
@@ -98,7 +101,7 @@ class AuthClient():
 
     def refresh_token(self):
         try:
-            self._admin_client.refresh_token() 
+            self._admin_client.refresh_token()
         except Exception as e:
             # reset the internal admin client to create a new one
             self._admin_client = None
@@ -107,10 +110,13 @@ class AuthClient():
     @classmethod
     def get_public_key(cls):
         if not cls.__public_key:
-            AUTH_PUBLIC_KEY_URL = os.path.join(SERVER_URL, "realms", AUTH_REALM)
+            AUTH_PUBLIC_KEY_URL = os.path.join(
+                SERVER_URL, "realms", AUTH_REALM)
 
-            KEY = json.loads(requests.get(AUTH_PUBLIC_KEY_URL, verify=False).text)['public_key']
-            cls.__public_key = b"-----BEGIN PUBLIC KEY-----\n" + str.encode(KEY) + b"\n-----END PUBLIC KEY-----"
+            KEY = json.loads(requests.get(AUTH_PUBLIC_KEY_URL,
+                                          verify=False).text)['public_key']
+            cls.__public_key = b"-----BEGIN PUBLIC KEY-----\n" + \
+                str.encode(KEY) + b"\n-----END PUBLIC KEY-----"
         return cls.__public_key
 
     @classmethod
@@ -126,8 +132,8 @@ class AuthClient():
         :rtype: dict | None
         """
 
-
-        decoded = jwt.decode(token, cls.get_public_key(), algorithms='RS256', audience='account')
+        decoded = jwt.decode(token, cls.get_public_key(),
+                             algorithms='RS256', audience='account')
         return decoded
 
     @with_refreshtoken
@@ -147,15 +153,15 @@ class AuthClient():
         return client
 
     @with_refreshtoken
-    def create_client(self, 
-                      client_name, 
+    def create_client(self,
+                      client_name,
                       protocol="openid-connect",
                       enabled=True,
                       public=True,
                       standard_flow_enabled=True,
                       direct_access_grants_enable=True,
                       redirect_uris=["*"],
-                      web_origins=["*","+"]):
+                      web_origins=["*", "+"]):
         """
         Creates a new KC client
 
@@ -170,7 +176,7 @@ class AuthClient():
         :return: True on success or exception
         """
         admin_client = self.get_admin_client()
-        x= admin_client.create_client({
+        x = admin_client.create_client({
             'id': client_name,
             'name': client_name,
             'protocol': protocol,
@@ -218,8 +224,10 @@ class AuthClient():
         if with_members:
             members = admin_client.get_group_members(group_id)
             for user in members:
-                user.update({'userGroups': admin_client.get_user_groups(user['id'])})
-                user.update({'realmRoles': admin_client.get_realm_roles_of_user(user['id'])})
+                user.update(
+                    {'userGroups': admin_client.get_user_groups(user['id'])})
+                user.update(
+                    {'realmRoles': admin_client.get_realm_roles_of_user(user['id'])})
             group.update({'members': members})
         return group
 
@@ -257,8 +265,10 @@ class AuthClient():
         admin_client = self.get_admin_client()
         users = []
         for user in admin_client.get_users(query=query):
-            user.update({'userGroups': admin_client.get_user_groups(user['id'])})
-            user.update({'realmRoles': admin_client.get_realm_roles_of_user(user['id'])})
+            user.update(
+                {'userGroups': admin_client.get_user_groups(user['id'])})
+            user.update(
+                {'realmRoles': admin_client.get_realm_roles_of_user(user['id'])})
             users.append(user)
         return users
 
@@ -280,7 +290,8 @@ class AuthClient():
         admin_client = self.get_admin_client()
         user = admin_client.get_user(user_id)
         user.update({'userGroups': admin_client.get_user_groups(user_id)})
-        user.update({'realmRoles': admin_client.get_realm_roles_of_user(user_id)})
+        user.update(
+            {'realmRoles': admin_client.get_realm_roles_of_user(user_id)})
         return user
 
     @with_refreshtoken
@@ -357,7 +368,8 @@ class AuthClient():
         :param role: Name of the role
         :return: (array RoleRepresentation)
         """
-        roles = [user_client_role for user_client_role in self.get_user_client_roles(user_id, client_name) if user_client_role['name'] == role]
+        roles = [user_client_role for user_client_role in self.get_user_client_roles(
+            user_id, client_name) if user_client_role['name'] == role]
         return roles != []
 
     def user_has_realm_role(self, user_id, role):
@@ -368,7 +380,8 @@ class AuthClient():
         :param role: Name of the role
         :return: (array RoleRepresentation)
         """
-        roles = [user_realm_role for user_realm_role in self.get_user_realm_roles(user_id) if user_realm_role['name'] == role]
+        roles = [user_realm_role for user_realm_role in self.get_user_realm_roles(
+            user_id) if user_realm_role['name'] == role]
         return roles != []
 
     def current_user_has_client_role(self, client_name, role):

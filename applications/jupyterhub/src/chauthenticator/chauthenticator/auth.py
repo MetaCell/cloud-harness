@@ -5,7 +5,7 @@ from jupyterhub.handlers import BaseHandler
 from tornado import gen
 from traitlets import Bool
 from jupyterhub.utils import url_path_join
-from .utils import get_keycloak_data
+from cloudharness.auth import AuthClient
 
 class CloudHarnessAuthenticateHandler(BaseHandler):
     """
@@ -34,8 +34,8 @@ class CloudHarnessAuthenticateHandler(BaseHandler):
                 self.redirect('/hub/logout')
 
             accessToken = accessToken.value
-            keycloak_id, keycloak_data = get_keycloak_data(accessToken)
-            username = keycloak_id
+            user_data = AuthClient.decode_token(accessToken)
+            username = user_data['sub']
             raw_user = self.user_from_username(username)
             self.set_login_cookie(raw_user)
         user = yield gen.maybe_future(self.process_user(raw_user, self))

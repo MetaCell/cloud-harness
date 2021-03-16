@@ -19,7 +19,7 @@ REQUIREMENTS = [
     'cryptography',
     'requests>=2.21.0',
     'sentry-sdk[flask]>=0.14.4',
-    'python-keycloak==0.23.0',
+    'python-keycloak',
     'argo-workflows'
 ]
 
@@ -35,6 +35,7 @@ setup(
     install_requires=REQUIREMENTS,
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,
+    package_data={'': ['*.yaml']},
     long_description="""\
     Cloudharness common library
     """
