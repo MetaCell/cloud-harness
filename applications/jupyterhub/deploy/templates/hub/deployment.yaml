@@ -30,15 +30,18 @@ spec:
         {{- .Values.apps.jupyterhub.hub.annotations | toYaml | trimSuffix "\n" | nindent 8 }}
         {{- end }}
     spec:
+      {{- if .Values.local }}
+      {{ $domain := .Values.domain }}
       hostAliases:
         - ip: {{ .Values.localIp }}
           hostnames:
           {{ printf "- %s" .Values.domain }}
           {{- range $app := .Values.apps }}
           {{- if $app.harness.subdomain }}
-          {{ printf "- %s.%s" $app.harness.subdomain "mnp.local" }}
+          {{ printf "- %s.%s" $app.harness.subdomain $domain }}
           {{- end }}
           {{- end }}
+      {{- end }}
       {{- if .Values.apps.jupyterhub.scheduling.podPriority.enabled }}
       priorityClassName: {{ .Release.Name }}-default-priority
       {{- end }}
