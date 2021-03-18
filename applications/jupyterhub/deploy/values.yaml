@@ -61,7 +61,7 @@ hub:
       c.Spawner.start_timeout = 300
       c.JupyterHub.tornado_settings = { "headers": { }}
     spawner: >-
-      c.Spawner.args = ["--debug", "--port=8000"]
+      c.Spawner.args = ["--debug"]
   extraConfigMap: {}
   extraEnv: {}
   extraContainers: []
@@ -146,7 +146,7 @@ proxy:
           - ipBlock:
               cidr: 0.0.0.0/0
 auth:
-  type: tmp
+  type: keycloak
   whitelist:
     users: null
   admin:
@@ -215,11 +215,11 @@ singleuser:
     enabled: false
   startTimeout: 300
   cpu:
-    limit: 400m
-    guarantee: 50m
+    limit: 0.4
+    guarantee: 0.05
   memory:
-    limit: 0.5G
-    guarantee: 0.1G
+    limit: 0.5
+    guarantee: 0.1
   extraResource:
     limits: {}
     guarantees: {}

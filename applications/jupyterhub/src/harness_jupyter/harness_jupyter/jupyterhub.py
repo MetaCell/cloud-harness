@@ -3,7 +3,9 @@ import sys
 import imp
 
 from kubespawner.spawner import KubeSpawner
-
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.DEBUG)
+logging.getLogger().addHandler(handler)
 def harness_hub():
     """Wraps the method to change spawner configuration"""
     KubeSpawner.get_pod_manifest_base = KubeSpawner.get_pod_manifest
@@ -16,8 +18,9 @@ def spawner_pod_manifest(self: KubeSpawner):
     return KubeSpawner.get_pod_manifest_base(self)
 
 def change_pod_manifest(self: KubeSpawner):
-    subdomain = self.handler.request.host.split('.')[0]
+
     try:
+        subdomain = self.handler.request.host.split('.')[0]
         app_config = self.config['apps']
         registry = self.config['registry']
         for app in app_config.values():
