@@ -34,21 +34,23 @@ class Task(argo.ArgoObject):
 
 class ContainerizedTask(Task):
 
-    def __init__(self, name, resources={}, image_pull_policy='IfNotPresent', **env_args):
+    def __init__(self, name, resources={}, image_pull_policy='IfNotPresent', command=None, **env_args):
         super().__init__(name)
 
         self.__envs = get_cloudharness_variables()
         self.resources = resources
         self.image_pull_policy = image_pull_policy
-
+        self.command = command
         for k in env_args:
             self.__envs[k] = str(env_args[k])
 
     @property
     def envs(self):
-        envs = [dict(name=key, value=value) for key, value in self.__envs.items()]
+        envs = [dict(name=key, value=value)
+                for key, value in self.__envs.items()]
         # Add the name of the workflow to task env
-        envs.append({'name': WORKFLOW_NAME_VARIABLE_NAME, 'valueFrom': {'fieldRef': {'fieldPath': 'metadata.name'}}})
+        envs.append({'name': WORKFLOW_NAME_VARIABLE_NAME, 'valueFrom': {
+                    'fieldRef': {'fieldPath': 'metadata.name'}}})
         return envs
 
     def add_env(self, name, value):
@@ -73,6 +75,8 @@ class ContainerizedTask(Task):
             'outputs': {}
 
         }
+        if self.command is not None:
+            spec['container']['command'] = self.command
         return spec
 
 
@@ -104,25 +108,56 @@ class InlinedTask(Task):
 class PythonTask(InlinedTask):
     def __init__(self, name, func):
         import inspect
-        super().__init__(name, (inspect.getsource(func) + f"\n{func.__name__}()").strip())
+        super().__init__(name, (inspect.getsource(
+            func) + f"\n{func.__name__}()").strip())
 
     @property
     def image_name(self):
-        return 'python:3'
+        return get_image_full_tag('cloudharness-base')
 
     @property
     def command(self):
         return 'python'
 
 
+class BashTask(InlinedTask):
+    def __init__(self, name, func):
+        import inspect
+        super().__init__(name, (inspect.getsource(
+            func) + f"\n{func.__name__}()").strip())
+
+    @property
+    def image_name(self):
+        return get_image_full_tag('cloudharness-base')
+
+    @property
+    def command(self):
+        return 'bash'
+
+
 class CustomTask(ContainerizedTask):
-    def __init__(self, name, image_name, resources={}, image_pull_policy='IfNotPresent', **env_args):
-        super().__init__(name, resources, image_pull_policy, **env_args)
+    def __init__(self, name, image_name, resources={}, image_pull_policy='IfNotPresent', command=None, **env_args):
+        super().__init__(name, resources=resources,
+                         image_pull_policy=image_pull_policy, command=command, **env_args)
         self.__image_name = get_image_full_tag(image_name)
 
     @property
     def image_name(self):
         return self.__image_name
+
+
+class CommandBasedTask(ContainerizedTask):
+    """
+    Shortcut task to run a command in a cloudharness-base image
+    """
+
+    def __init__(self, name, command, resources={}, image_pull_policy='IfNotPresent', **env_args):
+        super().__init__(name, resources=resources,
+                         image_pull_policy=image_pull_policy, command=command, **env_args)
+
+    @property
+    def image_name(self):
+        return get_image_full_tag('cloudharness-base')
 
 
 class SendResultTask(CustomTask):
