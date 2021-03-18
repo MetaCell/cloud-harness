@@ -282,7 +282,7 @@ common_oauth_traits = (
         ('client_secret', None),
         ('oauth_callback_url', 'callbackUrl'),
 )
-
+print("Auth type", auth_type)
 if auth_type == 'google':
     c.JupyterHub.authenticator_class = 'oauthenticator.GoogleOAuthenticator'
     for trait, cfg_key in common_oauth_traits + (
@@ -383,6 +383,20 @@ elif auth_type == 'custom':
     auth_class_name = full_class_name.rsplit('.', 1)[-1]
     auth_config = c[auth_class_name]
     auth_config.update(get_config('auth.custom.config') or {})
+elif auth_type == 'keycloak':
+    from oauthenticator.generic import GenericOAuthenticator
+
+    c.JupyterHub.authenticator_class = GenericOAuthenticator
+    c.OAuthenticator.oauth_callback_url = "http://minianhub.mnp.local/hub/oauth_callback"
+    c.OAuthenticator.client_id = "web-client"
+    c.OAuthenticator.client_secret = "452952ae-922c-4766-b912-7b106271e34b"
+
+    c.GenericOAuthenticator.login_service = "keycloak"
+    c.GenericOAuthenticator.username_key = "email"
+    c.GenericOAuthenticator.authorize_url = "http://accounts.mnp.local/auth/realms/mnp/protocol/openid-connect/auth"
+    c.GenericOAuthenticator.token_url = "http://accounts.mnp.local/auth/realms/mnp/protocol/openid-connect/token"
+    c.GenericOAuthenticator.userdata_url = "http://accounts.mnp.local/auth/realms/mnp/protocol/openid-connect/userinfo"
+    c.GenericOAuthenticator.userdata_params = {'state': 'state'}
 else:
     raise ValueError("Unhandled auth type: %r" % auth_type)
 

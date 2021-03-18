@@ -61,7 +61,7 @@ hub:
       c.Spawner.start_timeout = 300
       c.JupyterHub.tornado_settings = { "headers": { }}
     spawner: >-
-      c.Spawner.args = ["--debug", "--port=8000"]
+      c.Spawner.args = ["--debug"]
   extraConfigMap: {}
   extraEnv: {}
   extraContainers: []
@@ -146,7 +146,7 @@ proxy:
           - ipBlock:
               cidr: 0.0.0.0/0
 auth:
-  type: tmp
+  type: keycloak
   whitelist:
     users: null
   admin:
