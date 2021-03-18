@@ -64,7 +64,7 @@ class AuthClient():
                 # when development and not using KeyCloak (no current user),
                 # get id from X-Current-User-Id header
                 keycloak_user_id = request.headers.get(
-                    "X-Current-User-Id", "-1")
+                    "X-Current-User-Id", os.environ.get("CH_CURRENT_USER_ID", -1))
             else:
                 keycloak_user_id = "-1"  # No authorization --> no user
         else:
