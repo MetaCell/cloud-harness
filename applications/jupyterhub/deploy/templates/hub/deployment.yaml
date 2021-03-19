@@ -31,6 +31,7 @@ spec:
         {{- end }}
     spec:
       {{- if .Values.local }}
+      {{ $domain := .Values.domain }}
       hostAliases:
         - ip: {{ .Values.localIp }}
           hostnames:
