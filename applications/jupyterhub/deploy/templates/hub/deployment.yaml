@@ -31,14 +31,13 @@ spec:
         {{- end }}
     spec:
       {{- if .Values.local }}
-      {{ $domain := .Values.domain }}
       hostAliases:
         - ip: {{ .Values.localIp }}
           hostnames:
           {{ printf "- %s" .Values.domain }}
           {{- range $app := .Values.apps }}
           {{- if $app.harness.subdomain }}
-          {{ printf "- %s.%s" $app.harness.subdomain $domain }}
+          {{ printf "- %s.%s" $app.harness.subdomain "mnp.local" }}
           {{- end }}
           {{- end }}
       {{- end }}
