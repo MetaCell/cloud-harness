@@ -37,7 +37,7 @@ spec:
           {{ printf "- %s" .Values.domain }}
           {{- range $app := .Values.apps }}
           {{- if $app.harness.subdomain }}
-          {{ printf "- %s.%s" $app.harness.subdomain "mnp.local" }}
+          {{ printf "- %s.%s" $app.harness.subdomain $domain }}
           {{- end }}
           {{- end }}
       {{- end }}
