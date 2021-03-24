@@ -1,5 +1,4 @@
 kafka:
-  storage: 10Gi
   resources:
     limits:
       cpu: 500m
