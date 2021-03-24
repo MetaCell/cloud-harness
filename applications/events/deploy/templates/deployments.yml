@@ -58,12 +58,7 @@ spec:
           initialDelaySeconds: 30
           periodSeconds: 30
         resources:
-          limits:
-            cpu: 500m
-            memory: 600Mi
-          requests:
-            cpu: 50m
-            memory: 100Mi
+          {{- .Values.apps.events.kafka.resources | toYaml | nindent 10 }}
         volumeMounts:
         - mountPath: /etc/kafka
           name: config
@@ -116,7 +111,7 @@ spec:
       - ReadWriteOnce
       resources:
         requests:
-          storage: 10Gi
+          storage: {{ .Values.apps.events.kafka.storage }}
       storageClassName: standard
 ---
 apiVersion: apps/v1
@@ -181,11 +176,7 @@ spec:
           initialDelaySeconds: 12
           periodSeconds: 60
         resources:
-          limits:
-            memory: 500Mi
-          requests:
-            cpu: 10m
-            memory: 100Mi
+          {{- .Values.apps.events.pzoo.resources | toYaml | nindent 10 }}
         volumeMounts:
         - mountPath: /etc/kafka
           name: config
@@ -226,7 +217,7 @@ spec:
       - ReadWriteOnce
       resources:
         requests:
-          storage: 1Gi
+          storage: {{ .Values.apps.events.pzoo.storage }}
       storageClassName: standard
 ---
 apiVersion: apps/v1
@@ -290,12 +281,9 @@ spec:
           timeoutSeconds: 3
           initialDelaySeconds: 12
           periodSeconds: 60
+
         resources:
-          limits:
-            memory: 500Mi
-          requests:
-            cpu: 10m
-            memory: 100Mi
+          {{- .Values.apps.events.zoo.resources | toYaml | nindent 10 }}
         volumeMounts:
         - mountPath: /etc/kafka
           name: config
@@ -338,5 +326,5 @@ spec:
       - ReadWriteOnce
       resources:
         requests:
-          storage: 1Gi
+          storage: {{ .Values.apps.events.zoo.storage }}
       storageClassName: standard
