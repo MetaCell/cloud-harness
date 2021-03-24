@@ -3,7 +3,7 @@
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: "db-backup"
+  name: "db-backups"
   namespace: {{ .Values.namespace }}
 spec:
   accessModes:
@@ -63,7 +63,7 @@ spec:
           - name: {{ .app.harness.database.name | quote }}
             mountPath: /data/db
           {{- if .root.Values.backup.active }}
-          - name: "db-backup"
+          - name: "db-backups"
             mountPath: /backup
             readOnly: true
           {{- end }}
@@ -72,9 +72,9 @@ spec:
         persistentVolumeClaim:
           claimName: {{ .app.harness.database.name | quote }}
       {{- if .root.Values.backup.active }}
-      - name: "db-backup"
+      - name: "db-backups"
         persistentVolumeClaim:
-          claimName: "db-backup"
+          claimName: "db-backups"
       {{- end }}
 ---
 {{- if .root.Values.backup.active }}
