@@ -40,7 +40,14 @@ def init_webapp_routes(app: flask.Flask, www_path):
     def send_webapp(path):
         return flask.send_from_directory(www_path, path)
 
-
+    @app.errorhandler(404)
+    def page_not_found(error):
+        # when a 404 is thrown send the "main" index page
+        # unless the first segment of the path is in the exception list
+        first_segment_path = flask.request.full_path.split('/')[1]
+        if first_segment_path in ['api','static','test']:  # exception list
+            return error
+        return index()
 
     @app.route('/static/<path:path>', methods=['GET'])
     def send_static(path):
