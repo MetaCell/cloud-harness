@@ -20,7 +20,7 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
     release_config['namespace'] = helm_values['namespace']
 
     def remove_tag(image_name):
-        return image_name[0:-len(helm_values['tag'])-1]
+        return image_name[0:-len(str(helm_values['tag']))-1]
 
     def get_image_tag(name):
         return f"{get_image_name(name, base_image_name)}"
@@ -86,6 +86,7 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
                     if parent_app_key in apps:
                         artifacts[app_key] = build_artifact(get_image_tag(app_name), app_relative_to_skaffold,
                                                             base_images + static_images)
+                    continue
 
                 continue
 
@@ -119,6 +120,7 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
 
         skaffold_conf['build']['artifacts'] = [v for v in artifacts.values()]
         merge_to_yaml_file(skaffold_conf, os.path.join(output_path, 'skaffold.yaml'))
+    return skaffold_conf
 
 
 def create_vscode_debug_configuration(root_paths, helm_values):
