@@ -10,8 +10,8 @@ import tarfile
 from docker import from_env as DockerClient
 from .constants import VALUES_MANUAL_PATH, VALUE_TEMPLATE_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, HERE, \
     DEPLOYMENT_CONFIGURATION_PATH
-from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, app_name_from_path, \
-    get_template, merge_configuration_directories, merge_to_yaml_file, dict_merge
+from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, image_name_from_dockerfile_path, \
+    get_template, merge_configuration_directories, merge_to_yaml_file, dict_merge, app_name_from_dockerfile_path
 
 KEY_HARNESS = 'harness'
 KEY_SERVICE = 'service'
@@ -38,6 +38,8 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
 
     assert domain, 'A domain must be specified'
     dest_deployment_path = os.path.join(output_path, HELM_CHART_PATH)
+    helm_chart_path = os.path.join(dest_deployment_path, 'Chart.yaml')
+
     if registry and registry[-1] != '/':
         registry = registry + '/'
     if os.path.exists(dest_deployment_path):
@@ -48,6 +50,8 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
     helm_values = dict_merge(helm_values,
                              collect_helm_values(HERE, tag=tag, registry=registry, exclude=exclude, env=env))
 
+
+
     # Override for every cloudharness scaffolding
     for root_path in root_paths:
         copy_merge_base_deployment(dest_helm_chart_path=dest_deployment_path,
@@ -56,7 +60,10 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
                                     dest_helm_chart_path=dest_deployment_path)
         helm_values = dict_merge(helm_values,
                                  collect_helm_values(root_path, tag=tag, registry=registry, exclude=exclude, env=env))
-
+    if 'name' not in helm_values:
+        with open(helm_chart_path) as f:
+            chart_idx_content = yaml.safe_load(f)
+        helm_values['name'] = chart_idx_content['name']
     # Override for every cloudharness scaffolding
     helm_values[KEY_APPS] = {}
 
@@ -84,7 +91,8 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
     # Save values file for manual helm chart
     merged_values = merge_to_yaml_file(helm_values, os.path.join(dest_deployment_path, VALUES_MANUAL_PATH))
     if namespace:
-        merge_to_yaml_file({'metadata': {'namespace': namespace}}, os.path.join(dest_deployment_path, 'Chart.yaml'))
+
+        merge_to_yaml_file({'metadata': {'namespace': namespace}, 'name': helm_values['name']}, helm_chart_path)
     return merged_values
 
 
@@ -119,7 +127,7 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, exclude=(), i
     app_base_path = os.path.join(search_root, APPS_PATH)
 
     for app_path in get_sub_paths(app_base_path):
-        app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
+        app_name = app_name_from_dockerfile_path(os.path.relpath(app_path, app_base_path))
         if app_name in exclude or (include and not any(inc in app_name for inc in include)):
             continue
         template_dir = os.path.join(app_path, 'deploy/templates')
@@ -190,7 +198,7 @@ def init_app_values(deployment_root, exclude, values={}):
 
     for app_path in get_sub_paths(app_base_path):
 
-        app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
+        app_name = app_name_from_dockerfile_path(os.path.relpath(app_path, app_base_path))
 
         if app_name in exclude:
             continue
@@ -209,7 +217,7 @@ def collect_app_values(deployment_root, exclude=(), tag='latest', registry='', e
 
     values = {}
     for app_path in get_sub_paths(app_base_path):
-        app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
+        app_name = app_name_from_dockerfile_path(os.path.relpath(app_path, app_base_path))
 
         if app_name in exclude:
             continue
@@ -279,7 +287,7 @@ def finish_helm_values(values, namespace, tag='latest', registry='', local=True,
         if not harness[KEY_DATABASE].get('name', None):
             harness[KEY_DATABASE]['name'] = app_name.strip() + '-db'
         if not harness[KEY_DEPLOYMENT].get('image', None):
-            harness[KEY_DEPLOYMENT]['image'] = registry + get_image_name(app_name) + f':{tag}' if tag else ''
+            harness[KEY_DEPLOYMENT]['image'] = registry + get_image_name(app_name, values['name']) + f':{tag}' if tag else ''
         values_set_legacy(v)
 
     if include:

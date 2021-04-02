@@ -5,14 +5,14 @@ import tempfile
 
 from docker import from_env as DockerClient
 
-from .utils import find_dockerfiles_paths, app_name_from_path, merge_configuration_directories
+from .utils import find_dockerfiles_paths, image_name_from_dockerfile_path, merge_configuration_directories
 from .constants import NODE_BUILD_IMAGE, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH, EXCLUDE_PATHS
 
 
 class Builder:
 
     def __init__(self, root_paths, include, tag, namespace, domain, registry='', interactive=False,
-                 exclude=tuple()):
+                 exclude=tuple(), base_image_name=None):
         self.included = include or []
         self.tag = tag
         self.root_paths = root_paths
@@ -21,6 +21,7 @@ class Builder:
         self.exclude = exclude
         self.namespace = namespace
         self.domain = domain
+        self.base_name = base_image_name
 
         if include:
             logging.info('Building the following subpaths: %s.', ', '.join(include))
@@ -76,20 +77,10 @@ class Builder:
         for dockerfile_path in docker_files:
             dockerfile_rel_path = "" if not context_path else os.path.relpath(dockerfile_path, start=context_path)
             # extract image name
-            image_name = app_name_from_path(os.path.relpath(dockerfile_path, start=abs_base_path))
+            image_name = image_name_from_dockerfile_path(os.path.relpath(dockerfile_path, start=abs_base_path), base_name=self.base_name)
 
             self.build_image(image_name, dockerfile_rel_path,
                              context_path=context_path if context_path else dockerfile_path)
-
-    def build_under_path(self, dpath):
-        """ Uses docker sdk to build a docker images from path information """
-        image_name = dpath['name']
-        dockerfile_rel_path = dpath['rel_path']
-        context_path = dpath['context_path']
-        dockerfile_path = dpath['abs_path']
-
-        self.build_image(image_name, dockerfile_rel_path,
-                         context_path=context_path if context_path else dockerfile_path)
 
     def build_image(self, image_name, dockerfile_rel_path, context_path=None):
 

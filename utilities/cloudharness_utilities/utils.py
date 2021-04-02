@@ -16,9 +16,12 @@ REPLACE_TEXT_FILES_EXTENSIONS = (
 )
 
 
-def app_name_from_path(dockerfile_path):
-    return get_image_name("-".join(p for p in dockerfile_path.split("/") if p not in NEUTRAL_PATHS))
+def image_name_from_dockerfile_path(dockerfile_path, base_name):
+    return get_image_name(app_name_from_dockerfile_path(dockerfile_path), base_name)
 
+
+def app_name_from_dockerfile_path(dockerfile_path):
+    return "-".join(p for p in dockerfile_path.split("/") if p not in NEUTRAL_PATHS)
 
 def get_sub_paths(base_path):
     return tuple(path for path in glob.glob(base_path + "/*") if os.path.isdir(path))
@@ -38,7 +41,7 @@ def get_parent_app_name(app_relative_path):
 
 
 def get_image_name(app_name, base_name=None):
-    return base_name + '/' + app_name if base_name else app_name
+    return (base_name + '/' + app_name) if base_name else app_name
 
 
 def env_variable(name, value):

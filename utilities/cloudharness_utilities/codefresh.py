@@ -8,8 +8,8 @@ from .constants import HERE, CF_BUILD_STEP_BASE, CF_BUILD_STEP_STATIC, CF_BUILD_
     CODEFRESH_PATH, CF_BUILD_PATH, CF_TEMPLATE_PUBLISH_PATH, DEPLOYMENT_CONFIGURATION_PATH, \
     CF_TEMPLATE_PATH, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH, DEPLOYMENT_PATH, EXCLUDE_PATHS
 from .helm import collect_helm_values
-from .utils import find_dockerfiles_paths, app_name_from_path, \
-    get_image_name, get_template, merge_to_yaml_file, dict_merge
+from .utils import find_dockerfiles_paths, image_name_from_dockerfile_path, \
+    get_image_name, get_template, merge_to_yaml_file, dict_merge, app_name_from_dockerfile_path
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -29,7 +29,7 @@ yaml.add_representer(str, literal_presenter)
 
 
 def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH, include=(), exclude=(),
-                                        template_name=CF_TEMPLATE_PATH):
+                                        template_name=CF_TEMPLATE_PATH, base_image_name=None):
     """
     Entry point to create deployment scripts for codefresh: codefresh.yaml and helm chart
     """
@@ -76,7 +76,7 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
             for dockerfile_path in find_dockerfiles_paths(abs_base_path):
                 app_relative_to_root = os.path.relpath(dockerfile_path, '.')
                 app_relative_to_base = os.path.relpath(dockerfile_path, abs_base_path)
-                app_name = app_name_from_path(app_relative_to_base)
+                app_name = app_name_from_dockerfile_path(app_relative_to_base)
                 if include and not any(
                         f"/{inc}/" in dockerfile_path or dockerfile_path.endswith(f"/{inc}") for inc in include):
                     continue
@@ -89,11 +89,16 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
                         app_context_path=os.path.relpath(fixed_context, '.') if fixed_context else app_relative_to_root,
                         dockerfile_path=os.path.join(
                             os.path.relpath(dockerfile_path, fixed_context) if fixed_context else '',
-                            "Dockerfile"))
+                            "Dockerfile"),
+                        base_name=base_image_name
+                    )
                     codefresh['steps'][build_step]['steps'][app_name] = build
                 if CF_STEP_PUBLISH in codefresh['steps']:
                     codefresh['steps'][CF_STEP_PUBLISH]['steps']['publish_' + app_name] = codefresh_app_publish_spec(
-                        app_name=app_name, build_tag=build and build['tag'])
+                        app_name=app_name,
+                        build_tag=build and build['tag'],
+                        base_name=base_image_name
+                    )
 
         codefresh_build_step_from_base_path(os.path.join(root_path, BASE_IMAGES_PATH), CF_BUILD_STEP_BASE,
                                             fixed_context=root_path, include=None)
@@ -126,12 +131,12 @@ def codefresh_template_spec(template_path, **kwargs):
     return build
 
 
-def codefresh_app_publish_spec(app_name, build_tag):
+def codefresh_app_publish_spec(app_name, build_tag, base_name=None):
     title = app_name.capitalize().replace('-', ' ').replace('/', ' ').replace('.', ' ').strip()
 
     step_spec = codefresh_template_spec(
         template_path=CF_TEMPLATE_PUBLISH_PATH,
-        candidate="${{REGISTRY}}/%s:%s" % (get_image_name(app_name), build_tag or '${{DEPLOYMENT_TAG}}'),
+        candidate="${{REGISTRY}}/%s:%s" % (get_image_name(app_name, base_name), build_tag or '${{DEPLOYMENT_TAG}}'),
         title=title,
     )
     if not build_tag:
@@ -144,12 +149,12 @@ def app_specific_tag_variable(app_name):
     return "${{ %s }}_${{DEPLOYMENT_PUBLISH_TAG}}" % app_name.replace('-', '_').upper()
 
 
-def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Dockerfile"):
+def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Dockerfile", base_name=None):
     logging.info('Generating build script for ' + app_name)
     title = app_name.capitalize().replace('-', ' ').replace('/', ' ').replace('.', ' ').strip()
     build = codefresh_template_spec(
         template_path=CF_BUILD_PATH,
-        image_name=get_image_name(app_name),
+        image_name=get_image_name(app_name, base_name),
         title=title,
         working_directory='./' + app_context_path,
         dockerfile=dockerfile_path)
