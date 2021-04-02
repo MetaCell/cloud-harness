@@ -16,7 +16,7 @@ REPLACE_TEXT_FILES_EXTENSIONS = (
 )
 
 
-def image_name_from_dockerfile_path(dockerfile_path, base_name):
+def image_name_from_dockerfile_path(dockerfile_path, base_name=None):
     return get_image_name(app_name_from_dockerfile_path(dockerfile_path), base_name)
 
 
