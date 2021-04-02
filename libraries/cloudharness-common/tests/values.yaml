@@ -1,19 +1,24 @@
 local: true
-secured_gatekeepers: false
+secured_gatekeepers: true
 nameOverride: ''
 fullnameOverride: ''
 domain: cloudharness.metacell.us
 namespace: ch
+mainapp: accounts
 registry:
-  name: localhost:5000/
+  name: ''
   secret: ''
 tag: latest
 apps:
   volumemanager:
     harness:
-      name: volumemanager
       subdomain: volumemanager
       domain: null
+      dependencies:
+        hard: []
+        soft: []
+        build:
+        - cloudharness-flask
       secured: false
       uri_role_mapping:
       - uri: /*
@@ -22,13 +27,13 @@ apps:
       deployment:
         auto: true
         replicas: 1
-        image: localhost:5000/volumemanager:latest
+        image: cloudharness/volumemanager:latest
         name: volumemanager
         port: 8080
         resources: &id001
           requests:
             memory: 32Mi
-            cpu: 25m
+            cpu: 10m
           limits:
             memory: 500Mi
             cpu: 500m
@@ -36,6 +41,7 @@ apps:
         auto: true
         name: volumemanager
         port: 8080
+      use_services: []
       database:
         auto: false
         name: volumemanager-db
@@ -72,57 +78,63 @@ apps:
         resources:
           requests:
             memory: 512Mi
-            cpu: 200m
+            cpu: 100m
           limits:
             memory: 2Gi
             cpu: 1000m
+      name: volumemanager
       sentry: true
-    image: localhost:5000/volumemanager:latest
+    image: cloudharness/volumemanager:latest
+    task-images: {}
     name: volumemanager
     port: 8080
     resources: *id001
   accounts:
     harness:
-      name: accounts
       subdomain: accounts
       domain: null
+      dependencies:
+        hard: []
+        soft: []
+        build: []
       secured: false
       uri_role_mapping:
       - uri: /*
         roles:
         - administrator
       deployment:
-        auto: false
+        auto: true
         replicas: 1
-        image: localhost:5000/accounts:latest
+        image: cloudharness/accounts:latest
         name: accounts
         port: 8080
         resources: &id002
           requests:
-            memory: 32Mi
-            cpu: 25m
+            memory: 512Mi
+            cpu: 10m
           limits:
-            memory: 500Mi
+            memory: 1024Mi
             cpu: 500m
       service:
         auto: true
         name: accounts
         port: 8080
+      use_services: []
       database:
-        auto: false
-        name: accounts-db
-        type: null
-        size: 1Gi
-        user: mnp
-        pass: metacell
+        auto: true
+        name: keycloak-postgres
+        type: postgres
+        size: 2Gi
+        user: user
+        pass: password
         mongo:
           image: mongo:latest
           ports:
           - name: http
             port: 27017
         postgres:
-          image: postgres:latest
-          initialdb: cloudharness
+          image: postgres:10.4
+          initialdb: auth_db
           ports:
           - name: http
             port: 5432
@@ -144,40 +156,71 @@ apps:
         resources:
           requests:
             memory: 512Mi
-            cpu: 200m
+            cpu: 100m
           limits:
             memory: 2Gi
             cpu: 1000m
+      env:
+      - name: KEYCLOAK_IMPORT
+        value: /tmp/realm.json
+      - name: KEYCLOAK_USER
+        value: admin
+      - name: KEYCLOAK_PASSWORD
+        value: metacell
+      - name: PROXY_ADDRESS_FORWARDING
+        value: 'true'
+      - name: DB_VENDOR
+        value: POSTGRES
+      - name: DB_ADDR
+        value: keycloak-postgres
+      - name: DB_DATABASE
+        value: auth_db
+      - name: DB_USER
+        value: user
+      - name: DB_PASSWORD
+        value: password
+      - name: JAVA_OPTS
+        value: -server -Xms64m -Xmx896m -XX:MetaspaceSize=96M -XX:MaxMetaspaceSize=256m
+          -Djava.net.preferIPv4Stack=true -Djboss.modules.system.pkgs=org.jboss.byteman
+          -Djava.awt.headless=true  --add-exports=java.base/sun.nio.ch=ALL-UNNAMED
+          --add-exports=jdk.unsupported/sun.misc=ALL-UNNAMED --add-exports=jdk.unsupported/sun.reflect=ALL-UNNAMED
+      resources:
+      - name: realm-config
+        src: realm.json
+        dst: /tmp/realm.json
+      readinessProbe:
+        path: /auth/realms/master
+      name: accounts
+    client:
+      id: rest-client
+      secret: 5678eb6e-9e2c-4ee5-bd54-34e7411339e8
+    webclient:
+      id: web-client
+      secret: 452952ae-922c-4766-b912-7b106271e34b
+    enabled: true
+    harvest: true
     admin:
       pass: metacell
       user: admin
       role: administrator
-    client:
-      id: rest-client
-      secret: 5678eb6e-9e2c-4ee5-bd54-34e7411339e8
-    db:
-      image: postgres:10.4
-      initialdb: auth_db
-      name: keycloak-postgress
-      pass: password
-      user: user
-    enabled: true
-    harvest: true
-    webclient:
-      id: web-client
-      secret: 452952ae-922c-4766-b912-7b106271e34b
+    image: cloudharness/accounts:latest
+    task-images: {}
     name: accounts
     port: 8080
-    subdomain: accounts
-    gatekeeper:
-      image: accounts-keycloak-gatekeeper
-    image: localhost:5000/accounts:latest
     resources: *id002
   samples:
     harness:
-      name: samples
       subdomain: samples
       domain: null
+      dependencies:
+        hard: []
+        soft:
+        - workflows
+        - events
+        - accounts
+        build:
+        - cloudharness-flask
+        - cloudharness-frontend-build
       secured: false
       uri_role_mapping:
       - uri: /*
@@ -186,13 +229,13 @@ apps:
       deployment:
         auto: true
         replicas: 1
-        image: localhost:5000/samples:latest
+        image: cloudharness/samples:latest
         name: samples
         port: 8080
         resources: &id003
           requests:
             memory: 32Mi
-            cpu: 25m
+            cpu: 10m
           limits:
             memory: 500Mi
             cpu: 500m
@@ -200,6 +243,7 @@ apps:
         auto: true
         name: samples
         port: 8080
+      use_services: []
       database:
         auto: false
         name: samples-db
@@ -236,7 +280,7 @@ apps:
         resources:
           requests:
             memory: 512Mi
-            cpu: 200m
+            cpu: 100m
           limits:
             memory: 2Gi
             cpu: 1000m
@@ -245,30 +289,43 @@ apps:
       env:
       - name: WORKERS
         value: '3'
-    image: localhost:5000/samples:latest
+      resources:
+      - name: my-config
+        src: myConfig.json
+        dst: /tmp/resources/myConfig.json
+      - name: example
+        src: example.yaml
+        dst: /usr/src/app/important_config.yaml
+      name: samples
+    image: cloudharness/samples:latest
+    task-images:
+      samples-sum: cloudharness/samples-sum:latest
     name: samples
     port: 8080
     resources: *id003
   events:
     harness:
-      name: events
       subdomain: events
       domain: null
+      dependencies:
+        hard: []
+        soft: []
+        build: []
       secured: true
       uri_role_mapping:
       - uri: /*
         roles:
         - administrator
       deployment:
-        auto: false
+        auto: true
         replicas: 1
-        image: localhost:5000/events:latest
+        image: cloudharness/events:latest
         name: events
-        port: 8081
+        port: 9000
         resources: &id004
           requests:
             memory: 32Mi
-            cpu: 25m
+            cpu: 10m
           limits:
             memory: 500Mi
             cpu: 500m
@@ -276,6 +333,7 @@ apps:
         auto: true
         name: events
         port: 80
+      use_services: []
       database:
         auto: false
         name: events-db
@@ -312,22 +370,55 @@ apps:
         resources:
           requests:
             memory: 512Mi
-            cpu: 200m
+            cpu: 100m
           limits:
             memory: 2Gi
             cpu: 1000m
+      env:
+      - name: ZK_HOSTS
+        value: zookeeper:2181
+      name: events
     kafka:
       name: bootstrap
       port: 9092
-    image: localhost:5000/events:latest
+      storage: 10Gi
+      resources:
+        limits:
+          cpu: 500m
+          memory: 600Mi
+        requests:
+          cpu: 50m
+          memory: 100Mi
+    pzoo:
+      storage: 1Gi
+      resources:
+        limits:
+          memory: 500Mi
+        requests:
+          cpu: 10m
+          memory: 100Mi
+    zoo:
+      storage: 1Gi
+      resources:
+        limits:
+          memory: 500Mi
+        requests:
+          cpu: 10m
+          memory: 100Mi
+    image: cloudharness/events:latest
+    task-images: {}
     name: events
-    port: 8081
+    port: 9000
     resources: *id004
   common:
     harness:
-      name: common
       subdomain: common
       domain: null
+      dependencies:
+        hard: []
+        soft: []
+        build:
+        - cloudharness-flask
       secured: false
       uri_role_mapping:
       - uri: /*
@@ -336,13 +427,13 @@ apps:
       deployment:
         auto: true
         replicas: 1
-        image: localhost:5000/common:latest
+        image: cloudharness/common:latest
         name: common
         port: 8080
         resources: &id005
           requests:
             memory: 128Mi
-            cpu: 100m
+            cpu: 50m
           limits:
             memory: 256Mi
             cpu: 200m
@@ -350,6 +441,7 @@ apps:
         auto: true
         name: common
         port: 8080
+      use_services: []
       database:
         auto: false
         name: common-db
@@ -386,19 +478,24 @@ apps:
         resources:
           requests:
             memory: 512Mi
-            cpu: 200m
+            cpu: 100m
           limits:
             memory: 2Gi
             cpu: 1000m
-    image: localhost:5000/common:latest
+      name: common
+    image: cloudharness/common:latest
+    task-images: {}
     name: common
     port: 8080
     resources: *id005
   argo:
     harness:
-      name: argo
       subdomain: argo
       domain: null
+      dependencies:
+        hard: []
+        soft: []
+        build: []
       secured: true
       uri_role_mapping:
       - uri: /*
@@ -407,13 +504,13 @@ apps:
       deployment:
         auto: false
         replicas: 1
-        image: localhost:5000/argo:latest
+        image: null
         name: argo
-        port: 8081
+        port: 8080
         resources: &id006
           requests:
             memory: 32Mi
-            cpu: 25m
+            cpu: 10m
           limits:
             memory: 500Mi
             cpu: 500m
@@ -421,6 +518,7 @@ apps:
         auto: false
         name: argo-server
         port: 2746
+      use_services: []
       database:
         auto: false
         name: argo-db
@@ -457,20 +555,25 @@ apps:
         resources:
           requests:
             memory: 512Mi
-            cpu: 200m
+            cpu: 100m
           limits:
             memory: 2Gi
             cpu: 1000m
+      name: argo
     serviceaccount: argo-workflows
-    image: localhost:5000/argo:latest
-    name: argo-server
-    port: 8081
+    task-images: {}
+    image: null
+    name: argo
+    port: 8080
     resources: *id006
   jupyterhub:
     harness:
-      name: jupyterhub
       subdomain: jupyterhub
       domain: null
+      dependencies:
+        hard: []
+        soft: []
+        build: []
       secured: false
       uri_role_mapping:
       - uri: /*
@@ -479,13 +582,13 @@ apps:
       deployment:
         auto: false
         replicas: 1
-        image: localhost:5000/jupyterhub:latest
+        image: cloudharness/jupyterhub:latest
         name: jupyterhub
-        port: 8081
+        port: 8080
         resources: &id007
           requests:
             memory: 32Mi
-            cpu: 25m
+            cpu: 10m
           limits:
             memory: 500Mi
             cpu: 500m
@@ -493,6 +596,7 @@ apps:
         auto: false
         name: proxy-public
         port: 80
+      use_services: []
       database:
         auto: false
         name: jupyterhub-db
@@ -529,10 +633,11 @@ apps:
         resources:
           requests:
             memory: 512Mi
-            cpu: 200m
+            cpu: 100m
           limits:
             memory: 2Gi
             cpu: 1000m
+      name: jupyterhub
     custom: {}
     hub:
       allowNamedServers: true
@@ -587,7 +692,7 @@ apps:
           c.Spawner.http_timeout = 300
           c.Spawner.start_timeout = 300
           c.JupyterHub.tornado_settings = { "headers": { }}
-        spawner: c.Spawner.args = ["--debug", "--port=8000"]
+        spawner: c.Spawner.args = ["--debug"]
       extraConfigMap: {}
       extraEnv: {}
       extraContainers: []
@@ -631,8 +736,8 @@ apps:
           enabled: false
         resources:
           requests:
-            cpu: 200m
-            memory: 512Mi
+            cpu: 50m
+            memory: 128Mi
       nginx:
         image:
           name: quay.io/kubernetes-ingress-controller/nginx-ingress-controller
@@ -671,7 +776,7 @@ apps:
           - ipBlock:
               cidr: 0.0.0.0/0
     auth:
-      type: tmp
+      type: keycloak
       whitelist:
         users: null
       admin:
@@ -740,11 +845,11 @@ apps:
         enabled: false
       startTimeout: 300
       cpu:
-        limit: null
-        guarantee: null
+        limit: 0.4
+        guarantee: 0.05
       memory:
-        limit: null
-        guarantee: 0.5G
+        limit: 0.5
+        guarantee: 0.1
       extraResource:
         limits: {}
         guarantees: {}
@@ -765,7 +870,7 @@ apps:
         resources:
           requests:
             cpu: 50m
-            memory: 256Mi
+            memory: 128Mi
       podPriority:
         enabled: false
       userPlaceholder:
@@ -806,15 +911,21 @@ apps:
       maxAge: 0
     debug:
       enabled: false
-    image: localhost:5000/jupyterhub:latest
+    image: cloudharness/jupyterhub:latest
+    task-images: {}
     name: jupyterhub
-    port: 8081
+    port: 8080
     resources: *id007
-  mywebapp:
+  workflows:
     harness:
-      name: mywebapp
-      subdomain: mywebapp
+      subdomain: workflows
       domain: null
+      dependencies:
+        hard:
+        - argo
+        soft: []
+        build:
+        - cloudharness-flask
       secured: false
       uri_role_mapping:
       - uri: /*
@@ -823,85 +934,13 @@ apps:
       deployment:
         auto: true
         replicas: 1
-        image: localhost:5000/mywebapp:latest
-        name: mywebapp
+        image: cloudharness/workflows:latest
+        name: workflows
         port: 8080
         resources: &id008
           requests:
             memory: 32Mi
-            cpu: 25m
-          limits:
-            memory: 500Mi
-            cpu: 500m
-      service:
-        auto: true
-        name: mywebapp
-        port: 8080
-      database:
-        auto: true
-        name: mywebapp-mongo-db
-        type: mongo
-        size: 1Gi
-        user: mnp
-        pass: metacell
-        mongo:
-          image: mongo:latest
-          ports:
-          - name: http
-            port: 27017
-        postgres:
-          image: postgres:latest
-          initialdb: cloudharness
-          ports:
-          - name: http
-            port: 5432
-        neo4j:
-          image: neo4j:latest
-          memory:
-            size: 256M
-            pagecache:
-              size: 64M
-            heap:
-              initial: 64M
-              max: 128M
-          dbms_security_auth_enabled: 'false'
-          ports:
-          - name: http
-            port: 7474
-          - name: bolt
-            port: 7687
-        resources:
-          requests:
-            memory: 512Mi
-            cpu: 200m
-          limits:
-            memory: 2Gi
-            cpu: 1000m
-      port: 80
-    image: localhost:5000/mywebapp:latest
-    name: mywebapp
-    port: 8080
-    resources: *id008
-  workflows:
-    harness:
-      name: workflows
-      subdomain: workflows
-      domain: null
-      secured: false
-      uri_role_mapping:
-      - uri: /*
-        roles:
-        - administrator
-      deployment:
-        auto: true
-        replicas: 1
-        image: localhost:5000/workflows:latest
-        name: workflows
-        port: 8080
-        resources: &id009
-          requests:
-            memory: 32Mi
-            cpu: 25m
+            cpu: 10m
           limits:
             memory: 500Mi
             cpu: 500m
@@ -909,6 +948,7 @@ apps:
         auto: true
         name: workflows
         port: 8080
+      use_services: []
       database:
         auto: false
         name: workflows-db
@@ -945,19 +985,29 @@ apps:
         resources:
           requests:
             memory: 512Mi
-            cpu: 200m
+            cpu: 100m
           limits:
             memory: 2Gi
             cpu: 1000m
-    image: localhost:5000/workflows:latest
+      name: workflows
+    image: cloudharness/workflows:latest
+    task-images:
+      workflows-print-file: cloudharness/workflows-print-file:latest
+      workflows-extract-download: cloudharness/workflows-extract-download:latest
+      workflows-send-result-event: cloudharness/workflows-send-result-event:latest
+      workflows-notify-queue: cloudharness/workflows-notify-queue:latest
+      workflows-extract-s3: cloudharness/workflows-extract-s3:latest
     name: workflows
     port: 8080
-    resources: *id009
+    resources: *id008
   sentry:
     harness:
-      name: sentry
-      subdomain: errormonitor
+      subdomain: sentry
       domain: null
+      dependencies:
+        hard: []
+        soft: []
+        build: []
       secured: false
       uri_role_mapping:
       - uri: /*
@@ -966,10 +1016,10 @@ apps:
       deployment:
         auto: true
         replicas: 1
-        image: localhost:5000/sentry:latest
+        image: cloudharness/sentry:latest
         name: sentry
         port: 9000
-        resources: &id010
+        resources: &id009
           requests:
             memory: 256Mi
             cpu: 300m
@@ -980,13 +1030,14 @@ apps:
         auto: true
         name: sentry
         port: 9000
+      use_services: []
       database:
-        auto: false
+        auto: true
         name: sentry-db
-        type: null
-        size: 1Gi
-        user: mnp
-        pass: metacell
+        type: postgres
+        size: 2Gi
+        user: sentry
+        pass: secret
         mongo:
           image: mongo:latest
           ports:
@@ -994,7 +1045,7 @@ apps:
             port: 27017
         postgres:
           image: postgres:latest
-          initialdb: cloudharness
+          initialdb: sentry
           ports:
           - name: http
             port: 5432
@@ -1016,98 +1067,109 @@ apps:
         resources:
           requests:
             memory: 512Mi
-            cpu: 200m
+            cpu: 100m
           limits:
             memory: 2Gi
             cpu: 1000m
-    postgres:
-      name: sentry-postgres-host
-      port: 5432
-      image: postgres:latest
-      initialdb: sentry
-      user: sentry
-      password: secret
-      datavolume: /opt/data/
-      pgdata: /opt/data/pgdata
+      env:
+      - name: SENTRY_SERVER_EMAIL
+        value: zoran@metacell.us
+      secrets:
+      - name: ch-sentry
+        key: server-email
+      - name: ch-sentry
+        key: email-user
+      - name: ch-sentry
+        key: email-password
+      name: sentry
     redis:
       name: sentry-redis-host
       image: redis:latest
       port: 6379
-    postfix:
-      name: sentry-postfix-host
-      image: eeacms/postfix:latest
-      port: 25
-      hostname: mail.opensourcebrain.org
-    image: localhost:5000/sentry:latest
+    image: cloudharness/sentry:latest
+    task-images: {}
     name: sentry
     port: 9000
-    resources: *id010
+    resources: *id009
 env:
 - name: CH_VERSION
   value: 0.0.1
 - name: CH_CHART_VERSION
   value: 0.0.1
-- name: CH_VOLUMEMANAGER_NAME
-  value: volumemanager
 - name: CH_VOLUMEMANAGER_SUBDOMAIN
   value: volumemanager
-- name: CH_ACCOUNTS_NAME
-  value: accounts
+- name: CH_VOLUMEMANAGER_NAME
+  value: volumemanager
 - name: CH_ACCOUNTS_SUBDOMAIN
   value: accounts
-- name: CH_SAMPLES_NAME
-  value: samples
+- name: CH_ACCOUNTS_NAME
+  value: accounts
 - name: CH_SAMPLES_SUBDOMAIN
   value: samples
 - name: CH_SAMPLES_PORT
   value: 80
-- name: CH_EVENTS_NAME
-  value: events
+- name: CH_SAMPLES_NAME
+  value: samples
 - name: CH_EVENTS_SUBDOMAIN
   value: events
-- name: CH_COMMON_NAME
-  value: common
+- name: CH_EVENTS_NAME
+  value: events
 - name: CH_COMMON_SUBDOMAIN
   value: common
-- name: CH_ARGO_NAME
-  value: argo-server
+- name: CH_COMMON_NAME
+  value: common
 - name: CH_ARGO_SUBDOMAIN
   value: argo
-- name: CH_JUPYTERHUB_NAME
-  value: jupyterhub
+- name: CH_ARGO_NAME
+  value: argo
 - name: CH_JUPYTERHUB_SUBDOMAIN
   value: jupyterhub
-- name: CH_MYWEBAPP_NAME
-  value: mywebapp
-- name: CH_MYWEBAPP_SUBDOMAIN
-  value: mywebapp
-- name: CH_MYWEBAPP_PORT
-  value: 80
-- name: CH_WORKFLOWS_NAME
-  value: workflows
+- name: CH_JUPYTERHUB_NAME
+  value: jupyterhub
 - name: CH_WORKFLOWS_SUBDOMAIN
   value: workflows
+- name: CH_WORKFLOWS_NAME
+  value: workflows
+- name: CH_SENTRY_SUBDOMAIN
+  value: sentry
 - name: CH_SENTRY_NAME
   value: sentry
-- name: CH_SENTRY_SUBDOMAIN
-  value: errormonitor
 - name: CH_DOMAIN
   value: cloudharness.metacell.us
 - name: CH_IMAGE_REGISTRY
-  value: localhost:5000/
+  value: ''
 - name: CH_IMAGE_TAG
   value: latest
-- name: ARGO_INSTANCEID
-  value: ch
 privenv:
 - name: CH_SECRET
   value: "In God we trust; all others must bring data. \u2015 W. Edwards Deming"
 ingress:
   enabled: true
   name: cloudharness-ingress
-  ssl_redirect: false
+  ssl_redirect: true
   letsencrypt:
     email: filippo@metacell.us
-tls: null
-localIp: 192.168.99.104
-test: true
+backup:
+  active: true
+  keep_days: '7'
+  keep_weeks: '4'
+  keep_months: '6'
+  schedule: '*/5 * * * *'
+  suffix: .gz
+  volumesize: 2Gi
+  dir: /backups
+  resources:
+    requests:
+      memory: 32Mi
+      cpu: 25m
+    limits:
+      memory: 64Mi
+      cpu: 50m
+task-images:
+  cloudharness-base: cloudharness/cloudharness-base:latest
+  cloudharness-base-debian: cloudharness/cloudharness-base-debian:latest
+  cloudharness-frontend-build: cloudharness/cloudharness-frontend-build:latest
+  cloudharness-flask: cloudharness/cloudharness-flask:latest
+name: cloudharness
+tls: cloudharness-metacell-us-tls
+localIp: 192.168.99.106
