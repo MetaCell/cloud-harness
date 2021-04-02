@@ -17,10 +17,10 @@ REPLACE_TEXT_FILES_EXTENSIONS = (
 
 
 def image_name_from_dockerfile_path(dockerfile_path, base_name=None):
-    return get_image_name(app_name_from_dockerfile_path(dockerfile_path), base_name)
+    return get_image_name(app_name_from_path(dockerfile_path), base_name)
 
 
-def app_name_from_dockerfile_path(dockerfile_path):
+def app_name_from_path(dockerfile_path):
     return "-".join(p for p in dockerfile_path.split("/") if p not in NEUTRAL_PATHS)
 
 def get_sub_paths(base_path):

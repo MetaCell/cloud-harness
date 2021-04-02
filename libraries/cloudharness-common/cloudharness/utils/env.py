@@ -59,11 +59,7 @@ def get_variable(variable_name):
 
 
 def get_image_full_tag(image_repository_name):
-    tagged = f"{image_repository_name}:{get_image_tag(image_repository_name)}"
-    registry = get_image_registry()
-    if registry:
-        return registry.strip('/') + '/' + tagged
-    return tagged
+    return conf.get_image_tag(image_repository_name)
 
 
 def get_image_registry():
@@ -73,19 +69,6 @@ def get_image_registry():
         log.warning(f"Variable not found {VARIABLE_IMAGE_REGISTRY}. Using default: {DEFAULT_IMAGE_REGISTRY}")
 
         return DEFAULT_IMAGE_REGISTRY
-
-
-def get_image_tag(application_name):
-    try:
-
-        return get_sub_variable(application_name, SUFFIX_TAG)
-    except VariableNotFound as e:
-        default_tag = get_variable('CH_IMAGE_TAG')
-        log.warning(f"Image tag specification not found for {application_name}: variable not found {e.variable_name}. "
-                    f"Using default: {default_tag}")
-
-        return default_tag
-
 
 def name_to_variable(application_name):
     return application_name.upper().replace('-', '_')

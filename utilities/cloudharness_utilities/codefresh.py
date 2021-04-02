@@ -9,7 +9,7 @@ from .constants import HERE, CF_BUILD_STEP_BASE, CF_BUILD_STEP_STATIC, CF_BUILD_
     CF_TEMPLATE_PATH, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH, DEPLOYMENT_PATH, EXCLUDE_PATHS
 from .helm import collect_helm_values
 from .utils import find_dockerfiles_paths, image_name_from_dockerfile_path, \
-    get_image_name, get_template, merge_to_yaml_file, dict_merge, app_name_from_dockerfile_path
+    get_image_name, get_template, merge_to_yaml_file, dict_merge, app_name_from_path
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -76,7 +76,7 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
             for dockerfile_path in find_dockerfiles_paths(abs_base_path):
                 app_relative_to_root = os.path.relpath(dockerfile_path, '.')
                 app_relative_to_base = os.path.relpath(dockerfile_path, abs_base_path)
-                app_name = app_name_from_dockerfile_path(app_relative_to_base)
+                app_name = app_name_from_path(app_relative_to_base)
                 if include and not any(
                         f"/{inc}/" in dockerfile_path or dockerfile_path.endswith(f"/{inc}") for inc in include):
                     continue
