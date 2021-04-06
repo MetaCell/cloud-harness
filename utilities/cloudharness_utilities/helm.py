@@ -63,7 +63,7 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
     if 'name' not in helm_values:
         with open(helm_chart_path) as f:
             chart_idx_content = yaml.safe_load(f)
-        helm_values['name'] = chart_idx_content['name']
+        helm_values['name'] = chart_idx_content['name'].lower()
     # Override for every cloudharness scaffolding
     helm_values[KEY_APPS] = {}
 
