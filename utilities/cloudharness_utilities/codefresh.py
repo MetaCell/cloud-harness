@@ -168,5 +168,5 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
         build_args = build_specific.pop('build_arguments') if 'build_arguments' in build_specific else []
         build.update(build_specific)
         build.update({'build_arguments': build['build_arguments'] + build_args})
-
+    build['build_arguments'].append('REGISTRY=${{REGISTRY}}/%s/' % base_name)
     return build
