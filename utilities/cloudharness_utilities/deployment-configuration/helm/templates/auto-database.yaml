@@ -64,7 +64,7 @@ spec:
             mountPath: /data/db
           {{- if .root.Values.backup.active }}
           - name: "db-backups"
-            mountPath: /backup
+            mountPath: {{ (printf "%s/%s/%s" .root.Values.backup.dir .app.harness.database.type .app.harness.database.name) | quote }}
             readOnly: true
           {{- end }}
       volumes:
