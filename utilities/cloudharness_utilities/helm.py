@@ -249,7 +249,7 @@ def finish_helm_values(values, namespace, tag='latest', registry='', local=True,
         values['namespace'] = namespace
     values['secured_gatekeepers'] = secured
     values['ingress']['ssl_redirect'] = values['ingress']['ssl_redirect'] and tls
-
+    values['tls'] = tls
     if domain:
         values['domain'] = domain
 
