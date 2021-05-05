@@ -2,7 +2,7 @@ ARG REGISTRY
 ARG TAG=latest
 FROM ${REGISTRY}cloudharness-base:${TAG}
 
-RUN apk add curl file
+RUN apk add curl file unzip
 
 ADD . /
 
