@@ -53,6 +53,10 @@ class ApplicationConfiguration:
         return self['harness.database.name']
 
     @property
+    def image_name(self):
+        return self['harness.deployment.image']
+
+    @property
     def db_type(self):
         return self['harness.database.type']
     @property

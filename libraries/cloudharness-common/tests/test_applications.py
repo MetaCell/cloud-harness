@@ -8,7 +8,8 @@ conf_1 = {
             'auto': False
         },
         'deployment': {
-            'auto': True
+            'auto': True,
+            'image': 'image1-name'
         },
         'sentry': True
     }
@@ -67,12 +68,13 @@ def test_get_configuration():
     assert not uut.is_auto_service()
     assert uut.is_auto_deployment()
     assert uut.is_sentry_enabled()
-
+    assert uut.image_name == 'image1-name'
     uut = get_configuration('app2')
     assert uut.name == 'app2'
     assert not uut.is_auto_service()
     assert not uut.is_auto_deployment()
     assert uut.is_sentry_enabled()
+
 
     # uut = get_configuration('app2sub') # FIXME this should work
     uut = uut.subapp

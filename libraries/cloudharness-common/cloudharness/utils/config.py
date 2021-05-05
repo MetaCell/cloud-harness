@@ -74,6 +74,17 @@ class CloudharnessConfig:
         return 'test' in cls.get_configuration() and cls.get_configuration()['test']
 
     @classmethod
+    def get_image_tag(cls, base_name):
+        if base_name in cls.get_applications():
+            from cloudharness.applications import get_configuration
+            return get_configuration(base_name).image_name
+        else:
+            if not base_name in cls.get_configuration()['task-images']:
+                # External image
+                return base_name
+            return cls.get_configuration()['task-images'][base_name]
+
+    @classmethod
     def get_application_by_filter(cls, **filter):
         """
         Helper function for filtering CH app objects
