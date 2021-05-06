@@ -109,7 +109,7 @@ if __name__ == "__main__":
         if args.build or args.build_interactive:
             builder = Builder(root_paths, build_included, tag=args.tag, registry=args.registry,
                               interactive=args.build_interactive,
-                              exclude=args.exclude, namespace=args.namespace, domain=args.domain, base_image_name=values_manual_deploy['name'])
+                              exclude=args.exclude, namespace=args.namespace, domain=args.domain, base_image_name=values_manual_deploy['name'] if args.registry else None)
             builder.run()
 
         hosts_info(values_manual_deploy)

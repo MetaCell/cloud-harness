@@ -67,9 +67,11 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
     # Override for every cloudharness scaffolding
     helm_values[KEY_APPS] = {}
 
+    base_image_name = helm_values['name'] if registry else None
+
     for root_path in root_paths:
         for base_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, BASE_IMAGES_PATH)) + find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)):
-            img_name = image_name_from_dockerfile_path(os.path.basename(base_img_dockerfile), base_name=helm_values['name'])
+            img_name = image_name_from_dockerfile_path(os.path.basename(base_img_dockerfile), base_name=base_image_name)
             helm_values[KEY_TASK_IMAGES][os.path.basename(base_img_dockerfile)] = image_tag(img_name, registry, tag)
 
         app_values = init_app_values(root_path, exclude=exclude, values=helm_values[KEY_APPS])
@@ -80,7 +82,7 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
     for root_path in root_paths:
         app_base_path = os.path.join(root_path, APPS_PATH)
         app_values = collect_app_values(app_base_path, tag=tag, registry=registry, exclude=exclude, env=env,
-                                        base_image_name=helm_values['name'])
+                                        base_image_name=base_image_name)
         helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
                                            app_values)
 
