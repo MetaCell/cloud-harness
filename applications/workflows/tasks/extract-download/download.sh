@@ -12,7 +12,7 @@ cd "${download_path}"
 export filename=`echo "${url##*/}"`
 
 echo Downloading "$filename" to "$download_path"
-curl "$url" --output "${filename}"
+curl -L "$url" --output "${filename}"
 
 # test if the download is a zip file, if so then extract and remove 
 file "${filename}"|grep Zip && unzip "${filename}" && rm -f "${filename}"
