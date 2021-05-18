@@ -22,7 +22,8 @@ VERSION = "0.4.0"
 
 REQUIREMENTS = [
     'oyaml',
-    'docker'
+    'docker',
+    'six'
 ]
 
 
