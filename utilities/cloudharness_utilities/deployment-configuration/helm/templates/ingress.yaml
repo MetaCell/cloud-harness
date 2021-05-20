@@ -42,6 +42,9 @@ spec:
     {{- if (eq $app.harness.name $mainapp) }}
   - host: {{ $domain | quote }}
     {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app) }}
+      {{- range $service := $app.harness.use_services }}
+      {{ include "deploy_utils.ingress.service" (dict "root" $ "service_name" $service.name) }}
+      {{- end }}
     {{- end }}
     {{- if $app.harness.domain }}
   - host: {{ $app.harness.domain | quote }}
