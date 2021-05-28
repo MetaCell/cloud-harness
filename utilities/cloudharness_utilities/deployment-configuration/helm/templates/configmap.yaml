@@ -6,4 +6,9 @@ metadata:
     app: cloudharness
 data:
   allvalues.yaml: |
-    {{- .Values | toYaml | nindent 4 }}
+{{- $values_copy := deepCopy .Values }}
+{{- range $key, $val := .Values.apps }}
+  {{- $new_secrets := dict "apps" (dict $key (dict "harness" (dict "secrets"))) }}
+  {{- $tmp := mergeOverwrite $values_copy $new_secrets }}
+{{- end }}
+{{ $values_copy | toYaml | indent 4 }}

@@ -62,15 +62,6 @@ spec:
           {{- if .app.harness.env }}
             {{- .app.harness.env | toYaml | nindent 8 }}
           {{- end }}
-          {{- if .app.harness.secrets }}
-            {{- range $secret := .app.harness.secrets }}
-        - name: {{ print $secret.name "-" $secret.key }}
-          valueFrom:
-            secretKeyRef:
-              name: {{ print $secret.name }}
-              key: {{ print $secret.key }}
-            {{- end }}
-          {{- end }}
 {{ if .app.harness.livenessProbe }}
         livenessProbe:
           httpGet:
@@ -124,6 +115,11 @@ spec:
             subPath: {{ base $resource.dst }}
             readOnly: true
           {{- end}}
+          {{- if .app.harness.secrets }}
+          - name: secrets
+            mountPath: "/opt/cloudharness/resources/secrets"
+            readOnly: true
+          {{- end }}
       volumes:
         - name: cloudharness-allvalues
           configMap:
@@ -138,6 +134,11 @@ spec:
         - name: "{{ $app.harness.deployment.name }}-{{ $resource.name }}"
           configMap:
             name: "{{ $app.harness.deployment.name }}-{{ $resource.name }}"
+        {{- end }}
+        {{- if .app.harness.secrets }}
+        - name: secrets
+          secret:
+            secretName: {{ .app.harness.deployment.name }}
         {{- end }}
 ---
 {{- end }}

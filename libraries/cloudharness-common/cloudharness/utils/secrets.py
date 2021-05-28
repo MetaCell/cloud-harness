@@ -1,6 +1,6 @@
 import os
 
-def get_secret(name: str, key: str):
+def get_secret(name: str) -> str:
     """
     Helper class for the CloudHarness application secrets
 
@@ -10,4 +10,10 @@ def get_secret(name: str, key: str):
         name (str): name of the secret
         key (str): name of the data key in the secret
     """
-    return os.environ.get(f'{name}-{key}', None)
+    try:
+        secrets_path = '/opt/cloudharness/resources/secrets'
+        with open(os.path.join(secrets_path, name)) as fh:
+            return fh.read()
+    except:
+        # if no secrets folder or file exists
+        return ''
