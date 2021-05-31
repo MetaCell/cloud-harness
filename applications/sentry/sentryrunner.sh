@@ -3,13 +3,13 @@
 echo "**** S:INI ****"
 export SENTRY_SECRET_KEY=$(sentry config generate-secret-key)
 
-export SENTRY_SERVER_EMAIL=`cat /opt/cloudharness/secrets/email-server`
+export SENTRY_SERVER_EMAIL=`cat /opt/cloudharness/resources/secrets/email-server`
 if [ -z "${SENTRY_SERVER_EMAIL}" ]; then
   export SENTRY_SERVER_EMAIL=${SENTRY_EMAIL_FROM}@${DOMAIN}
 fi
 
-export SENTRY_EMAIL_USER=`cat /opt/cloudharness/secrets/email-user`
-export SENTRY_EMAIL_PASSWORD=`cat /opt/cloudharness/secrets/email-password`
+export SENTRY_EMAIL_USER=`cat /opt/cloudharness/resources/secrets/email-user`
+export SENTRY_EMAIL_PASSWORD=`cat /opt/cloudharness/resources/secrets/email-password`
 
 # create / update database
 set -e
