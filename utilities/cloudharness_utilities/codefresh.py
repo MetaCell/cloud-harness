@@ -4,7 +4,7 @@ import yaml.representer
 
 import logging
 
-from .constants import HERE, CF_BUILD_STEP_BASE, CF_BUILD_STEP_STATIC, CF_BUILD_STEP_PARALLEL, CF_STEP_PUBLISH, \
+from .constants import CF_STEP_INSTALL, HERE, CF_BUILD_STEP_BASE, CF_BUILD_STEP_STATIC, CF_BUILD_STEP_PARALLEL, CF_STEP_PUBLISH, \
     CODEFRESH_PATH, CF_BUILD_PATH, CF_TEMPLATE_PUBLISH_PATH, DEPLOYMENT_CONFIGURATION_PATH, \
     CF_TEMPLATE_PATH, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH, DEPLOYMENT_PATH, EXCLUDE_PATHS
 from .helm import collect_helm_values
@@ -29,7 +29,8 @@ yaml.add_representer(str, literal_presenter)
 
 
 def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH, include=(), exclude=(),
-                                        template_name=CF_TEMPLATE_PATH, base_image_name=None):
+                                        template_name=CF_TEMPLATE_PATH, base_image_name=None,
+                                        values_manual_deploy=None):
     """
     Entry point to create deployment scripts for codefresh: codefresh.yaml and helm chart
     """
@@ -110,6 +111,19 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
     codefresh['steps'] = {k: step for k, step in codefresh['steps'].items() if
                           'type' not in step or step['type'] != 'parallel' or (
                               step['steps'] if 'steps' in step else [])}
+
+    # Add custom secrets to the environment of the deployment step
+    deployment_step = codefresh["steps"].get("deployment")
+    if deployment_step:
+        environment = deployment_step.get("environment")
+        if environment:
+            for app_name, app in values_manual_deploy["apps"].items():
+                if app.get("harness") and app["harness"].get("secrets"):
+                    app_name = app_name.replace("_", "__")
+                    for secret in app["harness"].get("secrets"):
+                        secret_name = secret.replace("_", "__")
+                        environment.append(
+                            "CUSTOM_apps_%s_secrets_%s=${{%s}}" % (app_name, secret_name, secret_name.upper()))
 
     codefresh_abs_path = os.path.join(os.getcwd(), DEPLOYMENT_PATH, out_filename)
     codefresh_dir = os.path.dirname(codefresh_abs_path)

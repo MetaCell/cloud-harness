@@ -92,15 +92,18 @@ if __name__ == "__main__":
         build_included = [app['harness']['name'] for app in values_manual_deploy['apps'].values() if 'harness' in app]
 
         create_codefresh_deployment_scripts(root_paths, include=build_included,
-                                            base_image_name=values_manual_deploy['name'])  # LEGACY
+                                            base_image_name=values_manual_deploy['name'],
+                                            values_manual_deploy=values_manual_deploy)  # LEGACY
         create_codefresh_deployment_scripts(root_paths, include=build_included,
                                             template_name='codefresh-template-dev.yaml',
                                             out_filename="codefresh-dev.yaml",
-                                            base_image_name=values_manual_deploy['name'])
+                                            base_image_name=values_manual_deploy['name'],
+                                            values_manual_deploy=values_manual_deploy)
         create_codefresh_deployment_scripts(root_paths, include=build_included,
                                             template_name='codefresh-template-prod.yaml',
                                             out_filename="codefresh-prod.yaml",
-                                            base_image_name=values_manual_deploy['name'])
+                                            base_image_name=values_manual_deploy['name'],
+                                            values_manual_deploy=values_manual_deploy)
 
         create_skaffold_configuration(root_paths, values_manual_deploy)
         create_vscode_debug_configuration([os.path.join(os.getcwd(), path) for path in args.paths],
