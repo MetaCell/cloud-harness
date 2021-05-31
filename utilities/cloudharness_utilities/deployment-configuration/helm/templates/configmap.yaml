@@ -1,3 +1,14 @@
+{{- /*
+to replace the secrets values we create a dict with the structure:
+  app:
+    <app>:
+      harness:
+        secrets:
+
+thus with an empty secrets node
+and then it's mergeOverwrite the copy of the .Values we created
+resulting in a copy of the .Values with all secrets being ""
+*/ -}}
 kind: ConfigMap
 apiVersion: v1
 metadata:
