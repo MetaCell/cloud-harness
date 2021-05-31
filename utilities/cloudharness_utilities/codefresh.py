@@ -123,7 +123,7 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
                     for secret in app["harness"].get("secrets"):
                         secret_name = secret.replace("_", "__")
                         environment.append(
-                            "CUSTOM_apps_%s_secrets_%s=${{%s}}" % (app_name, secret_name, secret_name.upper()))
+                            "CUSTOM_apps_%s_harness_secrets_%s=${{%s}}" % (app_name, secret_name, secret_name.upper()))
 
     codefresh_abs_path = os.path.join(os.getcwd(), DEPLOYMENT_PATH, out_filename)
     codefresh_dir = os.path.dirname(codefresh_abs_path)
