@@ -62,21 +62,13 @@ spec:
           {{- if .app.harness.env }}
             {{- .app.harness.env | toYaml | nindent 8 }}
           {{- end }}
-          {{- if .app.harness.secrets }}
-            {{- range $secret := .app.harness.secrets }}
-        - name: {{ print $secret.name "-" $secret.key }}
-          valueFrom:
-            secretKeyRef:
-              name: {{ print $secret.name }}
-              key: {{ print $secret.key }}
-            {{- end }}
-          {{- end }}
 {{ if .app.harness.livenessProbe }}
         livenessProbe:
           httpGet:
             path: {{ .app.harness.livenessProbe.path }}
             port: {{ .app.harness.deployment.port | default 8080 }}
           periodSeconds: {{ .app.harness.livenessProbe.periodSeconds | default 10 }}
+          failureThreshold: {{ .app.harness.livenessProbe.failureThreshold | default 3 }}
           initialDelaySeconds: {{ .app.harness.livenessProbe.initialDelaySeconds | default 0 }}
 {{ end }}
 {{ if .app.harness.readinessProbe }}
@@ -85,7 +77,17 @@ spec:
             path: {{ .app.harness.readinessProbe.path }}
             port: {{ .app.harness.deployment.port | default 8080 }}
           periodSeconds: {{ .app.harness.readinessProbe.periodSeconds | default 10 }}
+          failureThreshold: {{ .app.harness.readinessProbe.failureThreshold | default 3 }}
           initialDelaySeconds: {{ .app.harness.readinessProbe.initialDelaySeconds | default 0 }}
+{{ end }}
+{{ if .app.harness.startupProbe }}
+        startupProbe:
+          httpGet:
+            path: {{ .app.harness.startupProbe.path }}
+            port: {{ .app.harness.deployment.port | default 8080 }}
+          periodSeconds: {{ .app.harness.startupProbe.periodSeconds | default 10 }}
+          failureThreshold: {{ .app.harness.startupProbe.failureThreshold | default 30 }}
+          initialDelaySeconds: {{ .app.harness.startupProbe.initialDelaySeconds | default 0 }}
 {{ end }}
         ports:
           - containerPort: {{ .app.harness.deployment.port | default 8080 }}
@@ -113,6 +115,11 @@ spec:
             subPath: {{ base $resource.dst }}
             readOnly: true
           {{- end}}
+          {{- if .app.harness.secrets }}
+          - name: secrets
+            mountPath: "/opt/cloudharness/resources/secrets"
+            readOnly: true
+          {{- end }}
       volumes:
         - name: cloudharness-allvalues
           configMap:
@@ -127,6 +134,11 @@ spec:
         - name: "{{ $app.harness.deployment.name }}-{{ $resource.name }}"
           configMap:
             name: "{{ $app.harness.deployment.name }}-{{ $resource.name }}"
+        {{- end }}
+        {{- if .app.harness.secrets }}
+        - name: secrets
+          secret:
+            secretName: {{ .app.harness.deployment.name }}
         {{- end }}
 ---
 {{- end }}
