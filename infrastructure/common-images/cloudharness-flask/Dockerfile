@@ -1,7 +1,6 @@
-ARG REGISTRY
-ARG TAG=latest
-FROM ${REGISTRY}cloudharness-base:${TAG}
+ARG CLOUDHARNESS_BASE
 
+FROM $CLOUDHARNESS_BASE
 ENV DIR=/usr/src/app
 # Override module name in sub image
 ENV MODULE_NAME=app

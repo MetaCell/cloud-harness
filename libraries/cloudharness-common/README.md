@@ -12,7 +12,8 @@ define your Dockerfile depending on the base cloudharness as following:
 ```Dockerfile
 ARG REGISTRY
 ARG TAG=latest
-FROM ${REGISTRY}cloudharness-base:${TAG}
+ARG CLOUDHARNESS_BASE
+FROM $CLOUDHARNESS_BASE
 ```
 
 ## Requirements
