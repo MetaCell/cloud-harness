@@ -4,7 +4,8 @@ import yaml.representer
 
 import logging
 
-from .constants import CF_STEP_INSTALL, HERE, CF_BUILD_STEP_BASE, CF_BUILD_STEP_STATIC, CF_BUILD_STEP_PARALLEL, CF_STEP_PUBLISH, \
+from .constants import CF_STEP_INSTALL, HERE, CF_BUILD_STEP_BASE, CF_BUILD_STEP_STATIC, CF_BUILD_STEP_PARALLEL, \
+    CF_STEP_PUBLISH, \
     CODEFRESH_PATH, CF_BUILD_PATH, CF_TEMPLATE_PUBLISH_PATH, DEPLOYMENT_CONFIGURATION_PATH, \
     CF_TEMPLATE_PATH, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH, DEPLOYMENT_PATH, EXCLUDE_PATHS
 from .helm import collect_helm_values
@@ -91,7 +92,8 @@ def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH,
                         dockerfile_path=os.path.join(
                             os.path.relpath(dockerfile_path, fixed_context) if fixed_context else '',
                             "Dockerfile"),
-                        base_name=base_image_name
+                        base_name=base_image_name,
+                        helm_values=values_manual_deploy
                     )
                     codefresh['steps'][build_step]['steps'][app_name] = build
                 if CF_STEP_PUBLISH in codefresh['steps']:
@@ -163,7 +165,7 @@ def app_specific_tag_variable(app_name):
     return "${{ %s }}_${{DEPLOYMENT_PUBLISH_TAG}}" % app_name.replace('-', '_').upper()
 
 
-def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Dockerfile", base_name=None):
+def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Dockerfile", base_name=None, helm_values={}):
     logging.info('Generating build script for ' + app_name)
     title = app_name.capitalize().replace('-', ' ').replace('/', ' ').replace('.', ' ').strip()
     build = codefresh_template_spec(
@@ -180,7 +182,17 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
             build_specific = yaml.safe_load(f)
 
         build_args = build_specific.pop('build_arguments') if 'build_arguments' in build_specific else []
-        build.update(build_specific)
-        build.update({'build_arguments': build['build_arguments'] + build_args})
+
     build['build_arguments'].append('REGISTRY=${{REGISTRY}}/%s/' % base_name)
+
+    values_key = app_name.replace('-', '_')
+    try:
+        dep_list = helm_values['apps'][values_key]['harness']['dependencies']['build']
+        dependencies = [f"{d.upper().replace('-', '_')}=${{{{REGISTRY}}}}/{get_image_name(d, base_name)}" for
+                        d in dep_list]
+    except KeyError:
+        dependencies = [f"{d.upper().replace('-', '_')}=${{{{REGISTRY}}}}/{get_image_name(d, base_name)}" for
+                        d in helm_values['task-images']]
+    build['build_arguments'].extend(dependencies)
+
     return build
