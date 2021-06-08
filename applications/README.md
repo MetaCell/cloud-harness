@@ -19,8 +19,6 @@ are automatically generated with the script `utilities/openapi-generate.py`
 After generating the codeChange the Dockerfile in order to inherit from the main Docker file:
 
 ```dockerfile
-ARG REGISTRY
-ARG TAG=latest
 ARG CLOUDHARNESS_BASE
 FROM $CLOUDHARNESS_BASE
 ```
