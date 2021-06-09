@@ -5,23 +5,24 @@ import tempfile
 
 from docker import from_env as DockerClient
 
-from .utils import find_dockerfiles_paths, image_name_from_dockerfile_path, merge_configuration_directories
+from .utils import find_dockerfiles_paths, image_name_from_dockerfile_path, merge_configuration_directories, get_image_name
 from .constants import NODE_BUILD_IMAGE, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH, EXCLUDE_PATHS
 
 
 class Builder:
 
     def __init__(self, root_paths, include, tag, namespace, domain, registry='', interactive=False,
-                 exclude=tuple(), base_image_name=None):
+                 exclude=tuple(), base_image_name=None, helm_values={}):
         self.included = include or []
         self.tag = tag
         self.root_paths = root_paths
-        self.registry = registry
+        self.registry = "" if not registry else registry.strip( '/') + '/'  # make sure the registry ends with only one single /
         self.interactive = interactive
         self.exclude = exclude
         self.namespace = namespace
         self.domain = domain
         self.base_name = base_image_name
+        self.helm_values = helm_values
 
         if include:
             logging.info('Building the following subpaths: %s.', ', '.join(include))
@@ -79,17 +80,27 @@ class Builder:
             # extract image name
             image_name = image_name_from_dockerfile_path(os.path.relpath(dockerfile_path, start=abs_base_path), base_name=self.base_name)
 
+
             self.build_image(image_name, dockerfile_rel_path,
                              context_path=context_path if context_path else dockerfile_path)
 
+    def image_name_to_tag(self, image_name):
+
+        return f'{self.registry}{image_name}:{self.tag}' if self.tag else image_name
+
     def build_image(self, image_name, dockerfile_rel_path, context_path=None):
 
-        registry = "" if not self.registry else self.registry.strip(
-            '/') + '/'  # make sure the registry ends with only one single /
-        # build image
-        image_tag = f'{registry}{image_name}:{self.tag}' if self.tag else image_name
 
-        buildargs = dict(TAG=self.tag, REGISTRY=registry, NAMESPACE=self.namespace, DOMAIN=self.domain)
+        # build image
+        image_tag = self.image_name_to_tag(image_name)
+        values_key = os.path.basename(image_name).replace('-', '_')
+        try:
+            dep_list = self.helm_values['apps'][values_key]['harness']['dependencies']['build']
+            dependencies = {d.upper().replace("-", "_"): self.helm_values['task-images'][d] for d in dep_list}
+        except KeyError:
+            dependencies = {d.upper().replace("-", "_"): self.helm_values['task-images'][d] for d in self.helm_values['task-images']}
+        buildargs = dict(TAG=self.tag, REGISTRY=self.registry, NAMESPACE=self.namespace, DOMAIN=self.domain)
+        buildargs.update(dependencies)
 
         # print header
         logging.info(f'\n{80 * "#"}\nBuilding {image_tag} \n{80 * "#"}\n')
