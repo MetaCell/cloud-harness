@@ -14,7 +14,7 @@
     "start:minikube": "webpack serve --progress --env DOMAIN=http://samples.cloudharness.local --config webpack.config.dev.js"
   },
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "axios": "^0.21.1",
     "react": "^16.12.0",
