@@ -79,8 +79,8 @@ class AuthClient():
         """
         # test if we can connect to the Keycloak server
         dummy_client = self.get_admin_client()
-        self._current_user = self.get_current_user()
-        self._current_user_realm_roles = self.get_current_user_realm_roles()
+        self._current_user = None
+        self._current_user_realm_roles = None
         self._current_user_client_roles = {}
 
     def get_admin_client(self):
