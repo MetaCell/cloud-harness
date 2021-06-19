@@ -17,6 +17,7 @@ try:
     if not os.environ.get('KUBERNETES_SERVICE_HOST', None):
         # running outside kubernetes
         SERVER_URL = accounts_app.get_public_address() + '/auth/'
+    SERVER_URL = 'http://accounts.ifn.dev.metacell.us/auth/'
     USER = accounts_app.admin['user']
     PASSWD = accounts_app.admin['pass']
 except:
@@ -78,6 +79,9 @@ class AuthClient():
         """
         # test if we can connect to the Keycloak server
         dummy_client = self.get_admin_client()
+        self._current_user = self.get_current_user()
+        self._current_user_realm_roles = self.get_current_user_realm_roles()
+        self._current_user_client_roles = {}
 
     def get_admin_client(self):
         """
@@ -321,7 +325,10 @@ class AuthClient():
 
         :return: UserRepresentation + GroupRepresentation
         """
-        return self.get_user(self._get_keycloak_user_id())
+        if self._current_user:
+            return self._current_user
+        self._current_user = self.get_user(self._get_keycloak_user_id())
+        return self._current_user
 
     def get_current_user_realm_roles(self):
         """
@@ -334,7 +341,10 @@ class AuthClient():
 
         :return: (array RoleRepresentation)
         """
-        return self.get_user_realm_roles(self._get_keycloak_user_id())
+        if self._current_user_realm_roles:
+            return self._current_user_realm_roles
+        self._current_user_realm_roles = self.get_user_realm_roles(self._get_keycloak_user_id())
+        return self._current_user_realm_roles
 
     @with_refreshtoken
     def get_user_client_roles(self, user_id, client_name):
@@ -356,8 +366,12 @@ class AuthClient():
         :param client_name: Client name
         :return: UserRepresentation + GroupRepresentation
         """
+        if self._current_user_client_roles[client_name]:
+            return self._current_user_client_roles[client_name]
+
         cur_user_id = self._get_keycloak_user_id()
-        return self.get_user_client_roles(cur_user_id, client_name)
+        self._current_user_client_roles.update({client_name, self.get_user_client_roles(cur_user_id, client_name)})
+        return self._current_user_client_roles[client_name]
 
     def user_has_client_role(self, user_id, client_name, role):
         """
