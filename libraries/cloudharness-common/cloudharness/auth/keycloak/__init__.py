@@ -50,7 +50,7 @@ def decode_token(token):
 
     decoded = AuthClient.decode_token(token)
     valid = 'offline_access' in decoded['realm_access']['roles']
-    current_app.logger.debug(valid)
+    log.debug(valid)
     return {'uid': 'user_id'}
 
 
@@ -66,11 +66,12 @@ class AuthClient():
     def _get_keycloak_user_id():
         try:
             bearer = request.headers.get('Authorization', None)
-            current_app.logger.debug(f'Bearer: {bearer}')
             env = current_app.config['ENV']
         except:
             bearer = None
             env = 'development'
+        log.debug(f'Bearer: {bearer}')
+        log.debug(f'Env: {env}')
         if not bearer or bearer == 'Bearer undefined':
             if env == 'development':
                 # when development and not using KeyCloak (no current user),
