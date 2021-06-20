@@ -64,14 +64,22 @@ class AuthClient():
 
     @staticmethod
     def _get_keycloak_user_id():
-        bearer = request.headers.get('Authorization', None)
-        current_app.logger.debug(f'Bearer: {bearer}')
+        try:
+            bearer = request.headers.get('Authorization', None)
+            current_app.logger.debug(f'Bearer: {bearer}')
+            env = current_app.config['ENV']
+        except:
+            bearer = None
+            env = 'development'
         if not bearer or bearer == 'Bearer undefined':
-            if current_app.config['ENV'] == 'development':
+            if env == 'development':
                 # when development and not using KeyCloak (no current user),
                 # get id from X-Current-User-Id header
-                keycloak_user_id = request.headers.get(
-                    "X-Current-User-Id", os.environ.get("CH_CURRENT_USER_ID", -1))
+                try:
+                    keycloak_user_id = request.headers.get(
+                        "X-Current-User-Id", os.environ.get("CH_CURRENT_USER_ID", -1))
+                except:
+                    keycloak_user_id = os.environ.get("CH_CURRENT_USER_ID", -1)
             else:
                 keycloak_user_id = "-1"  # No authorization --> no user
         else:
