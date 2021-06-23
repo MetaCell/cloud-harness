@@ -333,7 +333,6 @@ class AuthClient():
 
         :return: (array RoleRepresentation)
         """
-        admin_client = self.get_admin_client()
         return admin_client.get_realm_roles_of_user(user_id)
 
     def get_current_user_realm_roles(self):
