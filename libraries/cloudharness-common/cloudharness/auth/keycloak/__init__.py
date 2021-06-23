@@ -4,11 +4,10 @@ import json
 import requests
 import time
 from flask import current_app, request
-from functools import lru_cache
 from keycloak import KeycloakAdmin
 from keycloak.exceptions import KeycloakAuthenticationError
+from cachetools import cached, TTLCache
 from cloudharness import log
-from cloudharness.utils import env
 
 try:
     from cloudharness.utils.config import CloudharnessConfig as conf, ALLVALUES_PATH
@@ -52,11 +51,6 @@ def decode_token(token):
     valid = 'offline_access' in decoded['realm_access']['roles']
     log.debug(valid)
     return {'uid': 'user_id'}
-
-
-def get_ttl_hash(seconds=30):
-    """Return the same value withing `seconds` time period"""
-    return round(time.time() / seconds)
 
 
 class AuthClient():
@@ -224,6 +218,7 @@ class AuthClient():
         )
         return True
 
+    @cached(cache=TTLCache(maxsize=1024, ttl=30))
     @with_refreshtoken
     def get_group(self, group_id, with_members=False):
         """
@@ -235,20 +230,6 @@ class AuthClient():
         :param with_members: If set the members (users) of the group are added to the group. Defaults to False
         :return: GroupRepresentation + UserRepresentation
         """
-        return self._get_group(group_id, with_members, ttl_hash=get_ttl_hash())
-
-    @lru_cache()
-    def _get_group(self, group_id, with_members=False, ttl_hash=None):
-        """
-        Return the group in the application realm
-
-        GroupRepresentation
-        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_grouprepresentation
-
-        :param with_members: If set the members (users) of the group are added to the group. Defaults to False
-        :return: GroupRepresentation + UserRepresentation
-        """
-        del ttl_hash  # to emphasize we don't use it and to shut pylint up
         admin_client = self.get_admin_client()
         group = admin_client.get_group(group_id)
         if with_members:
@@ -302,6 +283,7 @@ class AuthClient():
             users.append(user)
         return users
 
+    @cached(cache=TTLCache(maxsize=1024, ttl=30))
     @with_refreshtoken
     def get_user(self, user_id):
         """
@@ -317,24 +299,6 @@ class AuthClient():
 
         :return: UserRepresentation + GroupRepresentation
         """
-        return self._get_user(user_id, ttl_hash=get_ttl_hash())
-
-    @lru_cache()
-    def _get_user(self, user_id, ttl_hash=None):
-        """
-        Get the user including the user groups
-
-        :param user_id: User id
-
-        UserRepresentation
-        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_userrepresentation
-
-        GroupRepresentation
-        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_grouprepresentation
-
-        :return: UserRepresentation + GroupRepresentation
-        """
-        del ttl_hash  # to emphasize we don't use it and to shut pylint up
         admin_client = self.get_admin_client()
         user = admin_client.get_user(user_id)
         user.update({'userGroups': admin_client.get_user_groups(user_id)})
@@ -356,6 +320,7 @@ class AuthClient():
         """
         return self.get_user(self._get_keycloak_user_id())
 
+    @cached(cache=TTLCache(maxsize=1024, ttl=30))
     @with_refreshtoken
     def get_user_realm_roles(self, user_id):
         """
@@ -368,21 +333,6 @@ class AuthClient():
 
         :return: (array RoleRepresentation)
         """
-        return self._get_user_realm_roles(self, user_id, ttl_hash=get_ttl_hash())
-
-    @lru_cache()
-    def _get_user_realm_roles(self, user_id, ttl_hash=None):
-        """
-        Get the user realm roles within the current realm
-
-        :param user_id: User id
-
-        RoleRepresentation
-        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_rolerepresentation
-
-        :return: (array RoleRepresentation)
-        """
-        del ttl_hash  # to emphasize we don't use it and to shut pylint up
         admin_client = self.get_admin_client()
         return admin_client.get_realm_roles_of_user(user_id)
 
@@ -397,8 +347,9 @@ class AuthClient():
         """
         return self.get_user_realm_roles(self._get_keycloak_user_id())
 
+    @cached(cache=TTLCache(maxsize=1024, ttl=30))
     @with_refreshtoken
-    def get_user_client_roles(self, user_id, client_name, ttl_hash=None):
+    def get_user_client_roles(self, user_id, client_name):
         """
         Get the user including the user resource access
 
@@ -406,18 +357,6 @@ class AuthClient():
         :param client_name: Client name
         :return: (array RoleRepresentation)
         """
-        return self._get_user_client_roles(user_id, client_name, ttl_hash=get_ttl_hash())
-
-    @lru_cache()
-    def _get_user_client_roles(self, user_id, client_name, ttl_hash=None):
-        """
-        Get the user including the user resource access
-
-        :param user_id: User id
-        :param client_name: Client name
-        :return: (array RoleRepresentation)
-        """
-        del ttl_hash  # to emphasize we don't use it and to shut pylint up
         admin_client = self.get_admin_client()
         client_id = admin_client.get_client_id(client_name)
         return admin_client.get_client_roles_of_user(user_id, client_id)
@@ -430,7 +369,7 @@ class AuthClient():
         :return: UserRepresentation + GroupRepresentation
         """
         cur_user_id = self._get_keycloak_user_id()
-        return self.get_user_client_roles(cur_user_id, client_name, ttl_hash=get_ttl_hash())
+        return self.get_user_client_roles(cur_user_id, client_name)
 
     def user_has_client_role(self, user_id, client_name, role):
         """
@@ -442,7 +381,7 @@ class AuthClient():
         :return: (array RoleRepresentation)
         """
         roles = [user_client_role for user_client_role in self.get_user_client_roles(
-            user_id, client_name, ttl_hash=get_ttl_hash()) if user_client_role['name'] == role]
+            user_id, client_name) if user_client_role['name'] == role]
         return roles != []
 
     def user_has_realm_role(self, user_id, role):
