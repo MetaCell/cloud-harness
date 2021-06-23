@@ -368,10 +368,10 @@ class AuthClient():
 
         :return: (array RoleRepresentation)
         """
-        return self._get_user_realm_roles(self, user_id, ttl_hash=get_ttl_hash())
+        return self._get_user_realm_roles(self, user_id, get_ttl_hash())
 
-    @lru_cache()
-    def _get_user_realm_roles(self, user_id, ttl_hash=None):
+    # @lru_cache()
+    def _get_user_realm_roles(self, user_id, ttl_hash):
         """
         Get the user realm roles within the current realm
 
