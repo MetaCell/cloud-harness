@@ -441,7 +441,7 @@ def hosts_info(values):
             "kubectl port-forward -n {namespace} deployment/{app} {port}:{port}".format(
                 app=app['deployment']['name'], port=app['deployment']['port'], namespace=namespace))
 
-    print(f"127.0.0.1\t{' '.join(s + '.cloudharness' for s in deployments)}")
+    print(f"127.0.0.1\t{' '.join('%s.%s' % (s, values['namespace']) for s in deployments)}")
 
 
 def create_tls_certificate(local, domain, tls, output_path, helm_values):
