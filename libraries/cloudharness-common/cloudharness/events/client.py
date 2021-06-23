@@ -3,6 +3,7 @@ import sys
 import threading
 import time
 import traceback
+import logging
 
 from time import sleep
 from json import dumps, loads
@@ -14,6 +15,7 @@ from cloudharness import log
 from cloudharness.errors import *
 from cloudharness.utils import env
 
+logging.getLogger('kafka').setLevel(logging.ERROR)
 
 class EventClient:
     def __init__(self, topic_id):
