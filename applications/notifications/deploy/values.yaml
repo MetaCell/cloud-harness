@@ -1,0 +1,60 @@
+harness:
+  subdomain: notifications
+  secured: false
+  service:
+    port: 8080
+    auto: true
+  deployment:
+    auto: true
+    port: 8080
+  livenessProbe:
+    path: /api/live
+  readinessProbe:
+    path: /api/ready
+  dependencies:
+    build:
+      - cloudharness-base
+      - cloudharness-flask
+
+notification:
+  backends:
+    email:
+      type: email
+    console:
+      type: console
+    slack:
+      type: slack
+  channels:
+    email:
+      type: email
+      backends:
+        - email
+        - console
+      templateFolder: email
+      from: info@example.com
+      to:
+        - info@example.com
+    console:
+      type: email
+      backends: 
+        - console
+      templateFolder: text
+      from: info@example.com
+      to:
+        - info@example.com
+  operations:
+    create:
+      subject: New {{message_type}} - {{domain}}
+      template: model-instance-create
+      channels:
+        - email
+    update:
+      subject: Update {{message)_type}} - {{domain}}
+      template: model-instance-update
+      channels:
+        - email
+    delete:
+      subject: Delete {{message)_type}} - {{domain}}
+      template: model-instance-delete
+      channels:
+        - email

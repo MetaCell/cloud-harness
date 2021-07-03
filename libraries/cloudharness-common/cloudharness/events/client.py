@@ -7,21 +7,30 @@ import logging
 
 from time import sleep
 from json import dumps, loads
+from keycloak.exceptions import KeycloakGetError
 from kafka import KafkaProducer, KafkaConsumer
 from kafka.admin import KafkaAdminClient, NewTopic
 from kafka.errors import TopicAlreadyExistsError, UnknownTopicOrPartitionError, KafkaTimeoutError
 
 from cloudharness import log
+from cloudharness.auth.keycloak import AuthClient
 from cloudharness.errors import *
 from cloudharness.utils import env
+from cloudharness.utils.config import CloudharnessConfig as config
 
 logging.getLogger('kafka').setLevel(logging.ERROR)
 
+
+AUTH_CLIENT = AuthClient()
+CURRENT_APP_NAME = config.get_current_app_name()
+
 class EventClient:
-    def __init__(self, topic_id):
-        self.client_id = env.get_cloudharness_events_client_id()
+    def __init__(self, topic_id, create_topic=False):
         self.topic_id = topic_id
+        self.client_id = env.get_cloudharness_events_client_id()
         self.service = env.get_cloudharness_events_service()
+        if create_topic:
+            self.create_topic()
 
     def _get_consumer(self, group_id='default') -> KafkaConsumer:
         return KafkaConsumer(self.topic_id,
@@ -38,14 +47,15 @@ class EventClient:
             True if topic was created correctly, False otherwise.
         """
         ## Connect to kafka
-        log.info(f"Creating topic {self.topic_id}")
         admin_client = KafkaAdminClient(bootstrap_servers=self.service,
                                         client_id=self.client_id)
         # ## Create topic
 
         new_topic = NewTopic(name=self.topic_id, num_partitions=1, replication_factor=1)
         try:
-            return admin_client.create_topics(new_topics=[new_topic], validate_only=False)
+            result = admin_client.create_topics(new_topics=[new_topic], validate_only=False)
+            log.info(f"Created new topic {self.topic_id}")
+            return result
         except TopicAlreadyExistsError as e:
             # topic already exists "no worries", proceed
             return True
@@ -78,6 +88,52 @@ class EventClient:
             raise EventGeneralException from e
         finally:
             producer.close()
+
+    def gen_topic_id(topic_type, message_type):
+        return f"{CURRENT_APP_NAME}.{topic_type}.{message_type}"
+
+    @staticmethod
+    def send_event(message_type, operation, obj, uid="id", topic_id=None):
+        """
+        Send a CDC (change data capture) event into a topic
+        The topic name is generated from the current app and message type
+        e.g. workflows.cdc.jobs
+
+        Params:
+            message_type: the type of the message (relates to the object type) e.g. jobs
+            operation: the operation on the object e.g. create / update / delete
+            obj: the object itself
+            uid: the unique identifier attribute of the object
+            topic_id: the topic_id to use, default None means will be generated
+        """
+        if not topic_id:
+            topic_id = EventClient.gen_topic_id(
+                topic_type="cdc",
+                message_type=message_type)
+
+        ec = EventClient(topic_id=topic_id)
+        try:
+            if not isinstance(obj, dict):
+                obj = vars(obj)
+            obj_id = obj.get(uid)
+            try:
+                # try to get the current user
+                user = AUTH_CLIENT.get_current_user()
+            except KeycloakGetError:
+                user = {}
+            ec.produce(
+                {
+                    "app_name": CURRENT_APP_NAME,
+                    "operation": operation,
+                    "user": user,
+                    "uid": obj_id,
+                    "description": f"{message_type} - {obj_id}",
+                    "resource": obj
+                }
+            )
+            log.info(f"sent cdc event {message_type} - {operation} - {obj_id}")
+        except Exception as e:
+            log.error('send_event error.', exc_info=True)
 
     def consume_all(self, group_id='default') -> list:
         ''' Return a list of messages published in the topic '''

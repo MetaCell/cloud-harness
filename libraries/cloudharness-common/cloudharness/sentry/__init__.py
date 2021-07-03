@@ -19,7 +19,7 @@ def get_dsn(appname):
 
     Usage examples: 
         from cloudharness.sentry import get_dsn
-        dsn = get_dsn('workspaces')
+        dsn = get_dsn('notifications')
     """ 
     url = get_common_service_cluster_address() + f'/api/sentry/getdsn/{appname}'
     response = requests.get(url, verify=False).json()
@@ -39,7 +39,7 @@ def init(appname, traces_sample_rate=0):
 
     Usage examples: 
         import cloudharness.sentry as sentry
-        sentry.init('workspaces')
+        sentry.init('notifications')
     """
     dsn = get_dsn(appname)
     if dsn:

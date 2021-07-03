@@ -50,6 +50,14 @@ class CloudharnessConfig:
         return cls.get_configuration()['namespace']
 
     @classmethod
+    def get_current_app(cls):
+        return cls.get_application_by_filter(name=cls.get_current_app_name())[0]
+
+    @classmethod
+    def get_current_app_name(cls):
+        return os.getenv("CH_CURRENT_APP_NAME")
+
+    @classmethod
     def get_domain(cls):
         return cls.get_configuration()['domain']
 

@@ -1,0 +1,4 @@
+User: {{ user.email }}
+
+Created {{ app_name }}.{{ message_type }}<br />
+Description: {{ description }}

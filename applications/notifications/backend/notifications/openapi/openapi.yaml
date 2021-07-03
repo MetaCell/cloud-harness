@@ -1,0 +1,77 @@
+openapi: 3.0.0
+info:
+  contact:
+    email: cloudharness@metacell.us
+  description: notifications
+  license:
+    name: UNLICENSED
+  title: notifications
+  version: 0.1.0
+servers:
+- url: /api
+tags:
+- name: test
+- name: live
+- name: ready
+paths:
+  /live:
+    get:
+      operationId: live
+      responses:
+        "500":
+          description: Application is not healthy
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Healthy
+      summary: Test if application is healthy
+      tags:
+      - live
+      x-openapi-router-controller: notifications.controllers.live_controller
+  /ping:
+    get:
+      operationId: ping
+      responses:
+        "500":
+          description: This shouldn't happen
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: What we want
+      summary: test the application is up
+      tags:
+      - test
+      x-openapi-router-controller: notifications.controllers.test_controller
+  /ready:
+    get:
+      operationId: ready
+      responses:
+        "500":
+          description: Application is not ready yet
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Ready
+      summary: Test if application is ready to take requests
+      tags:
+      - ready
+      x-openapi-router-controller: notifications.controllers.ready_controller
+components:
+  schemas:
+    Valid:
+      properties:
+        response:
+          type: string
+      type: object
+  securitySchemes:
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http
+      x-bearerInfoFunc: cloudharness.auth.decode_token
