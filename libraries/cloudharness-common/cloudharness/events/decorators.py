@@ -3,7 +3,7 @@ from cloudharness.events.client import EventClient
 from functools import wraps
 
 
-def send_event(message_type, operation, uid):
+def send_event(message_type, operation, uid="id"):
     """
     Decorator to send the result of the function as a CDC message into a topic
     if the result is a tuple then index 0 will be used as the object
@@ -11,14 +11,12 @@ def send_event(message_type, operation, uid):
     Paramers:
         message_type: the type of the message (relates to the object type) e.g. jobs
         operation: the operation on the object e.g. create / update / delete
-        uid: the unique identifier attribute of the object
+        uid: the unique identifier attribute of the object, defaults to "id"
     """
     def real_send_event(func):
         @wraps(func)
         def wrapper(self, *args, **kwargs):
             result = func(self, *args, **kwargs)
-
-            # send the event
             if isinstance(result, tuple):
                 obj = result[0]
             else:
@@ -27,6 +25,9 @@ def send_event(message_type, operation, uid):
                 EventClient.send_event(
                     message_type=message_type,
                     operation=operation,
+                    func_name=func,
+                    func_args=args,
+                    func_kwargs=kwargs,
                     uid=uid,
                     obj=obj)
             except Exception as e:
