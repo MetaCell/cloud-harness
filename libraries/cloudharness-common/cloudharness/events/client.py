@@ -117,8 +117,11 @@ class EventClient:
         ec = EventClient(topic_id=topic_id)
         try:
             if not isinstance(obj, dict):
-                obj = vars(obj)
-            obj_id = obj.get(uid)
+                if hasattr(obj, "to_dict"):
+                    resource = obj.to_dict()
+                else:
+                    resource = vars(obj)
+            resource_id = resource.get(uid)
             try:
                 # try to get the current user
                 user = AUTH_CLIENT.get_current_user()
@@ -154,15 +157,15 @@ class EventClient:
                         "func": str(func_name),
                         "args": fargs,
                         "kwargs": fkwargs,
-                        "description": f"{message_type} - {obj_id}",
+                        "description": f"{message_type} - {resource_id}",
                     },
                     "message_type": message_type,
                     "operation": operation,
-                    "uid": obj_id,
-                    "resource": obj
+                    "uid": resource_id,
+                    "resource": resource
                 }
             )
-            log.info(f"sent cdc event {message_type} - {operation} - {obj_id}")
+            log.info(f"sent cdc event {message_type} - {operation} - {resource_id}")
         except Exception as e:
             log.error('send_event error.', exc_info=True)
 
