@@ -1,5 +1,6 @@
 harness:
   subdomain: notifications
+  name: notifications
   secured: false
   service:
     port: 8080
