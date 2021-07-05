@@ -21,8 +21,15 @@ from cloudharness.utils.config import CloudharnessConfig as config
 logging.getLogger('kafka').setLevel(logging.ERROR)
 
 
-AUTH_CLIENT = AuthClient()
+AUTH_CLIENT = None
 CURRENT_APP_NAME = config.get_current_app_name()
+
+def get_authclient():
+    global AUTH_CLIENT
+    if not AUTH_CLIENT:
+        AUTH_CLIENT = AuthClient()
+    return AUTH_CLIENT
+
 
 class EventClient:
     def __init__(self, topic_id, create_topic=False):
@@ -124,7 +131,7 @@ class EventClient:
             resource_id = resource.get(uid)
             try:
                 # try to get the current user
-                user = AUTH_CLIENT.get_current_user()
+                user = get_authclient().get_current_user()
             except KeycloakGetError:
                 user = {}
 
