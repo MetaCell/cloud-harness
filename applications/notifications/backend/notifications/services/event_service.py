@@ -17,20 +17,19 @@ class NotificationHandler:
         self.events = events
         self.topic_id = f"{app_name}.cdc.{message_type}"
 
-    def handle_event(self, app, topic_id, message):
+    def handle_event(self, message):
         """
-        Handle the event
+        Handle the received event
 
         Args:
-            app: the current flask app object
-            topic_id: the name of the topic the message was received in
             message: the message
         """
-        if self.topic_id == topic_id:
+        if self.message_type == message.get("message_type"):
             operation = message.get("operation")
             for event in self.events:
                 if event == operation:
-                    app_name = message.get("app_name")
+                    meta = message.get("meta", {})
+                    app_name = meta.get("app_name", "")
                     obj_id = message.get("uid")
                     obj = json.loads(json.dumps(message.get("resource")), object_hook=lambda d: Namespace(**d))
                     log.info(f"{app_name} sent {operation} {self.message_type} with id: {obj_id} message")
@@ -39,8 +38,8 @@ class NotificationHandler:
                         context={
                             "app_name": app_name,
                             "message_type": self.message_type,
-                            "user": message.get("user"),
-                            "description": message.get("description"),
+                            "user": meta.get("user", {}),
+                            "description": meta.get("description", ""),
                             "uid": message.get("uid"),
                             "obj": obj
                         }
@@ -57,8 +56,8 @@ class MessageHandler:
     @staticmethod
     def handler(app, event_client, message):
         log.info(f"Handler received message: {message}")
-        for nh in [nh for nh in MessageHandler._handlers if nh.topic_id == event_client.topic_id]:
-            nh.handle_event(app, event_client.topic_id, message)
+        for nh in [nh for nh in MessageHandler._handlers if nh.message_type == message.get("message_type")]:
+            nh.handle_event(message)
 
     def init_topics(self):
         for app in conf.get_application_by_filter(harness__notifications=True):  # find all apps with notification configuration
