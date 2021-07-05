@@ -15,6 +15,9 @@ harness:
     build:
       - cloudharness-base
       - cloudharness-flask
+  secrets:
+    email-user:
+    email-password:
 
 notification:
   backends:
