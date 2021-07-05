@@ -93,7 +93,7 @@ class EventClient:
         return f"{CURRENT_APP_NAME}.{topic_type}.{message_type}"
 
     @staticmethod
-    def send_event(message_type, operation, obj, uid="id", topic_id=None):
+    def send_event(message_type, operation, obj, uid="id", func_name=None, func_args=None, func_kwargs=None, topic_id=None):
         """
         Send a CDC (change data capture) event into a topic
         The topic name is generated from the current app and message type
@@ -104,7 +104,10 @@ class EventClient:
             operation: the operation on the object e.g. create / update / delete
             obj: the object itself
             uid: the unique identifier attribute of the object
-            topic_id: the topic_id to use, default None means will be generated
+            func_name: the caller function name defaults to None
+            func_args: the caller function "args" defaults to None
+            func_kwargs: the caller function "kwargs" defaults to None
+            topic_id: the topic_id to use, generated when None, defaults to None
         """
         if not topic_id:
             topic_id = EventClient.gen_topic_id(
@@ -121,13 +124,41 @@ class EventClient:
                 user = AUTH_CLIENT.get_current_user()
             except KeycloakGetError:
                 user = {}
+
+            # serialize only the func args that can be serialized
+            fargs = []
+            for a in func_args:
+                try:
+                    fargs.append(loads(dumps(a)))
+                except Exception as e:
+                    # argument can't be serialized
+                    pass
+
+            # serialize only the func kwargs that can be serialized
+            fkwargs = []
+            for kwa, kwa_val in func_kwargs.items():
+                try:
+                    fkwargs.append({
+                        kwa: loads(dumps(kwa_val))
+                    })
+                except Exception as e:
+                    # keyword argument can't be serialized
+                    pass
+
+            # send the message
             ec.produce(
                 {
-                    "app_name": CURRENT_APP_NAME,
+                    "meta": {
+                        "app_name": CURRENT_APP_NAME,
+                        "user": user,
+                        "func": str(func_name),
+                        "args": fargs,
+                        "kwargs": fkwargs,
+                        "description": f"{message_type} - {obj_id}",
+                    },
+                    "message_type": message_type,
                     "operation": operation,
-                    "user": user,
                     "uid": obj_id,
-                    "description": f"{message_type} - {obj_id}",
                     "resource": obj
                 }
             )
