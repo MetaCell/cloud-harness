@@ -1,13 +1,21 @@
 harness:
   subdomain: notifications
-  name: notifications
-  secured: false
+  secured: true
   service:
     port: 8080
     auto: true
+    name: notifications
   deployment:
+    name: notifications
     auto: true
     port: 8080
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 25m
+      limits:
+        memory: 256Mi
+        cpu: 100m
   livenessProbe:
     path: /api/live
   readinessProbe:
