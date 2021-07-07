@@ -67,7 +67,7 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
     # Override for every cloudharness scaffolding
     helm_values[KEY_APPS] = {}
 
-    base_image_name = helm_values['name'] if registry else None
+    base_image_name = helm_values['name']
 
     for root_path in root_paths:
         for base_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, BASE_IMAGES_PATH)) + find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)):
