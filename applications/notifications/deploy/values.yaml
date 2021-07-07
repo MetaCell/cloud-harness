@@ -1,14 +1,11 @@
 harness:
   subdomain: notifications
-  secured: true
+  secured: false
   service:
-    port: 8080
-    auto: true
-    name: notifications
+    auto: false
   deployment:
     name: notifications
     auto: true
-    port: 8080
     resources:
       requests:
         memory: 64Mi
@@ -16,14 +13,9 @@ harness:
       limits:
         memory: 256Mi
         cpu: 100m
-  livenessProbe:
-    path: /api/live
-  readinessProbe:
-    path: /api/ready
   dependencies:
     build:
       - cloudharness-base
-      - cloudharness-flask
   secrets:
     email-user:
     email-password:

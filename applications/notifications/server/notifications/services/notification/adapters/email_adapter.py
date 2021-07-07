@@ -1,9 +1,5 @@
-import smtplib
-
-from cloudharness import log as logger
 from cloudharness.utils.config import CloudharnessConfig as conf
 from cloudharness.utils.secrets import get_secret, SecretNotFound
-from email.message import EmailMessage
 from .base_adapter import NotificationBaseAdapter
 
 

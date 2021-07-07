@@ -5,7 +5,7 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from cloudharness.utils.config import CloudharnessConfig as config
 
 jinja_env = Environment(
-    loader=PackageLoader(config.get_current_app_name(), 'templates'),
+    loader=PackageLoader('notifications', 'templates'),
     autoescape=select_autoescape(['html', 'xml'])
 )
 

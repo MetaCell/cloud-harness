@@ -14,8 +14,7 @@ VERSION = "1.0.0"
 # http://pypi.python.org/pypi/setuptools
 
 REQUIRES = [
-    "connexion>=2.0.2",
-    "swagger-ui-bundle>=0.0.2",
+    "jinja2<3"
     "python_dateutil>=2.6.0"
 ]
 

@@ -4,7 +4,6 @@ import time
 from cloudharness import log
 from cloudharness.events.client import EventClient
 from cloudharness.utils.config import CloudharnessConfig as conf
-from flask import current_app
 from kafka.errors import TopicAlreadyExistsError
 from types import SimpleNamespace as Namespace
 
@@ -78,7 +77,7 @@ class MessageHandler:
                         pass
                     except Exception as e:
                         log.error(f"Error creating topic {nh.topic_id}", exc_info=e)
-                    event_client.async_consume(app=current_app, handler=self.handler, group_id="ch-notifications")
+                    event_client.async_consume(app=None, handler=self.handler, group_id="ch-notifications")
                     self._event_clients.append(event_client)
                     self._topics.append(nh.topic_id)
 
@@ -93,21 +92,16 @@ mh = None
 
 
 def test_kafka_running():
-    try:
-        EventClient("ch-notifications-testing")._get_consumer()
-    except:
-        return False
-    return True
+    EventClient("ch-notifications-testing")._get_consumer()
 
 
 def setup_event_service():
-    kafka_running = False
-    nap_time = 15
-    while not kafka_running:
-        kafka_running = test_kafka_running()
-        if not kafka_running:
-            log.error(f"Kafka not running? Going for a {nap_time} seconds power nap and will try again later")
-            time.sleep(nap_time)  # sleep xx seconds and try again
+    try:
+        test_kafka_running()
+    except:
+        nap_time = 15
+        time.sleep(nap_time)  # sleep a few seconds before st
+        raise Exception("Kafka not running, exiting...")
     global mh
     mh = MessageHandler()
 

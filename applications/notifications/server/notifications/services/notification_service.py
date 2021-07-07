@@ -4,7 +4,7 @@ from .notification.adapters import NotificationEmailAdapter
 from .notification.backends import NotificationEmailBackend, NotificationConsoleBackend
 
 DOMAIN = conf.get_configuration()["domain"]
-NOTIFICATION_APP_CONFIG = conf.get_current_app()
+NOTIFICATION_APP_CONFIG = conf.get_application_by_filter(name='notifications')[0]
 CHANNELS = NOTIFICATION_APP_CONFIG["notification"]["channels"]
 BACKENDS = NOTIFICATION_APP_CONFIG["notification"]["backends"]
 
