@@ -3,6 +3,9 @@ kind: Config
 build:
   tagPolicy:
     sha256: {}
+  local:
+    useBuildkit: true
+    concurrency: 1
   artifacts: []
 deploy:
 
