@@ -302,6 +302,9 @@ def finish_helm_values(values, namespace, tag='latest', registry='', local=True,
                 continue
             values[KEY_TASK_IMAGES].update(apps[v][KEY_TASK_IMAGES])
                 # Create environment variables
+    else:
+        for v in [v for v in apps]:
+            values[KEY_TASK_IMAGES].update(apps[v][KEY_TASK_IMAGES])
     create_env_variables(values)
     return values, include
 
