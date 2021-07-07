@@ -67,7 +67,7 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
     # Override for every cloudharness scaffolding
     helm_values[KEY_APPS] = {}
 
-    base_image_name = helm_values['name'] if registry else None
+    base_image_name = helm_values['name']
 
     for root_path in root_paths:
         for base_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, BASE_IMAGES_PATH)) + find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)):
@@ -302,6 +302,9 @@ def finish_helm_values(values, namespace, tag='latest', registry='', local=True,
                 continue
             values[KEY_TASK_IMAGES].update(apps[v][KEY_TASK_IMAGES])
                 # Create environment variables
+    else:
+        for v in [v for v in apps]:
+            values[KEY_TASK_IMAGES].update(apps[v][KEY_TASK_IMAGES])
     create_env_variables(values)
     return values, include
 
