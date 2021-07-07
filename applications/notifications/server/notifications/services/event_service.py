@@ -7,7 +7,7 @@ from cloudharness.utils.config import CloudharnessConfig as conf
 from kafka.errors import TopicAlreadyExistsError
 from types import SimpleNamespace as Namespace
 
-from .notification_service import notify
+from notifications.services.notification_service import notify
 
 
 class NotificationHandler:

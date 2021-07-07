@@ -1,6 +1,6 @@
 from cloudharness.utils.config import CloudharnessConfig as conf
 from cloudharness.utils.secrets import get_secret, SecretNotFound
-from .base_adapter import NotificationBaseAdapter
+from notifications.services.notification.adapters.base_adapter import NotificationBaseAdapter
 
 
 DOMAIN = conf.get_configuration()["domain"]

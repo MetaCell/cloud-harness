@@ -1,5 +1,5 @@
 from cloudharness import log as logger
-from .base_backend import NotificationBaseBackend
+from notifications.services.notification.backends.base_backend import NotificationBaseBackend
 
 
 class NotificationConsoleBackend(NotificationBaseBackend):

@@ -1,7 +1,8 @@
 from cloudharness import log as logger
 from cloudharness.utils.config import CloudharnessConfig as conf
-from .notification.adapters import NotificationEmailAdapter
-from .notification.backends import NotificationEmailBackend, NotificationConsoleBackend
+from notifications.services.notification.adapters import NotificationEmailAdapter
+from notifications.services.notification.backends import NotificationEmailBackend, NotificationConsoleBackend
+
 
 DOMAIN = conf.get_configuration()["domain"]
 NOTIFICATION_APP_CONFIG = conf.get_application_by_filter(name='notifications')[0]

@@ -4,7 +4,7 @@ from cloudharness import log as logger
 from cloudharness.utils.config import CloudharnessConfig as conf
 from cloudharness.utils.secrets import get_secret, SecretNotFound
 from email.message import EmailMessage
-from .base_backend import NotificationBaseBackend
+from notifications.services.notification.backends.base_backend import NotificationBaseBackend
 
 
 DOMAIN = conf.get_configuration()["domain"]

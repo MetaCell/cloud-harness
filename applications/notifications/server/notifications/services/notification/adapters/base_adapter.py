@@ -2,7 +2,6 @@ import abc
 import os
 
 from jinja2 import Environment, PackageLoader, select_autoescape
-from cloudharness.utils.config import CloudharnessConfig as config
 
 jinja_env = Environment(
     loader=PackageLoader('notifications', 'templates'),

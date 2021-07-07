@@ -2,7 +2,7 @@
 
 import time
 from cloudharness import log
-from .services.event_service import setup_event_service
+from notifications.services.event_service import setup_event_service
 
 
 def main():
