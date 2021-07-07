@@ -5,7 +5,7 @@ build:
     sha256: {}
   local:
     useBuildkit: true
-    concurrency: 1
+    concurrency: 4
   artifacts: []
 deploy:
 
