@@ -54,35 +54,35 @@ class MessageHandler:
 
     @staticmethod
     def handler(app, event_client, message):
-        log.info(f"Handler received message: {message}")
+        log.debug("Handler received message: %s",message)
         for nh in [nh for nh in MessageHandler._handlers if nh.message_type == message.get("message_type")]:
             nh.handle_event(message)
 
     def init_topics(self):
         for app in conf.get_application_by_filter(name="notifications"):  # find the notification app configuration
-            log.info(app.harness.events)
             for event_type in app["harness"]["events"]:
-                for notification in app["harness"]["events"][event_type]:
-                    nh = NotificationHandler(
-                        event_type,
-                        notification["app"], 
-                        notification["type"], 
-                        notification["events"])
-                    MessageHandler._handlers.append(nh)
-                    if nh.topic_id not in self._topics:
-                        # if topic not yet in the list op topics create one (async_consume)
-                        event_client = EventClient(nh.topic_id)
-                        try:
-                            # try to create the topic, if it exists it will throw an exception
-                            log.info(f"Setting up topic {nh.topic_id}")
-                            event_client.create_topic()
-                        except TopicAlreadyExistsError as e:
-                            pass
-                        except Exception as e:
-                            log.error(f"Error creating topic {nh.topic_id}", exc_info=e)
-                        event_client.async_consume(app=None, handler=self.handler, group_id="ch-notifications")
-                        self._event_clients.append(event_client)
-                        self._topics.append(nh.topic_id)
+                for notification_app in app["harness"]["events"][event_type]:
+                    for notification_type in notification_app["types"]:
+                        nh = NotificationHandler(
+                            event_type,
+                            notification_app["app"], 
+                            notification_type["name"], 
+                            notification_type["events"])
+                        MessageHandler._handlers.append(nh)
+                        if nh.topic_id not in self._topics:
+                            # if topic not yet in the list op topics create one (async_consume)
+                            event_client = EventClient(nh.topic_id)
+                            try:
+                                # try to create the topic, if it exists it will throw an exception
+                                log.info(f"Setting up topic {nh.topic_id}")
+                                event_client.create_topic()
+                            except TopicAlreadyExistsError as e:
+                                pass
+                            except Exception as e:
+                                log.error(f"Error creating topic {nh.topic_id}", exc_info=e)
+                            event_client.async_consume(app=None, handler=self.handler, group_id="ch-notifications")
+                            self._event_clients.append(event_client)
+                            self._topics.append(nh.topic_id)
 
     def stop(self):
         log.info("Closing the topics")

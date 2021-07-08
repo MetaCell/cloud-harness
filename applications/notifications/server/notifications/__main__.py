@@ -11,7 +11,7 @@ def main():
     nap_time = 30
     while True:
         time.sleep(nap_time)  # sleep xx seconds
-        log.info("Running...")
+        log.debug("Running...")
 
 
 if __name__ == '__main__':

@@ -21,6 +21,14 @@ harness:
     email-password:
   events:  # events the notification service is listening to
     cdc: # change data capture events, see https://devshawn.com/blog/apache-kafka-topic-naming-conventions/
+    # - app: notifications
+    #   types:
+    #   - name: email
+    #     events:
+    #     - create
+    #   - name: logs
+    #     events:
+    #     - create
 
 notification:
   backends:

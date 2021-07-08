@@ -1,4 +1,4 @@
-from cloudharness import log as logger
+from cloudharness import log
 from notifications.services.notification.backends.base_backend import NotificationBaseBackend
 
 
@@ -8,6 +8,6 @@ class NotificationConsoleBackend(NotificationBaseBackend):
         self.kwargs = kwargs
 
     def send(self):
-        logger.info("Send notification")
-        logger.info(f"args:{self.args}")
-        logger.info("kwargs:\n"+"\n".join("{0}: {1!r}".format(k,v) for k,v in self.kwargs.items()))
+        log.info("Send notification")
+        log.info(f"args:{self.args}")
+        log.info("kwargs:\n"+"\n".join("{0}: {1!r}".format(k,v) for k,v in self.kwargs.items()))
