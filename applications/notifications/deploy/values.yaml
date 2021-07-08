@@ -19,6 +19,8 @@ harness:
   secrets:
     email-user:
     email-password:
+  events:  # events the notification service is listening to
+    cdc: # change data capture events, see https://devshawn.com/blog/apache-kafka-topic-naming-conventions/
 
 notification:
   backends:
