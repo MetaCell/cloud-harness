@@ -72,14 +72,6 @@ class MessageHandler:
                         if nh.topic_id not in self._topics:
                             # if topic not yet in the list op topics create one (async_consume)
                             event_client = EventClient(nh.topic_id)
-                            try:
-                                # try to create the topic, if it exists it will throw an exception
-                                log.info(f"Setting up topic {nh.topic_id}")
-                                event_client.create_topic()
-                            except TopicAlreadyExistsError as e:
-                                pass
-                            except Exception as e:
-                                log.error(f"Error creating topic {nh.topic_id}", exc_info=e)
                             event_client.async_consume(app=None, handler=self.handler, group_id="ch-notifications")
                             self._event_clients.append(event_client)
                             self._topics.append(nh.topic_id)
@@ -94,17 +86,7 @@ class MessageHandler:
 mh = None
 
 
-def test_kafka_running():
-    EventClient("ch-notifications-testing")._get_consumer()
-
-
 def setup_event_service():
-    try:
-        test_kafka_running()
-    except:
-        nap_time = 15
-        time.sleep(nap_time)  # sleep a few seconds before st
-        raise Exception("Kafka not running, exiting...")
     global mh
     mh = MessageHandler()
 
