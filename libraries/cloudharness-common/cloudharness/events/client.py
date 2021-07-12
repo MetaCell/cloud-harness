@@ -125,13 +125,10 @@ class EventClient:
                         handler(event_client=self, app=app, message=message.value)
                     except Exception as e:
                         log.error(f"Error during execution of the consumer Topic {self.topic_id} --> {e}", exc_info=True)
-                        log.error(traceback.print_exc())
                 self.consumer.close()
             except Exception as e:
                     log.error(f"Error during execution of the consumer Topic {self.topic_id} --> {e}", exc_info=True)
-                    log.error(traceback.print_exc())
-                    time.sleep(10)
-        # log.info(f'Kafka consumer thread {self.topic_id} stopped')
+                    time.sleep(15)
 
     def async_consume(self, app=None, handler=None, group_id='default'):
         log.debug('creating thread')
