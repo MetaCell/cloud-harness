@@ -29,28 +29,30 @@ def literal_presenter(dumper, data):
 yaml.add_representer(str, literal_presenter)
 
 
-def create_codefresh_deployment_scripts(root_paths, out_filename=CODEFRESH_PATH, include=(), exclude=(),
+def create_codefresh_deployment_scripts(root_paths, env, include=(), exclude=(),
                                         template_name=CF_TEMPLATE_PATH, base_image_name=None,
                                         values_manual_deploy=None):
     """
     Entry point to create deployment scripts for codefresh: codefresh.yaml and helm chart
     """
-
+    template_name = f"codefresh-template-{env}.yaml"
+    out_filename = f"codefresh-{env}.yaml"
     if include:
         logging.info('Including the following subpaths to the build: %s.', ', '.join(include))
 
     if exclude:
         logging.info('Excluding the following subpaths to the build: %s.', ', '.join(exclude))
 
-    codefresh = get_template(os.path.join(HERE, template_name), True)
+    codefresh = get_template(os.path.join(DEPLOYMENT_CONFIGURATION_PATH, template_name), True)
 
     if not codefresh:
         if template_name != CF_TEMPLATE_PATH:
-            logging.warning("Template file %s not found", template_name)
+            logging.warning("Template file %s not found. Codefresh script not created.", template_name)
             if os.path.exists(os.path.join(HERE, CF_TEMPLATE_PATH)):
                 logging.info("Loading legacy template %s", CF_TEMPLATE_PATH)
                 codefresh = get_template(os.path.join(HERE, CF_TEMPLATE_PATH), True)
         return
+    logging.info("Creating codefresh script %s", out_filename)
 
     if CF_BUILD_STEP_BASE in codefresh['steps']:
         codefresh['steps'][CF_BUILD_STEP_BASE]['steps'] = {}
