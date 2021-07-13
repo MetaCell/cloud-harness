@@ -1,4 +1,3 @@
-import os
 from cloudharness.utils.config import CloudharnessConfig, ConfigObject
 
 class ConfigurationCallException(Exception): pass
