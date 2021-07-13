@@ -1,3 +1,4 @@
+import os
 from cloudharness.utils.config import CloudharnessConfig, ConfigObject
 
 class ConfigurationCallException(Exception): pass
@@ -94,3 +95,12 @@ def get_configuration(app_name) -> ApplicationConfiguration:
         raise ConfigurationCallException(f'Application {app_name} is not part of the current deployment.')
     return ApplicationConfiguration(conf[0])
 
+
+def get_current_configuration() -> ApplicationConfiguration:
+    """
+    Get the configuration for the "current" application
+
+    Returns:
+        ApplicationConfiguration
+    """
+    return get_configuration(name=CloudharnessConfig.get_current_app_name())

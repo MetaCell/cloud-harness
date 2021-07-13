@@ -32,12 +32,10 @@ def get_authclient():
 
 
 class EventClient:
-    def __init__(self, topic_id, create_topic=False):
+    def __init__(self, topic_id):
         self.topic_id = topic_id
         self.client_id = env.get_cloudharness_events_client_id()
         self.service = env.get_cloudharness_events_service()
-        if create_topic:
-            self.create_topic()
 
     def _get_consumer(self, group_id='default') -> KafkaConsumer:
         return KafkaConsumer(self.topic_id,
