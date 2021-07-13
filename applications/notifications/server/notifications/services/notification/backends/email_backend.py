@@ -7,18 +7,11 @@ from email.message import EmailMessage
 from notifications.services.notification.backends.base_backend import NotificationBaseBackend
 
 
-DOMAIN = conf.get_configuration()["domain"]
-EMAIL_HOST = conf.get_configuration()["smtp"]["host"]
-EMAIL_PORT = conf.get_configuration()["smtp"]["port"]
-EMAIL_TLS  = conf.get_configuration()["smtp"].get("use_tls")
-try:
-    EMAIL_USER = get_secret('email-user')
-except SecretNotFound:
-    EMAIL_USER = ""
-try:
-    EMAIL_PASS = get_secret('email-password')
-except SecretNotFound:
-    EMAIL_PASS = ""
+def get_secret_or_empty(name):
+    try:
+        return get_secret(name)
+    except SecretNotFound:
+        return ""
 
 
 class NotificationEmailBackend(NotificationBaseBackend):
@@ -29,6 +22,7 @@ class NotificationEmailBackend(NotificationBaseBackend):
         self.subject = subject
         self.message = message
 
+
     def send(self):
         logger.info(f"Sending notification email to {self.email_to}")
         msg = EmailMessage()
@@ -37,9 +31,15 @@ class NotificationEmailBackend(NotificationBaseBackend):
         msg['To'] = self.email_to
         msg.set_content(self.message, subtype='html')
 
-        smtp = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT)
-        if EMAIL_USER or EMAIL_PASS:
-            smtp.login(EMAIL_USER, EMAIL_PASS)
-        if EMAIL_TLS:
+        email_user = get_secret_or_empty('email-user')
+        email_pass = get_secret_or_empty('email-password')
+        email_host = conf.get_configuration()["smtp"]["host"]
+        email_port = conf.get_configuration()["smtp"]["port"]
+        email_tls  = conf.get_configuration()["smtp"].get("use_tls")
+
+        smtp = smtplib.SMTP(email_host, email_port)
+        if email_user or email_pass:
+            smtp.login(email_user, email_pass)
+        if email_tls:
             smtp.starttls()
         smtp.send_message(msg)

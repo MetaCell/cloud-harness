@@ -1,13 +1,11 @@
 import json
-import time
 
 from cloudharness import log
 from cloudharness.events.client import EventClient
 from cloudharness.utils.config import CloudharnessConfig as conf
-from kafka.errors import TopicAlreadyExistsError
 from types import SimpleNamespace as Namespace
 
-from notifications.services.notification_service import notify
+from notifications.services.notification_service import send
 
 
 class NotificationHandler:
@@ -32,7 +30,7 @@ class NotificationHandler:
                     obj_id = message.get("uid")
                     obj = json.loads(json.dumps(message.get("resource")), object_hook=lambda d: Namespace(**d))
                     log.info(f"{app_name} sent {operation} {self.message_type} with id: {obj_id} message")
-                    notify(
+                    send(
                         operation=operation,
                         context={
                             "app_name": app_name,
@@ -59,22 +57,22 @@ class MessageHandler:
             nh.handle_event(message)
 
     def init_topics(self):
-        for app in conf.get_application_by_filter(name="notifications"):  # find the notification app configuration
-            for event_type in app["harness"]["events"]:
-                for notification_app in app["harness"]["events"][event_type]:
-                    for notification_type in notification_app["types"]:
-                        nh = NotificationHandler(
-                            event_type,
-                            notification_app["app"], 
-                            notification_type["name"], 
-                            notification_type["events"])
-                        MessageHandler._handlers.append(nh)
-                        if nh.topic_id not in self._topics:
-                            # if topic not yet in the list op topics create one (async_consume)
-                            event_client = EventClient(nh.topic_id)
-                            event_client.async_consume(app=None, handler=self.handler, group_id="ch-notifications")
-                            self._event_clients.append(event_client)
-                            self._topics.append(nh.topic_id)
+        app = conf.get_application_by_filter(name="notifications")[0]  # find the notification app configuration
+        for event_type in app["harness"]["events"]:
+            for notification_app in app["harness"]["events"][event_type]:
+                for notification_type in notification_app["types"]:
+                    nh = NotificationHandler(
+                        event_type,
+                        notification_app["app"], 
+                        notification_type["name"], 
+                        notification_type["events"])
+                    MessageHandler._handlers.append(nh)
+                    if nh.topic_id not in self._topics:
+                        # if topic not yet in the list op topics create one (async_consume)
+                        event_client = EventClient(nh.topic_id)
+                        event_client.async_consume(app=None, handler=self.handler, group_id="ch-notifications")
+                        self._event_clients.append(event_client)
+                        self._topics.append(nh.topic_id)
 
     def stop(self):
         log.info("Closing the topics")

@@ -3,6 +3,14 @@ from notifications.services.notification.backends.base_backend import Notificati
 
 
 class NotificationConsoleBackend(NotificationBaseBackend):
+    """
+    Console notification backend
+
+    This backend outputs all adapter (keyword) arguments.
+    E.g. the rendered message, subject etc
+    The backend can be usefull for debugging the notification adapters.
+    """
+
     def __init__(self, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs

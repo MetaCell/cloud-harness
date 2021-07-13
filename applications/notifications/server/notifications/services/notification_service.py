@@ -4,17 +4,12 @@ from notifications.services.notification.adapters import NotificationEmailAdapte
 from notifications.services.notification.backends import NotificationEmailBackend, NotificationConsoleBackend
 
 
-DOMAIN = conf.get_configuration()["domain"]
-NOTIFICATION_APP_CONFIG = conf.get_application_by_filter(name='notifications')[0]
-CHANNELS = NOTIFICATION_APP_CONFIG["notification"]["channels"]
-BACKENDS = NOTIFICATION_APP_CONFIG["notification"]["backends"]
-
-
-def notify(operation, context):
-    notification = NOTIFICATION_APP_CONFIG["notification"]["operations"][operation]
+def send(operation, context):
+    notification_app = conf.get_application_by_filter(name='notifications')[0]
+    notification = notification_app["notification"]["operations"][operation]
 
     for c in notification["channels"]:
-        channel = CHANNELS[c]
+        channel = notification_app["notification"]["channels"][c]
         for b in channel["backends"]:
             if   b == "email":
                 channel_backend = NotificationEmailBackend
@@ -22,11 +17,11 @@ def notify(operation, context):
                 channel_backend = NotificationConsoleBackend
 
             try:
-                if channel["type"].lower() == "email":
+                if channel["adapter"].lower() == "email":
                     NotificationEmailAdapter(
                         notification=notification,
                         channel=channel,
-                        backend=channel_backend).notify(context=context)
+                        backend=channel_backend).send(context=context)
                 else:
                     raise NotImplementedError
             except Exception as e:

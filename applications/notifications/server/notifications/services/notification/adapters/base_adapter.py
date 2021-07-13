@@ -31,14 +31,14 @@ class NotificationBaseAdapter(metaclass=abc.ABCMeta):
         ))
 
     @abc.abstractmethod
-    def notify(self, context):
+    def send(self, context):
         """
         Trigger a notification for the notification and channel
 
         Args:
             context: the context passed to the template of the notification object
         """
-        raise NotImplementedError
+        ...
 
     def render_content(self, context):
         return self.template.render(**context)
