@@ -101,8 +101,8 @@ spec:
 
         volumeMounts:
           - name: cloudharness-allvalues
-            mountPath: /opt/cloudharness/resources/allvalues.yaml
-            subPath: allvalues.yaml
+            mountPath: /opt/cloudharness/resources
+            readOnly: true
           {{- if .app.harness.deployment.volume }}
           - name: {{ .app.harness.deployment.volume.name }}
             mountPath: {{ .app.harness.deployment.volume.mountpath }}
