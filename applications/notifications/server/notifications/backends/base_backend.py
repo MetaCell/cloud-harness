@@ -14,4 +14,4 @@ class NotificationBaseBackend(metaclass=abc.ABCMeta):
         """
         Send the notification
         """
-        raise NotImplementedError
+        ...
