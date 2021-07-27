@@ -13,6 +13,7 @@ from kafka.admin import KafkaAdminClient, NewTopic
 from kafka.errors import TopicAlreadyExistsError, UnknownTopicOrPartitionError, KafkaTimeoutError
 
 from cloudharness import log
+from cloudharness import applications as apps
 from cloudharness.auth.keycloak import AuthClient
 from cloudharness.errors import *
 from cloudharness.utils import env
@@ -34,12 +35,18 @@ def get_authclient():
 class EventClient:
     def __init__(self, topic_id):
         self.topic_id = topic_id
-        self.client_id = env.get_cloudharness_events_client_id()
-        self.service = env.get_cloudharness_events_service()
+
+    @classmethod
+    def _get_bootstrap_servers(cls):
+        return env.get_cloudharness_events_service()
+
+    @classmethod
+    def _get_client_id(cls):
+        return apps.get_configuration('accounts').webclient.get('id')
 
     def _get_consumer(self, group_id='default') -> KafkaConsumer:
         return KafkaConsumer(self.topic_id,
-                             bootstrap_servers=self.service,
+                             bootstrap_servers=self._get_bootstrap_servers(),
                              auto_offset_reset='earliest',
                              enable_auto_commit=True,
                              group_id=group_id,
@@ -52,8 +59,8 @@ class EventClient:
             True if topic was created correctly, False otherwise.
         """
         ## Connect to kafka
-        admin_client = KafkaAdminClient(bootstrap_servers=self.service,
-                                        client_id=self.client_id)
+        admin_client = KafkaAdminClient(bootstrap_servers=self._get_bootstrap_servers(),
+                                        client_id=self._get_client_id())
         # ## Create topic
 
         new_topic = NewTopic(name=self.topic_id, num_partitions=1, replication_factor=1)
@@ -75,7 +82,7 @@ class EventClient:
             Return:
                 True if the message was published correctly, False otherwise.
         '''
-        producer = KafkaProducer(bootstrap_servers=self.service,
+        producer = KafkaProducer(bootstrap_servers=self._get_bootstrap_servers(),
                                  value_serializer=lambda x: dumps(x).encode('utf-8'))
         try:
             return producer.send(self.topic_id, value=message)
@@ -191,8 +198,8 @@ class EventClient:
 
         log.debug("Deleting topic " + self.topic_id)
         ## Connect to kafka
-        admin_client = KafkaAdminClient(bootstrap_servers=self.service,
-                                        client_id=self.client_id)
+        admin_client = KafkaAdminClient(bootstrap_servers=self._get_bootstrap_servers(),
+                                        client_id=self._get_client_id())
         ## Delete topic
         try:
             admin_client.delete_topics([self.topic_id])

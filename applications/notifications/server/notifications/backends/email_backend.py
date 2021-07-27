@@ -4,7 +4,7 @@ from cloudharness import log as logger
 from cloudharness.utils.config import CloudharnessConfig as conf
 from cloudharness.utils.secrets import get_secret, SecretNotFound
 from email.message import EmailMessage
-from notifications.services.notification.backends.base_backend import NotificationBaseBackend
+from notifications.backends.base_backend import NotificationBaseBackend
 
 
 def get_secret_or_empty(name):

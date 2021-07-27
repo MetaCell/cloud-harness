@@ -1,5 +1,6 @@
 from cloudharness.utils.config import CloudharnessConfig as conf
-from notifications.services.notification.adapters.base_adapter import NotificationBaseAdapter
+from jinja2 import Template
+from notifications.adapters.base_adapter import NotificationBaseAdapter
 
 
 class NotificationEmailAdapter(NotificationBaseAdapter):
@@ -9,9 +10,10 @@ class NotificationEmailAdapter(NotificationBaseAdapter):
         self.email_to = self.channel["to"]
 
     def send(self, context):
-        subject = self.notification["subject"] \
-            .replace("{{domain}}", conf.get_configuration()["domain"]) \
-            .replace("{{message_type}}", context.get("message_type"))
+        subject = Template(self.notification["subject"]).render(
+            domain=conf.get_configuration()["domain"],
+            message_type=context.get("message_type")
+        )
         context.update({
             "subject": subject
         })

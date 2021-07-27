@@ -1,17 +1,9 @@
-#!/usr/bin/env python3
-
-import time
-from cloudharness import log
-from notifications.services.event_service import setup_event_service
+from notifications.controllers.notifications_controller import NotificationsController
 
 
 def main():
-    setup_event_service()
-
-    nap_time = 30
-    while True:
-        time.sleep(nap_time)  # sleep xx seconds
-        log.debug("Running...")
+    nc = NotificationsController()
+    nc.start_handlers()
 
 
 if __name__ == '__main__':

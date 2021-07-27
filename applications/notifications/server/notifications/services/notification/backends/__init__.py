@@ -1,4 +1,0 @@
-from notifications.services.notification.backends.email_backend import NotificationEmailBackend
-from notifications.services.notification.backends.console_backend import NotificationConsoleBackend
-
-__all__ = [NotificationEmailBackend, NotificationConsoleBackend]

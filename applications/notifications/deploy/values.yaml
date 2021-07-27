@@ -50,17 +50,17 @@ notification:
         - info@example.com
   operations:
     create:
-      subject: New {{message_type}} - {{domain}}
+      subject: New {{ message_type }} - {{ domain }}
       template: model-instance-create
       channels:
         - admins
     update:
-      subject: Update {{message)_type}} - {{domain}}
+      subject: Update {{ message_type }} - {{ domain }}
       template: model-instance-update
       channels:
         - admins
     delete:
-      subject: Delete {{message)_type}} - {{domain}}
+      subject: Delete {{ message_type }} - {{ domain }}
       template: model-instance-delete
       channels:
         - admins

@@ -1,3 +1,4 @@
+import time
 import json
 
 from cloudharness import log
@@ -5,7 +6,7 @@ from cloudharness.events.client import EventClient
 from cloudharness.utils.config import CloudharnessConfig as conf
 from types import SimpleNamespace as Namespace
 
-from notifications.services.notification_service import send
+from notifications.controllers.helpers import send
 
 
 class NotificationHandler:
@@ -16,7 +17,7 @@ class NotificationHandler:
 
     def handle_event(self, message):
         """
-        Handle the received event
+        Send a notification for the received event
 
         Args:
             message: the message
@@ -27,69 +28,72 @@ class NotificationHandler:
                 if event == operation:
                     meta = message.get("meta", {})
                     app_name = meta.get("app_name", "")
-                    obj_id = message.get("uid")
+                    description = meta.get("description", "")
                     obj = json.loads(json.dumps(message.get("resource")), object_hook=lambda d: Namespace(**d))
-                    log.info(f"{app_name} sent {operation} {self.message_type} with id: {obj_id} message")
+                    log.info(f"{app_name} sent {operation} {self.message_type} {description} message")
                     send(
                         operation=operation,
                         context={
                             "app_name": app_name,
                             "message_type": self.message_type,
                             "user": meta.get("user", {}),
-                            "description": meta.get("description", ""),
-                            "uid": message.get("uid"),
+                            "description": description,
                             "obj": obj
                         }
                     )
 
-class MessageHandler:
-    _handlers = []
+class NotificationsController:
+    _notification_handlers = []
 
     def __init__(self):
-        self._topics = []
+        # self._topics = []
         self._event_clients = []
-        self.init_topics()
 
     @staticmethod
     def handler(app, event_client, message):
         log.debug("Handler received message: %s",message)
-        for nh in [nh for nh in MessageHandler._handlers if nh.message_type == message.get("message_type")]:
+        for nh in [nh for nh in NotificationsController._notification_handlers if nh.message_type == message.get("message_type")]:
             nh.handle_event(message)
 
-    def init_topics(self):
+    def _init_handlers(self):
         app = conf.get_application_by_filter(name="notifications")[0]  # find the notification app configuration
         for event_type in app["harness"]["events"]:
             for notification_app in app["harness"]["events"][event_type]:
                 for notification_type in notification_app["types"]:
-                    nh = NotificationHandler(
+                    log.info(f"Init handler for event {notification_app['app']}.{notification_type['name']} type {event_type}")
+                    nss = NotificationHandler(
                         event_type,
                         notification_app["app"], 
                         notification_type["name"], 
                         notification_type["events"])
-                    MessageHandler._handlers.append(nh)
-                    if nh.topic_id not in self._topics:
-                        # if topic not yet in the list op topics create one (async_consume)
-                        event_client = EventClient(nh.topic_id)
-                        event_client.async_consume(app=None, handler=self.handler, group_id="ch-notifications")
-                        self._event_clients.append(event_client)
-                        self._topics.append(nh.topic_id)
+                    if not nss.topic_id in (handler.topic_id for handler in NotificationsController._notification_handlers):
+                        self._consume_topic(nss.topic_id)
+                    NotificationsController._notification_handlers.append(nss)
 
-    def stop(self):
-        log.info("Closing the topics")
+    def _consume_topic(self, topic_id):
+        log.info(f"Init topic: {topic_id}")
+        event_client = EventClient(topic_id)
+        event_client.async_consume(app=None, handler=self.handler, group_id="ch-notifications")
+        self._event_clients.append(event_client)
+
+    def start_handlers(self):
+        """
+        Start consuming incomming messages
+        """
+        self._init_handlers()
+        # use a sleep loop to not frustrate the cpu
+        nap_time = 30
+        try:
+            while True:
+                time.sleep(nap_time)  # sleep xx seconds
+                log.debug("Running...")
+        except Exception as e:
+            log.error('Notification Controller threw an error, stopping handlers.', exc_info=True)
+        finally:
+            self.stop_handlers()
+
+    def stop_handlers(self):
+        log.info("Stopping the notification handlers")
         for event_client in self._event_clients:
             log.info(f"Closing topic {event_client.topic_id}")
             event_client.close()
-
-
-mh = None
-
-
-def setup_event_service():
-    global mh
-    mh = MessageHandler()
-
-
-def stop_event_services():
-    global mh
-    if mh:
-        mh.stop()

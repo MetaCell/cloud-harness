@@ -1,11 +1,12 @@
 from cloudharness import log as logger
+from cloudharness import applications as apps
 from cloudharness.utils.config import CloudharnessConfig as conf
-from notifications.services.notification.adapters import NotificationEmailAdapter
-from notifications.services.notification.backends import NotificationEmailBackend, NotificationConsoleBackend
+from notifications.adapters import NotificationEmailAdapter
+from notifications.backends import NotificationEmailBackend, NotificationConsoleBackend
 
 
 def send(operation, context):
-    notification_app = conf.get_application_by_filter(name='notifications')[0]
+    notification_app = apps.get_configuration('notifications')
     notification = notification_app["notification"]["operations"][operation]
 
     for c in notification["channels"]:
