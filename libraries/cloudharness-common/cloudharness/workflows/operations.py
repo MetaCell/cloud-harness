@@ -37,8 +37,17 @@ class ManagedOperation:
     based on a collection of tasks that run according to the operation type and configuration.
     """
 
-    def __init__(self, name, *args, **kwargs):
+    def __init__(self,
+        name,
+        ttl_strategy: dict = {
+            'secondsAfterCompletion': 60 * 60,
+            'secondsAfterSuccess': 60 * 20,
+            'secondsAfterFailure': 60 * 120
+            },
+        *args,
+        **kwargs):
         self.name = name
+        self.ttl_strategy = ttl_strategy
         self.on_exit_notify = kwargs.get('on_exit_notify', None)
 
     def execute(self, **parameters):
@@ -78,11 +87,7 @@ class ContainerizedOperation(ManagedOperation):
     def spec(self):
         spec = {
             'entrypoint': self.entrypoint,
-            'ttlStrategy': {
-                'secondsAfterCompletion': 60 * 60,
-                'secondsAfterSuccess': 60 * 20,
-                'secondsAfterFailure': 60 * 120,
-            },
+            'ttlStrategy': self.ttl_strategy,
             'templates': [self.modify_template(template) for template in self.templates],
             'serviceAccountName': SERVICE_ACCOUNT,
             'imagePullSecrets': [{'name': config.CloudharnessConfig.get_registry_secret()}],
@@ -416,10 +421,10 @@ class ParallelOperation(CompositeOperation):
 class SimpleDagOperation(CompositeOperation):
     """Simple DAG definition limited to a pipeline of parallel operations"""
 
-    def __init__(self, basename, *task_groups, shared_directory=None, pod_context: PodExecutionContext = None):
+    def __init__(self, basename, *task_groups, shared_directory=None, pod_context: PodExecutionContext = None, **kwargs):
         task_groups = tuple(
             task_group if isinstance(task_group, Iterable) else (task_group,) for task_group in task_groups)
-        super().__init__(basename, pod_context=pod_context, tasks=task_groups, shared_directory=shared_directory)
+        super().__init__(basename, pod_context=pod_context, tasks=task_groups, shared_directory=shared_directory, **kwargs)
 
     def steps_spec(self):
         return [[task.instance() for task in task_group] for task_group in self.tasks]

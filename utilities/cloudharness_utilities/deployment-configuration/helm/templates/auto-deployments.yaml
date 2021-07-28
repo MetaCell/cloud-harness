@@ -57,6 +57,8 @@ spec:
         args: {{ .app.harness.deployment.args }}
         {{- end }}
         env:
+        - name: CH_CURRENT_APP_NAME
+          value: {{ .app.harness.name | quote }}
           {{- include "deploy_utils.env" .root | nindent 8 }}
           {{- include "deploy_utils.privenv" .root | nindent 8 }}
           {{- if .app.harness.env }}
