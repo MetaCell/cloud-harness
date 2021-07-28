@@ -16,6 +16,8 @@ class ConfigObject(object):
 
     def __getitem__(self, key_or_path):
         obj = self.conf
+        if isinstance(key_or_path, int):
+            return list(obj)[key_or_path]
         for k in key_or_path.split('.'):
             if not k in obj:
                 return None
@@ -112,7 +114,7 @@ class CloudharnessConfig:
         filter_keys = next(iter(filter)).split('__')
         filter_value = next(iter(filter.values()))
         all_apps = cls._get_apps()
-        for app_key in cls.get_applications():
+        for app_key in all_apps:
             app = getattr(all_apps, app_key)
             tmp_obj = app
             try:
