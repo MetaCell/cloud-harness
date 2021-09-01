@@ -8,6 +8,7 @@ from connexion.apps.flask_app import FlaskJSONEncoder
 import six
 
 from cloudharness import log as logging
+from cloudharness.applications import get_current_configuration
 
 app = None
 
@@ -49,8 +50,6 @@ def init_webapp_routes(app: flask.Flask, www_path):
         if first_segment_path in ['api', 'static', 'test']:  # exception list
             return error
         return index()
-
-
 
     @app.route('/static/<path:path>', methods=['GET'])
     def send_static(path):
@@ -103,7 +102,7 @@ def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_enco
             data = json.dumps({
                 "description": str(e),
                 "type": type(e).__name__,
-                "trace": traceback.format_exc()
+                "trace": None if get_current_configuration().is_sentry_enabled() else traceback.format_exc()
             })
 
             return data, 500
