@@ -99,13 +99,18 @@ def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_enco
 
         @app.errorhandler(Exception)
         def handle_exception(e: Exception):
-            data = json.dumps({
+            data = {
                 "description": str(e),
-                "type": type(e).__name__,
-                "trace": None if get_current_configuration().is_sentry_enabled() else traceback.format_exc()
-            })
+                "type": type(e).__name__
+            }
 
-            return data, 500
+            try:
+               if not get_current_configuration().is_sentry_enabled():
+                    data['trace'] = traceback.format_exc()
+            except:
+                logging.error("Error checking sentry configuration", exc_info=True)
+                data['trace'] = traceback.format_exc()
+            return json.dumps(data), 500
 
     return app
 
