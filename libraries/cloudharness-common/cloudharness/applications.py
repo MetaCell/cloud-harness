@@ -104,6 +104,6 @@ def get_current_configuration() -> ApplicationConfiguration:
         ApplicationConfiguration
     """
     try:
-        return get_configuration(name=CloudharnessConfig.get_current_app_name())
+        return get_configuration(CloudharnessConfig.get_current_app_name())
     except Exception as e:
         raise ConfigurationCallException(f'Configuration error: cannot find current app - check env variable CH_CURRENT_APP_NAME') from e
