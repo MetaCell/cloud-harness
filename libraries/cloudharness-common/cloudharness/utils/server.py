@@ -1,5 +1,6 @@
 import os
-import inspect
+import json
+import traceback
 
 import flask
 import connexion
@@ -9,6 +10,7 @@ import six
 from cloudharness import log as logging
 
 app = None
+
 
 class JSONEncoder(FlaskJSONEncoder):
     include_nulls = False
@@ -27,7 +29,6 @@ class JSONEncoder(FlaskJSONEncoder):
 
 
 def init_webapp_routes(app: flask.Flask, www_path):
-
     @app.route('/test', methods=['GET'])
     def test():
         return 'routing ok'
@@ -45,20 +46,25 @@ def init_webapp_routes(app: flask.Flask, www_path):
         # when a 404 is thrown send the "main" index page
         # unless the first segment of the path is in the exception list
         first_segment_path = flask.request.full_path.split('/')[1]
-        if first_segment_path in ['api','static','test']:  # exception list
+        if first_segment_path in ['api', 'static', 'test']:  # exception list
             return error
         return index()
+
+
 
     @app.route('/static/<path:path>', methods=['GET'])
     def send_static(path):
         return flask.send_from_directory(os.path.join(www_path, 'static'), path)
+
 
 class Config(object):
     DEBUG = False
     TESTING = False
     CSRF_ENABLED = True
 
-def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_encoder=JSONEncoder, resolver=None, config=Config):
+
+def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_encoder=JSONEncoder, resolver=None,
+               config=Config):
     """
 
     """
@@ -92,7 +98,18 @@ def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_enco
         if init_app_fn:
             init_app_fn(app)
 
+        @app.errorhandler(Exception)
+        def handle_exception(e: Exception):
+            data = json.dumps({
+                "description": str(e),
+                "type": type(e).__name__,
+                "trace": traceback.format_exc()
+            })
+
+            return data, 500
+
     return app
 
+
 def main():
-    app.run( host='0.0.0.0', port=os.getenv('PORT', 5001))
+    app.run(host='0.0.0.0', port=os.getenv('PORT', 5001))
