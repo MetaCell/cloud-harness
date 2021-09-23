@@ -48,8 +48,6 @@ def decode_token(token):
     """
 
     decoded = AuthClient.decode_token(token)
-    valid = 'offline_access' in decoded['realm_access']['roles']
-    log.debug(valid)
     return {'uid': 'user_id'}
 
 
