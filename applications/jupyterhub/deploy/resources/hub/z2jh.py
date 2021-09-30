@@ -34,6 +34,7 @@ def _load_config():
         with open(path) as f:
             values = yaml.safe_load(f)
         cfg = _merge_dictionaries(cfg, values)
+        cfg['root'] = cfg
     return cfg
 
 
@@ -44,6 +45,7 @@ def _merge_dictionaries(a, b):
     """
     merged = a.copy()
     for key in b:
+
         if key in a:
             if isinstance(a[key], Mapping) and isinstance(b[key], Mapping):
                 merged[key] = _merge_dictionaries(a[key], b[key])
