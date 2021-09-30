@@ -384,18 +384,27 @@ elif auth_type == 'custom':
     auth_config = c[auth_class_name]
     auth_config.update(get_config('auth.custom.config') or {})
 elif auth_type == 'keycloak':
+    from cloudharness.applications import get_configuration
+    from cloudharness.utils.config import CloudharnessConfig
     from oauthenticator.generic import GenericOAuthenticator
 
-    c.JupyterHub.authenticator_class = GenericOAuthenticator
-    c.OAuthenticator.oauth_callback_url = "http://minianhub.mnp.local/hub/oauth_callback"
-    c.OAuthenticator.client_id = "web-client"
-    c.OAuthenticator.client_secret = "452952ae-922c-4766-b912-7b106271e34b"
+    accounts_app = get_configuration('accounts')
 
-    c.GenericOAuthenticator.login_service = "keycloak"
+    accounts_url = accounts_app.get_public_address()
+    client_id = accounts_app.conf.webclient.id
+    client_secret = accounts_app.conf.webclient.secret
+    realm = CloudharnessConfig.get_namespace()
+
+    c.JupyterHub.authenticator_class = GenericOAuthenticator
+    c.Authenticator.auto_login = True
+    c.OAuthenticator.client_id = client_id
+    c.OAuthenticator.client_secret = client_secret
+
+    c.GenericOAuthenticator.login_service = "CH"
     c.GenericOAuthenticator.username_key = "email"
-    c.GenericOAuthenticator.authorize_url = "http://accounts.mnp.local/auth/realms/mnp/protocol/openid-connect/auth"
-    c.GenericOAuthenticator.token_url = "http://accounts.mnp.local/auth/realms/mnp/protocol/openid-connect/token"
-    c.GenericOAuthenticator.userdata_url = "http://accounts.mnp.local/auth/realms/mnp/protocol/openid-connect/userinfo"
+    c.GenericOAuthenticator.authorize_url = f"{accounts_url}/auth/realms/{realm}/protocol/openid-connect/auth"
+    c.GenericOAuthenticator.token_url = f"{accounts_url}/auth/realms/{realm}/protocol/openid-connect/token"
+    c.GenericOAuthenticator.userdata_url = f"{accounts_url}/auth/realms/{realm}/protocol/openid-connect/userinfo"
     c.GenericOAuthenticator.userdata_params = {'state': 'state'}
 else:
     raise ValueError("Unhandled auth type: %r" % auth_type)
