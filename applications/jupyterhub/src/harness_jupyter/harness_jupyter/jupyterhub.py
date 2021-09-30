@@ -36,6 +36,19 @@ def change_pod_manifest(self: KubeSpawner):
                     if 'args' in harness['jupyterhub']:
                         self.args = harness['jupyterhub']['args']
 
+                    # Check for app specific config, cpu_limit, cpu_guarantee etc...
+                    # e.g.
+                    # harness:
+                    #   jupyterhub:
+                    #     spawnerExtraConfig:
+                    #       cpu_guarantee: 1.6
+                    #       cpu_limit: 3
+                    #       mem_guarantee: 4G
+                    #       mem_limit: 8G
+                    if 'spawnerExtraConfig' in harness['jupyterhub']:
+                        for k, v in harness['jupyterhub']['spawnerExtraConfig'].items():
+                            setattr(self, k, v)
+
                     # check if there is an applicationHook defined in the values.yaml
                     # if so then execute the applicationHook function with "self" as parameter
                     #

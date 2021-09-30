@@ -6,6 +6,9 @@ harness:
     name: proxy-public
   deployment:
     auto: false
+  dependencies:
+    build:
+    - cloudharness-base
 custom: {}
 hub:
   allowNamedServers: true
@@ -203,8 +206,8 @@ singleuser:
     type: dynamic
     capacity: 2Mi
     dynamic:
-      pvcNameTemplate: jupyter-{userid}
-      volumeNameTemplate: jupyter-{userid}
+      pvcNameTemplate: jupyter-{username}
+      volumeNameTemplate: jupyter-{username}
     homeMountPath: /home/workspace
     extraLabels: {}
   image:
@@ -223,7 +226,7 @@ singleuser:
   extraResource:
     limits: {}
     guarantees: {}
-  cmd: jupyterhub-singleuser
+  cmd: /usr/local/bin/start-singleuser.sh
   defaultUrl: null
 scheduling:
   userScheduler:
@@ -260,7 +263,7 @@ prePuller:
       name: jupyterhub/k8s-image-awaiter
       tag: 0.9-b51ffeb
   continuous:
-    enabled: false
+    enabled: true
   extraImages: {}
   pause:
     image:
