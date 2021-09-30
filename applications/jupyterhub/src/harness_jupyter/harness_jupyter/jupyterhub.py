@@ -50,32 +50,32 @@ def change_pod_manifest(self: KubeSpawner):
                     #           operator: In           # In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                     #           values: pool-jupyter
                     #           matchPurpose: require  # require | prefer | ignore
-                    spawnerExtraConfig = getattr(harness['jupyterhub'], 'spawnerExtraConfig', None)
+                    spawnerExtraConfig = harness['jupyterhub'].get('spawnerExtraConfig')
                     if spawnerExtraConfig:
                         for k, v in spawnerExtraConfig.items():
                             setattr(self, k, v)
-                        node_selectors = getattr(self, 'node_selector', None)  
+                        node_selectors = spawnerExtraConfig.get('node_selectors')
                         if node_selectors:
                             for node_selector in node_selectors:
-                                labels[node_selector.key] = node_selector.values
-                                node_selector = dict(
+                                ns = dict(
                                     matchExpressions=[
                                         dict(
-                                            key=node_selector.key,
-                                            operator=node_selector.operator,
-                                            values=[node_selector.values],
+                                            key=node_selector['key'],
+                                            operator=node_selector['operator'],
+                                            values=[node_selector['values']],
                                         )
                                     ],
                                 )
-                                if node_selector.matchPurpose == 'prefer':
+                                match_node_purpose = node_selector['matchPurpose']
+                                if match_node_purpose == 'prefer':
                                     self.node_affinity_preferred.append(
                                         dict(
                                             weight=100,
-                                            preference=node_selector,
+                                            preference=ns,
                                         ),
                                     )
                                 elif match_node_purpose == 'require':
-                                    self.node_affinity_required.append(node_selector)
+                                    self.node_affinity_required.append(ns)
                                 elif match_node_purpose == 'ignore':
                                     pass
                                 else:
