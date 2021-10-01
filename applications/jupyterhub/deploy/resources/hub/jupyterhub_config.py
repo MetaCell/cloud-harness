@@ -542,3 +542,4 @@ for key, config_py in sorted(extra_config.items()):
 
 c.apps = get_config('apps')
 c.registry = get_config('registry')
+c.domain = get_config('root.domain')

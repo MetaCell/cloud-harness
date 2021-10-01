@@ -20,12 +20,11 @@ def spawner_pod_manifest(self: KubeSpawner):
 def change_pod_manifest(self: KubeSpawner):
 
     try:
-        subdomain = self.handler.request.host.split('.')[0]
+        subdomain = self.handler.request.host.split(str(self.config['domain']))[0][0:-1]
         app_config = self.config['apps']
         registry = self.config['registry']
         for app in app_config.values():
             if 'harness' in app:
-
                 harness = app['harness']
                 if 'jupyterhub' in harness and harness['jupyterhub']\
                         and 'subdomain' in harness and harness['subdomain'] == subdomain:
