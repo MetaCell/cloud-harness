@@ -1,6 +1,7 @@
+import imp
 import logging
 import sys
-import imp
+import urllib.parse
 
 from kubespawner.spawner import KubeSpawner
 handler = logging.StreamHandler(sys.stdout)
