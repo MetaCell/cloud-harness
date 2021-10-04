@@ -1,6 +1,7 @@
+import imp
 import logging
 import sys
-import imp
+import urllib.parse
 
 from kubespawner.spawner import KubeSpawner
 handler = logging.StreamHandler(sys.stdout)
@@ -17,9 +18,41 @@ def spawner_pod_manifest(self: KubeSpawner):
 
     return KubeSpawner.get_pod_manifest_base(self)
 
+def affinity_spec(key, value):
+    return {
+
+        'labelSelector':
+            {
+                'matchExpressions': [
+                    {
+                        'key': str(key),
+                        'operator': 'In',
+                        'values': [str(value)]
+                    },
+                ]
+            },
+        'topologyKey': 'kubernetes.io/hostname'
+    }
+
+def set_user_volume_affinity(self: KubeSpawner):
+    # Add labels to use for affinity
+    labels = {
+        'user': urllib.parse.quote(self.user.name, safe='').replace('%', ''),
+    }
+
+    self.common_labels = labels
+    self.extra_labels = labels
+
+    for key, value in labels.items():
+        self.pod_affinity_required.append(affinity_spec(key, value))
+
 def change_pod_manifest(self: KubeSpawner):
 
     try:
+
+
+
+
         subdomain = self.handler.request.host.split(str(self.config['domain']))[0][0:-1]
         app_config = self.config['apps']
         registry = self.config['registry']
@@ -35,15 +68,12 @@ def change_pod_manifest(self: KubeSpawner):
                     if 'args' in harness['jupyterhub']:
                         self.args = harness['jupyterhub']['args']
 
-                    # Check for app specific config, cpu_limit, cpu_guarantee etc...
-                    # e.g.
-                    # harness:
-                    #   jupyterhub:
-                    #     spawnerExtraConfig:
-                    #       cpu_guarantee: 1.6
-                    #       cpu_limit: 3
-                    #       mem_guarantee: 4G
-                    #       mem_limit: 8G
+                    if harness['jupyterhub'].get('mountUserVolume', True):
+                        set_user_volume_affinity(self)
+                    else:
+                        self.volume_mounts = []
+                        self.volumes = []
+
                     if 'spawnerExtraConfig' in harness['jupyterhub']:
                         for k, v in harness['jupyterhub']['spawnerExtraConfig'].items():
                             setattr(self, k, v)
