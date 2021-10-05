@@ -39,7 +39,7 @@ metadata:
 spec:
   rules:
   {{- range $app := .Values.apps }}
-    {{- if (and $mainapp (and $app.harness.name (eq $app.harness.name $mainapp))) }}
+    {{- if (and $mainapp (eq (default $app.harness.name "") $mainapp)) }}
   - host: {{ $domain | quote }}
     {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app) }}
       {{- range $service := $app.harness.use_services }}
