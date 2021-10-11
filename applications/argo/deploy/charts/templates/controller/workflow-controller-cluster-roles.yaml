@@ -1,7 +1,13 @@
 apiVersion: rbac.authorization.k8s.io/v1
+{{- if .Values.singleNamespace }}
+kind: Role
+{{- else }}
 kind: ClusterRole
+{{- end }}
 metadata:
-  name: {{ .Release.Namespace }}-argo-{{ .Values.controller.name }}
+  name: {{ template "argo-workflows.controller.fullname" . }}
+  labels:
+    {{- include "argo-workflows.labels" (dict "context" . "component" .Values.controller.name "name" .Values.controller.name) | nindent 4 }}
 rules:
 - apiGroups:
   - ""
@@ -49,8 +55,6 @@ rules:
   resources:
   - workflowtemplates
   - workflowtemplates/finalizers
-  - clusterworkflowtemplates
-  - clusterworkflowtemplates/finalizers
   verbs:
   - get
   - list
@@ -106,11 +110,42 @@ rules:
   verbs:
   - get
 {{- end}}
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  resourceNames:
+  {{- if .Values.controller.instanceID.enabled }}
+    {{- if .Values.controller.instanceID.useReleaseName }}
+  - workflow-controller-{{ .Release.Name }}
+  - workflow-controller-lease-{{ .Release.Name }}
+    {{- else }}
+  - workflow-controller-{{ .Values.controller.instanceID.explicitID }}
+  - workflow-controller-lease-{{ .Values.controller.instanceID.explicitID }}
+    {{- end }}
+  {{- else }}
+  - workflow-controller
+  - workflow-controller-lease
+  {{- end }}
+  verbs:
+  - get
+  - watch
+  - update
+  - patch
+  - delete
+
+{{- if .Values.controller.clusterWorkflowTemplates.enabled }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ .Release.Namespace }}-argo-{{ .Values.controller.name }}-cluster-template
+  name: {{ template "argo-workflows.controller.fullname" . }}-cluster-template
 rules:
 - apiGroups:
   - argoproj.io
@@ -121,3 +156,4 @@ rules:
   - get
   - list
   - watch
+{{- end }}

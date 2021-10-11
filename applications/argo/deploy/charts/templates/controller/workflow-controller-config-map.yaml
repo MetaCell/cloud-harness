@@ -1,23 +1,31 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: argo-{{ .Values.controller.name }}-configmap
+  name: {{ template "argo-workflows.controller.fullname" . }}-configmap
   labels:
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    {{- include "argo-workflows.labels" (dict "context" . "component" .Values.controller.name "name" "cm") | nindent 4 }}
 data:
   config: |
     {{- if .Values.controller.instanceID.enabled }}
-    {{- if .Values.controller.instanceID.useReleaseName }}
+      {{- if .Values.controller.instanceID.useReleaseName }}
     instanceID: {{ .Release.Name }}
-    {{- else }}
+      {{- else }}
     instanceID: {{ .Values.controller.instanceID.explicitID }}
-    {{- end }}
+      {{- end }}
     {{- end }}
     containerRuntimeExecutor: {{ .Values.controller.containerRuntimeExecutor }}
+    {{- with .Values.controller.containerRuntimeExecutors }}
+    containerRuntimeExecutors:
+    {{- toYaml . | nindent 6 }}
+    {{- end }}
     {{- if .Values.controller.parallelism }}
     parallelism: {{ .Values.controller.parallelism }}
+    {{- end }}
+    {{- with .Values.controller.namespaceParallelism }}
+    namespaceParallelism: {{ . }}
+    {{- end }}
+    {{- with .Values.controller.initialDelay }}
+    initialDelay: {{ . }}
     {{- end }}
     {{- if or .Values.executor.resources .Values.executor.env .Values.executor.securityContext}}
     executor:
@@ -31,7 +39,7 @@ data:
       securityContext: {{- toYaml . | nindent 8 }}
       {{- end }}
     {{- end }}
-    {{- if or .Values.minio.install .Values.useDefaultArtifactRepo }}
+    {{- if .Values.useDefaultArtifactRepo }}
     artifactRepository:
       {{- if .Values.artifactRepository.archiveLogs }}
       archiveLogs: {{ .Values.artifactRepository.archiveLogs }}
@@ -44,16 +52,16 @@ data:
         {{- if .Values.useStaticCredentials }}
         accessKeySecret:
           key: {{ .Values.artifactRepository.s3.accessKeySecret.key }}
-          name: {{ .Values.artifactRepository.s3.accessKeySecret.name | default (printf "%s-%s" .Release.Name "minio") }}
+          name: {{ .Values.artifactRepository.s3.accessKeySecret.name }}
         secretKeySecret:
           key: {{ .Values.artifactRepository.s3.secretKeySecret.key }}
-          name: {{ .Values.artifactRepository.s3.secretKeySecret.name | default (printf "%s-%s" .Release.Name "minio") }}
+          name: {{ .Values.artifactRepository.s3.secretKeySecret.name }}
         {{- end }}
-        bucket: {{ .Values.artifactRepository.s3.bucket | default .Values.minio.defaultBucket.name }}
-        endpoint: {{ .Values.artifactRepository.s3.endpoint | default (printf "%s-%s" .Release.Name "minio:9000") }}
+        bucket: {{ .Values.artifactRepository.s3.bucket }}
+        endpoint: {{ .Values.artifactRepository.s3.endpoint }}
         insecure: {{ .Values.artifactRepository.s3.insecure }}
         {{- if .Values.artifactRepository.s3.keyFormat }}
-        keyFormat: {{ .Values.artifactRepository.s3.keyFormat }}
+        keyFormat: {{ .Values.artifactRepository.s3.keyFormat | quote }}
         {{- end }}
         {{- if .Values.artifactRepository.s3.region }}
         region: {{ .Values.artifactRepository.s3.region }}
