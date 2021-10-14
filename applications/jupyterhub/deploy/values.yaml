@@ -1,14 +1,18 @@
 harness:
-  subdomain: jupyterhub
+  subdomain: hub
   service:
     auto: false
     port: 80
     name: proxy-public
   deployment:
     auto: false
+    port: 8081
   dependencies:
+    soft:
+    - accounts
     build:
     - cloudharness-base
+
 # fullnameOverride and nameOverride distinguishes blank strings, null values,
 # and non-blank strings. For more details, see the configuration reference.
 fullnameOverride: ""
@@ -40,7 +44,7 @@ hub:
   config:
     JupyterHub:
       admin_access: true
-      authenticator_class: dummy
+      authenticator_class: keycloak
   service:
     type: ClusterIP
     annotations: {}
@@ -379,7 +383,7 @@ singleuser:
       storageAccessModes: [ReadWriteOnce]
   image:
     name: jupyter/base-notebook
-    tag: "hub-1.1.3"
+    tag: "hub-1.4.2"
     pullPolicy:
     pullSecrets: []
   startTimeout: 300
