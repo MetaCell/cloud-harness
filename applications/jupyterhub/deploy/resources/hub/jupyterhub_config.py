@@ -524,39 +524,6 @@ set_config_if_not_none(c.Authenticator, 'whitelist', 'auth.whitelist.users')
 
 c.JupyterHub.services = []
 
-extra_config = get_config('hub.extraConfig', {})
-if isinstance(extra_config, str):
-    from textwrap import indent, dedent
-    msg = dedent(
-    """
-    hub.extraConfig should be a dict of strings,
-    but found a single string instead.
-    extraConfig as a single string is deprecated
-    as of the jupyterhub chart version 0.6.
-    The keys can be anything identifying the
-    block of extra configuration.
-    Try this instead:
-        hub:
-          extraConfig:
-            myConfig: |
-              {}
-    This configuration will still be loaded,
-    but you are encouraged to adopt the nested form
-    which enables easier merging of multiple extra configurations.
-    """
-    )
-    print(
-        msg.format(
-            indent(extra_config, ' ' * 10).lstrip()
-        ),
-        file=sys.stderr
-    )
-    extra_config = {'deprecated string': extra_config}
-
-for key, config_py in sorted(extra_config.items()):
-    print("Loading extra config: %s" % key)
-    exec(config_py)
-
 c.apps = get_config('apps')
 c.registry = get_config('registry')
 c.domain = get_config('root.domain')
