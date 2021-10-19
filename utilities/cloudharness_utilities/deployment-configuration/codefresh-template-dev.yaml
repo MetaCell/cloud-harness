@@ -38,7 +38,7 @@ steps:
     environment:
       - ACTION=auth
       - KUBE_CONTEXT=${{NAMESPACE}}
-    image: codefresh/cfstep-helm:3.7.0
+    image: codefresh/cfstep-helm:3.6.2
     stage: prepare
     title: 'View helm chart'
   build_base_images:
@@ -60,7 +60,7 @@ steps:
       REPLACE_ME
   deployment:
     stage: deploy
-    image: codefresh/cfstep-helm:3.7.0
+    image: codefresh/cfstep-helm:3.6.2
     title: Installing chart
     environment:
       - CHART_REF=./deployment/helm
