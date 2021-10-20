@@ -123,7 +123,7 @@ hub:
               cidr: 0.0.0.0/0
     interNamespaceAccessLabels: ignore
     allowedIngressPorts: []
-  allowNamedServers: false
+  allowNamedServers: true
   namedServerLimitPerUser:
   authenticatePrometheus:
   redirectToServer:
