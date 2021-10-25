@@ -71,7 +71,7 @@ harness:
           port: 27017
     # -- settings for postgers database (for type==postgres)
     postgres:
-      image: postgres:latest
+      image: postgres:13
       initialdb: cloudharness
       ports:
         - name: http
