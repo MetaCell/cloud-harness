@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ template "argo-workflows.server.fullname" . }}
+  name: argo-server
   labels:
     {{- include "argo-workflows.labels" (dict "context" . "component" .Values.server.name "name" .Values.server.name) | nindent 4 }}
     app.kubernetes.io/version: {{ default .Chart.AppVersion .Values.server.image.tag | quote }}
