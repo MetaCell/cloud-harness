@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "argo-workflows.controller.fullname" . }}
+  name: argo-workflow-controller
   labels:
     {{- include "argo-workflows.labels" (dict "context" . "component" .Values.controller.name "name" .Values.controller.name) | nindent 4 }}
     app.kubernetes.io/version: {{ default .Chart.AppVersion .Values.controller.image.tag | quote }}

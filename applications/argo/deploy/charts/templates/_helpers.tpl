@@ -4,14 +4,14 @@
 Create argo workflows server name and version as used by the chart label.
 */}}
 {{- define "argo-workflows.server.fullname" -}}
-{{- printf "argo-%s" .Values.server.name | trunc 63 | trimSuffix "-" -}}
+{{- printf "%s-%s" (include "argo-workflows.fullname" .) .Values.server.name | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
 Create controller name and version as used by the chart label.
 */}}
 {{- define "argo-workflows.controller.fullname" -}}
-{{- printf "argo-%s" .Values.controller.name | trunc 63 | trimSuffix "-" -}}
+{{- printf "%s-%s" (include "argo-workflows.fullname" .) .Values.controller.name | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
@@ -37,9 +37,6 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 {{- end -}}
 {{- end -}}
 {{- end -}}
-
-
-
 
 {{/*
 Create chart name and version as used by the chart label.
