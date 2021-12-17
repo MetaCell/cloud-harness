@@ -1,6 +1,8 @@
 harness:
   # -- If specified, an ingress will be created at [subdomain].[.Values.domain]
   subdomain:
+  # -- If specified, an ingress will be created at [alias].[.Values.domain] for each alias
+  aliases: []
   # -- If specified, an ingress will be created at [domain]
   domain:
   # -- Application dependencies are used to define what is required in the deployment when --include (-i) is used. Specify application names in the list.

@@ -39,7 +39,7 @@ metadata:
 spec:
   rules:
   {{- range $app := .Values.apps }}
-    {{- if (eq $app.harness.name $mainapp) }}
+    {{- if (and $mainapp (and $app.harness.name (eq $app.harness.name $mainapp))) }}
   - host: {{ $domain | quote }}
     {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app) }}
       {{- range $service := $app.harness.use_services }}
@@ -49,6 +49,12 @@ spec:
     {{- if $app.harness.domain }}
   - host: {{ $app.harness.domain | quote }}
     {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app) }}
+    {{- end }}
+    {{- if $app.harness.aliases }}
+    {{- range $alias := $app.harness.aliases }}
+  - host: {{ printf "%s.%s" $alias $domain | quote }}
+    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app) }}
+      {{- end }}
     {{- end }}
     {{- if $app.harness.subdomain }}
   - host: {{ printf "%s.%s" $app.harness.subdomain $domain | quote }}
@@ -65,6 +71,7 @@ spec:
        {{- end }}
       {{- end }}
     {{- end }}
+
   {{- end }}
   {{- if $tls  }}
   tls:

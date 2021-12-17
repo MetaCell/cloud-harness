@@ -1,6 +1,7 @@
 import os
 import logging
 import json
+import time
 
 from cloudharness_utilities.constants import HELM_CHART_PATH, DEPLOYMENT_CONFIGURATION_PATH, DEPLOYMENT_PATH, \
     BASE_IMAGES_PATH, STATIC_IMAGES_PATH
@@ -33,7 +34,8 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
                 'dockerfile': os.path.join(dockerfile_path, 'Dockerfile'),
                 'buildArgs': {
                     'REGISTRY': helm_values["registry"]["name"],
-                    'TAG': helm_values["tag"]
+                    'TAG': helm_values["tag"],
+                    'NOCACHE': str(time.time())
                 },
                 'ssh': 'default'
             }

@@ -1,6 +1,7 @@
+import imp
 import logging
 import sys
-import imp
+import urllib.parse
 
 from kubespawner.spawner import KubeSpawner
 handler = logging.StreamHandler(sys.stdout)
@@ -17,15 +18,46 @@ def spawner_pod_manifest(self: KubeSpawner):
 
     return KubeSpawner.get_pod_manifest_base(self)
 
+def affinity_spec(key, value):
+    return {
+
+        'labelSelector':
+            {
+                'matchExpressions': [
+                    {
+                        'key': str(key),
+                        'operator': 'In',
+                        'values': [str(value)]
+                    },
+                ]
+            },
+        'topologyKey': 'kubernetes.io/hostname'
+    }
+
+def set_user_volume_affinity(self: KubeSpawner):
+    # Add labels to use for affinity
+    labels = {
+        'user': urllib.parse.quote(self.user.name, safe='').replace('%', ''),
+    }
+
+    self.common_labels = labels
+    self.extra_labels = labels
+
+    for key, value in labels.items():
+        self.pod_affinity_required.append(affinity_spec(key, value))
+
 def change_pod_manifest(self: KubeSpawner):
 
     try:
-        subdomain = self.handler.request.host.split('.')[0]
+
+
+
+
+        subdomain = self.handler.request.host.split(str(self.config['domain']))[0][0:-1]
         app_config = self.config['apps']
         registry = self.config['registry']
         for app in app_config.values():
             if 'harness' in app:
-
                 harness = app['harness']
                 if 'jupyterhub' in harness and harness['jupyterhub']\
                         and 'subdomain' in harness and harness['subdomain'] == subdomain:
@@ -35,6 +67,16 @@ def change_pod_manifest(self: KubeSpawner):
                         self.image_pull_secrets = registry['secret']
                     if 'args' in harness['jupyterhub']:
                         self.args = harness['jupyterhub']['args']
+
+                    if harness['jupyterhub'].get('mountUserVolume', True):
+                        set_user_volume_affinity(self)
+                    else:
+                        self.volume_mounts = []
+                        self.volumes = []
+
+                    if 'spawnerExtraConfig' in harness['jupyterhub']:
+                        for k, v in harness['jupyterhub']['spawnerExtraConfig'].items():
+                            setattr(self, k, v)
 
                     # check if there is an applicationHook defined in the values.yaml
                     # if so then execute the applicationHook function with "self" as parameter

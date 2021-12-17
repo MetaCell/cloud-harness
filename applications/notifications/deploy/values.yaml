@@ -1,0 +1,66 @@
+harness:
+  subdomain: notifications
+  secured: false
+  service:
+    auto: false
+  deployment:
+    name: notifications
+    auto: true
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 25m
+      limits:
+        memory: 256Mi
+        cpu: 100m
+  dependencies:
+    build:
+      - cloudharness-base
+  secrets:
+    email-user:
+    email-password:
+  events:  # events the notification service is listening to
+    cdc: # change data capture events, see https://devshawn.com/blog/apache-kafka-topic-naming-conventions/
+    # - app: notifications
+    #   types:
+    #   - name: TypeA
+    #     events:
+    #     - create
+    #   - name: TypeB
+    #     events:
+    #     - create
+
+notification:
+  channels:
+    admins:
+      adapter: email
+      backends:
+        - email
+      templateFolder: html
+      from: info@example.com
+      to:
+        - info@example.com
+    log:
+      adapter: email
+      backends: 
+        - console
+      templateFolder: text
+      from: info@example.com
+      to:
+        - info@example.com
+  operations:
+    create:
+      subject: New {{ message_type }} - {{ domain }}
+      template: model-instance-create
+      channels:
+        - admins
+    update:
+      subject: Update {{ message_type }} - {{ domain }}
+      template: model-instance-update
+      channels:
+        - admins
+    delete:
+      subject: Delete {{ message_type }} - {{ domain }}
+      template: model-instance-delete
+      channels:
+        - admins

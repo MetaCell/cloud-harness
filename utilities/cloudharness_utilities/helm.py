@@ -424,8 +424,9 @@ def create_env_variables(values):
 def hosts_info(values):
     domain = values['domain']
     namespace = values['namespace']
-    subdomains = (app[KEY_HARNESS]['subdomain'] for app in values[KEY_APPS].values() if
-                  KEY_HARNESS in app and app[KEY_HARNESS]['subdomain'])
+    subdomains = [app[KEY_HARNESS]['subdomain'] for app in values[KEY_APPS].values() if
+                  KEY_HARNESS in app and app[KEY_HARNESS]['subdomain']] + [alias  for app in values[KEY_APPS].values() if
+                  KEY_HARNESS in app and app[KEY_HARNESS]['aliases'] for alias in app[KEY_HARNESS]['aliases']]
     try:
         ip = get_cluster_ip()
     except:
