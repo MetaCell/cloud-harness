@@ -34,7 +34,8 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
                 'buildArgs': {
                     'REGISTRY': helm_values["registry"]["name"],
                     'TAG': helm_values["tag"]
-                }
+                },
+                'ssh': 'default'
             }
         }
         if requirements:
