@@ -36,7 +36,8 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
                     'REGISTRY': helm_values["registry"]["name"],
                     'TAG': helm_values["tag"],
                     'NOCACHE': str(time.time())
-                }
+                },
+                'ssh': 'default'
             }
         }
         if requirements:
