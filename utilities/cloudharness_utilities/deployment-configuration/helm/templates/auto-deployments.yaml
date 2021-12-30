@@ -105,9 +105,12 @@ spec:
           - name: cloudharness-allvalues
             mountPath: /opt/cloudharness/resources
             readOnly: true
+          {{- if not .app.webclient }}
+          # don't mount the kc api secret in the accounts app
           - name: cloudharness-kc-api-account
             mountPath: /opt/cloudharness/resources/auth
             readOnly: true
+          {{- end }}
           {{- if .app.harness.deployment.volume }}
           - name: {{ .app.harness.deployment.volume.name }}
             mountPath: {{ .app.harness.deployment.volume.mountpath }}
@@ -129,9 +132,12 @@ spec:
         - name: cloudharness-allvalues
           configMap:
             name: cloudharness-allvalues
+        {{- if not .app.webclient }}
+        # don't mount the kc api secret in the accounts app
         - name: cloudharness-kc-api-account
           secret:
             secretName: accounts-api
+        {{- end }}
         {{- if .app.harness.deployment.volume }}
         - name: {{ .app.harness.deployment.volume.name }}
           persistentVolumeClaim:
