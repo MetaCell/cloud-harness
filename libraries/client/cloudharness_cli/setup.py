@@ -14,7 +14,7 @@
 from setuptools import setup, find_packages  # noqa: H301
 
 NAME = "cloudharness-cli"
-VERSION = "0.1.0"
+VERSION = "0.4.0"
 # To install the library, run the following
 #
 # python setup.py install

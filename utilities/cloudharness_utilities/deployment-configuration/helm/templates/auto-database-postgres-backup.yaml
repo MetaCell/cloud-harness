@@ -7,11 +7,23 @@ spec:
   schedule: {{ .root.Values.backup.schedule | quote }}
   jobTemplate:
     spec:
+
       template:
+        metadata:
+          labels:
+            name: "{{ .app.harness.database.name }}-backup"
+            service: db
         spec:
-          securityContext:
-            runAsUser: 999
-            runAsGroup: 999
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchExpressions:
+                      - key: service
+                        operator: In
+                        values:
+                          - db
+                  topologyKey: kubernetes.io/hostname
           containers:
             - name: "{{ .app.harness.database.name }}-backup"
               imagePullPolicy: IfNotPresent
@@ -38,10 +50,11 @@ spec:
                 - name: BACKUP_SUFFIX
                   value: {{ .root.Values.backup.suffix | quote }}
                 - name: BACKUP_DIR
-                  value: {{ (printf "%s/postgres/%s" .root.Values.backup.dir .app.harness.database.name) | quote }}
+                  value: {{ (printf "%s/%s/%s" .root.Values.backup.dir .app.harness.database.type .app.harness.database.name) | quote }}
               volumeMounts:
-                - name: "db-backup"
-                  mountPath: /backups
+                - name: "db-backups"
+                  mountPath: {{ (printf "%s/%s/%s" .root.Values.backup.dir .app.harness.database.type .app.harness.database.name) | quote }}
+                  readOnly: false
               resources:
                 requests:
                   memory: {{ .root.Values.backup.resources.requests.memory | default "32Mi" }}
@@ -51,8 +64,8 @@ spec:
                   cpu: {{ .root.Values.backup.resources.limits.cpu | default "50mi" }}
           restartPolicy: OnFailure
           volumes:
-            - name: "db-backup"
+            - name: "db-backups"
               persistentVolumeClaim:
-                claimName: "db-backup"
+                claimName: "db-backups"
 
 {{ end }}

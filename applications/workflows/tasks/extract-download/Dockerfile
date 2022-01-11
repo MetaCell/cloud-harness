@@ -1,10 +1,11 @@
-ARG REGISTRY
-ARG TAG=latest
-FROM ${REGISTRY}cloudharness-base:${TAG}
+ARG CLOUDHARNESS_BASE
+FROM $CLOUDHARNESS_BASE
+
+RUN apk add curl file unzip
 
 ADD . /
 
 ENV url 'https://www.google.com'
 ENV shared_directory /
 
-CMD env && python main.py $url $shared_directory $folder
+CMD env && source ./download.sh

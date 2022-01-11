@@ -28,12 +28,9 @@ harness:
   - name: SENTRY_SERVER_EMAIL
     value: zoran@metacell.us
   secrets:
-    - name: ch-sentry
-      key: server-email
-    - name: ch-sentry
-      key: email-user
-    - name: ch-sentry
-      key: email-password
+    email-server:
+    email-user:
+    email-password:
 
 redis:
   name: sentry-redis-host

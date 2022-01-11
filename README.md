@@ -15,6 +15,23 @@ What building your cluster application with CloudHarness gives to you:
   * Log in and user management - based on Keycloak
   * Submit batch and asynchronous workflows - based on Argo
   * Orchestrate Micro-services - based on Kafka
+  
+## Why CloudHarness?
+
+The micro-service architecture is a great to get code separation and flexible development, but may not be of easy
+implementation, especially for small development teams/projects.
+In particular, these questions may rise:
+ - How do I create a deployment for my microservices?
+ - How do I orchestrate my microservices?
+ - How to create consistent api documentation?
+ - Do I need to be an experienced devops to create a micro-service based application?
+ - Wouldn't it be nice to develop a plain database/backend/frontend application without infrastructure boilerplate but still be able to configure everything I want when needed?
+ - How to run batch operations like ETL processes easily and efficiently in a cloud environment?
+ - How to manage databases without being locked to a specific vendor solution?
+ - How to perform database backups?
+ - How to manage secret data?
+ - What about having a precounfigured account management application? 
+ - Sooner rather than later I'll need an orchestration queue. Why not have that just ready to use? 
 
 ## Command line tools
 
@@ -29,6 +46,7 @@ CloudHarness provides the following command line tools to help application scaff
 
 ### Prerequisites
 
+#### Python
 Python 3.7+ must be installed.
 
 It is recommended to setup a virtual environment.
@@ -37,7 +55,19 @@ With conda:
  conda create --name ch python=3.7
  conda activate ch
  ```
+#### Docker
+[Docker](https://www.docker.com) is required to build on local terminal.
 
+#### Kubernetes command line client
+
+[kubectl](https://kubernetes.io/docs/tasks/tools/)
+
+#### Helm
+#### Skaffold
+
+Skaffold 
+
+### Install CloudHarness command line client
 Install requirements:
 
 ```bash
@@ -73,12 +103,7 @@ for instance with a Google Cloud cluster or a local Minikube.
 [--registry localhost:5000] [--tag 0.0.1]`
 1. Create the namespace `kubectl create ns ch`
 1. Create the namespace `kubectl create ns argo-workflows`
-1. (Optional) Try the helm chart with `helm install ch deployment/helm -n ch --dry-run`
-1. Install or upgrade the helm chart with `helm install ch deployment/helm  -n ch --dependency-update` on helm 3)
-
-To upgrade an already existing chart, run
-`helm upgrade ch deployment/helm -n ch --install --reset-values`
-
+1. Build images and Install or upgrade the helm chart with `skaffold deploy`
 
 Can also use Skaffold for local build and deploy (see [here](#skaffold)). 
 

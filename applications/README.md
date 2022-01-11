@@ -19,9 +19,8 @@ are automatically generated with the script `utilities/openapi-generate.py`
 After generating the codeChange the Dockerfile in order to inherit from the main Docker file:
 
 ```dockerfile
-ARG REGISTRY
-ARG TAG=latest
-FROM ${REGISTRY}cloudharness-base:${TAG}
+ARG CLOUDHARNESS_BASE
+FROM $CLOUDHARNESS_BASE
 ```
 
 The only code that should be modified shall go inside `src/[PACKAGE_NAME]/controllers`.

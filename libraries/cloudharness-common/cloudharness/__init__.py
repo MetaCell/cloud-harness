@@ -25,7 +25,7 @@ def init(appname: str):
 
     Usage examples: 
         import cloudharness
-        cloudharness.init('workspaces')
+        cloudharness.init('notifications')
     """
     if not appname:
         raise NotCorrectlyInitialized

@@ -12,7 +12,7 @@ from setuptools import setup, find_packages
 
 
 NAME = "cloudharness-utilities"
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 # To install the library, run the following
 #
 # python setup.py install
@@ -22,7 +22,8 @@ VERSION = "0.3.0"
 
 REQUIREMENTS = [
     'oyaml',
-    'docker'
+    'docker',
+    'six'
 ]
 
 

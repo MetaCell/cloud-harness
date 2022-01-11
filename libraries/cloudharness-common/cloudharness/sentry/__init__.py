@@ -1,4 +1,3 @@
-import json
 import os
 import requests
 
@@ -20,7 +19,7 @@ def get_dsn(appname):
 
     Usage examples: 
         from cloudharness.sentry import get_dsn
-        dsn = get_dsn('workspaces')
+        dsn = get_dsn('notifications')
     """ 
     url = get_common_service_cluster_address() + f'/api/sentry/getdsn/{appname}'
     response = requests.get(url, verify=False).json()
@@ -30,16 +29,17 @@ def get_dsn(appname):
     else:
         return None
 
-def init(appname):
+def init(appname, traces_sample_rate=0):
     """
     Init cloudharness Sentry functionality for the current app
 
     Args:
         appname: the slug of the application
+        traces_sample_rate: performance trace sample rate
 
     Usage examples: 
         import cloudharness.sentry as sentry
-        sentry.init('workspaces')
+        sentry.init('notifications')
     """
     dsn = get_dsn(appname)
     if dsn:
@@ -47,13 +47,14 @@ def init(appname):
         try:
             from flask import current_app as app
             from sentry_sdk.integrations.flask import FlaskIntegration
-            integrations = [FlaskIntegration]
+            integrations = [FlaskIntegration()]
         except:
             integrations = []
         sentry_sdk.init(
             dsn=dsn,
+            traces_sample_rate=traces_sample_rate,
             environment=sentry_environment,
-            integrations=[FlaskIntegration()]
+            integrations=integrations
         )
 
 __all__ = ['get_dsn', 'init']

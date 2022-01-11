@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 
 NAME = "cloudharness"
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 # To install the library, run the following
 #
 # python setup.py install
@@ -20,7 +20,8 @@ REQUIREMENTS = [
     'requests>=2.21.0',
     'sentry-sdk[flask]>=0.14.4',
     'python-keycloak',
-    'argo-workflows'
+    'argo-workflows',
+    'cachetools'
 ]
 
 

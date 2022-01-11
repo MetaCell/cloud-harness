@@ -2,11 +2,12 @@ import os
 import jwt
 import json
 import requests
+import time
 from flask import current_app, request
 from keycloak import KeycloakAdmin
 from keycloak.exceptions import KeycloakAuthenticationError
+from cachetools import cached, TTLCache
 from cloudharness import log
-from cloudharness.utils import env
 
 try:
     from cloudharness.utils.config import CloudharnessConfig as conf, ALLVALUES_PATH
@@ -47,8 +48,6 @@ def decode_token(token):
     """
 
     decoded = AuthClient.decode_token(token)
-    valid = 'offline_access' in decoded['realm_access']['roles']
-    current_app.logger.debug(valid)
     return {'uid': 'user_id'}
 
 
@@ -57,14 +56,23 @@ class AuthClient():
 
     @staticmethod
     def _get_keycloak_user_id():
-        bearer = request.headers.get('Authorization', None)
-        current_app.logger.debug(f'Bearer: {bearer}')
+        try:
+            bearer = request.headers.get('Authorization', None)
+            env = current_app.config['ENV']
+        except:
+            bearer = None
+            env = 'development'
+        log.debug(f'Bearer: {bearer}')
+        log.debug(f'Env: {env}')
         if not bearer or bearer == 'Bearer undefined':
-            if current_app.config['ENV'] == 'development':
+            if env == 'development':
                 # when development and not using KeyCloak (no current user),
                 # get id from X-Current-User-Id header
-                keycloak_user_id = request.headers.get(
-                    "X-Current-User-Id", "-1")
+                try:
+                    keycloak_user_id = request.headers.get(
+                        "X-Current-User-Id", os.environ.get("CH_CURRENT_USER_ID", -1))
+                except:
+                    keycloak_user_id = os.environ.get("CH_CURRENT_USER_ID", -1)
             else:
                 keycloak_user_id = "-1"  # No authorization --> no user
         else:
@@ -208,6 +216,7 @@ class AuthClient():
         )
         return True
 
+    @cached(cache=TTLCache(maxsize=1024, ttl=30))
     @with_refreshtoken
     def get_group(self, group_id, with_members=False):
         """
@@ -272,6 +281,7 @@ class AuthClient():
             users.append(user)
         return users
 
+    @cached(cache=TTLCache(maxsize=1024, ttl=30))
     @with_refreshtoken
     def get_user(self, user_id):
         """
@@ -294,21 +304,6 @@ class AuthClient():
             {'realmRoles': admin_client.get_realm_roles_of_user(user_id)})
         return user
 
-    @with_refreshtoken
-    def get_user_realm_roles(self, user_id):
-        """
-        Get the user including the user roles within the current realm
-
-        :param user_id: User id
-
-        RoleRepresentation
-        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_rolerepresentation
-
-        :return: (array RoleRepresentation)
-        """
-        admin_client = self.get_admin_client()
-        return admin_client.get_realm_roles_of_user(user_id)
-
     def get_current_user(self):
         """
         Get the current user including the user groups
@@ -323,9 +318,11 @@ class AuthClient():
         """
         return self.get_user(self._get_keycloak_user_id())
 
-    def get_current_user_realm_roles(self):
+    @cached(cache=TTLCache(maxsize=1024, ttl=30))
+    @with_refreshtoken
+    def get_user_realm_roles(self, user_id):
         """
-        Get the user including the user roles within the current realm
+        Get the user realm roles within the current realm
 
         :param user_id: User id
 
@@ -334,8 +331,21 @@ class AuthClient():
 
         :return: (array RoleRepresentation)
         """
+        admin_client = self.get_admin_client()
+        return admin_client.get_realm_roles_of_user(user_id)
+
+    def get_current_user_realm_roles(self):
+        """
+        Get the current user realm roles within the current realm
+
+        RoleRepresentation
+        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_rolerepresentation
+
+        :return: (array RoleRepresentation)
+        """
         return self.get_user_realm_roles(self._get_keycloak_user_id())
 
+    @cached(cache=TTLCache(maxsize=1024, ttl=30))
     @with_refreshtoken
     def get_user_client_roles(self, user_id, client_name):
         """

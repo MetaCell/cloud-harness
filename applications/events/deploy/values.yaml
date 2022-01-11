@@ -10,7 +10,31 @@ harness:
     name: events
   env:
     - name: ZK_HOSTS
-      value: zookeeper:2181    
+      value: zookeeper:2181
 kafka:
   name: bootstrap
   port: 9092
+  storage: 10Gi
+  resources:
+    limits:
+      cpu: 500m
+      memory: 600Mi
+    requests:
+      cpu: 50m
+      memory: 100Mi
+pzoo:
+  storage: 1Gi
+  resources:
+    limits:
+      memory: 500Mi
+    requests:
+      cpu: 10m
+      memory: 100Mi
+zoo:
+  storage: 1Gi
+  resources:
+    limits:
+      memory: 500Mi
+    requests:
+      cpu: 10m
+      memory: 100Mi

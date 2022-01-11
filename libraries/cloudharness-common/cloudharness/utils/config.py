@@ -16,6 +16,8 @@ class ConfigObject(object):
 
     def __getitem__(self, key_or_path):
         obj = self.conf
+        if isinstance(key_or_path, int):
+            return list(obj)[key_or_path]
         for k in key_or_path.split('.'):
             if not k in obj:
                 return None
@@ -50,6 +52,14 @@ class CloudharnessConfig:
         return cls.get_configuration()['namespace']
 
     @classmethod
+    def get_current_app(cls):
+        return cls.get_application_by_filter(name=cls.get_current_app_name())[0]
+
+    @classmethod
+    def get_current_app_name(cls):
+        return os.getenv("CH_CURRENT_APP_NAME")
+
+    @classmethod
     def get_domain(cls):
         return cls.get_configuration()['domain']
 
@@ -74,6 +84,17 @@ class CloudharnessConfig:
         return 'test' in cls.get_configuration() and cls.get_configuration()['test']
 
     @classmethod
+    def get_image_tag(cls, base_name):
+        if base_name in cls.get_applications():
+            from cloudharness.applications import get_configuration
+            return get_configuration(base_name).image_name
+        else:
+            if not base_name in cls.get_configuration()['task-images']:
+                # External image
+                return base_name
+            return cls.get_configuration()['task-images'][base_name]
+
+    @classmethod
     def get_application_by_filter(cls, **filter):
         """
         Helper function for filtering CH app objects
@@ -93,7 +114,7 @@ class CloudharnessConfig:
         filter_keys = next(iter(filter)).split('__')
         filter_value = next(iter(filter.values()))
         all_apps = cls._get_apps()
-        for app_key in cls.get_applications():
+        for app_key in all_apps:
             app = getattr(all_apps, app_key)
             tmp_obj = app
             try:

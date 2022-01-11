@@ -1,4 +1,6 @@
 import os
+import sys
+import logging
 
 from jupyterhub.auth import Authenticator
 from jupyterhub.handlers import BaseHandler
@@ -6,6 +8,10 @@ from tornado import gen
 from traitlets import Bool
 from jupyterhub.utils import url_path_join
 from cloudharness.auth import AuthClient
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.DEBUG)
+logging.getLogger().addHandler(handler)
 
 class CloudHarnessAuthenticateHandler(BaseHandler):
     """
@@ -28,16 +34,20 @@ class CloudHarnessAuthenticateHandler(BaseHandler):
                 if status is None:
                     yield self.stop_single_user(raw_user)
         else:
-            accessToken = self.request.cookies.get('accessToken', None)
+            try:
+                accessToken = self.request.cookies.get('accessToken', None)
+                print("Token", accessToken)
+                if accessToken == '-1' or not accessToken:
+                    self.redirect('/hub/logout')
 
-            if accessToken == '-1' or not accessToken:
-                self.redirect('/hub/logout')
+                accessToken = accessToken.value
+                user_data = AuthClient.decode_token(accessToken)
+                username = user_data['sub']
+                raw_user = self.user_from_username(username)
+                self.set_login_cookie(raw_user)
+            except Exception as e:
+                logging.error("Error getting user from session", exc_info=True)
 
-            accessToken = accessToken.value
-            user_data = AuthClient.decode_token(accessToken)
-            username = user_data['sub']
-            raw_user = self.user_from_username(username)
-            self.set_login_cookie(raw_user)
         user = yield gen.maybe_future(self.process_user(raw_user, self))
         self.redirect(self.get_next_url(user))
 

@@ -8,7 +8,7 @@ see [https://sentry.io/](https://sentry.io/)
 ## Dashboard
 To open the sentry dashboard please login in on this url https://sentry.<your domain>/
 
-For example [https://sentry.osb.local/](https://sentry.osb.local/)
+For example [https://sentry.ch.local/](https://sentry.ch.local/)
 
 credentials:
 ```

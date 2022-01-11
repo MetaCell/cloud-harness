@@ -2,6 +2,7 @@ from cloudharness.utils.config import CloudharnessConfig, ConfigObject
 
 class ConfigurationCallException(Exception): pass
 
+
 class ApplicationConfiguration:
 
     def __init__(self, conf_dict_or_config_object):
@@ -53,6 +54,10 @@ class ApplicationConfiguration:
         return self['harness.database.name']
 
     @property
+    def image_name(self):
+        return self['harness.deployment.image']
+
+    @property
     def db_type(self):
         return self['harness.database.type']
     @property
@@ -90,3 +95,15 @@ def get_configuration(app_name) -> ApplicationConfiguration:
         raise ConfigurationCallException(f'Application {app_name} is not part of the current deployment.')
     return ApplicationConfiguration(conf[0])
 
+
+def get_current_configuration() -> ApplicationConfiguration:
+    """
+    Get the configuration for the "current" application
+
+    Returns:
+        ApplicationConfiguration
+    """
+    try:
+        return get_configuration(CloudharnessConfig.get_current_app_name())
+    except Exception as e:
+        raise ConfigurationCallException(f'Configuration error: cannot find current app - check env variable CH_CURRENT_APP_NAME') from e

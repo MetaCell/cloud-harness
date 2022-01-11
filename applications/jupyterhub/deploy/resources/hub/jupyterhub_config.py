@@ -282,7 +282,7 @@ common_oauth_traits = (
         ('client_secret', None),
         ('oauth_callback_url', 'callbackUrl'),
 )
-
+print("Auth type", auth_type)
 if auth_type == 'google':
     c.JupyterHub.authenticator_class = 'oauthenticator.GoogleOAuthenticator'
     for trait, cfg_key in common_oauth_traits + (
@@ -383,6 +383,29 @@ elif auth_type == 'custom':
     auth_class_name = full_class_name.rsplit('.', 1)[-1]
     auth_config = c[auth_class_name]
     auth_config.update(get_config('auth.custom.config') or {})
+elif auth_type == 'keycloak':
+    from cloudharness.applications import get_configuration
+    from cloudharness.utils.config import CloudharnessConfig
+    from oauthenticator.generic import GenericOAuthenticator
+
+    accounts_app = get_configuration('accounts')
+
+    accounts_url = accounts_app.get_public_address()
+    client_id = accounts_app.conf.webclient.id
+    client_secret = accounts_app.conf.webclient.secret
+    realm = CloudharnessConfig.get_namespace()
+
+    c.JupyterHub.authenticator_class = GenericOAuthenticator
+    c.Authenticator.auto_login = True
+    c.OAuthenticator.client_id = client_id
+    c.OAuthenticator.client_secret = client_secret
+
+    c.GenericOAuthenticator.login_service = "CH"
+    c.GenericOAuthenticator.username_key = "email"
+    c.GenericOAuthenticator.authorize_url = f"{accounts_url}/auth/realms/{realm}/protocol/openid-connect/auth"
+    c.GenericOAuthenticator.token_url = f"{accounts_url}/auth/realms/{realm}/protocol/openid-connect/token"
+    c.GenericOAuthenticator.userdata_url = f"{accounts_url}/auth/realms/{realm}/protocol/openid-connect/userinfo"
+    c.GenericOAuthenticator.userdata_params = {'state': 'state'}
 else:
     raise ValueError("Unhandled auth type: %r" % auth_type)
 
@@ -519,3 +542,4 @@ for key, config_py in sorted(extra_config.items()):
 
 c.apps = get_config('apps')
 c.registry = get_config('registry')
+c.domain = get_config('root.domain')
