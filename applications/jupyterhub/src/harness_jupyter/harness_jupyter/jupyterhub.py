@@ -45,7 +45,7 @@ def change_pod_manifest(self: KubeSpawner):
                     #       cpu_limit: 3
                     #       mem_guarantee: 4G
                     #       mem_limit: 8G
-                    #       node_selector:             # optional node pool for these pods
+                    #       node_selectors:             # optional node pool for these pods
                     #         - key: ch/nodepool
                     #           operator: In           # In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                     #           values: pool-jupyter
