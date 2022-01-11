@@ -396,7 +396,7 @@ singleuser:
   extraResource:
     limits: {}
     guarantees: {}
-  cmd: jupyterhub-singleuser
+  cmd: /usr/local/bin/start-singleuser.sh
   defaultUrl:
   extraPodConfig: {}
   profileList: []
