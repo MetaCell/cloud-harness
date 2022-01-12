@@ -110,6 +110,7 @@ def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_enco
             except:
                 logging.error("Error checking sentry configuration", exc_info=True)
                 data['trace'] = traceback.format_exc()
+            logging.error(str(e), exc_info=True)
             return json.dumps(data), 500
 
     return app
