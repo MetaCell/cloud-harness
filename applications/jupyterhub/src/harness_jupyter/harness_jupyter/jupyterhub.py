@@ -73,6 +73,9 @@ def change_pod_manifest(self: KubeSpawner):
                             self.volume_mounts = []
                             self.volumes = []
 
+                        # set http timeout higher to give the notebooks time to run their init scripts
+                        self.http_timeout = 60 * 5 # 5 minutes
+
                         if 'spawnerExtraConfig' in harness['jupyterhub']:
                             for k, v in harness['jupyterhub']['spawnerExtraConfig'].items():
                                 setattr(self, k, v)
