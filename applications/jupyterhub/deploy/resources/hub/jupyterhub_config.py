@@ -522,8 +522,6 @@ set_config_if_not_none(c.JupyterHub, 'admin_access', 'auth.admin.access')
 set_config_if_not_none(c.Authenticator, 'admin_users', 'auth.admin.users')
 set_config_if_not_none(c.Authenticator, 'whitelist', 'auth.whitelist.users')
 
-c.JupyterHub.services = []
-
 c.apps = get_config('apps')
 c.registry = get_config('registry')
 c.domain = get_config('root.domain')
