@@ -65,7 +65,7 @@ harness:
     pass: metacell
     # -- settings for mongo database (for type==mongo)
     mongo:
-      image: mongo:latest
+      image: mongo:5
       ports:
         - name: http
           port: 27017
@@ -78,7 +78,7 @@ harness:
           port: 5432
     # -- settings for neo4j database (for type==neo4j)
     neo4j:
-      image: neo4j:latest
+      image: neo4j:4.1.9
       memory:
         size: 256M
         pagecache:
