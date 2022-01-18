@@ -4,24 +4,30 @@
     http:
       paths:
       - path: /(.*)
+        pathType: ImplementationSpecific
         backend:
-          serviceName: {{ .app.harness.service.name }}{{- if (and .app.harness.secured $secured_gatekeepers) }}-gk{{- end }}
-          servicePort: {{- if (and .app.harness.secured $secured_gatekeepers) }} 8080 {{- else }} {{ .app.harness.service.port | default 80  }}{{- end }}
+          service:
+            name: {{ .app.harness.service.name }}{{- if (and .app.harness.secured $secured_gatekeepers) }}-gk{{- end }}
+            port:
+              number: {{- if (and .app.harness.secured $secured_gatekeepers) }} 8080 {{- else }} {{ .app.harness.service.port | default 80  }}{{- end }}
 {{- end }}
 {{- define "deploy_utils.ingress.service" }}
   {{ $domain := .root.Values.domain }}
   {{ $secured_gatekeepers := and .root.Values.secured_gatekeepers }}
   {{ $app := get .root.Values.apps (print .service_name | snakecase) }}
       - path: /proxy/{{ $app.harness.service.name }}/(.*)
+        pathType: ImplementationSpecific
         backend:
-          serviceName: {{ $app.harness.service.name }}{{- if (and $app.harness.secured $secured_gatekeepers) }}-gk{{- end }}
-          servicePort: {{- if (and $app.harness.secured $secured_gatekeepers) }} 8080 {{- else }} {{ $app.harness.service.port | default 80  }}{{- end }}
+          service:
+            name: {{ $app.harness.service.name }}{{- if (and $app.harness.secured $secured_gatekeepers) }}-gk{{- end }}
+            port:
+              number: {{- if (and $app.harness.secured $secured_gatekeepers) }} 8080 {{- else }} {{ $app.harness.service.port | default 80  }}{{- end }}
 {{- end }}
 {{- if .Values.ingress.enabled }}
 {{ $domain := .Values.domain }}
 {{ $tls := not (not .Values.tls) }}
 {{ $mainapp := .Values.mainapp }}
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ .Values.ingress.name | quote }}

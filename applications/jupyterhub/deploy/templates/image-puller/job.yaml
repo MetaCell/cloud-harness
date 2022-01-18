@@ -5,11 +5,11 @@ its' pods running. If all those pods are running they must have pulled all the
 required images on all nodes as they are used as init containers with a dummy
 command.
 */}}
-{{- if .Values.apps.jupyterhub.prePuller.hook.enabled -}}
+{{- if (include "jupyterhub.imagePuller.daemonset.hook.install" .) -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: hook-image-awaiter
+  name: {{ include "jupyterhub.hook-image-awaiter.fullname" . }}
   labels:
     {{- include "jupyterhub.labels" . | nindent 4 }}
     hub.jupyter.org/deletable: "true"
@@ -19,24 +19,51 @@ metadata:
     "helm.sh/hook-weight": "10"
 spec:
   template:
+    # The hook-image-awaiter Job and hook-image-puller DaemonSet was
+    # conditionally created based on this state:
+    #
+    {{- include "jupyterhub.imagePuller.daemonset.hook.install" . | nindent 4 }}
+    #
     metadata:
       labels:
         {{- /* Changes here will cause the Job to restart the pods. */}}
         {{- include "jupyterhub.matchLabels" . | nindent 8 }}
+      {{- with .Values.apps.jupyterhub.prePuller.annotations }}
+      annotations:
+        {{- . | toYaml | nindent 8 }}
+      {{- end }}
     spec:
       restartPolicy: Never
       {{- if .Values.apps.jupyterhub.rbac.enabled }}
-      serviceAccountName: hook-image-awaiter
+      serviceAccountName: {{ include "jupyterhub.hook-image-awaiter.fullname" . }}
+      {{- end }}
+      nodeSelector: {{ toJson .Values.apps.jupyterhub.prePuller.hook.nodeSelector }}
+      {{- with concat .Values.apps.jupyterhub.scheduling.corePods.tolerations .Values.apps.jupyterhub.prePuller.hook.tolerations }}
+      tolerations:
+        {{- . | toYaml | nindent 8 }}
+      {{- end }}
+      {{- with include "jupyterhub.imagePullSecrets" (dict "root" . "image" .Values.apps.jupyterhub.prePuller.hook.image) }}
+      imagePullSecrets: {{ . }}
       {{- end }}
       containers:
         - image: {{ .Values.apps.jupyterhub.prePuller.hook.image.name }}:{{ .Values.apps.jupyterhub.prePuller.hook.image.tag }}
-          name: hook-image-awaiter
-          imagePullPolicy: IfNotPresent
+          name: {{ include "jupyterhub.hook-image-awaiter.fullname" . }}
+          {{- with .Values.apps.jupyterhub.prePuller.hook.image.pullPolicy }}
+          imagePullPolicy: {{ . }}
+          {{- end }}
           command:
             - /image-awaiter
             - -ca-path=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
             - -auth-token-path=/var/run/secrets/kubernetes.io/serviceaccount/token
-            - -api-server-address=https://$(KUBERNETES_SERVICE_HOST):$(KUBERNETES_SERVICE_PORT)
+            - -api-server-address=https://kubernetes.default.svc:$(KUBERNETES_SERVICE_PORT)
             - -namespace={{ .Release.Namespace }}
-            - -daemonset=hook-image-puller
+            - -daemonset={{ include "jupyterhub.hook-image-puller.fullname" . }}
+          {{- with .Values.apps.jupyterhub.prePuller.hook.containerSecurityContext }}
+          securityContext:
+            {{- . | toYaml | nindent 12 }}
+          {{- end }}
+          {{- with .Values.apps.jupyterhub.prePuller.hook.resources }}
+          resources:
+            {{- . | toYaml | nindent 12 }}
+          {{- end }}
 {{- end }}

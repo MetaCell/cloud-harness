@@ -1,11 +1,10 @@
-ARG CLOUDHARNESS_BASE
-FROM $CLOUDHARNESS_BASE
-
-RUN apk add curl file unzip
+FROM alpine
+RUN apk update
+RUN apk add file unzip wget
 
 ADD . /
 
-ENV url 'https://www.google.com'
-ENV shared_directory /
+ENV url 'github.com/MetaCell/cloud-harness/blob/master/README.md'
+ENV shared_directory /tmp
 
-CMD env && source ./download.sh
+CMD source ./download.sh
