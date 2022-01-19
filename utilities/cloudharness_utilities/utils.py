@@ -1,3 +1,4 @@
+import socket
 import glob
 import subprocess
 import os
@@ -22,6 +23,7 @@ def image_name_from_dockerfile_path(dockerfile_path, base_name=None):
 
 def app_name_from_path(dockerfile_path):
     return "-".join(p for p in dockerfile_path.split("/") if p not in NEUTRAL_PATHS)
+
 
 def get_sub_paths(base_path):
     return tuple(path for path in glob.glob(base_path + "/*") if os.path.isdir(path))
@@ -49,9 +51,16 @@ def env_variable(name, value):
 
 
 def get_cluster_ip():
-    out = subprocess.check_output(['kubectl', 'cluster-info'], timeout=10).decode("utf-8")
+    out = subprocess.check_output(
+        ['kubectl', 'cluster-info'], timeout=10).decode("utf-8")
     ip = out.split('\n')[0].split('://')[1].split(':')[0]
-    return ip
+    return ip if not "kubernetes.docker.internal" == ip else get_host_address()
+
+
+def get_host_address():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    return s.getsockname()[0]
 
 
 def robust_load_json(json_path):
@@ -67,7 +76,8 @@ def robust_load_json(json_path):
 
 
 def get_json_template(json_path, base_default=False):
-    default_template_path = os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, os.path.basename(json_path))
+    default_template_path = os.path.join(
+        HERE, DEPLOYMENT_CONFIGURATION_PATH, os.path.basename(json_path))
     dict_template = {}
     if base_default and os.path.exists(default_template_path):
         dict_template = robust_load_json(default_template_path)
@@ -79,7 +89,8 @@ def get_json_template(json_path, base_default=False):
 
 
 def get_template(yaml_path, base_default=False):
-    default_template_path = os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, os.path.basename(yaml_path))
+    default_template_path = os.path.join(
+        HERE, DEPLOYMENT_CONFIGURATION_PATH, os.path.basename(yaml_path))
     dict_template = {}
     if base_default and os.path.exists(default_template_path):
         with open(default_template_path) as f:
@@ -111,7 +122,8 @@ def replaceindir(root_src_dir, source, replace):
         for dirname in dirs:
             if source in dirname:
                 dirpath = os.path.join(src_dir, dirname)
-                movedircontent(dirpath, dirpath.replace(source, to_python_module(replace)))
+                movedircontent(dirpath, dirpath.replace(
+                    source, to_python_module(replace)))
 
     for src_dir, dirs, files in os.walk(root_src_dir):
         for file_ in files:
@@ -154,7 +166,8 @@ def copymergedir(root_src_dir, root_dst_dir):
             try:
                 shutil.copy(src_file, dst_dir)
             except:
-                logging.warning("Error copying file %s to %s.", src_file, dst_dir)
+                logging.warning("Error copying file %s to %s.",
+                                src_file, dst_dir)
 
 
 def movedircontent(root_src_dir, root_dst_dir):
@@ -164,7 +177,8 @@ def movedircontent(root_src_dir, root_dst_dir):
     :param root_dst_dir:
     :return:
     """
-    logging.info('Moving directory content from %s to %s', root_src_dir, root_dst_dir)
+    logging.info('Moving directory content from %s to %s',
+                 root_src_dir, root_dst_dir)
     for src_dir, dirs, files in os.walk(root_src_dir):
         dst_dir = src_dir.replace(root_src_dir, root_dst_dir, 1)
         if not os.path.exists(dst_dir):
@@ -174,9 +188,11 @@ def movedircontent(root_src_dir, root_dst_dir):
             dst_file = os.path.join(dst_dir, file_)
 
             try:
-                shutil.move(src_file, os.path.join(dst_dir, os.path.basename(src_file)))
+                shutil.move(src_file, os.path.join(
+                    dst_dir, os.path.basename(src_file)))
             except:
-                logging.warning("Error moving file %s to %s.", src_file, dst_dir, exc_info=True)
+                logging.warning("Error moving file %s to %s.",
+                                src_file, dst_dir, exc_info=True)
     shutil.rmtree(root_src_dir)
 
 
@@ -184,7 +200,8 @@ def merge_configuration_directories(source, dest):
     if not os.path.exists(source):
         return
     if not os.path.exists(dest):
-        shutil.copytree(source, dest, ignore=shutil.ignore_patterns(*EXCLUDE_PATHS))
+        shutil.copytree(
+            source, dest, ignore=shutil.ignore_patterns(*EXCLUDE_PATHS))
         return
 
     for src_dir, dirs, files in os.walk(source):
@@ -205,7 +222,8 @@ def merge_configuration_directories(source, dest):
 
                 try:
                     merge_yaml_files(fpath, fdest)
-                    logging.info(f"Merged/overridden file content of {fdest} with {fpath}")
+                    logging.info(
+                        f"Merged/overridden file content of {fdest} with {fpath}")
                 except yaml.YAMLError as e:
                     logging.warning(f"Overwriting file {fdest} with {fpath}")
                     shutil.copy2(fpath, fdest)
@@ -229,7 +247,8 @@ def merge_to_yaml_file(content_src, fdest):
         with open(fdest) as f:
             content_dest = yaml.safe_load(f)
 
-        merged = dict_merge(content_dest, content_src) if content_dest else content_src
+        merged = dict_merge(
+            content_dest, content_src) if content_dest else content_src
 
     if not os.path.exists(os.path.dirname(fdest)):
         os.makedirs(os.path.dirname(fdest))
