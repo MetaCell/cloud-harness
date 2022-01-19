@@ -1,0 +1,7 @@
+kafka:
+  resources:
+    limits:
+      cpu: overridden-prod
+    requests:
+      cpu: 50m
+      memory: 100Mi
