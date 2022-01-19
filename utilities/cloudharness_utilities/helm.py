@@ -48,8 +48,10 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
     if os.path.exists(dest_deployment_path):
         shutil.rmtree(dest_deployment_path)
     # Initialize with default
-    copy_merge_base_deployment(dest_deployment_path, os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
-    helm_values = get_template(os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH, 'values.yaml'))
+    copy_merge_base_deployment(dest_deployment_path, os.path.join(
+        HERE, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
+    helm_values = get_template(os.path.join(
+        HERE, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH, 'values.yaml'))
     helm_values = dict_merge(helm_values,
                              collect_helm_values(HERE, tag=tag, registry=registry, exclude=exclude, env=env))
     helm_values[KEY_TASK_IMAGES] = {}
@@ -72,10 +74,13 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
 
     for root_path in root_paths:
         for base_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, BASE_IMAGES_PATH)) + find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)):
-            img_name = image_name_from_dockerfile_path(os.path.basename(base_img_dockerfile), base_name=base_image_name)
-            helm_values[KEY_TASK_IMAGES][os.path.basename(base_img_dockerfile)] = image_tag(img_name, registry, tag)
+            img_name = image_name_from_dockerfile_path(
+                os.path.basename(base_img_dockerfile), base_name=base_image_name)
+            helm_values[KEY_TASK_IMAGES][os.path.basename(
+                base_img_dockerfile)] = image_tag(img_name, registry, tag)
 
-        app_values = init_app_values(root_path, exclude=exclude, values=helm_values[KEY_APPS])
+        app_values = init_app_values(
+            root_path, exclude=exclude, values=helm_values[KEY_APPS])
         helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
                                            app_values)
 
@@ -98,16 +103,19 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
         collect_apps_helm_templates(root_path, exclude=exclude, include=include,
                                     dest_helm_chart_path=dest_deployment_path)
     # Save values file for manual helm chart
-    merged_values = merge_to_yaml_file(helm_values, os.path.join(dest_deployment_path, VALUES_MANUAL_PATH))
+    merged_values = merge_to_yaml_file(helm_values, os.path.join(
+        dest_deployment_path, VALUES_MANUAL_PATH))
     if namespace:
-        merge_to_yaml_file({'metadata': {'namespace': namespace}, 'name': helm_values['name']}, helm_chart_path)
+        merge_to_yaml_file({'metadata': {'namespace': namespace},
+                           'name': helm_values['name']}, helm_chart_path)
     validate_helm_values(merged_values)
     return merged_values
 
 
 def get_included_with_dependencies(values, include):
     app_values = values['apps'].values()
-    directly_included = [app for app in app_values if any(inc == app[KEY_HARNESS]['name'] for inc in include)]
+    directly_included = [app for app in app_values if any(
+        inc == app[KEY_HARNESS]['name'] for inc in include)]
 
     dependent = set(include)
     for app in directly_included:
@@ -143,19 +151,24 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, exclude=(), i
             continue
         template_dir = os.path.join(app_path, 'deploy/templates')
         if os.path.exists(template_dir):
-            dest_dir = os.path.join(dest_helm_chart_path, 'templates', app_name)
+            dest_dir = os.path.join(
+                dest_helm_chart_path, 'templates', app_name)
 
-            logging.info("Collecting templates for application %s to %s", app_name, dest_dir)
+            logging.info(
+                "Collecting templates for application %s to %s", app_name, dest_dir)
             if os.path.exists(dest_dir):
-                logging.warning("Merging/overriding all files in directory %s", dest_dir)
+                logging.warning(
+                    "Merging/overriding all files in directory %s", dest_dir)
                 merge_configuration_directories(template_dir, dest_dir)
             else:
                 shutil.copytree(template_dir, dest_dir)
         resources_dir = os.path.join(app_path, 'deploy/resources')
         if os.path.exists(resources_dir):
-            dest_dir = os.path.join(dest_helm_chart_path, 'resources', app_name)
+            dest_dir = os.path.join(
+                dest_helm_chart_path, 'resources', app_name)
 
-            logging.info("Collecting resources for application  %s to %s", app_name, dest_dir)
+            logging.info(
+                "Collecting resources for application  %s to %s", app_name, dest_dir)
 
             merge_configuration_directories(resources_dir, dest_dir)
 
@@ -163,9 +176,11 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, exclude=(), i
         if os.path.exists(subchart_dir):
             dest_dir = os.path.join(dest_helm_chart_path, 'charts', app_name)
 
-            logging.info("Collecting templates for application %s to %s", app_name, dest_dir)
+            logging.info(
+                "Collecting templates for application %s to %s", app_name, dest_dir)
             if os.path.exists(dest_dir):
-                logging.warning("Merging/overriding all files in directory %s", dest_dir)
+                logging.warning(
+                    "Merging/overriding all files in directory %s", dest_dir)
                 merge_configuration_directories(subchart_dir, dest_dir)
             else:
                 shutil.copytree(subchart_dir, dest_dir)
@@ -175,10 +190,12 @@ def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart):
     if not os.path.exists(base_helm_chart):
         return
     if os.path.exists(dest_helm_chart_path):
-        logging.info("Merging/overriding all files in directory %s", dest_helm_chart_path)
+        logging.info("Merging/overriding all files in directory %s",
+                     dest_helm_chart_path)
         merge_configuration_directories(base_helm_chart, dest_helm_chart_path)
     else:
-        logging.info("Copying base deployment chart from %s to %s", base_helm_chart, dest_helm_chart_path)
+        logging.info("Copying base deployment chart from %s to %s",
+                     base_helm_chart, dest_helm_chart_path)
         shutil.copytree(base_helm_chart, dest_helm_chart_path)
 
 
@@ -187,7 +204,8 @@ def collect_helm_values(deployment_root, exclude=(), tag='latest', registry='', 
     Creates helm values from a cloudharness deployment scaffolding
     """
 
-    values_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'values-template.yaml')
+    values_template_path = os.path.join(
+        deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'values-template.yaml')
 
     values = get_template(values_template_path)
 
@@ -195,7 +213,8 @@ def collect_helm_values(deployment_root, exclude=(), tag='latest', registry='', 
         specific_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH,
                                               f'values-template-{env}.yaml')
         if os.path.exists(specific_template_path):
-            logging.info("Specific environment values template found: " + specific_template_path)
+            logging.info(
+                "Specific environment values template found: " + specific_template_path)
             with open(specific_template_path) as f:
                 values_env_specific = yaml.safe_load(f)
             values = dict_merge(values, values_env_specific)
@@ -204,8 +223,10 @@ def collect_helm_values(deployment_root, exclude=(), tag='latest', registry='', 
 
 def init_app_values(deployment_root, exclude, values={}):
     app_base_path = os.path.join(deployment_root, APPS_PATH)
-    overridden_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
-    default_values_path = os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
+    overridden_template_path = os.path.join(
+        deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
+    default_values_path = os.path.join(
+        HERE, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
 
     for app_path in get_sub_paths(app_base_path):
 
@@ -236,7 +257,8 @@ def collect_app_values(app_base_path, exclude=(), tag='latest', registry='', env
         app_values = create_values_spec(app_name, app_path, tag=tag, registry=registry, env=env,
                                         base_image_name=base_image_name)
 
-        values[app_key] = dict_merge(values[app_key], app_values) if app_key in values else app_values
+        values[app_key] = dict_merge(
+            values[app_key], app_values) if app_key in values else app_values
 
     return values
 
@@ -285,7 +307,6 @@ def finish_helm_values(values, namespace, tag='latest', registry='', local=True,
         harness = v[KEY_HARNESS]
         harness['name'] = app_name
 
-
         if not harness[KEY_SERVICE].get('name', None):
             harness[KEY_SERVICE]['name'] = app_name
         if not harness[KEY_DEPLOYMENT].get('name', None):
@@ -294,7 +315,6 @@ def finish_helm_values(values, namespace, tag='latest', registry='', local=True,
             harness[KEY_DATABASE]['name'] = app_name.strip() + '-db'
 
         values_set_legacy(v)
-
 
     if include:
         include = get_included_with_dependencies(values, set(include))
@@ -305,7 +325,7 @@ def finish_helm_values(values, namespace, tag='latest', registry='', local=True,
                 del apps[v]
                 continue
             values[KEY_TASK_IMAGES].update(apps[v][KEY_TASK_IMAGES])
-                # Create environment variables
+            # Create environment variables
     else:
         for v in [v for v in apps]:
             values[KEY_TASK_IMAGES].update(apps[v][KEY_TASK_IMAGES])
@@ -360,15 +380,18 @@ def create_values_spec(app_name, app_path, tag=None, registry='', env=None, base
 
     specific_template_path = os.path.join(app_path, 'deploy', 'values.yaml')
     if os.path.exists(specific_template_path):
-        logging.info("Specific values template found: " + specific_template_path)
+        logging.info("Specific values template found: " +
+                     specific_template_path)
         values = get_template(specific_template_path)
     else:
         values = {}
 
     if env is not None:
-        specific_template_path = os.path.join(app_path, 'deploy', f'values-{env}.yaml')
+        specific_template_path = os.path.join(
+            app_path, 'deploy', f'values-{env}.yaml')
         if os.path.exists(specific_template_path):
-            logging.info("Specific environment values template found: " + specific_template_path)
+            logging.info(
+                "Specific environment values template found: " + specific_template_path)
             with open(specific_template_path) as f:
                 values_env_specific = yaml.safe_load(f)
             values = dict_merge(values, values_env_specific)
@@ -377,23 +400,27 @@ def create_values_spec(app_name, app_path, tag=None, registry='', env=None, base
         logging.warning('Name is automatically set in applications: name %s will be ignored',
                         values[KEY_HARNESS]['name'])
 
-    image_paths = [path for path in find_dockerfiles_paths(app_path) if 'tasks/' not in path and 'subapps' not in path]
+    image_paths = [path for path in find_dockerfiles_paths(
+        app_path) if 'tasks/' not in path and 'subapps' not in path]
     if len(image_paths) > 1:
         logging.warning('Multiple Dockerfiles found in application %s. Picking the first one: %s', app_name,
                         image_paths[0])
     if len(image_paths) > 0:
-        image_name = image_name_from_dockerfile_path(os.path.relpath(image_paths[0], os.path.dirname(app_path)), base_image_name)
+        image_name = image_name_from_dockerfile_path(os.path.relpath(
+            image_paths[0], os.path.dirname(app_path)), base_image_name)
         values['image'] = image_tag(image_name, registry, tag)
     elif KEY_HARNESS in values and values[KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('image', None) and values[
-        KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('auto', False) and not values('image', None):
+            KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('auto', False) and not values('image', None):
         raise Exception(f"At least one Dockerfile must be specified on application {app_name}. "
                         f"Specify harness.deployment.image value if you intend to use a prebuilt image.")
 
     if KEY_TASK_IMAGES not in values:
         values[KEY_TASK_IMAGES] = {}
-    task_images_paths = [path for path in find_dockerfiles_paths(app_path) if 'tasks/' in path]
+    task_images_paths = [path for path in find_dockerfiles_paths(
+        app_path) if 'tasks/' in path]
     for task_path in task_images_paths:
-        task_name = app_name_from_path(os.path.relpath(task_path, os.path.dirname(app_path)))
+        task_name = app_name_from_path(os.path.relpath(
+            task_path, os.path.dirname(app_path)))
         img_name = image_name_from_dockerfile_path(task_name, base_image_name)
         values[KEY_TASK_IMAGES][task_name] = image_tag(img_name, registry, tag)
 
@@ -408,7 +435,8 @@ def extract_env_variables_from_values(values, envs=tuple(), prefix=''):
     if isinstance(values, dict):
         newenvs = list(envs)
         for key, value in values.items():
-            v = extract_env_variables_from_values(value, envs, f"{prefix}_{key}".replace('-', '_').upper())
+            v = extract_env_variables_from_values(
+                value, envs, f"{prefix}_{key}".replace('-', '_').upper())
             if key in ('name', 'port', 'subdomain'):
                 newenvs.extend(v)
         return newenvs
@@ -419,9 +447,11 @@ def extract_env_variables_from_values(values, envs=tuple(), prefix=''):
 def create_env_variables(values):
     for app_name, value in values[KEY_APPS].items():
         if KEY_HARNESS in value:
-            values['env'].extend(extract_env_variables_from_values(value[KEY_HARNESS], prefix='CH_' + app_name))
+            values['env'].extend(extract_env_variables_from_values(
+                value[KEY_HARNESS], prefix='CH_' + app_name))
     values['env'].append(env_variable('CH_DOMAIN', values['domain']))
-    values['env'].append(env_variable('CH_IMAGE_REGISTRY', values['registry']['name']))
+    values['env'].append(env_variable(
+        'CH_IMAGE_REGISTRY', values['registry']['name']))
     values['env'].append(env_variable('CH_IMAGE_TAG', values['tag']))
 
 
@@ -429,8 +459,8 @@ def hosts_info(values):
     domain = values['domain']
     namespace = values['namespace']
     subdomains = [app[KEY_HARNESS]['subdomain'] for app in values[KEY_APPS].values() if
-                  KEY_HARNESS in app and app[KEY_HARNESS]['subdomain']] + [alias  for app in values[KEY_APPS].values() if
-                  KEY_HARNESS in app and app[KEY_HARNESS]['aliases'] for alias in app[KEY_HARNESS]['aliases']]
+                  KEY_HARNESS in app and app[KEY_HARNESS]['subdomain']] + [alias for app in values[KEY_APPS].values() if
+                                                                           KEY_HARNESS in app and app[KEY_HARNESS]['aliases'] for alias in app[KEY_HARNESS]['aliases']]
     try:
         ip = get_cluster_ip()
     except:
@@ -439,17 +469,21 @@ def hosts_info(values):
     logging.info(
         "\nTo test locally, update your hosts file" + f"\n{ip}\t{domain + ' ' + ' '.join(sd + '.' + domain for sd in subdomains)}")
 
-    deployments = (app[KEY_HARNESS][KEY_DEPLOYMENT]['name'] for app in values[KEY_APPS].values() if KEY_HARNESS in app)
+    deployments = (app[KEY_HARNESS][KEY_DEPLOYMENT]['name']
+                   for app in values[KEY_APPS].values() if KEY_HARNESS in app)
 
-    logging.info("\nTo run locally some apps, also those references may be needed")
+    logging.info(
+        "\nTo run locally some apps, also those references may be needed")
     for appname in values[KEY_APPS]:
         app = values[KEY_APPS][appname]['harness']
-        if 'deployment' not in app: continue
+        if 'deployment' not in app:
+            continue
         print(
             "kubectl port-forward -n {namespace} deployment/{app} {port}:{port}".format(
                 app=app['deployment']['name'], port=app['deployment']['port'], namespace=namespace))
 
-    print(f"127.0.0.1\t{' '.join('%s.%s' % (s, values['namespace']) for s in deployments)}")
+    print(
+        f"127.0.0.1\t{' '.join('%s.%s' % (s, values['namespace']) for s in deployments)}")
 
 
 def create_tls_certificate(local, domain, tls, output_path, helm_values):
@@ -460,10 +494,12 @@ def create_tls_certificate(local, domain, tls, output_path, helm_values):
         return
     helm_values['tls'] = domain.replace(".", "-") + "-tls"
 
-    HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
+    HERE = os.path.dirname(os.path.realpath(
+        __file__)).replace(os.path.sep, '/')
     ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
 
-    bootstrap_file_path = os.path.join(ROOT, 'utilities', 'cloudharness_utilities', 'scripts')
+    bootstrap_file_path = os.path.join(
+        ROOT, 'utilities', 'cloudharness_utilities', 'scripts')
     bootstrap_file = 'bootstrap.sh'
     certs_parent_folder_path = os.path.join(output_path, 'helm', 'resources')
     certs_folder_path = os.path.join(certs_parent_folder_path, 'certs')
@@ -525,36 +561,48 @@ def create_tls_certificate(local, domain, tls, output_path, helm_values):
 
     logging.info("Created certificates for local deployment")
 
-class ValuesValidationException(Exception): pass
+
+class ValuesValidationException(Exception):
+    pass
+
 
 def validate_helm_values(values):
     validate_dependencies(values)
+
 
 def validate_dependencies(values):
     all_apps = {a for a in values["apps"]}
     for app in all_apps:
         app_values = values["apps"][app]
         if 'dependencies' in app_values[KEY_HARNESS]:
-            soft_dependencies = {d.replace("-", "_") for d in app_values[KEY_HARNESS]['dependencies']['soft'] }
+            soft_dependencies = {
+                d.replace("-", "_") for d in app_values[KEY_HARNESS]['dependencies']['soft']}
             not_found = {d for d in soft_dependencies if d not in all_apps}
             if not_found:
-                logging.warning(f"Soft dependencies specified for application {app} not found: {','.join(not_found)}")
-            hard_dependencies = {d.replace("-", "_") for d in app_values[KEY_HARNESS]['dependencies']['hard'] }
+                logging.warning(
+                    f"Soft dependencies specified for application {app} not found: {','.join(not_found)}")
+            hard_dependencies = {
+                d.replace("-", "_") for d in app_values[KEY_HARNESS]['dependencies']['hard']}
             not_found = {d for d in hard_dependencies if d not in all_apps}
             if not_found:
-                raise ValuesValidationException(f"Bad application dependencies specified for application {app}: {','.join(not_found)}")
+                raise ValuesValidationException(
+                    f"Bad application dependencies specified for application {app}: {','.join(not_found)}")
 
-            build_dependencies = {d for d in app_values[KEY_HARNESS]['dependencies']['build'] }
+            build_dependencies = {
+                d for d in app_values[KEY_HARNESS]['dependencies']['build']}
 
-            not_found = {d for d in build_dependencies if d not in values['task-images']}
+            not_found = {
+                d for d in build_dependencies if d not in values['task-images']}
             not_found = {d for d in not_found if d not in all_apps}
             if not_found:
-                raise ValuesValidationException(f"Bad build dependencies specified for application {app}: {','.join(not_found)}")
-        
+                raise ValuesValidationException(
+                    f"Bad build dependencies specified for application {app}: {','.join(not_found)}")
+
         if 'use_services' in app_values[KEY_HARNESS]:
-            service_dependencies = {d['name'].replace("-", "_") for d in app_values[KEY_HARNESS]['use_services'] }
+            service_dependencies = {d['name'].replace(
+                "-", "_") for d in app_values[KEY_HARNESS]['use_services']}
 
             not_found = {d for d in service_dependencies if d not in all_apps}
             if not_found:
-                raise ValuesValidationException(f"Bad service application dependencies specified for application {app}: {','.join(not_found)}")
-
+                raise ValuesValidationException(
+                    f"Bad service application dependencies specified for application {app}: {','.join(not_found)}")
