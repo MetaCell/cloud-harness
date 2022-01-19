@@ -74,7 +74,6 @@ def test_collect_helm_values():
     assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'reg/cloudharness/cloudharness-base:1'
     assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/cloudharness/myapp-mytask:1'
 
-
     shutil.rmtree(OUT)
 
 
@@ -87,7 +86,6 @@ def test_collect_helm_values_noreg_noinclude():
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
     assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
     assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'cloudharness/accounts:1'
-    
 
     # First level include apps
     assert 'samples' in values[KEY_APPS]
@@ -112,8 +110,7 @@ def test_collect_helm_values_noreg_noinclude():
     # Environment specific overriding
     assert values[KEY_APPS]['accounts']['a'] == 'dev'
     assert values['a'] == 'dev'
-    assert values['database']['auto'] == False 
-    
+    assert values['database']['auto'] == False
 
     # legacy reading
     assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['auto'] == 'overridden'
@@ -147,3 +144,44 @@ def test_collect_helm_values_precedence():
     # Values.yaml from current app must override values-prod.yaml from cloudharness
     assert values[KEY_APPS]['events']['kafka']['resources']['limits']['memory'] == 'overridden'
     assert values[KEY_APPS]['events']['kafka']['resources']['limits']['cpu'] == 'overridden-prod'
+
+
+def test_collect_helm_values_wrong_dependencies():
+    try:
+        values = create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=OUT, domain="my.local",
+                                   namespace='test', env='prod', local=False, tag=1, include=["wrong-hard"])
+
+    except ValuesValidationException as e:
+        logging.info("Exception correctly raised %s", e.args)
+        assert True
+    else:
+        assert False, "Should error because of wrong hard dependency"
+
+    try:
+        values = create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=OUT, domain="my.local",
+                                   namespace='test', env='prod', local=False, tag=1, include=["wrong-soft"])
+
+    except ValuesValidationException as e:
+        assert False, "Should not error because of wrong soft dependency"
+    else:
+        assert True, "No error for wrong soft dependencies"
+
+    try:
+        values = create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=OUT, domain="my.local",
+                                   namespace='test', env='prod', local=False, tag=1, include=["wrong-build"])
+
+    except ValuesValidationException as e:
+        logging.info("Exception correctly raised %s", e.args)
+        assert True
+    else:
+        assert False, "Should error because of wrong build dependency"
+
+    try:
+        values = create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=OUT, domain="my.local",
+                                   namespace='test', env='prod', local=False, tag=1, include=["wrong-services"])
+
+    except ValuesValidationException as e:
+        logging.info("Exception correctly raised %s", e.args)
+        assert True
+    else:
+        assert False, "Should error because of wrong service dependency"

@@ -1,6 +1,7 @@
 """
 Utilities to create a helm chart from a CloudHarness directory structure
 """
+from xml.dom import ValidationErr
 import yaml
 import os
 import shutil
@@ -100,20 +101,21 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
     merged_values = merge_to_yaml_file(helm_values, os.path.join(dest_deployment_path, VALUES_MANUAL_PATH))
     if namespace:
         merge_to_yaml_file({'metadata': {'namespace': namespace}, 'name': helm_values['name']}, helm_chart_path)
+    validate_helm_values(merged_values)
     return merged_values
 
 
 def get_included_with_dependencies(values, include):
     app_values = values['apps'].values()
-    directly_included = [app for app in app_values if any(inc == app['harness']['name'] for inc in include)]
+    directly_included = [app for app in app_values if any(inc == app[KEY_HARNESS]['name'] for inc in include)]
 
     dependent = set(include)
     for app in directly_included:
         if app['harness']['dependencies'].get('hard', None):
-            dependent.update(set(app['harness']['dependencies']['hard']))
+            dependent.update(set(app[KEY_HARNESS]['dependencies']['hard']))
         if app['harness']['dependencies'].get('soft', None):
-            dependent.update(set(app['harness']['dependencies']['soft']))
-        if values['secured_gatekeepers'] and app['harness']['secured']:
+            dependent.update(set(app[KEY_HARNESS]['dependencies']['soft']))
+        if values['secured_gatekeepers'] and app[KEY_HARNESS]['secured']:
             dependent.add('accounts')
     if len(dependent) == len(include):
         return dependent
@@ -522,3 +524,37 @@ def create_tls_certificate(local, domain, tls, output_path, helm_values):
     container.kill()
 
     logging.info("Created certificates for local deployment")
+
+class ValuesValidationException(Exception): pass
+
+def validate_helm_values(values):
+    validate_dependencies(values)
+
+def validate_dependencies(values):
+    all_apps = {a for a in values["apps"]}
+    for app in all_apps:
+        app_values = values["apps"][app]
+        if 'dependencies' in app_values[KEY_HARNESS]:
+            soft_dependencies = {d.replace("-", "_") for d in app_values[KEY_HARNESS]['dependencies']['soft'] }
+            not_found = {d for d in soft_dependencies if d not in all_apps}
+            if not_found:
+                logging.warning(f"Soft dependencies specified for application {app} not found: {','.join(not_found)}")
+            hard_dependencies = {d.replace("-", "_") for d in app_values[KEY_HARNESS]['dependencies']['hard'] }
+            not_found = {d for d in hard_dependencies if d not in all_apps}
+            if not_found:
+                raise ValuesValidationException(f"Bad application dependencies specified for application {app}: {','.join(not_found)}")
+
+            build_dependencies = {d for d in app_values[KEY_HARNESS]['dependencies']['build'] }
+
+            not_found = {d for d in build_dependencies if d not in values['task-images']}
+            not_found = {d for d in not_found if d not in all_apps}
+            if not_found:
+                raise ValuesValidationException(f"Bad build dependencies specified for application {app}: {','.join(not_found)}")
+        
+        if 'use_services' in app_values[KEY_HARNESS]:
+            service_dependencies = {d['name'].replace("-", "_") for d in app_values[KEY_HARNESS]['use_services'] }
+
+            not_found = {d for d in service_dependencies if d not in all_apps}
+            if not_found:
+                raise ValuesValidationException(f"Bad service application dependencies specified for application {app}: {','.join(not_found)}")
+
