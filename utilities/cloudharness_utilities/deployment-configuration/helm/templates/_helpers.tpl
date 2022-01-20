@@ -54,7 +54,7 @@ Add environmental variables to all containers
 - name: CH_ACCOUNTS_REALM
   value: {{ .Values.namespace | quote }}
 - name: CH_ACCOUNTS_AUTH_DOMAIN
-  value: {{ printf "%s.%s" .Values.apps.accounts.subdomain .Values.domain | quote }}
+  value: {{ printf "%s.%s" .Values.apps.accounts.harness.subdomain .Values.domain | quote }}
 - name: CH_ACCOUNTS_CLIENT_ID
   value: {{ .Values.apps.accounts.client.id | quote }}
 - name: DOMAIN
