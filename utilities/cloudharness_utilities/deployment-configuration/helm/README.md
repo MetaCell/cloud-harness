@@ -62,7 +62,7 @@ NOTE: wildcard don't work.
 ```bash
   cp ./certs/mycert.pem /usr/local/share/ca-certificates/extra/cacert.crt
   update-ca-certificates --verbose
-  cat /usr/local/share/ca-certificates/extra/cacert.crt >> /usr/local/lib/python3.7/site-packages/certifi/cacert.pem
+  cat /usr/local/share/ca-certificates/extra/cacert.crt >> /usr/local/lib/python3.10/site-packages/certifi/cacert.pem
 ```
 
 NOTE: Some python packages (such as certifi) have their own list of trusted CA. You might or might not need to perform the last step.

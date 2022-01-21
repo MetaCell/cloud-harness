@@ -25,7 +25,7 @@ steps:
         git: github
   prepare_deployment:
     title: "Prepare helm chart"
-    image: python:3.7
+    image: python:3.10
     stage: prepare
     working_directory: .
     commands:

@@ -1,4 +1,4 @@
-ARG PARENT=python:3.7.6
+ARG PARENT=python:3.10
 FROM ${PARENT}
 
 COPY libraries/cloudharness-common/requirements.txt /libraries/cloudharness-common/requirements.txt

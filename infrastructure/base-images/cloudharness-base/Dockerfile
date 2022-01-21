@@ -1,4 +1,4 @@
-ARG PARENT=python:3.7.9-alpine
+ARG PARENT=python:3.10-alpine
 FROM ${PARENT}
 
 RUN apk update

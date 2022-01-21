@@ -39,5 +39,7 @@ setup(
     package_data={'': ['*.yaml']},
     long_description="""\
     Cloudharness common library
-    """
+    """,
+    python_requires='>=3.10, <=3.10'
+
 )
