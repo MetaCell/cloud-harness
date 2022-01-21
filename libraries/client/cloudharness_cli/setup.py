@@ -39,6 +39,6 @@ setup(
     long_description="""\
     CloudHarness Python API Client  # noqa: E501
     """,
-    python_requires='>=3.10, <=3.10'
+    python_requires='>=3.10.0, <=3.10.2'
 
 )
