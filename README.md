@@ -2,24 +2,36 @@
 <img src="https://github.com/MetaCell/cloud-harness/blob/develop/cloudharness.png?raw=true" alt="drawing" width="200"/>
 </p>
 
-# CloudHarness
-CloudHarness is a base infrastructure facilitator for micro-service based applications deployed on Kubernetes.
+CloudHarness is a base infrastructure facilitator for microservice based applications deployed on Kubernetes.
+Can scaffold and maintain your cloud solution on top of Cloudharness without writing
+Kubernetes templates, with in place common utilities and applications already configured for you.
 
-What building your cluster application with CloudHarness gives to you:
-* Common framework and utilities to develop and deploy micro-service application
-  * REST-API scaffolding building based on OpenApi (Python-Flask)
-  * Helm chart automatic generation
+What building your cloud solution with CloudHarness gives to you:
+- Common framework and utilities to develop and deploy micro-service application 
+  - Helm chart automatic generation
+    - deployments
+    - services
+    - ingress configuration
+    - databases
+    - backup cron jobs
+    - access gatekeepers configuration
+    - secrets
+    - templated config maps from files
+    - secrets
   * Automatic build and push of images
-  * Continuous deployment script generation (Codefresh)
+  * REST-API scaffolding building based on OpenApi
+  * Continuous deployment script generation
+  * Debug backend applications running on Kubernetes
+  * Python cluster access utilities
 * Prebuilt support applications and shared library to:
   * Log in and user management - based on Keycloak
   * Submit batch and asynchronous workflows - based on Argo
-  * Orchestrate Micro-services - based on Kafka
+  * Orchestrate microservices - based on Kafka
+  * Assign compute workspaces to users - based Jupyterhub
   
-## Why CloudHarness?
+# Why CloudHarness?
 
-The micro-service architecture is a great to get code separation and flexible development, but may not be of easy
-implementation, especially for small development teams/projects.
+The microservice architecture is a great to get code separation and flexible development, but may not be of easy implementation, especially for small development teams/projects.
 In particular, these questions may rise:
  - How do I create a deployment for my microservices?
  - How do I orchestrate my microservices?
@@ -33,7 +45,7 @@ In particular, these questions may rise:
  - What about having a precounfigured account management application? 
  - Sooner rather than later I'll need an orchestration queue. Why not have that just ready to use? 
 
-## Command line tools
+# Command line tools
 
 CloudHarness provides the following command line tools to help application scaffolding and deployment.
 
@@ -41,12 +53,19 @@ CloudHarness provides the following command line tools to help application scaff
 * `harness-application` - create a new CloudHarness REST application.
 * `harness-generate` - generates server and client code for all CloudHarness REST applications.
 
+# Get started
 
-## Get started
+## Prerequisites
 
-### Prerequisites
+### Operative system
 
-#### Python
+Cloudharness can be used on all major operative systems.
+- Linux: supported and tested
+- MacOS: supported and tested
+- Windows/WSL2: supported and tested
+- Windows native: mostly working, unsupported  
+
+### Python
 Python 3.7+ must be installed.
 
 It is recommended to setup a virtual environment.
@@ -55,227 +74,94 @@ With conda:
  conda create --name ch python=3.7
  conda activate ch
  ```
-#### Docker
+
+### Docker
 [Docker](https://www.docker.com) is required to build on local terminal.
 
-#### Kubernetes command line client
+### Kubernetes command line client
 
-[kubectl](https://kubernetes.io/docs/tasks/tools/)
+[kubectl](https://kubernetes.io/docs/tasks/tools/) allows you to connect to your Kubernetes cluster or local environment.
 
-#### Helm
-#### Skaffold
+### Helm
 
-Skaffold 
+[Helm](https://helm.sh/docs/intro/install/) is required to deploy to your Kubernetes cluster or local environment.
 
-### Install CloudHarness command line client
-Install requirements:
+### Skaffold
+
+[Skaffold](https://skaffold.dev/docs/install/) is the way to go to build and debug your application in your local development environment.
+
+## CloudHarness command line tools
+To use the cli tools, install requirements first:
 
 ```bash
 pip install -r requirements.txt
 ```
 ### Generate deployment
 
-To generate a deployment, run `harness-deployment`. See [below](#Deployment) to know more.
+To generate a deployment, run `harness-deployment`. See [below](#Deployment) for more.
 
 ### Create new REST application
-To create a new REST application, run `harness-application` from the root.
+To create a new REST application, run `harness-application` from the root of your solution.
 
 ### Generate server and client code from openapi
 To (re)generate the code for your applications, run `harness-generate` from the root.
 The script will look for all openapi applications, and regenerate the Flask server code and documentation.
 Note: the script will eventually override any manually modified file. To avoid that, define a file openapi-generator-ignore.
 
-## Extend CloudHarness
+# Extend CloudHarness to build your solution
 CloudHarness is born to be extended. In order to extend CloudHarness you just need to mirror the folder structure:
 * **applications**: place here your custom applications, or override default ones
 * **deployment-configuration**: override the helm chart default values and templates
 * **infrastructure**: define base images to use in your application
 
-or simply copy the *blueprint* folder
+or simply copy the *blueprint* folder.
 
-## Deployment
+# Build and deploy
 
-### Manually deploy on a kube cluster
-The Kubernetes client `kubectl` must be set up and working on the local machine,
-for instance with a Google Cloud cluster or a local Minikube.
+The script `harness-deployment` scans your applications and configurations to create the build and deploy artifacts.
+Created artifacts include:
+ - Helm chart
+ - Skaffold build and run configuration
+ - Visual Studio Code debug and run configuration
+ - Codefresh pipeline yaml specification (optional)
 
-1. Locally build the images with `harness-deployment . -b -l
-[--registry localhost:5000] [--tag 0.0.1]`
-1. Create the namespace `kubectl create ns ch`
-1. Create the namespace `kubectl create ns argo-workflows`
-1. Build images and Install or upgrade the helm chart with `skaffold deploy`
+With your solution folder structure looking like
 
-Can also use Skaffold for local build and deploy (see [here](#skaffold)). 
-
-### Continuous deployment with Codefresh
-The codefresh pipeline setup is provided in `codefresh/codefresh.yaml`.
-The pipeline will take care of building the images from the source code and deploy the helm chart.
-Log in to codefresh and run the pipeline associated to the repository.
-To setup a new pipeline, simply indicate the remote yaml path `deployment/codefresh/codefresh.yaml`
-
-In order to update the deployment, run
 ```
-harness-deployment .
-```
-More information about how to run the script below
-
-### Relevant files and directory structure
-Deployment files are automatically generated with the script 
-`harness-deployment`.
-
-all the resources intended to install and deploy the platform on Kubernetes.
- - `codefresh`: codefresh build related files (automatically generated)
- - `deployment-configuration`: override deployment templates
-
-What this script does is to go through all the defined applications and use templates to define all the required 
-definitions and variables.
-
-General templates are defined inside `deployment-configuration`.
-
-Applications can override templates values by defining a file `values.yaml` in the same directory of the Docker file.
-
-#### Note: Docker registry
-With the `--build` flag we are locally building the images. In order to make the deploy work, we need to specify a 
-registry that is visible from inside the cluster. The parameter `--registry` allows to specify a registry in which 
-images are pushed after the build.
-Any public registry will work. The suggested way to go is to install a registry on localhost:5000 inside
-the kube cluster and push on that registry, also forwarded to localhost.
-
-On minikube can use the registry addon:
-
-`minikube addons enable registry`
-
-Then forward with:
-`kubectl port-forward --namespace kube-system $(kubectl get po -n kube-system | grep registry | grep -v proxy | \awk '{print $1;}') 5000:5000`
-
-### Details about deployment generation
-
-The following deployment files are generated by `harness-deployment`:
-
-- Helm chart configuration for custom deployment: **./helm/values.yaml**
-- Codefresh build and deploment definition: **./codefresh/codefresh.yaml** 
-
-The script `harness-deployment` also generates a build script to be used by codefresh.
-
-The control on the content of those files can be achieved primarily by setting up a
-custom `values.yaml` and deploy/templates in the application folder.
-The files under
-`deployment-configuration` can be also modified for general overrides.
-
-Things to notice:
-
-- Each image created during the build step will have to be deployed to a k8s cluster.
-- A Helm chart was created under `deployment/helm` path to handle deployments.
-- To populate the chart we use a `values.yaml` file.
-- Depending on whether we want to deploy to minikube or GKE a slightly different file is required.
-- `harness-deployment` handles the creation of both files at ones.
-
-How to:
-
-- Add a file named `values.yaml`  to the application and put some values on it.
-- Run `harness-deployment`
-- Check `./deployment/codefresh/codefresh.yaml` and `./deployment/helm/ch/values.yaml`
-
-For example:
-
-```yaml
-# ./applications/docs/values.yaml
-harvest: false
-enabled: true
-port: 8080
-subdomain: docs
+applications
+deployment-configuration
+infrastructure
+cloud-harness
 ```
 
-Will generate entries in the following files:
+run 
 
-1
-
-```yaml
-# ./deployment/helm/ch/values.yaml
-docs:
-  enabled: true
-  harvest: false
-  image:
-    name: ch-docs
-    tag: 0.0.1
-  name: docs
-  port: 8080
-  subdomain: docs
+```
+harness-deployment cloud-harness . [PARAMS]
 ```
 
-2
+to create the build and deployment artifacts for your solution.
+See the dedicated [Build and deploy](./docs/build-deploy-howto.md) document for more details and examples.
 
-```yaml
-# ./deployment/codefresh/values.yaml
-docs:
-  enabled: true
-  harvest: false
-  image:
-      name: ch-docs
-      tag: ${{CF_SHORT_REVISION}}-${{CF_BUILD_TIMESTAMP}}
-  name: ch-docs
-  port: 8080
-  subdomain: docs
-```
+# Add and manage applications
 
-3 Ingress entry is generated if subdomain is specified:
-```yaml
-  - host: "docs.cloudharness.metacell.us"
-    http: 
-      paths:
-      - path: /
-        backend:
-          serviceName: "docs"
-          servicePort: 8080
-```
+Any Dockerfile added in a subfolder below the [applications](./applications) directory is interpreted as an application part of the deployment.
+The `harness-application` cli tool creates new applications from predefinite code templates.
+See the dedicated [Applications](./docs/applications) documents for more details and examples.
 
-### Build
+# Configure the deployment
 
-The script `harness-deployment` allows to optionally build the
- application's Docker images. Those Docker images are needed if we plan to deploy 
-outside Codefresh, for instance for local testing with Minikube.
+First, create the folder `deployment-configuration` on project level.
 
-#### Direct build with Docker
+Then, you can selectively add files related to configuration that you want to personalize:
 
-Run `harness-deployment . -b -l` (all images are built unless `-i` option is provided).
+- `values-template.yaml`: base for `helm/<chart-name>/values.yaml`. Modify this file to add values related to new infrastructure elements not defined as an application
+- `value-template.yaml`: cloud-harness application configuration inside `values.yaml`. Prefer adding a custom `values.yaml` to your application over changing this file.
+- `codefresh-template-dev.yaml`: base for `codefresh/codefresh-dev.yaml`. Modify this file if you want to change the build and deploy steps in the codefresh dev pipeline
+- `codefresh-template-prod.yaml`: base for `codefresh/codefresh-prod.yaml`. Modify this file if you want to change the deploy and publish steps in the codefresh production pipeline. The production pipeline is meant to reause the same set of images from a previously completed dev pipeline.
+- `codefresh-build-template.yaml`: base for a single build entry in `codefresh.yaml`
 
-For further information, run `harness-deployment --help`
-
-#### <a name="skaffold"></a> Skaffold dev build and deploy
-
-[Skaffold](https://skaffold.dev/) configuration is generated by `harness-deployment`.
-
-Can build and deploy with Skaffold with:
-
-`skaffold dev --namespace=[NAMESPACE]` (local minikube)
-
-`skaffold dev --namespace=[NAMESPACE] --default-repo=[DOCKER_REGISTRY]` (external cluster or forwarded minikube)
-
-#### Build conventions
-
-The build script scans inside `./applications` for dockerfile definitions. It walks `application` folder recursively and creates a docker image for each dockerfile it finds.
-
-Name convention for the images is as follows:
-
-`./application/some-folder/anotherone/a-third-one/Dockerfile` -> `some-folder-anotherone-a-third-one`
-
-The `src` folder is removed from the final image name.
-
-## How to add a new CloudHarness custom application
-
-1. Add the application inside `applications/[APPLICATION_NAME]` with a Dockerfile in it
-1. Define *deploy/values.yaml* inside the file in order to specify custom values for the application
-1. (optional) define specific helm templates on *deploy/values.yaml*
-1. Run `harness-deployment`
-1. Define the helm templates for the application inside `deploy/templates`. In the helm template, it is recommended to use the automatically generated values `helm/ch/values.yaml`
-
-See more about the Helm chart installation in the specific [README](utilities/cloudharness-deploy/README.md).
-
-
-## How to add an external application
-
-A CloudHarness application can specify a Kubernetes deployment also using externally defined public images.
-Create a new CloudHarness application with the helm templates inside the *deploy* subdirectory 
+For more information about how to configure a deployment, see [here](./build-deploy/helm-configuration.md)
 
 
 [![Codefresh build status]( https://g.codefresh.io/api/badges/pipeline/tarelli/Cloudharness%2Funittests?type=cf-1&key=eyJhbGciOiJIUzI1NiJ9.NWFkNzMyNDIzNjQ1YWMwMDAxMTJkN2Rl.-gUEkJxH6NCCIRgSIgEikVDte-Q0BsGZKEs4uahgpzs)]( https://g.codefresh.io/pipelines/edit/new/builds?id=6034cfce1036693697cd602b&pipeline=unittests&projects=Cloudharness&projectId=6034cfb83bb11c399e85c71b)
