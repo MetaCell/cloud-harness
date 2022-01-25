@@ -1,4 +1,4 @@
-FROM python:3.7-alpine
+FROM python:3.9.10-alpine
 ENV DEPLOY_DIR=deployment
 
 COPY . cloudharness_utilities

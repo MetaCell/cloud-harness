@@ -19,6 +19,7 @@ A helm chart is used to perform the installation of your CloudHarness deployment
 To install helm, see https://helm.sh/docs/intro/install.
 
 With snap:
+
 ```bash
 snap install helm --classic
 helm init --wait
@@ -62,7 +63,7 @@ NOTE: wildcard don't work.
 ```bash
   cp ./certs/mycert.pem /usr/local/share/ca-certificates/extra/cacert.crt
   update-ca-certificates --verbose
-  cat /usr/local/share/ca-certificates/extra/cacert.crt >> /usr/local/lib/python3.7/site-packages/certifi/cacert.pem
+  cat /usr/local/share/ca-certificates/extra/cacert.crt >> /usr/local/lib/python3.9.10/site-packages/certifi/cacert.pem
 ```
 
 NOTE: Some python packages (such as certifi) have their own list of trusted CA. You might or might not need to perform the last step.
@@ -74,6 +75,7 @@ NOTE: Some python packages (such as certifi) have their own list of trusted CA. 
 ```bash
 kubectl create namespace ch
 ```
+
 (any namespace will do the job)
 
 * Deploy
@@ -114,7 +116,7 @@ helm del --purge ch
   * Key value pairs inside `env` are copied to all containers
 * `privenv`
   * These are opaque secrets transfered to container env variables during spawning.
-  (Don't push them to GitHub)
+    (Don't push them to GitHub)
 
 ## Debug Chart
 
