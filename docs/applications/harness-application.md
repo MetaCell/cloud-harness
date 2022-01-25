@@ -1,3 +1,5 @@
+# Use harness-application to create a new application from templates
+
 ## Choosing Templates
 
 If you create a new application, you can choose templates that are used to generate the application scaffold.

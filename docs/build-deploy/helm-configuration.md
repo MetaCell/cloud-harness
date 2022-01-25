@@ -4,12 +4,7 @@ Edit `./deployment-configuration/values-template.yaml` to override any helm char
 
 For environment specific configurations edit `deployment-configuration/values-template-[ENV].yaml`.
 
-## Override Codefresh pipeline templates
-Edit `./deployment-configuration/codefresh-template-[ENV].yaml` to override any helm chart values file.
-Notice that Codefresh templates will be generated only if a specific environment file is defined.
-By default, the *dev* and *prod* environments are defined.
 
-To override the single image build template, edit  `deployment-configuration/codefresh-build-template.yaml`
 
 ## Override base/common images
 
