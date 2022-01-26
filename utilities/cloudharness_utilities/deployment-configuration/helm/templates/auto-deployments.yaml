@@ -106,7 +106,7 @@ spec:
             mountPath: /opt/cloudharness/resources
             readOnly: true
           {{- if has  "accounts" .app.harness.dependencies.hard }}
-          - name: cloudharness-kc-api-account
+          - name: cloudharness-kc-accounts
             mountPath: /opt/cloudharness/resources/auth
             readOnly: true
           {{- end }}
@@ -132,9 +132,9 @@ spec:
           configMap:
             name: cloudharness-allvalues
         {{- if has  "accounts" .app.harness.dependencies.hard }}
-        - name: cloudharness-kc-api-account
+        - name: cloudharness-kc-accounts
           secret:
-            secretName: accounts-api
+            secretName: accounts
         {{- end }}
         {{- if .app.harness.deployment.volume }}
         - name: {{ .app.harness.deployment.volume.name }}
