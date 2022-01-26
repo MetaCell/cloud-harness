@@ -124,7 +124,7 @@ def create_codefresh_deployment_scripts(root_paths, env, include=(), exclude=(),
             for app_name, app in values_manual_deploy["apps"].items():
                 if app.get("harness") and app["harness"].get("secrets"):
                     app_name = app_name.replace("_", "__")
-                    for secret in app["harness"].get("secrets"):
+                    for secret in [secret[0] for secret in app["harness"].get("secrets").items() if secret[1]]:
                         secret_name = secret.replace("_", "__")
                         environment.append(
                             "CUSTOM_apps_%s_harness_secrets_%s=${{%s}}" % (app_name, secret_name, secret_name.upper()))
