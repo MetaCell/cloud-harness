@@ -47,7 +47,7 @@ harness:
     user: user
     pass: password
   secrets:
-    api_user_password:
+    api_user_password: ""
   resources:
     - name: realm-config
       src: realm.json
