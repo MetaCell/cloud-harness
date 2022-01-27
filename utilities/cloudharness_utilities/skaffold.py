@@ -46,11 +46,11 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
         return artifact_spec
 
     release_config['artifactOverrides'][KEY_APPS] = {}
-    base_images = []
+    base_images = set()
     for root_path in root_paths:
         skaffold_conf = dict_merge(skaffold_conf, get_template(
             os.path.join(root_path, DEPLOYMENT_CONFIGURATION_PATH, 'skaffold-template.yaml')))
-        apps_path = os.path.join(root_path, 'applications')
+        
 
         base_dockerfiles = find_dockerfiles_paths(os.path.join(root_path, BASE_IMAGES_PATH))
 
@@ -58,22 +58,23 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
         for dockerfile_path in base_dockerfiles:
             context_path = os.path.relpath(root_path, output_path)
             app_name = app_name_from_path(os.path.basename(dockerfile_path))
-            base_images.append(get_image_name(app_name))
+            base_images.add(get_image_name(app_name))
             artifacts[app_name] = build_artifact(get_image_tag(app_name), context_path,
                                                  dockerfile_path=os.path.relpath(dockerfile_path, context_path))
-    static_images = []
+    static_images = set()
     for root_path in root_paths:
         static_dockerfiles = find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH))
         
         for dockerfile_path in static_dockerfiles:
             context_path = os.path.relpath(dockerfile_path, output_path)
             app_name = app_name_from_path(os.path.basename(context_path))
-            static_images.append(get_image_name(app_name))
+            static_images.add(get_image_name(app_name))
             artifacts[app_name] = build_artifact(get_image_tag(app_name), context_path, base_images)
 
     for root_path in root_paths:
+        apps_path = os.path.join(root_path, 'applications')
         app_dockerfiles = find_dockerfiles_paths(apps_path)
-
+        
         release_config['artifactOverrides'][KEY_TASK_IMAGES] = {
             task_image: remove_tag(helm_values[KEY_TASK_IMAGES][task_image])
             for task_image in helm_values[KEY_TASK_IMAGES]
@@ -91,10 +92,10 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
 
                     if parent_app_key in apps:
                         artifacts[app_key] = build_artifact(get_image_tag(app_name), app_relative_to_skaffold,
-                                                            base_images + static_images)
-                    continue
-
+                                                            base_images.union(static_images))
+                                                            
                 continue
+
 
             build_requirements = apps[app_key][KEY_HARNESS]['dependencies'].get('build', [])
             app_image_tag = remove_tag(apps[app_key][KEY_HARNESS][KEY_DEPLOYMENT]['image'])
