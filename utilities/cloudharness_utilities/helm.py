@@ -10,7 +10,7 @@ import tarfile
 from docker import from_env as DockerClient
 from .constants import VALUES_MANUAL_PATH, VALUE_TEMPLATE_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, HERE, \
     DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH
-from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, image_name_from_dockerfile_path, \
+from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
     get_template, merge_configuration_directories, merge_to_yaml_file, dict_merge, app_name_from_path, \
     find_dockerfiles_paths
 
@@ -51,7 +51,7 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
     helm_values = get_template(os.path.join(HERE, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH, 'values.yaml'))
     helm_values = dict_merge(helm_values,
                              collect_helm_values(HERE, tag=tag, registry=registry, exclude=exclude, env=env))
-    helm_values[KEY_TASK_IMAGES] = {}
+    
     # Override for every cloudharness scaffolding
     for root_path in root_paths:
         copy_merge_base_deployment(dest_helm_chart_path=dest_deployment_path,
@@ -68,11 +68,19 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
     helm_values[KEY_APPS] = {}
 
     base_image_name = helm_values['name']
-
+    base_images = {}
+    helm_values[KEY_TASK_IMAGES] = {}   
     for root_path in root_paths:
         for base_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, BASE_IMAGES_PATH)) + find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)):
             img_name = image_name_from_dockerfile_path(os.path.basename(base_img_dockerfile), base_name=base_image_name)
-            helm_values[KEY_TASK_IMAGES][os.path.basename(base_img_dockerfile)] = image_tag(img_name, registry, tag)
+            base_images[os.path.basename(base_img_dockerfile)] = image_tag(img_name, registry, tag)
+
+
+        for static_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)):
+            img_name = image_name_from_dockerfile_path(os.path.basename(static_img_dockerfile), base_name=base_image_name)
+            base_images[os.path.basename(static_img_dockerfile)] = image_tag(img_name, registry, tag)
+            for dep in guess_build_dependencies_from_dockerfile(static_img_dockerfile):
+                helm_values[KEY_TASK_IMAGES][dep] = base_images[dep]
 
         app_values = init_app_values(root_path, exclude=exclude, values=helm_values[KEY_APPS])
         helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
@@ -85,6 +93,12 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
                                         base_image_name=base_image_name)
         helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
                                            app_values)
+
+    # Adjust build dependencies for base images declared inside applications                                  
+    for app in helm_values[KEY_APPS].values():
+        for build_dependency in app[KEY_HARNESS]['dependencies']['build']:
+            if build_dependency in base_images:
+                helm_values[KEY_TASK_IMAGES][build_dependency] = base_images[build_dependency]
 
     create_tls_certificate(local, domain, tls, output_path, helm_values)
 
@@ -387,9 +401,9 @@ def create_values_spec(app_name, app_path, tag=None, registry='', env=None, base
         raise Exception(f"At least one Dockerfile must be specified on application {app_name}. "
                         f"Specify harness.deployment.image value if you intend to use a prebuilt image.")
 
-    if KEY_TASK_IMAGES not in values:
-        values[KEY_TASK_IMAGES] = {}
+
     task_images_paths = [path for path in find_dockerfiles_paths(app_path) if 'tasks/' in path]
+    values[KEY_TASK_IMAGES] = values.get(KEY_TASK_IMAGES, {})
     for task_path in task_images_paths:
         task_name = app_name_from_path(os.path.relpath(task_path, os.path.dirname(app_path)))
         img_name = image_name_from_dockerfile_path(task_name, base_image_name)

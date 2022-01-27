@@ -28,6 +28,8 @@ def test_create_skaffold_configuration():
     for img in values[KEY_TASK_IMAGES]:
         assert img in artifact_overrides[KEY_TASK_IMAGES]
 
+    assert 'reg/cloudharness/cloudharness-base-debian' not in (a['image'] for a in sk['build']['artifacts'])
+
     overrides = sk['deploy']['helm']['releases'][0]['overrides']
     assert overrides[KEY_APPS]['samples'][KEY_HARNESS][KEY_DEPLOYMENT]['command'] == ['python']
     assert overrides[KEY_APPS]['samples'][KEY_HARNESS][KEY_DEPLOYMENT]['args']
