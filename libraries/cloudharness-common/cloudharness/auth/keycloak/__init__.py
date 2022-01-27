@@ -35,7 +35,7 @@ try:
     if not os.environ.get('KUBERNETES_SERVICE_HOST', None):
         # running outside kubernetes
         SERVER_URL = accounts_app.get_public_address() + '/auth/'
-    USER = get_secret("api_user_username")
+    USER = "admin_api"
     PASSWD = get_secret("api_user_password")
 except:
     log.error("Error on cloudharness configuration. Check that the values file %s your deployment.",
