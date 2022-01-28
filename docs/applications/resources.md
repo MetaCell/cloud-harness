@@ -1,6 +1,6 @@
 # Resources
 
-A resource must be present as a file in a `resources` folder inside the `deploy` folder.
+Resources files can be added in a `resources` folder inside the `deploy` folder.
 
 Resources will be mounted in the container at a specific path at **deployment** time.
 

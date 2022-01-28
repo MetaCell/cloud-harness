@@ -48,6 +48,8 @@ harness:
     name:
     # -- Service port.
     port: 80
+  # -- Auto generated secrets key-value pairs. If no value is provided, a random hash is generated
+  secrets:
   # -- Specify which services this application uses in the frontend to create proxy ingresses. e.g. - name: mnp-checkout
   use_services: []
   # -- Reference database specs

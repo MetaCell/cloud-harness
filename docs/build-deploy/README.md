@@ -1,7 +1,7 @@
 # Deployment generation and installation howto
 
 ## Create the deployment
-The script `harness-deployment` scans your applications and configurations to create the build and deploy artifacts.
+The command `harness-deployment` scans your applications and configurations to create the build and deploy artifacts.
 Created artifacts include:
  - Helm chart
  - Skaffold build and run configuration
@@ -28,13 +28,33 @@ See the dedicated [Build and deploy](./docs/build-deploy-howto.md) document for 
 
 ### Parameters
 
-- `--local`, `-l`: creates internal dns for local deployment
-- `-dtls`: disables the tls configurations on the ingress so everything will be available from plain http
-- `--unsecured`, `-u`: disables all gatekeepers
-- `--domain`,  `-d`: sets a local domain (default: ch.local)
+Deployment definition:
+
+- `--domain`, `-d`:  specify the base domain (default cloudharness.metacell.us)
 - `--env`, `-e`: sets a custom environment (default: none)
 - `--namespace`, `-n`: set the kubernetes namespace (default: ch)
+- `--tag`, `-t`: define build tag (default: latest)
 - `--registry`, `-r`: set the Docker registry where images are pushed on build 
+- `--include`, `-i`: set application(s) to include (with their dependencies). If not set, every application will be included
+- `--exclude`, `-ex`: explicitly exclude applications or task images
+- `--merge`, `-m`: Merge application folders and build in the given directory: required to override files in applications
+
+
+
+Development parameters:
+- `--local`, `-l`: creates internal dns for local deployment
+- `-dtls`: disables the tls configurations on the ingress so everything will be available from plain http
+- `--disable-security`, `-u`: disables all gatekeepers
+
+Optional settings
+- `--output`, `-o`: specify helm chart base path (default `./deployment)
+
+Build and deploy (deprecated, use Skaffold instead)
+- `--build`, `-b`: builds and pushes Docker images in the specified registry (if any)
+- `--build-interactive`, `-bi`: builds and pushes Docker images in the specified
+                        registry (if any).Asks interactively what images to
+                        build
+- `--deploy`, `-d`: deploy the helm chart when finish
 
 For a local build the command will look like:
 
@@ -113,4 +133,15 @@ Things to notice:
 - A Helm chart was created under `deployment/helm` path to handle deployments.
 - To populate the generated file `deployment/helm/values.yaml` is used.
 
+## Manual configurations
 
+- [Configure user accounts](../accounts.md)
+
+## Access and test
+Applications are deployed in the default domain *.YOURDOMAIN.
+In order to access the applications from your browser, set up your hosts file as indicated by the `harness-deployment` script output.
+
+Example: after running `harness-deployment -d mydomain.local -i samples`, set
+```
+127.0.0.1  samples.mydomain.local workflows.mydomain.local events.mydomain.local argo.mydomain.local 
+```

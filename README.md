@@ -76,7 +76,7 @@ With conda:
  ```
 
 ### Docker
-[Docker](https://www.docker.com) is required to build on local terminal.
+[Docker](https://www.docker.com) is required to build locally.
 
 ### Kubernetes command line client
 
