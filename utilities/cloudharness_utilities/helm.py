@@ -84,7 +84,7 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
         img_name = image_name_from_dockerfile_path(os.path.basename(static_img_dockerfile), base_name=base_image_name)
         base_images[os.path.basename(static_img_dockerfile)] = image_tag(img_name, registry, tag)
             
-            
+
     for root_path in root_paths:
         app_values = init_app_values(root_path, exclude=exclude, values=helm_values[KEY_APPS])
         helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
@@ -114,7 +114,9 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
                 if dep in base_images and dep not in helm_values[KEY_TASK_IMAGES]:
                     helm_values[KEY_TASK_IMAGES][dep] = base_images[dep]
 
-        
+    for image_name in list(helm_values[KEY_TASK_IMAGES].keys()):    
+        if image_name in exclude:
+            del helm_values[KEY_TASK_IMAGES][image_name]
 
     for root_path in root_paths:
         collect_apps_helm_templates(root_path, exclude=exclude, include=include,
@@ -416,6 +418,7 @@ def create_app_values_spec(app_name, app_path, tag=None, registry='', env=None, 
     for task_path in task_images_paths:
         task_name = app_name_from_path(os.path.relpath(task_path, os.path.dirname(app_path)))
         img_name = image_name_from_dockerfile_path(task_name, base_image_name)
+        
         values[KEY_TASK_IMAGES][task_name] = image_tag(img_name, registry, tag)
 
     if KEY_HARNESS in values and 'dependencies' in values[KEY_HARNESS] and 'build' in values[KEY_HARNESS]['dependencies']:
