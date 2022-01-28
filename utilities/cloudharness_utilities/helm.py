@@ -69,6 +69,7 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
 
     base_image_name = helm_values['name']
     base_images = {}
+    static_images = set()
     helm_values[KEY_TASK_IMAGES] = {}   
     for root_path in root_paths:
         for base_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, BASE_IMAGES_PATH)) + find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)):
@@ -76,29 +77,26 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
             base_images[os.path.basename(base_img_dockerfile)] = image_tag(img_name, registry, tag)
 
 
-        for static_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)):
-            img_name = image_name_from_dockerfile_path(os.path.basename(static_img_dockerfile), base_name=base_image_name)
-            base_images[os.path.basename(static_img_dockerfile)] = image_tag(img_name, registry, tag)
-            for dep in guess_build_dependencies_from_dockerfile(static_img_dockerfile):
-                helm_values[KEY_TASK_IMAGES][dep] = base_images[dep]
+        static_images.update(find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)))
 
+
+    for static_img_dockerfile in static_images:
+        img_name = image_name_from_dockerfile_path(os.path.basename(static_img_dockerfile), base_name=base_image_name)
+        base_images[os.path.basename(static_img_dockerfile)] = image_tag(img_name, registry, tag)
+            
+            
+    for root_path in root_paths:
         app_values = init_app_values(root_path, exclude=exclude, values=helm_values[KEY_APPS])
         helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
                                            app_values)
 
-    # Override for every cloudharness scaffolding
-    for root_path in root_paths:
         app_base_path = os.path.join(root_path, APPS_PATH)
         app_values = collect_app_values(app_base_path, tag=tag, registry=registry, exclude=exclude, env=env,
-                                        base_image_name=base_image_name)
+                                        base_image_name=base_image_name, base_images=base_images)
         helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
                                            app_values)
 
-    # Adjust build dependencies for base images declared inside applications                                  
-    for app in helm_values[KEY_APPS].values():
-        for build_dependency in app[KEY_HARNESS]['dependencies']['build']:
-            if build_dependency in base_images:
-                helm_values[KEY_TASK_IMAGES][build_dependency] = base_images[build_dependency]
+
 
     create_tls_certificate(local, domain, tls, output_path, helm_values)
 
@@ -106,6 +104,17 @@ def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=
                                          local=local, domain=domain,
                                          secured=secured,
                                          registry_secret=registry_secret, tls=tls, include=include)
+
+    # Adjust dependencies from static (common) images
+    for static_img_dockerfile in static_images:
+        key = os.path.basename(static_img_dockerfile)
+        if key in helm_values[KEY_TASK_IMAGES]:
+            dependencies = guess_build_dependencies_from_dockerfile(static_img_dockerfile)
+            for dep in dependencies:
+                if dep in base_images and dep not in helm_values[KEY_TASK_IMAGES]:
+                    helm_values[KEY_TASK_IMAGES][dep] = base_images[dep]
+
+        
 
     for root_path in root_paths:
         collect_apps_helm_templates(root_path, exclude=exclude, include=include,
@@ -235,7 +244,7 @@ def init_app_values(deployment_root, exclude, values={}):
     return values
 
 
-def collect_app_values(app_base_path, exclude=(), tag='latest', registry='', env=None, base_image_name=None):
+def collect_app_values(app_base_path, exclude=(), tag='latest', registry='', env=None, base_image_name=None, base_images=()):
     values = {}
 
     for app_path in get_sub_paths(app_base_path):
@@ -245,8 +254,8 @@ def collect_app_values(app_base_path, exclude=(), tag='latest', registry='', env
             continue
         app_key = app_name.replace('-', '_')
 
-        app_values = create_values_spec(app_name, app_path, tag=tag, registry=registry, env=env,
-                                        base_image_name=base_image_name)
+        app_values = create_app_values_spec(app_name, app_path, tag=tag, registry=registry, env=env,
+                                        base_image_name=base_image_name, base_images=base_images)
 
         values[app_key] = dict_merge(values[app_key], app_values) if app_key in values else app_values
 
@@ -367,7 +376,7 @@ def values_set_legacy(values):
         values['resources'] = harness[KEY_DEPLOYMENT]['resources']
 
 
-def create_values_spec(app_name, app_path, tag=None, registry='', env=None, base_image_name=None):
+def create_app_values_spec(app_name, app_path, tag=None, registry='', env=None, base_image_name=None, base_images=[]):
     logging.info('Generating values script for ' + app_name)
 
     specific_template_path = os.path.join(app_path, 'deploy', 'values.yaml')
@@ -408,6 +417,11 @@ def create_values_spec(app_name, app_path, tag=None, registry='', env=None, base
         task_name = app_name_from_path(os.path.relpath(task_path, os.path.dirname(app_path)))
         img_name = image_name_from_dockerfile_path(task_name, base_image_name)
         values[KEY_TASK_IMAGES][task_name] = image_tag(img_name, registry, tag)
+
+    if KEY_HARNESS in values and 'dependencies' in values[KEY_HARNESS] and 'build' in values[KEY_HARNESS]['dependencies']:
+        for build_dependency in values[KEY_HARNESS]['dependencies']['build']:
+                if build_dependency in base_images:
+                    values[KEY_TASK_IMAGES][build_dependency] = base_images[build_dependency]
 
     return values
 
