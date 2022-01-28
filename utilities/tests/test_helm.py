@@ -75,9 +75,6 @@ def test_collect_helm_values():
     assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'reg/cloudharness/cloudharness-base:1'
     assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/cloudharness/myapp-mytask:1'
 
-    assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES], "A base image should be listed as a dependency to be included in the build"
-
-
     shutil.rmtree(OUT)
 
 
