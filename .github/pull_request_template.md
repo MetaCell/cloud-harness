@@ -11,11 +11,11 @@ How to test: ...
 - [ ] The labels in the issue set the scope and the type of issue (bug, feature, etc.)
 - [ ] All the automatic test checks are passing
 - [ ] All the linked issues are included in one milestone
-- [ ] All the linked issues are in the Review/QA column of the board
+- [ ] All the linked issues are in the Review/QA column of the [board](https://app.zenhub.com/workspaces/cloud-harness-5fdb203b7e195b0015a273d7/board)
 - [ ] All the linked issues are assigned
 
 ### Breaking changes (select one):
-- [ ] The present change do not change the preexisting api in any way
+- [ ] The present changes do not change the preexisting api in any way
 - [ ] This pr and the issue are tagged as a `breaking-change`
 
 ### Possible deployment updates issues (select one):
