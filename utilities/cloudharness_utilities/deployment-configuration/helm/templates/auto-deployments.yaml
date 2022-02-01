@@ -105,9 +105,11 @@ spec:
           - name: cloudharness-allvalues
             mountPath: /opt/cloudharness/resources
             readOnly: true
+          {{- if has "accounts" .app.harness.dependencies.hard }}
           - name: cloudharness-kc-accounts
             mountPath: /opt/cloudharness/resources/auth
             readOnly: true
+          {{- end }}
           {{- if .app.harness.deployment.volume }}
           - name: {{ .app.harness.deployment.volume.name }}
             mountPath: {{ .app.harness.deployment.volume.mountpath }}
@@ -129,9 +131,11 @@ spec:
         - name: cloudharness-allvalues
           configMap:
             name: cloudharness-allvalues
+        {{- if has "accounts" .app.harness.dependencies.hard }}
         - name: cloudharness-kc-accounts
           secret:
             secretName: accounts
+        {{- end }}
         {{- if .app.harness.deployment.volume }}
         - name: {{ .app.harness.deployment.volume.name }}
           persistentVolumeClaim:
