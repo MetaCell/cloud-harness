@@ -149,6 +149,47 @@ def test_collect_helm_values_precedence():
     assert values[KEY_APPS]['events']['kafka']['resources']['limits']['cpu'] == 'overridden-prod'
 
 
+def test_collect_helm_values_wrong_dependencies_validate():
+    try:
+        values = create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=OUT, domain="my.local",
+                                   namespace='test', env='prod', local=False, tag=1, include=["wrong-hard"])
+
+    except ValuesValidationException as e:
+        logging.info("Exception correctly raised %s", e.args)
+        assert True
+    else:
+        assert False, "Should error because of wrong hard dependency"
+
+    try:
+        values = create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=OUT, domain="my.local",
+                                   namespace='test', env='prod', local=False, tag=1, include=["wrong-soft"])
+
+    except ValuesValidationException as e:
+        assert False, "Should not error because of wrong soft dependency"
+    else:
+        assert True, "No error for wrong soft dependencies"
+
+    try:
+        values = create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=OUT, domain="my.local",
+                                   namespace='test', env='prod', local=False, tag=1, include=["wrong-build"])
+
+    except ValuesValidationException as e:
+        logging.info("Exception correctly raised %s", e.args)
+        assert True
+    else:
+        assert False, "Should error because of wrong build dependency"
+
+    try:
+        values = create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=OUT, domain="my.local",
+                                   namespace='test', env='prod', local=False, tag=1, include=["wrong-services"])
+
+    except ValuesValidationException as e:
+        logging.info("Exception correctly raised %s", e.args)
+        assert True
+    else:
+        assert False, "Should error because of wrong service dependency"
+
+
 def test_collect_helm_values_build_dependencies():
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
                                namespace='test', env='prod', local=False, tag=1, include=["myapp"])
