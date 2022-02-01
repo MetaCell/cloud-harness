@@ -69,6 +69,7 @@ def test_collect_helm_values():
     assert exists(helm_path, 'resources/myapp/aresource.txt')
     assert exists(helm_path, 'templates/myapp/mytemplate.yaml')
 
+    # Checl base and task images 
     assert values[KEY_TASK_IMAGES]
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
     assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'reg/cloudharness/cloudharness-base:1'
