@@ -46,3 +46,12 @@ def test_merge_configuration_directories():
     assert a['b']['bb'] == 'bb'
     assert a['b']['bc'] == 'bc'
     shutil.rmtree(res_path)
+
+
+def test_guess_build_dependencies_from_dockerfile():
+    deps = guess_build_dependencies_from_dockerfile(os.path.join(HERE, "resources/applications/myapp"))
+    assert len(deps) == 1
+    assert deps[0] == "cloudharness-flask"
+
+    deps = guess_build_dependencies_from_dockerfile(os.path.join(HERE, "resources/applications/myapp/tasks/mytask"))
+    assert len(deps) == 0

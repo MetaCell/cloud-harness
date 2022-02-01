@@ -69,10 +69,13 @@ def test_collect_helm_values():
     assert exists(helm_path, 'resources/myapp/aresource.txt')
     assert exists(helm_path, 'templates/myapp/mytemplate.yaml')
 
+    # Checl base and task images 
     assert values[KEY_TASK_IMAGES]
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
     assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'reg/cloudharness/cloudharness-base:1'
     assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/cloudharness/myapp-mytask:1'
+    # Not indicated as a build dependency
+    assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES]
 
     shutil.rmtree(OUT)
 
@@ -146,7 +149,7 @@ def test_collect_helm_values_precedence():
     assert values[KEY_APPS]['events']['kafka']['resources']['limits']['cpu'] == 'overridden-prod'
 
 
-def test_collect_helm_values_wrong_dependencies():
+def test_collect_helm_values_wrong_dependencies_validate():
     try:
         values = create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=OUT, domain="my.local",
                                    namespace='test', env='prod', local=False, tag=1, include=["wrong-hard"])
@@ -185,3 +188,32 @@ def test_collect_helm_values_wrong_dependencies():
         assert True
     else:
         assert False, "Should error because of wrong service dependency"
+
+
+def test_collect_helm_values_build_dependencies():
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
+                               namespace='test', env='prod', local=False, tag=1, include=["myapp"])
+
+    assert 'cloudharness-flask' in values[KEY_TASK_IMAGES], "Cloudharness-flask is included in the build dependencies"
+    assert 'cloudharness-base' in values[KEY_TASK_IMAGES], "Cloudharness-base is included in cloudharness-flask Dockerfile and it should be guessed"
+    assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES], "Cloudharness-base-debian is not included in any dependency"
+    assert 'cloudharness-frontend-build' not in values[KEY_TASK_IMAGES], "cloudharness-frontend-build is not included in any dependency"
+
+def test_collect_helm_values_build_dependencies_nodeps():
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
+                               namespace='test', env='prod', local=False, tag=1, include=["events"])
+
+
+    assert 'cloudharness-flask' not in values[KEY_TASK_IMAGES], "Cloudharness-flask is not included in the build dependencies"
+    assert 'cloudharness-base' not in values[KEY_TASK_IMAGES], "Cloudharness-base is not included in the build dependencies"
+    assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES], "Cloudharness-base-debian is not included in any dependency"
+    assert 'cloudharness-frontend-build' not in values[KEY_TASK_IMAGES], "cloudharness-frontend-build is not included in any dependency"
+
+def test_collect_helm_values_build_dependencies_exclude():
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
+                               namespace='test', env='prod', local=False, tag=1, include=["workflows"], exclude=["workflows-extract-download"])
+
+
+    assert 'cloudharness-flask' in values[KEY_TASK_IMAGES], "Cloudharness-flask is included in the build dependencies"
+    assert 'cloudharness-base' in values[KEY_TASK_IMAGES], "Cloudharness-base is included in cloudharness-flask Dockerfile and it should be guessed"
+    assert 'workflows-extract-download' not in values[KEY_TASK_IMAGES], "workflows-extract-download has been explicitly excluded"
