@@ -36,13 +36,13 @@ For more info, `harness-application --help`
 ### Use Openapi to generate REST microservices and web applications
 The preferred way to define an application is through the openapi specification. The code for the Python-flask service 
 and the Python client
-are automatically generated with the script `utilities/openapi-generate.py`
+are automatically generated with the script `harness-generate`
 
 1. Add the application inside `applications/[APPLICATION_NAME]`
 1. Add the openapi yaml specification inside `applications/[APPLICATION_NAME]/api/[APPLICATION_NAME].yaml`
 1. Define openapi configuration `applications/[APPLICATION_NAME]/api/config.json`. The name of the package (say,
 `PACKAGE_NAME`) can be configured here. By convention, the package name is `[APPLICATION_NAME]`
-1. Run `python utilities/openapi-generate.py` to generate code stubs
+1. Run `harness-generate .` to generate code stubs
 
 The only code that should be modified shall go inside `src/[PACKAGE_NAME]/controllers`.
 After modifying the controllers, add the following line to `.openapi-generator-ignore`:
