@@ -1,6 +1,8 @@
 harness:
   # -- If specified, an ingress will be created at [subdomain].[.Values.domain]
   subdomain:
+  # -- If specified, an ingress will be created at [alias].[.Values.domain] for each alias
+  aliases: []
   # -- If specified, an ingress will be created at [domain]
   domain:
   # -- Application dependencies are used to define what is required in the deployment when --include (-i) is used. Specify application names in the list.
@@ -46,6 +48,8 @@ harness:
     name:
     # -- Service port.
     port: 80
+  # -- Auto generated secrets key-value pairs. If no value is provided, a random hash is generated
+  secrets:
   # -- Specify which services this application uses in the frontend to create proxy ingresses. e.g. - name: mnp-checkout
   use_services: []
   # -- Reference database specs
@@ -63,20 +67,20 @@ harness:
     pass: metacell
     # -- settings for mongo database (for type==mongo)
     mongo:
-      image: mongo:latest
+      image: mongo:5
       ports:
         - name: http
           port: 27017
     # -- settings for postgers database (for type==postgres)
     postgres:
-      image: postgres:latest
+      image: postgres:13
       initialdb: cloudharness
       ports:
         - name: http
           port: 5432
     # -- settings for neo4j database (for type==neo4j)
     neo4j:
-      image: neo4j:latest
+      image: neo4j:4.1.9
       memory:
         size: 256M
         pagecache:

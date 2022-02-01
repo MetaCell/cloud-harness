@@ -2,12 +2,29 @@ import os
 import jwt
 import json
 import requests
-import time
 from flask import current_app, request
 from keycloak import KeycloakAdmin
 from keycloak.exceptions import KeycloakAuthenticationError
 from cachetools import cached, TTLCache
 from cloudharness import log
+from cloudharness.utils.secrets import get_secret
+
+
+AUTH_SECRET_PATH = "/opt/cloudharness/resources/auth"
+
+class AuthSecretNotFound(Exception):
+    def __init__(self, secret_name):
+        Exception.__init__(self, f"Secret {secret_name} not found.")
+
+
+def get_secret(name: str) -> str:
+    try:
+        with open(os.path.join(AUTH_SECRET_PATH, name)) as fh:
+            return fh.read()
+    except:
+        # if no secrets folder or file exists
+        raise AuthSecretNotFound(name)
+
 
 try:
     from cloudharness.utils.config import CloudharnessConfig as conf, ALLVALUES_PATH
@@ -18,8 +35,8 @@ try:
     if not os.environ.get('KUBERNETES_SERVICE_HOST', None):
         # running outside kubernetes
         SERVER_URL = accounts_app.get_public_address() + '/auth/'
-    USER = accounts_app.admin['user']
-    PASSWD = accounts_app.admin['pass']
+    USER = "admin_api"
+    PASSWD = get_secret("api_user_password")
 except:
     log.error("Error on cloudharness configuration. Check that the values file %s your deployment.",
               ALLVALUES_PATH, exc_info=True)

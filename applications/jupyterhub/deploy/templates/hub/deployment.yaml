@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: hub
+  name: {{ include "jupyterhub.hub.fullname" . }}
   labels:
     {{- include "jupyterhub.labels" . | nindent 4 }}
 spec:
@@ -10,7 +10,7 @@ spec:
     matchLabels:
       {{- include "jupyterhub.matchLabels" . | nindent 6 }}
   strategy:
-    {{- .Values.apps.jupyterhub.hub.deploymentStrategy | toYaml | trimSuffix "\n" | nindent 4 }}
+    {{- .Values.apps.jupyterhub.hub.deploymentStrategy | toYaml | nindent 4 }}
   template:
     metadata:
       labels:
@@ -19,90 +19,112 @@ spec:
         hub.jupyter.org/network-access-proxy-api: "true"
         hub.jupyter.org/network-access-proxy-http: "true"
         hub.jupyter.org/network-access-singleuser: "true"
-        {{- if .Values.apps.jupyterhub.hub.labels }}
-        {{- .Values.apps.jupyterhub.hub.labels | toYaml | trimSuffix "\n" | nindent 8 }}
+        {{- with .Values.apps.jupyterhub.hub.labels }}
+        {{- . | toYaml | nindent 8 }}
         {{- end }}
       annotations:
-        # This lets us autorestart when the secret changes!
+        {{- /* This lets us autorestart when the secret changes! */}}
         checksum/config-map: {{ include (print .Template.BasePath "/jupyterhub/hub/configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print .Template.BasePath "/jupyterhub/hub/secret.yaml") . | sha256sum }}
-        {{- if .Values.apps.jupyterhub.hub.annotations }}
-        {{- .Values.apps.jupyterhub.hub.annotations | toYaml | trimSuffix "\n" | nindent 8 }}
+        {{- with .Values.apps.jupyterhub.hub.annotations }}
+        {{- . | toYaml | nindent 8 }}
         {{- end }}
     spec:
-      {{- if .Values.local }}
-      {{ $domain := .Values.domain }}
-      hostAliases:
-        - ip: {{ .Values.localIp }}
-          hostnames:
-          {{ printf "- %s" .Values.domain }}
-          {{- range $app := .Values.apps }}
-          {{- if $app.harness.subdomain }}
-          {{ printf "- %s.%s" $app.harness.subdomain $domain }}
-          {{- end }}
-          {{- end }}
-      {{- end }}
       {{- if .Values.apps.jupyterhub.scheduling.podPriority.enabled }}
-      priorityClassName: {{ .Release.Name }}-default-priority
+      priorityClassName: {{ include "jupyterhub.priority.fullname" . }}
       {{- end }}
       nodeSelector: {{ toJson .Values.apps.jupyterhub.hub.nodeSelector }}
+      {{- with concat .Values.apps.jupyterhub.scheduling.corePods.tolerations .Values.apps.jupyterhub.hub.tolerations }}
+      tolerations:
+        {{- . | toYaml | nindent 8 }}
+      {{- end }}
       {{- include "jupyterhub.coreAffinity" . | nindent 6 }}
       volumes:
         - name: config
           configMap:
-            name: hub-config
+            name: {{ include "jupyterhub.hub.fullname" . }}
+        {{- /* This is needed by cloudharness libraries */}}
         - name: cloudharness-allvalues
           configMap:
             name: cloudharness-allvalues
+        - name: cloudharness-kc-accounts
+          secret:
+            secretName: accounts
         - name: secret
           secret:
-            {{- if .Values.apps.jupyterhub.hub.existingSecret }}
-            secretName: {{ .Values.apps.jupyterhub.hub.existingSecret }}
-            {{- else }}
-            secretName: hub-secret
-            {{- end }}
-        {{- if .Values.apps.jupyterhub.hub.extraVolumes }}
-        {{- .Values.apps.jupyterhub.hub.extraVolumes | toYaml | trimSuffix "\n" | nindent 8 }}
+            secretName: {{ include "jupyterhub.hub.fullname" . }}
+        {{- with (include "jupyterhub.hub-existing-secret.fullname" .) }}
+        - name: existing-secret
+          secret:
+            secretName: {{ . }}
+        {{- end }}
+        {{- if .Values.apps.jupyterhub.hub.extraFiles }}
+        - name: files
+          secret:
+            secretName: {{ include "jupyterhub.hub.fullname" . }}
+            items:
+              {{- range $file_key, $file_details := .Values.apps.jupyterhub.hub.extraFiles }}
+              - key: {{ $file_key | quote }}
+                path: {{ $file_key | quote }}
+                {{- with $file_details.mode }}
+                mode: {{ . }}
+                {{- end }}
+              {{- end }}
+        {{- end }}
+        {{- with .Values.apps.jupyterhub.hub.extraVolumes }}
+        {{- . | toYaml | nindent 8 }}
         {{- end }}
         {{- if eq .Values.apps.jupyterhub.hub.db.type "sqlite-pvc" }}
-        - name: hub-db-dir
+        - name: pvc
           persistentVolumeClaim:
-            claimName: hub-db-dir
+            claimName: {{ include "jupyterhub.hub-pvc.fullname" . }}
         {{- end }}
       {{- if .Values.apps.jupyterhub.rbac.enabled }}
-      serviceAccountName: hub
+      serviceAccountName: {{ include "jupyterhub.hub.fullname" . }}
       {{- end }}
       securityContext:
         fsGroup: {{ .Values.apps.jupyterhub.hub.fsGid }}
-      {{- if and .Values.registry.secret (contains .Values.registry.name .Values.apps.jupyterhub.image) }}
-      imagePullSecrets:
-        - name: {{ .Values.registry.secret }}
+      {{- with include "jupyterhub.imagePullSecrets" (dict "root" . "image" .Values.apps.jupyterhub.hub.image) }}
+      imagePullSecrets: {{ . }}
       {{- end }}
-      {{- if .Values.apps.jupyterhub.hub.initContainers }}
+      {{- with .Values.apps.jupyterhub.hub.initContainers }}
       initContainers:
-        {{- .Values.apps.jupyterhub.hub.initContainers | toYaml | trimSuffix "\n" | nindent 8 }}
+        {{- . | toYaml | nindent 8 }}
       {{- end }}
       containers:
-        {{- if .Values.apps.jupyterhub.hub.extraContainers }}
-        {{- .Values.apps.jupyterhub.hub.extraContainers | toYaml | trimSuffix "\n" | nindent 8 }}
+        {{- with .Values.apps.jupyterhub.hub.extraContainers }}
+        {{- . | toYaml | nindent 8 }}
         {{- end }}
         - name: hub
           image: {{ .Values.apps.jupyterhub.harness.deployment.image }}
-          imagePullPolicy: IfNotPresent
+          {{- with .Values.apps.jupyterhub.hub.command }}
           command:
+            {{- range . }}
+            - {{ tpl . $ }}
+            {{- end }}
+          {{- end }}
+          args:
+            {{- /* .Values.apps.jupyterhub.hub.args overrides everything the Helm chart otherside would set */}}
+            {{- if .Values.apps.jupyterhub.hub.args }}
+            {{- range .Values.apps.jupyterhub.hub.args }}
+            - {{ tpl . $ }}
+            {{- end }}
+
+            {{- /* .Values.apps.jupyterhub.hub.args didn't replace the default logic */}}
+            {{- else }}
             - jupyterhub
             - --config
-            - /etc/jupyterhub/jupyterhub_config.py
+            - /usr/local/etc/jupyterhub/jupyterhub_config.py
             {{- if .Values.apps.jupyterhub.debug.enabled }}
             - --debug
             {{- end }}
-            {{- /*
-            We want to do automatic upgrades for sqlite-pvc by default, but
-            allow users to opt out of that if they want. Users using their own
-            db need to 'opt in' Go Templates treat nil and "" and false as
-            'false', making this code complex. We can probably make this a
-            one-liner, but doing combinations of boolean vars in go templates is
-            very inelegant & hard to reason about.
+            {{- /* NOTE:
+              We want to do automatic upgrades for sqlite-pvc by default, but
+              allow users to opt out of that if they want. Users using their own
+              db need to 'opt in' Go Templates treat nil and "" and false as
+              'false', making this code complex. We can probably make this a
+              one-liner, but doing combinations of boolean vars in go templates
+              is very inelegant & hard to reason about.
             */}}
             {{- $upgradeType := typeOf .Values.apps.jupyterhub.hub.db.upgrade }}
             {{- if eq $upgradeType "bool" }}
@@ -116,58 +138,63 @@ spec:
             - --upgrade-db
             {{- end }}
             {{- end }}
+            {{- end }}
           volumeMounts:
-            - mountPath: /etc/jupyterhub/jupyterhub_config.py
+            - mountPath: /usr/local/etc/jupyterhub/jupyterhub_config.py
               subPath: jupyterhub_config.py
               name: config
-            - mountPath: /etc/jupyterhub/z2jh.py
+            - mountPath: /usr/local/etc/jupyterhub/z2jh.py
               subPath: z2jh.py
               name: config
-            - mountPath: /etc/jupyterhub/cull_idle_servers.py
-              subPath: cull_idle_servers.py
+            - mountPath: /usr/local/etc/jupyterhub/config/
               name: config
-            - mountPath: /etc/jupyterhub/config/
-              name: config
-            - mountPath: /etc/jupyterhub/secret/
+            - mountPath: /usr/local/etc/jupyterhub/secret/
               name: secret
             - name: cloudharness-allvalues
               mountPath: /opt/cloudharness/resources/allvalues.yaml
               subPath: allvalues.yaml
-            {{- if .Values.apps.jupyterhub.hub.extraVolumeMounts }}
-            {{- .Values.apps.jupyterhub.hub.extraVolumeMounts | toYaml | trimSuffix "\n" | nindent 12 }}
+            - name: cloudharness-kc-accounts
+              mountPath: /opt/cloudharness/resources/auth
+              readOnly: true
+            {{- if (include "jupyterhub.hub-existing-secret.fullname" .) }}
+            - mountPath: /usr/local/etc/jupyterhub/existing-secret/
+              name: existing-secret
+            {{- end }}
+            {{- range $file_key, $file_details := .Values.apps.jupyterhub.hub.extraFiles }}
+            - mountPath: {{ $file_details.mountPath }}
+              subPath: {{ $file_key | quote }}
+              name: files
+            {{- end }}
+            {{- with .Values.apps.jupyterhub.hub.extraVolumeMounts }}
+            {{- . | toYaml | nindent 12 }}
             {{- end }}
             {{- if eq .Values.apps.jupyterhub.hub.db.type "sqlite-pvc" }}
             - mountPath: /srv/jupyterhub
-              name: hub-db-dir
-              {{- if .Values.apps.jupyterhub.hub.db.pvc.subPath }}
-              subPath: {{ .Values.apps.jupyterhub.hub.db.pvc.subPath | quote }}
+              name: pvc
+              {{- with .Values.apps.jupyterhub.hub.db.pvc.subPath }}
+              subPath: {{ . | quote }}
               {{- end }}
             {{- end }}
+          {{- with .Values.apps.jupyterhub.hub.resources }}
           resources:
-            {{- .Values.apps.jupyterhub.hub.resources | toYaml | trimSuffix "\n" | nindent 12 }}
+            {{- . | toYaml | nindent 12 }}
+          {{- end }}
           {{- with .Values.apps.jupyterhub.hub.image.pullPolicy }}
           imagePullPolicy: {{ . }}
           {{- end }}
+          {{- with .Values.apps.jupyterhub.hub.containerSecurityContext }}
           securityContext:
-            runAsUser: {{ .Values.apps.jupyterhub.hub.uid }}
-            # Don't allow any process to execute as root inside the container
-            allowPrivilegeEscalation: false
+            {{- . | toYaml | nindent 12 }}
+          {{- end }}
+          {{- with .Values.apps.jupyterhub.hub.lifecycle }}
+          lifecycle:
+            {{- . | toYaml | nindent 12 }}
+          {{- end }}
           env:
             - name: PYTHONUNBUFFERED
               value: "1"
             - name: HELM_RELEASE_NAME
               value: {{ .Release.Name | quote }}
-            {{- if .Values.apps.jupyterhub.hub.cookieSecret }}
-            - name: JPY_COOKIE_SECRET
-              valueFrom:
-                secretKeyRef:
-                  {{- if .Values.apps.jupyterhub.hub.existingSecret }}
-                  name: {{ .Values.apps.jupyterhub.hub.existingSecret }}
-                  {{- else }}
-                  name: hub-secret
-                  {{- end }}
-                  key: hub.cookie-secret
-            {{- end }}
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
@@ -175,82 +202,47 @@ spec:
             - name: CONFIGPROXY_AUTH_TOKEN
               valueFrom:
                 secretKeyRef:
-                  {{- if .Values.apps.jupyterhub.hub.existingSecret }}
-                  name: {{ .Values.apps.jupyterhub.hub.existingSecret }}
-                  {{- else }}
-                  name: hub-secret
-                  {{- end }}
-                  key: proxy.token
-            {{- if .Values.apps.jupyterhub.auth.state.enabled }}
-            - name: JUPYTERHUB_CRYPT_KEY
-              valueFrom:
-                secretKeyRef:
-                  {{- if .Values.apps.jupyterhub.hub.existingSecret }}
-                  name: {{ .Values.apps.jupyterhub.hub.existingSecret }}
-                  {{- else }}
-                  name: hub-secret
-                  {{- end }}
-                  key: auth.state.crypto-key
-            {{- end }}
-            {{- if .Values.apps.jupyterhub.hub.db.password }}
-            {{- if eq .Values.apps.jupyterhub.hub.db.type "mysql" }}
-            - name: MYSQL_PWD
-              valueFrom:
-                secretKeyRef:
-                  {{- if .Values.apps.jupyterhub.hub.existingSecret }}
-                  name: {{ .Values.apps.jupyterhub.hub.existingSecret }}
-                  {{- else }}
-                  name: hub-secret
-                  {{- end }}
-                  key: hub.db.password
-            {{- else if eq .Values.apps.jupyterhub.hub.db.type "postgres" }}
-            - name: PGPASSWORD
-              valueFrom:
-                secretKeyRef:
-                  {{- if .Values.apps.jupyterhub.hub.existingSecret }}
-                  name: {{ .Values.apps.jupyterhub.hub.existingSecret }}
-                  {{- else }}
-                  name: hub-secret
-                  {{- end }}
-                  key: hub.db.password
-            {{- end }}
-            {{- end }}
-            {{- if .Values.apps.jupyterhub.hub.extraEnv }}
-            {{- $extraEnvType := typeOf .Values.apps.jupyterhub.hub.extraEnv }}
-            {{- /* If we have a list, embed that here directly. This allows for complex configuration from configmap, downward API, etc. */}}
-            {{- if eq $extraEnvType "[]interface {}" }}
-            {{- .Values.apps.jupyterhub.hub.extraEnv | toYaml | trimSuffix "\n" | nindent 12 }}
-            {{- else if eq $extraEnvType "map[string]interface {}" }}
-            {{- /* If we have a map, treat those as key-value pairs. */}}
-            {{- range $key, $value := .Values.apps.jupyterhub.hub.extraEnv }}
-            - name: {{ $key | quote }}
-              value: {{ $value | quote }}
-            {{- end }}
-            {{- end }}
+                  {{- /* NOTE:
+                    References the chart managed k8s Secret even if
+                    hub.existingSecret is specified to avoid using the lookup
+                    function on the user managed k8s Secret which is assumed to
+                    not be possible.
+                  */}}
+                  name: {{ include "jupyterhub.hub.fullname" . }}
+                  key: hub.config.ConfigurableHTTPProxy.auth_token
+            {{- with .Values.apps.jupyterhub.hub.extraEnv }}
+            {{- include "jupyterhub.extraEnv" . | nindent 12 }}
             {{- end }}
           ports:
-            - containerPort: 8081
-              name: hub
+            - name: http
+              containerPort: 8081
           {{- if .Values.apps.jupyterhub.hub.livenessProbe.enabled }}
-          # livenessProbe notes:
-          # We don't know how long hub database upgrades could take
-          # so having a liveness probe could be a bit risky unless we put
-          # a initialDelaySeconds value with long enough margin for that
-          # to not be an issue. If it is too short, we could end up aborting
-          # database upgrades midway or ending up in an infinite restart
-          # loop.
+          {{- /* NOTE:
+            We don't know how long hub database upgrades could take so having a
+            liveness probe could be a bit risky unless we put a
+            initialDelaySeconds value with long enough margin for that to not be
+            an issue. If it is too short, we could end up aborting database
+            upgrades midway or ending up in an infinite restart loop.
+          */}}
           livenessProbe:
             initialDelaySeconds: {{ .Values.apps.jupyterhub.hub.livenessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.apps.jupyterhub.hub.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.apps.jupyterhub.hub.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.apps.jupyterhub.hub.livenessProbe.failureThreshold }}
             httpGet:
               path: {{ .Values.apps.jupyterhub.hub.baseUrl | trimSuffix "/" }}/hub/health
-              port: hub
+              port: http
           {{- end }}
           {{- if .Values.apps.jupyterhub.hub.readinessProbe.enabled }}
           readinessProbe:
             initialDelaySeconds: {{ .Values.apps.jupyterhub.hub.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.apps.jupyterhub.hub.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.apps.jupyterhub.hub.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.apps.jupyterhub.hub.readinessProbe.failureThreshold }}
             httpGet:
               path: {{ .Values.apps.jupyterhub.hub.baseUrl | trimSuffix "/" }}/hub/health
-              port: hub
+              port: http
           {{- end }}
+      {{- with .Values.apps.jupyterhub.hub.extraPodSpec }}
+      {{- . | toYaml | nindent 6 }}
+      {{- end }}

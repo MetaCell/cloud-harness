@@ -1,12 +1,21 @@
-{{- if .Values.apps.jupyterhub.proxy.pdb.enabled -}}
+{{- if .Values.apps.jupyterhub.proxy.chp.pdb.enabled -}}
+{{- if .Capabilities.APIVersions.Has "policy/v1" }}
+apiVersion: policy/v1
+{{- else }}
 apiVersion: policy/v1beta1
+{{- end }}
 kind: PodDisruptionBudget
 metadata:
-  name: proxy
+  name: {{ include "jupyterhub.proxy.fullname" . }}
   labels:
     {{- include "jupyterhub.labels" . | nindent 4 }}
 spec:
-  minAvailable: {{ .Values.apps.jupyterhub.proxy.pdb.minAvailable }}
+  {{- if not (typeIs "<nil>" .Values.apps.jupyterhub.proxy.chp.pdb.maxUnavailable) }}
+  maxUnavailable: {{ .Values.apps.jupyterhub.proxy.chp.pdb.maxUnavailable }}
+  {{- end }}
+  {{- if not (typeIs "<nil>" .Values.apps.jupyterhub.proxy.chp.pdb.minAvailable) }}
+  minAvailable: {{ .Values.apps.jupyterhub.proxy.chp.pdb.minAvailable }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "jupyterhub.matchLabels" . | nindent 6 }}

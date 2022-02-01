@@ -11,9 +11,9 @@ cd "${download_path}"
 
 export filename=`echo "${url##*/}"`
 
-echo Downloading "$filename" to "$download_path"
-curl -L "$url" --output "${filename}"
 
+filename=$(wget -nv --content-disposition  "$url" -P "${download_path}" 2>&1 |cut -d\" -f2)
+echo "Downloaded to "$filename
 # test if the download is a zip file, if so then extract and remove 
 file "${filename}"|grep Zip && unzip "${filename}" && rm -f "${filename}"
 
