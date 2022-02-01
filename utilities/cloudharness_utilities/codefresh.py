@@ -106,9 +106,9 @@ def create_codefresh_deployment_scripts(root_paths, env, include=(), exclude=(),
                     )
 
         codefresh_build_step_from_base_path(os.path.join(root_path, BASE_IMAGES_PATH), CF_BUILD_STEP_BASE,
-                                            fixed_context=root_path, include=None)
+                                            fixed_context=root_path, include=values_manual_deploy['task-images'].keys())
         codefresh_build_step_from_base_path(os.path.join(root_path, STATIC_IMAGES_PATH), CF_BUILD_STEP_STATIC,
-                                            include=None)
+                                            include=values_manual_deploy['task-images'].keys())
         codefresh_build_step_from_base_path(os.path.join(root_path, APPS_PATH), CF_BUILD_STEP_PARALLEL)
 
     # Remove useless steps

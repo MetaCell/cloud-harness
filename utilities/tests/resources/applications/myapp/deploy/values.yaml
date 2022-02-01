@@ -4,4 +4,6 @@ harness:
   dependencies:
     soft:
       - legacy
+    build:
+      - cloudharness-flask
 a: b
