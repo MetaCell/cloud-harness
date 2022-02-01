@@ -1,0 +1,6 @@
+harness:
+  name: "I'm useless"
+  subdomain: mysubdomain
+  use_services:
+    - name: idonotexist
+a: b

@@ -304,3 +304,16 @@ def merge_app_directories(root_paths, destination) -> None:
 
 def to_python_module(name):
     return name.replace('-', '_')
+
+def guess_build_dependencies_from_dockerfile(filename):
+    dependencies = []
+    if not "Dockerfile" in filename:
+        filename = os.path.join(filename, "Dockerfile")
+    with open(filename) as f:
+        for line in f:
+            if line.startswith("ARG"):
+                dependencies.append(line.split()[1].lower().replace("_", "-"))
+            else:
+                break
+    return dependencies
+

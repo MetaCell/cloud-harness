@@ -6,3 +6,20 @@ The main personalizations happen in the file `jupyterhub_config.py` in order to 
 dynamic behaviours like:
  - Use a different image based on current path/parameter
  - Mount custom volumes
+
+## Node selector for Jupyter hub apps
+
+A Jupyter Hub application can configure the kubernetes node selector in order to make sure that the app 
+will run on nodes matching the app's node selector config.
+
+To set up a node selector add the follwoing lines to the app's values.yaml file:
+ ```
+harness:
+  jupyterhub:
+    spawnerExtraConfig:
+       node_selectors:           # optional node pool for these pods
+        - key: ch/nodepool       # the name of the meta data key of the node (can be set at node pool level)    
+          operator: In           # In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+          values: pool-highcpu   # k8s highcpu instance pool
+          matchPurpose: require  # require | prefer | ignore
+```
