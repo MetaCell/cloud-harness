@@ -11,7 +11,7 @@
 from setuptools import setup, find_packages
 
 
-NAME = "cloudharness-utilities"
+NAME = "cloudharness-tools"
 VERSION = "0.4.0"
 # To install the library, run the following
 #
@@ -31,7 +31,7 @@ REQUIREMENTS = [
 setup(
     name=NAME,
     version=VERSION,
-    description="CloudHarness deploy utilities library",
+    description="CloudHarness deploy and code generation tools",
     author_email="cloudharness@metacell.us",
     url="",
     keywords=["Cloud", "Kubernetes", "Helm", "Deploy"],
@@ -40,6 +40,6 @@ setup(
     include_package_data=True,
     scripts=['harness-deployment', 'harness-generate', 'harness-application'],
     long_description="""\
-    MetaCell Neuroscience Platform - CloudHarness deploy library
+    CloudHarness deploy library
     """
 )
