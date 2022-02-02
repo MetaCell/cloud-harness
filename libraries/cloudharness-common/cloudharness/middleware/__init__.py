@@ -6,4 +6,4 @@ def set_authentication_token(authentication_token):
     _authentication_token.set(authentication_token)
 
 def get_authentication_token():
-    return _ch_authentication_token.get()
+    return _authentication_token.get()
