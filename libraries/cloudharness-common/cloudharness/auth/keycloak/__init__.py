@@ -2,15 +2,16 @@ import os
 import jwt
 import json
 import requests
-from flask import current_app, request
 from keycloak import KeycloakAdmin
 from keycloak.exceptions import KeycloakAuthenticationError
 from cachetools import cached, TTLCache
 from cloudharness import log
 from cloudharness.utils.secrets import get_secret
+from cloudharness.middleware import get_state
 
 
 AUTH_SECRET_PATH = "/opt/cloudharness/resources/auth"
+
 
 class AuthSecretNotFound(Exception):
     def __init__(self, secret_name):
@@ -74,11 +75,17 @@ class AuthClient():
     @staticmethod
     def _get_keycloak_user_id():
         try:
-            bearer = request.headers.get('Authorization', None)
-            env = current_app.config['ENV']
+            ch_state = get_state()
+            bearer = ch_state.get("bearer")
+            env = ch_state.get("env")
         except:
-            bearer = None
-            env = 'development'
+            try:
+                from flask import request, current_app
+                bearer = request.headers.get('Authorization', None)
+                env = current_app.config['ENV']
+            except:
+                bearer = None
+                env = 'development'
         log.debug(f'Bearer: {bearer}')
         log.debug(f'Env: {env}')
         if not bearer or bearer == 'Bearer undefined':
