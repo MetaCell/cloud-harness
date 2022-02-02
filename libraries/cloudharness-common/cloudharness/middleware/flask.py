@@ -1,6 +1,5 @@
-from flask import current_app
 from werkzeug.wrappers import Request, Response, ResponseStream
-from cloudharness.middleware import update_state
+from cloudharness.middleware import set_authentication_token
 
 
 class middleware():
@@ -13,14 +12,9 @@ class middleware():
 
     def __call__(self, environ, start_response):
         request = Request(environ)
-        bearer = request.headers.get("Authorization")
-        try:
-            env = current_app.config.get("ENV")
-        except:
-            env = "production"
-        update_state({
-            "bearer": bearer,
-            "env": env,
-        })
+
+        # retrieve the bearer token from the header
+        # and save it for use in the AuthClient
+        set_authentication_token(request.headers.get('Authorization'))
 
         return self.app(environ, start_response)

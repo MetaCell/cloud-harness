@@ -1,12 +1,9 @@
 from contextvars import ContextVar, copy_context
 
-_middleware = None
-_state = ContextVar("ch_state", default={})
+_authentication_token = ContextVar("ch_authentication_token", default=None)
 
-def update_state(state):
-    new_state = _state.get()
-    new_state.update(state)
-    _state.set(new_state)
+def set_authentication_token(authentication_token):
+    _authentication_token.set(authentication_token)
 
-def get_state():
-    return _state.get()
+def get_authentication_token():
+    return _ch_authentication_token.get()

@@ -7,7 +7,7 @@ from keycloak.exceptions import KeycloakAuthenticationError
 from cachetools import cached, TTLCache
 from cloudharness import log
 from cloudharness.utils.secrets import get_secret
-from cloudharness.middleware import get_state
+from cloudharness.middleware import get_authentication_token
 
 
 AUTH_SECRET_PATH = "/opt/cloudharness/resources/auth"
@@ -75,32 +75,21 @@ class AuthClient():
     @staticmethod
     def _get_keycloak_user_id():
         try:
-            ch_state = get_state()
-            bearer = ch_state.get("bearer")
-            env = ch_state.get("env")
-        except:
-            try:
-                from flask import request, current_app
-                bearer = request.headers.get('Authorization', None)
-                env = current_app.config['ENV']
-            except:
-                bearer = None
-                env = 'development'
-        log.debug(f'Bearer: {bearer}')
-        log.debug(f'Env: {env}')
-        if not bearer or bearer == 'Bearer undefined':
-            if env == 'development':
-                # when development and not using KeyCloak (no current user),
-                # get id from X-Current-User-Id header
-                try:
-                    keycloak_user_id = request.headers.get(
-                        "X-Current-User-Id", os.environ.get("CH_CURRENT_USER_ID", -1))
-                except:
-                    keycloak_user_id = os.environ.get("CH_CURRENT_USER_ID", -1)
-            else:
-                keycloak_user_id = "-1"  # No authorization --> no user
+            authentication_token = get_authentication_token()
+        except LookupError:
+            # this needs to be removed in future, for now we leave it for apps not using flask_init
+            # in that case the contextvars aren't set by the Cloudharness Flask middleware
+            log.warning(
+                "Call to deprecated function, please use cloudharness.utils.server.flask_init to "
+                "initialize your application."
+            )
+            from flask import request
+            authentication_token = request.headers.get('Authorization', None)
+
+        if not authentication_token or authentication_token == 'Bearer undefined':
+            keycloak_user_id = "-1"  # No authorization --> no user
         else:
-            token = bearer.split(' ')[1]
+            token = authentication_token.split(' ')[1]
             keycloak_user_id = AuthClient.decode_token(token)['sub']
         return keycloak_user_id
 
