@@ -26,3 +26,22 @@ Install with setuptools from sources
 cd libraries/cloudharness
 pip install .
 ```
+
+## Django Middleware
+
+This library also contains a Django Middleware module needed to use the Cloudharness AuthClient.
+To activate this middleware add `cloudharness.middleware.django.CloudharnessMiddleware` to your
+Django middleware classes.
+
+E.g. in Django settings.py
+```
+...
+
+MIDDLEWARE = [
+    ...
+    'cloudharness.middleware.django.CloudharnessMiddleware',
+    ...
+]
+
+...
+```
