@@ -9,6 +9,7 @@ import six
 
 from cloudharness import log as logging
 from cloudharness.applications import get_current_configuration
+from cloudharness.middleware.flask import middleware
 
 app = None
 
@@ -81,6 +82,8 @@ def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_enco
     if obj_config:
         app.config.from_object(obj_config)
     app.json_encoder = json_encoder
+    # activate the CH middleware
+    app.wsgi_app = middleware(app.wsgi_app)
 
     with app.app_context():
         # setup logging
