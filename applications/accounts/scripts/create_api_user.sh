@@ -1,7 +1,7 @@
 #!/bin/bash
 
 NAMESPACE=${CH_ACCOUNTS_REALM}
-USERNAME=$(cat /opt/cloudharness/resources/auth/api_user_username)
+USERNAME=admin_api
 PASSWORD=$(cat /opt/cloudharness/resources/auth/api_user_password)
 
 set -e

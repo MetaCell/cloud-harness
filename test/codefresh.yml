@@ -1,0 +1,35 @@
+# More examples of Codefresh YAML can be found at
+# https://codefresh.io/docs/docs/yaml-examples/examples/
+
+version: "1.0"
+# Stages can help you organize your steps in stages
+stages:
+  - "clone"
+  - "build"
+  - "test"
+
+steps:
+  clone:
+    title: "Cloning repository"
+    type: "git-clone"
+    repo: "MetaCell/cloud-harness"
+    # CF_BRANCH value is auto set when pipeline is triggered
+    # Learn more at codefresh.io/docs/docs/codefresh-yaml/variables/
+    revision: "${{CF_BRANCH}}"
+    git: "github"
+    stage: "clone"
+
+
+  test:
+    title: "Running test"
+    type: "freestyle" # Run any command
+    image: "python:3.9" # The image in which command will be executed
+    working_directory: "${{clone}}" # Running command where code cloned
+    commands:
+      - pip install tox
+      - rm -rf libraries/cloudharness-common/.tox
+      - rm -rf tools/.tox
+      - tox -c libraries/cloudharness-common/
+      - tox -c tools/
+    stage: "test"
+

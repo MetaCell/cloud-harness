@@ -47,9 +47,9 @@ spec:
         - name: cloudharness-allvalues
           configMap:
             name: cloudharness-allvalues
-        - name: cloudharness-kc-api-account
+        - name: cloudharness-kc-accounts
           secret:
-            secretName: accounts-api
+            secretName: accounts
         - name: secret
           secret:
             secretName: {{ include "jupyterhub.hub.fullname" . }}
@@ -153,7 +153,7 @@ spec:
             - name: cloudharness-allvalues
               mountPath: /opt/cloudharness/resources/allvalues.yaml
               subPath: allvalues.yaml
-            - name: cloudharness-kc-api-account
+            - name: cloudharness-kc-accounts
               mountPath: /opt/cloudharness/resources/auth
               readOnly: true
             {{- if (include "jupyterhub.hub-existing-secret.fullname" .) }}
