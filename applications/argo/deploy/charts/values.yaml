@@ -115,7 +115,7 @@ controller:
   # account and RBAC resources will be created. If unspecified, will run in the default namespace.
   workflowNamespaces:
     - default
-  containerRuntimeExecutor: docker
+  containerRuntimeExecutor: emissary
   # containerRuntimeExecutors:
   #   - name: emissary
   #     selector:
