@@ -29,7 +29,7 @@ steps:
     stage: prepare
     working_directory: .
     commands:
-      - pip install cloud-harness/utilities
+      - pip install cloud-harness/tools
       - harness-deployment . cloud-harness -m build -t ${{DEPLOYMENT_TAG}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e prod
   prepare_deployment_view:
     commands:
