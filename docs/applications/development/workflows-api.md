@@ -1,4 +1,7 @@
-# What are workflows?
+# Workflows Python API
+
+## Concepts
+### What are workflows?
 
 Workflows can be seen as kind of structured batch operation running in the cluster using on-demand resources.
 Workflows are composed by one on one tasks and can be of the following types depending how the tasks are arranged:
@@ -10,21 +13,21 @@ Workflows are composed by one on one tasks and can be of the following types dep
 Tasks are Docker container executions managed by the workflows system. Any docker image can be used as a base for a task.
 
 
-# When do I need a workflow?
+### When do I need a workflow?
 - *Use on demand resources*: when the workflow runs it requests the amount of resources (e.g. cpu and memory) in the cluster, and frees the resources as soon it stops. This is usually the case for heavy computations.
 - *Specific technological stack*: a computational pipeline can require a specific technological stack and/or a specific (and possibly heavy) set of libraries. The base stack may be different from the one used on the main service (usually a Python Flask application). Even if the base stack is the same adding all the libraries in the main service may not be the best solution
 - Make asynchronous long operations
 
-# How to run workflows?
+### How to run workflows?
 Cloudharness allows to run workflows through [Argo workflows](https://github.com/argoproj/argo-workflows) providing the Argo installation and a Python library to run workflows programmatically.
 
 ## High level Operations API
 
-The cloudharness Operations api allows to easily run a workflow from Python.
-The pattern to run a workflow is the following:
-1. create the tasks
-1. Add the tasks to an operation object of the needed type
-1. Execute the operation
+The cloudharness Operations api allows to run a workflow from Python.
+The steps to run a workflow are:
+1. Create the Tasks
+1. Add the Tasks to an Operation object
+1. Execute the Operation
 
 Simple example of a parallel operation running Python code:
 
@@ -63,7 +66,7 @@ op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f
   - **CommandBasedTask** - Run a single command in the default cloudharness container 
   
 
-## Create a custom task
+## Using CustomTask
 
 Custom tasks are specified inside an application as Dockerfiles.
 
@@ -82,6 +85,18 @@ op = operations.SingleTaskOperation('my-op-', my_task)
 op.execute()
 ```
 
+### Execute a custom command
+
+By default the container will execute the default command specified in the Docker image within a `CustomTask` runtime. 
+
+To execute a custom command use the `command` parameter.
+
+```Python
+my_task = tasks.CustomTask('print-file', 'myapp-mytask', command=["ls", "-la"])
+op = operations.SingleTaskOperation('my-op-', my_task)
+op.execute()
+```
+
 ## Passing parameters as env variables to tasks
 All additional named parameters added to a ContainerizedTask are converted into env variables in the container
 
@@ -92,12 +107,84 @@ op = operations.SingleTaskOperation('my-op-', my_task)
 op.execute()
 ```
 
-## Use shared volumes
-Shared volumes are useful if we want to share data within a pipeline or to write data inside another existing volume within the cluster
+## Use shared/external volumes
+Shared volumes are useful if we want to share data within a pipeline or to write data inside another existing volume within the cluster.
+The shared volume must be indicated both in the Operation and it is propagated to all tasks.
+
+The `shared_directory` parameter is a quick way to specify a shared directory, and, optionally,
+the name of a volume claim. 
+
+The syntax is `[CLAIM_NAME:]MOUNT_PATH`.
+
+```Python
+shared_directory="myclaim:/opt/shared"
+my_task = tasks.CustomTask('print-file', 'myapp-mytask')
+op = operations.SingleTaskOperation('my-op-', my_task, shared_directory=shared_directory)
+op.execute()
+```
+
+## Pod execution context / affinity
+
+Affinity is set through the 
+
+```Python
+def f():
+  print('whatever')
+
+op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f), tasks.PythonTask('p2', f)),
+                                      pod_context=operations.PodExecutionContext(key='a', value='b', required=True))
+```
+
+The execution context is set allows to group pods in the same node (see [here](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity)).
+This is important in particular when pods are sharing node resources like ReadWriteOnce volumes within a parallel execution or with other deployments in the cluster.
+The execution context sets the affinity and the metadata attributes so that all pods with the same context
+run in the same node 
+
+## TTL (Time-To-Live) strategy
+
+By default, workflows are removed some time after the completion.
+
+Default value:
+```Python
+{
+    'secondsAfterCompletion': 60 * 60,
+     'secondsAfterSuccess': 60 * 20,
+     'secondsAfterFailure': 60 * 120
+}
+```
+
+To set the TTL strategy, set the value on the operation with the `ttl_strategy` parameter.
+To disable any automatic removal, set `ttl_strategy=None`
+
+
+```Python
+ttl_strategy={
+    'secondsAfterCompletion': 60 * 60 * 24,
+    'secondsAfterSuccess': 60 * 20,
+    'secondsAfterFailure': 60 * 120
+}
+op = operations.ParallelOperation(..., ttl_strategy=ttl_strategy)
+```
+
+## Notify on exit
+
+The parameter `on_exit_notify` adds an additional task to the workflow that notifies its completion in the events queue.
+It communicates the outcome of the operation (i.e. Success, Error), allows you to define the message queue topic and the payload to send in the message
+
+```Python
+import json
+on_exit_notify={
+    'queue': 'my_queue',
+    'payload': json.dumps({'insert': 1})
+}
+op = operations.ParallelOperation(..., on_exit_notify=on_exit_notify)
+```
+
+Synchronous operation types use this mechanism to wait for the result and get the value.
 
 # How to monitor and debug my workflows?
 Workflows can be monitored through argo ui going to argo.[DOMAIN] or through command line with the [argo cli](https://argoproj.github.io/argo-workflows/cli/)
 
 # More examples
-See the application samples controllers (application.samples.controllers.workflows_controller.py) for a practical case of a service using asynchronous and synchronous workflows as part of the api.
+See the [samples application controller](../../../applications/samples/backend/samples/controllers/workflows_controller.py) for a practical case of a service using asynchronous and synchronous workflows as part of the api.
 Some examples are also available as unit tests.
