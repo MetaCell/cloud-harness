@@ -27,7 +27,7 @@ def submit_async():  # noqa: E501
     task_write = tasks.CustomTask('download-file', 'workflows-extract-download',
                                   url='https://github.com/MetaCell/cloud-harness/blob/master/README.md')
     task_print = tasks.CustomTask(
-        'print-file', 'workflows-print-file', file_path=shared_directory + '/README.md')
+        'print-file', 'samples-print-file', file_path=shared_directory + '/README.md')
     op = operations.PipelineOperation(
         'test-custom-connected-op-', (task_write, task_print), shared_directory=shared_directory)
 
