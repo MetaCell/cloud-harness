@@ -105,7 +105,7 @@ spec:
           - name: cloudharness-allvalues
             mountPath: /opt/cloudharness/resources
             readOnly: true
-          {{- if has  "accounts" .app.harness.dependencies.hard }}
+          {{- if or (has  "accounts" .app.harness.dependencies.hard) (eq .app.harness.name "accounts") }}
           - name: cloudharness-kc-accounts
             mountPath: /opt/cloudharness/resources/auth
             readOnly: true
@@ -131,7 +131,7 @@ spec:
         - name: cloudharness-allvalues
           configMap:
             name: cloudharness-allvalues
-        {{- if has  "accounts" .app.harness.dependencies.hard }}
+        {{- if or (has  "accounts" .app.harness.dependencies.hard) (eq .app.harness.name "accounts") }}
         - name: cloudharness-kc-accounts
           secret:
             secretName: accounts
