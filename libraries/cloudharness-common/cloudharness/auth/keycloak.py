@@ -6,11 +6,16 @@ from keycloak import KeycloakAdmin
 from keycloak.exceptions import KeycloakAuthenticationError
 from cachetools import cached, TTLCache
 from cloudharness import log
-from cloudharness.utils.secrets import get_secret
 from cloudharness.middleware import get_authentication_token
 
 
-AUTH_SECRET_PATH = "/opt/cloudharness/resources/auth"
+
+try:
+    from cloudharness.utils.config import CloudharnessConfig as conf, ALLVALUES_PATH
+    from cloudharness.applications import get_configuration
+except:
+    log.error("Error on cloudharness configuration. Check that the values file %s your deployment.",
+              ALLVALUES_PATH, exc_info=True)
 
 
 class AuthSecretNotFound(Exception):
@@ -18,29 +23,15 @@ class AuthSecretNotFound(Exception):
         Exception.__init__(self, f"Secret {secret_name} not found.")
 
 
-def get_secret(name: str) -> str:
+def get_api_password() -> str:
+    name = "api_user_password"
+    AUTH_SECRET_PATH = os.environ.get("AUTH_SECRET_PATH", "/opt/cloudharness/resources/auth")
     try:
         with open(os.path.join(AUTH_SECRET_PATH, name)) as fh:
             return fh.read()
     except:
         # if no secrets folder or file exists
         raise AuthSecretNotFound(name)
-
-
-try:
-    from cloudharness.utils.config import CloudharnessConfig as conf, ALLVALUES_PATH
-    from cloudharness.applications import get_configuration
-    accounts_app = get_configuration('accounts')
-    AUTH_REALM = conf.get_namespace()
-    SERVER_URL = accounts_app.get_service_address() + '/auth/'
-    if not os.environ.get('KUBERNETES_SERVICE_HOST', None):
-        # running outside kubernetes
-        SERVER_URL = accounts_app.get_public_address() + '/auth/'
-    USER = "admin_api"
-    PASSWD = get_secret("api_user_password")
-except:
-    log.error("Error on cloudharness configuration. Check that the values file %s your deployment.",
-              ALLVALUES_PATH, exc_info=True)
 
 
 def with_refreshtoken(func):
@@ -67,6 +58,19 @@ def decode_token(token):
 
     decoded = AuthClient.decode_token(token)
     return {'uid': 'user_id'}
+
+
+def get_server_url():
+    accounts_app = get_configuration('accounts')
+
+    if not os.environ.get('KUBERNETES_SERVICE_HOST', None):
+        # running outside kubernetes
+        return accounts_app.get_public_address() + '/auth/'
+    return accounts_app.get_service_address() + '/auth/'
+
+
+def get_auth_realm():
+    return conf.get_namespace()
 
 
 class AuthClient():
@@ -110,12 +114,16 @@ class AuthClient():
 
         :return: KeycloakAdmin
         """
+
+        user = "admin_api"
+        passwd = get_api_password()
+
         if not getattr(self, "_admin_client", None):
             self._admin_client = KeycloakAdmin(
-                server_url=SERVER_URL,
-                username=USER,
-                password=PASSWD,
-                realm_name=AUTH_REALM,
+                server_url=get_server_url(),
+                username=user,
+                password=passwd,
+                realm_name=get_auth_realm(),
                 user_realm_name='master',
                 verify=True)
         return self._admin_client
@@ -132,7 +140,7 @@ class AuthClient():
     def get_public_key(cls):
         if not cls.__public_key:
             AUTH_PUBLIC_KEY_URL = os.path.join(
-                SERVER_URL, "realms", AUTH_REALM)
+                get_server_url(), "realms", get_auth_realm())
 
             KEY = json.loads(requests.get(AUTH_PUBLIC_KEY_URL,
                                           verify=False).text)['public_key']
