@@ -40,7 +40,7 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output', dest='output_path', action="store", default='./deployment',
                         help='Specify helm chart base path (default `./deployment)`')
     parser.add_argument('-b', '--build', dest='build', action="store_true",
-                        help='Builds and pushes Docker images in the specified registry (if any)')
+                        help='Deprecated -- Builds and pushes Docker images in the specified registry (if any)')
     parser.add_argument('-d', '--domain', dest='domain', action="store", default="cloudharness.metacell.us",
                         help='Specify a domain different from cloudharness.metacell.us')
     parser.add_argument('-bi', '--build-interactive', dest='build_interactive', action="store_true",
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     parser.add_argument('-e', '--env', dest='env', action="store", default=None,
                         help='Specify the name of the environment (will load values-[ENV].yaml files')
     parser.add_argument('-m', '--merge', dest='merge', action="store", default=None,
-                        help='Merge application folders and build in the given directory')
+                        help='Deprecated -- Merge is now automatic')
 
     parser.add_argument('-dtls', '--disable-tls', dest='no_tls', action="store_true",
                         help='Disable tls (serve on http)')
@@ -71,8 +71,9 @@ if __name__ == "__main__":
     else:
 
         if args.merge:
-            merge_app_directories(root_paths, destination=args.merge)
-            root_paths = [args.merge]
+            logging.warn("Merge (-m, --merge) argument is deprecated. Directory merging is nowset ")
+            # merge_app_directories(root_paths, destination=args.merge)
+            # root_paths = [args.merge]
 
         values_manual_deploy = create_helm_chart(
             root_paths,
