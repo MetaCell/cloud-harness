@@ -39,13 +39,8 @@ if __name__ == "__main__":
                         help='Specify image registry secret')
     parser.add_argument('-o', '--output', dest='output_path', action="store", default='./deployment',
                         help='Specify helm chart base path (default `./deployment)`')
-    parser.add_argument('-b', '--build', dest='build', action="store_true",
-                        help='Deprecated -- Builds and pushes Docker images in the specified registry (if any)')
     parser.add_argument('-d', '--domain', dest='domain', action="store", default="cloudharness.metacell.us",
                         help='Specify a domain different from cloudharness.metacell.us')
-    parser.add_argument('-bi', '--build-interactive', dest='build_interactive', action="store_true",
-                        help='Builds and pushes Docker images in the specified registry (if any).'
-                             'Asks interactively what images to build')
     parser.add_argument('-l', '--local', dest='local', action="store_true",
                         help='Specify for local deployments info and setup')
     parser.add_argument('-u', '--disable-security', dest='unsecured', action="store_true",
@@ -103,14 +98,6 @@ if __name__ == "__main__":
         create_skaffold_configuration(root_paths, values_manual_deploy)
         create_vscode_debug_configuration([os.path.join(os.getcwd(), path) for path in args.paths],
                                           values_manual_deploy)
-
-        if args.build or args.build_interactive:
-            builder = Builder(root_paths, build_included, tag=args.tag, registry=args.registry,
-                              interactive=args.build_interactive,
-                              exclude=args.exclude, namespace=args.namespace, domain=args.domain,
-                              base_image_name=values_manual_deploy['name'] if args.registry else None,
-                              helm_values=values_manual_deploy)
-            builder.run()
 
         hosts_info(values_manual_deploy)
 
