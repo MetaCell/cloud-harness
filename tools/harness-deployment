@@ -46,7 +46,7 @@ if __name__ == "__main__":
     parser.add_argument('-ex', '--exclude', dest='exclude', action="append", default=[],
                         help='Specify application to exclude from the deployment')
     parser.add_argument('-e', '--env', dest='env', action="store", default=None,
-                        help='Specify the name of the environment (will load values-[ENV].yaml files')
+                        help='Specify the name of the environment (will load values-[ENV].yaml files)')
     parser.add_argument('-m', '--merge', dest='merge', action="store", default=None,
                         help='Deprecated -- Merge is now automatic')
 

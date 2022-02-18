@@ -197,6 +197,8 @@ def movedircontent(root_src_dir, root_dst_dir):
 
 
 def merge_configuration_directories(source, dest):
+    if source == dest:
+        return
     if not os.path.exists(source):
         return
     if not os.path.exists(dest):
