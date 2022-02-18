@@ -1,4 +1,5 @@
 import shutil
+import cloudharness
 import yaml
 
 from cloudharness_utilities.helm import *
@@ -16,7 +17,7 @@ def test_create_skaffold_configuration():
                                namespace='test', env='dev', local=False, tag=1, registry='reg')
 
 
-    sk = create_skaffold_configuration(root_paths=[CLOUDHARNESS_ROOT, RESOURCES], helm_values=values, output_path=OUT)
+    sk = create_skaffold_configuration(root_paths=[CLOUDHARNESS_ROOT, RESOURCES], helm_values=values, output_path=OUT, merge_build_path="/tmp/build")
     assert os.path.exists(os.path.join(OUT, 'skaffold.yaml'))
     exp_apps = ('accounts', 'samples', 'workflows', 'myapp')
     assert len(sk['build']['artifacts']) == len(exp_apps) + len(values[KEY_TASK_IMAGES])
@@ -28,6 +29,7 @@ def test_create_skaffold_configuration():
     for img in values[KEY_TASK_IMAGES]:
         assert img in artifact_overrides[KEY_TASK_IMAGES]
 
+    assert 'reg/cloudharness/cloudharness-base' in (a['image'] for a in sk['build']['artifacts'])
     assert 'reg/cloudharness/cloudharness-base-debian' not in (a['image'] for a in sk['build']['artifacts'])
 
     overrides = sk['deploy']['helm']['releases'][0]['overrides']
@@ -36,4 +38,22 @@ def test_create_skaffold_configuration():
 
     assert 'reg' == artifact_overrides[KEY_APPS]['accounts'][KEY_HARNESS][KEY_DEPLOYMENT]['image'][0:3]
     assert 'harness' in artifact_overrides[KEY_APPS]['accounts'][KEY_HARNESS][KEY_DEPLOYMENT]['image']
+
+
+    cloudharness_base_artifact = next(a for a in sk['build']['artifacts'] if a['image'] == 'reg/cloudharness/cloudharness-base')
+    assert cloudharness_base_artifact['context'] == '..'
+
+    cloudharness_flask_artifact = next(a for a in sk['build']['artifacts'] if a['image'] == 'reg/cloudharness/cloudharness-flask')
+    assert cloudharness_flask_artifact['context'] == '../infrastructure/common-images/cloudharness-flask'
+
+    
+
+    samples_artifact = next(a for a in sk['build']['artifacts'] if a['image'] == 'reg/cloudharness/samples')
+    assert samples_artifact['context'] == '../applications/samples'
+
+    myapp_artifact = next(a for a in sk['build']['artifacts'] if a['image'] == 'reg/cloudharness/myapp')
+    assert myapp_artifact['context'] == '../tools/tests/resources/applications/myapp'
+
+
+
     shutil.rmtree(OUT)

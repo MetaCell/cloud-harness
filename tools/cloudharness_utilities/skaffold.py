@@ -84,7 +84,7 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
             artifacts[app_name] = build_artifact(
                 get_image_tag(app_name),
                 context_path,
-                dockerfile_path=os.relpath(dockerfile_path, output_path)
+                dockerfile_path=relpath(dockerfile_path, output_path)
             )
 
     for root_path in root_paths:
@@ -95,7 +95,7 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
             join(root_path, BASE_IMAGES_PATH))
 
         for dockerfile_path in base_dockerfiles:
-            process_build_dockerfile(root_path, dockerfile_path, app_name)
+            process_build_dockerfile(dockerfile_path, root_path, global_context=True)
 
     static_images = set()
     for root_path in root_paths:
@@ -103,7 +103,7 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
             join(root_path, STATIC_IMAGES_PATH))
 
         for dockerfile_path in static_dockerfiles:
-            context_path = os.path.relpath(dockerfile_path, output_path)
+            context_path = relpath(dockerfile_path, output_path)
             app_name = app_name_from_path(basename(context_path))
             if app_name in helm_values[KEY_TASK_IMAGES]:
                 static_images.add(get_image_name(app_name))
