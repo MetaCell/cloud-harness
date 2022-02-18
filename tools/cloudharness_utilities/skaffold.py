@@ -59,10 +59,11 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
     release_config['artifactOverrides'][KEY_APPS] = {}
     base_images = set()
 
-    def process_build_dockerfile(dockerfile_path, root_path, global_context=False):
-        app_name = app_name_from_path(basename(dockerfile_path))
-        if app_name in helm_values[KEY_TASK_IMAGES]:
-            context_path = relpath(root_path, output_path)
+    def process_build_dockerfile(dockerfile_path, root_path, global_context=False, requirements=None, app_name=None):
+        if app_name is None:
+            app_name = app_name_from_path(basename(dockerfile_path))
+        if app_name in helm_values[KEY_TASK_IMAGES] or app_name.replace("-", "_") in helm_values[KEY_APPS]:
+            context_path = relpath(root_path, output_path) if global_context else relpath(dockerfile_path, output_path)
             if app_name in builds:
                 if global_context:
                     source_path = join(root_path, 'libraries')
@@ -77,14 +78,15 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
                     merge_configuration_directories(source_path, dest_path)
                     builds[app_name] = context_path
                     context_path = relpath(
-                        merge_build_path, output_path)
+                        merge_build_path, output_path if global_context else dockerfile_path)
 
             builds[app_name] = context_path
             base_images.add(get_image_name(app_name))
             artifacts[app_name] = build_artifact(
                 get_image_tag(app_name),
                 context_path,
-                dockerfile_path=relpath(dockerfile_path, output_path)
+                dockerfile_path=relpath(dockerfile_path, output_path),
+                requirements=requirements or guess_build_dependencies_from_dockerfile(dockerfile_path)
             )
 
     for root_path in root_paths:
@@ -103,15 +105,8 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
             join(root_path, STATIC_IMAGES_PATH))
 
         for dockerfile_path in static_dockerfiles:
-            context_path = relpath(dockerfile_path, output_path)
-            app_name = app_name_from_path(basename(context_path))
-            if app_name in helm_values[KEY_TASK_IMAGES]:
-                static_images.add(get_image_name(app_name))
-                artifacts[app_name] = build_artifact(
-                    get_image_tag(app_name),
-                    context_path,
-                    guess_build_dependencies_from_dockerfile(dockerfile_path)
-                )
+            process_build_dockerfile(dockerfile_path, root_path)
+           
 
     for root_path in root_paths:
         apps_path = join(root_path, 'applications')
@@ -142,11 +137,11 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
 
             build_requirements = apps[app_key][KEY_HARNESS]['dependencies'].get('build', [
             ])
-            app_image_tag = remove_tag(
-                apps[app_key][KEY_HARNESS][KEY_DEPLOYMENT]['image'])
-            artifacts[app_key] = build_artifact(
-                app_image_tag, app_relative_to_skaffold, build_requirements)
-
+            # app_image_tag = remove_tag(
+            #     apps[app_key][KEY_HARNESS][KEY_DEPLOYMENT]['image'])
+            # artifacts[app_key] = build_artifact(
+            #     app_image_tag, app_relative_to_skaffold, build_requirements)
+            process_build_dockerfile(dockerfile_path, root_path, requirements=build_requirements, app_name=app_name)
             app = apps[app_key]
             if app[KEY_HARNESS][KEY_DEPLOYMENT]['image']:
                 release_config['artifactOverrides']['apps'][app_key] = \

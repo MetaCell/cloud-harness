@@ -332,7 +332,7 @@ def guess_build_dependencies_from_dockerfile(filename):
         filename = os.path.join(filename, "Dockerfile")
     with open(filename) as f:
         for line in f:
-            if line.startswith("ARG"):
+            if line.startswith("ARG") and not "=" in line:
                 dependencies.append(line.split()[1].lower().replace("_", "-"))
             else:
                 break
