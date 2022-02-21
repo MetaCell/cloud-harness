@@ -68,9 +68,9 @@ def test_create_skaffold_configuration():
     cloudharness_flask_artifact = next(
         a for a in sk['build']['artifacts'] if a['image'] == 'reg/cloudharness/cloudharness-flask')
 
-    cwd = os.getcwd()
-    assert cloudharness_flask_artifact['context'] == join(
-        cwd, 'infrastructure/common-images/cloudharness-flask'
+
+    assert os.path.samefile(cloudharness_flask_artifact['context'], 
+       join(CLOUDHARNESS_ROOT, 'infrastructure/common-images/cloudharness-flask')
     )
 
     assert len(cloudharness_flask_artifact['requires']) == 1
@@ -78,15 +78,16 @@ def test_create_skaffold_configuration():
     samples_artifact = next(
         a for a in sk['build']['artifacts'] if a['image'] == 'reg/cloudharness/samples'
     )
-    assert samples_artifact['context'] == join(cwd, 'applications/samples')
+    assert os.path.samefile(samples_artifact['context'], join(CLOUDHARNESS_ROOT, 'applications/samples'))
 
     myapp_artifact = next(
         a for a in sk['build']['artifacts'] if a['image'] == 'reg/cloudharness/myapp')
-    assert myapp_artifact['context'] == join(
-        cwd, 'tools/tests/resources/applications/myapp')
+    assert os.path.samefile(myapp_artifact['context'], join(
+        RESOURCES, 'applications/myapp'))
 
     accounts_artifact = next(
         a for a in sk['build']['artifacts'] if a['image'] == 'reg/cloudharness/accounts')
-    assert accounts_artifact['context'] == '/tmp/build/applications/accounts'
+    assert os.path.samefile(accounts_artifact['context'], '/tmp/build/applications/accounts')
 
     shutil.rmtree(OUT)
+    shutil.rmtree(BUILD_DIR)

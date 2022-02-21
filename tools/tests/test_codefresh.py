@@ -51,8 +51,8 @@ def test_create_codefresh_configuration():
     assert "cloudharness-frontend-build" in steps
 
     step = steps["cloudharness-frontend-build"]
-    assert step['dockerfile'] == os.path.join(
-        BASE_IMAGES_PATH, "cloudharness-frontend-build", "Dockerfile")
+    assert  os.path.samefile(step['dockerfile'], os.path.join(CLOUDHARNESS_ROOT,
+        BASE_IMAGES_PATH, "cloudharness-frontend-build", "Dockerfile"))
     assert os.path.samefile(step['working_directory'], CLOUDHARNESS_ROOT)
 
     step = steps["cloudharness-base"]
@@ -68,7 +68,7 @@ def test_create_codefresh_configuration():
     step = steps["cloudharness-flask"]
     assert step['dockerfile'] == "Dockerfile"
     assert os.path.samefile(step['working_directory'], os.path.join(
-        STATIC_IMAGES_PATH, "cloudharness-flask"))
+        CLOUDHARNESS_ROOT, STATIC_IMAGES_PATH, "cloudharness-flask"))
 
     step = steps["my-common"]
     assert step['dockerfile'] == "Dockerfile"
@@ -88,7 +88,7 @@ def test_create_codefresh_configuration():
     step = steps["samples"]
     assert step['dockerfile'] == "Dockerfile"
     assert os.path.samefile(
-        step['working_directory'], os.path.join(APPS_PATH, "samples"))
+        step['working_directory'], os.path.join(CLOUDHARNESS_ROOT, APPS_PATH, "samples"))
 
     step = steps["myapp"]
     assert step['dockerfile'] == "Dockerfile"
@@ -104,3 +104,5 @@ def test_create_codefresh_configuration():
     assert step['dockerfile'] == "Dockerfile"
     assert os.path.samefile(step['working_directory'], os.path.join(
         BUILD_MERGE_DIR, APPS_PATH, "workflows/tasks/notify-queue"))
+
+    shutil.rmtree(BUILD_MERGE_DIR)
