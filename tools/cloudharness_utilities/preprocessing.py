@@ -1,10 +1,10 @@
 from email.mime import base
 from genericpath import exists
 import os
-from posixpath import relpath
+
 import shutil
 from glob import glob
-from os.path import join, basename
+from os.path import join, basename, isabs, relpath
 
 from cloudharness_utilities.helm import KEY_APPS, KEY_TASK_IMAGES
 
@@ -14,6 +14,8 @@ from .constants import APPS_PATH, HELM_CHART_PATH, DEPLOYMENT_CONFIGURATION_PATH
 
 
 def preprocess_build_overrides(root_paths, helm_values, merge_build_path="./build"):
+    if not isabs(merge_build_path):
+        merge_build_path = join(os.getcwd(), merge_build_path)
     if len(root_paths) < 2:
         return
     if not os.path.exists(merge_build_path):

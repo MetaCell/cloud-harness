@@ -31,7 +31,7 @@ yaml.add_representer(str, literal_presenter)
 
 def create_codefresh_deployment_scripts(root_paths, env, include=(), exclude=(),
                                         template_name=CF_TEMPLATE_PATH, base_image_name=None,
-                                        values_manual_deploy=None):
+                                        values_manual_deploy=None, save=True):
     """
     Entry point to create deployment scripts for codefresh: codefresh.yaml and helm chart
     """
@@ -92,7 +92,7 @@ def create_codefresh_deployment_scripts(root_paths, env, include=(), exclude=(),
                         app_name=app_name,
                         app_context_path=os.path.relpath(fixed_context, '.') if fixed_context else app_relative_to_root,
                         dockerfile_path=os.path.join(
-                            os.path.relpath(dockerfile_path, fixed_context) if fixed_context else '',
+                            os.path.relpath(dockerfile_path, os.getcwd()) if fixed_context else '',
                             "Dockerfile"),
                         base_name=base_image_name,
                         helm_values=values_manual_deploy
@@ -106,7 +106,7 @@ def create_codefresh_deployment_scripts(root_paths, env, include=(), exclude=(),
                     )
 
         codefresh_build_step_from_base_path(os.path.join(root_path, BASE_IMAGES_PATH), CF_BUILD_STEP_BASE,
-                                            fixed_context=root_path, include=values_manual_deploy['task-images'].keys())
+                                            fixed_context=os.path.relpath(root_path, os.getcwd()), include=values_manual_deploy['task-images'].keys())
         codefresh_build_step_from_base_path(os.path.join(root_path, STATIC_IMAGES_PATH), CF_BUILD_STEP_STATIC,
                                             include=values_manual_deploy['task-images'].keys())
         codefresh_build_step_from_base_path(os.path.join(root_path, APPS_PATH), CF_BUILD_STEP_PARALLEL)
@@ -129,12 +129,14 @@ def create_codefresh_deployment_scripts(root_paths, env, include=(), exclude=(),
                         environment.append(
                             "CUSTOM_apps_%s_harness_secrets_%s=${{%s}}" % (app_name, secret_name, secret_name.upper()))
 
-    codefresh_abs_path = os.path.join(os.getcwd(), DEPLOYMENT_PATH, out_filename)
-    codefresh_dir = os.path.dirname(codefresh_abs_path)
-    if not os.path.exists(codefresh_dir):
-        os.makedirs(codefresh_dir)
-    with open(codefresh_abs_path, 'w') as f:
-        yaml.dump(codefresh, f)
+    if save:
+        codefresh_abs_path = os.path.join(os.getcwd(), DEPLOYMENT_PATH, out_filename)
+        codefresh_dir = os.path.dirname(codefresh_abs_path)
+        if not os.path.exists(codefresh_dir):
+            os.makedirs(codefresh_dir)
+        with open(codefresh_abs_path, 'w') as f:
+            yaml.dump(codefresh, f)
+    return codefresh
 
 
 def codefresh_template_spec(template_path, **kwargs):
