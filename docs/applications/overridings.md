@@ -48,10 +48,5 @@ Files included as resources or copied in the Dockerfile can also be overridden.
 Differently from the values file, no merging strategy is applied to other files.
 New files will replace the original file.
 
-A special case is when the `Dockerfile` is overridden:
-by default, original application files are not included in the deployment of the overridden application in so if any of the original file is required, can either 
-copy all the required files in the overridden application or use the `--merge` (`-m`)
-parameter when calling `harness-deployment`.
-
 For instance, calling 
-`harness-deployment cloud-harness . -m build` all the files pertaining to the build process are copied in the `./build` directory: at first, applications from cloud-harness are copied, then applications from the current directory are copied, so eventually overriding previously existing files.
+`harness-deployment cloud-harness .` all the files pertaining to the overridden applications and base images are copied in the `./build` directory: at first, applications from cloud-harness are copied, then applications from the current directory are copied, so eventually overriding previously existing files.
