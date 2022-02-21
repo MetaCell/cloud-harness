@@ -17,7 +17,7 @@ def preprocess_build_overrides(root_paths, helm_values, merge_build_path="./buil
     if not isabs(merge_build_path):
         merge_build_path = join(os.getcwd(), merge_build_path)
     if len(root_paths) < 2:
-        return
+        return root_paths
     if not os.path.exists(merge_build_path):
         os.makedirs(merge_build_path)
     else:
