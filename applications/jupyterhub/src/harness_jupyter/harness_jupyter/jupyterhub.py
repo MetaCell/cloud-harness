@@ -78,37 +78,40 @@ def change_pod_manifest(self: KubeSpawner):
                         self.http_timeout = 60 * 5 # 5 minutes
 
                         if 'spawnerExtraConfig' in harness['jupyterhub']:
-                            for k, v in harness['jupyterhub']['spawnerExtraConfig'].items():
-                                setattr(self, k, v)
+                            try:
+                                for k, v in harness['jupyterhub']['spawnerExtraConfig'].items():
+                                    if k != 'node_selectors':
+                                        setattr(self, k, v)
 
-                        # check if there are node selectors, if so apply them to the pod
-                        node_selectors = spawnerExtraConfig.get('node_selectors')
-                        if node_selectors:
-                            for node_selector in node_selectors:
-                                ns = dict(
-                                    matchExpressions=[
-                                        dict(
-                                            key=node_selector['key'],
-                                            operator=node_selector['operator'],
-                                            values=[node_selector['values']],
+                                # check if there are node selectors, if so apply them to the pod
+                                node_selectors = harness['jupyterhub']['spawnerExtraConfig'].get('node_selectors')
+                                if node_selectors:
+                                    for node_selector in node_selectors:
+                                        ns = dict(
+                                            matchExpressions=[
+                                                dict(
+                                                    key=node_selector['key'],
+                                                    operator=node_selector['operator'],
+                                                    values=[node_selector['values']],
+                                                )
+                                            ],
                                         )
-                                    ],
-                                )
-                                match_node_purpose = node_selector['matchPurpose']
-                                if match_node_purpose == 'prefer':
-                                    self.node_affinity_preferred.append(
-                                        dict(
-                                            weight=100,
-                                            preference=ns,
-                                        ),
-                                    )
-                                elif match_node_purpose == 'require':
-                                    self.node_affinity_required.append(ns)
-                                elif match_node_purpose == 'ignore':
-                                    pass
-                                else:
-                                    raise ValueError("Unrecognized value for matchNodePurpose: %r" % match_node_purpose)
-
+                                        match_node_purpose = node_selector['matchPurpose']
+                                        if match_node_purpose == 'prefer':
+                                            self.node_affinity_preferred.append(
+                                                dict(
+                                                    weight=100,
+                                                    preference=ns,
+                                                ),
+                                            )
+                                        elif match_node_purpose == 'require':
+                                            self.node_affinity_required.append(ns)
+                                        elif match_node_purpose == 'ignore':
+                                            pass
+                                        else:
+                                            raise ValueError("Unrecognized value for matchNodePurpose: %r" % match_node_purpose)
+                            except:
+                                logging.error("Error loading Spawner extra configuration", exc_info=True)
                         # check if there is an applicationHook defined in the values.yaml
                         # if so then execute the applicationHook function with "self" as parameter
                         #
