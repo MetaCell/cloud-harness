@@ -11,8 +11,12 @@ class Task(argo.ArgoObject):
     Abstract interface for a task.
     """
 
-    def __init__(self, name):
+    def __init__(self, name, resources={}, **env_args):
         self.name = name.replace(' ', '-').lower()
+        self.resources = resources
+        self.__envs = get_cloudharness_variables()
+        for k in env_args:
+            self.__envs[k] = str(env_args[k])
 
     @property
     def image_name(self):
@@ -31,19 +35,6 @@ class Task(argo.ArgoObject):
             'template': self.name
         }
 
-
-class ContainerizedTask(Task):
-
-    def __init__(self, name, resources={}, image_pull_policy='IfNotPresent', command=None, **env_args):
-        super().__init__(name)
-
-        self.__envs = get_cloudharness_variables()
-        self.resources = resources
-        self.image_pull_policy = image_pull_policy
-        self.command = command
-        for k in env_args:
-            self.__envs[k] = str(env_args[k])
-
     @property
     def envs(self):
         envs = [dict(name=key, value=value)
@@ -56,6 +47,21 @@ class ContainerizedTask(Task):
     def add_env(self, name, value):
         self.__envs[name] = value
 
+    def cloudharness_configmap_spec(self):
+        return {
+            'name': 'cloudharness-allvalues',
+                    'mountPath': '/opt/cloudharness/resources/allvalues.yaml',
+                    'subPath': 'allvalues.yaml'
+        }
+
+
+class ContainerizedTask(Task):
+
+    def __init__(self, name, resources={}, image_pull_policy='IfNotPresent', command=None, **env_args):
+        super().__init__(name, resources, **env_args)
+        self.image_pull_policy = image_pull_policy
+        self.command = command
+
     def spec(self):
         spec = {
             'container': {
@@ -63,11 +69,7 @@ class ContainerizedTask(Task):
                 'env': self.envs,
                 'resources': self.resources,
                 'imagePullPolicy': self.image_pull_policy,
-                'volumeMounts': [{
-                    'name': 'cloudharness-allvalues',
-                    'mountPath': '/opt/cloudharness/resources/allvalues.yaml',
-                    'subPath': 'allvalues.yaml'
-                }],
+                'volumeMounts': [self.cloudharness_configmap_spec()],
             },
             'inputs': {},
             'metadata': {},
@@ -95,7 +97,9 @@ class InlinedTask(Task):
             'script':
                 {
                     'image': self.image_name,
+                    'env': self.envs,
                     'source': self.source,
+                    'volumeMounts': [self.cloudharness_configmap_spec()],
                     'command': [self.command]
                 }
         }
@@ -121,10 +125,6 @@ class PythonTask(InlinedTask):
 
 
 class BashTask(InlinedTask):
-    def __init__(self, name, func):
-        import inspect
-        super().__init__(name, (inspect.getsource(
-            func) + f"\n{func.__name__}()").strip())
 
     @property
     def image_name(self):

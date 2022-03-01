@@ -181,8 +181,12 @@ class ContainerizedOperation(ManagedOperation):
             if 'labels' not in template['metadata']:
                 template['metadata']['labels'] = {}
             template['metadata']['labels'][self.pod_context.key] = self.pod_context.value
-        if self.volumes and 'container' in template:
-            template['container']['volumeMounts'] += [self.volume_template(volume) for volume in self.volumes]
+        if self.volumes:
+            if 'container' in template:
+                template['container']['volumeMounts'] += [self.volume_template(volume) for volume in self.volumes]
+            elif 'script' in template:
+                template['script']['volumeMounts'] += [self.volume_template(volume) for volume in self.volumes]
+        
         return template
 
     def submit(self):
