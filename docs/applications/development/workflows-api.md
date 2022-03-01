@@ -123,6 +123,15 @@ op = operations.SingleTaskOperation('my-op-', my_task, shared_directory=shared_d
 op.execute()
 ```
 
+More than one directory/volume can be shared by passing a list/tuple:
+
+```Python
+shared_directory=["myclaim:/opt/shared", "myclaim2:/opt/shared2"]
+my_task = tasks.CustomTask('print-file', 'myapp-mytask')
+op = operations.SingleTaskOperation('my-op-', my_task, shared_directory=shared_directory)
+op.execute()
+```
+
 ## Pod execution context / affinity
 
 Affinity is set through the 
