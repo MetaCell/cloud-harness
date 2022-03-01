@@ -64,15 +64,27 @@ class ContainerizedOperation(ManagedOperation):
         """
         :param basename:
         :param pod_context: PodExecutionContext - represents affinity with other pods in the system
+        :param shared_directory: bool|str|list
         """
         super(ContainerizedOperation, self).__init__(basename, *args, **kwargs)
         self.pod_context = pod_context
         self.persisted = None
+        shared_path = None
         if shared_directory:
-            shared_path = '/mnt/shared' if shared_directory is True else shared_directory
-            self.volumes = (shared_path,)
-            for task in self.task_list():
-                task.add_env('shared_directory', shared_path)
+            if shared_directory is True:
+                self.volumes = ['/mnt/shared']
+                shared_path = '/mnt/shared'
+            elif isinstance(shared_directory, str):
+                self.volumes = [shared_directory]
+                shared_path = shared_directory
+            else:
+                self.volumes = shared_directory
+                assert len(set(shared_directory)) == len(shared_directory), "Shared directories are not unique"
+                assert len(set(s.split(":")[0] for s in shared_directory)) == len(shared_directory), "Shared directories volumes are not unique"
+                
+            if shared_path:
+                for task in self.task_list():
+                    task.add_env('shared_directory', shared_path)
         else:
             self.volumes = tuple()
 
