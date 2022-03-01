@@ -110,6 +110,22 @@ def test_single_task_shared():
     if execute:
         print(op.execute())
 
+
+def test_single_task_shared_script():
+    shared_directory = 'myclaim:/mnt/shared'
+    task_write = tasks.BashTask('download-file', source="ls -la")
+    op = operations.SingleTaskOperation('test-custom-connected-op-', task_write,
+                                      shared_directory=shared_directory, shared_volume_size=100)
+    wf = op.to_workflow()
+    print('\n', yaml.dump(wf))
+
+    assert len(op.volumes)  == 1
+    assert len(wf['spec']['volumes']) == 2
+    assert wf['spec']['volumes'][1]['persistentVolumeClaim']['claimName'] == 'myclaim'
+    assert len(wf['spec']['templates'][0]['script']['volumeMounts']) == 2
+    if execute:
+        print(op.execute())
+
 def test_result_task_workflow():
     task_write = operations.CustomTask('download-file', 'workflows-extract-download',
                                        url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
