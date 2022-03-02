@@ -305,7 +305,7 @@ class AuthClient():
         :return: GroupRepresentation
         """
         admin_client = self.get_admin_client()
-        return admin_client.update_group(payload, group_id, payload)
+        return admin_client.update_group(group_id, payload)
 
     @with_refreshtoken
     def group_user_add(self, user_id, group_id):
