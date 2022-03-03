@@ -27,8 +27,10 @@ steps:
     working_directory: "${{clone}}" # Running command where code cloned
     commands:
       - pip install tox
+      - rm -rf libraries/models/.tox
       - rm -rf libraries/cloudharness-common/.tox
       - rm -rf tools/.tox
+      - tox -c libraries/models/
       - tox -c libraries/cloudharness-common/
       - tox -c tools/
     stage: "test"
