@@ -1,0 +1,652 @@
+local: false
+secured_gatekeepers: true
+nameOverride: ''
+fullnameOverride: ''
+domain: my.local
+namespace: test
+mainapp: myapp
+registry:
+  name: reg/
+  secret: null
+tag: 1
+apps:
+  accounts:
+    harness:
+      subdomain: accounts
+      aliases: []
+      domain: null
+      dependencies:
+        hard: []
+        soft: []
+        build: []
+      secured: false
+      uri_role_mapping:
+      - uri: /*
+        roles:
+        - administrator
+      deployment:
+        auto: overridden
+        replicas: 1
+        image: reg/cloudharness/accounts:1
+        name: accounts
+        port: overridden
+        resources: &id001
+          requests:
+            memory: 512Mi
+            cpu: 10m
+          limits:
+            memory: 1024Mi
+            cpu: 500m
+      service:
+        auto: true
+        name: accounts
+        port: 8080
+      secrets:
+        api_user_password: ''
+      use_services: []
+      database:
+        auto: true
+        name: keycloak-postgres
+        type: postgres
+        size: 2Gi
+        user: user
+        pass: password
+        mongo:
+          image: mongo:5
+          ports:
+          - name: http
+            port: 27017
+        postgres:
+          image: postgres:10.4
+          initialdb: auth_db
+          ports:
+          - name: http
+            port: 5432
+        neo4j:
+          image: neo4j:4.1.9
+          memory:
+            size: 256M
+            pagecache:
+              size: 64M
+            heap:
+              initial: 64M
+              max: 128M
+          dbms_security_auth_enabled: 'false'
+          ports:
+          - name: http
+            port: 7474
+          - name: bolt
+            port: 7687
+        resources:
+          requests:
+            memory: 512Mi
+            cpu: 100m
+          limits:
+            memory: 2Gi
+            cpu: 1000m
+      env:
+      - name: KEYCLOAK_IMPORT
+        value: /tmp/realm.json
+      - name: KEYCLOAK_USER
+        value: admin
+      - name: KEYCLOAK_PASSWORD
+        value: metacell
+      - name: PROXY_ADDRESS_FORWARDING
+        value: 'true'
+      - name: DB_VENDOR
+        value: POSTGRES
+      - name: DB_ADDR
+        value: keycloak-postgres
+      - name: DB_DATABASE
+        value: auth_db
+      - name: DB_USER
+        value: user
+      - name: DB_PASSWORD
+        value: password
+      - name: JAVA_OPTS
+        value: -server -Xms64m -Xmx896m -XX:MetaspaceSize=96M -XX:MaxMetaspaceSize=256m
+          -Djava.net.preferIPv4Stack=true -Djboss.modules.system.pkgs=org.jboss.byteman
+          -Djava.awt.headless=true  --add-exports=java.base/sun.nio.ch=ALL-UNNAMED
+          --add-exports=jdk.unsupported/sun.misc=ALL-UNNAMED --add-exports=jdk.unsupported/sun.reflect=ALL-UNNAMED
+      resources:
+      - name: realm-config
+        src: realm.json
+        dst: /tmp/realm.json
+      readinessProbe:
+        path: /auth/realms/master
+      name: accounts
+    client:
+      id: rest-client
+      secret: 5678eb6e-9e2c-4ee5-bd54-34e7411339e8
+    webclient:
+      id: web-client
+      secret: 452952ae-922c-4766-b912-7b106271e34b
+    enabled: true
+    harvest: true
+    admin:
+      pass: metacell
+      user: admin
+      role: administrator
+    image: reg/cloudharness/accounts:1
+    task-images: {}
+    common: true
+    a: dev
+    autodeploy: overridden
+    name: accounts
+    port: overridden
+    resources: *id001
+  argo:
+    harness:
+      subdomain: argo
+      aliases: []
+      domain: null
+      dependencies:
+        hard: []
+        soft: []
+        build: []
+      secured: true
+      uri_role_mapping:
+      - uri: /*
+        roles:
+        - administrator
+      deployment:
+        auto: false
+        replicas: 1
+        image: null
+        name: argo
+        port: 8080
+        resources: &id002
+          requests:
+            memory: 32Mi
+            cpu: 10m
+          limits:
+            memory: 500Mi
+            cpu: 500m
+      service:
+        auto: false
+        name: argo-server
+        port: 2746
+      secrets: null
+      use_services: []
+      database:
+        auto: false
+        name: argo-db
+        type: null
+        size: 1Gi
+        user: mnp
+        pass: metacell
+        mongo:
+          image: mongo:5
+          ports:
+          - name: http
+            port: 27017
+        postgres:
+          image: postgres:13
+          initialdb: cloudharness
+          ports:
+          - name: http
+            port: 5432
+        neo4j:
+          image: neo4j:4.1.9
+          memory:
+            size: 256M
+            pagecache:
+              size: 64M
+            heap:
+              initial: 64M
+              max: 128M
+          dbms_security_auth_enabled: 'false'
+          ports:
+          - name: http
+            port: 7474
+          - name: bolt
+            port: 7687
+        resources:
+          requests:
+            memory: 512Mi
+            cpu: 100m
+          limits:
+            memory: 2Gi
+            cpu: 1000m
+      name: argo
+    serviceaccount: argo-workflows
+    task-images: {}
+    image: null
+    name: argo
+    port: 8080
+    resources: *id002
+  samples:
+    harness:
+      subdomain: samples
+      aliases: []
+      domain: null
+      dependencies:
+        hard: []
+        soft:
+        - workflows
+        - events
+        - accounts
+        build:
+        - cloudharness-flask
+        - cloudharness-frontend-build
+      secured: false
+      uri_role_mapping:
+      - uri: /*
+        roles:
+        - administrator
+      deployment:
+        auto: true
+        replicas: 1
+        image: reg/cloudharness/samples:1
+        name: samples
+        port: 8080
+        resources: &id003
+          requests:
+            memory: 32Mi
+            cpu: 10m
+          limits:
+            memory: 500Mi
+            cpu: 500m
+      service:
+        auto: true
+        name: samples
+        port: 8080
+      secrets: null
+      use_services: []
+      database:
+        auto: false
+        name: samples-db
+        type: null
+        size: 1Gi
+        user: mnp
+        pass: metacell
+        mongo:
+          image: mongo:5
+          ports:
+          - name: http
+            port: 27017
+        postgres:
+          image: postgres:13
+          initialdb: cloudharness
+          ports:
+          - name: http
+            port: 5432
+        neo4j:
+          image: neo4j:4.1.9
+          memory:
+            size: 256M
+            pagecache:
+              size: 64M
+            heap:
+              initial: 64M
+              max: 128M
+          dbms_security_auth_enabled: 'false'
+          ports:
+          - name: http
+            port: 7474
+          - name: bolt
+            port: 7687
+        resources:
+          requests:
+            memory: 512Mi
+            cpu: 100m
+          limits:
+            memory: 2Gi
+            cpu: 1000m
+      sentry: true
+      port: 80
+      env:
+      - name: WORKERS
+        value: '3'
+      resources:
+      - name: my-config
+        src: myConfig.json
+        dst: /tmp/resources/myConfig.json
+      - name: example
+        src: example.yaml
+        dst: /usr/src/app/important_config.yaml
+      name: samples
+    image: reg/cloudharness/samples:1
+    task-images:
+      samples-print-file: reg/cloudharness/samples-print-file:1
+      samples-sum: reg/cloudharness/samples-sum:1
+      cloudharness-flask: reg/cloudharness/cloudharness-flask:1
+      cloudharness-frontend-build: reg/cloudharness/cloudharness-frontend-build:1
+    name: samples
+    port: 8080
+    resources: *id003
+  workflows:
+    harness:
+      subdomain: workflows
+      aliases: []
+      domain: null
+      dependencies:
+        hard:
+        - argo
+        soft: []
+        build:
+        - cloudharness-flask
+      secured: false
+      uri_role_mapping:
+      - uri: /*
+        roles:
+        - administrator
+      deployment:
+        auto: true
+        replicas: 1
+        image: reg/cloudharness/workflows:1
+        name: workflows
+        port: 8080
+        resources: &id004
+          requests:
+            memory: 32Mi
+            cpu: 10m
+          limits:
+            memory: 500Mi
+            cpu: 500m
+      service:
+        auto: true
+        name: workflows
+        port: 8080
+      secrets: null
+      use_services: []
+      database:
+        auto: false
+        name: workflows-db
+        type: null
+        size: 1Gi
+        user: mnp
+        pass: metacell
+        mongo:
+          image: mongo:5
+          ports:
+          - name: http
+            port: 27017
+        postgres:
+          image: postgres:13
+          initialdb: cloudharness
+          ports:
+          - name: http
+            port: 5432
+        neo4j:
+          image: neo4j:4.1.9
+          memory:
+            size: 256M
+            pagecache:
+              size: 64M
+            heap:
+              initial: 64M
+              max: 128M
+          dbms_security_auth_enabled: 'false'
+          ports:
+          - name: http
+            port: 7474
+          - name: bolt
+            port: 7687
+        resources:
+          requests:
+            memory: 512Mi
+            cpu: 100m
+          limits:
+            memory: 2Gi
+            cpu: 1000m
+      name: workflows
+    image: reg/cloudharness/workflows:1
+    task-images:
+      workflows-send-result-event: reg/cloudharness/workflows-send-result-event:1
+      workflows-extract-download: reg/cloudharness/workflows-extract-download:1
+      workflows-notify-queue: reg/cloudharness/workflows-notify-queue:1
+      cloudharness-flask: reg/cloudharness/cloudharness-flask:1
+      workflows-new-task: reg/cloudharness/workflows-new-task:1
+    common: true
+    name: workflows
+    port: 8080
+    resources: *id004
+  legacy:
+    harness:
+      subdomain: null
+      aliases: []
+      domain: null
+      dependencies:
+        hard: []
+        soft: []
+        build: []
+      secured: false
+      uri_role_mapping:
+      - uri: /*
+        roles:
+        - administrator
+      deployment:
+        auto: legacy
+        replicas: 1
+        image: null
+        name: legacy
+        port: 8080
+        resources: &id005
+          requests:
+            memory: 32Mi
+            cpu: 10m
+          limits:
+            memory: 500Mi
+            cpu: 500m
+      service:
+        auto: true
+        name: legacy
+        port: 80
+      secrets: null
+      use_services: []
+      database:
+        auto: false
+        name: legacy-db
+        type: null
+        size: 1Gi
+        user: mnp
+        pass: metacell
+        mongo:
+          image: mongo:5
+          ports:
+          - name: http
+            port: 27017
+        postgres:
+          image: postgres:13
+          initialdb: cloudharness
+          ports:
+          - name: http
+            port: 5432
+        neo4j:
+          image: neo4j:4.1.9
+          memory:
+            size: 256M
+            pagecache:
+              size: 64M
+            heap:
+              initial: 64M
+              max: 128M
+          dbms_security_auth_enabled: 'false'
+          ports:
+          - name: http
+            port: 7474
+          - name: bolt
+            port: 7687
+        resources:
+          requests:
+            memory: 512Mi
+            cpu: 100m
+          limits:
+            memory: 2Gi
+            cpu: 1000m
+      name: legacy
+    common: true
+    autodeploy: legacy
+    a: b
+    name: legacy
+    task-images: {}
+    image: null
+    port: 8080
+    resources: *id005
+  myapp:
+    harness:
+      subdomain: mysubdomain
+      aliases: []
+      domain: null
+      dependencies:
+        hard: []
+        soft:
+        - legacy
+        build:
+        - cloudharness-flask
+        - my-common
+      secured: false
+      uri_role_mapping:
+      - uri: /*
+        roles:
+        - administrator
+      deployment:
+        auto: false
+        replicas: 1
+        image: reg/cloudharness/myapp:1
+        name: myapp
+        port: 8080
+        resources: &id006
+          requests:
+            memory: 32Mi
+            cpu: 10m
+          limits:
+            memory: 500Mi
+            cpu: 500m
+      service:
+        auto: true
+        name: myapp
+        port: 80
+      secrets: null
+      use_services: []
+      database:
+        auto: false
+        name: myapp-db
+        type: null
+        size: 1Gi
+        user: mnp
+        pass: metacell
+        mongo:
+          image: mongo:5
+          ports:
+          - name: http
+            port: 27017
+        postgres:
+          image: postgres:13
+          initialdb: cloudharness
+          ports:
+          - name: http
+            port: 5432
+        neo4j:
+          image: neo4j:4.1.9
+          memory:
+            size: 256M
+            pagecache:
+              size: 64M
+            heap:
+              initial: 64M
+              max: 128M
+          dbms_security_auth_enabled: 'false'
+          ports:
+          - name: http
+            port: 7474
+          - name: bolt
+            port: 7687
+        resources:
+          requests:
+            memory: 512Mi
+            cpu: 100m
+          limits:
+            memory: 2Gi
+            cpu: 1000m
+      name: myapp
+    common: true
+    a: b
+    image: reg/cloudharness/myapp:1
+    task-images:
+      myapp-mytask: reg/cloudharness/myapp-mytask:1
+      cloudharness-flask: reg/cloudharness/cloudharness-flask:1
+      my-common: reg/cloudharness/my-common:1
+    name: myapp
+    port: 8080
+    resources: *id006
+env:
+- name: CH_VERSION
+  value: 0.0.1
+- name: CH_CHART_VERSION
+  value: 0.0.1
+- name: CH_ACCOUNTS_SUBDOMAIN
+  value: accounts
+- name: CH_ACCOUNTS_NAME
+  value: accounts
+- name: CH_ARGO_SUBDOMAIN
+  value: argo
+- name: CH_ARGO_NAME
+  value: argo
+- name: CH_SAMPLES_SUBDOMAIN
+  value: samples
+- name: CH_SAMPLES_PORT
+  value: 80
+- name: CH_SAMPLES_NAME
+  value: samples
+- name: CH_WORKFLOWS_SUBDOMAIN
+  value: workflows
+- name: CH_WORKFLOWS_NAME
+  value: workflows
+- name: CH_LEGACY_SUBDOMAIN
+  value: null
+- name: CH_LEGACY_NAME
+  value: legacy
+- name: CH_MYAPP_SUBDOMAIN
+  value: mysubdomain
+- name: CH_MYAPP_NAME
+  value: myapp
+- name: CH_DOMAIN
+  value: my.local
+- name: CH_IMAGE_REGISTRY
+  value: reg/
+- name: CH_IMAGE_TAG
+  value: 1
+privenv:
+- name: CH_SECRET
+  value: "In God we trust; all others must bring data. \u2015 W. Edwards Deming"
+ingress:
+  enabled: true
+  name: cloudharness-ingress
+  ssl_redirect: true
+  letsencrypt:
+    email: filippo@metacell.us
+backup:
+  active: true
+  keep_days: '7'
+  keep_weeks: '4'
+  keep_months: '6'
+  schedule: '*/5 * * * *'
+  suffix: .gz
+  volumesize: 2Gi
+  dir: /backups
+  resources:
+    requests:
+      memory: 32Mi
+      cpu: 25m
+    limits:
+      memory: 64Mi
+      cpu: 50m
+name: cloudharness
+a: dev
+database:
+  auto: false
+task-images:
+  samples-print-file: reg/cloudharness/samples-print-file:1
+  samples-sum: reg/cloudharness/samples-sum:1
+  cloudharness-flask: reg/cloudharness/cloudharness-flask:1
+  cloudharness-frontend-build: reg/cloudharness/cloudharness-frontend-build:1
+  workflows-send-result-event: reg/cloudharness/workflows-send-result-event:1
+  workflows-extract-download: reg/cloudharness/workflows-extract-download:1
+  workflows-notify-queue: reg/cloudharness/workflows-notify-queue:1
+  workflows-new-task: reg/cloudharness/workflows-new-task:1
+  myapp-mytask: reg/cloudharness/myapp-mytask:1
+  my-common: reg/cloudharness/my-common:1
+  cloudharness-base: reg/cloudharness/cloudharness-base:1
+tls: true
