@@ -1,11 +1,7 @@
-# -- If set to local, TLS won't be configured.
+# -- If set to true, local DNS mapping is added to pods.
 local: false
 # -- Enables/disables Gatekeeper.
 secured_gatekeepers: true
-# -- ?
-nameOverride: ""
-# -- ?
-fullnameOverride: ""
 # -- The root domain.
 domain: ${{DOMAIN}}
 # -- The K8s namespace.

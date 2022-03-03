@@ -16,6 +16,7 @@ def test_collect_helm_values():
 
     # Auto values
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/cloudharness/myapp:1'
+    assert values.apps['myapp'].harness.deployment.image == 'reg/cloudharness/myapp:1'
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
     assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
     assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'reg/cloudharness/accounts:1'
@@ -53,8 +54,8 @@ def test_collect_helm_values():
     assert values['database']['auto'] == False
 
     # legacy reading
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['auto'] == 'overridden'
-    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['deployment']['auto'] == 'legacy'
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['auto'] == True
+    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['deployment']['auto'] == False
 
     helm_path = os.path.join(OUT, HELM_CHART_PATH)
 
@@ -116,8 +117,8 @@ def test_collect_helm_values_noreg_noinclude():
     assert values['database']['auto'] == False
 
     # legacy reading
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['auto'] == 'overridden'
-    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['deployment']['auto'] == 'legacy'
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['auto'] == True
+    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['deployment']['auto'] == False
 
     helm_path = os.path.join(OUT, HELM_CHART_PATH)
 

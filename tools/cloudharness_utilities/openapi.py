@@ -1,5 +1,5 @@
 import os
-
+from os.path import dirname as dn, join
 import subprocess
 import sys
 import shutil
@@ -13,18 +13,31 @@ import logging
 CODEGEN = os.path.join(HERE, 'bin', 'openapi-generator-cli.jar')
 APPLICATIONS_SRC_PATH = os.path.join('applications')
 LIB_NAME = 'cloudharness_cli'
+ROOT = dn(dn(HERE))
 
-OPENAPI_GEN_URL = 'https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/5.2.1/openapi-generator-cli-5.2.1.jar'
+OPENAPI_GEN_URL = 'https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/5.4.0/openapi-generator-cli-5.4.0.jar'
 
 
 def generate_server(app_path):
     get_dependencies()
     openapi_dir = os.path.join(app_path, 'api')
     openapi_file = glob.glob(os.path.join(openapi_dir, '*.yaml'))[0]
-    out_name = f"backend" if not os.path.exists(f"{app_path}/server") else f"server"
+    out_name = f"backend" if not os.path.exists(
+        f"{app_path}/server") else f"server"
     out_path = f"{app_path}/{out_name}"
     command = f"java -jar {CODEGEN} generate -i {openapi_file} -g python-flask -o {out_path} -c {openapi_dir}/config.json"
     os.system(command)
+
+
+def generate_model(base_path=ROOT):
+    lib_path = f"{base_path}/libraries/models"
+    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/api/openapi.yaml -g python-flask -o {lib_path}  --skip-validate-spec -c {base_path}/libraries/api/config.json"
+    os.system(command)
+    try:
+        shutil.move(join(lib_path, "docs"), join(base_path, "docs/model"))
+    except:
+        logging.error(
+            "An error occurred while moving generated resources", exc_info=True)
 
 
 def generate_python_client(module, openapi_file, client_src_path, lib_name=LIB_NAME):

@@ -23,7 +23,8 @@ VERSION = "0.4.0"
 REQUIREMENTS = [
     'oyaml',
     'docker',
-    'six'
+    'six',
+    'cloudharness_models'
 ]
 
 

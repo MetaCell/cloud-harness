@@ -1,5 +1,5 @@
 a: b
-autodeploy: overridden
+autodeploy: true
 harness:
   deployment:
     port: overridden
