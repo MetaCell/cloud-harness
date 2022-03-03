@@ -106,7 +106,7 @@ see [here](https://zero-to-jupyterhub.readthedocs.io/en/latest/administrator/aut
 
 ## Customizing the Spawner (advanced)
 
-Cloudharness profides a hook to change the pod manifest.
+Cloudharness provides a hook to change the pod manifest.
 To add static specifications to the spawner, can edit
 
 `harness.jupyterhub.spawnerExtraConfig` in the `deploy/values.yaml` file.
