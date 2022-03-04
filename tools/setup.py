@@ -24,7 +24,7 @@ REQUIREMENTS = [
     'oyaml',
     'docker',
     'six',
-    'cloudharness_models'
+    'cloudharness_model'
 ]
 
 
