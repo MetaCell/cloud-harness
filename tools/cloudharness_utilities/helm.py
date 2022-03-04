@@ -31,108 +31,337 @@ def deploy(namespace, output_path='./deployment'):
     subprocess.run(
         f"helm upgrade {namespace} {helm_path} -n {namespace} --install --reset-values".split())
 
-
 def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True,
-                      output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
-                      namespace=None):
-    """
-    Creates values file for the helm chart
-    """
+                 output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
+                 namespace=None):
+    return CloudHarnessHelm(root_paths, tag=tag, registry=registry, local=local, domain=domain, exclude=exclude, secured=secured,
+                 output_path=output_path, include=include, registry_secret=registry_secret, tls=tls, env=env,
+                 namespace=namespace).process_values()
 
-    assert domain, 'A domain must be specified'
-    dest_deployment_path = os.path.join(output_path, HELM_CHART_PATH)
-    helm_chart_path = os.path.join(dest_deployment_path, 'Chart.yaml')
+class CloudHarnessHelm:
+    def __init__(self, root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True,
+                 output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
+                 namespace=None):
+        assert domain, 'A domain must be specified'
+        self.root_paths = root_paths
+        self.tag = tag
+        if registry and registry[-1] != '/':
+            self.registry = registry + '/'
+        else:
+            self.registry = registry
+        self.local = local
+        self.domain = domain
+        self.exclude = exclude
+        self.secured = secured
+        self.output_path = output_path
+        self.include = include
+        self.registry_secret = registry_secret
+        self.tls = tls
+        self.env = env
+        self.namespace = namespace
 
-    if registry and registry[-1] != '/':
-        registry = registry + '/'
-    if os.path.exists(dest_deployment_path):
-        shutil.rmtree(dest_deployment_path)
-    # Initialize with default
-    copy_merge_base_deployment(dest_deployment_path, os.path.join(
-        HERE, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
-    helm_values = get_template(os.path.join(
-        HERE, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH, 'values.yaml'))
-    helm_values = dict_merge(helm_values,
-                             collect_helm_values(HERE, tag=tag, registry=registry, exclude=exclude, env=env))
-    
-    # Override for every cloudharness scaffolding
-    for root_path in root_paths:
-        copy_merge_base_deployment(dest_helm_chart_path=dest_deployment_path,
-                                   base_helm_chart=os.path.join(root_path, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
-        collect_apps_helm_templates(root_path, exclude=exclude, include=include,
-                                    dest_helm_chart_path=dest_deployment_path)
+        self.dest_deployment_path = os.path.join(
+            self.output_path, HELM_CHART_PATH)
+        self.helm_chart_path = os.path.join(
+            self.dest_deployment_path, 'Chart.yaml')
+        self.__init_deployment()
+
+        self.static_images = set()
+        self.base_images = {}
+
+    def __init_deployment(self):
+        """
+        Create the base helm chart
+        """
+        if os.path.exists(self.dest_deployment_path):
+            shutil.rmtree(self.dest_deployment_path)
+        # Initialize with default
+        copy_merge_base_deployment(self.dest_deployment_path, os.path.join(
+            HERE, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
+
+        # Override for every cloudharness scaffolding
+        for root_path in self.root_paths:
+            copy_merge_base_deployment(dest_helm_chart_path=self.dest_deployment_path,
+                                       base_helm_chart=os.path.join(root_path, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
+            collect_apps_helm_templates(root_path, exclude=self.exclude, include=self.include,
+                                        dest_helm_chart_path=self.dest_deployment_path)
+
+    def __adjust_missing_values(self, helm_values):
+        if 'name' not in helm_values:
+            with open(self.helm_chart_path) as f:
+                chart_idx_content = yaml.safe_load(f)
+            helm_values['name'] = chart_idx_content['name'].lower()
+
+    def process_values(self):
+        """
+        Creates values file for the helm chart
+        """
+        helm_values = self.__get_default_helm_values()
+
+        self.__adjust_missing_values(helm_values)
+
+        helm_values = self.__merge_base_helm_values(helm_values)
+
+        helm_values[KEY_APPS] = {}
+
+        
+        base_image_name = helm_values['name']
+
+        helm_values[KEY_TASK_IMAGES] = {}
+
+        self.__init_base_images(base_image_name)
+        self.__init_static_images(base_image_name)
+
+        self.__process_applications(helm_values, base_image_name)
+
+        self.create_tls_certificate(helm_values)
+
+        values, include = self.__finish_helm_values(values=helm_values)
+
+        # Adjust dependencies from static (common) images
+        self.__assign_static_build_dependencies(helm_values)
+
+        for root_path in self.root_paths:
+            collect_apps_helm_templates(root_path, exclude=self.exclude, include=self.include,
+                                        dest_helm_chart_path=self.dest_deployment_path)
+
+        # Save values file for manual helm chart
+        merged_values = merge_to_yaml_file(helm_values, os.path.join(
+            self.dest_deployment_path, VALUES_MANUAL_PATH))
+        if self.namespace:
+            merge_to_yaml_file({'metadata': {'namespace': self.namespace},
+                                'name': helm_values['name']}, self.helm_chart_path)
+        validate_helm_values(merged_values)
+        return merged_values
+
+    def __process_applications(self, helm_values, base_image_name):
+        for root_path in self.root_paths:
+            app_values = init_app_values(
+                root_path, exclude=self.exclude, values=helm_values[KEY_APPS])
+            helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
+                                               app_values)
+
+            app_base_path = os.path.join(root_path, APPS_PATH)
+            app_values = self.collect_app_values(
+                app_base_path, base_image_name=base_image_name)
+            helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
+                                               app_values)
+
+    def collect_app_values(self, app_base_path, base_image_name=None):
+        values = {}
+
+        for app_path in get_sub_paths(app_base_path):
+            app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
+
+            if app_name in self.exclude:
+                continue
+            app_key = app_name.replace('-', '_')
+
+            app_values = create_app_values_spec(app_name, app_path, tag=self.tag, registry=self.registry, env=self.env,
+                                                base_image_name=base_image_name, base_images=self.base_images)
+
+            values[app_key] = dict_merge(
+                values[app_key], app_values) if app_key in values else app_values
+
+        return values
+    def __init_static_images(self, base_image_name):
+        for static_img_dockerfile in self.static_images:
+            img_name = image_name_from_dockerfile_path(os.path.basename(
+                static_img_dockerfile), base_name=base_image_name)
+            self.base_images[os.path.basename(static_img_dockerfile)] = image_tag(
+                img_name, self.registry, self.tag)
+
+    def __assign_static_build_dependencies(self, helm_values):
+        for static_img_dockerfile in self.static_images:
+            key = os.path.basename(static_img_dockerfile)
+            if key in helm_values[KEY_TASK_IMAGES]:
+                dependencies = guess_build_dependencies_from_dockerfile(
+                    static_img_dockerfile)
+                for dep in dependencies:
+                    if dep in self.base_images and dep not in helm_values[KEY_TASK_IMAGES]:
+                        helm_values[KEY_TASK_IMAGES][dep] = self.base_images[dep]
+
+        for image_name in list(helm_values[KEY_TASK_IMAGES].keys()):
+            if image_name in self.exclude:
+                del helm_values[KEY_TASK_IMAGES][image_name]
+
+    def __init_base_images(self, base_image_name):
+        
+        for root_path in self.root_paths:
+            for base_img_dockerfile in self.__find_static_dockerfile_paths(root_path):
+                img_name = image_name_from_dockerfile_path(
+                    os.path.basename(base_img_dockerfile), base_name=base_image_name)
+                self.base_images[os.path.basename(base_img_dockerfile)] = image_tag(
+                    img_name, self.registry, self.tag)
+
+            self.static_images.update(find_dockerfiles_paths(
+                os.path.join(root_path, STATIC_IMAGES_PATH)))
+        return self.base_images
+
+    def __find_static_dockerfile_paths(self, root_path):
+        return find_dockerfiles_paths(os.path.join(root_path, BASE_IMAGES_PATH)) + find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH))
+
+    def __merge_base_helm_values(self, helm_values):
+        # Override for every cloudharness scaffolding
+        for root_path in self.root_paths:
+            helm_values = dict_merge(
+                helm_values,
+                collect_helm_values(root_path, env=self.env)
+            )
+
+        return helm_values
+
+    def __get_default_helm_values(self):
+        helm_values = get_template(os.path.join(
+            HERE, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH, 'values.yaml'))
         helm_values = dict_merge(helm_values,
-                                 collect_helm_values(root_path, tag=tag, registry=registry, exclude=exclude, env=env))
-    if 'name' not in helm_values:
-        with open(helm_chart_path) as f:
-            chart_idx_content = yaml.safe_load(f)
-        helm_values['name'] = chart_idx_content['name'].lower()
-    # Override for every cloudharness scaffolding
-    helm_values[KEY_APPS] = {}
+                                 collect_helm_values(HERE, env=self.env))
 
-    base_image_name = helm_values['name']
-    base_images = {}
-    static_images = set()
-    helm_values[KEY_TASK_IMAGES] = {}   
-    for root_path in root_paths:
-        for base_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, BASE_IMAGES_PATH)) + find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)):
-            img_name = image_name_from_dockerfile_path(os.path.basename(base_img_dockerfile), base_name=base_image_name)
-            base_images[os.path.basename(base_img_dockerfile)] = image_tag(img_name, registry, tag)
+        return helm_values
 
+    def create_tls_certificate(self, helm_values):
+        if not self.tls:
+            helm_values['tls'] = None
+            return
+        if not self.local:
+            return
+        helm_values['tls'] = self.domain.replace(".", "-") + "-tls"
 
-        static_images.update(find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)))
+        HERE = os.path.dirname(os.path.realpath(
+            __file__)).replace(os.path.sep, '/')
+        ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
 
+        bootstrap_file_path = os.path.join(
+            ROOT, 'utilities', 'cloudharness_utilities', 'scripts')
+        bootstrap_file = 'bootstrap.sh'
+        certs_parent_folder_path = os.path.join(
+            self.output_path, 'helm', 'resources')
+        certs_folder_path = os.path.join(certs_parent_folder_path, 'certs')
 
-    for static_img_dockerfile in static_images:
-        img_name = image_name_from_dockerfile_path(os.path.basename(static_img_dockerfile), base_name=base_image_name)
-        base_images[os.path.basename(static_img_dockerfile)] = image_tag(img_name, registry, tag)
-            
+        if os.path.exists(os.path.join(certs_folder_path)):
+            # don't overwrite the certificate if it exists
+            return
 
-    for root_path in root_paths:
-        app_values = init_app_values(root_path, exclude=exclude, values=helm_values[KEY_APPS])
-        helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
-                                           app_values)
+        try:
+            client = DockerClient()
+            client.ping()
+        except:
+            raise ConnectionRefusedError(
+                '\n\nIs docker running? Run "eval(minikube docker-env)" if you are using minikube...')
 
-        app_base_path = os.path.join(root_path, APPS_PATH)
-        app_values = collect_app_values(app_base_path, tag=tag, registry=registry, exclude=exclude, env=env,
-                                        base_image_name=base_image_name, base_images=base_images)
-        helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
-                                           app_values)
+        # Create CA and sign cert for domain
+        container = client.containers.run(image='frapsoft/openssl',
+                                          command=f'sleep 60',
+                                          entrypoint="",
+                                          detach=True,
+                                          environment=[
+                                              f"DOMAIN={self.domain}"],
+                                          )
 
+        container.exec_run('mkdir -p /mnt/vol1')
+        container.exec_run('mkdir -p /mnt/certs')
 
+        # copy bootstrap file
+        cur_dir = os.getcwd()
+        os.chdir(bootstrap_file_path)
+        tar = tarfile.open(bootstrap_file + '.tar', mode='w')
+        try:
+            tar.add(bootstrap_file)
+        finally:
+            tar.close()
+        data = open(bootstrap_file + '.tar', 'rb').read()
+        container.put_archive('/mnt/vol1', data)
+        os.chdir(cur_dir)
+        container.exec_run(f'tar x {bootstrap_file}.tar', workdir='/mnt/vol1')
 
-    create_tls_certificate(local, domain, tls, output_path, helm_values)
+        # exec bootstrap file
+        container.exec_run(f'/bin/ash /mnt/vol1/{bootstrap_file}')
 
-    values, include = finish_helm_values(values=helm_values, namespace=namespace, tag=tag, registry=registry,
-                                         local=local, domain=domain,
-                                         secured=secured,
-                                         registry_secret=registry_secret, tls=tls, include=include)
+        # retrieve the certs from the container
+        bits, stat = container.get_archive('/mnt/certs')
+        if not os.path.exists(certs_folder_path):
+            os.makedirs(certs_folder_path)
+        f = open(f'{certs_parent_folder_path}/certs.tar', 'wb')
+        for chunk in bits:
+            f.write(chunk)
+        f.close()
+        cf = tarfile.open(f'{certs_parent_folder_path}/certs.tar')
+        cf.extractall(path=certs_parent_folder_path)
 
-    # Adjust dependencies from static (common) images
-    for static_img_dockerfile in static_images:
-        key = os.path.basename(static_img_dockerfile)
-        if key in helm_values[KEY_TASK_IMAGES]:
-            dependencies = guess_build_dependencies_from_dockerfile(static_img_dockerfile)
-            for dep in dependencies:
-                if dep in base_images and dep not in helm_values[KEY_TASK_IMAGES]:
-                    helm_values[KEY_TASK_IMAGES][dep] = base_images[dep]
+        logs = container.logs()
+        logging.info(f'openssl container logs: {logs}')
 
-    for image_name in list(helm_values[KEY_TASK_IMAGES].keys()):    
-        if image_name in exclude:
-            del helm_values[KEY_TASK_IMAGES][image_name]
+        # stop the container
+        container.kill()
 
-    for root_path in root_paths:
-        collect_apps_helm_templates(root_path, exclude=exclude, include=include,
-                                    dest_helm_chart_path=dest_deployment_path)
-    # Save values file for manual helm chart
-    merged_values = merge_to_yaml_file(helm_values, os.path.join(
-        dest_deployment_path, VALUES_MANUAL_PATH))
-    if namespace:
-        merge_to_yaml_file({'metadata': {'namespace': namespace},
-                           'name': helm_values['name']}, helm_chart_path)
-    validate_helm_values(merged_values)
-    return merged_values
+        logging.info("Created certificates for local deployment")
 
+    def __finish_helm_values(self, values):
+        """
+        Sets default overridden values
+        """
+        if self.registry:
+            logging.info(f"Registry set: {self.registry}")
+        if self.local:
+            values['registry']['secret'] = ''
+        if self.registry_secret:
+            logging.info(f"Registry secret set")
+        values['registry']['name'] = self.registry
+        values['registry']['secret'] = self.registry_secret
+        values['tag'] = self.tag
+        if self.namespace:
+            values['namespace'] = self.namespace
+        values['secured_gatekeepers'] = self.secured
+        values['ingress']['ssl_redirect'] = values['ingress']['ssl_redirect'] and self.tls
+        values['tls'] = self.tls
+        if self.domain:
+            values['domain'] = self.domain
+
+        values['local'] = self.local
+        if self.local:
+            try:
+                values['localIp'] = get_cluster_ip()
+            except subprocess.TimeoutExpired:
+                logging.warning("Minikube not available")
+            except:
+                logging.warning("Kubectl not available")
+
+        apps = values[KEY_APPS]
+
+        for app_key in apps:
+            v = apps[app_key]
+
+            values_from_legacy(v)
+            assert KEY_HARNESS in v, 'Default app value loading is broken'
+
+            app_name = app_key.replace('_', '-')
+            harness = v[KEY_HARNESS]
+            harness['name'] = app_name
+
+            if not harness[KEY_SERVICE].get('name', None):
+                harness[KEY_SERVICE]['name'] = app_name
+            if not harness[KEY_DEPLOYMENT].get('name', None):
+                harness[KEY_DEPLOYMENT]['name'] = app_name
+            if not harness[KEY_DATABASE].get('name', None):
+                harness[KEY_DATABASE]['name'] = app_name.strip() + '-db'
+
+            values_set_legacy(v)
+
+        if self.include:
+            self.include = get_included_with_dependencies(values, set(self.include))
+            logging.info('Selecting included applications')
+
+            for v in [v for v in apps]:
+                if apps[v]['harness']['name'] not in self.include:
+                    del apps[v]
+                    continue
+                values[KEY_TASK_IMAGES].update(apps[v][KEY_TASK_IMAGES])
+                # Create environment variables
+        else:
+            for v in [v for v in apps]:
+                values[KEY_TASK_IMAGES].update(apps[v][KEY_TASK_IMAGES])
+        create_env_variables(values)
+        return values, self.include
 
 def get_included_with_dependencies(values, include):
     app_values = values['apps'].values()
@@ -221,7 +450,7 @@ def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart):
         shutil.copytree(base_helm_chart, dest_helm_chart_path)
 
 
-def collect_helm_values(deployment_root, exclude=(), tag='latest', registry='', env=None):
+def collect_helm_values(deployment_root, env=None):
     """
     Creates helm values from a cloudharness deployment scaffolding
     """
@@ -266,93 +495,10 @@ def init_app_values(deployment_root, exclude, values={}):
     return values
 
 
-def collect_app_values(app_base_path, exclude=(), tag='latest', registry='', env=None, base_image_name=None, base_images=()):
-    values = {}
-
-    for app_path in get_sub_paths(app_base_path):
-        app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
-
-        if app_name in exclude:
-            continue
-        app_key = app_name.replace('-', '_')
-
-        app_values = create_app_values_spec(app_name, app_path, tag=tag, registry=registry, env=env,
-                                        base_image_name=base_image_name, base_images=base_images)
-
-        values[app_key] = dict_merge(
-            values[app_key], app_values) if app_key in values else app_values
-
-    return values
 
 
-def finish_helm_values(values, namespace, tag='latest', registry='', local=True, domain=None, secured=True,
-                       registry_secret=None,
-                       tls=True, include=None):
-    """
-    Sets default overridden values
-    """
-    if registry:
-        logging.info(f"Registry set: {registry}")
-    if local:
-        values['registry']['secret'] = ''
-    if registry_secret:
-        logging.info(f"Registry secret set")
-    values['registry']['name'] = registry
-    values['registry']['secret'] = registry_secret
-    values['tag'] = tag
-    if namespace:
-        values['namespace'] = namespace
-    values['secured_gatekeepers'] = secured
-    values['ingress']['ssl_redirect'] = values['ingress']['ssl_redirect'] and tls
-    values['tls'] = tls
-    if domain:
-        values['domain'] = domain
 
-    values['local'] = local
-    if local:
-        try:
-            values['localIp'] = get_cluster_ip()
-        except subprocess.TimeoutExpired:
-            logging.warning("Minikube not available")
-        except:
-            logging.warning("Kubectl not available")
 
-    apps = values[KEY_APPS]
-
-    for app_key in apps:
-        v = apps[app_key]
-
-        values_from_legacy(v)
-        assert KEY_HARNESS in v, 'Default app value loading is broken'
-
-        app_name = app_key.replace('_', '-')
-        harness = v[KEY_HARNESS]
-        harness['name'] = app_name
-
-        if not harness[KEY_SERVICE].get('name', None):
-            harness[KEY_SERVICE]['name'] = app_name
-        if not harness[KEY_DEPLOYMENT].get('name', None):
-            harness[KEY_DEPLOYMENT]['name'] = app_name
-        if not harness[KEY_DATABASE].get('name', None):
-            harness[KEY_DATABASE]['name'] = app_name.strip() + '-db'
-
-        values_set_legacy(v)
-
-    if include:
-        include = get_included_with_dependencies(values, set(include))
-        logging.info('Selecting included applications')
-
-        for v in [v for v in apps]:
-            if apps[v]['harness']['name'] not in include:
-                del apps[v]
-                continue
-            values[KEY_TASK_IMAGES].update(apps[v][KEY_TASK_IMAGES])
-            # Create environment variables
-    else:
-        for v in [v for v in apps]:
-            values[KEY_TASK_IMAGES].update(apps[v][KEY_TASK_IMAGES])
-    create_env_variables(values)
-    return values, include
 
 
 def values_from_legacy(values):
@@ -436,20 +582,20 @@ def create_app_values_spec(app_name, app_path, tag=None, registry='', env=None, 
         raise Exception(f"At least one Dockerfile must be specified on application {app_name}. "
                         f"Specify harness.deployment.image value if you intend to use a prebuilt image.")
 
-
-    task_images_paths = [path for path in find_dockerfiles_paths(app_path) if 'tasks/' in path]
+    task_images_paths = [path for path in find_dockerfiles_paths(
+        app_path) if 'tasks/' in path]
     values[KEY_TASK_IMAGES] = values.get(KEY_TASK_IMAGES, {})
     for task_path in task_images_paths:
         task_name = app_name_from_path(os.path.relpath(
             task_path, os.path.dirname(app_path)))
         img_name = image_name_from_dockerfile_path(task_name, base_image_name)
-        
+
         values[KEY_TASK_IMAGES][task_name] = image_tag(img_name, registry, tag)
 
     if KEY_HARNESS in values and 'dependencies' in values[KEY_HARNESS] and 'build' in values[KEY_HARNESS]['dependencies']:
         for build_dependency in values[KEY_HARNESS]['dependencies']['build']:
-                if build_dependency in base_images:
-                    values[KEY_TASK_IMAGES][build_dependency] = base_images[build_dependency]
+            if build_dependency in base_images:
+                values[KEY_TASK_IMAGES][build_dependency] = base_images[build_dependency]
 
     return values
 
@@ -511,82 +657,6 @@ def hosts_info(values):
 
     print(
         f"127.0.0.1\t{' '.join('%s.%s' % (s, values['namespace']) for s in deployments)}")
-
-
-def create_tls_certificate(local, domain, tls, output_path, helm_values):
-    if not tls:
-        helm_values['tls'] = None
-        return
-    if not local:
-        return
-    helm_values['tls'] = domain.replace(".", "-") + "-tls"
-
-    HERE = os.path.dirname(os.path.realpath(
-        __file__)).replace(os.path.sep, '/')
-    ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
-
-    bootstrap_file_path = os.path.join(
-        ROOT, 'utilities', 'cloudharness_utilities', 'scripts')
-    bootstrap_file = 'bootstrap.sh'
-    certs_parent_folder_path = os.path.join(output_path, 'helm', 'resources')
-    certs_folder_path = os.path.join(certs_parent_folder_path, 'certs')
-
-    if os.path.exists(os.path.join(certs_folder_path)):
-        # don't overwrite the certificate if it exists
-        return
-
-    try:
-        client = DockerClient()
-        client.ping()
-    except:
-        raise ConnectionRefusedError(
-            '\n\nIs docker running? Run "eval(minikube docker-env)" if you are using minikube...')
-
-    # Create CA and sign cert for domain
-    container = client.containers.run(image='frapsoft/openssl',
-                                      command=f'sleep 60',
-                                      entrypoint="",
-                                      detach=True,
-                                      environment=[f"DOMAIN={domain}"],
-                                      )
-
-    container.exec_run('mkdir -p /mnt/vol1')
-    container.exec_run('mkdir -p /mnt/certs')
-
-    # copy bootstrap file
-    cur_dir = os.getcwd()
-    os.chdir(bootstrap_file_path)
-    tar = tarfile.open(bootstrap_file + '.tar', mode='w')
-    try:
-        tar.add(bootstrap_file)
-    finally:
-        tar.close()
-    data = open(bootstrap_file + '.tar', 'rb').read()
-    container.put_archive('/mnt/vol1', data)
-    os.chdir(cur_dir)
-    container.exec_run(f'tar x {bootstrap_file}.tar', workdir='/mnt/vol1')
-
-    # exec bootstrap file
-    container.exec_run(f'/bin/ash /mnt/vol1/{bootstrap_file}')
-
-    # retrieve the certs from the container
-    bits, stat = container.get_archive('/mnt/certs')
-    if not os.path.exists(certs_folder_path):
-        os.makedirs(certs_folder_path)
-    f = open(f'{certs_parent_folder_path}/certs.tar', 'wb')
-    for chunk in bits:
-        f.write(chunk)
-    f.close()
-    cf = tarfile.open(f'{certs_parent_folder_path}/certs.tar')
-    cf.extractall(path=certs_parent_folder_path)
-
-    logs = container.logs()
-    logging.info(f'openssl container logs: {logs}')
-
-    # stop the container
-    container.kill()
-
-    logging.info("Created certificates for local deployment")
 
 
 class ValuesValidationException(Exception):

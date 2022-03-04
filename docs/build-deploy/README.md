@@ -37,8 +37,6 @@ Deployment definition:
 - `--registry`, `-r`: set the Docker registry where images are pushed on build 
 - `--include`, `-i`: set application(s) to include (with their dependencies). If not set, every application will be included
 - `--exclude`, `-ex`: explicitly exclude applications or task images
-- `--merge`, `-m`: Merge application folders and build in the given directory: required to override files in applications
-
 
 
 Development parameters:
