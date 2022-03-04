@@ -171,7 +171,7 @@ class AuthClient():
         Return the KC client
 
         ClientRepresentation
-        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_clientrepresentation
+        https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_clientrepresentation
 
         :param client_name: Name of the client to retrieve
         :return: ClientRepresentation or False when not found
@@ -244,7 +244,7 @@ class AuthClient():
         Return the group in the application realm
 
         GroupRepresentation
-        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_grouprepresentation
+        https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_grouprepresentation
 
         :param with_members: If set the members (users) of the group are added to the group. Defaults to False
         :return: GroupRepresentation + UserRepresentation
@@ -267,7 +267,7 @@ class AuthClient():
         Return a list of all groups in the application realm
 
         GroupRepresentation
-        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_grouprepresentation
+        https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_grouprepresentation
 
         :param with_members: If set the members (users) of the group(s) are added to the group. Defaults to False
         :return: List(GroupRepresentation)
@@ -279,17 +279,80 @@ class AuthClient():
         return groups
 
     @with_refreshtoken
+    def create_group(self, name: str, parent: str=None):
+        """
+        Create a group in the application realm
+
+        GroupRepresentation
+        https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_grouprepresentation
+
+        :param name: the name of the group
+        :param parent: parent group's id. Required to create a sub-group.
+        :return: GroupRepresentation
+        """
+        admin_client = self.get_admin_client()
+        return admin_client.create_group(
+            payload={
+                "name": name,
+            },
+            parent=parent,
+            skip_exists=True)
+
+    @with_refreshtoken
+    def update_group(self, group_id: str, name: str):
+        """
+        Updates the group identified by the given group_id in the application realm
+
+        GroupRepresentation
+        https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_grouprepresentation
+
+        :param group_id: the id of the group to update
+        :param name: the new name of the group
+        :return: GroupRepresentation
+        """
+        admin_client = self.get_admin_client()
+        return admin_client.update_group(
+            group_id=group_id,
+            payload={
+                "name": name
+            })
+
+    @with_refreshtoken
+    def group_user_add(self, user_id, group_id):
+        """
+        Add user to group (user_id and group_id)
+
+        :param user_id:  id of user
+        :param group_id:  id of group to add to
+        :return: Keycloak server response
+        """
+        admin_client = self.get_admin_client()
+        return admin_client.group_user_add(user_id, group_id)
+
+    @with_refreshtoken
+    def group_user_remove(self, user_id, group_id):
+        """
+        Remove user from group (user_id and group_id)
+
+        :param user_id:  id of user
+        :param group_id:  id of group to remove from
+        :return: Keycloak server response
+        """
+        admin_client = self.get_admin_client()
+        return admin_client.group_user_remove(user_id, group_id)
+
+    @with_refreshtoken
     def get_users(self, query=None):
         """
         Return a list of all users in the application realm
 
         UserRepresentation
-        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_userrepresentation
+        https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_userrepresentation
 
         GroupRepresentation
-        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_grouprepresentation
+        https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_grouprepresentation
 
-        :param query: query filtering the users see https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_users_resource
+        :param query: query filtering the users see https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_users_resource
         :return: List(UserRepresentation + GroupRepresentation)
         """
         admin_client = self.get_admin_client()
@@ -311,10 +374,10 @@ class AuthClient():
         :param user_id: User id
 
         UserRepresentation
-        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_userrepresentation
+        https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_userrepresentation
 
         GroupRepresentation
-        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_grouprepresentation
+        https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_grouprepresentation
 
         :return: UserRepresentation + GroupRepresentation
         """
@@ -330,10 +393,10 @@ class AuthClient():
         Get the current user including the user groups
 
         UserRepresentation
-        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_userrepresentation
+        https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_userrepresentation
 
         GroupRepresentation
-        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_grouprepresentation
+        https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_grouprepresentation
 
         :return: UserRepresentation + GroupRepresentation
         """
@@ -348,7 +411,7 @@ class AuthClient():
         :param user_id: User id
 
         RoleRepresentation
-        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_rolerepresentation
+        https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_rolerepresentation
 
         :return: (array RoleRepresentation)
         """
@@ -360,7 +423,7 @@ class AuthClient():
         Get the current user realm roles within the current realm
 
         RoleRepresentation
-        https://www.keycloak.org/docs-api/8.0/rest-api/index.html#_rolerepresentation
+        https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_rolerepresentation
 
         :return: (array RoleRepresentation)
         """
