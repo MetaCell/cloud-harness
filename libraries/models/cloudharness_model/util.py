@@ -25,8 +25,12 @@ def _deserialize(data, klass):
         return deserialize_datetime(data)
     elif typing_utils.is_generic(klass):
         if typing_utils.is_list(klass):
+            if isinstance(klass.__args__[0], typing.TypeVar):
+                return data
             return _deserialize_list(data, klass.__args__[0])
         if typing_utils.is_dict(klass):
+            if isinstance(klass.__args__[1], typing.TypeVar):
+                return data
             return _deserialize_dict(data, klass.__args__[1])
     else:
         return deserialize_model(data, klass)
@@ -90,7 +94,9 @@ def deserialize_datetime(string):
         return string
 
 
-class DeserializationException(Exception): pass
+class DeserializationException(Exception):
+    pass
+
 
 def deserialize_model(data, klass):
     """Deserializes list or dict to model.
@@ -99,10 +105,16 @@ def deserialize_model(data, klass):
     :param klass: class literal.
     :return: model object.
     """
-    instance = klass()
+
+    if isinstance(data, klass) or not hasattr(klass, "__call__"):
+        return data
+    try:
+        instance = klass()
+    except:
+        raise
     instance._raw_dict = data
 
-    if not instance.openapi_types:
+    if not instance.openapi_types or isinstance(data, klass):
         return data
     if data is None:
         return instance
@@ -114,20 +126,29 @@ def deserialize_model(data, klass):
                     setattr(instance, attr, _deserialize(value, attr_type))
 
         elif isinstance(data, dict):
-            
+
             for attr in data:
                 value = data[attr]
-                try:
-                    if attr in instance.attribute_map:
-                        setattr(instance, attr, _deserialize(value, instance.openapi_types[attr]))
-                    else:
-                        setattr(instance, attr, value)
-                except AttributeError as e:
-                    logging.warning("Deserialization error: could not set attribute `%s` to value `%s` in class `%s`.", attr, value, klass.__name__, exc_info=True)
-                    logging.debug("Instance is %s", instance)
-    except Exception as e:
-        raise DeserializationException(f"Cannot convert data to class {klass.__name__}. Data is\n{repr(data)}") from e
 
+                if attr in instance.attribute_map:
+                    try:
+                        setattr(instance, attr, _deserialize(value, instance.openapi_types[attr]))
+                    except:
+                        logging.warning(
+                            "Deserialization error: could not set attribute `%s` to value `%s` in class `%s`.", attr, value, klass.__name__)
+                        setattr(instance, attr, value)
+                        logging.debug("Instance is %s", instance, exc_info=True)
+                else:
+                    try:
+                        setattr(instance, attr, value)
+                    except:
+                        logging.warning(
+                            "Deserialization error: could not set attribute `%s` to value `%s` in class `%s`.", attr, value, klass.__name__)
+                        logging.debug("Instance is %s", instance, exc_info=True)
+    except Exception as e:
+        logging.error("Deserialize error", exc_info=True)
+        raise DeserializationException(
+            f"Cannot convert data to class {klass.__name__}. Data is\n{repr(data)}") from e
 
     return instance
 

@@ -10,9 +10,6 @@ class ConfigurationCallException(Exception):
 
 class ApplicationConfiguration(ApplicationConfig):
 
-    @property
-    def name(self):
-        return self.harness.name
 
     def is_auto_service(self) -> bool:
         return self.harness.service.auto

@@ -6,7 +6,7 @@ from typing import List, Generator
 import logging
 
 from time import sleep
-from cloudharness import json
+from cloudharness import json, dumps
 
 from cloudharness_model.util import DeserializationException
 from keycloak.exceptions import KeycloakGetError
@@ -86,7 +86,7 @@ class EventClient:
                 True if the message was published correctly, False otherwise.
         '''
         producer = KafkaProducer(bootstrap_servers=self._get_bootstrap_servers(),
-                                 value_serializer=lambda x: json.dumps(x).encode('utf-8'))
+                                 value_serializer=lambda x: dumps(x).encode('utf-8'))
         try:
             return producer.send(self.topic_id, value=message)
         except KafkaTimeoutError as e:
@@ -157,7 +157,7 @@ class EventClient:
             for kwa, kwa_val in func_kwargs.items():
                 try:
                     fkwargs.append({
-                        kwa: json.loads(json.dumps(kwa_val))
+                        kwa: json.loads(dumps(kwa_val))
                     })
                 except Exception as e:
                     # keyword argument can't be serialized
@@ -165,7 +165,7 @@ class EventClient:
 
             # send the message
             ec.produce(
-                {
+                CDCEvent.from_dict({
                     "meta": {
                         "app_name": CURRENT_APP_NAME,
                         "user": user,
@@ -178,7 +178,7 @@ class EventClient:
                     "operation": operation,
                     "uid": resource_id,
                     "resource": resource
-                }
+                })
             )
             log.info(f"sent cdc event {message_type} - {operation} - {resource_id}")
         except Exception as e:

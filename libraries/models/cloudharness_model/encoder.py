@@ -8,6 +8,6 @@ class CloudHarnessJSONEncoder(JSONEncoder):
     include_nulls = False
 
     def default(self, o):
-        if isinstance(o, Model):
-            JSONEncoder.default(self, o.to_dict())
+        if hasattr(o, "to_dict"):
+            return o.to_dict()
         return JSONEncoder.default(self, o)

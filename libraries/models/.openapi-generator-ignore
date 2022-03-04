@@ -35,3 +35,4 @@ encoder.py
 */util.py
 */models/base_model_.py
 requirements.txt
+*/encoder.py

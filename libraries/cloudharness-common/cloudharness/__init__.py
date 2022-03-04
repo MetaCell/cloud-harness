@@ -1,8 +1,6 @@
 import logging
 import sys
 
-from cloudharness_model.models.base_model_ import Model
-
 log = logging
 
 from cloudharness_model.encoder import CloudHarnessJSONEncoder
@@ -20,9 +18,13 @@ import json as js
 json_dumps = js.dumps
 
 def dumps(o, *args, **kwargs):
-    if isinstance(o, Model):
-       return json_dumps(o.to_dict(), *args, **kwargs)
-    return json_dumps(o, *args, **kwargs)
+    try:
+        if  "cls" not in kwargs:
+            return json_dumps(o, cls=CloudHarnessJSONEncoder, *args, **kwargs)
+        return json_dumps(o, *args, **kwargs)
+    except:
+        logging.error(repr(o))
+        raise
 
 json = js
 json.dumps = dumps
