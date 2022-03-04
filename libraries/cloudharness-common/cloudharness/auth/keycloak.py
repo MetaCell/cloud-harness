@@ -279,21 +279,27 @@ class AuthClient():
         return groups
 
     @with_refreshtoken
-    def create_group(self, payload, parent=None):
+    def create_group(self, name: str, parent: str=None):
         """
         Create a group in the application realm
 
         GroupRepresentation
         https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_grouprepresentation
 
-        :param payload: the payload to create the group
+        :param name: the name of the group
+        :param parent: parent group's id. Required to create a sub-group.
         :return: GroupRepresentation
         """
         admin_client = self.get_admin_client()
-        return admin_client.create_group(payload, parent, skip_exists=True)
+        return admin_client.create_group(
+            payload={
+                "name": name,
+            },
+            parent=parent,
+            skip_exists=True)
 
     @with_refreshtoken
-    def update_group(self, group_id, payload):
+    def update_group(self, group_id: str, name: str):
         """
         Updates the group identified by the given group_id in the application realm
 
@@ -301,11 +307,15 @@ class AuthClient():
         https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_grouprepresentation
 
         :param group_id: the id of the group to update
-        :param payload: the payload to create the group
+        :param name: the new name of the group
         :return: GroupRepresentation
         """
         admin_client = self.get_admin_client()
-        return admin_client.update_group(group_id, payload)
+        return admin_client.update_group(
+            group_id=group_id,
+            payload={
+                "name": name
+            })
 
     @with_refreshtoken
     def group_user_add(self, user_id, group_id):
