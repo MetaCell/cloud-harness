@@ -30,3 +30,4 @@ from cloudharness_model.models.uri_role_mapping_config import UriRoleMappingConf
 from cloudharness_model.models.user import User
 from cloudharness_model.models.user_credential import UserCredential
 from cloudharness_model.models.user_group import UserGroup
+from cloudharness_model.models.user_role import UserRole

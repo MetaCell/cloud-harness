@@ -1,4 +1,5 @@
 import os
+from typing import List
 import jwt
 import json
 import requests
@@ -7,7 +8,7 @@ from keycloak.exceptions import KeycloakAuthenticationError
 from cachetools import cached, TTLCache
 from cloudharness import log
 from cloudharness.middleware import get_authentication_token
-
+from cloudharness.models import UserGroup, User, UserRole
 
 
 try:
@@ -25,7 +26,8 @@ class AuthSecretNotFound(Exception):
 
 def get_api_password() -> str:
     name = "api_user_password"
-    AUTH_SECRET_PATH = os.environ.get("AUTH_SECRET_PATH", "/opt/cloudharness/resources/auth")
+    AUTH_SECRET_PATH = os.environ.get(
+        "AUTH_SECRET_PATH", "/opt/cloudharness/resources/auth")
     try:
         with open(os.path.join(AUTH_SECRET_PATH, name)) as fh:
             return fh.read()
@@ -239,7 +241,7 @@ class AuthClient():
 
     @cached(cache=TTLCache(maxsize=1024, ttl=30))
     @with_refreshtoken
-    def get_group(self, group_id, with_members=False):
+    def get_group(self, group_id, with_members=False) -> UserGroup:
         """
         Return the group in the application realm
 
@@ -259,10 +261,10 @@ class AuthClient():
                 user.update(
                     {'realmRoles': admin_client.get_realm_roles_of_user(user['id'])})
             group.update({'members': members})
-        return group
+        return UserGroup.from_dict(group)
 
     @with_refreshtoken
-    def get_groups(self, with_members=False):
+    def get_groups(self, with_members=False) -> List[UserGroup]:
         """
         Return a list of all groups in the application realm
 
@@ -273,13 +275,13 @@ class AuthClient():
         :return: List(GroupRepresentation)
         """
         admin_client = self.get_admin_client()
-        groups = []
-        for group in admin_client.get_groups():
-            groups.append(self.get_group(group['id'], with_members))
-        return groups
+        return [
+            UserGroup.from_dict(self.get_group(group['id'], with_members)) 
+            for group in admin_client.get_groups()
+        ]
 
     @with_refreshtoken
-    def create_group(self, name: str, parent: str=None):
+    def create_group(self, name: str, parent: str = None) -> UserGroup:
         """
         Create a group in the application realm
 
@@ -288,18 +290,35 @@ class AuthClient():
 
         :param name: the name of the group
         :param parent: parent group's id. Required to create a sub-group.
-        :return: GroupRepresentation
         """
         admin_client = self.get_admin_client()
-        return admin_client.create_group(
+        return UserGroup.from_dict(admin_client.create_group(
             payload={
                 "name": name,
             },
             parent=parent,
-            skip_exists=True)
+            skip_exists=True))
 
     @with_refreshtoken
-    def update_group(self, group_id: str, name: str):
+    def add_group(self, group: UserGroup, parent: str) -> UserGroup:
+        """
+        Create a group in the application realm
+
+        GroupRepresentation
+        https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_grouprepresentation
+
+        :param name: the name of the group
+        :param parent: parent group's id. Required to create a sub-group.
+        :return: UserGroup
+        """
+        admin_client = self.get_admin_client()
+        return UserGroup.from_dict(admin_client.create_group(
+            payload=group.to_dict(),
+            parent=parent,
+            skip_exists=True))
+
+    @with_refreshtoken
+    def update_group(self, group_id: str, name: str) -> UserGroup:
         """
         Updates the group identified by the given group_id in the application realm
 
@@ -308,14 +327,13 @@ class AuthClient():
 
         :param group_id: the id of the group to update
         :param name: the new name of the group
-        :return: GroupRepresentation
         """
         admin_client = self.get_admin_client()
-        return admin_client.update_group(
+        return UserGroup.from_dict(admin_client.update_group(
             group_id=group_id,
             payload={
                 "name": name
-            })
+            }))
 
     @with_refreshtoken
     def group_user_add(self, user_id, group_id):
@@ -342,7 +360,7 @@ class AuthClient():
         return admin_client.group_user_remove(user_id, group_id)
 
     @with_refreshtoken
-    def get_users(self, query=None):
+    def get_users(self, query=None) -> List[User]:
         """
         Return a list of all users in the application realm
 
@@ -358,11 +376,11 @@ class AuthClient():
         admin_client = self.get_admin_client()
         users = []
         for user in admin_client.get_users(query=query):
-            user.update(
-                {'userGroups': admin_client.get_user_groups(user['id'])})
-            user.update(
-                {'realmRoles': admin_client.get_realm_roles_of_user(user['id'])})
-            users.append(user)
+            user.update({
+                "userGroups": admin_client.get_user_groups(user['id']),
+                'realmRoles': admin_client.get_realm_roles_of_user(user['id'])
+                })
+            users.append(User.from_dict(user))
         return users
 
     @cached(cache=TTLCache(maxsize=1024, ttl=30))
@@ -383,10 +401,11 @@ class AuthClient():
         """
         admin_client = self.get_admin_client()
         user = admin_client.get_user(user_id)
-        user.update({'userGroups': admin_client.get_user_groups(user_id)})
-        user.update(
-            {'realmRoles': admin_client.get_realm_roles_of_user(user_id)})
-        return user
+        user.update({
+                "userGroups": admin_client.get_user_groups(user['id']),
+                'realmRoles': admin_client.get_realm_roles_of_user(user['id'])
+                })
+        return User.from_dict(user)
 
     def get_current_user(self):
         """
@@ -402,9 +421,9 @@ class AuthClient():
         """
         return self.get_user(self._get_keycloak_user_id())
 
-    @cached(cache=TTLCache(maxsize=1024, ttl=30))
+    @cached(cache = TTLCache(maxsize=1024, ttl=30))
     @with_refreshtoken
-    def get_user_realm_roles(self, user_id):
+    def get_user_realm_roles(self, user_id) -> List[str]:
         """
         Get the user realm roles within the current realm
 
@@ -415,10 +434,10 @@ class AuthClient():
 
         :return: (array RoleRepresentation)
         """
-        admin_client = self.get_admin_client()
+        admin_client=self.get_admin_client()
         return admin_client.get_realm_roles_of_user(user_id)
 
-    def get_current_user_realm_roles(self):
+    def get_current_user_realm_roles(self) -> List[str]:
         """
         Get the current user realm roles within the current realm
 
@@ -429,9 +448,9 @@ class AuthClient():
         """
         return self.get_user_realm_roles(self._get_keycloak_user_id())
 
-    @cached(cache=TTLCache(maxsize=1024, ttl=30))
+    @cached(cache = TTLCache(maxsize=1024, ttl=30))
     @with_refreshtoken
-    def get_user_client_roles(self, user_id, client_name):
+    def get_user_client_roles(self, user_id, client_name) -> List[str]:
         """
         Get the user including the user resource access
 
@@ -439,81 +458,76 @@ class AuthClient():
         :param client_name: Client name
         :return: (array RoleRepresentation)
         """
-        admin_client = self.get_admin_client()
-        client_id = admin_client.get_client_id(client_name)
+        admin_client=self.get_admin_client()
+        client_id=admin_client.get_client_id(client_name)
         return admin_client.get_client_roles_of_user(user_id, client_id)
 
-    def get_current_user_client_roles(self, client_name):
+    def get_current_user_client_roles(self, client_name) -> List[str]:
         """
         Get the user including the user resource access
 
         :param client_name: Client name
         :return: UserRepresentation + GroupRepresentation
         """
-        cur_user_id = self._get_keycloak_user_id()
+        cur_user_id=self._get_keycloak_user_id()
         return self.get_user_client_roles(cur_user_id, client_name)
 
-    def user_has_client_role(self, user_id, client_name, role):
+    def user_has_client_role(self, user_id, client_name, role) -> bool:
         """
         Tests if the user has the given role within the given client
 
         :param user_id: User id
         :param client_name: Name of the client
         :param role: Name of the role
-        :return: (array RoleRepresentation)
         """
-        roles = [user_client_role for user_client_role in self.get_user_client_roles(
+        roles=[user_client_role for user_client_role in self.get_user_client_roles(
             user_id, client_name) if user_client_role['name'] == role]
         return roles != []
 
-    def user_has_realm_role(self, user_id, role):
+    def user_has_realm_role(self, user_id, role) -> bool:
         """
         Tests if the user has the given role within the current realm
 
         :param user_id: User id
         :param role: Name of the role
-        :return: (array RoleRepresentation)
         """
-        roles = [user_realm_role for user_realm_role in self.get_user_realm_roles(
+        roles=[user_realm_role for user_realm_role in self.get_user_realm_roles(
             user_id) if user_realm_role['name'] == role]
         return roles != []
 
-    def current_user_has_client_role(self, client_name, role):
+    def current_user_has_client_role(self, client_name, role) -> bool:
         """
         Tests if the current user has the given role within the given client
 
         :param client_name: Name of the client
         :param role: Name of the role
-        :return: (array RoleRepresentation)
         """
         return self.user_has_client_role(
             self._get_keycloak_user_id(),
             client_name,
             role)
 
-    def current_user_has_realm_role(self, role):
+    def current_user_has_realm_role(self, role) -> bool:
         """
         Tests if the current user has the given role within the current realm
 
         :param role: Name of the role
-        :return: (array RoleRepresentation)
         """
         return self.user_has_realm_role(
             self._get_keycloak_user_id(),
             role)
 
     @with_refreshtoken
-    def get_client_role_members(self, client_name, role):
+    def get_client_role_members(self, client_name, role) -> List[User]:
         """
         Get all users for the specified client and role
 
         :param client_name: Client name
         :param role: Role name
-        :return: List(UserRepresentation)
         """
-        admin_client = self.get_admin_client()
-        client_id = admin_client.get_client_id(client_name)
-        return admin_client.get_client_role_members(client_id, role)
+        admin_client=self.get_admin_client()
+        client_id=admin_client.get_client_id(client_name)
+        return [User.from_dict(u) for u in admin_client.get_client_role_members(client_id, role)]
 
     @with_refreshtoken
     def user_add_update_attribute(self, user_id, attribute_name, attribute_value):
@@ -523,18 +537,17 @@ class AuthClient():
         param user_id: id of the user
         param attribute_name: name of the attribute to add/update
         param attribute_value: value of the attribute
-        :return: boolean True on success
+
         """
-        admin_client = self.get_admin_client()
-        user = self.get_user(user_id)
-        attributes = user.get('attributes', {})
-        attributes[attribute_name] = attribute_value
+        admin_client=self.get_admin_client()
+        user=self.get_user(user_id)
+        attributes=user.get('attributes', {})
+        attributes[attribute_name]=attribute_value
         admin_client.update_user(
             user_id,
             {
                 'attributes': attributes
             })
-        return True
 
     @with_refreshtoken
     def user_delete_attribute(self, user_id, attribute_name):
@@ -545,9 +558,9 @@ class AuthClient():
         param attribute_name: name of the attribute to delete
         :return: boolean True on success, False is attribute not in user attributes
         """
-        admin_client = self.get_admin_client()
-        user = self.get_user(user_id)
-        attributes = user.get('attributes', None)
+        admin_client=self.get_admin_client()
+        user=self.get_user(user_id)
+        attributes=user.get('attributes', None)
         if attributes and attribute_name in attributes:
             del attributes[attribute_name]
             admin_client.update_user(

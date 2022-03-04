@@ -68,8 +68,8 @@ def deserialize_date(string):
     :rtype: date
     """
     if string is None:
-        return None
-
+      return None
+    
     try:
         from dateutil.parser import parse
         return parse(string).date()
@@ -88,15 +88,13 @@ def deserialize_datetime(string):
     :rtype: datetime
     """
     if string is None:
-        return None
-
+      return None
+    
     try:
         from dateutil.parser import parse
         return parse(string)
     except ImportError:
         return string
-
-
 
 
 def deserialize_model(data, klass):
@@ -108,27 +106,16 @@ def deserialize_model(data, klass):
     :return: model object.
     """
     instance = klass()
-    instance._raw_dict = data
 
     if not instance.openapi_types:
         return data
-    if data is None:
-        return instance
 
-    if isinstance(data, list):
-        for attr, attr_type in six.iteritems(instance.openapi_types):
-            if instance.attribute_map[attr] in data:
-                value = data[instance.attribute_map[attr]]
-                setattr(instance, attr, _deserialize(value, attr_type))
-
-    elif isinstance(data, dict):
-        
-        for attr in data:
-            value = data[attr]
-            if attr in instance.attribute_map:
-                setattr(instance, attr, _deserialize(value, instance.openapi_types[attr]))
-            else:
-                setattr(instance, attr, value)
+    for attr, attr_type in six.iteritems(instance.openapi_types):
+        if data is not None \
+                and instance.attribute_map[attr] in data \
+                and isinstance(data, (list, dict)):
+            value = data[instance.attribute_map[attr]]
+            setattr(instance, attr, _deserialize(value, attr_type))
 
     return instance
 

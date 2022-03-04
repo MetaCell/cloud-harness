@@ -17,27 +17,10 @@ class Model(object):
     # value is json key in definition.
     attribute_map = {}
 
-    def __init__(self):
-        self._raw_dict = {}
-
     @classmethod
     def from_dict(cls: typing.Type[T], dikt) -> T:
         """Returns the dict as a model"""
-        obj = util.deserialize_model(dikt, cls)
-        return obj
-
-    def __getitem__(self, key):
-        if hasattr(self, key):
-            return getattr(self, key)
-        return self._raw_dict[key]
-
-    
-    def __contains__(self, key):
-        if key in self.attribute_map:
-            return True
-        elif hasattr(self, "_raw_dict"):
-            return  key in self._raw_dict
-        return False
+        return util.deserialize_model(dikt, cls)
 
     def to_dict(self):
         """Returns the model properties as a dict
@@ -64,10 +47,6 @@ class Model(object):
             else:
                 result[attr] = value
 
-        if hasattr(self, "raw_dict"):
-            merged = dict(self.raw_dict)
-            merged.update(result)
-            return merged
         return result
 
     def to_str(self):

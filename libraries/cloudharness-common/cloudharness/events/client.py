@@ -2,7 +2,7 @@ import os
 import sys
 import threading
 import time
-import traceback
+from typing import List
 import logging
 
 from time import sleep
@@ -18,6 +18,7 @@ from cloudharness.auth.keycloak import AuthClient
 from cloudharness.errors import *
 from cloudharness.utils import env
 from cloudharness.utils.config import CloudharnessConfig as config
+from cloudharness.models import CDCEvent
 
 logging.getLogger('kafka').setLevel(logging.ERROR)
 

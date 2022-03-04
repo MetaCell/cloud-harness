@@ -33,3 +33,4 @@ setup.py
 encoder.py
 *.sh
 util.py
+base_model.py

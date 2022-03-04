@@ -609,3 +609,22 @@ components:
             \ in the Docker image)"
           example: my_lib.change_pod_manifest
       additionalProperties: true
+    UserRole:
+      type: object
+      properties:
+        attributes:
+          type: object
+          additionalProperties: true
+        clientRole:
+          type: boolean
+        composite:
+          type: boolean
+        containerId:
+          type: string
+        description:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+      additionalProperties: true
