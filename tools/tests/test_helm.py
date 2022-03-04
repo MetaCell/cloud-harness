@@ -1,5 +1,4 @@
 import shutil
-import yaml
 
 from cloudharness_utilities.helm import *
 
