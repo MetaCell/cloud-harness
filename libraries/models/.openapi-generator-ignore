@@ -34,3 +34,4 @@ encoder.py
 *.sh
 */util.py
 */models/base_model_.py
+requirements.txt
