@@ -31,6 +31,10 @@ class Model(object):
             return getattr(self, key)
         return self._raw_dict[key]
 
+    def get(self, key, _default=None):
+        if key in self:
+            return self[key]
+        return _default
     
     def __contains__(self, key):
         if key in self.attribute_map:
