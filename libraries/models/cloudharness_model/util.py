@@ -7,10 +7,8 @@ from cloudharness_model import typing_utils
 
 def _deserialize(data, klass):
     """Deserializes dict, list, str into an object.
-
     :param data: dict, list or str.
     :param klass: class literal, or string of class name.
-
     :return: object.
     """
     if data is None:
@@ -35,10 +33,8 @@ def _deserialize(data, klass):
 
 def _deserialize_primitive(data, klass):
     """Deserializes to primitive type.
-
     :param data: data to deserialize.
     :param klass: class literal.
-
     :return: int, long, float, str, bool.
     :rtype: int | long | float | str | bool
     """
@@ -53,7 +49,6 @@ def _deserialize_primitive(data, klass):
 
 def _deserialize_object(value):
     """Return an original value.
-
     :return: object.
     """
     return value
@@ -61,15 +56,14 @@ def _deserialize_object(value):
 
 def deserialize_date(string):
     """Deserializes string to date.
-
     :param string: str.
     :type string: str
     :return: date.
     :rtype: date
     """
     if string is None:
-      return None
-    
+        return None
+
     try:
         from dateutil.parser import parse
         return parse(string).date()
@@ -79,58 +73,62 @@ def deserialize_date(string):
 
 def deserialize_datetime(string):
     """Deserializes string to datetime.
-
     The string should be in iso8601 datetime format.
-
     :param string: str.
     :type string: str
     :return: datetime.
     :rtype: datetime
     """
     if string is None:
-      return None
-    
+        return None
+
     try:
         from dateutil.parser import parse
         return parse(string)
     except ImportError:
         return string
 
-class DeserializationException(Exception): pass
+
+
 
 def deserialize_model(data, klass):
     """Deserializes list or dict to model.
-    
     :param data: dict, list.
     :type data: dict | list
     :param klass: class literal.
     :return: model object.
     """
     instance = klass()
+    instance._raw_dict = data
 
     if not instance.openapi_types:
         return data
-    try:
+    if data is None:
+        return instance
+
+    if isinstance(data, list):
         for attr, attr_type in six.iteritems(instance.openapi_types):
-            if data is not None \
-                    and instance.attribute_map[attr] in data \
-                    and isinstance(data, (list, dict)):
+            if instance.attribute_map[attr] in data:
                 value = data[instance.attribute_map[attr]]
                 setattr(instance, attr, _deserialize(value, attr_type))
-    except Exception as e:
-        raise DeserializationException from e
 
+    elif isinstance(data, dict):
+        
+        for attr in data:
+            value = data[attr]
+            if attr in instance.attribute_map:
+                setattr(instance, attr, _deserialize(value, instance.openapi_types[attr]))
+            else:
+                setattr(instance, attr, value)
 
     return instance
 
 
 def _deserialize_list(data, boxed_type):
     """Deserializes a list and its elements.
-
     :param data: list to deserialize.
     :type data: list
     :param boxed_type: class literal.
-
     :return: deserialized list.
     :rtype: list
     """
@@ -140,11 +138,9 @@ def _deserialize_list(data, boxed_type):
 
 def _deserialize_dict(data, boxed_type):
     """Deserializes a dict and its elements.
-
     :param data: dict to deserialize.
     :type data: dict
     :param boxed_type: class literal.
-
     :return: deserialized dict.
     :rtype: dict
     """

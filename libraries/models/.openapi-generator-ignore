@@ -32,5 +32,5 @@ setup.py
 */__init__.py
 encoder.py
 *.sh
-util.py
-base_model.py
+*/util.py
+**/base_model.py
