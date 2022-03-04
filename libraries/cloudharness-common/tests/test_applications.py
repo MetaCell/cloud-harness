@@ -2,7 +2,7 @@ from cloudharness.applications import ApplicationConfiguration, get_configuratio
 from cloudharness.utils.config import CloudharnessConfig, ConfigObject
 
 conf_1 = {
-
+    'name': 'app1',
     'harness': {
         'name': 'app1',
         'service': {
@@ -17,7 +17,7 @@ conf_1 = {
 }
 
 conf_2 = {
-
+    'name': 'app2',
     'harness': {
         'name': 'app2',
         'service': {
@@ -62,7 +62,7 @@ def test_get_configuration():
         'b': conf_2
     }
     uut = get_configuration('app1')
-    assert uut.name == 'app1'
+    assert uut.harness.name == 'app1'
     assert not uut.is_auto_service()
     assert uut.is_auto_deployment()
     assert uut.is_sentry_enabled()
