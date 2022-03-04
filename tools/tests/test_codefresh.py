@@ -56,8 +56,7 @@ def test_create_codefresh_configuration():
     assert os.path.samefile(step['working_directory'], CLOUDHARNESS_ROOT)
 
     step = steps["cloudharness-base"]
-    assert os.path.samefile(step['dockerfile'], os.path.join(
-        BUILD_MERGE_DIR, BASE_IMAGES_PATH, "cloudharness-base", "Dockerfile"))
+    assert os.path.samefile(step['dockerfile'], os.path.join(BASE_IMAGES_PATH, "cloudharness-base", "Dockerfile"))
     assert step['working_directory'] == BUILD_MERGE_DIR
 
     steps = l1_steps["build_static_images"]["steps"]

@@ -76,10 +76,10 @@ def create_codefresh_deployment_scripts(root_paths, env, include=(), exclude=(),
             codefresh = dict_merge(codefresh, tpl)
 
         def codefresh_build_step_from_base_path(base_path, build_step, fixed_context=None, include=include):
-            abs_base_path = os.path.join(os.getcwd(), base_path)
-            for dockerfile_path in find_dockerfiles_paths(abs_base_path):
+            
+            for dockerfile_path in find_dockerfiles_paths(base_path):
                 app_relative_to_root = os.path.relpath(dockerfile_path, '.')
-                app_relative_to_base = os.path.relpath(dockerfile_path, abs_base_path)
+                app_relative_to_base = os.path.relpath(dockerfile_path, base_path)
                 app_name = app_name_from_path(app_relative_to_base)
                 if include and not any(
                         f"/{inc}/" in dockerfile_path or dockerfile_path.endswith(f"/{inc}") for inc in include):
@@ -92,7 +92,7 @@ def create_codefresh_deployment_scripts(root_paths, env, include=(), exclude=(),
                         app_name=app_name,
                         app_context_path=os.path.relpath(fixed_context, '.') if fixed_context else app_relative_to_root,
                         dockerfile_path=os.path.join(
-                            os.path.relpath(dockerfile_path, os.getcwd()) if fixed_context else '',
+                            os.path.relpath(dockerfile_path, root_path) if fixed_context else '',
                             "Dockerfile"),
                         base_name=base_image_name,
                         helm_values=values_manual_deploy
