@@ -2,11 +2,12 @@ import os
 import sys
 import threading
 import time
-from typing import List
+from typing import List, Generator
 import logging
 
 from time import sleep
 from json import dumps, loads
+from cloudharness_model.util import DeserializationException
 from keycloak.exceptions import KeycloakGetError
 from kafka import KafkaProducer, KafkaConsumer
 from kafka.admin import KafkaAdminClient, NewTopic
@@ -181,6 +182,28 @@ class EventClient:
             log.info(f"sent cdc event {message_type} - {operation} - {resource_id}")
         except Exception as e:
             log.error('send_event error.', exc_info=True)
+
+
+    def consume_all_cdc(self, group_id='default') -> Generator[CDCEvent]:
+        """
+        Return a list of object modification messages published in the topic
+        """
+
+        consumer = self._get_consumer(group_id)
+        try:
+            for topic in consumer.poll(10000).values():
+                for record in topic:
+                    try:
+                        if "operation" in record.value:
+                            yield CDCEvent.from_dict(record.value)
+                    except DeserializationException as e:
+                        log.error("Message is not in the proper CDC format: %s", record.value)
+                        continue
+        except Exception as e:
+            log.error(f"Error trying to consume all from topic {self.topic_id} --> {e}", exc_info=True)
+            raise EventTopicConsumeException from e
+        finally:
+            consumer.close()
 
     def consume_all(self, group_id='default') -> list:
         ''' Return a list of messages published in the topic '''
