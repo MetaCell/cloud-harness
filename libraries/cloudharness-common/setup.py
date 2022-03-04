@@ -22,7 +22,7 @@ REQUIREMENTS = [
     'python-keycloak',
     'argo-workflows',
     'cachetools',
-    'cloudharness_models'
+    'cloudharness_model'
 ]
 
 
