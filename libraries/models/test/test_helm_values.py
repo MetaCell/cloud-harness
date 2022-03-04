@@ -2,7 +2,7 @@ import pytest
 from os.path import join, dirname as dn, realpath
 import yaml
 
-from cloudharness_model import HarnessMainConfig
+from cloudharness_model import HarnessMainConfig, ApplicationConfig
 
 HERE = dn(realpath(__file__))
 
@@ -13,3 +13,6 @@ def test_helm_values_deserialize():
 
     assert v.domain
     assert v.apps["accounts"].harness.deployment.name == "accounts"
+
+    app = ApplicationConfig.from_dict(values["apps"]["accounts"])
+    assert app.harness.deployment.name == "accounts"
