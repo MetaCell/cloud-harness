@@ -89,7 +89,7 @@ def deserialize_datetime(string):
         return string
 
 
-
+class DeserializationException(Exception): pass
 
 def deserialize_model(data, klass):
     """Deserializes list or dict to model.
@@ -105,21 +105,24 @@ def deserialize_model(data, klass):
         return data
     if data is None:
         return instance
+    try:
+        if isinstance(data, list):
+            for attr, attr_type in six.iteritems(instance.openapi_types):
+                if instance.attribute_map[attr] in data:
+                    value = data[instance.attribute_map[attr]]
+                    setattr(instance, attr, _deserialize(value, attr_type))
 
-    if isinstance(data, list):
-        for attr, attr_type in six.iteritems(instance.openapi_types):
-            if instance.attribute_map[attr] in data:
-                value = data[instance.attribute_map[attr]]
-                setattr(instance, attr, _deserialize(value, attr_type))
+        elif isinstance(data, dict):
+            
+            for attr in data:
+                value = data[attr]
+                if attr in instance.attribute_map:
+                    setattr(instance, attr, _deserialize(value, instance.openapi_types[attr]))
+                else:
+                    setattr(instance, attr, value)
+    except Exception as e:
+        raise DeserializationException(f"Cannot convert data to class {klass.__name__} ") from e
 
-    elif isinstance(data, dict):
-        
-        for attr in data:
-            value = data[attr]
-            if attr in instance.attribute_map:
-                setattr(instance, attr, _deserialize(value, instance.openapi_types[attr]))
-            else:
-                setattr(instance, attr, value)
 
     return instance
 

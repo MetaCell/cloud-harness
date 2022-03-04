@@ -30,7 +30,6 @@ steps:
       - rm -rf libraries/models/.tox
       - rm -rf libraries/cloudharness-common/.tox
       - rm -rf tools/.tox
-      - pip install libraries/models/
       - tox -c libraries/models/
       - tox -c libraries/cloudharness-common/
       - tox -c tools/

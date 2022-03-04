@@ -184,7 +184,7 @@ class EventClient:
             log.error('send_event error.', exc_info=True)
 
 
-    def consume_all_cdc(self, group_id='default') -> Generator[CDCEvent]:
+    def consume_all_cdc(self, group_id='default') -> Generator[CDCEvent, None, None]:
         """
         Return a list of object modification messages published in the topic
         """
