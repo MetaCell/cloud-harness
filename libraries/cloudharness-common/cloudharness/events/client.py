@@ -6,7 +6,8 @@ from typing import List, Generator
 import logging
 
 from time import sleep
-from json import dumps, loads
+from cloudharness import json
+
 from cloudharness_model.util import DeserializationException
 from keycloak.exceptions import KeycloakGetError
 from kafka import KafkaProducer, KafkaConsumer
@@ -52,7 +53,7 @@ class EventClient:
                              auto_offset_reset='earliest',
                              enable_auto_commit=True,
                              group_id=group_id,
-                             value_deserializer=lambda x: loads(x.decode('utf-8')))
+                             value_deserializer=lambda x: json.loads(x.decode('utf-8')))
 
 
     def create_topic(self):
@@ -85,7 +86,7 @@ class EventClient:
                 True if the message was published correctly, False otherwise.
         '''
         producer = KafkaProducer(bootstrap_servers=self._get_bootstrap_servers(),
-                                 value_serializer=lambda x: dumps(x).encode('utf-8'))
+                                 value_serializer=lambda x: json.dumps(x).encode('utf-8'))
         try:
             return producer.send(self.topic_id, value=message)
         except KafkaTimeoutError as e:
@@ -146,7 +147,7 @@ class EventClient:
             fargs = []
             for a in func_args:
                 try:
-                    fargs.append(loads(dumps(a)))
+                    fargs.append(json.loads(dumps(a)))
                 except Exception as e:
                     # argument can't be serialized
                     pass
@@ -156,7 +157,7 @@ class EventClient:
             for kwa, kwa_val in func_kwargs.items():
                 try:
                     fkwargs.append({
-                        kwa: loads(dumps(kwa_val))
+                        kwa: json.loads(json.dumps(kwa_val))
                     })
                 except Exception as e:
                     # keyword argument can't be serialized

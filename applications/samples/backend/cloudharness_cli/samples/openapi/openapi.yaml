@@ -8,7 +8,7 @@ info:
   title: CloudHarness Sample API
   version: 0.1.0
 servers:
-- url: https://samples.cloudharness.metacell.us/api
+- url: /api
 tags:
 - name: auth
 - name: workflows
@@ -28,23 +28,7 @@ paths:
       summary: test sentry is working
       tags:
       - test
-      x-openapi-router-controller: samples.controllers.test_controller
-  /model_serialization:
-    get:
-      operationId: serialization
-      responses:
-        "500":
-          description: Error in serialization
-        "200":
-          content:
-            application/json:
-              schema:
-                type: object
-          description: a User object from cloudharness model
-      summary: test sentry is working
-      tags:
-      - test
-      x-openapi-router-controller: samples.controllers.test_controller
+      x-openapi-router-controller: cloudharness_cli.samples.controllers.test_controller
   /operation_async:
     get:
       operationId: submit_async
@@ -58,7 +42,7 @@ paths:
       summary: Send an asynchronous operation
       tags:
       - workflows
-      x-openapi-router-controller: samples.controllers.workflows_controller
+      x-openapi-router-controller: cloudharness_cli.samples.controllers.workflows_controller
   /operation_sync:
     get:
       operationId: submit_sync
@@ -72,7 +56,7 @@ paths:
       summary: Send a synchronous operation
       tags:
       - workflows
-      x-openapi-router-controller: samples.controllers.workflows_controller
+      x-openapi-router-controller: cloudharness_cli.samples.controllers.workflows_controller
   /operation_sync_results:
     get:
       operationId: submit_sync_with_results
@@ -106,7 +90,7 @@ paths:
         Just a sum, but in the cloud
       tags:
       - workflows
-      x-openapi-router-controller: samples.controllers.workflows_controller
+      x-openapi-router-controller: cloudharness_cli.samples.controllers.workflows_controller
   /ping:
     get:
       operationId: ping
@@ -122,7 +106,7 @@ paths:
       summary: test the application is up
       tags:
       - test
-      x-openapi-router-controller: samples.controllers.test_controller
+      x-openapi-router-controller: cloudharness_cli.samples.controllers.test_controller
   /valid:
     get:
       description: |
@@ -144,7 +128,7 @@ paths:
       summary: Check if the token is valid. Get a token by logging into the base url
       tags:
       - auth
-      x-openapi-router-controller: samples.controllers.auth_controller
+      x-openapi-router-controller: cloudharness_cli.samples.controllers.auth_controller
 components:
   schemas:
     Valid:
@@ -152,7 +136,9 @@ components:
         response: response
       properties:
         response:
+          title: response
           type: string
+      title: Valid
       type: object
     inline_response_202_task:
       example:
@@ -162,10 +148,14 @@ components:
         href:
           description: the url where to check the operation status
           example: http://workflows.cloudharness.metacell.us/api/operation/my-op
+          title: href
           type: string
         name:
           example: my-op
+          title: name
           type: string
+      title: inline_response_202_task
+      type: object
     inline_response_202:
       example:
         task:
@@ -174,6 +164,8 @@ components:
       properties:
         task:
           $ref: '#/components/schemas/inline_response_202_task'
+      title: inline_response_202
+      type: object
   securitySchemes:
     bearerAuth:
       bearerFormat: JWT

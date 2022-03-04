@@ -1,8 +1,7 @@
-from cloudharness.models import User
 import connexion
 import six
 
-from samples import util
+from cloudharness_cli.samples import util
 
 
 def error():  # noqa: E501
@@ -13,7 +12,7 @@ def error():  # noqa: E501
 
     :rtype: str
     """
-    raise Exception("The error we supposed to find here")
+    return 'do some magic!'
 
 
 def ping():  # noqa: E501
@@ -24,8 +23,4 @@ def ping():  # noqa: E501
 
     :rtype: str
     """
-    import time
-    return time.time()
-
-def serialization():
-    return User(last_name="Last", first_name="First")
+    return 'do some magic!'

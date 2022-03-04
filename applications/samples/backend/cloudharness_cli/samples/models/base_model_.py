@@ -2,9 +2,8 @@ import pprint
 
 import six
 import typing
-import json
 
-from cloudharness_model import util
+from cloudharness_cli.samples import util
 
 T = typing.TypeVar('T')
 
@@ -18,37 +17,14 @@ class Model(object):
     # value is json key in definition.
     attribute_map = {}
 
-    def __init__(self):
-        self._raw_dict = {}
-
     @classmethod
     def from_dict(cls: typing.Type[T], dikt) -> T:
         """Returns the dict as a model"""
-        obj = util.deserialize_model(dikt, cls)
-        return obj
-
-    def toJSON(self):
-        return json.dumps(self.to_dict())
-
-    def __getitem__(self, key):
-        if hasattr(self, key):
-            return getattr(self, key)
-        return self._raw_dict[key]
-
-    def get(self, key, _default=None):
-        if key in self:
-            return self[key]
-        return _default
-    
-    def __contains__(self, key):
-        if key in self.attribute_map:
-            return True
-        elif hasattr(self, "_raw_dict"):
-            return  key in self._raw_dict
-        return False
+        return util.deserialize_model(dikt, cls)
 
     def to_dict(self):
         """Returns the model properties as a dict
+
         :rtype: dict
         """
         result = {}
@@ -71,14 +47,11 @@ class Model(object):
             else:
                 result[attr] = value
 
-        if hasattr(self, "raw_dict"):
-            merged = dict(self.raw_dict)
-            merged.update(result)
-            return merged
         return result
 
     def to_str(self):
         """Returns the string representation of the model
+
         :rtype: str
         """
         return pprint.pformat(self.to_dict())
