@@ -13,7 +13,7 @@ from .constants import APPS_PATH, HELM_CHART_PATH, DEPLOYMENT_CONFIGURATION_PATH
     BASE_IMAGES_PATH, STATIC_IMAGES_PATH
 
 
-def preprocess_build_overrides(root_paths, helm_values, merge_build_path="./build"):
+def preprocess_build_overrides(root_paths, helm_values, merge_build_path="./.overrides"):
     if not isabs(merge_build_path):
         merge_build_path = join(os.getcwd(), merge_build_path)
     if len(root_paths) < 2:
