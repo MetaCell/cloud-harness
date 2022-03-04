@@ -9,7 +9,7 @@ HERE = dn(realpath(__file__))
 
 def test_helm_values_deserialize():
     with open(join(HERE, "resources/values.yaml")) as f:
-        values = yaml.load(f)
+        values = yaml.safe_load(f)
     v = HarnessMainConfig.from_dict(values)
 
     assert v.domain
