@@ -51,14 +51,15 @@ def test_create_codefresh_configuration():
     assert "cloudharness-frontend-build" in steps
 
     step = steps["cloudharness-frontend-build"]
-    assert  os.path.samefile(step['dockerfile'], os.path.join(CLOUDHARNESS_ROOT,
-        BASE_IMAGES_PATH, "cloudharness-frontend-build", "Dockerfile"))
     assert os.path.samefile(step['working_directory'], CLOUDHARNESS_ROOT)
+    assert  os.path.samefile(os.path.join(step['working_directory'], step['dockerfile']), os.path.join(CLOUDHARNESS_ROOT,
+        BASE_IMAGES_PATH, "cloudharness-frontend-build", "Dockerfile"))
+    
 
     step = steps["cloudharness-base"]
-    assert os.path.samefile(step['dockerfile'], os.path.join(
-        BUILD_MERGE_DIR, BASE_IMAGES_PATH, "cloudharness-base", "Dockerfile"))
     assert step['working_directory'] == BUILD_MERGE_DIR
+    assert os.path.samefile(os.path.join(step['working_directory'], step['dockerfile']), os.path.join(step['working_directory'], BASE_IMAGES_PATH, "cloudharness-base", "Dockerfile"))
+    
 
     steps = l1_steps["build_static_images"]["steps"]
     assert len(steps) == 2
