@@ -14,7 +14,9 @@ Name | Type | Description | Notes
 **tag** | **str** | Docker tag used to push/pull the built images. | [optional] 
 **env** | [**[NameValue]**](NameValue.md) | Environmental variables added to all pods | [optional] 
 **privenv** | [**NameValue**](NameValue.md) |  | [optional] 
-**backup** | **bool, date, datetime, dict, float, int, list, str, none_type** |  | [optional] 
+**backup** | [**BackupConfig**](BackupConfig.md) |  | [optional] 
+**name** | **str** | Base name | [optional] 
+**task_images** | [**SimpleMap**](SimpleMap.md) |  | [optional] 
 **any string name** | **bool, date, datetime, dict, float, int, list, str, none_type** | any string name can be used but the value must be the correct type | [optional]
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
