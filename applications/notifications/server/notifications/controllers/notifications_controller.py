@@ -1,10 +1,11 @@
 import time
 import json
+from types import SimpleNamespace as Namespace
 
 from cloudharness import log
 from cloudharness.events.client import EventClient
-from cloudharness.utils.config import CloudharnessConfig as conf
-from types import SimpleNamespace as Namespace
+from cloudharness import applications
+from cloudharness.models import CDCEvent, CDCEventMeta
 
 from notifications.controllers.helpers import send
 
@@ -15,20 +16,20 @@ class NotificationHandler:
         self.events = events
         self.topic_id = f"{app_name}.{event_type}.{message_type}"
 
-    def handle_event(self, message):
+    def handle_event(self, message: CDCEvent):
         """
         Send a notification for the received event
 
         Args:
             message: the message
         """
-        if self.message_type == message.get("message_type"):
+        if self.message_type == message.message_type:
             operation = message.get("operation")
             for event in self.events:
                 if event == operation:
-                    meta = message.get("meta", {})
-                    app_name = meta.get("app_name", "")
-                    description = meta.get("description", "")
+                    meta: CDCEventMeta = message.meta
+                    app_name = meta.app_name
+                    description = meta.description
                     obj = json.loads(json.dumps(message.get("resource")), object_hook=lambda d: Namespace(**d))
                     log.info(f"{app_name} sent {operation} {self.message_type} {description} message")
                     send(
@@ -56,9 +57,9 @@ class NotificationsController:
             nh.handle_event(message)
 
     def _init_handlers(self):
-        app = conf.get_application_by_filter(name="notifications")[0]  # find the notification app configuration
-        for event_type in app["harness"]["events"]:
-            for notification_app in app["harness"]["events"][event_type]:
+        app = applications.get_current_configuration()
+        for event_type in app.harness["events"]:
+            for notification_app in app.harness["events"][event_type]:
                 for notification_type in notification_app["types"]:
                     log.info(f"Init handler for event {notification_app['app']}.{notification_type['name']} type {event_type}")
                     nss = NotificationHandler(
