@@ -1,12 +1,22 @@
+from .test_env import set_default_environment
+
+set_default_environment()
+
 from cloudharness.applications import ApplicationConfiguration, get_configuration
 from cloudharness.utils.config import CloudharnessConfig, ConfigObject
 
+
+
 conf_1 = {
     'name': 'app1',
+    
     'harness': {
         'name': 'app1',
+        'subdomain': 'myapp',
         'service': {
-            'auto': False
+            'name': 'app1',
+            'auto': True,
+            'port': 9000
         },
         'deployment': {
             'auto': True,
@@ -63,15 +73,19 @@ def test_get_configuration():
     }
     uut = get_configuration('app1')
     assert uut.harness.name == 'app1'
-    assert not uut.is_auto_service()
+    assert uut.is_auto_service()
     assert uut.is_auto_deployment()
     assert uut.is_sentry_enabled()
     assert uut.image_name == 'image1-name'
+    assert uut.get_public_address() == "https://myapp.cloudharness.metacell.us"
+    assert uut.get_service_address() == "http://app1.ch:9000"
     uut = get_configuration('app2')
     assert uut.name == 'app2'
     assert not uut.is_auto_service()
     assert not uut.is_auto_deployment()
     assert uut.is_sentry_enabled()
+
+    
 
     # TODO subapp support
     # uut = get_configuration('app2sub')

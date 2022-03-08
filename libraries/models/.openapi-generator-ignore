@@ -18,7 +18,7 @@
 
 # You can also negate patterns with an exclamation (!).
 # For example, you can ignore all files in a docs folder with the file extension .md:
-#docs/*.md
+
 # Then explicitly reverse the ignore rule for a single file:
 #!docs/README.md
 test/*
@@ -28,6 +28,9 @@ Dockerfile
 **/openapi/*
 setup.py
 **/test/*
+**/model/*
+**/api/*
+**/apis/*
 .dockerignore
 */__init__.py
 encoder.py
@@ -36,3 +39,4 @@ encoder.py
 */models/base_model_.py
 requirements.txt
 */encoder.py
+*/model_utils.py
