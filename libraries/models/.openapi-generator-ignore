@@ -28,7 +28,7 @@ Dockerfile
 **/openapi/*
 setup.py
 **/test/*
-**/model/*
+#**/model/*
 **/api/*
 **/apis/*
 .dockerignore

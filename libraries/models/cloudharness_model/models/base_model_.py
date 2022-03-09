@@ -8,6 +8,7 @@ from cloudharness_model import util
 
 T = typing.TypeVar('T')
 
+import humps
 
 class Model(object):
     # openapiTypes: The key is attribute name and the
@@ -18,8 +19,11 @@ class Model(object):
     # value is json key in definition.
     attribute_map = {}
 
-    def __init__(self):
-        self._raw_dict = {}
+
+    def __new__(cls, *args, **kwargs):
+        obj = object.__new__(cls)
+        obj._raw_dict = {}
+        return obj
 
     @classmethod
     def from_dict(cls: typing.Type[T], dikt) -> T:
@@ -34,6 +38,20 @@ class Model(object):
         if hasattr(self, key):
             return getattr(self, key)
         return self._raw_dict[key]
+    
+    def __setitem__(self, key, value):
+        if hasattr(self, key):
+            setattr(self, key, value)
+
+        self._raw_dict[key] = value
+
+
+    def __setattr__(self, key: str, value) -> None:
+        if humps.is_camelcase(key):
+            object.__setattr__(self, humps.decamelize(key), value)
+        elif humps.is_snakecase(key):
+            object.__setattr__(self, humps.camelize(key), value)
+        object.__setattr__(self, key, value)
 
     def get(self, key, _default=None):
         if key in self:
@@ -70,6 +88,11 @@ class Model(object):
                 ))
             else:
                 result[attr] = value
+            if humps.is_camelcase(attr):
+                result[humps.decamelize(attr)] = result[attr]
+            elif humps.is_snakecase(attr):
+                result[humps.camelize(attr)] = result[attr]
+
 
         if hasattr(self, "raw_dict"):
             merged = dict(self.raw_dict)
