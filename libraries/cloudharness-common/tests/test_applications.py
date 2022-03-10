@@ -59,7 +59,7 @@ conf_2['subapp'] = conf_2sub
 
 def test_application_conf():
     uut = ApplicationConfiguration.from_dict(conf_1)
-    assert not uut.is_auto_service()
+    assert uut.is_auto_service()
     assert uut.is_auto_deployment()
     assert uut.is_sentry_enabled()
 
