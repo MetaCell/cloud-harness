@@ -5,7 +5,6 @@ import json
 import requests
 from keycloak import KeycloakAdmin
 from keycloak.exceptions import KeycloakAuthenticationError
-from cachetools import cached, TTLCache
 from cloudharness import log
 from cloudharness.middleware import get_authentication_token
 from cloudharness.models import UserGroup, User, UserRole
@@ -239,7 +238,6 @@ class AuthClient():
         )
         return True
 
-    @cached(cache=TTLCache(maxsize=1024, ttl=30))
     @with_refreshtoken
     def get_group(self, group_id, with_members=False) -> UserGroup:
         """
@@ -383,7 +381,6 @@ class AuthClient():
             users.append(User.from_dict(user))
         return users
 
-    @cached(cache=TTLCache(maxsize=1024, ttl=30))
     @with_refreshtoken
     def get_user(self, user_id):
         """
@@ -421,7 +418,6 @@ class AuthClient():
         """
         return self.get_user(self._get_keycloak_user_id())
 
-    @cached(cache = TTLCache(maxsize=1024, ttl=30))
     @with_refreshtoken
     def get_user_realm_roles(self, user_id) -> List[str]:
         """
@@ -448,7 +444,6 @@ class AuthClient():
         """
         return self.get_user_realm_roles(self._get_keycloak_user_id())
 
-    @cached(cache = TTLCache(maxsize=1024, ttl=30))
     @with_refreshtoken
     def get_user_client_roles(self, user_id, client_name) -> List[str]:
         """
