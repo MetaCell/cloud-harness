@@ -54,7 +54,7 @@ class NotificationsController:
     def handler(app, event_client, message):
         log.debug("Handler received message: %s",message)
         for nh in [nh for nh in NotificationsController._notification_handlers if nh.message_type == message.get("message_type")]:
-            nh.handle_event(message)
+            nh.handle_event(CDCEvent.from_dict(message))
 
     def _init_handlers(self):
         app = applications.get_current_configuration()
