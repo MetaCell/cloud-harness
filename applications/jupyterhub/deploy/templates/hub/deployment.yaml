@@ -30,6 +30,7 @@ spec:
         {{- . | toYaml | nindent 8 }}
         {{- end }}
     spec:
+{{ include "deploy_utils.etcHosts" . | indent 6 }}
       {{- if .Values.apps.jupyterhub.scheduling.podPriority.enabled }}
       priorityClassName: {{ include "jupyterhub.priority.fullname" . }}
       {{- end }}
