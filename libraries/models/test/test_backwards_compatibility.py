@@ -31,3 +31,4 @@ def test_dict_behaviour():
     u = user.to_dict()
     assert u["first_name"] == "e"
     assert u["firstName"] == "e"
+

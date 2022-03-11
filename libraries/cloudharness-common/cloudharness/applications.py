@@ -10,6 +10,9 @@ class ConfigurationCallException(Exception):
 
 class ApplicationConfiguration(ApplicationConfig):
 
+    def __init__(self, *args, **kargs):
+        ApplicationConfig.__init__(self, *args, **kargs)
+        self.__conf = None
 
     def is_auto_service(self) -> bool:
         return self.harness.service.auto
@@ -36,6 +39,15 @@ class ApplicationConfiguration(ApplicationConfig):
     @property
     def db_name(self) -> str:
         return self.harness.database.name
+        
+    @property
+    def conf(self):
+        """
+        Legacy object
+        """
+        if self.__conf is None:
+            self.__conf = ConfigObject(self.to_dict())
+        return self.__conf
 
     @property
     def image_name(self) -> str:

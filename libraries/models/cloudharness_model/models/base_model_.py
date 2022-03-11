@@ -94,8 +94,8 @@ class Model(object):
                 result[humps.camelize(attr)] = result[attr]
 
 
-        if hasattr(self, "raw_dict"):
-            merged = dict(self.raw_dict)
+        if hasattr(self, "_raw_dict"):
+            merged = dict(self._raw_dict)
             merged.update(result)
             return merged
         return result

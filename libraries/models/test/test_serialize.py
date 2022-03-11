@@ -18,9 +18,12 @@ def test_json_serialize():
     assert v["name"] == cloned["name"]
 
     values["apps"]["accounts"]["harness"] = ApplicationHarnessConfig(name="accounts2")
+    values["apps"]["accounts"]["other"] = "test"
     v = HarnessMainConfig.from_dict(values)
     assert v["apps"]["accounts"]["harness"]["name"] == "accounts2"
+    assert v["apps"]["accounts"]["other"] == "test"
     dumped = json.dumps(v, cls=CloudHarnessJSONEncoder)
     cloned = json.loads(dumped)
     assert v["name"] == cloned["name"]
     assert cloned["apps"]["accounts"]["harness"]["name"] == "accounts2"
+    assert cloned["apps"]["accounts"]["other"] == "test"
