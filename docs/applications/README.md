@@ -95,6 +95,7 @@ The most important configuration entries are the following:
   - `deployment`: creates a deployment
     - `auto`: if true, creates the deployment automatically
     - `resources`: define cpu and memory limits
+    - `volume`: application persistent volume
   - `service`:
     - `auto`: if true, creates the service automatically
   - `dependencies`: lists of applications/images this application depends from
