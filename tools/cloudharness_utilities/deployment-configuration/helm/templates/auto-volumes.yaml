@@ -1,4 +1,5 @@
 {{- define "deploy_utils.pvolume" }}
+{{- if not .app.harness.deployment.volume.auto }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -12,6 +13,7 @@ spec:
   resources:
     requests:
       storage: {{ .app.harness.deployment.volume.size }}
+{{- end }}
 ---
 {{- end }}
 {{- range $app := .Values.apps }}
