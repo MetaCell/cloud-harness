@@ -1,5 +1,5 @@
 {{- define "deploy_utils.pvolume" }}
-{{- if not .app.harness.deployment.volume.auto }}
+{{- if .app.harness.deployment.volume.auto }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
