@@ -1,5 +1,6 @@
 {{- define "deploy_utils.pvolume" }}
-{{- if .app.harness.deployment.volume.auto }}
+{{- $auto_create := printf "%s" (.app.harness.deployment.volume.auto|quote) }}
+{{- if or (not (hasKey .app.harness.deployment.volume "auto")) (eq $auto_create "true") }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
