@@ -1,23 +1,3 @@
-{{- /*
-  jupyterhub.userTolerations
-    Lists the tolerations for node taints that the user pods should have
-*/}}
-{{- define "jupyterhub.userTolerations" -}}
-- key: hub.jupyter.org_dedicated
-  operator: Equal
-  value: user
-  effect: NoSchedule
-- key: hub.jupyter.org/dedicated
-  operator: Equal
-  value: user
-  effect: NoSchedule
-{{- if .Values.apps.jupyterhub.singleuser.extraTolerations }}
-{{- .Values.apps.jupyterhub.singleuser.extraTolerations | toYaml | trimSuffix "\n" | nindent 0 }}
-{{- end }}
-{{- end }}
-
-
-
 {{- define "jupyterhub.userNodeAffinityRequired" -}}
 {{- if eq .Values.apps.jupyterhub.scheduling.userPods.nodeAffinity.matchNodePurpose "require" -}}
 - matchExpressions:
@@ -25,8 +5,8 @@
     operator: In
     values: [user]
 {{- end }}
-{{- if .Values.apps.jupyterhub.singleuser.extraNodeAffinity.required }}
-{{- .Values.apps.jupyterhub.singleuser.extraNodeAffinity.required | toYaml | trimSuffix "\n" | nindent 0 }}
+{{- with .Values.apps.jupyterhub.singleuser.extraNodeAffinity.required }}
+{{- . | toYaml | nindent 0 }}
 {{- end }}
 {{- end }}
 
@@ -39,32 +19,32 @@
         operator: In
         values: [user]
 {{- end }}
-{{- if .Values.apps.jupyterhub.singleuser.extraNodeAffinity.preferred }}
-{{- .Values.apps.jupyterhub.singleuser.extraNodeAffinity.preferred | toYaml | trimSuffix "\n" | nindent 0 }}
+{{- with .Values.apps.jupyterhub.singleuser.extraNodeAffinity.preferred }}
+{{- . | toYaml | nindent 0 }}
 {{- end }}
 {{- end }}
 
 {{- define "jupyterhub.userPodAffinityRequired" -}}
-{{- if .Values.apps.jupyterhub.singleuser.extraPodAffinity.required -}}
-{{ .Values.apps.jupyterhub.singleuser.extraPodAffinity.required | toYaml | trimSuffix "\n" }}
+{{- with .Values.apps.jupyterhub.singleuser.extraPodAffinity.required -}}
+{{ . | toYaml }}
 {{- end }}
 {{- end }}
 
 {{- define "jupyterhub.userPodAffinityPreferred" -}}
-{{- if .Values.apps.jupyterhub.singleuser.extraPodAffinity.preferred -}}
-{{ .Values.apps.jupyterhub.singleuser.extraPodAffinity.preferred | toYaml | trimSuffix "\n" }}
+{{- with .Values.apps.jupyterhub.singleuser.extraPodAffinity.preferred -}}
+{{ . | toYaml }}
 {{- end }}
 {{- end }}
 
 {{- define "jupyterhub.userPodAntiAffinityRequired" -}}
-{{- if .Values.apps.jupyterhub.singleuser.extraPodAntiAffinity.required -}}
-{{ .Values.apps.jupyterhub.singleuser.extraPodAntiAffinity.required | toYaml | trimSuffix "\n" }}
+{{- with .Values.apps.jupyterhub.singleuser.extraPodAntiAffinity.required -}}
+{{ . | toYaml }}
 {{- end }}
 {{- end }}
 
 {{- define "jupyterhub.userPodAntiAffinityPreferred" -}}
-{{- if .Values.apps.jupyterhub.singleuser.extraPodAntiAffinity.preferred -}}
-{{ .Values.apps.jupyterhub.singleuser.extraPodAntiAffinity.preferred | toYaml | trimSuffix "\n" }}
+{{- with .Values.apps.jupyterhub.singleuser.extraPodAntiAffinity.preferred -}}
+{{ . | toYaml }}
 {{- end }}
 {{- end }}
 

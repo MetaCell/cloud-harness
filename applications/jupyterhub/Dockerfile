@@ -1,7 +1,7 @@
 ARG CLOUDHARNESS_BASE
 FROM $CLOUDHARNESS_BASE as base
 
-FROM jupyterhub/k8s-hub:0.9.0
+FROM jupyterhub/k8s-hub:1.1.3
 USER root
 
 COPY --from=base /libraries/cloudharness-common /libraries/cloudharness-common
@@ -14,5 +14,4 @@ COPY src src
 RUN pip install ./src/harness_jupyter
 RUN pip install ./src/chauthenticator
 
-RUN chmod 777 /usr/local/lib/python3.6/dist-packages/  -R
 USER jovyan

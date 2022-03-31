@@ -1,0 +1,7 @@
+harness:
+  name: "I'm useless"
+  subdomain: mysubdomain
+  dependencies:
+    soft:
+    - idonotexist
+a: b

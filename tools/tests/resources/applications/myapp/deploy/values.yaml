@@ -1,0 +1,9 @@
+harness:
+  name: "I'm useless"
+  subdomain: mysubdomain
+  dependencies:
+    soft:
+      - legacy
+    build:
+      - cloudharness-flask
+a: b

@@ -1,0 +1,100 @@
+{{- define "deploy_utils.ingress.http" }}
+  {{ $domain := .root.Values.domain }}
+  {{ $secured_gatekeepers := and .root.Values.secured_gatekeepers }}
+    http:
+      paths:
+      - path: /(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{ .app.harness.service.name }}{{- if (and .app.harness.secured $secured_gatekeepers) }}-gk{{- end }}
+            port:
+              number: {{- if (and .app.harness.secured $secured_gatekeepers) }} 8080 {{- else }} {{ .app.harness.service.port | default 80  }}{{- end }}
+{{- end }}
+{{- define "deploy_utils.ingress.service" }}
+  {{ $domain := .root.Values.domain }}
+  {{ $secured_gatekeepers := and .root.Values.secured_gatekeepers }}
+  {{ $app := get .root.Values.apps (print .service_name | snakecase) }}
+      - path: /proxy/{{ $app.harness.service.name }}/(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{ $app.harness.service.name }}{{- if (and $app.harness.secured $secured_gatekeepers) }}-gk{{- end }}
+            port:
+              number: {{- if (and $app.harness.secured $secured_gatekeepers) }} 8080 {{- else }} {{ $app.harness.service.port | default 80  }}{{- end }}
+{{- end }}
+{{- if .Values.ingress.enabled }}
+{{ $domain := .Values.domain }}
+{{ $tls := not (not .Values.tls) }}
+{{ $mainapp := .Values.mainapp }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.ingress.name | quote }}
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    {{- if and (not .Values.local) $tls }}
+    kubernetes.io/tls-acme: 'true'
+    cert-manager.io/cluster-issuer: {{ printf "%s-%s" "letsencrypt" .Values.namespace }}
+    {{- end }}
+    nginx.ingress.kubernetes.io/ssl-redirect: {{ (and $tls .Values.ingress.ssl_redirect) | quote }}
+    nginx.ingress.kubernetes.io/proxy-body-size: '250m'
+    nginx.ingress.kubernetes.io/proxy-buffer-size: '128k'
+    nginx.ingress.kubernetes.io/from-to-www-redirect: 'true'
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+spec:
+  rules:
+  {{- range $app := .Values.apps }}
+    {{- if (and $mainapp (and $app.harness.name (eq $app.harness.name $mainapp))) }}
+  - host: {{ $domain | quote }}
+    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app) }}
+      {{- range $service := $app.harness.use_services }}
+      {{ include "deploy_utils.ingress.service" (dict "root" $ "service_name" $service.name) }}
+      {{- end }}
+    {{- end }}
+    {{- if $app.harness.domain }}
+  - host: {{ $app.harness.domain | quote }}
+    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app) }}
+    {{- end }}
+    {{- if $app.harness.aliases }}
+    {{- range $alias := $app.harness.aliases }}
+  - host: {{ printf "%s.%s" $alias $domain | quote }}
+    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app) }}
+      {{- end }}
+    {{- end }}
+    {{- if $app.harness.subdomain }}
+  - host: {{ printf "%s.%s" $app.harness.subdomain $domain | quote }}
+    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app) }}
+    {{- range $service := $app.harness.use_services }}
+      {{ include "deploy_utils.ingress.service" (dict "root" $ "service_name" $service.name) }}
+    {{- end }}
+      {{- range $subapp := $app }}
+        {{- if contains "map" (typeOf $subapp)  }}
+          {{- if and $subapp (hasKey $subapp "harness.subdomain") }}
+  - host: {{ printf "%s.%s.%s" $subapp.harness.subdomain $app.harness.subdomain $domain | quote }}
+    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $subapp) }}
+          {{- end }}
+       {{- end }}
+      {{- end }}
+    {{- end }}
+
+  {{- end }}
+  {{- if $tls  }}
+  tls:
+  - hosts:
+      {{- range $app := .Values.apps }}
+          {{- if $app.harness.subdomain }}
+      - {{ printf "%s.%s" $app.harness.subdomain $domain | quote }}
+          {{- end }}
+          {{- if  $app.harness.domain  }}
+          {{- if  ne $app.harness.domain $domain }}
+      - {{ $app.harness.domain | quote }}
+        {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- if $mainapp }}
+      - {{ $domain | quote }}
+      {{- end }}
+    secretName: tls-secret
+  {{- end }}
+{{- end }}

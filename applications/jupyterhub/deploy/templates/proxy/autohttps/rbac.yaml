@@ -1,12 +1,16 @@
-{{- $HTTPS := (and .Values.apps.jupyterhub.proxy.https.hosts (not (not .Values.tls))) }}
+{{- $HTTPS := (and .Values.apps.jupyterhub.proxy.https.hosts .Values.apps.jupyterhub.proxy.https.enabled) }}
 {{- $autoHTTPS := (and $HTTPS (eq .Values.apps.jupyterhub.proxy.https.type "letsencrypt")) }}
 {{- if (and $autoHTTPS .Values.apps.jupyterhub.rbac.enabled) -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: autohttps
+  name: {{ include "jupyterhub.autohttps.fullname" . }}
   labels:
     {{- include "jupyterhub.labels" . | nindent 4 }}
+  {{- with .Values.apps.jupyterhub.proxy.traefik.serviceAccount.annotations }}
+  annotations:
+    {{- . | toYaml | nindent 4 }}
+  {{- end }}
 rules:
 - apiGroups: [""]
   resources: ["secrets"]
@@ -15,22 +19,22 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: autohttps
+  name: {{ include "jupyterhub.autohttps.fullname" . }}
   labels:
     {{- include "jupyterhub.labels" . | nindent 4 }}
 subjects:
 - kind: ServiceAccount
-  name: autohttps
+  name: {{ include "jupyterhub.autohttps.fullname" . }}
   apiGroup:
 roleRef:
   kind: Role
-  name: autohttps
+  name: {{ include "jupyterhub.autohttps.fullname" . }}
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: autohttps
+  name: {{ include "jupyterhub.autohttps.fullname" . }}
   labels:
     {{- include "jupyterhub.labels" . | nindent 4 }}
 {{- end }}

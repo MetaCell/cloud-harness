@@ -1,7 +1,0 @@
-harness:
-  name: "I'm useless"
-  subdomain: mysubdomain
-  dependencies:
-    soft:
-      - legacy
-a: b

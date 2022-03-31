@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: user-scheduler
+  name: {{ include "jupyterhub.user-scheduler-deploy.fullname" . }}
   labels:
     {{- include "jupyterhub.labels" . | nindent 4 }}
 spec:
@@ -13,32 +13,55 @@ spec:
   template:
     metadata:
       labels:
-        {{- /* Changes here will cause the Deployment to restart the pods. */}}
         {{- include "jupyterhub.matchLabels" . | nindent 8 }}
       annotations:
-        # This lets us autorestart when the configmap changes!
-        checksum/config-map: {{ include "configmap.yaml" | sha256sum }}
+        checksum/config-map: {{ include (print $.Template.BasePath "/jupyterhub/scheduling/user-scheduler/configmap.yaml") . | sha256sum }}
     spec:
       {{- if .Values.apps.jupyterhub.rbac.enabled }}
-      serviceAccountName: user-scheduler
+      serviceAccountName: {{ include "jupyterhub.user-scheduler-deploy.fullname" . }}
       {{- end }}
       {{- if .Values.apps.jupyterhub.scheduling.podPriority.enabled }}
-      priorityClassName: {{ .Release.Name }}-default-priority
+      priorityClassName: {{ include "jupyterhub.priority.fullname" . }}
       {{- end }}
       nodeSelector: {{ toJson .Values.apps.jupyterhub.scheduling.userScheduler.nodeSelector }}
+      {{- with concat .Values.apps.jupyterhub.scheduling.corePods.tolerations .Values.apps.jupyterhub.scheduling.userScheduler.tolerations }}
+      tolerations:
+        {{- . | toYaml | nindent 8 }}
+      {{- end }}
       {{- include "jupyterhub.coreAffinity" . | nindent 6 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "jupyterhub.user-scheduler-deploy.fullname" . }}
+      {{- with include "jupyterhub.imagePullSecrets" (dict "root" . "image" .Values.apps.jupyterhub.scheduling.userScheduler.image) }}
+      imagePullSecrets: {{ . }}
+      {{- end }}
       containers:
-        - name: user-scheduler
-          image: {{ include "jupyterhub.scheduler.image" . }}
+        - name: kube-scheduler
+          image: {{ .Values.apps.jupyterhub.scheduling.userScheduler.image.name }}:{{ .Values.apps.jupyterhub.scheduling.userScheduler.image.tag }}
+          {{- with .Values.apps.jupyterhub.scheduling.userScheduler.image.pullPolicy }}
+          imagePullPolicy: {{ . }}
+          {{- end }}
           command:
             - /usr/local/bin/kube-scheduler
-            - --scheduler-name={{ .Release.Name }}-user-scheduler
-            - --policy-configmap=user-scheduler
-            - --policy-configmap-namespace={{ .Release.Namespace }}
-            - --lock-object-name=user-scheduler
-            - --lock-object-namespace={{ .Release.Namespace }}
-            - --leader-elect-resource-lock=configmaps
-            - --v={{ .Values.apps.jupyterhub.scheduling.userScheduler.logLevel | default 4 }}
+            # NOTE: --leader-elect-... (new) and --lock-object-... (deprecated)
+            #       flags are silently ignored in favor of whats defined in the
+            #       passed KubeSchedulerConfiguration whenever --config is
+            #       passed.
+            #
+            # ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kube-scheduler/
+            #
+            # NOTE: --authentication-skip-lookup=true is used to avoid a
+            #       seemingly harmless error, if we need to not skip
+            #       "authentication lookup" in the future, see the linked issue.
+            #
+            # ref: https://github.com/jupyterhub/zero-to-jupyterhub-k8s/issues/1894
+            - --config=/etc/user-scheduler/config.yaml
+            - --authentication-skip-lookup=true
+            - --v={{ .Values.apps.jupyterhub.scheduling.userScheduler.logLevel }}
+          volumeMounts:
+            - mountPath: /etc/user-scheduler
+              name: config
           livenessProbe:
             httpGet:
               path: /healthz
@@ -48,6 +71,15 @@ spec:
             httpGet:
               path: /healthz
               port: 10251
+          {{- with .Values.apps.jupyterhub.scheduling.userScheduler.resources }}
           resources:
-            {{- .Values.apps.jupyterhub.scheduling.userScheduler.resources | toYaml | trimSuffix "\n" | nindent 12 }}
+            {{- . | toYaml | nindent 12 }}
+          {{- end }}
+          {{- with .Values.apps.jupyterhub.scheduling.userScheduler.containerSecurityContext }}
+          securityContext:
+            {{- . | toYaml | nindent 12 }}
+          {{- end }}
+      {{- with .Values.apps.jupyterhub.scheduling.userScheduler.extraPodSpec }}
+      {{- . | toYaml | nindent 6 }}
+      {{- end }}
 {{- end }}

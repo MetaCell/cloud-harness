@@ -12,3 +12,5 @@ deployment
 /build
 skaffold.yaml
 .tox
+.pytest_cache
+.overrides

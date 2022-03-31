@@ -9,17 +9,16 @@ import os
 
 import yaml
 
-
 # memoize so we only load config once
 @lru_cache()
 def _load_config():
-    """Load configuration from disk
+    """Load the Helm chart configuration used to render the Helm templates of
+    the chart from a mounted k8s Secret, and merge in values from an optionally
+    mounted secret (hub.existingSecret)."""
 
-    Memoized to only load once
-    """
     cfg = {}
-    for source in ('config', 'secret'):
-        path = f"/etc/jupyterhub/{source}/values.yaml"
+    for source in ("secret/values.yaml", "existing-secret/values.yaml"):
+        path = f"/usr/local/etc/jupyterhub/{source}"
         if os.path.exists(path):
             print(f"Loading {path}")
             with open(path) as f:
@@ -27,15 +26,57 @@ def _load_config():
             cfg = _merge_dictionaries(cfg, values)
         else:
             print(f"No config at {path}")
-
-    path = f"/etc/jupyterhub/config/allvalues.yaml"
+    path = f"/opt/cloudharness/resources/allvalues.yaml"
     if os.path.exists(path):
-        print("Loading global CloudHarness config")
+        print("Loading global CloudHarness config at", path)
         with open(path) as f:
             values = yaml.safe_load(f)
         cfg = _merge_dictionaries(cfg, values)
-        cfg['root'] = cfg
+        cfg['root'] = values
+
     return cfg
+
+
+@lru_cache()
+def _get_config_value(key):
+    """Load value from the k8s ConfigMap given a key."""
+
+    path = f"/usr/local/etc/jupyterhub/config/{key}"
+    if os.path.exists(path):
+        with open(path) as f:
+            return f.read()
+    else:
+        raise Exception(f"{path} not found!")
+
+
+@lru_cache()
+def get_secret_value(key, default="never-explicitly-set"):
+    """Load value from the user managed k8s Secret or the default k8s Secret
+    given a key."""
+
+    for source in ("existing-secret", "secret"):
+        path = f"/usr/local/etc/jupyterhub/{source}/{key}"
+        if os.path.exists(path):
+            with open(path) as f:
+                return f.read()
+    if default != "never-explicitly-set":
+        return default
+    raise Exception(f"{key} not found in either k8s Secret!")
+
+
+def get_name(name):
+    """Returns the fullname of a resource given its short name"""
+    return _get_config_value(name)
+
+
+def get_name_env(name, suffix=""):
+    """Returns the fullname of a resource given its short name along with a
+    suffix, converted to uppercase with dashes replaced with underscores. This
+    is useful to reference named services associated environment variables, such
+    as PROXY_PUBLIC_SERVICE_PORT."""
+    env_key = _get_config_value(name) + suffix
+    env_key = env_key.upper().replace("-", "_")
+    return os.environ[env_key]
 
 
 def _merge_dictionaries(a, b):
@@ -45,7 +86,6 @@ def _merge_dictionaries(a, b):
     """
     merged = a.copy()
     for key in b:
-
         if key in a:
             if isinstance(a[key], Mapping) and isinstance(b[key], Mapping):
                 merged[key] = _merge_dictionaries(a[key], b[key])
@@ -66,7 +106,7 @@ def get_config(key, default=None):
     """
     value = _load_config()
     # resolve path in yaml
-    for level in key.split('.'):
+    for level in key.split("."):
         if not isinstance(value, dict):
             # a parent is a scalar or null,
             # can't resolve full path

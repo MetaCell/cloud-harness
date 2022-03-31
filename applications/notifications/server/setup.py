@@ -14,7 +14,7 @@ VERSION = "1.0.0"
 # http://pypi.python.org/pypi/setuptools
 
 REQUIRES = [
-    "jinja2<3"
+    "jinja2>=3"
     "python_dateutil>=2.6.0"
 ]
 

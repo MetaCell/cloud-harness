@@ -1,0 +1,28 @@
+# Index of the documentation articles
+- [Create and run a deployment](./build-deploy/README.md)
+  - [Create a codefresh continuous deployment](./build-deploy/codefresh.md)
+  - [Configure the Helm chart](./build-deploy/helm-configuration.md)
+  - [Set up environments](./build-deploy/environments.md)
+  - [Work with local deployments](./build-deploy/local-deploy/README.md)
+    - [Debug your applications](./build-deploy/local-deploy/debug.md)
+    - [Setting up Minikube](./build-deploy/local-deploy/minikube.md)
+- [Create and configure applications](./applications)
+  - [Generate a new application](./applications/harness-application.md)
+  - [Override applications values and files](./applications/overridings.md)
+  - [Configure a database](./applications/databases.md)
+  - [Add configuration files to your application](./applications/resources.md)
+  - [Add and use secrets](./applications/secrets.md)
+  - [Application development](./applications/development)
+    - [Backend development](./applications/development/backend-development.md)
+      - [Run workflows](./applications/development/workflows-api.md)
+    - [Frontend development](./applications/development/frontend-development.md)
+- [Regenerate documentation from Helm values](./docs.md)
+- Specific functionalities and applications
+  - [Accounts: authorization and authorization](./accounts.md)
+  - [Create and monitor Argo workflows](./argo-workflows.md)
+  - [Events queue with Kafka](./events.md)
+  - [User workspaces with JupyterHub](./jupyterhub.md)
+  - [Send errors to Sentry](./sentry.md)
+  - [Use the events queue to send notifications](./notifications.md)
+  
+    

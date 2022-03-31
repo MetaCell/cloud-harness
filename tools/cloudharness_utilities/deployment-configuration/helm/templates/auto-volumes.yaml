@@ -1,0 +1,24 @@
+{{- define "deploy_utils.pvolume" }}
+{{- if or (not (hasKey .app.harness.deployment.volume "auto")) .app.harness.deployment.volume.auto }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .app.harness.deployment.volume.name }}
+  labels:
+    app: {{ .app.harness.deployment.name| quote }}
+spec:
+  storageClassName: standard
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .app.harness.deployment.volume.size }}
+{{- end }}
+---
+{{- end }}
+{{- range $app := .Values.apps }}
+    {{- if and $app.harness.deployment.auto $app.harness.deployment.volume }}
+---
+    {{- include "deploy_utils.pvolume" (dict "root" $ "app" $app) }}
+    {{- end }}
+{{- end }}

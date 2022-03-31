@@ -45,10 +45,11 @@ class ManagedOperation:
             'secondsAfterFailure': 60 * 120
             },
         *args,
+        on_exit_notify=None,
         **kwargs):
         self.name = name
         self.ttl_strategy = ttl_strategy
-        self.on_exit_notify = kwargs.get('on_exit_notify', None)
+        self.on_exit_notify = on_exit_notify
 
     def execute(self, **parameters):
         raise NotImplementedError(f"{self.__class__.__name__} is abstract")
@@ -59,14 +60,36 @@ class ContainerizedOperation(ManagedOperation):
     Abstract Containarized operation based on an argo workflow
     """
 
-    def __init__(self, basename: str, pod_context: PodExecutionContext = None, *args, **kwargs):
+    def __init__(self, basename: str, pod_context: PodExecutionContext = None, shared_directory=None, *args, **kwargs):
         """
         :param basename:
         :param pod_context: PodExecutionContext - represents affinity with other pods in the system
+        :param shared_directory: bool|str|list
         """
         super(ContainerizedOperation, self).__init__(basename, *args, **kwargs)
         self.pod_context = pod_context
         self.persisted = None
+        shared_path = None
+        if shared_directory:
+            if shared_directory is True:
+                self.volumes = ['/mnt/shared']
+                shared_path = '/mnt/shared'
+            elif isinstance(shared_directory, str):
+                self.volumes = [shared_directory]
+                shared_path = shared_directory
+            else:
+                self.volumes = shared_directory
+                assert len(set(shared_directory)) == len(shared_directory), "Shared directories are not unique"
+                assert len(set(s.split(":")[0] for s in shared_directory)) == len(shared_directory), "Shared directories volumes are not unique"
+                
+            if shared_path:
+                for task in self.task_list():
+                    task.add_env('shared_directory', shared_path)
+        else:
+            self.volumes = tuple()
+
+    def task_list(self):
+        raise NotImplementedError()
 
     @property
     def entrypoint(self):
@@ -104,6 +127,11 @@ class ContainerizedOperation(ManagedOperation):
 
         if self.pod_context:
             spec['affinity'] = self.affinity_spec()
+        if self.volumes:
+            spec['volumeClaimTemplates'] = [self.spec_volumeclaim(volume) for volume in self.volumes if
+                                            ':' not in volume]  # without PVC prefix (e.g. /location)
+            spec['volumes'] += [self.spec_volume(volume) for volume in self.volumes if
+                                ':' in volume]  # with PVC prefix (e.g. pvc-001:/location)
         return spec
 
     def affinity_spec(self):
@@ -165,6 +193,12 @@ class ContainerizedOperation(ManagedOperation):
             if 'labels' not in template['metadata']:
                 template['metadata']['labels'] = {}
             template['metadata']['labels'][self.pod_context.key] = self.pod_context.value
+        if self.volumes:
+            if 'container' in template:
+                template['container']['volumeMounts'] += [self.volume_template(volume) for volume in self.volumes]
+            elif 'script' in template:
+                template['script']['volumeMounts'] += [self.volume_template(volume) for volume in self.volumes]
+        
         return template
 
     def submit(self):
@@ -195,6 +229,42 @@ class ContainerizedOperation(ManagedOperation):
     def name_from_path(self, path):
         return path.replace('/', '').replace('_', '').lower()
 
+    def volume_template(self, volume):
+        path = volume
+        if ":" in path:
+            path = volume.split(':')[-1]
+        return dict({'name': self.name_from_path(path), 'mountPath': path})
+        
+    def spec_volumeclaim(self, volume):
+        # when the volume is NOT prefixed by a PVC (e.g. /location) then create a temporary PVC for the workflow
+        if ':' not in volume:
+            return {
+                'metadata': {
+                    'name': self.name_from_path(volume.split(':')[0]),
+                },
+                'spec': {
+                    'accessModes': ["ReadWriteOnce"],
+                    'resources': {
+                        'requests':
+                            {
+                                'storage': f'{self.shared_volume_size}Mi'
+                            }
+                    }
+                }
+            }
+        return {}
+
+    def spec_volume(self, volume):
+        # when the volume is prefixed by a PVC (e.g. pvc-001:/location) then add the PVC to the volumes of the workflow
+        if ':' in volume:
+            pvc, path = volume.split(':')
+            return {
+                'name': self.name_from_path(path),
+                'persistentVolumeClaim': {
+                    'claimName': pvc
+                }
+            }
+        return {}
 
 class SyncOperation(ManagedOperation):
     """A Sync operation returns the result directly with the execute method"""
@@ -229,8 +299,12 @@ class SingleTaskOperation(ContainerizedOperation):
         Using a single task is a simplification we may want to
         :param task:
         """
-        super().__init__(name, *args, **kwargs)
         self.task = task
+        super().__init__(name, *args, **kwargs)
+        
+
+    def task_list(self):
+        return (self.task, )
 
     @property
     def entrypoint(self):
@@ -293,16 +367,11 @@ class CompositeOperation(AsyncOperation):
         :param shared_volume_size: size of the shared volume in MB (if shared_directory is not set, it is ignored)
         :param pod_context: PodExecutionContext - represents affinity with other pods in the system
         """
-        AsyncOperation.__init__(self, basename, pod_context, *args, **kwargs)
         self.tasks = tasks
+        AsyncOperation.__init__(self, basename, pod_context, shared_directory=shared_directory, *args, **kwargs)
+        
 
-        if shared_directory:
-            shared_path = '/mnt/shared' if shared_directory is True else shared_directory
-            self.volumes = (shared_path,)
-            for task in self.task_list():
-                task.add_env('shared_directory', shared_path)
-        else:
-            self.volumes = tuple()
+
         self.shared_volume_size = shared_volume_size
         if len(self.task_list()) != len(set(self.task_list())):
             raise BadOperationConfiguration('Tasks in the same operation must have different names')
@@ -320,56 +389,18 @@ class CompositeOperation(AsyncOperation):
 
     def spec(self):
         spec = super().spec()
-        if self.volumes:
-            spec['volumeClaimTemplates'] = [self.spec_volumeclaim(volume) for volume in self.volumes if
-                                            ':' not in volume]  # without PVC prefix (e.g. /location)
-            spec['volumes'] += [self.spec_volume(volume) for volume in self.volumes if
-                                ':' in volume]  # with PVC prefix (e.g. pvc-001:/location)
+
         return spec
 
     def modify_template(self, template):
         # TODO verify the following condition. Can we mount volumes also with source based templates
         super().modify_template(template)
-        if self.volumes and 'container' in template:
-            template['container']['volumeMounts'] += [self.volume_template(volume) for volume in self.volumes]
+      
         return template
 
-    def volume_template(self, volume):
-        path = volume
-        if ":" in path:
-            path = volume.split(':')[-1]
-        return dict({'name': self.name_from_path(path), 'mountPath': path})
 
-    def spec_volumeclaim(self, volume):
-        # when the volume is NOT prefixed by a PVC (e.g. /location) then create a temporary PVC for the workflow
-        if ':' not in volume:
-            return {
-                'metadata': {
-                    'name': self.name_from_path(volume.split(':')[0]),
-                },
-                'spec': {
-                    'accessModes': ["ReadWriteOnce"],
-                    'resources': {
-                        'requests':
-                            {
-                                'storage': f'{self.shared_volume_size}Mi'
-                            }
-                    }
-                }
-            }
-        return {}
 
-    def spec_volume(self, volume):
-        # when the volume is prefixed by a PVC (e.g. pvc-001:/location) then add the PVC to the volumes of the workflow
-        if ':' in volume:
-            pvc, path = volume.split(':')
-            return {
-                'name': self.name_from_path(path),
-                'persistentVolumeClaim': {
-                    'claimName': pvc
-                }
-            }
-        return {}
+
 
 
 class PipelineOperation(CompositeOperation):

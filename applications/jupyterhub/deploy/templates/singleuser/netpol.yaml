@@ -2,7 +2,7 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: singleuser
+  name: {{ include "jupyterhub.singleuser.fullname" . }}
   labels:
     {{- include "jupyterhub.labels" . | nindent 4 }}
 spec:
@@ -13,32 +13,72 @@ spec:
   policyTypes:
     - Ingress
     - Egress
+
+  # IMPORTANT:
+  # NetworkPolicy's ingress "from" and egress "to" rule specifications require
+  # great attention to detail. A quick summary is:
+  #
+  # 1. You can provide "from"/"to" rules that provide access either ports or a
+  #    subset of ports.
+  # 2. You can for each "from"/"to" rule provide any number of
+  #    "sources"/"destinations" of four different kinds.
+  #    - podSelector                        - targets pods with a certain label in the same namespace as the NetworkPolicy
+  #    - namespaceSelector                  - targets all pods running in namespaces with a certain label
+  #    - namespaceSelector and podSelector  - targets pods with a certain label running in namespaces with a certain label
+  #    - ipBlock                            - targets network traffic from/to a set of IP address ranges
+  #
+  # Read more at: https://kubernetes.io/docs/concepts/services-networking/network-policies/#behavior-of-to-and-from-selectors
+  #
   ingress:
-    - from:
+    {{- with .Values.apps.jupyterhub.singleuser.networkPolicy.allowedIngressPorts }}
+    # allow incoming traffic to these ports independent of source
+    - ports:
+      {{- range $port := . }}
+      - port: {{ $port }}
+      {{- end }}
+    {{- end }}
+
+    # allowed pods (hub.jupyter.org/network-access-singleuser) --> singleuser-server
+    - ports:
+        - port: notebook-port
+      from:
+        # source 1 - labeled pods
         - podSelector:
             matchLabels:
               hub.jupyter.org/network-access-singleuser: "true"
-      ports:
-        - protocol: TCP
-          port: 8888
-    {{- /* Useful if you want to give user server access to pods from other namespaces */}}
-    {{- if .Values.apps.jupyterhub.singleuser.networkPolicy.ingress }}
-    {{- .Values.apps.jupyterhub.singleuser.networkPolicy.ingress | toYaml | trimSuffix "\n" | nindent 4 }}
+        {{- if eq .Values.apps.jupyterhub.singleuser.networkPolicy.interNamespaceAccessLabels "accept" }}
+          namespaceSelector:
+            matchLabels: {}   # without this, the podSelector would only consider pods in the local namespace
+        # source 2 - pods in labeled namespaces
+        - namespaceSelector:
+            matchLabels:
+              hub.jupyter.org/network-access-singleuser: "true"
+        {{- end }}
+
+    {{- with .Values.apps.jupyterhub.singleuser.networkPolicy.ingress }}
+    # depends, but default is nothing --> singleuser-server
+    {{- . | toYaml | nindent 4 }}
     {{- end }}
+
   egress:
-    - to:
+    # singleuser-server --> hub
+    - ports:
+        - port: 8081
+      to:
         - podSelector:
             matchLabels:
-              {{- /*
-              Override componentLabel because we need the label of the
-              destination, not the source
-              */}}
               {{- $_ := merge (dict "componentLabel" "hub") . }}
               {{- include "jupyterhub.matchLabels" $_ | nindent 14 }}
-      ports:
+
+    # singleuser-server --> Kubernetes internal DNS
+    - ports:
+        - protocol: UDP
+          port: 53
         - protocol: TCP
-          port: 8081
-    {{- if .Values.apps.jupyterhub.singleuser.networkPolicy.egress }}
-    {{- .Values.apps.jupyterhub.singleuser.networkPolicy.egress | toYaml | trimSuffix "\n" | nindent 4 }}
+          port: 53
+
+    {{- with .Values.apps.jupyterhub.singleuser.networkPolicy.egress }}
+    # singleuser-server --> depends, but the default is everything
+    {{- . | toYaml | nindent 4 }}
     {{- end }}
 {{- end }}
