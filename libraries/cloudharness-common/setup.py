@@ -40,5 +40,5 @@ setup(
     long_description="""\
     Cloudharness common library
     """,
-    python_requires='>=3.7.9, <=3.9.10'
+    python_requires='>=3.9'
 )
