@@ -20,7 +20,7 @@ ecdsa==0.17.0
 filelock==3.6.0
 flake8==4.0.1
 Flask==1.1.2
-Flask-Cors==3.0.8
+Flask-Cors==3.0.9
 flask-oidc==1.4.0
 Flask-SQLAlchemy==2.4.1
 Flask-Testing==0.6.1
