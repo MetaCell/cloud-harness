@@ -42,5 +42,5 @@ setup(
     long_description="""\
     MetaCell Neuroscience Platform - CloudHarness deploy library
     """,
-    python_requires='>=3.7.9, <=3.9.10'
+    python_requires='>=3.7.9, <3.10'
 )
