@@ -1,4 +1,4 @@
-ARG PARENT=python:3.7.6
+ARG PARENT=python:3.9.10
 FROM ${PARENT}
 
 COPY libraries/models/requirements.txt /libraries/models/requirements.txt
