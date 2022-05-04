@@ -5,3 +5,4 @@ py==1.11.0
 pyparsing==3.0.8
 pytest==7.1.2
 pytest-cov==3.0.0
+-e .
