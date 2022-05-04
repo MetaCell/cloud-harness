@@ -40,6 +40,7 @@ setup(
     include_package_data=True,
     scripts=['harness-deployment', 'harness-generate', 'harness-application'],
     long_description="""\
-    CloudHarness deploy library
-    """
+    MetaCell Neuroscience Platform - CloudHarness deploy library
+    """,
+    python_requires='>=3.9'
 )

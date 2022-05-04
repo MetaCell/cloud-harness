@@ -38,5 +38,6 @@ setup(
     license="UNLICENSED",
     long_description="""\
     CloudHarness Python API Client  # noqa: E501
-    """
+    """,
+    python_requires='>=3.9'
 )
