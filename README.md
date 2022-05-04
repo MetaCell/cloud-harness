@@ -66,7 +66,7 @@ Cloudharness can be used on all major operative systems.
 - Windows native: mostly working, unsupported  
 
 ### Python
-Python 3.7+ must be installed.
+Python 3.7-3.9 must be installed.
 
 It is recommended to setup a virtual environment.
 With conda: 

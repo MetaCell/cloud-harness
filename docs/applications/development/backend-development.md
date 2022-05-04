@@ -68,7 +68,43 @@ def info_from_bearerAuth(token):
 
 #### Using the AuthClient
 
-TODO
+The Cloudharness AuthClient is a handy wrapper for the Keycloak REST API.
+This wrapper class can be used to retrieve the current user of the http(s) request
+or to retrieve the Keycloak groups with all users etc.
+
+All functions of the AuthClient class are wrapped by the `with_refreshtoken` decorator
+to auto refresh the token in case the token is expired. There is no need to manually
+refresh the token.
+
+`AuthClient` uses the `admin_api` account to log in into the Keycloak admin REST api
+the password is stored in the `accounts` secret and is retrieve using the Cloudharness
+`get_secret` function (imported from `cloudharness.utils.secrets`)
+
+<br/>
+
+For more information about the usage of the `AuthClient` see the Python doc strings
+
+<br/>
+
+**Important note:**
+
+it is mandatory that the application deployment has a hard dependency to the 
+`accounts` application. This dependency will mount the accounts secret to the pods.
+
+<br/>
+
+Examples:
+```python
+from cloudharness.auth.keycloak import AuthClient
+
+ac = AuthClient()
+
+def example1():
+  current_user = ac.get_current_user()
+
+def exampl2():
+  all_groups = ac.get_groups(with_members=True)
+```
 
 
 ### Run workflows
