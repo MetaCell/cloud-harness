@@ -13,6 +13,8 @@ def test_helm_values_deserialize():
     v = HarnessMainConfig.from_dict(values)
 
     assert v.domain
+
+    assert v.apps.accounts
     assert v.apps["accounts"].harness.deployment.name == "accounts"
 
     app = ApplicationConfig.from_dict(values["apps"]["accounts"])

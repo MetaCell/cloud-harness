@@ -10,7 +10,14 @@ class ConfigurationCallException(Exception):
 
 class ApplicationConfiguration(ApplicationConfig):
 
+    def __new__(cls, *args, **kwargs):
+        if len(args) == 1 and type(args[0]) == dict:
+            return ApplicationConfiguration.from_dict(args[0])
+        return super().__new__(cls, *args, **kwargs)
+
     def __init__(self, *args, **kargs):
+        if len(args) == 1 and type(args[0]) == dict:
+            return
         ApplicationConfig.__init__(self, *args, **kargs)
         self.__conf = None
 

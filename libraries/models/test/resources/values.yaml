@@ -134,6 +134,9 @@ apps:
     autodeploy: overridden
     name: accounts
     port: overridden
+    testlist:
+    - a: 1
+    - a: 2
     resources: *id001
   argo:
     harness:

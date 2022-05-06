@@ -23,6 +23,9 @@ conf_1 = {
             'image': 'image1-name'
         },
         'sentry': True
+    },
+    "freefield": {
+        "a": 1
     }
 }
 
@@ -74,6 +77,7 @@ def test_get_configuration():
         'a': conf_1,
         'b': conf_2
     }
+
     uut = get_configuration('app1')
     assert uut.harness.name == 'app1'
     assert uut.is_auto_service()
@@ -82,11 +86,20 @@ def test_get_configuration():
     assert uut.image_name == 'image1-name'
     assert uut.get_public_address() == "https://myapp.cloudharness.metacell.us"
     assert uut.get_service_address() == "http://app1.ch:9000"
+    assert uut["freefield"]["a"] == 1
+    assert uut["freefield"].a == 1
+    assert uut["freefield.a"] == 1
+    
+    
+    assert uut.freefield.a == 1
+
     uut = get_configuration('app2')
+
     assert uut.name == 'app2'
     assert not uut.is_auto_service()
     assert not uut.is_auto_deployment()
     assert uut.is_sentry_enabled()
+
 
     
 

@@ -28,16 +28,33 @@ class Model(object):
     @classmethod
     def from_dict(cls: typing.Type[T], dikt) -> T:
         """Returns the dict as a model"""
+        
         obj = util.deserialize_model(dikt, cls)
         return obj
 
     def toJSON(self):
         return json.dumps(self.to_dict())
 
-    def __getitem__(self, key):
-        if hasattr(self, key):
+    def __getattr__(self, key: str) -> typing.Any:
+        try:
+            return self.get_from_raw(key)
+        except KeyError:
+            raise AttributeError(key)
+
+    def __getitem__(self, key: str):
+        if "." not in key:
             return getattr(self, key)
-        return self._raw_dict[key]
+        keys = key.split(".")
+        return self[keys[0]][key[len(keys[0]) + 1::]]
+    
+    def get_from_raw(self, key):
+        item = self._raw_dict[key]
+        if type(item) == dict:
+            return Model.from_dict(item)
+        elif type(item) in [list, tuple]:
+            return [Model.from_dict(i) for i in item]
+        return item
+
     
     def __setitem__(self, key, value):
         if hasattr(self, key):
@@ -117,3 +134,18 @@ class Model(object):
     def __ne__(self, other):
         """Returns true if both objects are not equal"""
         return not self == other
+
+    def __iter__(self):
+        return iter(self._raw_dict)
+
+    def __len__(self):
+        return len(self._raw_dict)
+
+    def values(self):
+        return self._raw_dict.values()
+
+    def keys(self):
+        return self._raw_dict.keys()
+
+    def items(self):
+        return self._raw_dict.items()

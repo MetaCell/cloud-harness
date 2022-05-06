@@ -106,7 +106,7 @@ def deserialize_model(data, klass):
     :return: model object.
     """
 
-    if isinstance(data, klass) or not hasattr(klass, "__call__"):
+    if isinstance(data, klass) or not klass or not hasattr(klass, "__call__"):
         return data
     try:
         instance = klass()
@@ -114,7 +114,7 @@ def deserialize_model(data, klass):
         raise
     instance._raw_dict = data
 
-    if not instance.openapi_types or isinstance(data, klass):
+    if not hasattr(instance, "openapi_types") or isinstance(data, klass):
         return data
     if data is None:
         return instance
@@ -136,15 +136,10 @@ def deserialize_model(data, klass):
                     except:
                         logging.warning(
                             "Deserialization error: could not set attribute `%s` to value `%s` in class `%s`.", attr, value, klass.__name__)
-                        setattr(instance, attr, value)
+                        from .models.base_model_ import Model
+                        setattr(instance, attr, Model.from_dict(value))
                         logging.debug("Instance is %s", instance, exc_info=True)
-                else:
-                    try:
-                        setattr(instance, attr, value)
-                    except:
-                        logging.warning(
-                            "Deserialization error: could not set attribute `%s` to value `%s` in class `%s`.", attr, value, klass.__name__)
-                        logging.debug("Instance is %s", instance, exc_info=True)
+        
     except Exception as e:
         logging.error("Deserialize error", exc_info=True)
         raise DeserializationException(
@@ -173,5 +168,6 @@ def _deserialize_dict(data, boxed_type):
     :return: deserialized dict.
     :rtype: dict
     """
-    return {k: _deserialize(v, boxed_type)
-            for k, v in six.iteritems(data)}
+    from cloudharness_model.models.base_model_ import Model
+    return Model.from_dict({k: _deserialize(v, boxed_type)
+            for k, v in six.iteritems(data)})

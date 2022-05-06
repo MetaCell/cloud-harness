@@ -115,8 +115,8 @@ class DatabaseDeploymentConfig(Model):
         :param type: The type of this DatabaseDeploymentConfig.
         :type type: str
         """
-        if type is not None and not re.search(r'^(mongo|postgres|neo4j)$', type):  # noqa: E501
-            raise ValueError("Invalid value for `type`, must be a follow pattern or equal to `/^(mongo|postgres|neo4j)$/`")  # noqa: E501
+        if type is not None and not re.search(r'^(mongo|postgres|neo4j|sqlite3)$', type):  # noqa: E501
+            raise ValueError("Invalid value for `type`, must be a follow pattern or equal to `/^(mongo|postgres|neo4j|sqlite3)$/`")  # noqa: E501
 
         self._type = type
 

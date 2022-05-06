@@ -242,7 +242,7 @@ components:
               Define the database type.
 
               One of (mongo, postgres, neo4j)
-            pattern: ^(mongo|postgres|neo4j)$
+            pattern: ^(mongo|postgres|neo4j|sqlite3)$
             type: string
             example: '"neo4j"'
           size:
