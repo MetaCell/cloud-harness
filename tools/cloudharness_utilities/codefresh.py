@@ -195,7 +195,7 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
         dep_list = helm_values.apps[values_key].harness.dependencies.build
         dependencies = [f"{d.upper().replace('-', '_')}=${{{{REGISTRY}}}}/{get_image_name(d, base_name)}:{build['tag']}" for
                         d in dep_list]
-    except KeyError:
+    except (KeyError, AttributeError):
         dependencies = [f"{d.upper().replace('-', '_')}=${{{{REGISTRY}}}}/{get_image_name(d, base_name)}:{build['tag']}" for
                         d in helm_values['task-images']]
     build['build_arguments'].extend(dependencies)
