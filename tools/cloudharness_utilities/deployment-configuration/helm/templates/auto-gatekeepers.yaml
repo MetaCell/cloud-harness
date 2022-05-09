@@ -90,6 +90,7 @@ metadata:
   name: "{{ .app.harness.service.name }}-gk"
   labels:
     app: "{{ .app.harness.service.name }}-gk"
+  
 spec:
   replicas: 1
   selector:
@@ -97,6 +98,8 @@ spec:
       app: "{{ .app.harness.service.name }}-gk"
   template:
     metadata:
+      annotations:
+        checksum/config: {{ .app.harness.uri_role_mapping | toString | sha256sum }}
       labels:
         app: "{{ .app.harness.service.name }}-gk"
     spec:
