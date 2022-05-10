@@ -44,35 +44,6 @@
         "resetPasswordAllowed": true,
         "editUsernameAllowed": true,
         "users": [
-            {
-                "username": "keycloak",
-                "enabled": true,
-                "credentials": [
-                    {
-                        "type": "password",
-                        "value": "test"
-                    }
-                ],
-                "realmRoles": [
-                    "offline_access"
-                ]
-            },
-            {
-                "username": "test",
-                "enabled": true,
-                "credentials": [
-                    {
-                        "type": "password",
-                        "value": "test"
-                    }
-                ],
-                "realmRoles": [
-                    "offline_access"
-                ],
-                "clientRoles": {
-                    "samples": ["role1"]
-                } 
-            },
             {{- range $app := .Values.apps }}
               {{- if (hasKey $app.harness "accounts")  }}
                 {{- range $i, $user := $app.harness.accounts.users }}{{if $i}},{{end}}
