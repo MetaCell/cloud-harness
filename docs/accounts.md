@@ -28,3 +28,40 @@ harness:
 ```
 
 See the [Gogatekeeper official documentation](https://github.com/gogatekeeper/gatekeeper/blob/master/docs/user-guide.md) for more.
+
+## Configure default test users and client roles
+
+Test users and client roles can be added on each application's `values.yaml` file.
+
+Example:
+
+```yaml
+harness:
+  name: myapp
+  accounts:
+    roles:
+    - role1
+    - role2
+    - role3
+    users:
+    - username: sample@testuser.com
+      clientRoles:
+      - role1
+      realmRoles:
+      - offline_access
+    - username: samples-test-user2
+      email: sample2@testuser.com
+      password: test1
+      clientRoles:
+      - role1
+      realmRoles:
+      - offline_access
+```
+
+The above configuration will create 3 client roles under the "myapp" client and 2 users.
+
+---
+**NOTE**
+Users and client roles are defined as a one-off initialization: they
+can be configured only on a new deployment and cannot be updated.
+---

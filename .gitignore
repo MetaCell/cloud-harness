@@ -14,3 +14,4 @@ skaffold.yaml
 .tox
 .pytest_cache
 .overrides
+deployment.yaml
