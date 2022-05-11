@@ -9,9 +9,9 @@ harness:
   dependencies:
     # -- Hard dependencies indicate that the application may not start without these other applications.
     hard: []
-    # -- Hard dependencies indicate that the application will work partially without these other applications.
+    # -- Soft dependencies indicate that the application will work partially without these other applications.
     soft: []
-    # -- Hard dependencies indicate that the application Docker image build requires these base/common images
+    # -- Build dependencies indicate that the application Docker image build requires these base/common images
     build: []
   # -- When true, the application is shielded with a getekeeper
   secured: false

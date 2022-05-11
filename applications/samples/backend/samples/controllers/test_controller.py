@@ -1,3 +1,4 @@
+from cloudharness.models import User
 import connexion
 import six
 
@@ -25,3 +26,6 @@ def ping():  # noqa: E501
     """
     import time
     return time.time()
+
+def serialization():
+    return User(last_name="Last", first_name="First")

@@ -20,6 +20,7 @@ REQUIREMENTS = [
     'requests>=2.21.0',
     'sentry-sdk[flask]>=0.14.4',
     'python-keycloak',
+    'cloudharness_model',
     'argo-workflows==5.0.0',
     'cachetools'
 ]
@@ -39,6 +40,5 @@ setup(
     package_data={'': ['*.yaml']},
     long_description="""\
     Cloudharness common library
-    """,
-    python_requires='>=3.9'
+    """
 )

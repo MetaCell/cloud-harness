@@ -94,7 +94,7 @@ With conda:
 To use the cli tools, install requirements first:
 
 ```bash
-source install.sh
+bash install.sh
 ```
 ### Generate deployment
 

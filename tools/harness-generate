@@ -7,7 +7,7 @@ import sys
 import logging
 
 from cloudharness_utilities.openapi import LIB_NAME, generate_python_client, generate_server, get_dependencies, \
-    generate_ts_client
+    generate_ts_client, generate_model
 from cloudharness_utilities.utils import copymergedir
 
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -149,6 +149,9 @@ if __name__ == "__main__":
     root_path = os.path.join(os.getcwd(), args.path) if not os.path.isabs(args.path) else args.path
 
     get_dependencies()
+    if not args.interactive or input("Do you want to generate the main model? [Y/n]").upper() != 'N':
+        generate_model()
+
     generate_servers(root_path, interactive=args.interactive)
 
     generate_clients(root_path, args.client_name, interactive=args.interactive)

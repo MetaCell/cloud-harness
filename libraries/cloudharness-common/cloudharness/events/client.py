@@ -2,11 +2,13 @@ import os
 import sys
 import threading
 import time
-import traceback
+from typing import List, Generator
 import logging
 
 from time import sleep
-from json import dumps, loads
+from cloudharness import json, dumps
+
+from cloudharness_model.util import DeserializationException
 from keycloak.exceptions import KeycloakGetError
 from kafka import KafkaProducer, KafkaConsumer
 from kafka.admin import KafkaAdminClient, NewTopic
@@ -18,6 +20,7 @@ from cloudharness.auth.keycloak import AuthClient
 from cloudharness.errors import *
 from cloudharness.utils import env
 from cloudharness.utils.config import CloudharnessConfig as config
+from cloudharness.models import CDCEvent
 
 logging.getLogger('kafka').setLevel(logging.ERROR)
 
@@ -50,7 +53,7 @@ class EventClient:
                              auto_offset_reset='earliest',
                              enable_auto_commit=True,
                              group_id=group_id,
-                             value_deserializer=lambda x: loads(x.decode('utf-8')))
+                             value_deserializer=lambda x: json.loads(x.decode('utf-8')))
 
 
     def create_topic(self):
@@ -144,7 +147,7 @@ class EventClient:
             fargs = []
             for a in func_args:
                 try:
-                    fargs.append(loads(dumps(a)))
+                    fargs.append(json.loads(dumps(a)))
                 except Exception as e:
                     # argument can't be serialized
                     pass
@@ -154,7 +157,7 @@ class EventClient:
             for kwa, kwa_val in func_kwargs.items():
                 try:
                     fkwargs.append({
-                        kwa: loads(dumps(kwa_val))
+                        kwa: json.loads(dumps(kwa_val))
                     })
                 except Exception as e:
                     # keyword argument can't be serialized
@@ -162,7 +165,7 @@ class EventClient:
 
             # send the message
             ec.produce(
-                {
+                CDCEvent.from_dict({
                     "meta": {
                         "app_name": CURRENT_APP_NAME,
                         "user": user,
@@ -175,11 +178,33 @@ class EventClient:
                     "operation": operation,
                     "uid": resource_id,
                     "resource": resource
-                }
+                })
             )
             log.info(f"sent cdc event {message_type} - {operation} - {resource_id}")
         except Exception as e:
             log.error('send_event error.', exc_info=True)
+
+
+    def consume_all_cdc(self, group_id='default') -> Generator[CDCEvent, None, None]:
+        """
+        Return a list of object modification messages published in the topic
+        """
+
+        consumer = self._get_consumer(group_id)
+        try:
+            for topic in consumer.poll(10000).values():
+                for record in topic:
+                    try:
+                        if "operation" in record.value:
+                            yield CDCEvent.from_dict(record.value)
+                    except DeserializationException as e:
+                        log.error("Message is not in the proper CDC format: %s", record.value)
+                        continue
+        except Exception as e:
+            log.error(f"Error trying to consume all from topic {self.topic_id} --> {e}", exc_info=True)
+            raise EventTopicConsumeException from e
+        finally:
+            consumer.close()
 
     def consume_all(self, group_id='default') -> list:
         ''' Return a list of messages published in the topic '''

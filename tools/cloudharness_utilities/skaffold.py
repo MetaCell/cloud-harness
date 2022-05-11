@@ -5,6 +5,7 @@ import time
 import shutil
 
 from os.path import join, dirname, relpath, basename
+from cloudharness_model.models.harness_main_config import HarnessMainConfig
 
 from cloudharness_utilities.constants import APPS_PATH, HELM_CHART_PATH, DEPLOYMENT_CONFIGURATION_PATH, DEPLOYMENT_PATH, \
     BASE_IMAGES_PATH, STATIC_IMAGES_PATH
@@ -17,21 +18,20 @@ def relpath_if(p1, p2):
         return p1
     return relpath(p1, p2)
 
-def create_skaffold_configuration(root_paths, helm_values, output_path='.', manage_task_images=True):
+def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, output_path='.', manage_task_images=True):
     skaffold_conf = get_template('skaffold-template.yaml', True)
-    apps = helm_values[KEY_APPS]
-    base_image_name = helm_values['registry'].get(
-        'name', '') + helm_values['name']
+    apps = helm_values.apps
+    base_image_name = (helm_values.registry.name or "") + helm_values.name
     artifacts = {}
     overrides = {}
     release_config = skaffold_conf['deploy']['helm']['releases'][0]
-    release_config['name'] = helm_values['namespace']
-    release_config['namespace'] = helm_values['namespace']
+    release_config['name'] = helm_values.namespace
+    release_config['namespace'] = helm_values.namespace
 
 
 
     def remove_tag(image_name):
-        return image_name[0:-len(str(helm_values['tag']))-1]
+        return image_name[0:-len(helm_values.tag)-1]
 
     def get_image_tag(name):
         return f"{get_image_name(name, base_image_name)}"
@@ -45,8 +45,8 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
             'docker': {
                 'dockerfile': join(dockerfile_path, 'Dockerfile'),
                 'buildArgs': {
-                    'REGISTRY': helm_values["registry"]["name"],
-                    'TAG': helm_values["tag"],
+                    'REGISTRY': helm_values.registry.name,
+                    'TAG': helm_values.tag,
                     'NOCACHE': str(time.time())
                 },
                 'ssh': 'default'
@@ -63,7 +63,7 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
     def process_build_dockerfile(dockerfile_path, root_path, global_context=False, requirements=None, app_name=None):
         if app_name is None:
             app_name = app_name_from_path(basename(dockerfile_path))
-        if app_name in helm_values[KEY_TASK_IMAGES] or app_name.replace("-", "_") in helm_values[KEY_APPS]:
+        if app_name in helm_values[KEY_TASK_IMAGES] or app_name.replace("-", "_") in helm_values.apps:
             context_path = relpath_if(root_path, output_path) if global_context else relpath_if(dockerfile_path, output_path)
 
             builds[app_name] = context_path
@@ -121,8 +121,7 @@ def create_skaffold_configuration(root_paths, helm_values, output_path='.', mana
 
                 continue
 
-            build_requirements = apps[app_key][KEY_HARNESS]['dependencies'].get('build', [
-            ])
+            build_requirements = apps[app_key][KEY_HARNESS].dependencies.build
             # app_image_tag = remove_tag(
             #     apps[app_key][KEY_HARNESS][KEY_DEPLOYMENT]['image'])
             # artifacts[app_key] = build_artifact(
@@ -165,14 +164,14 @@ def create_vscode_debug_configuration(root_paths, helm_values):
     vscode_launch_path = '.vscode/launch.json'
 
     vs_conf = get_json_template(vscode_launch_path, True)
-    base_image_name = helm_values['name']
+    base_image_name = helm_values.name
     debug_conf = get_json_template('vscode-debug-template.json', True)
 
     def get_image_tag(name):
         return f"{get_image_name(name, base_image_name)}"
 
-    if helm_values['registry'].get('name', None):
-        base_image_name = helm_values['registry']['name'] + helm_values['name']
+    if helm_values.registry.name:
+        base_image_name = helm_values.registry.name + helm_values.name
     for i in range(len(vs_conf['configurations'])):
         conf = vs_conf['configurations'][i]
         if conf['name'] == debug_conf['name']:
@@ -180,7 +179,7 @@ def create_vscode_debug_configuration(root_paths, helm_values):
             break
     vs_conf['configurations'].append(debug_conf)
 
-    apps = helm_values[KEY_APPS]
+    apps = helm_values.apps
 
     for root_path in root_paths:
         apps_path = os.path.join(root_path, 'applications')
@@ -197,7 +196,7 @@ def create_vscode_debug_configuration(root_paths, helm_values):
                     "image": get_image_tag(app_name),
                     # the double source map doesn't work at the moment. Hopefully will be fixed in future skaffold updates
                     "sourceFileMap": {
-                        f"${{workspaceFolder}}/{app_relative_to_root}": apps[app_key][KEY_HARNESS].get('sourceRoot',
+                        f"${{workspaceFolder}}/{app_relative_to_root}": apps[app_key].harness.get('sourceRoot',
                                                                                                        "/usr/src/app"),
                     }
                 })

@@ -1,4 +1,5 @@
 import os
+from .models import HarnessMainConfig
 import oyaml as yaml
 import yaml.representer
 
@@ -8,7 +9,7 @@ from .constants import CF_STEP_INSTALL, HERE, CF_BUILD_STEP_BASE, CF_BUILD_STEP_
     CF_STEP_PUBLISH, \
     CODEFRESH_PATH, CF_BUILD_PATH, CF_TEMPLATE_PUBLISH_PATH, DEPLOYMENT_CONFIGURATION_PATH, \
     CF_TEMPLATE_PATH, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH, DEPLOYMENT_PATH, EXCLUDE_PATHS
-from .helm import collect_helm_values
+from .helm import KEY_TASK_IMAGES, collect_helm_values
 from .utils import find_dockerfiles_paths, image_name_from_dockerfile_path, \
     get_image_name, get_template, merge_to_yaml_file, dict_merge, app_name_from_path
 
@@ -31,7 +32,7 @@ yaml.add_representer(str, literal_presenter)
 
 def create_codefresh_deployment_scripts(root_paths, env, include=(), exclude=(),
                                         template_name=CF_TEMPLATE_PATH, base_image_name=None,
-                                        values_manual_deploy=None, save=True):
+                                        values_manual_deploy: HarnessMainConfig=None, save=True):
     """
     Entry point to create deployment scripts for codefresh: codefresh.yaml and helm chart
     """
@@ -106,9 +107,9 @@ def create_codefresh_deployment_scripts(root_paths, env, include=(), exclude=(),
                     )
 
         codefresh_build_step_from_base_path(os.path.join(root_path, BASE_IMAGES_PATH), CF_BUILD_STEP_BASE,
-                                            fixed_context=os.path.relpath(root_path, os.getcwd()), include=values_manual_deploy['task-images'].keys())
+                                            fixed_context=os.path.relpath(root_path, os.getcwd()), include=values_manual_deploy[KEY_TASK_IMAGES].keys())
         codefresh_build_step_from_base_path(os.path.join(root_path, STATIC_IMAGES_PATH), CF_BUILD_STEP_STATIC,
-                                            include=values_manual_deploy['task-images'].keys())
+                                            include=values_manual_deploy[KEY_TASK_IMAGES].keys())
         codefresh_build_step_from_base_path(os.path.join(root_path, APPS_PATH), CF_BUILD_STEP_PARALLEL)
 
     # Remove useless steps
@@ -121,10 +122,10 @@ def create_codefresh_deployment_scripts(root_paths, env, include=(), exclude=(),
     if deployment_step:
         environment = deployment_step.get("environment")
         if environment:
-            for app_name, app in values_manual_deploy["apps"].items():
-                if app.get("harness") and app["harness"].get("secrets"):
+            for app_name, app in values_manual_deploy.apps.items():
+                if app.harness.secrets:
                     app_name = app_name.replace("_", "__")
-                    for secret in [secret[0] for secret in app["harness"].get("secrets").items() if secret[1]]:
+                    for secret in [secret[0] for secret in app.harness.secrets.items() if secret[1]]:
                         secret_name = secret.replace("_", "__")
                         environment.append(
                             "CUSTOM_apps_%s_harness_secrets_%s=${{%s}}" % (app_name, secret_name, secret_name.upper()))
@@ -169,7 +170,7 @@ def app_specific_tag_variable(app_name):
     return "${{ %s }}_${{DEPLOYMENT_PUBLISH_TAG}}" % app_name.replace('-', '_').upper()
 
 
-def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Dockerfile", base_name=None, helm_values={}):
+def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Dockerfile", base_name=None, helm_values: HarnessMainConfig={}):
     logging.info('Generating build script for ' + app_name)
     title = app_name.capitalize().replace('-', ' ').replace('/', ' ').replace('.', ' ').strip()
     build = codefresh_template_spec(
@@ -191,10 +192,10 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
 
     values_key = app_name.replace('-', '_')
     try:
-        dep_list = helm_values['apps'][values_key]['harness']['dependencies']['build']
+        dep_list = helm_values.apps[values_key].harness.dependencies.build
         dependencies = [f"{d.upper().replace('-', '_')}=${{{{REGISTRY}}}}/{get_image_name(d, base_name)}:{build['tag']}" for
                         d in dep_list]
-    except KeyError:
+    except (KeyError, AttributeError):
         dependencies = [f"{d.upper().replace('-', '_')}=${{{{REGISTRY}}}}/{get_image_name(d, base_name)}:{build['tag']}" for
                         d in helm_values['task-images']]
     build['build_arguments'].extend(dependencies)

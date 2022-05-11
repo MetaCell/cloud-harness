@@ -15,6 +15,8 @@ from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, 
     get_template, merge_configuration_directories, merge_to_yaml_file, dict_merge, app_name_from_path, \
     find_dockerfiles_paths
 
+from .models import HarnessMainConfig
+
 KEY_HARNESS = 'harness'
 KEY_SERVICE = 'service'
 KEY_DATABASE = 'database'
@@ -33,7 +35,7 @@ def deploy(namespace, output_path='./deployment'):
 
 def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True,
                  output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
-                 namespace=None):
+                 namespace=None)  -> HarnessMainConfig:
     return CloudHarnessHelm(root_paths, tag=tag, registry=registry, local=local, domain=domain, exclude=exclude, secured=secured,
                  output_path=output_path, include=include, registry_secret=registry_secret, tls=tls, env=env,
                  namespace=namespace).process_values()
@@ -92,7 +94,7 @@ class CloudHarnessHelm:
                 chart_idx_content = yaml.safe_load(f)
             helm_values['name'] = chart_idx_content['name'].lower()
 
-    def process_values(self):
+    def process_values(self) -> HarnessMainConfig:
         """
         Creates values file for the helm chart
         """
@@ -132,7 +134,7 @@ class CloudHarnessHelm:
             merge_to_yaml_file({'metadata': {'namespace': self.namespace},
                                 'name': helm_values['name']}, self.helm_chart_path)
         validate_helm_values(merged_values)
-        return merged_values
+        return HarnessMainConfig.from_dict(merged_values)
 
     def __process_applications(self, helm_values, base_image_name):
         for root_path in self.root_paths:
