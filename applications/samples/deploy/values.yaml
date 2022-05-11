@@ -1,6 +1,6 @@
 harness:
   subdomain: samples
-  secured: false
+  secured: true
   sentry: true
   port: 80
   service:
@@ -9,6 +9,13 @@ harness:
   deployment:
     auto: true
     port: 8080
+  uri_role_mapping:
+    - uri: /
+      white-listed: true
+    - uri: /api/ui
+      white-listed: true
+    - uri: /api/error
+      white-listed: true
   env:
     - name: WORKERS
       value: "3"
