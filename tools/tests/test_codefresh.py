@@ -34,7 +34,7 @@ def test_create_codefresh_configuration():
                       for app in values['apps'].values() if 'harness' in app]
 
     cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
-                                             env="dev",
+                                             envs=["dev"],
                                              base_image_name=values['name'],
                                              values_manual_deploy=values, save=False)
 
@@ -57,7 +57,7 @@ def test_create_codefresh_configuration():
     
 
     step = steps["cloudharness-base"]
-    assert step['working_directory'] == BUILD_MERGE_DIR
+    assert step['working_directory'] == BUILD_MERGE_DIR, "Overridden base images should build inside the merge directory"
     assert os.path.samefile(os.path.join(step['working_directory'], step['dockerfile']), os.path.join(step['working_directory'], BASE_IMAGES_PATH, "cloudharness-base", "Dockerfile"))
     
 
@@ -106,4 +106,41 @@ def test_create_codefresh_configuration():
     assert os.path.samefile(step['working_directory'], os.path.join(
         BUILD_MERGE_DIR, APPS_PATH, "workflows/tasks/notify-queue"))
 
+    shutil.rmtree(BUILD_MERGE_DIR)
+
+
+def test_create_codefresh_configuration_multienv():
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['samples', 'myapp', "workflows"],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env=['dev', 'test'],
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+
+    root_paths = preprocess_build_overrides(
+        root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+        helm_values=values,
+        merge_build_path=BUILD_MERGE_DIR
+    )
+
+    build_included = [app['harness']['name']
+                      for app in values['apps'].values() if 'harness' in app]
+
+    cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                             envs=['dev', 'test'],
+                                             base_image_name=values['name'],
+                                             values_manual_deploy=values, save=False)
+
+    assert cf['test_step'] == 'test'
+    assert cf['test'] == True
+    assert cf['dev'] == True
+    for cmd in cf['steps']['prepare_deployment']['commands']:
+        if 'harness-deployment' in cmd:
+            assert '-e dev-test' in cmd
     shutil.rmtree(BUILD_MERGE_DIR)

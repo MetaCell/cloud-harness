@@ -15,3 +15,4 @@ skaffold.yaml
 .pytest_cache
 .overrides
 deployment.yaml
+/deployment-configuration

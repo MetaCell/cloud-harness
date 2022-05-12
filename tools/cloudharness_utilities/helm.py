@@ -33,12 +33,16 @@ def deploy(namespace, output_path='./deployment'):
     subprocess.run(
         f"helm upgrade {namespace} {helm_path} -n {namespace} --install --reset-values".split())
 
+
 def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True,
-                 output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
-                 namespace=None)  -> HarnessMainConfig:
+                      output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
+                      namespace=None) -> HarnessMainConfig:
+    if (type(env)) == str:
+        env = [env]
     return CloudHarnessHelm(root_paths, tag=tag, registry=registry, local=local, domain=domain, exclude=exclude, secured=secured,
-                 output_path=output_path, include=include, registry_secret=registry_secret, tls=tls, env=env,
-                 namespace=namespace).process_values()
+                            output_path=output_path, include=include, registry_secret=registry_secret, tls=tls, env=env,
+                            namespace=namespace).process_values()
+
 
 class CloudHarnessHelm:
     def __init__(self, root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True,
@@ -106,7 +110,6 @@ class CloudHarnessHelm:
 
         helm_values[KEY_APPS] = {}
 
-        
         base_image_name = helm_values['name']
 
         helm_values[KEY_TASK_IMAGES] = {}
@@ -153,7 +156,8 @@ class CloudHarnessHelm:
         values = {}
 
         for app_path in get_sub_paths(app_base_path):
-            app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
+            app_name = app_name_from_path(
+                os.path.relpath(app_path, app_base_path))
 
             if app_name in self.exclude:
                 continue
@@ -166,6 +170,7 @@ class CloudHarnessHelm:
                 values[app_key], app_values) if app_key in values else app_values
 
         return values
+
     def __init_static_images(self, base_image_name):
         for static_img_dockerfile in self.static_images:
             img_name = image_name_from_dockerfile_path(os.path.basename(
@@ -188,7 +193,7 @@ class CloudHarnessHelm:
                 del helm_values[KEY_TASK_IMAGES][image_name]
 
     def __init_base_images(self, base_image_name):
-        
+
         for root_path in self.root_paths:
             for base_img_dockerfile in self.__find_static_dockerfile_paths(root_path):
                 img_name = image_name_from_dockerfile_path(
@@ -350,7 +355,8 @@ class CloudHarnessHelm:
             values_set_legacy(v)
 
         if self.include:
-            self.include = get_included_with_dependencies(values, set(self.include))
+            self.include = get_included_with_dependencies(
+                values, set(self.include))
             logging.info('Selecting included applications')
 
             for v in [v for v in apps]:
@@ -364,6 +370,7 @@ class CloudHarnessHelm:
                 values[KEY_TASK_IMAGES].update(apps[v][KEY_TASK_IMAGES])
         create_env_variables(values)
         return values, self.include
+
 
 def get_included_with_dependencies(values, include):
     app_values = values['apps'].values()
@@ -452,7 +459,7 @@ def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart):
         shutil.copytree(base_helm_chart, dest_helm_chart_path)
 
 
-def collect_helm_values(deployment_root, env=None):
+def collect_helm_values(deployment_root, env=()):
     """
     Creates helm values from a cloudharness deployment scaffolding
     """
@@ -462,9 +469,9 @@ def collect_helm_values(deployment_root, env=None):
 
     values = get_template(values_template_path)
 
-    if env is not None:
+    for e in env:
         specific_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH,
-                                              f'values-template-{env}.yaml')
+                                              f'values-template-{e}.yaml')
         if os.path.exists(specific_template_path):
             logging.info(
                 "Specific environment values template found: " + specific_template_path)
@@ -495,12 +502,6 @@ def init_app_values(deployment_root, exclude, values={}):
         values[app_key] = dict_merge(values[app_key], overridden_defaults)
 
     return values
-
-
-
-
-
-
 
 
 def values_from_legacy(values):
@@ -545,7 +546,7 @@ def values_set_legacy(values):
         values['resources'] = harness[KEY_DEPLOYMENT]['resources']
 
 
-def create_app_values_spec(app_name, app_path, tag=None, registry='', env=None, base_image_name=None, base_images=[]):
+def create_app_values_spec(app_name, app_path, tag=None, registry='', env=(), base_image_name=None, base_images=[]):
     logging.info('Generating values script for ' + app_name)
 
     specific_template_path = os.path.join(app_path, 'deploy', 'values.yaml')
@@ -556,9 +557,9 @@ def create_app_values_spec(app_name, app_path, tag=None, registry='', env=None, 
     else:
         values = {}
 
-    if env is not None:
+    for e in env:
         specific_template_path = os.path.join(
-            app_path, 'deploy', f'values-{env}.yaml')
+            app_path, 'deploy', f'values-{e}.yaml')
         if os.path.exists(specific_template_path):
             logging.info(
                 "Specific environment values template found: " + specific_template_path)
