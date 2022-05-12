@@ -59,8 +59,9 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
             template_name = f"codefresh-template-{e}.yaml"
             template_path = os.path.join(
                 root_path, DEPLOYMENT_CONFIGURATION_PATH, template_name)
-
-            if os.path.exists(template_path):
+            
+            tpl = get_template(template_path, True)
+            if tpl:
                 logging.info("Codefresh template found: %s", template_path)
                 tpl = get_template(template_path, True)
                 if 'steps' in tpl:
@@ -74,6 +75,8 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         del tpl['steps'][CF_STEP_PUBLISH]
                 codefresh = dict_merge(codefresh, tpl)
 
+            if not 'steps' in codefresh:
+                continue
 
             def codefresh_build_step_from_base_path(base_path, build_step, fixed_context=None, include=include):
 

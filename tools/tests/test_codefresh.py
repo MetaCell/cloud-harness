@@ -45,10 +45,10 @@ def test_create_codefresh_configuration():
     assert step_build_base["type"] == "parallel"
 
     steps = l1_steps["build_base_images"]["steps"]
-    assert len(steps) == 2
-    assert "cloudharness-base" in steps
-    assert "cloudharness-base-debian" not in steps
-    assert "cloudharness-frontend-build" in steps
+    assert len(steps) == 2, "2 base images should be included as dependencies"
+    assert "cloudharness-base" in steps, "cloudharness-base image should be included as dependency"
+    assert "cloudharness-base-debian" not in steps, "cloudharness-base image should not be included"
+    assert "cloudharness-frontend-build" in steps, "cloudharness-frontend-build image should be included as dependency"
 
     step = steps["cloudharness-frontend-build"]
     assert os.path.samefile(step['working_directory'], CLOUDHARNESS_ROOT)
@@ -58,13 +58,16 @@ def test_create_codefresh_configuration():
 
     step = steps["cloudharness-base"]
     assert step['working_directory'] == BUILD_MERGE_DIR, "Overridden base images should build inside the merge directory"
-    assert os.path.samefile(os.path.join(step['working_directory'], step['dockerfile']), os.path.join(step['working_directory'], BASE_IMAGES_PATH, "cloudharness-base", "Dockerfile"))
+    assert os.path.samefile(
+        os.path.join(step['working_directory'], step['dockerfile']), 
+        os.path.join(step['working_directory'], BASE_IMAGES_PATH, "cloudharness-base", "Dockerfile")
+        ), "Not overridden base images should be built from the base directory"
     
 
     steps = l1_steps["build_static_images"]["steps"]
-    assert len(steps) == 2
-    assert "cloudharness-flask" in steps
-    assert "my-common" in steps
+    assert len(steps) == 2, "2 static images should be included as dependencies"
+    assert "cloudharness-flask" in steps, "cloudharness-flask image should be included as dependency"
+    assert "my-common" in steps, "my-common image should be included as dependency"
 
     step = steps["cloudharness-flask"]
     assert step['dockerfile'] == "Dockerfile"
