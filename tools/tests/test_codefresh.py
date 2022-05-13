@@ -34,7 +34,7 @@ def test_create_codefresh_configuration():
                       for app in values['apps'].values() if 'harness' in app]
 
     cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
-                                             env="dev",
+                                             envs=["dev"],
                                              base_image_name=values['name'],
                                              values_manual_deploy=values, save=False)
 
@@ -45,10 +45,10 @@ def test_create_codefresh_configuration():
     assert step_build_base["type"] == "parallel"
 
     steps = l1_steps["build_base_images"]["steps"]
-    assert len(steps) == 2
-    assert "cloudharness-base" in steps
-    assert "cloudharness-base-debian" not in steps
-    assert "cloudharness-frontend-build" in steps
+    assert len(steps) == 2, "2 base images should be included as dependencies"
+    assert "cloudharness-base" in steps, "cloudharness-base image should be included as dependency"
+    assert "cloudharness-base-debian" not in steps, "cloudharness-base image should not be included"
+    assert "cloudharness-frontend-build" in steps, "cloudharness-frontend-build image should be included as dependency"
 
     step = steps["cloudharness-frontend-build"]
     assert os.path.samefile(step['working_directory'], CLOUDHARNESS_ROOT)
@@ -57,14 +57,17 @@ def test_create_codefresh_configuration():
     
 
     step = steps["cloudharness-base"]
-    assert step['working_directory'] == BUILD_MERGE_DIR
-    assert os.path.samefile(os.path.join(step['working_directory'], step['dockerfile']), os.path.join(step['working_directory'], BASE_IMAGES_PATH, "cloudharness-base", "Dockerfile"))
+    assert step['working_directory'] == BUILD_MERGE_DIR, "Overridden base images should build inside the merge directory"
+    assert os.path.samefile(
+        os.path.join(step['working_directory'], step['dockerfile']), 
+        os.path.join(step['working_directory'], BASE_IMAGES_PATH, "cloudharness-base", "Dockerfile")
+        ), "Not overridden base images should be built from the base directory"
     
 
     steps = l1_steps["build_static_images"]["steps"]
-    assert len(steps) == 2
-    assert "cloudharness-flask" in steps
-    assert "my-common" in steps
+    assert len(steps) == 2, "2 static images should be included as dependencies"
+    assert "cloudharness-flask" in steps, "cloudharness-flask image should be included as dependency"
+    assert "my-common" in steps, "my-common image should be included as dependency"
 
     step = steps["cloudharness-flask"]
     assert step['dockerfile'] == "Dockerfile"
@@ -106,4 +109,41 @@ def test_create_codefresh_configuration():
     assert os.path.samefile(step['working_directory'], os.path.join(
         BUILD_MERGE_DIR, APPS_PATH, "workflows/tasks/notify-queue"))
 
+    shutil.rmtree(BUILD_MERGE_DIR)
+
+
+def test_create_codefresh_configuration_multienv():
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['samples', 'myapp', "workflows"],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env=['dev', 'test'],
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+
+    root_paths = preprocess_build_overrides(
+        root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+        helm_values=values,
+        merge_build_path=BUILD_MERGE_DIR
+    )
+
+    build_included = [app['harness']['name']
+                      for app in values['apps'].values() if 'harness' in app]
+
+    cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                             envs=['dev', 'test'],
+                                             base_image_name=values['name'],
+                                             values_manual_deploy=values, save=False)
+
+    assert cf['test_step'] == 'test'
+    assert cf['test'] == True
+    assert cf['dev'] == True
+    for cmd in cf['steps']['prepare_deployment']['commands']:
+        if 'harness-deployment' in cmd:
+            assert '-e dev-test' in cmd
     shutil.rmtree(BUILD_MERGE_DIR)

@@ -47,8 +47,8 @@ if __name__ == "__main__":
                         help='Disable secured gatekeepers access')
     parser.add_argument('-ex', '--exclude', dest='exclude', action="append", default=[],
                         help='Specify application to exclude from the deployment')
-    parser.add_argument('-e', '--env', dest='env', action="store", default=None,
-                        help='Specify the name of the environment (will load values-[ENV].yaml files)')
+    parser.add_argument('-e', '--env', dest='env', action="store", default="",
+                        help='Specify the name of the environment(s) (will load values-[ENV].yaml files). Specify multiple envs with dashes (e.g env1-env2)')
     parser.add_argument('-m', '--merge', dest='merge', action="store", default=None,
                         help='Deprecated -- Merge is now automatic')
 
@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
     root_paths = [os.path.join(os.getcwd(), path) for path in args.paths]
 
-    
+    envs = (args.env.split("-") if "-" in args.env else [args.env])   if args.env else ()
 
     if unknown:
         print('There are unknown args. Make sure to call the script with the accepted args. Try --help')
@@ -86,7 +86,7 @@ if __name__ == "__main__":
             include=args.include,
             registry_secret=args.registry_secret,
             tls=not args.no_tls,
-            env=args.env,
+            env=envs,
             namespace=args.namespace
         )
 
@@ -95,10 +95,10 @@ if __name__ == "__main__":
         build_included = [app['harness']['name']
                           for app in helm_values['apps'].values() if 'harness' in app]
 
-        if args.env:
+        if envs:
 
             create_codefresh_deployment_scripts(root_paths, include=build_included,
-                                                env=args.env,
+                                                envs=envs,
                                                 base_image_name=helm_values['name'],
                                                 values_manual_deploy=helm_values)
 

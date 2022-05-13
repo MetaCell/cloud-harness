@@ -8,3 +8,4 @@ harness:
       - cloudharness-flask
       - my-common
 a: b
+dev: true

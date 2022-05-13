@@ -148,6 +148,16 @@ def test_collect_helm_values_precedence():
     assert values[KEY_APPS]['events']['kafka']['resources']['limits']['memory'] == 'overridden'
     assert values[KEY_APPS]['events']['kafka']['resources']['limits']['cpu'] == 'overridden-prod'
 
+def test_collect_helm_values_multiple_envs():
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
+                               namespace='test', env=['dev', 'test'], local=False, tag=1, include=["myapp"])
+
+    
+    assert values[KEY_APPS]['myapp']['test'] == True, 'values-test not loaded'
+    assert values[KEY_APPS]['myapp']['dev'] == True, 'values-dev not loaded'
+    assert values[KEY_APPS]['myapp']['a'] == 'test', 'values-test not overriding'
+    
+
 
 def test_collect_helm_values_wrong_dependencies_validate():
     try:
