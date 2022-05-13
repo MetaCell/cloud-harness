@@ -1,0 +1,2 @@
+commands:
+  - pytest ./backend/samples/test

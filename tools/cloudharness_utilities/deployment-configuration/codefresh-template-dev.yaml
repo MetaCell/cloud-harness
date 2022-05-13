@@ -2,7 +2,9 @@ version: '1.0'
 stages:
   - prepare
   - build
+  - unittest
   - deploy
+  - qa
   - publish
 steps:
   main_clone:
@@ -45,19 +47,20 @@ steps:
     title: Build base images
     type: parallel
     stage: build
-    steps:
-      REPLACE_ME
+    steps: {}
   build_static_images:
     title: Build static images
     type: parallel
     stage: build
-    steps:
-      REPLACE_ME
+    steps: {}
   build_application_images:
     type: parallel
     stage: build
-    steps:
-      REPLACE_ME
+    steps: {}
+  tests_unit:
+    stage: unittest
+    type: parallel
+    steps: {}
   deployment:
     stage: deploy
     image: codefresh/cfstep-helm:3.6.2
@@ -72,8 +75,12 @@ steps:
       - HELM_REPO_CONTEXT_PATH=
       - TIMEOUT=600s
       - VALUESFILE_values=./deployment/helm/values.yaml
+  tests_api:
+    stage: qa
+    type: parallel
+    steps: {}
+
   publish:
     type: parallel
     stage: publish
-    steps:
-      REPLACE_ME
+    steps: {}

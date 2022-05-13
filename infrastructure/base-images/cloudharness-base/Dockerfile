@@ -7,14 +7,16 @@ RUN apk upgrade
 # Add bash for k8s console
 RUN apk add bash
 # dev tools needed by some python libraries
-RUN apk add gcc libc-dev g++ python3-dev libffi-dev openssl-dev rust musl-dev cargo
+RUN apk add gcc libc-dev g++ python3-dev libffi-dev openssl-dev rust musl-dev cargo 
+
+RUN pip install pytest --no-cache-dir
 
 COPY libraries/models/requirements.txt /libraries/models/requirements.txt
-RUN pip install -r /libraries/models/requirements.txt
+RUN pip install -r /libraries/models/requirements.txt --no-cache-dir
 COPY libraries/cloudharness-common/requirements.txt /libraries/cloudharness-common/requirements.txt
-RUN pip install -r /libraries/cloudharness-common/requirements.txt
+RUN pip install -r /libraries/cloudharness-common/requirements.txt --no-cache-dir
 COPY libraries/client/cloudharness_cli/requirements.txt /libraries/client/cloudharness_cli/requirements.txt
-RUN pip install -r /libraries/client/cloudharness_cli/requirements.txt
+RUN pip install -r /libraries/client/cloudharness_cli/requirements.txt --no-cache-dir
 
 COPY libraries/models /libraries/models
 RUN pip install -e /libraries/models

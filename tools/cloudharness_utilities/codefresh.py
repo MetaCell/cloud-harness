@@ -1,15 +1,16 @@
 import os
 from re import template
+import unittest
 from .models import HarnessMainConfig
 import oyaml as yaml
 import yaml.representer
 
 import logging
 
-from .constants import CF_STEP_INSTALL, HERE, CF_BUILD_STEP_BASE, CF_BUILD_STEP_STATIC, CF_BUILD_STEP_PARALLEL, \
-    CF_STEP_PUBLISH, \
+from .constants import CD_E2E_TEST_STEP, CD_STEP_INSTALL, CD_UNIT_TEST_STEP, HERE, CD_BUILD_STEP_BASE, CD_BUILD_STEP_STATIC, CD_BUILD_STEP_PARALLEL, \
+    CD_STEP_PUBLISH, \
     CODEFRESH_PATH, CF_BUILD_PATH, CF_TEMPLATE_PUBLISH_PATH, DEPLOYMENT_CONFIGURATION_PATH, \
-    CF_TEMPLATE_PATH, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH, DEPLOYMENT_PATH, EXCLUDE_PATHS
+    CF_TEMPLATE_PATH, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH, DEPLOYMENT_PATH, EXCLUDE_PATHS, UNITTEST_FNAME
 from .helm import KEY_TASK_IMAGES, collect_helm_values
 from .utils import find_dockerfiles_paths, image_name_from_dockerfile_path, \
     get_image_name, get_template, merge_to_yaml_file, dict_merge, app_name_from_path
@@ -53,6 +54,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         )
 
     codefresh = {}
+    
 
     for root_path in root_paths:
         for e in envs:
@@ -64,21 +66,14 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
             if tpl:
                 logging.info("Codefresh template found: %s", template_path)
                 tpl = get_template(template_path, True)
-                if 'steps' in tpl:
-                    if codefresh and CF_BUILD_STEP_BASE in codefresh['steps']:
-                        del tpl['steps'][CF_BUILD_STEP_BASE]
-                    if codefresh and CF_BUILD_STEP_STATIC in codefresh['steps']:
-                        del tpl['steps'][CF_BUILD_STEP_STATIC]
-                    if codefresh and CF_BUILD_STEP_PARALLEL in codefresh['steps']:
-                        del tpl['steps'][CF_BUILD_STEP_PARALLEL]
-                    if codefresh and CF_STEP_PUBLISH in codefresh['steps']:
-                        del tpl['steps'][CF_STEP_PUBLISH]
                 codefresh = dict_merge(codefresh, tpl)
 
             if not 'steps' in codefresh:
                 continue
 
-            def codefresh_build_step_from_base_path(base_path, build_step, fixed_context=None, include=include):
+            steps = codefresh['steps']
+
+            def codefresh_steps_from_base_path(base_path, build_step, fixed_context=None, include=include):
 
                 for dockerfile_path in find_dockerfiles_paths(base_path):
                     app_relative_to_root = os.path.relpath(
@@ -86,13 +81,18 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     app_relative_to_base = os.path.relpath(
                         dockerfile_path, base_path)
                     app_name = app_name_from_path(app_relative_to_base)
+
                     if include and not any(
                             f"/{inc}/" in dockerfile_path or dockerfile_path.endswith(f"/{inc}") for inc in include):
+                        # Skip not included apps
                         continue
+
                     if any(inc in dockerfile_path for inc in (list(exclude) + EXCLUDE_PATHS)):
+                        # Skip excluded apps
                         continue
+
                     build = None
-                    if CF_BUILD_STEP_BASE in codefresh['steps']:
+                    if CD_BUILD_STEP_BASE in steps:
                         build = codefresh_app_build_spec(
                             app_name=app_name,
                             app_context_path=os.path.relpath(
@@ -105,25 +105,48 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                             helm_values=values_manual_deploy
                         )
 
-                        if not type(codefresh['steps'][build_step]['steps']) == dict:
-                            codefresh['steps'][build_step]['steps'] = {}
+                        if not type(steps[build_step]['steps']) == dict:
+                            steps[build_step]['steps'] = {}
 
-                        codefresh['steps'][build_step]['steps'][app_name] = build
-                    if CF_STEP_PUBLISH in codefresh['steps']:
-                        if not type(codefresh['steps'][CF_STEP_PUBLISH]['steps']) == dict:
-                            codefresh['steps'][CF_STEP_PUBLISH]['steps'] = {}
-                        codefresh['steps'][CF_STEP_PUBLISH]['steps']['publish_' + app_name] = codefresh_app_publish_spec(
+                        steps[build_step]['steps'][app_name] = build
+
+                        if CD_UNIT_TEST_STEP in steps:
+                            # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step
+                            unittests_spec_path = os.path.join(base_path, app_relative_to_base, "test", UNITTEST_FNAME)
+                            if os.path.exists(unittests_spec_path):
+                                unittest_config = get_template(unittests_spec_path)
+                                steps[CD_UNIT_TEST_STEP]['steps'][app_name] = dict(
+                                    title=f"Unit tests for {app_name}",
+                                    commands=unittest_config['commands'],
+                                    image=f"{build['registry']}/{build['image_name']}:{build['tag']}"
+                                )
+                            
+                            # codefresh_unittest_step_from_base_path(os.path.join(root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
+
+                    if CD_STEP_PUBLISH in steps:
+                        if not type(steps[CD_STEP_PUBLISH]['steps']) == dict:
+                            steps[CD_STEP_PUBLISH]['steps'] = {}
+                        steps[CD_STEP_PUBLISH]['steps']['publish_' + app_name] = codefresh_app_publish_spec(
                             app_name=app_name,
                             build_tag=build and build['tag'],
                             base_name=base_image_name
                         )
 
-            codefresh_build_step_from_base_path(os.path.join(root_path, BASE_IMAGES_PATH), CF_BUILD_STEP_BASE,
+            codefresh_steps_from_base_path(os.path.join(root_path, BASE_IMAGES_PATH), CD_BUILD_STEP_BASE,
                                                 fixed_context=os.path.relpath(root_path, os.getcwd()), include=values_manual_deploy[KEY_TASK_IMAGES].keys())
-            codefresh_build_step_from_base_path(os.path.join(root_path, STATIC_IMAGES_PATH), CF_BUILD_STEP_STATIC,
+            codefresh_steps_from_base_path(os.path.join(root_path, STATIC_IMAGES_PATH), CD_BUILD_STEP_STATIC,
                                                 include=values_manual_deploy[KEY_TASK_IMAGES].keys())
-            codefresh_build_step_from_base_path(os.path.join(
-                root_path, APPS_PATH), CF_BUILD_STEP_PARALLEL)
+            codefresh_steps_from_base_path(os.path.join(
+                root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
+
+           
+            
+            # if CD_API_TEST_STEP in codefresh:
+            #     # Create a run step for each application with tests/api folder using a Python image
+            #     codefresh_api_step_from_base_path(os.path.join(root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
+
+            # if CD_E2E_TEST_STEP in codefresh:
+            #     codefresh_build_e2e_step_from_base_path(os.path.join(root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
 
     if not codefresh:
         logging.warning(
@@ -131,7 +154,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         return
 
     # Remove useless steps
-    codefresh['steps'] = {k: step for k, step in codefresh['steps'].items() if
+    codefresh['steps'] = {k: step for k, step in steps.items() if
                           'type' not in step or step['type'] != 'parallel' or (
                               step['steps'] if 'steps' in step else [])}
 
@@ -148,7 +171,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         environment.append(
                             "CUSTOM_apps_%s_harness_secrets_%s=${{%s}}" % (app_name, secret_name, secret_name.upper()))
 
-    cmds = codefresh['steps']['prepare_deployment']['commands']
+    cmds = steps['prepare_deployment']['commands']
     for i in range(len(cmds)):
         cmds[i] = cmds[i].replace("$ENV", "-".join(envs))
 
