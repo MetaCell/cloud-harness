@@ -1,2 +1,2 @@
 commands:
-  - pytest ./backend/samples/test
+  - pytest /usr/src/app/backend/samples/test
