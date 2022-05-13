@@ -115,10 +115,10 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                             unittests_spec_path = os.path.join(base_path, app_relative_to_base, "test", UNITTEST_FNAME)
                             if os.path.exists(unittests_spec_path):
                                 unittest_config = get_template(unittests_spec_path)
-                                steps[CD_UNIT_TEST_STEP]['steps'][app_name] = dict(
+                                steps[CD_UNIT_TEST_STEP]['steps'][f"{app_name}_ut"] = dict(
                                     title=f"Unit tests for {app_name}",
                                     commands=unittest_config['commands'],
-                                    image=f"{build['registry']}/{build['image_name']}:{build['tag']}"
+                                    image=r"${{REGISTRY}}" + f"/{build['image_name']}:{build['tag']}"
                                 )
                             
                             # codefresh_unittest_step_from_base_path(os.path.join(root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
