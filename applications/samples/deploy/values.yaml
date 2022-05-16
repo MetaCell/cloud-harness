@@ -12,7 +12,7 @@ harness:
   uri_role_mapping:
     - uri: /
       white-listed: true
-    - uri: /api/ui
+    - uri: /api/ui/
       white-listed: true
     - uri: /api/error
       white-listed: true
@@ -23,7 +23,7 @@ harness:
     soft:
       - workflows
       - events
-      - accounts
+      - accounts 
     build:
       - cloudharness-flask
       - cloudharness-frontend-build

@@ -36,7 +36,7 @@ def test_create_codefresh_configuration():
     cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
                                              envs=["dev"],
                                              base_image_name=values['name'],
-                                             values_manual_deploy=values, save=False)
+                                             helm_values=values, save=False)
 
     assert "test_step" in cf
 
@@ -147,7 +147,7 @@ def test_create_codefresh_configuration_multienv():
     cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
                                              envs=['dev', 'test'],
                                              base_image_name=values['name'],
-                                             values_manual_deploy=values, save=False)
+                                             helm_values=values, save=False)
 
     assert cf['test_step'] == 'test'
     assert cf['test'] == True
@@ -155,4 +155,53 @@ def test_create_codefresh_configuration_multienv():
     for cmd in cf['steps']['prepare_deployment']['commands']:
         if 'harness-deployment' in cmd:
             assert '-e dev-test' in cmd
+    
+
+    shutil.rmtree(BUILD_MERGE_DIR)
+
+
+def test_create_codefresh_configuration_e2etests():
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['samples', 'myapp'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env=['dev', 'test'],
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+
+    root_paths = preprocess_build_overrides(
+        root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+        helm_values=values,
+        merge_build_path=BUILD_MERGE_DIR
+    )
+
+    build_included = [app['harness']['name']
+                      for app in values['apps'].values() if 'harness' in app]
+
+    cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                             envs=['dev', 'test'],
+                                             base_image_name=values['name'],
+                                             helm_values=values, save=False)
+
+    # assert 'jest-puppeteer' in values['task-images']
+
+    l1_steps = cf['steps']
+    
+
+    st_build_steps = l1_steps["build_static_images"]["steps"]
+
+    assert "jest-puppeteer" in st_build_steps, "jest-puppeteer image should be built"
+
+    e2e_steps = l1_steps['tests_e2e']['steps']
+
+    assert "samples_e2e_test" in e2e_steps, "samples e2e test step must be included"
+    test_step = e2e_steps["samples_e2e_test"]
+    assert "APP_URL=https://samples.my.local" in test_step['environment'], "APP_URL must be provided as environment variable"
+    assert len(test_step['volumes']) == 1
+    
     shutil.rmtree(BUILD_MERGE_DIR)

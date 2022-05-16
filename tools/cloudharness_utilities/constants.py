@@ -13,6 +13,7 @@ HELM_CHART_PATH = HELM_PATH
 INFRASTRUCTURE_PATH = 'infrastructure'
 STATIC_IMAGES_PATH = os.path.join(INFRASTRUCTURE_PATH, 'common-images')
 BASE_IMAGES_PATH = os.path.join(INFRASTRUCTURE_PATH, 'base-images')
+TEST_IMAGES_PATH = os.path.join(INFRASTRUCTURE_PATH, 'test-images')
 NEUTRAL_PATHS = ('src', 'tasks', 'server', 'backend')
 APPS_PATH = 'applications'
 DEPLOYMENT_PATH = 'deployment'
@@ -42,3 +43,6 @@ CD_STEP_PUBLISH = 'publish'
 BUILD_FILENAMES = ('node_modules',)
 
 UNITTEST_FNAME = 'unit.yaml'
+E2E_TESTS_DIRNAME = 'e2e'
+
+E2E_TEST_IMAGE="jest-puppeteer"

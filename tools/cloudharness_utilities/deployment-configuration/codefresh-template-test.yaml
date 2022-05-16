@@ -1,0 +1,12 @@
+steps:
+  wait_e2e:
+    stage: qa
+    image: codefresh/kubectl
+    commands:
+    - kubectl config get-contexts
+    - kubectl config use-context ${{CLUSTER_NAME}}
+    - kubectl rollout status deployment/samples
+  tests_e2e:
+    stage: qa
+    type: parallel
+    steps: {}
