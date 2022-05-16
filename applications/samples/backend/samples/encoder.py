@@ -1,7 +1,7 @@
 from connexion.apps.flask_app import FlaskJSONEncoder
 import six
 
-from cloudharness_cli.samples.models.base_model_ import Model
+from samples.models.base_model_ import Model
 
 
 class JSONEncoder(FlaskJSONEncoder):
