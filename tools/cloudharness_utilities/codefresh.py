@@ -118,8 +118,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                             steps[CD_UNIT_TEST_STEP]['steps'][f"{app_name}_ut"] = dict(
                                 title=f"Unit tests for {app_name}",
                                 commands=unittest_config['commands'],
-                                image=r"${{REGISTRY}}" +
-                                f"/{build['image_name']}:{build['tag']}"
+                                image=r"${{app_name}}"
                             )
 
                     if CD_E2E_TEST_STEP in steps:
@@ -132,15 +131,15 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                 title=f"End to end tests for {app_name}",
                                 commands=["yarn test"],
                                 image=r"${{jest-puppeteer}}",
-                                volumes=[f"./{app_relative_to_root}/test/{E2E_TESTS_DIRNAME}:/home/test/__tests__"],
+                                volumes=[r"${{CF_REPO_NAME}}/" + f"{app_relative_to_root}/test/{E2E_TESTS_DIRNAME}:/home/test/__tests__"],
                                 environment=[
-                                    f"APP_URL=http{'s' if helm_values.tls else ''}://{helm_values.apps[app_name].harness.subdomain}.{helm_values.domain}"
+                                    f"APP_URL=https://{helm_values.apps[app_name].harness.subdomain}." + r"${{DOMAIN}}"
                                     ]
                             )
 
                         # codefresh_unittest_step_from_base_path(os.path.join(root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
 
-                    if CD_STEP_PUBLISH in steps:
+                    if CD_STEP_PUBLISH in steps and steps[CD_STEP_PUBLISH]:
                         if not type(steps[CD_STEP_PUBLISH]['steps']) == dict:
                             steps[CD_STEP_PUBLISH]['steps'] = {}
                         steps[CD_STEP_PUBLISH]['steps']['publish_' + app_name] = codefresh_app_publish_spec(
@@ -170,9 +169,9 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         return
 
     # Remove useless steps
-    codefresh['steps'] = {k: step for k, step in steps.items() if
-                          'type' not in step or step['type'] != 'parallel' or (
-                              step['steps'] if 'steps' in step else [])}
+    codefresh['steps'] = {k: step for k, step in steps.items() if step and
+                          ('type' not in step or step['type'] != 'parallel' or (
+                              step['steps'] if 'steps' in step else []))}
 
     # Add custom secrets to the environment of the deployment step
     deployment_step = codefresh["steps"].get("deployment")

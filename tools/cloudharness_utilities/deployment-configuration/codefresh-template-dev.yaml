@@ -26,6 +26,10 @@ steps:
         revision: '${{CLOUDHARNESS_BRANCH}}'
         working_directory: .
         git: github
+    when:
+      condition:
+        all:
+          whenVarExists: 'includes("${{CLOUDHARNESS_BRANCH}}", "${{CLOUDHARNESS_BRANCH}}") == false'
   prepare_deployment:
     title: "Prepare helm chart"
     image: python:3.9.10
@@ -33,7 +37,7 @@ steps:
     working_directory: .
     commands:
       - bash cloud-harness/install.sh
-      - harness-deployment cloud-harness . -t ${{CF_BUILD_ID}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e $ENV
+      - harness-deployment cloud-harness . -n ${{NAMESPACE}} -t ${{CF_BUILD_ID}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e $ENV
   prepare_deployment_view:
     commands:
       - 'helm template ./deployment/helm --debug -n ${{NAMESPACE}}'
@@ -70,7 +74,7 @@ steps:
       - RELEASE_NAME=${{NAMESPACE}}
       - KUBE_CONTEXT=${{CLUSTER_NAME}}
       - NAMESPACE=${{NAMESPACE}}
-      - CHART_VERSION=${{DEPLOYMENT_PUBLISH_TAG}}
+      - CHART_VERSION=${{CF_BUILD_ID}}
       - HELM_REPO_USE_HTTP=false
       - HELM_REPO_CONTEXT_PATH=
       - TIMEOUT=600s
@@ -84,3 +88,7 @@ steps:
     type: parallel
     stage: publish
     steps: {}
+    when:
+      condition:
+        all:
+          whenVarExists: 'includes("${{DEPLOYMENT_PUBLISH_TAG}}", "${{DEPLOYMENT_PUBLISH_TAG}}") == false'
