@@ -14,6 +14,10 @@ harness:
       white-listed: true
     - uri: /api/error
       white-listed: true
+    - uri: /api/ping
+      white-listed: true
+    - uri: /icon.png
+      white-listed: true
     - uri: /js/*
       white-listed: true
     - uri: /assets/*
