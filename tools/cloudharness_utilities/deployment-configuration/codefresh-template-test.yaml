@@ -32,7 +32,7 @@ steps:
     working_directory: .
     commands:
       - bash cloud-harness/install.sh
-      - harness-deployment cloud-harness . -n test-${{CF_BUILD_ID}} -dtls -t ${{CF_BUILD_ID}} -d ${{CF_BUILD_ID}}.${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e $ENV
+      - harness-deployment cloud-harness . -n test-${{CF_BUILD_ID}} $INCLUDE -dtls -t ${{CF_BUILD_ID}} -d ${{CF_BUILD_ID}}.${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e $ENV
   prepare_deployment_view:
     commands:
       - 'helm template ./deployment/helm --debug -n test-${{CF_BUILD_ID}}'
@@ -84,13 +84,11 @@ steps:
     stage: qa
     type: parallel
     steps: {}
-  wait_e2e:
+  wait_deployment:
     stage: qa
     image: codefresh/kubectl
     commands:
-    - kubectl config get-contexts
     - kubectl config use-context ${{CLUSTER_NAME}}
-    - kubectl -n test-${{CF_BUILD_ID}} rollout status deployment/samples
   tests_e2e:
     stage: qa
     type: parallel

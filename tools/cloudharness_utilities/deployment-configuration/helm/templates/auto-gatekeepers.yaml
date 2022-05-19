@@ -30,6 +30,7 @@ data:
     {{- end }}
     {{ if or .root.Values.local (not $tls) }}
     skip-openid-provider-tls-verify: true
+    skip-upstream-tls-verify: true
     {{- end }}
   cacert.crt: {{ .files.Get "resources/certs/cacert.crt" | quote }}
   access-denied.html.tmpl: |-

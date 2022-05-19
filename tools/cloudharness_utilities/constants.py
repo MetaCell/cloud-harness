@@ -37,6 +37,7 @@ CD_BUILD_STEP_STATIC = 'build_static_images'
 CD_BUILD_STEP_PARALLEL = 'build_application_images'
 CD_UNIT_TEST_STEP = 'tests_unit'
 CD_STEP_INSTALL = 'deployment'
+CD_WAIT_STEP = "wait_deployment"
 CD_API_TEST_STEP = 'tests_api'
 CD_E2E_TEST_STEP = 'tests_e2e'
 CD_STEP_PUBLISH = 'publish'

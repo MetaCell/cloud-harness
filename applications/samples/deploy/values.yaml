@@ -12,9 +12,11 @@ harness:
   uri_role_mapping:
     - uri: /
       white-listed: true
-    - uri: /api/ui/
-      white-listed: true
     - uri: /api/error
+      white-listed: true
+    - uri: /js/*
+      white-listed: true
+    - uri: /assets/*
       white-listed: true
   env:
     - name: WORKERS

@@ -1,24 +1,24 @@
 import os
 from re import template
 import unittest
-from .models import HarnessMainConfig
+from .models import HarnessMainConfig, ApplicationHarnessConfig
 import oyaml as yaml
 import yaml.representer
 
 import logging
 
-from .constants import CD_E2E_TEST_STEP, CD_STEP_INSTALL, CD_UNIT_TEST_STEP, E2E_TEST_IMAGE, E2E_TESTS_DIRNAME, HERE, CD_BUILD_STEP_BASE, CD_BUILD_STEP_STATIC, CD_BUILD_STEP_PARALLEL, \
+from .constants import CD_E2E_TEST_STEP, CD_STEP_INSTALL, CD_UNIT_TEST_STEP, CD_WAIT_STEP, E2E_TEST_IMAGE, E2E_TESTS_DIRNAME, HERE, CD_BUILD_STEP_BASE, CD_BUILD_STEP_STATIC, CD_BUILD_STEP_PARALLEL, \
     CD_STEP_PUBLISH, \
     CODEFRESH_PATH, CF_BUILD_PATH, CF_TEMPLATE_PUBLISH_PATH, DEPLOYMENT_CONFIGURATION_PATH, \
     CF_TEMPLATE_PATH, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH, DEPLOYMENT_PATH, EXCLUDE_PATHS, TEST_IMAGES_PATH, UNITTEST_FNAME
-from .helm import KEY_TASK_IMAGES, collect_helm_values
+from .helm import KEY_APPS, KEY_TASK_IMAGES, collect_helm_values
 from .utils import find_dockerfiles_paths, image_name_from_dockerfile_path, \
     get_image_name, get_template, merge_to_yaml_file, dict_merge, app_name_from_path
 
 logging.getLogger().setLevel(logging.INFO)
 
 CLOUD_HARNESS_PATH = "cloud-harness"
-
+ROLLOUT_CMD_TPL = "kubectl -n test-${{CF_BUILD_ID}} rollout status deployment/%s"
 
 # Codefresh variables may need quotes: adjust yaml dump accordingly
 def literal_presenter(dumper, data):
@@ -126,7 +126,14 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         e2e_spec_path = os.path.join(
                             base_path, app_relative_to_base, "test", E2E_TESTS_DIRNAME)
                         if os.path.exists(e2e_spec_path):
-
+                            
+                            rollout_commands = steps[CD_WAIT_STEP]['commands']
+                            for app_key in helm_values[KEY_APPS]:
+                                app: ApplicationHarnessConfig = helm_values[KEY_APPS][app_key].harness
+                                if app.deployment.auto:
+                                    rollout_commands.append(ROLLOUT_CMD_TPL % app.deployment.name)
+                                if app.secured and helm_values.secured_gatekeepers:
+                                    rollout_commands.append(ROLLOUT_CMD_TPL % app.service.name + "-gk")
                             steps[CD_E2E_TEST_STEP]['steps'][f"{app_name}_e2e_test"] = dict(
                                 title=f"End to end tests for {app_name}",
                                 commands=["yarn test"],
@@ -190,6 +197,8 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
     cmds = steps['prepare_deployment']['commands']
     for i in range(len(cmds)):
         cmds[i] = cmds[i].replace("$ENV", "-".join(envs))
+        if include:
+            cmds[i] = cmds[i].replace("$INCLUDE", "-i " + " -i ".join(include))
 
     if save:
         codefresh_abs_path = os.path.join(
