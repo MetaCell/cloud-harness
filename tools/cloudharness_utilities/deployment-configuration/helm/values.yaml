@@ -41,7 +41,7 @@ ingress:
     email: filippo@metacell.us
 backup:
   # -- Flag to enable/disable backups.
-  active: true
+  active: false
   # -- Number of days to keep backups.
   keep_days: "7"
   # -- Number of weeks to keep backups.

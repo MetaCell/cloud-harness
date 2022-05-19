@@ -114,7 +114,7 @@ def test_create_codefresh_configuration():
     assert len(l1_steps[CD_UNIT_TEST_STEP]['steps']) == 2, "Two unit test steps are expected"
     assert 'myapp_ut' in l1_steps[CD_UNIT_TEST_STEP]['steps'], "Myapp test step is expected"
     tstep = l1_steps[CD_UNIT_TEST_STEP]['steps']['myapp_ut']
-    assert tstep['image'] == r"${{REGISTRY}}/cloudharness/myapp:${{CF_BUILD_ID}}", "The test image should be the one built for the current app"
+    assert tstep['image'] == r"${{myapp}}", "The test image should be the one built for the current app"
     assert len(tstep['commands']) == 1, "Unit test commands are not properly loaded from the unit test configuration file"
     assert tstep['commands'][0] == "tox", "Unit test commands are not properly loaded from the unit test configuration file"
 
@@ -201,7 +201,7 @@ def test_create_codefresh_configuration_e2etests():
 
     assert "samples_e2e_test" in e2e_steps, "samples e2e test step must be included"
     test_step = e2e_steps["samples_e2e_test"]
-    assert "APP_URL=https://samples.my.local" in test_step['environment'], "APP_URL must be provided as environment variable"
+    assert "APP_URL=https://samples.${{CF_BUILD_ID}}.${{DOMAIN}}" in test_step['environment'], "APP_URL must be provided as environment variable"
     assert len(test_step['volumes']) == 1
-    
+    assert test_step['working_directory']
     shutil.rmtree(BUILD_MERGE_DIR)

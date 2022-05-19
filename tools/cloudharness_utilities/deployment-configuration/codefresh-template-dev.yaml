@@ -26,10 +26,6 @@ steps:
         revision: '${{CLOUDHARNESS_BRANCH}}'
         working_directory: .
         git: github
-    when:
-      condition:
-        all:
-          whenVarExists: 'includes("${{CLOUDHARNESS_BRANCH}}", "${{CLOUDHARNESS_BRANCH}}") == false'
   prepare_deployment:
     title: "Prepare helm chart"
     image: python:3.9.10
@@ -91,4 +87,4 @@ steps:
     when:
       condition:
         all:
-          whenVarExists: 'includes("${{DEPLOYMENT_PUBLISH_TAG}}", "${{DEPLOYMENT_PUBLISH_TAG}}") == false'
+          whenVarExists: 'includes("${{DEPLOYMENT_PUBLISH_TAG}}", "{{DEPLOYMENT_PUBLISH_TAG}}") == false'

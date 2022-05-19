@@ -118,7 +118,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                             steps[CD_UNIT_TEST_STEP]['steps'][f"{app_name}_ut"] = dict(
                                 title=f"Unit tests for {app_name}",
                                 commands=unittest_config['commands'],
-                                image=r"${{app_name}}"
+                                image=r"${{%s}}" % app_name
                             )
 
                     if CD_E2E_TEST_STEP in steps:
@@ -131,9 +131,10 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                 title=f"End to end tests for {app_name}",
                                 commands=["yarn test"],
                                 image=r"${{jest-puppeteer}}",
+                                working_directory="/home/test",
                                 volumes=[r"${{CF_REPO_NAME}}/" + f"{app_relative_to_root}/test/{E2E_TESTS_DIRNAME}:/home/test/__tests__"],
                                 environment=[
-                                    f"APP_URL=https://{helm_values.apps[app_name].harness.subdomain}." + r"${{DOMAIN}}"
+                                    f"APP_URL=https://{helm_values.apps[app_name].harness.subdomain}." + r"${{CF_BUILD_ID}}.${{DOMAIN}}"
                                     ]
                             )
 

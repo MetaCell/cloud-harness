@@ -5,7 +5,6 @@ stages:
   - unittest
   - deploy
   - qa
-  - finish
 steps:
   main_clone:
     title: Clone main repository
@@ -26,10 +25,6 @@ steps:
         revision: '${{CLOUDHARNESS_BRANCH}}'
         working_directory: .
         git: github
-    when:
-      condition:
-        all:
-          whenVarExists: 'includes("${{CLOUDHARNESS_BRANCH}}", "${{CLOUDHARNESS_BRANCH}}") == false'
   prepare_deployment:
     title: "Prepare helm chart"
     image: python:3.9.10
@@ -37,7 +32,7 @@ steps:
     working_directory: .
     commands:
       - bash cloud-harness/install.sh
-      - harness-deployment cloud-harness . -n test-${{CF_BUILD_ID}} -t ${{CF_BUILD_ID}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e $ENV
+      - harness-deployment cloud-harness . -n test-${{CF_BUILD_ID}} -dtls -t ${{CF_BUILD_ID}} -d ${{CF_BUILD_ID}}.${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e $ENV
   prepare_deployment_view:
     commands:
       - 'helm template ./deployment/helm --debug -n test-${{CF_BUILD_ID}}'
@@ -66,7 +61,7 @@ steps:
     type: parallel
     steps: {}
   prepare_cluster:
-    stage: build
+    stage: deploy
     image: codefresh/kubectl
     commands:
     - kubectl config use-context ${{CLUSTER_NAME}}
@@ -75,7 +70,6 @@ steps:
     stage: deploy
     image: codefresh/cfstep-helm:3.6.2
     title: Installing chart
-    fail_fast: false
     environment:
       - CHART_REF=./deployment/helm
       - RELEASE_NAME=test-${{CF_BUILD_ID}}
@@ -90,11 +84,9 @@ steps:
     stage: qa
     type: parallel
     steps: {}
-
   wait_e2e:
     stage: qa
     image: codefresh/kubectl
-    fail_fast: false
     commands:
     - kubectl config get-contexts
     - kubectl config use-context ${{CLUSTER_NAME}}
@@ -105,8 +97,10 @@ steps:
     fail_fast: false
     steps: {}
   publish: null
-  rollback:
-    stage: finish
+
+hooks: 
+ on_finish:
+   exec:
     image: codefresh/kubectl
     commands:
     - kubectl config use-context ${{CLUSTER_NAME}}
