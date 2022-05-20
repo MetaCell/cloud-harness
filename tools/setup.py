@@ -21,7 +21,7 @@ VERSION = "1.0.0"
 # http://pypi.python.org/pypi/setuptools
 
 REQUIREMENTS = [
-    'oyaml',
+    'ruamel.yaml',
     'docker',
     'six',
     'cloudharness_model'
