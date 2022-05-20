@@ -18,7 +18,7 @@ from .utils import find_dockerfiles_paths, image_name_from_dockerfile_path, \
 logging.getLogger().setLevel(logging.INFO)
 
 CLOUD_HARNESS_PATH = "cloud-harness"
-ROLLOUT_CMD_TPL = "kubectl -n test-${{CF_SHORT_REVISION}} rollout status deployment/%s"
+ROLLOUT_CMD_TPL = "kubectl -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} rollout status deployment/%s"
 
 # Codefresh variables may need quotes: adjust yaml dump accordingly
 def literal_presenter(dumper, data):
