@@ -40,4 +40,5 @@ harness:
     - name: example
       src: "example.yaml"
       dst: "/usr/src/app/important_config.yaml"
-
+  secrets:
+    asecret: "value"

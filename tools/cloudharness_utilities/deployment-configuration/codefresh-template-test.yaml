@@ -69,29 +69,33 @@ steps:
       - kubectl create ns test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}
   deployment:
     stage: deploy
-    image: codefresh/cfstep-helm:3.6.2
+    type: helm
+    working_directory: ./${{CF_REPO_NAME}}
     title: Installing chart
-    cmd_ps: --wait
-    environment:
-      - CHART_REF=./deployment/helm
-      - RELEASE_NAME=test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}
-      - KUBE_CONTEXT=${{CLUSTER_NAME}}
-      - NAMESPACE=test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}
-      - CHART_VERSION=${{CF_BUILD_ID}}
-      - HELM_REPO_USE_HTTP=false
-      - HELM_REPO_CONTEXT_PATH=
-      - TIMEOUT=600s
-      - VALUESFILE_values=./deployment/helm/values.yaml
-  tests_api:
-    stage: qa
-    type: parallel
-    steps: {}
+    arguments:
+      helm_version: 3.6.2
+      chart_name: deployment/helm
+      release_name: test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}
+      kube_context: ${{CLUSTER_NAME}}
+      namespace: test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}
+      chart_version: ${{CF_BUILD_ID}}
+      cmd_ps: --wait --timeout 600s
+      custom_value_files:
+      - ./deployment/helm/values.yaml
   wait_deployment:
     stage: qa
     title: Wait deployment to be ready
     image: codefresh/kubectl
     commands:
       - kubectl config use-context ${{CLUSTER_NAME}}
+  tests_api:
+    stage: qa
+    title: Api tests
+    working_directory: /home/test
+    image: "${{api-jest}}"
+    commands:
+      - echo $APP_NAME
+    scale: {}
   tests_e2e:
     stage: qa
     title: End to end tests

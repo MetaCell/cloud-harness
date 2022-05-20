@@ -42,18 +42,19 @@ steps:
     title: 'View helm chart'
   deployment:
     stage: deploy
-    image: codefresh/cfstep-helm:3.6.2
+    type: helm
+    working_directory: ./${{CF_REPO_NAME}}
     title: Installing chart
-    environment:
-      - CHART_REF=./deployment/helm
-      - RELEASE_NAME=${{NAMESPACE}}
-      - KUBE_CONTEXT=${{CLUSTER_NAME}}
-      - NAMESPACE=${{NAMESPACE}}
-      - CHART_VERSION=${{DEPLOYMENT_TAG}}
-      - HELM_REPO_USE_HTTP=false
-      - HELM_REPO_CONTEXT_PATH=
-      - TIMEOUT=600s
-      - VALUESFILE_values=./deployment/helm/values.yaml
+    arguments:
+      helm_version: 3.6.2
+      chart_name: deployment/helm
+      release_name: ${{NAMESPACE}}
+      kube_context: ${{CLUSTER_NAME}}
+      namespace: ${{NAMESPACE}}
+      chart_version: ${{DEPLOYMENT_TAG}}
+      cmd_ps: --wait --timeout 600s
+      custom_value_files:
+      - ./deployment/helm/values.yaml
   approval:
     type: pending-approval
     stage: publish
