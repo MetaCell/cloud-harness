@@ -7,10 +7,7 @@ import yaml.representer
 
 import logging
 
-from .constants import CD_E2E_TEST_STEP, CD_STEP_INSTALL, CD_UNIT_TEST_STEP, CD_WAIT_STEP, E2E_TEST_IMAGE, E2E_TESTS_DIRNAME, HERE, CD_BUILD_STEP_BASE, CD_BUILD_STEP_STATIC, CD_BUILD_STEP_PARALLEL, \
-    CD_STEP_PUBLISH, \
-    CODEFRESH_PATH, CF_BUILD_PATH, CF_TEMPLATE_PUBLISH_PATH, DEPLOYMENT_CONFIGURATION_PATH, \
-    CF_TEMPLATE_PATH, APPS_PATH, STATIC_IMAGES_PATH, BASE_IMAGES_PATH, DEPLOYMENT_PATH, EXCLUDE_PATHS, TEST_IMAGES_PATH, UNITTEST_FNAME
+from .constants import *
 from .helm import KEY_APPS, KEY_TASK_IMAGES, collect_helm_values
 from .utils import find_dockerfiles_paths, image_name_from_dockerfile_path, \
     get_image_name, get_template, merge_to_yaml_file, dict_merge, app_name_from_path
@@ -21,6 +18,8 @@ CLOUD_HARNESS_PATH = "cloud-harness"
 ROLLOUT_CMD_TPL = "kubectl -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} rollout status deployment/%s"
 
 # Codefresh variables may need quotes: adjust yaml dump accordingly
+
+
 def literal_presenter(dumper, data):
     if isinstance(data, str) and "\n" in data:
         return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
@@ -110,38 +109,33 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         steps[build_step]['steps'][app_name] = build
 
                     if CD_UNIT_TEST_STEP in steps:
-                        # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step
-                        unittests_spec_path = os.path.join(
-                            base_path, app_relative_to_base, "test", UNITTEST_FNAME)
-                        if os.path.exists(unittests_spec_path):
-                            unittest_config = get_template(unittests_spec_path)
-                            steps[CD_UNIT_TEST_STEP]['steps'][f"{app_name}_ut"] = dict(
-                                title=f"Unit tests for {app_name}",
-                                commands=unittest_config['commands'],
-                                image=r"${{%s}}" % app_name
-                            )
+                        add_unit_test_step(base_path, app_relative_to_base, app_name)
+
+                    
 
                     if CD_E2E_TEST_STEP in steps:
                         # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step
-                        e2e_spec_path = os.path.join(
+                        tests_path = os.path.join(
                             base_path, app_relative_to_base, "test", E2E_TESTS_DIRNAME)
-                        if os.path.exists(e2e_spec_path):
+                        if os.path.exists(tests_path) and helm_values.apps[app_name].harness.subdomain:
+
                             
-                            rollout_commands = steps[CD_WAIT_STEP]['commands']
-                            for app_key in helm_values[KEY_APPS]:
-                                app: ApplicationHarnessConfig = helm_values[KEY_APPS][app_key].harness
-                                if app.deployment.auto:
-                                    rollout_commands.append(ROLLOUT_CMD_TPL % app.deployment.name)
-                                if app.secured and helm_values.secured_gatekeepers:
-                                    rollout_commands.append(ROLLOUT_CMD_TPL % app.service.name + "-gk")
                             steps[CD_E2E_TEST_STEP]['scale'][f"{app_name}_e2e_test"] = dict(
-                                volumes=[r"${{CF_REPO_NAME}}/" + f"{app_relative_to_root}/test/{E2E_TESTS_DIRNAME}:/home/test/__tests__/{app_name}"],
-                                environment=[
-                                    f"APP_URL=https://{helm_values.apps[app_name].harness.subdomain}." + r"${{CF_SHORT_REVISION}}.${{DOMAIN}}"
-                                    ]
+                                volumes=e2e_test_volumes(app_relative_to_root, app_name),
+                                environment=e2e_test_environment(helm_values.apps[app_name].harness.subdomain)
                             )
 
-                        # codefresh_unittest_step_from_base_path(os.path.join(root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
+                    if CD_API_TEST_STEP in steps :
+                        # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step
+                        tests_path = os.path.join(
+                            base_path, app_relative_to_base, "test", API_TESTS_DIRNAME)
+                        if os.path.exists(tests_path) and helm_values.apps[app_name].harness.subdomain:
+
+                            
+                            steps[CD_API_TEST_STEP]['scale'][f"{app_name}_api_test"] = dict(
+                                volumes=e2e_test_volumes(app_relative_to_root, app_name),
+                                environment=e2e_test_environment(helm_values.apps[app_name].harness.subdomain)
+                            )                        
 
                     if CD_STEP_PUBLISH in steps and steps[CD_STEP_PUBLISH]:
                         if not type(steps[CD_STEP_PUBLISH]['steps']) == dict:
@@ -152,20 +146,40 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                             base_name=base_image_name
                         )
 
+            def add_unit_test_step(base_path, app_relative_to_base, app_name):
+                # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step
+                unittests_spec_path = os.path.join(base_path, app_relative_to_base, "test", UNITTEST_FNAME)
+                if os.path.exists(unittests_spec_path):
+                    unittest_config = get_template(unittests_spec_path)
+                    steps[CD_UNIT_TEST_STEP]['steps'][f"{app_name}_ut"] = dict(
+                                title=f"Unit tests for {app_name}",
+                                commands=unittest_config['commands'],
+                                image=r"${{%s}}" % app_name
+                            )
+            
+            def create_k8s_rollout_commands():
+                rollout_commands = steps[CD_WAIT_STEP]['commands']
+                for app_key in helm_values[KEY_APPS]:
+                    app: ApplicationHarnessConfig = helm_values[KEY_APPS][app_key].harness
+                    if app.deployment.auto:
+                        rollout_commands.append(
+                                        ROLLOUT_CMD_TPL % app.deployment.name)
+                    if app.secured and helm_values.secured_gatekeepers:
+                        rollout_commands.append(
+                                        ROLLOUT_CMD_TPL % app.service.name + "-gk")
+
             codefresh_steps_from_base_path(os.path.join(root_path, BASE_IMAGES_PATH), CD_BUILD_STEP_BASE,
                                            fixed_context=os.path.relpath(root_path, os.getcwd()), include=helm_values[KEY_TASK_IMAGES].keys())
             codefresh_steps_from_base_path(os.path.join(root_path, STATIC_IMAGES_PATH), CD_BUILD_STEP_STATIC,
                                            include=helm_values[KEY_TASK_IMAGES].keys())
-            codefresh_steps_from_base_path(os.path.join(root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
+            codefresh_steps_from_base_path(os.path.join(
+                root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
 
-            if CD_E2E_TEST_STEP in steps:
-                codefresh_steps_from_base_path(os.path.join(root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_STATIC, include=(E2E_TEST_IMAGE,))
-            # if CD_API_TEST_STEP in codefresh:
-            #     # Create a run step for each application with tests/api folder using a Python image
-            #     codefresh_api_step_from_base_path(os.path.join(root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
-
-            # if CD_E2E_TEST_STEP in codefresh:
-            #     codefresh_build_e2e_step_from_base_path(os.path.join(root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
+            if CD_WAIT_STEP in steps:
+                create_k8s_rollout_commands()
+            if CD_E2E_TEST_STEP in steps or CD_API_TEST_STEP in steps:
+                codefresh_steps_from_base_path(os.path.join(
+                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_STATIC, include=())
 
     if not codefresh:
         logging.warning(
@@ -180,15 +194,17 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
     # Add custom secrets to the environment of the deployment step
     deployment_step = codefresh["steps"].get("deployment")
     if deployment_step:
-        environment = deployment_step.get("environment")
-        if environment:
+        arguments = deployment_step.get("arguments")
+        if arguments:
+            if "custom_values" not in arguments:
+                arguments["custom_values"] = []
             for app_name, app in helm_values.apps.items():
                 if app.harness.secrets:
-                    app_name = app_name.replace("_", "__")
+                    
                     for secret in [secret[0] for secret in app.harness.secrets.items() if secret[1]]:
-                        secret_name = secret.replace("_", "__")
-                        environment.append(
-                            "CUSTOM_apps_%s_harness_secrets_%s=${{%s}}" % (app_name, secret_name, secret_name.upper()))
+                        secret_name = secret
+                        arguments["custom_values"].append(
+                            "apps.%s.harness.secrets.%s=${{%s}}" % (app_name, secret_name, secret_name.upper()))
 
     cmds = steps['prepare_deployment']['commands']
     for i in range(len(cmds)):
@@ -217,6 +233,17 @@ def codefresh_template_spec(template_path, **kwargs):
 
     build.update(kwargs)
     return build
+
+
+def e2e_test_volumes(app_relative_to_root, app_name):
+    return [r"${{CF_REPO_NAME}}/" + f"{app_relative_to_root}/test/{E2E_TESTS_DIRNAME}:/home/test/__tests__/{app_name}"]
+
+
+def e2e_test_environment(app_subdomain):
+    return [
+        f"APP_URL=https://{app_subdomain}." +
+        r"${{CF_SHORT_REVISION}}.${{DOMAIN}}"
+    ]
 
 
 def codefresh_app_publish_spec(app_name, build_tag, base_name=None):

@@ -45,5 +45,4 @@ BUILD_FILENAMES = ('node_modules',)
 
 UNITTEST_FNAME = 'unit.yaml'
 E2E_TESTS_DIRNAME = 'e2e'
-
-E2E_TEST_IMAGE="jest-puppeteer"
+API_TESTS_DIRNAME = 'api'

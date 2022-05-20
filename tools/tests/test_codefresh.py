@@ -205,7 +205,11 @@ def test_create_codefresh_configuration_e2etests():
     assert len(test_step['volumes']) == 1
 
 
-    assert "apitest-python" in st_build_steps
+    assert "api-jest" in st_build_steps
+    api_steps = l1_steps['tests_api']['scale']
+    test_step = api_steps["samples_api_test"]
+    assert "APP_URL=https://samples.${{CF_SHORT_REVISION}}.${{DOMAIN}}" in test_step['environment'], "APP_URL must be provided as environment variable"
+    assert len(test_step['volumes']) == 1
 
 
     shutil.rmtree(BUILD_MERGE_DIR)
