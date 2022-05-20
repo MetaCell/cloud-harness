@@ -233,7 +233,7 @@ def merge_configuration_directories(source, dest):
                     merge_yaml_files(fpath, fdest)
                     logging.info(
                         f"Merged/overridden file content of {fdest} with {fpath}")
-                except yaml.YAMLError as e:
+                except Exception as e:
                     logging.warning(f"Overwriting file {fdest} with {fpath}")
                     shutil.copy2(fpath, fdest)
             else:
