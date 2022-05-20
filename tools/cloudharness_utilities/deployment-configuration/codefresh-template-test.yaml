@@ -5,7 +5,6 @@ stages:
   - unittest
   - deploy
   - qa
-  - cleanup
 steps:
   main_clone:
     title: Clone main repository
@@ -64,6 +63,7 @@ steps:
   prepare_cluster:
     stage: deploy
     image: codefresh/kubectl
+    fail_fast: false
     commands:
       - kubectl config use-context ${{CLUSTER_NAME}}
       - kubectl create ns test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}
@@ -81,13 +81,20 @@ steps:
       chart_version: ${{CF_BUILD_ID}}
       cmd_ps: --wait --timeout 600s
       custom_value_files:
-      - ./deployment/helm/values.yaml
+        - ./deployment/helm/values.yaml
   wait_deployment:
     stage: qa
     title: Wait deployment to be ready
     image: codefresh/kubectl
     commands:
       - kubectl config use-context ${{CLUSTER_NAME}}
+      - kubectl config set-context --current --namespace=test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}
+    hooks:
+      on_fail:
+        exec:
+          image: alpine
+          commands:
+            - sleep 1800
   tests_api:
     stage: qa
     title: Api tests
@@ -96,6 +103,12 @@ steps:
     commands:
       - echo $APP_NAME
     scale: {}
+    hooks:
+      on_fail:
+        exec:
+          image: alpine
+          commands:
+            - sleep 1800
   tests_e2e:
     stage: qa
     title: End to end tests
@@ -104,33 +117,17 @@ steps:
     commands:
       - yarn test
     scale: {}
+    hooks:
+      on_fail:
+        exec:
+          image: alpine
+          commands:
+            - sleep 1800
   publish: null
-  approval:
-    type: pending-approval
-    stage: cleanup
-    title: Delete deployment
-    description: Give a chance to debug on failure
-    timeout:
-      duration: 1
-      finalState: approved
-    when:
-      steps:
-        - name: tests_e2e
-          on:
-            - failure
-  cleanup:
+
+hooks:
+  on_finish:
     image: codefresh/kubectl
-    stage: cleanup
-    title: Delete the deployment
     commands:
       - kubectl config use-context ${{CLUSTER_NAME}}
       - kubectl delete ns test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}
-    when:
-      steps:
-        any:
-        - name: tests_e2e
-          on:
-            - success
-        - name: approval
-          on:
-            - approved

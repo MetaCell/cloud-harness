@@ -76,7 +76,14 @@ steps:
       cmd_ps: --wait --timeout 600s
       custom_value_files:
       - ./deployment/helm/values.yaml
-
+  approval:
+    type: pending-approval
+    stage: publish
+    title: Approve build
+    description: Approve build release and tagging
+    timeout:
+      duration: 168
+      finalState: denied
   publish:
     type: parallel
     stage: publish

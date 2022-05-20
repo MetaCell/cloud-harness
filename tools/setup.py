@@ -22,6 +22,7 @@ VERSION = "1.0.0"
 
 REQUIREMENTS = [
     'ruamel.yaml',
+    'oyaml',
     'docker',
     'six',
     'cloudharness_model'

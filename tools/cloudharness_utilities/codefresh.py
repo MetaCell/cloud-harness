@@ -1,6 +1,6 @@
 import os
 from re import template
-import unittest
+
 from .models import HarnessMainConfig, ApplicationHarnessConfig
 import oyaml as yaml
 import yaml.representer
@@ -111,14 +111,12 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     if CD_UNIT_TEST_STEP in steps:
                         add_unit_test_step(base_path, app_relative_to_base, app_name)
 
-                    
 
                     if CD_E2E_TEST_STEP in steps:
                         # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step
                         tests_path = os.path.join(
                             base_path, app_relative_to_base, "test", E2E_TESTS_DIRNAME)
                         if os.path.exists(tests_path) and helm_values.apps[app_name].harness.subdomain:
-
                             
                             steps[CD_E2E_TEST_STEP]['scale'][f"{app_name}_e2e_test"] = dict(
                                 volumes=e2e_test_volumes(app_relative_to_root, app_name),
@@ -241,8 +239,7 @@ def e2e_test_volumes(app_relative_to_root, app_name):
 
 def e2e_test_environment(app_subdomain):
     return [
-        f"APP_URL=https://{app_subdomain}." +
-        r"${{CF_SHORT_REVISION}}.${{DOMAIN}}"
+        f"APP_URL=https://{app_subdomain}." + r"${{CF_SHORT_REVISION}}.${{DOMAIN}}"
     ]
 
 
