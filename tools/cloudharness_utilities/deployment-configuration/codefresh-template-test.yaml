@@ -71,6 +71,7 @@ steps:
     stage: deploy
     image: codefresh/cfstep-helm:3.6.2
     title: Installing chart
+    cmd_ps: --wait
     environment:
       - CHART_REF=./deployment/helm
       - RELEASE_NAME=test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}
