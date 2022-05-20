@@ -18,7 +18,7 @@ from .utils import find_dockerfiles_paths, image_name_from_dockerfile_path, \
 logging.getLogger().setLevel(logging.INFO)
 
 CLOUD_HARNESS_PATH = "cloud-harness"
-ROLLOUT_CMD_TPL = "kubectl -n test-${{CF_BUILD_ID}} rollout status deployment/%s"
+ROLLOUT_CMD_TPL = "kubectl -n test-${{CF_SHORT_REVISION}} rollout status deployment/%s"
 
 # Codefresh variables may need quotes: adjust yaml dump accordingly
 def literal_presenter(dumper, data):
@@ -134,14 +134,10 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                     rollout_commands.append(ROLLOUT_CMD_TPL % app.deployment.name)
                                 if app.secured and helm_values.secured_gatekeepers:
                                     rollout_commands.append(ROLLOUT_CMD_TPL % app.service.name + "-gk")
-                            steps[CD_E2E_TEST_STEP]['steps'][f"{app_name}_e2e_test"] = dict(
-                                title=f"End to end tests for {app_name}",
-                                commands=["yarn test"],
-                                image=r"${{jest-puppeteer}}",
-                                working_directory="/home/test",
-                                volumes=[r"${{CF_REPO_NAME}}/" + f"{app_relative_to_root}/test/{E2E_TESTS_DIRNAME}:/home/test/__tests__"],
+                            steps[CD_E2E_TEST_STEP]['scale'][f"{app_name}_e2e_test"] = dict(
+                                volumes=[r"${{CF_REPO_NAME}}/" + f"{app_relative_to_root}/test/{E2E_TESTS_DIRNAME}:/home/test/__tests__/{app_name}"],
                                 environment=[
-                                    f"APP_URL=https://{helm_values.apps[app_name].harness.subdomain}." + r"${{CF_BUILD_ID}}.${{DOMAIN}}"
+                                    f"APP_URL=https://{helm_values.apps[app_name].harness.subdomain}." + r"${{CF_SHORT_REVISION}}.${{DOMAIN}}"
                                     ]
                             )
 

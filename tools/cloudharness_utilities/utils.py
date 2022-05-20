@@ -5,10 +5,12 @@ import os
 from os.path import join, dirname, isdir, basename, exists, relpath, sep
 import json
 import collections
-import oyaml as yaml
+from ruamel.yaml import YAML
 import shutil
 import logging
 import fileinput
+
+yaml=YAML(typ='safe')
 
 from .constants import HERE, NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
     APPS_PATH, BUILD_FILENAMES, EXCLUDE_PATHS
@@ -98,10 +100,10 @@ def get_template(yaml_path, base_default=False):
     dict_template = {}
     if base_default and exists(default_template_path):
         with open(default_template_path) as f:
-            dict_template = yaml.safe_load(f)
+            dict_template = yaml.load(f)
     if exists(yaml_path):
         with open(yaml_path) as f:
-            override_tpl = yaml.safe_load(f)
+            override_tpl = yaml.load(f)
             if override_tpl:
                 dict_template = dict_merge(dict_template or {}, override_tpl)
     return dict_template or {}
@@ -241,7 +243,7 @@ def merge_configuration_directories(source, dest):
 
 def merge_yaml_files(fname, fdest):
     with open(fname) as f:
-        content_src = yaml.safe_load(f)
+        content_src = yaml.load(f)
     merge_to_yaml_file(content_src, fdest)
 
 
@@ -252,7 +254,7 @@ def merge_to_yaml_file(content_src, fdest):
         merged = content_src
     else:
         with open(fdest) as f:
-            content_dest = yaml.safe_load(f)
+            content_dest = yaml.load(f)
 
         merged = dict_merge(
             content_dest, content_src) if content_dest else content_src

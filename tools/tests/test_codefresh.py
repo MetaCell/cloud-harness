@@ -197,11 +197,15 @@ def test_create_codefresh_configuration_e2etests():
 
     assert "jest-puppeteer" in st_build_steps, "jest-puppeteer image should be built"
 
-    e2e_steps = l1_steps['tests_e2e']['steps']
+    e2e_steps = l1_steps['tests_e2e']['scale']
 
     assert "samples_e2e_test" in e2e_steps, "samples e2e test step must be included"
     test_step = e2e_steps["samples_e2e_test"]
-    assert "APP_URL=https://samples.${{CF_BUILD_ID}}.${{DOMAIN}}" in test_step['environment'], "APP_URL must be provided as environment variable"
+    assert "APP_URL=https://samples.${{CF_SHORT_REVISION}}.${{DOMAIN}}" in test_step['environment'], "APP_URL must be provided as environment variable"
     assert len(test_step['volumes']) == 1
-    assert test_step['working_directory']
+
+
+    assert "apitest-python" in st_build_steps
+
+
     shutil.rmtree(BUILD_MERGE_DIR)
