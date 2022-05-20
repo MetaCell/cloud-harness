@@ -1,17 +1,18 @@
-version: '1.0'
+version: "1.0"
 stages:
   - prepare
   - build
   - unittest
   - deploy
   - qa
+  - cleanup
 steps:
   main_clone:
     title: Clone main repository
     type: git-clone
     stage: prepare
-    repo: '${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}'
-    revision: '${{CF_BRANCH}}'
+    repo: "${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}"
+    revision: "${{CF_BRANCH}}"
     git: github
   post_main_clone:
     title: Post main clone
@@ -21,8 +22,8 @@ steps:
       - title: Cloning cloud-harness repository...
         type: git-clone
         stage: prepare
-        repo: 'https://github.com/MetaCell/cloud-harness.git'
-        revision: '${{CLOUDHARNESS_BRANCH}}'
+        repo: "https://github.com/MetaCell/cloud-harness.git"
+        revision: "${{CLOUDHARNESS_BRANCH}}"
         working_directory: .
         git: github
   prepare_deployment:
@@ -32,16 +33,16 @@ steps:
     working_directory: .
     commands:
       - bash cloud-harness/install.sh
-      - harness-deployment cloud-harness . -n test-${{CF_BUILD_ID}} $INCLUDE -dtls -t ${{CF_BUILD_ID}} -d ${{CF_BUILD_ID}}.${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e $ENV
+      - harness-deployment cloud-harness . -n test-${{CF_SHORT_REVISION}} $INCLUDE -dtls -t ${{CF_BUILD_ID}} -d ${{CF_SHORT_REVISION}}.${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e $ENV
   prepare_deployment_view:
     commands:
-      - 'helm template ./deployment/helm --debug -n test-${{CF_BUILD_ID}}'
+      - "helm template ./deployment/helm --debug -n test-${{CF_SHORT_REVISION}}"
     environment:
       - ACTION=auth
       - KUBE_CONTEXT=test-${{CF_BUILD_ID}}
     image: codefresh/cfstep-helm:3.6.2
     stage: prepare
-    title: 'View helm chart'
+    title: "View helm chart"
   build_base_images:
     title: Build base images
     type: parallel
@@ -64,8 +65,8 @@ steps:
     stage: deploy
     image: codefresh/kubectl
     commands:
-    - kubectl config use-context ${{CLUSTER_NAME}}
-    - kubectl create ns test-${{CF_BUILD_ID}}
+      - kubectl config use-context ${{CLUSTER_NAME}}
+      - kubectl create ns test-${{CF_SHORT_REVISION}}
   deployment:
     stage: deploy
     image: codefresh/cfstep-helm:3.6.2
@@ -74,7 +75,7 @@ steps:
       - CHART_REF=./deployment/helm
       - RELEASE_NAME=test-${{CF_BUILD_ID}}
       - KUBE_CONTEXT=${{CLUSTER_NAME}}
-      - NAMESPACE=test-${{CF_BUILD_ID}}
+      - NAMESPACE=test-${{CF_SHORT_REVISION}}
       - CHART_VERSION=${{CF_BUILD_ID}}
       - HELM_REPO_USE_HTTP=false
       - HELM_REPO_CONTEXT_PATH=
@@ -86,20 +87,46 @@ steps:
     steps: {}
   wait_deployment:
     stage: qa
+    title: Wait deployment to be ready
     image: codefresh/kubectl
     commands:
-    - kubectl config use-context ${{CLUSTER_NAME}}
+      - kubectl config use-context ${{CLUSTER_NAME}}
   tests_e2e:
     stage: qa
-    type: parallel
-    fail_fast: false
-    steps: {}
-  publish: null
-
-hooks: 
- on_finish:
-   exec:
-    image: codefresh/kubectl
+    title: End to end tests
+    working_directory: /home/test
+    image: "${{jest-puppeteer}}"
     commands:
-    - kubectl config use-context ${{CLUSTER_NAME}}
-    - kubectl delete ns test-${{CF_BUILD_ID}}
+      - yarn test
+    scale: {}
+  publish: null
+  approval:
+    type: pending-approval
+    stage: cleanup
+    title: Delete deployment
+    description: Give a chance to debug on failure
+    timeout:
+      duration: 1
+      finalState: approved
+    when:
+      steps:
+        - name: tests_e2e
+          on:
+            - failure
+  cleanup:
+    image: codefresh/kubectl
+    stage: cleanup
+    title: Delete the deployment
+    commands:
+      - kubectl config use-context ${{CLUSTER_NAME}}
+      - sleep 1800
+      - kubectl delete ns test-${{CF_SHORT_REVISION}}
+    when:
+      steps:
+        any:
+        - name: tests_e2e
+          on:
+            - success
+        - name: approval
+          on:
+            - approved
