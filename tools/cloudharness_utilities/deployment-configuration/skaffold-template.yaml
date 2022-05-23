@@ -1,4 +1,4 @@
-apiVersion: skaffold/v2beta11
+apiVersion: skaffold/v2beta28
 kind: Config
 build:
   tagPolicy:
@@ -24,3 +24,4 @@ deploy:
         apps:
       overrides:
         apps: {}
+test: []

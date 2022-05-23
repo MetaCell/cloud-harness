@@ -89,5 +89,15 @@ def test_create_skaffold_configuration():
         a for a in sk['build']['artifacts'] if a['image'] == 'reg/cloudharness/accounts')
     assert os.path.samefile(accounts_artifact['context'], '/tmp/build/applications/accounts')
 
+
+    # Custom unit tests
+    assert len(sk['test']) == 2, 'Unit tests should be included'
+
+    samples_test = sk['test'][0]
+    assert samples_test['image'] == 'reg/cloudharness/samples', 'Unit tests for samples should be included'
+    assert samples_test['custom'][0]['command'] == "docker run $IMAGE pytest /usr/src/app/samples/test", "The test command must come from unit.py"
+
+    assert len(sk['test'][1]['custom']) == 2
+
     shutil.rmtree(OUT)
     shutil.rmtree(BUILD_DIR)

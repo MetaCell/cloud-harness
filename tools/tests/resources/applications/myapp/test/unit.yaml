@@ -1,2 +1,3 @@
 commands:
   - tox
+  - echo "hello"

@@ -8,7 +8,7 @@ from os.path import join, dirname, relpath, basename
 from cloudharness_model.models.harness_main_config import HarnessMainConfig
 
 from cloudharness_utilities.constants import APPS_PATH, HELM_CHART_PATH, DEPLOYMENT_CONFIGURATION_PATH, DEPLOYMENT_PATH, \
-    BASE_IMAGES_PATH, STATIC_IMAGES_PATH
+    BASE_IMAGES_PATH, STATIC_IMAGES_PATH, UNITTEST_FNAME
 from cloudharness_utilities.helm import KEY_APPS, KEY_HARNESS, KEY_DEPLOYMENT, KEY_TASK_IMAGES
 from cloudharness_utilities.utils import get_template, dict_merge, find_dockerfiles_paths, app_name_from_path, \
     find_file_paths, guess_build_dependencies_from_dockerfile, merge_configuration_directories, merge_to_yaml_file, get_json_template, get_image_name
@@ -150,6 +150,15 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
                             }
                         }
                 }
+            
+            unittests_spec_path = os.path.join(apps_path, app_relative_to_base, "test", UNITTEST_FNAME)
+            if os.path.exists(unittests_spec_path):
+                    unittest_config = get_template(unittests_spec_path)
+                    skaffold_conf['test'].append(dict(
+                        image=get_image_tag(app_name),
+                        custom=[dict(command="docker run $IMAGE " + cmd) for cmd in unittest_config['commands']]
+                    ))
+
 
         skaffold_conf['build']['artifacts'] = [v for v in artifacts.values()]
         merge_to_yaml_file(skaffold_conf, os.path.join(
