@@ -14,6 +14,13 @@ harness:
       auto: true
       type: mongo
       image_ref: myownpgimage'
+      resources:
+        requests:
+          memory: "512Mi"
+          cpu: "100m"
+        limits:
+          memory: "2Gi"
+          cpu: "1000m"
 ```
 
 **Available Attributes**
@@ -24,8 +31,76 @@ harness:
 
 `size`: Size of the persistent volume that the database container mounts, default is set to `1Gi`
 
-`image_ref`: Optional setting, used for referencing an image from the build. The image name will automagically being generated from the values.yaml file. This setting overrides the image setting of the database setting.
+`resources`: Set the database pod resources
 
+`image_ref`: Optional setting, used for referencing a base/static image from the build. The complete image name with tag will automagically being generated from the values.yaml file. This setting overrides the `image` setting specific for the database type (e.g. postgres/image). Note: the referenced image must be included as a build dependency in order to be built by the pipelines.
+
+
+### Specific database settings
+
+Specific database settings are defined using the database key:
+
+```yaml
+harness:
+    ...
+    database:
+      [mongo/postgres/neo4j]:
+        image:
+        ports:
+```
+
+**Common settings**
+
+`image`: specifies the default static image (must be a publicly available image with full tag)
+
+`ports`: specify one or more ports that are exposed by the database
+
+#### MongoDB
+
+Defaults:
+
+```yaml
+harness
+  database:
+    mongo:
+      image: mongo:5
+      ports:
+        - name: http
+          port: 27017
+```
+
+
+
+#### Postgres
+
+Defaults:
+
+```yaml
+harness
+  database:
+    postgres:
+      image: postgres:13
+      initialdb: cloudharness
+      ports:
+        - name: http
+          port: 5432
+```
+
+`initialdb` is the default database used
+
+
+#### Neo4j
+
+Not yet supported!
+
+## Programmatic API
+
+The programmatic API allows you to get the connection string used to configure the database driver (e.g. psycopg2)
+
+Example:
+
+from cloudharness import applications
+db_connection_string = applications.get_current_configuration().get_db_connection_string()
 
 ## Configuring Backups
 
@@ -46,8 +121,8 @@ Backups are defined for `mongo` and `postgres` database in form of a [K8s CronJo
 This is done periodically according to a configurable schedule, per default once a day.
 
 
-
 ### MongoDB
+
 
 `mongodump` is used to create a gzipped archive file of the complete database.
 
@@ -61,6 +136,4 @@ Further reading: [MongoDB archiving & compression](https://www.mongodb.com/blog/
 Further reading: [pg_dumpall docs](https://www.postgresql.org/docs/10/app-pg-dumpall.html)
 
 
-### Neo4j
 
-Not yet supported!
