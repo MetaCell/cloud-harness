@@ -1,5 +1,9 @@
 {{- define "deploy_utils.database.neo4j" }}
+        {{- if .app.harness.database.image_ref }}
+        image: {{ index (index .app "task-images") .app.harness.database.image_ref | default ("Image ref not found!" | quote) }}
+        {{- else }}
         image: {{ .app.harness.database.neo4j.image }}
+        {{- end }}
         env:
           - name: NEO4J_dbms_directories_data
             value: /data/db/data

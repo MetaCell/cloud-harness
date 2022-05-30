@@ -253,6 +253,10 @@ components:
             format: password
             description: Database password
             type: string
+          image_ref:
+            description: Used for referencing images from the build
+            type: string
+            example: 'image_ref: myownpgimage'
           mongo:
             $ref: '#/components/schemas/FreeObject'
             description: Mongo db specific configuration

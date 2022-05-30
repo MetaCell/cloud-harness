@@ -1,5 +1,9 @@
 {{- define "deploy_utils.database.postgres" }}
+        {{- if .app.harness.database.image_ref }}
+        image: {{ index (index .app "task-images") .app.harness.database.image_ref | default ("Image ref not found!" | quote) }}
+        {{- else }}
         image: {{ .app.harness.database.postgres.image }}
+        {{- end }}
         env:
           - name: POSTGRES_DB
             value: {{ .app.harness.database.postgres.initialdb | quote }}
