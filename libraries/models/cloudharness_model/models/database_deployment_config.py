@@ -203,7 +203,7 @@ class DatabaseDeploymentConfig(Model):
         :return: The image_ref of this DatabaseDeploymentConfig.
         :rtype: str
         """
-        return self.image_ref
+        return self._image_ref
 
     @image_ref.setter
     def image_ref(self, image_ref):
@@ -215,7 +215,7 @@ class DatabaseDeploymentConfig(Model):
         :type image_ref: str
         """
 
-        self.image_ref = image_ref
+        self._image_ref = image_ref
 
     @property
     def mongo(self):
