@@ -13,6 +13,7 @@ harness:
     database:
       auto: true
       type: mongo
+      image_ref: myownpgimage'
 ```
 
 **Available Attributes**
@@ -22,6 +23,8 @@ harness:
 `type`: Specifies which DB technology to use, allowed values: `mongo`, `postgres`, `neo4j`
 
 `size`: Size of the persistent volume that the database container mounts, default is set to `1Gi`
+
+`image_ref`: Optional setting, used for referencing an image from the build. The image name will automagically being generated from the values.yaml file. This setting overrides the image setting of the database setting.
 
 
 ## Configuring Backups
