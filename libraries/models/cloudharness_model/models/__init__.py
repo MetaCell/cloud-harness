@@ -3,10 +3,12 @@
 # flake8: noqa
 from __future__ import absolute_import
 # import models into model package
+from cloudharness_model.models.application_accounts_config import ApplicationAccountsConfig
 from cloudharness_model.models.application_config import ApplicationConfig
 from cloudharness_model.models.application_dependencies_config import ApplicationDependenciesConfig
 from cloudharness_model.models.application_harness_config import ApplicationHarnessConfig
 from cloudharness_model.models.application_probe import ApplicationProbe
+from cloudharness_model.models.application_user import ApplicationUser
 from cloudharness_model.models.auto_artifact_spec import AutoArtifactSpec
 from cloudharness_model.models.backup_config import BackupConfig
 from cloudharness_model.models.cdc_event import CDCEvent

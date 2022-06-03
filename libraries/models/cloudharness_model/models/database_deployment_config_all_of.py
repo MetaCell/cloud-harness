@@ -90,7 +90,7 @@ class DatabaseDeploymentConfigAllOf(Model):
     def type(self):
         """Gets the type of this DatabaseDeploymentConfigAllOf.
 
-        Define the database type.  One of (mongo, postgres, neo4j)  # noqa: E501
+        Define the database type.  One of (mongo, postgres, neo4j, sqlite3)  # noqa: E501
 
         :return: The type of this DatabaseDeploymentConfigAllOf.
         :rtype: str
@@ -101,7 +101,7 @@ class DatabaseDeploymentConfigAllOf(Model):
     def type(self, type):
         """Sets the type of this DatabaseDeploymentConfigAllOf.
 
-        Define the database type.  One of (mongo, postgres, neo4j)  # noqa: E501
+        Define the database type.  One of (mongo, postgres, neo4j, sqlite3)  # noqa: E501
 
         :param type: The type of this DatabaseDeploymentConfigAllOf.
         :type type: str
@@ -189,7 +189,7 @@ class DatabaseDeploymentConfigAllOf(Model):
         :return: The image_ref of this DatabaseDeploymentConfigAllOf.
         :rtype: str
         """
-        return self.image_ref
+        return self._image_ref
 
     @image_ref.setter
     def image_ref(self, image_ref):
@@ -201,7 +201,7 @@ class DatabaseDeploymentConfigAllOf(Model):
         :type image_ref: str
         """
 
-        self.image_ref = image_ref
+        self._image_ref = image_ref
 
     @property
     def mongo(self):

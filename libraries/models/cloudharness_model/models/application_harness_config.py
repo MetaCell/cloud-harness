@@ -6,6 +6,7 @@ from datetime import date, datetime  # noqa: F401
 from typing import List, Dict  # noqa: F401
 
 from cloudharness_model.models.base_model_ import Model
+from cloudharness_model.models.application_accounts_config import ApplicationAccountsConfig
 from cloudharness_model.models.application_dependencies_config import ApplicationDependenciesConfig
 from cloudharness_model.models.application_probe import ApplicationProbe
 from cloudharness_model.models.database_deployment_config import DatabaseDeploymentConfig
@@ -17,6 +18,7 @@ from cloudharness_model.models.uri_role_mapping_config import UriRoleMappingConf
 import re
 from cloudharness_model import util
 
+from cloudharness_model.models.application_accounts_config import ApplicationAccountsConfig  # noqa: E501
 from cloudharness_model.models.application_dependencies_config import ApplicationDependenciesConfig  # noqa: E501
 from cloudharness_model.models.application_probe import ApplicationProbe  # noqa: E501
 from cloudharness_model.models.database_deployment_config import DatabaseDeploymentConfig  # noqa: E501
@@ -33,7 +35,7 @@ class ApplicationHarnessConfig(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, deployment=None, service=None, subdomain=None, aliases=None, domain=None, dependencies=None, secured=None, uri_role_mapping=None, secrets=None, use_services=None, database=None, resources=None, readiness_probe=None, startup_probe=None, liveness_probe=None, source_root=None, name=None, jupyterhub=None):  # noqa: E501
+    def __init__(self, deployment=None, service=None, subdomain=None, aliases=None, domain=None, dependencies=None, secured=None, uri_role_mapping=None, secrets=None, use_services=None, database=None, resources=None, readiness_probe=None, startup_probe=None, liveness_probe=None, source_root=None, name=None, jupyterhub=None, accounts=None):  # noqa: E501
         """ApplicationHarnessConfig - a model defined in OpenAPI
 
         :param deployment: The deployment of this ApplicationHarnessConfig.  # noqa: E501
@@ -72,6 +74,8 @@ class ApplicationHarnessConfig(Model):
         :type name: str
         :param jupyterhub: The jupyterhub of this ApplicationHarnessConfig.  # noqa: E501
         :type jupyterhub: JupyterHubConfig
+        :param accounts: The accounts of this ApplicationHarnessConfig.  # noqa: E501
+        :type accounts: ApplicationAccountsConfig
         """
         self.openapi_types = {
             'deployment': DeploymentAutoArtifactConfig,
@@ -91,7 +95,8 @@ class ApplicationHarnessConfig(Model):
             'liveness_probe': ApplicationProbe,
             'source_root': str,
             'name': str,
-            'jupyterhub': JupyterHubConfig
+            'jupyterhub': JupyterHubConfig,
+            'accounts': ApplicationAccountsConfig
         }
 
         self.attribute_map = {
@@ -112,7 +117,8 @@ class ApplicationHarnessConfig(Model):
             'liveness_probe': 'livenessProbe',
             'source_root': 'sourceRoot',
             'name': 'name',
-            'jupyterhub': 'jupyterhub'
+            'jupyterhub': 'jupyterhub',
+            'accounts': 'accounts'
         }
 
         self._deployment = deployment
@@ -133,6 +139,7 @@ class ApplicationHarnessConfig(Model):
         self._source_root = source_root
         self._name = name
         self._jupyterhub = jupyterhub
+        self._accounts = accounts
 
     @classmethod
     def from_dict(cls, dikt) -> 'ApplicationHarnessConfig':
@@ -538,3 +545,24 @@ class ApplicationHarnessConfig(Model):
         """
 
         self._jupyterhub = jupyterhub
+
+    @property
+    def accounts(self):
+        """Gets the accounts of this ApplicationHarnessConfig.
+
+
+        :return: The accounts of this ApplicationHarnessConfig.
+        :rtype: ApplicationAccountsConfig
+        """
+        return self._accounts
+
+    @accounts.setter
+    def accounts(self, accounts):
+        """Sets the accounts of this ApplicationHarnessConfig.
+
+
+        :param accounts: The accounts of this ApplicationHarnessConfig.
+        :type accounts: ApplicationAccountsConfig
+        """
+
+        self._accounts = accounts
