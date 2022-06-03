@@ -1,15 +1,12 @@
 {
-  "author": "Girma Nigusse <xgirma@gmail.com>",
-  "bugs": {
-    "url": "https://github.com/e2e-boilerplate/puppeteer-typescript-ts-jest-jest-expect/issues"
-  },
+  "author": "Filippo Ledda <filippo@metacell.us>",
   "dependencies": {
     "jest": "^28.1.0",
     "puppeteer": "14.0.0",
     "ts-jest": "^28.0.2",
     "typescript": "^4.6.4"
   },
-  "description": "Puppeteer end-to-end test automation boilerplate. Using TypeScript, ts-jest, Jest and Expect.",
+  "description": "Puppeteer end-to-end test automation base.",
   "devDependencies": {
     "@types/jest": "26.0.24",
     "@types/node": "13.13.52",
@@ -21,7 +18,6 @@
     "tslint-config-prettier": "1.18.0",
     "tslint-plugin-prettier": "2.3.0"
   },
-  "homepage": "https://github.com/e2e-boilerplate/puppeteer-typescript-ts-jest-jest-expect#readme",
   "husky": {
     "hooks": {
       "pre-commit": "lint-staged --allow-empty"
@@ -50,15 +46,12 @@
       "prettier --write"
     ]
   },
-  "name": "puppeteer-typescript-ts-jest-jest-expect",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/e2e-boilerplate/puppeteer-typescript-ts-jest-jest-expect.git"
-  },
+  "name": "cloudharness-e2e-test",
   "scripts": {
     "lint": "npx tslint -c tslint.json './__tests__/*.ts'",
     "pretty": "npx prettier --no-config './__tests__/*.{js,ts}' --write",
-    "test": "npx jest"
+    "test": "APP=. npx jest",
+    "test:app": "npx jest"
   },
   "version": "1.0.0"
 }

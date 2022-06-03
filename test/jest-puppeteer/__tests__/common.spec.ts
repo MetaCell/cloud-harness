@@ -21,10 +21,9 @@ describe("Sandbox", () => {
         expect(request.failure().errorText).toBe("")
       })
     await page
-      .goto(process.env.APP_URL || "https://github.com/MetaCell/cloud-harness/wiki/Get-Started", {
+      .goto(process.env.APP_URL, {
         waitUntil: "networkidle0",
       })
-      // tslint:disable-next-line:no-empty
       .catch(() => { });
   });
 
