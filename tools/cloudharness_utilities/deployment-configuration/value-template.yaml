@@ -65,6 +65,8 @@ harness:
     user: mnp
     # -- database password
     pass: metacell
+    # -- image ref for referencing images from the build, e.g. image_ref: myownpgimage
+    image_ref:
     # -- settings for mongo database (for type==mongo)
     mongo:
       image: mongo:5

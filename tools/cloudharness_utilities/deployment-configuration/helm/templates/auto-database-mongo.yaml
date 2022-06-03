@@ -1,5 +1,9 @@
 {{- define "deploy_utils.database.mongo" }}
+        {{- if .app.harness.database.image_ref }}
+        image: {{ index (index .app "task-images") .app.harness.database.image_ref | default ("Image ref not found!" | quote) }}
+        {{- else }}
         image: {{ .app.harness.database.mongo.image }}
+        {{- end }}
         env:
           - name: MONGO_INITDB_ROOT_USERNAME
             value: {{ .app.harness.database.user | quote }}

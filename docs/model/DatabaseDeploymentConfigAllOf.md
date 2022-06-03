@@ -8,6 +8,7 @@ Name | Type | Description | Notes
 **size** | **str** | Specify database disk size | [optional] 
 **user** | **str** | database username | [optional] 
 **_pass** | **str** | Database password | [optional] 
+**image_ref** | **str** | Used for referencing images from the build | [optional] 
 **mongo** | [**FreeObject**](FreeObject.md) |  | [optional] 
 **postgres** | [**FreeObject**](FreeObject.md) |  | [optional] 
 **neo4j** | **bool, date, datetime, dict, float, int, list, str, none_type** | Neo4j database specific configuration | [optional] 

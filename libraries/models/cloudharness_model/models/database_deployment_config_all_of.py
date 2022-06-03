@@ -19,7 +19,7 @@ class DatabaseDeploymentConfigAllOf(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, type=None, size=None, user=None, _pass=None, mongo=None, postgres=None, neo4j=None, resources=None):  # noqa: E501
+    def __init__(self, type=None, size=None, user=None, _pass=None, image_ref=None, mongo=None, postgres=None, neo4j=None, resources=None):  # noqa: E501
         """DatabaseDeploymentConfigAllOf - a model defined in OpenAPI
 
         :param type: The type of this DatabaseDeploymentConfigAllOf.  # noqa: E501
@@ -30,6 +30,8 @@ class DatabaseDeploymentConfigAllOf(Model):
         :type user: str
         :param _pass: The _pass of this DatabaseDeploymentConfigAllOf.  # noqa: E501
         :type _pass: str
+        :param image_ref: The image_ref of this DatabaseDeploymentConfigAllOf.  # noqa: E501
+        :type image_ref: str
         :param mongo: The mongo of this DatabaseDeploymentConfigAllOf.  # noqa: E501
         :type mongo: Dict[str, object]
         :param postgres: The postgres of this DatabaseDeploymentConfigAllOf.  # noqa: E501
@@ -44,6 +46,7 @@ class DatabaseDeploymentConfigAllOf(Model):
             'size': str,
             'user': str,
             '_pass': str,
+            'image_ref': str,
             'mongo': Dict[str, object],
             'postgres': Dict[str, object],
             'neo4j': object,
@@ -55,6 +58,7 @@ class DatabaseDeploymentConfigAllOf(Model):
             'size': 'size',
             'user': 'user',
             '_pass': 'pass',
+            'image_ref': 'image_ref',
             'mongo': 'mongo',
             'postgres': 'postgres',
             'neo4j': 'neo4j',
@@ -65,6 +69,7 @@ class DatabaseDeploymentConfigAllOf(Model):
         self._size = size
         self._user = user
         self.__pass = _pass
+        self._image_ref = image_ref
         self._mongo = mongo
         self._postgres = postgres
         self._neo4j = neo4j
@@ -174,6 +179,29 @@ class DatabaseDeploymentConfigAllOf(Model):
         """
 
         self.__pass = _pass
+
+    @property
+    def image_ref(self):
+        """Gets the image_ref of this DatabaseDeploymentConfigAllOf.
+
+        Used for referencing images from the build  # noqa: E501
+
+        :return: The image_ref of this DatabaseDeploymentConfigAllOf.
+        :rtype: str
+        """
+        return self.image_ref
+
+    @image_ref.setter
+    def image_ref(self, image_ref):
+        """Sets the image_ref of this DatabaseDeploymentConfigAllOf.
+
+        Used for referencing images from the build  # noqa: E501
+
+        :param image_ref: The image_ref of this DatabaseDeploymentConfigAllOf.
+        :type image_ref: str
+        """
+
+        self.image_ref = image_ref
 
     @property
     def mongo(self):
