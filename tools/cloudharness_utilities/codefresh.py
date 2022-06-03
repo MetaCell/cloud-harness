@@ -170,6 +170,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                            fixed_context=os.path.relpath(root_path, os.getcwd()), include=helm_values[KEY_TASK_IMAGES].keys())
             codefresh_steps_from_base_path(os.path.join(root_path, STATIC_IMAGES_PATH), CD_BUILD_STEP_STATIC,
                                            include=helm_values[KEY_TASK_IMAGES].keys())
+
             codefresh_steps_from_base_path(os.path.join(
                 root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
 

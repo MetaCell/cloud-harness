@@ -115,7 +115,7 @@ def test_create_codefresh_configuration():
     assert 'myapp_ut' in l1_steps[CD_UNIT_TEST_STEP]['steps'], "Myapp test step is expected"
     tstep = l1_steps[CD_UNIT_TEST_STEP]['steps']['myapp_ut']
     assert tstep['image'] == r"${{myapp}}", "The test image should be the one built for the current app"
-    assert len(tstep['commands']) == 1, "Unit test commands are not properly loaded from the unit test configuration file"
+    assert len(tstep['commands']) == 2, "Unit test commands are not properly loaded from the unit test configuration file"
     assert tstep['commands'][0] == "tox", "Unit test commands are not properly loaded from the unit test configuration file"
 
     shutil.rmtree(BUILD_MERGE_DIR)
