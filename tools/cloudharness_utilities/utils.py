@@ -1,3 +1,5 @@
+from .constants import HERE, NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
+    APPS_PATH, BUILD_FILENAMES, EXCLUDE_PATHS
 import socket
 import glob
 import subprocess
@@ -5,15 +7,14 @@ import os
 from os.path import join, dirname, isdir, basename, exists, relpath, sep
 import json
 import collections
+import requests
 from ruamel.yaml import YAML
 import shutil
 import logging
 import fileinput
 
-yaml=YAML(typ='safe')
+yaml = YAML(typ='safe')
 
-from .constants import HERE, NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
-    APPS_PATH, BUILD_FILENAMES, EXCLUDE_PATHS
 
 REPLACE_TEXT_FILES_EXTENSIONS = (
     '.js', '.md', '.py', '.js', '.ts', '.tsx', '.txt', 'Dockerfile', 'yaml', 'json', '.ejs'
@@ -36,10 +37,12 @@ def find_file_paths(base_directory, file_name):
     return tuple(dirname(path).replace(sep, "/") for path in
                  glob.glob(f"{base_directory}/**/{file_name}", recursive=True))
 
+
 def find_subdirs(base_path):
     if exists(base_path):
         return (join(base_path, d) for d in os.listdir(base_path) if isdir(join(base_path, d)))
     return tuple()
+
 
 def find_dockerfiles_paths(base_directory):
     return find_file_paths(base_directory, 'Dockerfile')
@@ -51,6 +54,7 @@ def get_parent_app_name(app_relative_path):
 
 def get_image_name(app_name, base_name=None):
     return (base_name + '/' + app_name) if base_name else app_name
+
 
 def env_variable(name, value):
     return {'name': f"{name}".upper(), 'value': value}
@@ -206,7 +210,8 @@ def merge_configuration_directories(source, dest):
     if source == dest:
         return
     if not exists(source):
-        logging.warning("Trying to merge the not existing directory: %s", source)
+        logging.warning(
+            "Trying to merge the not existing directory: %s", source)
         return
     if not exists(dest):
         shutil.copytree(
@@ -333,6 +338,7 @@ def merge_app_directories(root_paths, destination) -> None:
 def to_python_module(name):
     return name.replace('-', '_')
 
+
 def guess_build_dependencies_from_dockerfile(filename):
     dependencies = []
     if not "Dockerfile" in filename:
@@ -345,3 +351,16 @@ def guess_build_dependencies_from_dockerfile(filename):
                 break
     return dependencies
 
+
+def url_check(url):
+    try:
+        # Get Url
+        get = requests.get(url)
+        # if the request succeeds
+        if get.status_code < 400:
+            return True
+        return False
+
+    except requests.exceptions.RequestException as e:
+        # print URL with Errs
+        return False

@@ -1,0 +1,119 @@
+#!/usr/bin/env python
+import logging
+
+import sys
+import os
+
+from cloudharness_model.models import ApplicationUser, ApplicationHarnessConfig, HarnessMainConfig, ApplicationConfig
+
+from cloudharness_utilities.constants import DEPLOYMENT_PATH, E2E_TESTS_PROJECT_PATH, HELM_PATH, E2E_TESTS_DIRNAME
+from cloudharness_utilities.preprocessing import get_build_paths
+from cloudharness_utilities.utils import url_check
+from ruamel.yaml import YAML
+import subprocess
+
+yaml = YAML(typ='safe')
+
+
+HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
+ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
+
+HELM_DIR = os.path.join('./', DEPLOYMENT_PATH, HELM_PATH)
+
+
+E2E_TESTS_PROJECT_ROOT = E2E_TESTS_PROJECT_PATH if os.path.exists(
+    E2E_TESTS_PROJECT_PATH) else os.path.join(ROOT, E2E_TESTS_PROJECT_PATH)
+
+def run_e2e_tests(root_paths, helm_values, base_domain, included_applications=[]):
+
+    node_modules_path = os.path.join(E2E_TESTS_PROJECT_ROOT, "node_modules")
+    if not os.path.exists(node_modules_path):
+            logging.info("Installing Jest-Puppeteer base project")
+            subprocess.run("yarn", cwd=E2E_TESTS_PROJECT_ROOT)
+
+    artifacts = get_build_paths(
+            helm_values=helm_values, root_paths=root_paths)
+
+    for appkey in helm_values.apps:
+        app_config: ApplicationHarnessConfig = helm_values.apps[appkey].harness
+
+        appname = app_config.name
+            
+        if included_applications and appname not in included_applications:
+            continue
+
+        tests_dir = os.path.join(
+                artifacts[appkey], "test", E2E_TESTS_DIRNAME)
+        if not os.path.exists(tests_dir):
+            continue
+        if not app_config.domain and not app_config.subdomain:
+            logging.warn(
+                    "Application %s has a test folder but no subdomain/domain is specified", appname)
+            continue
+
+        app_domain = f"http{'s' if helm_values.tls else ''}://" + \
+                (app_config.domain or f"{app_config.subdomain}.{base_domain}")
+        app_node_modules_path = os.path.join(tests_dir, "node_modules")
+        if not os.path.exists(app_node_modules_path):
+            logging.info("Linking tests libraries to  %s",
+                             app_node_modules_path)
+            os.symlink(node_modules_path, app_node_modules_path)
+        logging.info(
+                "Running tests for application %s on domain %s", appname, app_domain)
+        my_env = os.environ.copy()
+        my_env["APP"] = artifacts[appkey]
+        my_env["APP_URL"] = app_domain
+        if app_config.accounts and app_config.accounts.users:
+            main_user: ApplicationUser = app_config.accounts.users[0]
+            my_env["USERNAME"] = main_user.username
+            my_env["PASSWORD"] = main_user.password
+
+        subprocess.run(["yarn", "test:app"],
+                           cwd=E2E_TESTS_PROJECT_ROOT, env=my_env)
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="""Run end to end test on deployed application. 
+        In order to run tests harness-deployment must run first and the deployment must be up at the 
+        specified domain.""")
+
+    parser.add_argument('paths', metavar='paths', default=[ROOT], type=str, nargs='*',
+                        help='Base paths to start looking for applications. The paths will be processed '
+                             'in the given order so determining the build and overriding precedence.')
+    parser.add_argument('-d', '--domain', dest='domain', action="store", default="ch.local",
+                        help='Override the domain specified with harness-deployment')
+    parser.add_argument('-i', '--include', dest='include', action="append", default=[],
+                        help='Specify the applications to include and exclude the rest. '
+                             'Omit to test all application included by harness-deployment.')
+    parser.add_argument('-c', '--helm-chart', dest='helm_chart_path', action="store", default=HELM_DIR,
+                        help=f'Specify helm chart base path (default `{HELM_DIR}`')
+
+    args, unknown = parser.parse_known_args(sys.argv[1:])
+
+    root_paths = [os.path.join(os.getcwd(), path) for path in args.paths]
+
+    if unknown:
+        print('There are unknown args. Make sure to call the script with the accepted args. Try --help')
+        print(f'unknown: {unknown}')
+    else:
+        helm_values_path = os.path.join(HELM_DIR, 'values.yaml')
+        if not os.path.exists(helm_values_path):
+            logging.error(
+                "Could not find helm installation. Have you run harness-deployment already?")
+            sys.exit(1)
+
+        with open(helm_values_path) as f:
+            helm_values = HarnessMainConfig.from_dict(yaml.load(f))
+
+        base_domain = args.domain or helm_values.domain
+        logging.info("Base domain is %s", base_domain)
+        if not url_check(f"http{'s' if helm_values.tls else ''}://{base_domain}"):
+            logging.error(
+                "Base domain unreachable. Is your deployment up and running? If yes, check your DNS/hosts settings.")
+            sys.exit(1)
+
+        included_applications = args.include
+
+        run_e2e_tests(root_paths, helm_values, base_domain, included_applications)

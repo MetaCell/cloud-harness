@@ -13,6 +13,7 @@ from .constants import APPS_PATH, HELM_CHART_PATH, DEPLOYMENT_CONFIGURATION_PATH
     BASE_IMAGES_PATH, STATIC_IMAGES_PATH
 
 
+
 def preprocess_build_overrides(root_paths, helm_values, merge_build_path=".overrides"):
     if not isabs(merge_build_path):
         merge_build_path = join(os.getcwd(), merge_build_path)
@@ -72,4 +73,53 @@ def preprocess_build_overrides(root_paths, helm_values, merge_build_path=".overr
 
     return (root_paths + [merge_build_path]) if merged else root_paths
 
+def get_build_paths(root_paths, helm_values, merge_build_path=".overrides"):
+    """
+    Gets the same paths from preprocess_build_overrides
+    """
+    if not isabs(merge_build_path):
+        merge_build_path = join(os.getcwd(), merge_build_path)
 
+    artifacts = {}
+
+    for root_path in root_paths:
+
+        for base_path in find_subdirs(join(root_path, BASE_IMAGES_PATH)):
+            app_name = app_name_from_path(basename(base_path))
+            if app_name not in helm_values[KEY_TASK_IMAGES]:
+                continue
+            if app_name not in artifacts:
+                artifacts[app_name] = base_path
+            else:
+                artifacts[app_name] = join(
+                        merge_build_path,
+                        relpath( base_path, root_path)
+                    )
+    for root_path in root_paths:
+        for base_path in find_subdirs(join(root_path, STATIC_IMAGES_PATH)):
+            
+            app_name = app_name_from_path(basename(base_path))
+            if app_name not in helm_values[KEY_TASK_IMAGES]:
+                continue
+            if app_name not in artifacts:
+                artifacts[app_name] = base_path
+            else:
+                artifacts[app_name] = join(
+                        merge_build_path,
+                        relpath( base_path, root_path)
+                    )
+
+    for root_path in root_paths:
+        for base_path in find_subdirs(join(root_path, APPS_PATH)):
+            app_name = app_name_from_path(basename(base_path))
+            if app_name.replace("-", "_") not in helm_values[KEY_APPS]:
+                continue
+            if app_name not in artifacts:
+                artifacts[app_name] = base_path
+            else:
+                artifacts[app_name] = join(
+                        merge_build_path,
+                        relpath( base_path, root_path)
+                    )
+
+    return artifacts

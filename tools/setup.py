@@ -40,7 +40,7 @@ setup(
     install_requires=REQUIREMENTS,
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,
-    scripts=['harness-deployment', 'harness-generate', 'harness-application'],
+    scripts=['harness-deployment', 'harness-generate', 'harness-application', 'harness-test'],
     long_description="""\
     MetaCell Neuroscience Platform - CloudHarness deploy library
     """,

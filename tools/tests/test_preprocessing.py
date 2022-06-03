@@ -9,6 +9,18 @@ OUT = './deployment'
 CLOUDHARNESS_ROOT = os.path.dirname(os.path.dirname(HERE))
 MERGE_BUILD_DIR = "/tmp/build"
 
+def test_get_build_paths():
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, include=['samples', 'myapp'],
+                               exclude=['events'], domain="my.local",
+                               namespace='test', env='dev', local=False, tag=1, registry='reg')
+    artifacts = get_build_paths(root_paths=[CLOUDHARNESS_ROOT, RESOURCES], helm_values=values, merge_build_path=MERGE_BUILD_DIR)
+    assert 'cloudharness-base' in artifacts
+    assert "events" not in artifacts
+    assert "samples" in artifacts 
+
+    assert artifacts['cloudharness-base'] == os.path.join(MERGE_BUILD_DIR, BASE_IMAGES_PATH, "cloudharness-base")
+    assert artifacts['samples'] == os.path.join(CLOUDHARNESS_ROOT, APPS_PATH, "samples")
+
 def test_preprocess_build_overrides():
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, include=['samples', 'myapp'],
                                exclude=['events'], domain="my.local",
