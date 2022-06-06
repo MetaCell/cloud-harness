@@ -24,5 +24,5 @@
   - [User workspaces with JupyterHub](./jupyterhub.md)
   - [Send errors to Sentry](./sentry.md)
   - [Use the events queue to send notifications](./notifications.md)
-  
+- [Writing and running automated tests](./testing.md) 
     

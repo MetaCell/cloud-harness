@@ -28,7 +28,12 @@ What building your cloud solution with CloudHarness gives to you:
   * Submit batch and asynchronous workflows - based on Argo
   * Orchestrate microservices - based on Kafka
   * Assign compute workspaces to users - based Jupyterhub
-  
+* Testing framework to help you write and run tests
+  * Unit tests
+  * API integration tests
+  * End to End tests (with Puppeteer)
+* CI/CD pipelines generation
+
 # Why CloudHarness?
 
 The microservice architecture is a great to get code separation and flexible development, but may not be of easy implementation, especially for small development teams/projects.
@@ -52,7 +57,7 @@ CloudHarness provides the following command line tools to help application scaff
 * `harness-deployment` - generate the helm chart to deploy on Kubernetes. 
 * `harness-application` - create a new CloudHarness REST application.
 * `harness-generate` - generates server and client code for all CloudHarness REST applications.
-
+* `harness-test` - run end to end tests
 # Get started
 
 ## Prerequisites
