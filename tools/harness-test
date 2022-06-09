@@ -82,7 +82,7 @@ if __name__ == "__main__":
     parser.add_argument('paths', metavar='paths', default=[ROOT], type=str, nargs='*',
                         help='Base paths to start looking for applications. The paths will be processed '
                              'in the given order so determining the build and overriding precedence.')
-    parser.add_argument('-d', '--domain', dest='domain', action="store", default="ch.local",
+    parser.add_argument('-d', '--domain', dest='domain', action="store", default=None,
                         help='Override the domain specified with harness-deployment')
     parser.add_argument('-i', '--include', dest='include', action="append", default=[],
                         help='Specify the applications to include and exclude the rest. '
