@@ -5,7 +5,7 @@ let browser: any;
 
 describe("Sandbox", () => {
   beforeAll(async () => {
-    browser = await puppeteer.launch({ args: ['--no-sandbox'], headless: false, slowMo: 50, })
+    browser = await puppeteer.launch({ args: ['--no-sandbox'], headless: true, })
 
     page = await browser.newPage();
     page.on('pageerror', ({ message }: any) => expect(message).toBe(""))
@@ -48,12 +48,11 @@ describe("Sandbox", () => {
         }
         });
 
-      await page.type("#username", process.env.USERNAME); // to replace with the username from values-test.yaml
-      await page.type("#password", process.env.PASSWORD); // to replace with the password from values-test.yaml
+      await page.type("#username", process.env.USERNAME); 
+      await page.type("#password", process.env.PASSWORD); 
       await page.keyboard.press("Enter");
       await page.waitForSelector("#user-menu"); 
       await page.waitForTimeout(1000); 
-    
 
     });
   }
