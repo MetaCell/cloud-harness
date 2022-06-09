@@ -41,6 +41,13 @@ describe("Sandbox", () => {
   if (process.env.USERNAME && process.env.PASSWORD) {
     test("Login", async () => {
 
+      page
+        .on("response", (response: any) => {
+        if (response.status() >= 300) {
+          expect(response.status()).toBeLessThan(400);
+        }
+        });
+
       await page.type("#username", process.env.USERNAME); // to replace with the username from values-test.yaml
       await page.type("#password", process.env.PASSWORD); // to replace with the password from values-test.yaml
       await page.keyboard.press("Enter");
