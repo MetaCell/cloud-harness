@@ -51,7 +51,9 @@ describe("Sandbox", () => {
       await page.type("#username", process.env.USERNAME); // to replace with the username from values-test.yaml
       await page.type("#password", process.env.PASSWORD); // to replace with the password from values-test.yaml
       await page.keyboard.press("Enter");
-      await page.waitForSelector("#user-menu");     
+      await page.waitForSelector("#user-menu"); 
+      await page.waitForTimeout(1000); 
+    
 
     });
   }
