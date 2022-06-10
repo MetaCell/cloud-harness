@@ -515,6 +515,7 @@ components:
                     type: string
         ApplicationHarnessConfig:
             description: ''
+            required: []
             type: object
             properties:
                 deployment:
@@ -604,6 +605,9 @@ components:
                     description: ''
                 accounts:
                     $ref: '#/components/schemas/ApplicationAccountsConfig'
+                    description: ''
+                test:
+                    $ref: '#/components/schemas/ApplicationTestConfig'
                     description: ''
             additionalProperties: true
         JupyterHubConfig:

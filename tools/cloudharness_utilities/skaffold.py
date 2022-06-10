@@ -151,7 +151,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
                 }
             
             test_config: ApplicationTestConfig = helm_values.apps[app_key].harness.test
-            if test_config.unit.enabled:
+            if test_config.unit.enabled and test_config.unit.commands:
                     
                     skaffold_conf['test'].append(dict(
                         image=get_image_tag(app_name),

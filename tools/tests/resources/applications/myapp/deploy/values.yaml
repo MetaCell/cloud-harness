@@ -6,4 +6,9 @@ harness:
       - legacy
     build:
       - cloudharness-flask
+  test:
+    unit:
+      commands:
+      - tox
+      - echo "hello"
 a: b

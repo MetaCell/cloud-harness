@@ -46,7 +46,7 @@ harness:
     unit:
       enabled: true
       commands:
-      - pytest samples/test
+      - "pytest samples/test"
     e2e:
       enabled: true
       smoketest: true

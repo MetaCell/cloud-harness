@@ -9,6 +9,7 @@ from cloudharness_model.models.base_model_ import Model
 from cloudharness_model.models.application_accounts_config import ApplicationAccountsConfig
 from cloudharness_model.models.application_dependencies_config import ApplicationDependenciesConfig
 from cloudharness_model.models.application_probe import ApplicationProbe
+from cloudharness_model.models.application_test_config import ApplicationTestConfig
 from cloudharness_model.models.database_deployment_config import DatabaseDeploymentConfig
 from cloudharness_model.models.deployment_auto_artifact_config import DeploymentAutoArtifactConfig
 from cloudharness_model.models.file_resources_config import FileResourcesConfig
@@ -21,6 +22,7 @@ from cloudharness_model import util
 from cloudharness_model.models.application_accounts_config import ApplicationAccountsConfig  # noqa: E501
 from cloudharness_model.models.application_dependencies_config import ApplicationDependenciesConfig  # noqa: E501
 from cloudharness_model.models.application_probe import ApplicationProbe  # noqa: E501
+from cloudharness_model.models.application_test_config import ApplicationTestConfig  # noqa: E501
 from cloudharness_model.models.database_deployment_config import DatabaseDeploymentConfig  # noqa: E501
 from cloudharness_model.models.deployment_auto_artifact_config import DeploymentAutoArtifactConfig  # noqa: E501
 from cloudharness_model.models.file_resources_config import FileResourcesConfig  # noqa: E501
@@ -35,7 +37,7 @@ class ApplicationHarnessConfig(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, deployment=None, service=None, subdomain=None, aliases=None, domain=None, dependencies=None, secured=None, uri_role_mapping=None, secrets=None, use_services=None, database=None, resources=None, readiness_probe=None, startup_probe=None, liveness_probe=None, source_root=None, name=None, jupyterhub=None, accounts=None):  # noqa: E501
+    def __init__(self, deployment=None, service=None, subdomain=None, aliases=None, domain=None, dependencies=None, secured=None, uri_role_mapping=None, secrets=None, use_services=None, database=None, resources=None, readiness_probe=None, startup_probe=None, liveness_probe=None, source_root=None, name=None, jupyterhub=None, accounts=None, test=None):  # noqa: E501
         """ApplicationHarnessConfig - a model defined in OpenAPI
 
         :param deployment: The deployment of this ApplicationHarnessConfig.  # noqa: E501
@@ -76,6 +78,8 @@ class ApplicationHarnessConfig(Model):
         :type jupyterhub: JupyterHubConfig
         :param accounts: The accounts of this ApplicationHarnessConfig.  # noqa: E501
         :type accounts: ApplicationAccountsConfig
+        :param test: The test of this ApplicationHarnessConfig.  # noqa: E501
+        :type test: ApplicationTestConfig
         """
         self.openapi_types = {
             'deployment': DeploymentAutoArtifactConfig,
@@ -96,7 +100,8 @@ class ApplicationHarnessConfig(Model):
             'source_root': str,
             'name': str,
             'jupyterhub': JupyterHubConfig,
-            'accounts': ApplicationAccountsConfig
+            'accounts': ApplicationAccountsConfig,
+            'test': ApplicationTestConfig
         }
 
         self.attribute_map = {
@@ -118,7 +123,8 @@ class ApplicationHarnessConfig(Model):
             'source_root': 'sourceRoot',
             'name': 'name',
             'jupyterhub': 'jupyterhub',
-            'accounts': 'accounts'
+            'accounts': 'accounts',
+            'test': 'test'
         }
 
         self._deployment = deployment
@@ -140,6 +146,7 @@ class ApplicationHarnessConfig(Model):
         self._name = name
         self._jupyterhub = jupyterhub
         self._accounts = accounts
+        self._test = test
 
     @classmethod
     def from_dict(cls, dikt) -> 'ApplicationHarnessConfig':
@@ -566,3 +573,24 @@ class ApplicationHarnessConfig(Model):
         """
 
         self._accounts = accounts
+
+    @property
+    def test(self):
+        """Gets the test of this ApplicationHarnessConfig.
+
+
+        :return: The test of this ApplicationHarnessConfig.
+        :rtype: ApplicationTestConfig
+        """
+        return self._test
+
+    @test.setter
+    def test(self, test):
+        """Sets the test of this ApplicationHarnessConfig.
+
+
+        :param test: The test of this ApplicationHarnessConfig.
+        :type test: ApplicationTestConfig
+        """
+
+        self._test = test
