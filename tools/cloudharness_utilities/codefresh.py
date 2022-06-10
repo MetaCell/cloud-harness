@@ -64,6 +64,15 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
             if tpl:
                 logging.info("Codefresh template found: %s", template_path)
                 tpl = get_template(template_path, True)
+                if 'steps' in tpl:
+                    if codefresh and CF_BUILD_STEP_BASE in tpl['steps']:
+                        del tpl['steps'][CF_BUILD_STEP_BASE]
+                    if codefresh and CF_BUILD_STEP_STATIC in tpl['steps']:
+                        del tpl['steps'][CF_BUILD_STEP_STATIC]
+                    if codefresh and CF_BUILD_STEP_PARALLEL in tpl['steps']:
+                        del tpl['steps'][CF_BUILD_STEP_PARALLEL]
+                    if codefresh and CF_STEP_PUBLISH in tpl['steps']:
+                        del tpl['steps'][CF_STEP_PUBLISH]
                 codefresh = dict_merge(codefresh, tpl)
 
             if not 'steps' in codefresh:
