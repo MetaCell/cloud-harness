@@ -53,6 +53,9 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         )
 
     codefresh = {}
+    for e in envs:
+        template_name = f"codefresh-template-{e}.yaml"
+        codefresh = dict_merge(codefresh, get_template(template_name, True))
 
     for root_path in root_paths:
         for e in envs:
@@ -60,19 +63,9 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
             template_path = os.path.join(
                 root_path, DEPLOYMENT_CONFIGURATION_PATH, template_name)
 
-            tpl = get_template(template_path, True)
+            tpl = get_template(template_path)
             if tpl:
                 logging.info("Codefresh template found: %s", template_path)
-                tpl = get_template(template_path, True)
-                if 'steps' in tpl:
-                    if codefresh and CF_BUILD_STEP_BASE in tpl['steps']:
-                        del tpl['steps'][CF_BUILD_STEP_BASE]
-                    if codefresh and CF_BUILD_STEP_STATIC in tpl['steps']:
-                        del tpl['steps'][CF_BUILD_STEP_STATIC]
-                    if codefresh and CF_BUILD_STEP_PARALLEL in tpl['steps']:
-                        del tpl['steps'][CF_BUILD_STEP_PARALLEL]
-                    if codefresh and CF_STEP_PUBLISH in tpl['steps']:
-                        del tpl['steps'][CF_STEP_PUBLISH]
                 codefresh = dict_merge(codefresh, tpl)
 
             if not 'steps' in codefresh:
