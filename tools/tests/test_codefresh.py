@@ -40,6 +40,9 @@ def test_create_codefresh_configuration():
 
     assert "test_step" in cf
 
+    assert cf['steps']['main_clone']['title'] == 'Overridden', "Steps overriding is not working correctly"
+    assert cf['steps']['main_clone']['type'] == 'git-clone', "Steps overriding missing values from the parent"
+
     l1_steps = cf['steps']
     step_build_base = l1_steps["build_base_images"]
     assert step_build_base["type"] == "parallel"
