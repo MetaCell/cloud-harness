@@ -43,7 +43,7 @@ CD_E2E_TEST_STEP = 'tests_e2e'
 CD_STEP_PUBLISH = 'publish'
 BUILD_FILENAMES = ('node_modules',)
 
-UNITTEST_FNAME = 'unit.yaml'
+
 E2E_TESTS_DIRNAME = 'e2e'
 API_TESTS_DIRNAME = 'api'
 

@@ -685,3 +685,61 @@ components:
                     type: array
                     items:
                         type: string
+        ApplicationTestConfig:
+            description: ''
+            required:
+                - unit
+                - e2e
+                - api
+            type: object
+            properties:
+                unit:
+                    $ref: '#/components/schemas/UnitTestsConfig'
+                    description: ''
+                api:
+                    $ref: '#/components/schemas/ApiTestsConfig'
+                    description: ''
+                e2e:
+                    $ref: '#/components/schemas/E2ETestsConfig'
+                    description: ''
+        UnitTestsConfig:
+            description: ''
+            required:
+                - enabled
+                - commands
+            type: object
+            properties:
+                enabled:
+                    description: ''
+                    type: boolean
+                commands:
+                    description: ''
+                    type: array
+                    items:
+                        type: string
+        E2ETestsConfig:
+            description: ''
+            required:
+                - enabled
+                - smoketest
+            type: object
+            properties:
+                enabled:
+                    description: ''
+                    type: boolean
+                smoketest:
+                    description: Specify whether to run the common smoke tests
+                    type: boolean
+        ApiTestsConfig:
+            description: ''
+            required:
+                - enabled
+                - autotest
+            type: object
+            properties:
+                enabled:
+                    description: ''
+                    type: boolean
+                autotest:
+                    description: Specify whether to run the common smoke tests
+                    type: boolean

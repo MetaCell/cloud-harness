@@ -32,17 +32,25 @@ def generate_server(app_path):
 def generate_model(base_path=ROOT):
     lib_path = f"{base_path}/libraries/models"
 
+    # Generate model stuff: use python-flask generator
     command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/api/openapi.yaml -g python-flask -o {lib_path}  --skip-validate-spec -c {base_path}/libraries/api/config.json"
-    
     os.system(command)
-    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/api/openapi.yaml -g python-flask -o {lib_path}  --skip-validate-spec -c {base_path}/libraries/api/config.json"
+
+    # Generate docs: use python generator
+    tmp_path = f"{lib_path}/tmp"
+    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/api/openapi.yaml -g python -o {tmp_path}  --skip-validate-spec -c {base_path}/libraries/api/config.json"
     
     os.system(command)
     try:
-        source_dir = join(lib_path, "docs")
+        source_dir = join(tmp_path, "docs")
+        dest = join(base_path, "docs/model")
+        if os.path.exists(dest):
+            shutil.rmtree(dest)
+        os.makedirs(dest)
         file_names = os.listdir(source_dir)
         for file_name in file_names:
-            shutil.move(join(source_dir, file_name), join(base_path, "docs/model"))
+            shutil.move(join(source_dir, file_name), dest)
+        shutil.rmtree(tmp_path)
     except:
         logging.error(
             "An error occurred while moving generated resources", exc_info=True)

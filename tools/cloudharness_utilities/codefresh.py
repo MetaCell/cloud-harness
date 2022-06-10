@@ -1,7 +1,7 @@
 import os
 from re import template
 
-from .models import HarnessMainConfig, ApplicationHarnessConfig
+from .models import HarnessMainConfig, ApplicationTestConfig, ApplicationHarnessConfig
 import oyaml as yaml
 import yaml.representer
 
@@ -109,7 +109,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         steps[build_step]['steps'][app_name] = build
 
                     if CD_UNIT_TEST_STEP in steps:
-                        add_unit_test_step(base_path, app_relative_to_base, app_name)
+                        add_unit_test_step(app_name)
 
 
                     if CD_E2E_TEST_STEP in steps:
@@ -144,14 +144,18 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                             base_name=base_image_name
                         )
 
-            def add_unit_test_step(base_path, app_relative_to_base, app_name):
+            def add_unit_test_step(app_name):
                 # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step
-                unittests_spec_path = os.path.join(base_path, app_relative_to_base, "test", UNITTEST_FNAME)
-                if os.path.exists(unittests_spec_path):
-                    unittest_config = get_template(unittests_spec_path)
+
+                app_key = app_name.replace("-", "_")
+                if not app_key in helm_values.apps:
+                    return
+                test_config: ApplicationTestConfig = helm_values.apps[app_key].harness.test
+
+                if test_config.unit.enabled and test_config.unit.commands:
                     steps[CD_UNIT_TEST_STEP]['steps'][f"{app_name}_ut"] = dict(
                                 title=f"Unit tests for {app_name}",
-                                commands=unittest_config['commands'],
+                                commands=test_config.unit.commands,
                                 image=r"${{%s}}" % app_name
                             )
             
@@ -288,13 +292,14 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
     build['build_arguments'].append('REGISTRY=${{REGISTRY}}/%s/' % base_name)
 
     values_key = app_name.replace('-', '_')
-    try:
-        dep_list = helm_values.apps[values_key].harness.dependencies.build
-        dependencies = [f"{d.upper().replace('-', '_')}=${{{{REGISTRY}}}}/{get_image_name(d, base_name)}:{build['tag']}" for
-                        d in dep_list]
-    except (KeyError, AttributeError):
-        dependencies = [f"{d.upper().replace('-', '_')}=${{{{REGISTRY}}}}/{get_image_name(d, base_name)}:{build['tag']}" for
-                        d in helm_values['task-images']]
-    build['build_arguments'].extend(dependencies)
+    if values_key in helm_values.apps:
+        try:
+            dep_list = helm_values.apps[values_key].harness.dependencies.build
+            dependencies = [f"{d.upper().replace('-', '_')}=${{{{REGISTRY}}}}/{get_image_name(d, base_name)}:{build['tag']}" for
+                            d in dep_list]
+        except (KeyError, AttributeError):
+            dependencies = [f"{d.upper().replace('-', '_')}=${{{{REGISTRY}}}}/{get_image_name(d, base_name)}:{build['tag']}" for
+                            d in helm_values['task-images']]
+        build['build_arguments'].extend(dependencies)
 
     return build

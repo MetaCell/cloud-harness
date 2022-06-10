@@ -5,7 +5,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **auto** | **bool** | When true, enables automatic template | 
-**type** | **str** | Define the database type.  One of (mongo, postgres, neo4j) | [optional] 
+**type** | **str** | Define the database type.  One of (mongo, postgres, neo4j, sqlite3) | [optional] 
 **size** | **str** | Specify database disk size | [optional] 
 **user** | **str** | database username | [optional] 
 **_pass** | **str** | Database password | [optional] 

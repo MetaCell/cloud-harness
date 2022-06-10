@@ -104,3 +104,13 @@ harness:
       limits:
         memory: "2Gi"
         cpu: "1000m"
+  test:
+    unit:
+      enabled: true
+      commands: []
+    api:
+      enabled: false
+      autotest: true
+    e2e:
+      enabled: false
+      smoketest: true

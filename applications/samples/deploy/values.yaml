@@ -42,3 +42,14 @@ harness:
       dst: "/usr/src/app/important_config.yaml"
   secrets:
     asecret: "value"
+  test:
+    unit:
+      enabled: true
+      commands:
+      - pytest samples/test
+    e2e:
+      enabled: true
+      smoketest: true
+    api:
+      enabled: true
+      autotest: true
