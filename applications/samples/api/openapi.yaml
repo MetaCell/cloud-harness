@@ -34,7 +34,27 @@ paths:
                   $ref: "#/components/schemas/Valid"
         "401":
           description: invalid toke, unauthorized
-
+  /valid-cookie:
+    get:
+      summary: Check if the token is valid. Get a token by logging into the base url
+      security:
+        - cookieAuth: []
+      tags:
+        - auth
+      operationId: valid_cookie
+      description: |
+        Check if the token is valid
+      responses:
+        "200":
+          description: Check if token is valid
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Valid"
+        "401":
+          description: invalid toke, unauthorized
   /error:
     get:
       summary: test sentry is working
@@ -79,7 +99,7 @@ paths:
           content:
             application/json:
               schema:
-                type: string
+                type: object
 
   /operation_sync_results:
     get:
@@ -91,11 +111,13 @@ paths:
         - in: query
           name: a
           description: first number to sum
+          required: true
           schema:
             type: number
           example: 10
         - in: query
           name: b
+          required: true
           description: second number to sum
           schema:
             type: number
@@ -140,6 +162,11 @@ components:
       scheme: bearer
       bearerFormat: JWT
       x-bearerInfoFunc: cloudharness.auth.decode_token
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: kc-access  
+      x-apikeyInfoFunc: cloudharness.auth.decode_token    
   schemas:
     Valid:
       type: object

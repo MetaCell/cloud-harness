@@ -47,7 +47,7 @@ def with_refreshtoken(func):
     return wrapper
 
 
-def decode_token(token):
+def decode_token(token, **kwargs):
     """
     Check and retrieve authentication information from custom bearer token.
     Returned value will be passed in 'token_info' parameter of your operation function, if there is one.
@@ -60,7 +60,7 @@ def decode_token(token):
     """
 
     decoded = AuthClient.decode_token(token)
-    return {'uid': 'user_id'}
+    return decoded
 
 
 def get_server_url():

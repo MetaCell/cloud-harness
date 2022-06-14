@@ -75,6 +75,6 @@ def submit_sync_with_results(a=1, b=2):  # noqa: E501
         op = operations.DistributedSyncOperationWithResults(
             'test-sync-op-results-', task)
         result = op.execute()
-        return result
+        return result[0]["result"]
     except Exception as e:
         return jsonify(str(e)), 200
