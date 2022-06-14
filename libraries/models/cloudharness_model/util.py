@@ -125,7 +125,7 @@ def deserialize_model(data, klass):
                     value = data[instance.attribute_map[attr]]
                     setattr(instance, attr, _deserialize(value, attr_type))
 
-        elif isinstance(data, dict):
+        elif hasattr(data, "__getitem__"):
 
             for attr in data:
                 value = data[attr]
