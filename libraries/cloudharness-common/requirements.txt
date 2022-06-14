@@ -14,5 +14,5 @@ pyaml
 kafka-python
 kubernetes
 sentry-sdk[flask]==0.14.4
-python-keycloak==0.24.0
+python-keycloak==1.6.0
 argo-workflows==5.0.0
