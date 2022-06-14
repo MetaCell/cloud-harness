@@ -1,0 +1,5 @@
+ARG CLOUDHARNESS_BASE
+
+FROM $CLOUDHARNESS_BASE
+
+RUN pip install schemathesis

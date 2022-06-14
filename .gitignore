@@ -16,3 +16,4 @@ skaffold.yaml
 .overrides
 deployment.yaml
 /deployment-configuration
+.hypothesis

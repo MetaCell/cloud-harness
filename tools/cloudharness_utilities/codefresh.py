@@ -9,7 +9,7 @@ import logging
 
 from .constants import *
 from .helm import KEY_APPS, KEY_TASK_IMAGES, collect_helm_values
-from .utils import find_dockerfiles_paths, image_name_from_dockerfile_path, \
+from .utils import find_dockerfiles_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
     get_image_name, get_template, merge_to_yaml_file, dict_merge, app_name_from_path
 
 logging.getLogger().setLevel(logging.INFO)
@@ -92,7 +92,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         continue
 
                     build = None
-                    if CD_BUILD_STEP_BASE in steps:
+                    if build_step in steps:
                         build = codefresh_app_build_spec(
                             app_name=app_name,
                             app_context_path=os.path.relpath(
@@ -102,7 +102,10 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                     dockerfile_path, root_path) if fixed_context else '',
                                 "Dockerfile"),
                             base_name=base_image_name,
-                            helm_values=helm_values
+                            helm_values=helm_values,
+                            dependencies=guess_build_dependencies_from_dockerfile(
+                                os.path.join(dockerfile_path, "Dockerfile")
+                            )
                         )
 
                         if not type(steps[build_step]['steps']) == dict:
@@ -113,29 +116,29 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     if CD_UNIT_TEST_STEP in steps:
                         add_unit_test_step(app_name)
 
-
                     if CD_E2E_TEST_STEP in steps:
-                        # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step
                         tests_path = os.path.join(
                             base_path, app_relative_to_base, "test", E2E_TESTS_DIRNAME)
                         if os.path.exists(tests_path) and helm_values.apps[app_name].harness.subdomain:
-                            
+
                             steps[CD_E2E_TEST_STEP]['scale'][f"{app_name}_e2e_test"] = dict(
-                                volumes=e2e_test_volumes(app_relative_to_root, app_name),
-                                environment=e2e_test_environment(helm_values.apps[app_name].harness.subdomain)
+                                volumes=e2e_test_volumes(
+                                    app_relative_to_root, app_name),
+                                environment=e2e_test_environment(
+                                    helm_values.apps[app_name].harness.subdomain)
                             )
 
-                    if CD_API_TEST_STEP in steps :
-                        # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step
+                    if CD_API_TEST_STEP in steps:
                         tests_path = os.path.join(
                             base_path, app_relative_to_base, "test", API_TESTS_DIRNAME)
                         if os.path.exists(tests_path) and helm_values.apps[app_name].harness.subdomain:
 
-                            
                             steps[CD_API_TEST_STEP]['scale'][f"{app_name}_api_test"] = dict(
-                                volumes=e2e_test_volumes(app_relative_to_root, app_name),
-                                environment=e2e_test_environment(helm_values.apps[app_name].harness.subdomain)
-                            )                        
+                                volumes=e2e_test_volumes(
+                                    app_relative_to_root, app_name),
+                                environment=e2e_test_environment(
+                                    helm_values.apps[app_name].harness.subdomain)
+                            )
 
                     if CD_STEP_PUBLISH in steps and steps[CD_STEP_PUBLISH]:
                         if not type(steps[CD_STEP_PUBLISH]['steps']) == dict:
@@ -156,21 +159,21 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
                 if test_config.unit.enabled and test_config.unit.commands:
                     steps[CD_UNIT_TEST_STEP]['steps'][f"{app_name}_ut"] = dict(
-                                title=f"Unit tests for {app_name}",
-                                commands=test_config.unit.commands,
-                                image=r"${{%s}}" % app_name
-                            )
-            
+                        title=f"Unit tests for {app_name}",
+                        commands=test_config.unit.commands,
+                        image=r"${{%s}}" % app_name
+                    )
+
             def create_k8s_rollout_commands():
                 rollout_commands = steps[CD_WAIT_STEP]['commands']
                 for app_key in helm_values[KEY_APPS]:
                     app: ApplicationHarnessConfig = helm_values[KEY_APPS][app_key].harness
                     if app.deployment.auto:
                         rollout_commands.append(
-                                        ROLLOUT_CMD_TPL % app.deployment.name)
+                            ROLLOUT_CMD_TPL % app.deployment.name)
                     if app.secured and helm_values.secured_gatekeepers:
                         rollout_commands.append(
-                                        ROLLOUT_CMD_TPL % app.service.name + "-gk")
+                            ROLLOUT_CMD_TPL % app.service.name + "-gk")
 
             codefresh_steps_from_base_path(os.path.join(root_path, BASE_IMAGES_PATH), CD_BUILD_STEP_BASE,
                                            fixed_context=os.path.relpath(root_path, os.getcwd()), include=helm_values[KEY_TASK_IMAGES].keys())
@@ -182,9 +185,12 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
             if CD_WAIT_STEP in steps:
                 create_k8s_rollout_commands()
-            if CD_E2E_TEST_STEP in steps or CD_API_TEST_STEP in steps:
+            if CD_E2E_TEST_STEP in steps:
                 codefresh_steps_from_base_path(os.path.join(
-                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_STATIC, include=())
+                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_STATIC, include=("test-e2e",))
+            if CD_API_TEST_STEP in steps:
+                codefresh_steps_from_base_path(os.path.join(
+                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_STATIC, include=("test-api",))
 
     if not codefresh:
         logging.warning(
@@ -205,7 +211,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 arguments["custom_values"] = []
             for app_name, app in helm_values.apps.items():
                 if app.harness.secrets:
-                    
+
                     for secret in [secret[0] for secret in app.harness.secrets.items() if secret[1]]:
                         secret_name = secret
                         arguments["custom_values"].append(
@@ -246,7 +252,8 @@ def e2e_test_volumes(app_relative_to_root, app_name):
 
 def e2e_test_environment(app_subdomain):
     return [
-        f"APP_URL=https://{app_subdomain}." + r"${{CF_SHORT_REVISION}}.${{DOMAIN}}"
+        f"APP_URL=https://{app_subdomain}." +
+        r"${{CF_SHORT_REVISION}}.${{DOMAIN}}"
     ]
 
 
@@ -270,7 +277,7 @@ def app_specific_tag_variable(app_name):
     return "${{ %s }}_${{DEPLOYMENT_PUBLISH_TAG}}" % app_name.replace('-', '_').upper()
 
 
-def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Dockerfile", base_name=None, helm_values: HarnessMainConfig = {}):
+def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Dockerfile", base_name=None, helm_values: HarnessMainConfig = {}, dependencies=None):
     logging.info('Generating build script for ' + app_name)
     title = app_name.capitalize().replace(
         '-', ' ').replace('/', ' ').replace('.', ' ').strip()
@@ -288,20 +295,24 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
         with open(specific_build_template_path) as f:
             build_specific = yaml.safe_load(f)
 
-        build_args = build_specific.pop(
+        build_specific.pop(
             'build_arguments') if 'build_arguments' in build_specific else []
 
     build['build_arguments'].append('REGISTRY=${{REGISTRY}}/%s/' % base_name)
 
+    def add_arg_dependencies(dependencies):
+        arg_dependencies = [f"{d.upper().replace('-', '_')}=${{{{REGISTRY}}}}/{get_image_name(d, base_name)}:{build['tag']}" for
+                            d in dependencies]
+        build['build_arguments'].extend(arg_dependencies)
+
     values_key = app_name.replace('-', '_')
-    if values_key in helm_values.apps:
+    if dependencies is not None:
+        add_arg_dependencies(dependencies)
+    elif values_key in helm_values.apps:
         try:
-            dep_list = helm_values.apps[values_key].harness.dependencies.build
-            dependencies = [f"{d.upper().replace('-', '_')}=${{{{REGISTRY}}}}/{get_image_name(d, base_name)}:{build['tag']}" for
-                            d in dep_list]
+            add_arg_dependencies(
+                helm_values.apps[values_key].harness.dependencies.build)
         except (KeyError, AttributeError):
-            dependencies = [f"{d.upper().replace('-', '_')}=${{{{REGISTRY}}}}/{get_image_name(d, base_name)}:{build['tag']}" for
-                            d in helm_values['task-images']]
-        build['build_arguments'].extend(dependencies)
+            add_arg_dependencies(helm_values['task-images'])
 
     return build

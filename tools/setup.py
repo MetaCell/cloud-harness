@@ -25,7 +25,9 @@ REQUIREMENTS = [
     'oyaml',
     'docker',
     'six',
-    'cloudharness_model'
+    'cloudharness_model',
+    'schemathesis',
+    'keycloak'
 ]
 
 

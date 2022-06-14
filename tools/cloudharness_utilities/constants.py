@@ -47,4 +47,4 @@ BUILD_FILENAMES = ('node_modules',)
 E2E_TESTS_DIRNAME = 'e2e'
 API_TESTS_DIRNAME = 'api'
 
-E2E_TESTS_PROJECT_PATH = "test/jest-puppeteer"
+E2E_TESTS_PROJECT_PATH = "test/test-e2e"
