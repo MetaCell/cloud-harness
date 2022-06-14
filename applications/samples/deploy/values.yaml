@@ -53,3 +53,8 @@ harness:
     api:
       enabled: true
       autotest: true
+      runParams:
+      - "--skip-deprecated-operations" 
+      - "--hypothesis-suppress-health-check=too_slow" 
+      - "--hypothesis-deadline=60000"
+      - "--request-timeout=60000"

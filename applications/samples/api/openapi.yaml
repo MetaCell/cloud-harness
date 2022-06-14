@@ -32,13 +32,14 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Valid"
-        "400":
-          description: bad input parameter
+        "401":
+          description: invalid toke, unauthorized
 
   /error:
     get:
       summary: test sentry is working
       operationId: error
+      deprecated: true
       tags:
         - test
       responses:
