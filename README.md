@@ -17,7 +17,6 @@ What building your cloud solution with CloudHarness gives to you:
     - access gatekeepers configuration
     - secrets
     - templated config maps from files
-    - secrets
   * Automatic build and push of images
   * REST-API scaffolding building based on OpenApi
   * Continuous deployment script generation
@@ -94,6 +93,14 @@ With conda:
 ### Skaffold
 
 [Skaffold](https://skaffold.dev/docs/install/) is the way to go to build and debug your application in your local development environment.
+
+### Node environment
+
+A node environment with npm is required for developing web applications and to run end to end tests.
+
+Recommended:
+- node >= v14.0.0
+- npm >= 8.0.0
 
 ## CloudHarness command line tools
 To use the cli tools, install requirements first:
