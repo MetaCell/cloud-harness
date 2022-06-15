@@ -41,6 +41,10 @@ if __name__ == "__main__":
                              'Omit to test all application included by harness-deployment.')
     parser.add_argument('-c', '--helm-chart', dest='helm_chart_path', action="store", default=HELM_DIR,
                         help=f'Specify helm chart base path (default `{HELM_DIR}`')
+    parser.add_argument('-e', '--e2e', dest='run_e2e', action="store_const", default=None, const=True,
+                        help=f'Run only end to end tests (default: run both api and end to end tests')
+    parser.add_argument('-a', '--api', dest='run_api', action="store_const", default=None, const=True,
+                        help=f'Run only end to end tests (default: run both api and end to end tests')
 
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
@@ -55,6 +59,7 @@ if __name__ == "__main__":
             logging.error(
                 "Could not find helm installation. Have you run harness-deployment already?")
             sys.exit(1)
+        os.environ["CH_VALUES_PATH"] = os.path.abspath(helm_values_path)
 
         with open(helm_values_path) as f:
             helm_values = HarnessMainConfig.from_dict(yaml.load(f))
@@ -65,7 +70,9 @@ if __name__ == "__main__":
             logging.error(
                 "Base domain unreachable. Is your deployment up and running? If yes, check your DNS/hosts settings.")
             sys.exit(1)
-
+        
         included_applications = args.include
-        run_api_tests(root_paths, helm_values, base_domain, included_applications)
-        run_e2e_tests(root_paths, helm_values, base_domain, included_applications)
+        if args.run_api == True or args.run_e2e is None:
+            run_api_tests(root_paths, helm_values, base_domain, included_applications)
+        if args.run_e2e == True or args.run_api is None:
+            run_e2e_tests(root_paths, helm_values, base_domain, included_applications)

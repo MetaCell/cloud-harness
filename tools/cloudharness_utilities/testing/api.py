@@ -1,10 +1,11 @@
 from cloudharness_utilities.preprocessing import get_build_paths
-from cloudharness_model.models import ApplicationUser, HarnessMainConfig, ApiTestsConfig, ApplicationConfig, ApplicationHarnessConfig
+from cloudharness_model.models import  HarnessMainConfig, ApiTestsConfig, ApplicationHarnessConfig
 import os
 from os.path import dirname as dn
 import logging
 import subprocess
-import pytest
+from cloudharness_utilities.testing.util import get_app_environment
+
 
 from ruamel.yaml import YAML
 
@@ -22,8 +23,6 @@ except ModuleNotFoundError:
                    cwd=os.path.join(ROOT, "libraries", "cloudharness-common"))
     import cloudharness
 
-from cloudharness.utils.config import CloudharnessConfig
-from cloudharness.auth import get_token
 
 def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, included_applications=[]):
     """
@@ -33,8 +32,6 @@ def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, inclu
     """
     artifacts = get_build_paths(
         helm_values=helm_values, root_paths=root_paths)
-
-    CloudharnessConfig.allvalues = helm_values
 
     failed = False
     for appkey in helm_values.apps:
@@ -65,7 +62,7 @@ def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, inclu
 
             if "http" not in app_domain:
                 app_domain = f"http{'s' if helm_values.tls else ''}://" +\
-                (app_config.domain or f"{app_config.subdomain}.{base_domain}{app_domain}")
+                    (app_config.domain or f"{app_config.subdomain}.{base_domain}{app_domain}")
 
             logging.info(
                 "Running api tests for application %s on domain %s", appname, app_domain)
@@ -73,54 +70,41 @@ def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, inclu
             app_env = get_app_environment(app_config, app_domain)
 
             if api_config.autotest:
+                logging.info("Running auto api tests")
                 result = subprocess.run(get_schemathesis_command(api_filename, app_config, app_domain),
-                                        cwd=app_dir)
-            if result.returncode > 0:
-                failed = True
+                                        env=app_env, cwd=app_dir)
+                if result.returncode > 0:
+                    failed = True
+
             tests_dir = os.path.join(app_dir, "test", "api")
 
             if os.path.exists(tests_dir):
-                result = subprocess.run(["pytest", "-v", "."], cwd=tests_dir, env=app_env)
-                
-            if result.returncode > 0:
-                failed = True
-            
+                logging.info("Running custom api tests")
+                result = subprocess.run(
+                    ["pytest", "-v", "."], cwd=tests_dir, env=app_env)
+
+                if result.returncode > 0:
+                    failed = True
+
     if failed:
         logging.error(
             "Some api test failed. Check output for more information.")
         exit(1)
 
-def get_app_environment(app_config, app_domain):
-    my_env = os.environ.copy()
-    my_env["APP_URL"] = app_domain
 
-    if app_config.accounts and app_config.accounts.users:
-        main_user: ApplicationUser = app_config.accounts.users[0]
-        password = get_user_password(main_user)
-        my_env["USERNAME"] = main_user.username
-        my_env["PASSWORD"] = password
-        token = get_token(main_user.username, password)
-        my_env["TOKEN"] = token
-    return my_env
+
 
 def get_schemathesis_command(api_filename, app_config: ApplicationHarnessConfig, app_domain: str):
-    return ["st", "run", api_filename, *get_schemathesis_params(app_config, app_domain)]
-
+    return ["st", "--pre-run", "cloudharness.testing.apitest_init", "run",  api_filename, *get_schemathesis_params(app_config, app_domain)]
 
 
 def get_schemathesis_params(app_config: ApplicationHarnessConfig, app_domain: str):
     params = ["--base-url", app_domain]
     api_config: ApiTestsConfig = app_config.test.api
-    if app_config.accounts and app_config.accounts.users:
-        main_user: ApplicationUser = app_config.accounts.users[0]
-        password = get_user_password(main_user)
-        token = get_token(main_user.username, password)
-        params.append("--header")
-        params.append(f'Authorization: Bearer {token}')
-    return [*params , *api_config.runParams]
+    return [*params, *api_config.runParams]
 
-def get_user_password(main_user: ApplicationUser):
-    return main_user.password or "test"
+
+
 
 
 def get_urls_from_api_file(api_filename):

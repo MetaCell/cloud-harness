@@ -11,6 +11,8 @@ from cloudharness_utilities.preprocessing import get_build_paths
 
 import subprocess
 
+from cloudharness_utilities.testing.util import get_app_environment
+
 HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
 ROOT = dn(dn(dn(dn(HERE)).replace(os.path.sep, '/')))
 
@@ -58,19 +60,15 @@ def run_e2e_tests(root_paths, helm_values, base_domain, included_applications=[]
             os.symlink(node_modules_path, app_node_modules_path)
         logging.info(
                 "Running tests for application %s on domain %s", appname, app_domain)
-        my_env = os.environ.copy()
-        my_env["APP"] = artifacts[appkey]
-        my_env["APP_URL"] = app_domain
-        if app_config.accounts and app_config.accounts.users:
-            main_user: ApplicationUser = app_config.accounts.users[0]
-            my_env["USERNAME"] = main_user.username
-            my_env["PASSWORD"] = main_user.password
+        
+        env = get_app_environment(app_config, app_domain)
+        env["APP"] = artifacts[appkey]
 
         result = subprocess.run(["npm", "run", "test:app"],
-                           cwd=E2E_TESTS_PROJECT_ROOT, env=my_env)
+                           cwd=E2E_TESTS_PROJECT_ROOT, env=env)
 
         if result.returncode > 0:
             failed = True
     if failed:
-        logging.error("Some api test failed. Check output for more information.")
+        logging.error("Some end to end test failed. Check output for more information.")
         exit(1)
