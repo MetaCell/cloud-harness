@@ -15,26 +15,36 @@ class ApiTestsConfig(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, enabled=None, autotest=None):  # noqa: E501
+    def __init__(self, enabled=None, autotest=None, run_params=None, checks=None):  # noqa: E501
         """ApiTestsConfig - a model defined in OpenAPI
 
         :param enabled: The enabled of this ApiTestsConfig.  # noqa: E501
         :type enabled: bool
         :param autotest: The autotest of this ApiTestsConfig.  # noqa: E501
         :type autotest: bool
+        :param run_params: The run_params of this ApiTestsConfig.  # noqa: E501
+        :type run_params: List[str]
+        :param checks: The checks of this ApiTestsConfig.  # noqa: E501
+        :type checks: str
         """
         self.openapi_types = {
             'enabled': bool,
-            'autotest': bool
+            'autotest': bool,
+            'run_params': List[str],
+            'checks': str
         }
 
         self.attribute_map = {
             'enabled': 'enabled',
-            'autotest': 'autotest'
+            'autotest': 'autotest',
+            'run_params': 'runParams',
+            'checks': 'checks'
         }
 
         self._enabled = enabled
         self._autotest = autotest
+        self._run_params = run_params
+        self._checks = checks
 
     @classmethod
     def from_dict(cls, dikt) -> 'ApiTestsConfig':
@@ -94,3 +104,53 @@ class ApiTestsConfig(Model):
             raise ValueError("Invalid value for `autotest`, must not be `None`")  # noqa: E501
 
         self._autotest = autotest
+
+    @property
+    def run_params(self):
+        """Gets the run_params of this ApiTestsConfig.
+
+        Additional schemathesis parameters  # noqa: E501
+
+        :return: The run_params of this ApiTestsConfig.
+        :rtype: List[str]
+        """
+        return self._run_params
+
+    @run_params.setter
+    def run_params(self, run_params):
+        """Sets the run_params of this ApiTestsConfig.
+
+        Additional schemathesis parameters  # noqa: E501
+
+        :param run_params: The run_params of this ApiTestsConfig.
+        :type run_params: List[str]
+        """
+
+        self._run_params = run_params
+
+    @property
+    def checks(self):
+        """Gets the checks of this ApiTestsConfig.
+
+
+        :return: The checks of this ApiTestsConfig.
+        :rtype: str
+        """
+        return self._checks
+
+    @checks.setter
+    def checks(self, checks):
+        """Sets the checks of this ApiTestsConfig.
+
+
+        :param checks: The checks of this ApiTestsConfig.
+        :type checks: str
+        """
+        allowed_values = ["not_a_server_error", "status_code_conformance", "content_type_conformance", "esponse_headers_conformance", "esponse_schema_conformance", "all"]  # noqa: E501
+        if checks not in allowed_values:
+            raise ValueError(
+                "Invalid value for `checks` ({0}), must be one of {1}"
+                .format(checks, allowed_values)
+            )
+
+        self._checks = checks

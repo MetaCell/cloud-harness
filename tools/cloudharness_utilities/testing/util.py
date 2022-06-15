@@ -8,8 +8,8 @@ from os.path import dirname as dn
 def get_user_password(main_user: ApplicationUser):
     return main_user.password or "test"
 
-def get_app_environment(app_config, app_domain):
-    my_env = os.environ.copy()
+def get_app_environment(app_config, app_domain, use_local_env=True):
+    my_env = os.environ.copy() if use_local_env else {}
     my_env["APP_URL"] = app_domain
 
     if app_config.accounts and app_config.accounts.users:

@@ -1,9 +1,10 @@
-from cloudharness_utilities.preprocessing import get_build_paths
-from cloudharness_model.models import  HarnessMainConfig, ApiTestsConfig, ApplicationHarnessConfig
 import os
 from os.path import dirname as dn
 import logging
 import subprocess
+
+from cloudharness_utilities.preprocessing import get_build_paths
+from cloudharness_model.models import  HarnessMainConfig, ApiTestsConfig, ApplicationHarnessConfig
 from cloudharness_utilities.testing.util import get_app_environment
 
 
@@ -71,7 +72,9 @@ def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, inclu
 
             if api_config.autotest:
                 logging.info("Running auto api tests")
-                result = subprocess.run(get_schemathesis_command(api_filename, app_config, app_domain),
+                cmd = get_schemathesis_command(api_filename, app_config, app_domain)
+                logging.info("Running: %s", " ".join(cmd))
+                result = subprocess.run(cmd,
                                         env=app_env, cwd=app_dir)
                 if result.returncode > 0:
                     failed = True
@@ -101,6 +104,10 @@ def get_schemathesis_command(api_filename, app_config: ApplicationHarnessConfig,
 def get_schemathesis_params(app_config: ApplicationHarnessConfig, app_domain: str):
     params = ["--base-url", app_domain]
     api_config: ApiTestsConfig = app_config.test.api
+    if api_config.checks:
+        for c in api_config.checks:
+            params += ["-c", c]
+    
     return [*params, *api_config.runParams]
 
 

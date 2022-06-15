@@ -2,15 +2,12 @@ import os
 from os.path import dirname as dn
 import logging
 from shutil import which
+import subprocess
 
-from cloudharness_model.models import ApplicationUser, ApplicationHarnessConfig
+from cloudharness_model.models import ApplicationHarnessConfig
 
 from cloudharness_utilities.constants import  E2E_TESTS_PROJECT_PATH, E2E_TESTS_DIRNAME
 from cloudharness_utilities.preprocessing import get_build_paths
-
-
-import subprocess
-
 from cloudharness_utilities.testing.util import get_app_environment
 
 HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
