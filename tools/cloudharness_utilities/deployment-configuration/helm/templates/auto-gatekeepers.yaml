@@ -17,6 +17,8 @@ data:
     forbidden-page: /templates/access-denied.html.tmpl
     listen: 0.0.0.0:8080
     enable-refresh-tokens: true
+    server-write-timeout: 60s
+    upstream-response-header-timeout: 60s
     tls-cert:
     tls-private-key:
     redirection-url: {{ ternary "https" "http" $tls }}://{{ .app.harness.subdomain }}.{{ .root.Values.domain }}
