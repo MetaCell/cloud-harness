@@ -3,6 +3,7 @@ import six
 
 from samples.models.sample_resource import SampleResource  # noqa: E501
 from samples import util
+from samples.service import resource_service
 
 
 def create_sample_resource(sample_resource=None):  # noqa: E501
@@ -16,8 +17,11 @@ def create_sample_resource(sample_resource=None):  # noqa: E501
     :rtype: None
     """
     if connexion.request.is_json:
-        sample_resource = SampleResource.from_dict(connexion.request.get_json())  # noqa: E501
-    return sample_resource
+        try:
+            sample_resource = SampleResource.from_dict(connexion.request.get_json())  # noqa: E501
+        except:
+            return "Payload is not of type SampleResource", 400
+    return resource_service.create_sample_resource(sample_resource), 201
 
 
 def delete_sample_resource(sampleresource_id):  # noqa: E501
@@ -30,7 +34,13 @@ def delete_sample_resource(sampleresource_id):  # noqa: E501
 
     :rtype: None
     """
-    return 'OK'
+    try:
+        resource_service.delete_sample_resource(int(sampleresource_id))
+    except resource_service.ResourceNotFound:
+        return "Resource not found", 404
+    except ValueError:
+        return "sampleresource_id must be integer", 400
+    return 'OK', 204
 
 
 def get_sample_resource(sampleresource_id):  # noqa: E501
@@ -43,7 +53,13 @@ def get_sample_resource(sampleresource_id):  # noqa: E501
 
     :rtype: SampleResource
     """
-    return SampleResource(a=1, b=2).to_dict()
+    try:
+        resource = resource_service.get_sample_resource(int(sampleresource_id))
+        return resource, 200
+    except resource_service.ResourceNotFound:
+        return "Resource not found", 404
+    except ValueError:
+        return "sampleresource_id must be integer", 400
 
 
 def get_sample_resources():  # noqa: E501
@@ -54,7 +70,7 @@ def get_sample_resources():  # noqa: E501
 
     :rtype: List[SampleResource]
     """
-    return [SampleResource(a=1, b=2), SampleResource(a=3, b=4)]
+    return resource_service.get_sample_resources()
 
 
 def update_sample_resource(sampleresource_id, sample_resource=None):  # noqa: E501
@@ -69,6 +85,15 @@ def update_sample_resource(sampleresource_id, sample_resource=None):  # noqa: E5
 
     :rtype: None
     """
-    if connexion.request.is_json:
+    try:
         sample_resource = SampleResource.from_dict(connexion.request.get_json())  # noqa: E501
-    return sample_resource
+    except:
+        return "Payload is not of type SampleResource", 400
+    try:
+        resource = resource_service.update_sample_resource(
+            int(sampleresource_id), sample_resource)
+        return resource, 202
+    except resource_service.ResourceNotFound:
+        return "Resource not found", 404
+    except ValueError:
+        return "sampleresource_id must be integer", 400

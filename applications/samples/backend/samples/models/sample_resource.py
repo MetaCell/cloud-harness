@@ -15,26 +15,31 @@ class SampleResource(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, a=None, b=None):  # noqa: E501
+    def __init__(self, a=None, b=None, id=None):  # noqa: E501
         """SampleResource - a model defined in OpenAPI
 
         :param a: The a of this SampleResource.  # noqa: E501
         :type a: float
         :param b: The b of this SampleResource.  # noqa: E501
         :type b: float
+        :param id: The id of this SampleResource.  # noqa: E501
+        :type id: float
         """
         self.openapi_types = {
             'a': float,
-            'b': float
+            'b': float,
+            'id': float
         }
 
         self.attribute_map = {
             'a': 'a',
-            'b': 'b'
+            'b': 'b',
+            'id': 'id'
         }
 
         self._a = a
         self._b = b
+        self._id = id
 
     @classmethod
     def from_dict(cls, dikt) -> 'SampleResource':
@@ -90,3 +95,24 @@ class SampleResource(Model):
         """
 
         self._b = b
+
+    @property
+    def id(self):
+        """Gets the id of this SampleResource.
+
+
+        :return: The id of this SampleResource.
+        :rtype: float
+        """
+        return self._id
+
+    @id.setter
+    def id(self, id):
+        """Sets the id of this SampleResource.
+
+
+        :param id: The id of this SampleResource.
+        :type id: float
+        """
+
+        self._id = id

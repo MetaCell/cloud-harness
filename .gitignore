@@ -6,7 +6,7 @@ node_modules
 .vscode
 .coverage
 *.DS_Store
-deployment
+deployment/helm
 *.egg-info
 *.idea
 /build

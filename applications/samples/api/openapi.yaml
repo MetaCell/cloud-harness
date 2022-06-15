@@ -86,7 +86,7 @@ paths:
               schema:
                 type: string
           description: Operation result
-      deprecated: false
+      deprecated: true
       operationId: submit_sync_with_results
       summary: >-
         Send a synchronous operation and get results using the event queue. Just a sum, but in the
@@ -101,7 +101,7 @@ paths:
           content:
             application/json:
               schema:
-                type: string
+                type: number
           description: What we want
         "500":
           description: This shouldn't happen
@@ -117,12 +117,10 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Valid"
+                type: string
           description: Check if token is valid
         "401":
-          description: "invalid toke, unauthorized"
+          description: "invalid token, unauthorized"
       security:
         - bearerAuth: []
       operationId: valid_token
@@ -139,9 +137,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Valid"
+                type: string
           description: Check if token is valid
         "401":
           description: "invalid toke, unauthorized"
@@ -185,6 +181,8 @@ paths:
       responses:
         "201":
           description: Successful response.
+        "400":
+          description: Payload must be of type SampleResource
       operationId: createSampleResource
       summary: Create a SampleResource
       description: Creates a new instance of a `SampleResource`.
@@ -197,6 +195,13 @@ paths:
     get:
       tags:
         - resource
+      parameters:
+        - name: sampleresourceId
+          description: A unique identifier for a `SampleResource`.
+          schema:
+            type: string
+          in: path
+          required: true
       responses:
         "200":
           content:
@@ -204,6 +209,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/SampleResource"
           description: Successful response - returns a single `SampleResource`.
+        "400":
+          description: Parameter must be integer
+        "404":
+          description: Resource not found
       operationId: getSampleResource
       summary: Get a SampleResource
       description: Gets the details of a single instance of a `SampleResource`.
@@ -217,18 +226,40 @@ paths:
         required: true
       tags:
         - resource
+      parameters:
+        - name: sampleresourceId
+          description: A unique identifier for a `SampleResource`.
+          schema:
+            type: string
+          in: path
+          required: true
       responses:
         "202":
           description: Successful response.
+        "400":
+          description: "Parameter must be integer, payload must be of type SampleResource"
+        "404":
+          description: Resource not found
       operationId: updateSampleResource
       summary: Update a SampleResource
       description: Updates an existing `SampleResource`.
     delete:
       tags:
         - resource
+      parameters:
+        - name: sampleresourceId
+          description: A unique identifier for a `SampleResource`.
+          schema:
+            type: string
+          in: path
+          required: true
       responses:
         "204":
           description: Successful response.
+        "400":
+          description: Parameter must be integer
+        "404":
+          description: Resource not found
       operationId: deleteSampleResource
       summary: Delete a SampleResource
       description: Deletes an existing `SampleResource`.
@@ -241,15 +272,6 @@ paths:
         required: true
 components:
   schemas:
-    Valid:
-      title: Valid
-      type: object
-      properties:
-        response:
-          title: response
-          type: string
-      example:
-        response: response
     inline_response_202_task:
       title: inline_response_202_task
       type: object
@@ -286,6 +308,9 @@ components:
           description: ""
           type: number
         b:
+          description: ""
+          type: number
+        id:
           description: ""
           type: number
   securitySchemes:

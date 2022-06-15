@@ -103,7 +103,7 @@ paths:
           content:
             application/json:
               schema:
-                type: string
+                type: number
           description: What we want
         "500":
           description: This shouldn't happen
@@ -145,6 +145,8 @@ paths:
       responses:
         "201":
           description: Successful response.
+        "400":
+          description: Payload must be of type SampleResource
       summary: Create a SampleResource
       tags:
       - resource
@@ -166,6 +168,10 @@ paths:
       responses:
         "204":
           description: Successful response.
+        "400":
+          description: Parameter must be integer
+        "404":
+          description: Resource not found
       summary: Delete a SampleResource
       tags:
       - resource
@@ -192,6 +198,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/SampleResource'
           description: Successful response - returns a single `SampleResource`.
+        "400":
+          description: Parameter must be integer
+        "404":
+          description: Resource not found
       summary: Get a SampleResource
       tags:
       - resource
@@ -218,6 +228,10 @@ paths:
       responses:
         "202":
           description: Successful response.
+        "400":
+          description: Parameter must be integer, payload must be of type SampleResource
+        "404":
+          description: Resource not found
       summary: Update a SampleResource
       tags:
       - resource
@@ -233,12 +247,10 @@ paths:
           content:
             application/json:
               schema:
-                items:
-                  $ref: '#/components/schemas/Valid'
-                type: array
+                type: string
           description: Check if token is valid
         "401":
-          description: invalid toke, unauthorized
+          description: invalid token, unauthorized
       security:
       - bearerAuth: []
       summary: Check if the token is valid. Get a token by logging into the base url
@@ -255,9 +267,7 @@ paths:
           content:
             application/json:
               schema:
-                items:
-                  $ref: '#/components/schemas/Valid'
-                type: array
+                type: string
           description: Check if token is valid
         "401":
           description: invalid toke, unauthorized
@@ -269,15 +279,6 @@ paths:
       x-openapi-router-controller: samples.controllers.auth_controller
 components:
   schemas:
-    Valid:
-      example:
-        response: response
-      properties:
-        response:
-          title: response
-          type: string
-      title: Valid
-      type: object
     inline_response_202_task:
       example:
         name: my-op
@@ -308,12 +309,16 @@ components:
       example:
         a: 0.8008281904610115
         b: 6.027456183070403
+        id: 1.4658129805029452
       properties:
         a:
           title: a
           type: number
         b:
           title: b
+          type: number
+        id:
+          title: id
           type: number
       required:
       - a
