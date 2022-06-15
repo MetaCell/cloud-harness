@@ -14,7 +14,13 @@ harness:
       white-listed: true
     - uri: /api/error
       white-listed: true
+    - uri: /api/operation_sync
+      white-listed: true
+    - uri: /api/operation_sync_results
+      white-listed: true
     - uri: /api/ping
+      white-listed: true
+    - uri: /api/openapi.json
       white-listed: true
     - uri: /icon.png
       white-listed: true

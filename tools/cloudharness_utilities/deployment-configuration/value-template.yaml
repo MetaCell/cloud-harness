@@ -20,6 +20,8 @@ harness:
     - uri: /*
       roles:
       - administrator
+    - uri: /api/openapi.json
+      white-listed: true
   # -- Defines reference deployment parameters. Values maps to k8s spec
   deployment:
     # -- When true, enables automatic deployment
@@ -111,6 +113,7 @@ harness:
     api:
       enabled: false
       autotest: true
+      runParams: []
     e2e:
       enabled: false
       smoketest: true
