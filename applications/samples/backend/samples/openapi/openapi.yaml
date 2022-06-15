@@ -1,17 +1,23 @@
 openapi: 3.0.0
 info:
-  title: CloudHarness Sample API
-  version: 0.1.0
-  description: CloudHarness Sample api
   contact:
     email: cloudharness@metacell.us
+  description: CloudHarness Sample api
+  license:
+    name: UNLICENSED
+  title: CloudHarness Sample API
+  version: 0.1.0
 servers:
-  - url: /api
+- url: /api
+tags:
+- name: auth
+- name: workflows
+- name: resource
 paths:
   /error:
     get:
-      tags:
-        - test
+      deprecated: true
+      operationId: error
       responses:
         "200":
           content:
@@ -21,28 +27,28 @@ paths:
           description: This won't happen
         "500":
           description: Sentry entry should come!
-      deprecated: true
-      operationId: error
       summary: test sentry is working
+      tags:
+      - test
       x-openapi-router-controller: samples.controllers.test_controller
   /operation_async:
     get:
-      tags:
-        - workflows
+      operationId: submit_async
       responses:
         "202":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/inline_response_202"
-          description: "Submitted operation. See also https://restfulapi.net/http-status-202-accepted/"
-      operationId: submit_async
+                $ref: '#/components/schemas/inline_response_202'
+          description: Submitted operation. See also https://restfulapi.net/http-status-202-accepted/
       summary: Send an asynchronous operation
+      tags:
+      - workflows
       x-openapi-router-controller: samples.controllers.workflows_controller
   /operation_sync:
     get:
-      tags:
-        - workflows
+      deprecated: false
+      operationId: submit_sync
       responses:
         "200":
           content:
@@ -50,33 +56,33 @@ paths:
               schema:
                 type: object
           description: Operation result
-      deprecated: false
-      operationId: submit_sync
       summary: Send a synchronous operation
+      tags:
+      - workflows
       x-openapi-router-controller: samples.controllers.workflows_controller
   /operation_sync_results:
     get:
-      tags:
-        - workflows
+      deprecated: true
+      operationId: submit_sync_with_results
       parameters:
-        - style: form
-          explode: true
-          example: 10
-          name: a
-          description: first number to sum
-          schema:
-            type: number
-          in: query
-          required: true
-        - style: form
-          explode: true
-          example: 10
-          name: b
-          description: second number to sum
-          schema:
-            type: number
-          in: query
-          required: true
+      - description: first number to sum
+        example: 10
+        explode: true
+        in: query
+        name: a
+        required: true
+        schema:
+          type: number
+        style: form
+      - description: second number to sum
+        example: 10
+        explode: true
+        in: query
+        name: b
+        required: true
+        schema:
+          type: number
+        style: form
       responses:
         "200":
           content:
@@ -84,16 +90,14 @@ paths:
               schema:
                 type: string
           description: Operation result
-      deprecated: true
-      operationId: submit_sync_with_results
-      summary: >-
-        Send a synchronous operation and get results using the event queue. Just a sum, but in the
-        cloud
+      summary: Send a synchronous operation and get results using the event queue.
+        Just a sum, but in the cloud
+      tags:
+      - workflows
       x-openapi-router-controller: samples.controllers.workflows_controller
   /ping:
     get:
-      tags:
-        - test
+      operationId: ping
       responses:
         "200":
           content:
@@ -103,202 +107,226 @@ paths:
           description: What we want
         "500":
           description: This shouldn't happen
-      operationId: ping
       summary: test the application is up
+      tags:
+      - test
       x-openapi-router-controller: samples.controllers.test_controller
-  /valid:
-    get:
-      tags:
-        - auth
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Valid"
-          description: Check if token is valid
-        "401":
-          description: "invalid toke, unauthorized"
-      security:
-        - bearerAuth: []
-      operationId: valid_token
-      summary: Check if the token is valid. Get a token by logging into the base url
-      description: |
-        Check if the token is valid
-      x-openapi-router-controller: samples.controllers.auth_controller
-  /valid-cookie:
-    get:
-      tags:
-        - auth
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Valid"
-          description: Check if token is valid
-        "401":
-          description: "invalid toke, unauthorized"
-      security:
-        - cookieAuth: []
-      operationId: valid_cookie
-      summary: Check if the token is valid. Get a token by logging into the base url
-      description: |
-        Check if the token is valid
-      x-openapi-router-controller: samples.controllers.auth_controller
   /sampleresources:
-    summary: Path used to manage the list of sampleresources.
-    description: >-
-      The REST endpoint/path used to list and create zero or more `SampleResource` entities.  This path
-      contains a `GET` and `POST` operation to perform the list and create tasks, respectively.
+    description: The REST endpoint/path used to list and create zero or more `SampleResource`
+      entities.  This path contains a `GET` and `POST` operation to perform the list
+      and create tasks, respectively.
     get:
-      tags:
-        - resource
+      description: Gets a list of all `SampleResource` entities.
+      operationId: get_sample_resources
       responses:
         "200":
           content:
             application/json:
               schema:
-                type: array
                 items:
-                  $ref: "#/components/schemas/SampleResource"
-          description: Successful response - returns an array of `SampleResource` entities.
-      operationId: getSampleResources
+                  $ref: '#/components/schemas/SampleResource'
+                type: array
+          description: Successful response - returns an array of `SampleResource`
+            entities.
       summary: List All SampleResources
-      description: Gets a list of all `SampleResource` entities.
+      tags:
+      - resource
+      x-openapi-router-controller: samples.controllers.resource_controller
     post:
+      description: Creates a new instance of a `SampleResource`.
+      operationId: create_sample_resource
       requestBody:
-        description: A new `SampleResource` to be created.
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SampleResource"
+              $ref: '#/components/schemas/SampleResource'
+        description: A new `SampleResource` to be created.
         required: true
-      tags:
-        - resource
       responses:
         "201":
           description: Successful response.
-      operationId: createSampleResource
       summary: Create a SampleResource
-      description: Creates a new instance of a `SampleResource`.
-  "/sampleresources/{sampleresourceId}":
-    summary: Path used to manage a single SampleResource.
-    description: >-
-      The REST endpoint/path used to get, update, and delete single instances of an `SampleResource`. 
-      This path contains `GET`, `PUT`, and `DELETE` operations used to perform the get, update, and
-      delete tasks, respectively.
-    get:
       tags:
-        - resource
+      - resource
+      x-openapi-router-controller: samples.controllers.resource_controller
+    summary: Path used to manage the list of sampleresources.
+  /sampleresources/{sampleresourceId}:
+    delete:
+      description: Deletes an existing `SampleResource`.
+      operationId: delete_sample_resource
+      parameters:
+      - description: A unique identifier for a `SampleResource`.
+        explode: false
+        in: path
+        name: sampleresourceId
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "204":
+          description: Successful response.
+      summary: Delete a SampleResource
+      tags:
+      - resource
+      x-openapi-router-controller: samples.controllers.resource_controller
+    description: The REST endpoint/path used to get, update, and delete single instances
+      of an `SampleResource`.  This path contains `GET`, `PUT`, and `DELETE` operations
+      used to perform the get, update, and delete tasks, respectively.
+    get:
+      description: Gets the details of a single instance of a `SampleResource`.
+      operationId: get_sample_resource
+      parameters:
+      - description: A unique identifier for a `SampleResource`.
+        explode: false
+        in: path
+        name: sampleresourceId
+        required: true
+        schema:
+          type: string
+        style: simple
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SampleResource"
+                $ref: '#/components/schemas/SampleResource'
           description: Successful response - returns a single `SampleResource`.
-      operationId: getSampleResource
       summary: Get a SampleResource
-      description: Gets the details of a single instance of a `SampleResource`.
+      tags:
+      - resource
+      x-openapi-router-controller: samples.controllers.resource_controller
     put:
+      description: Updates an existing `SampleResource`.
+      operationId: update_sample_resource
+      parameters:
+      - description: A unique identifier for a `SampleResource`.
+        explode: false
+        in: path
+        name: sampleresourceId
+        required: true
+        schema:
+          type: string
+        style: simple
       requestBody:
-        description: Updated `SampleResource` information.
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SampleResource"
+              $ref: '#/components/schemas/SampleResource'
+        description: Updated `SampleResource` information.
         required: true
-      tags:
-        - resource
       responses:
         "202":
           description: Successful response.
-      operationId: updateSampleResource
       summary: Update a SampleResource
-      description: Updates an existing `SampleResource`.
-    delete:
       tags:
-        - resource
+      - resource
+      x-openapi-router-controller: samples.controllers.resource_controller
+    summary: Path used to manage a single SampleResource.
+  /valid:
+    get:
+      description: |
+        Check if the token is valid
+      operationId: valid_token
       responses:
-        "204":
-          description: Successful response.
-      operationId: deleteSampleResource
-      summary: Delete a SampleResource
-      description: Deletes an existing `SampleResource`.
-    parameters:
-      - name: sampleresourceId
-        description: A unique identifier for a `SampleResource`.
-        schema:
-          type: string
-        in: path
-        required: true
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Valid'
+                type: array
+          description: Check if token is valid
+        "401":
+          description: invalid toke, unauthorized
+      security:
+      - bearerAuth: []
+      summary: Check if the token is valid. Get a token by logging into the base url
+      tags:
+      - auth
+      x-openapi-router-controller: samples.controllers.auth_controller
+  /valid-cookie:
+    get:
+      description: |
+        Check if the token is valid
+      operationId: valid_cookie
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Valid'
+                type: array
+          description: Check if token is valid
+        "401":
+          description: invalid toke, unauthorized
+      security:
+      - cookieAuth: []
+      summary: Check if the token is valid. Get a token by logging into the base url
+      tags:
+      - auth
+      x-openapi-router-controller: samples.controllers.auth_controller
 components:
   schemas:
     Valid:
-      title: Valid
-      type: object
+      example:
+        response: response
       properties:
         response:
           title: response
           type: string
-      example:
-        response: response
-    inline_response_202_task:
-      title: inline_response_202_task
+      title: Valid
       type: object
-      properties:
-        href:
-          title: href
-          description: the url where to check the operation status
-          type: string
-          example: "http://workflows.cloudharness.metacell.us/api/operation/my-op"
-        name:
-          title: name
-          type: string
-          example: my-op
+    inline_response_202_task:
       example:
         name: my-op
-        href: "http://workflows.cloudharness.metacell.us/api/operation/my-op"
-    inline_response_202:
-      title: inline_response_202
-      type: object
+        href: http://workflows.cloudharness.metacell.us/api/operation/my-op
       properties:
-        task:
-          $ref: "#/components/schemas/inline_response_202_task"
+        href:
+          description: the url where to check the operation status
+          example: http://workflows.cloudharness.metacell.us/api/operation/my-op
+          title: href
+          type: string
+        name:
+          example: my-op
+          title: name
+          type: string
+      title: inline_response_202_task
+      type: object
+    inline_response_202:
       example:
         task:
           name: my-op
-          href: "http://workflows.cloudharness.metacell.us/api/operation/my-op"
-    SampleResource:
-      description: ""
-      required:
-        - a
+          href: http://workflows.cloudharness.metacell.us/api/operation/my-op
+      properties:
+        task:
+          $ref: '#/components/schemas/inline_response_202_task'
+      title: inline_response_202
       type: object
+    SampleResource:
+      example:
+        a: 0.8008281904610115
+        b: 6.027456183070403
       properties:
         a:
-          description: ""
+          title: a
           type: number
         b:
-          description: ""
+          title: b
           type: number
+      required:
+      - a
+      title: SampleResource
+      type: object
   securitySchemes:
     bearerAuth:
-      scheme: bearer
       bearerFormat: JWT
+      scheme: bearer
       type: http
       x-bearerInfoFunc: cloudharness.auth.decode_token
     cookieAuth:
-      type: apiKey
-      name: kc-access
       in: cookie
+      name: kc-access
+      type: apiKey
       x-apikeyInfoFunc: cloudharness.auth.decode_token
-tags:
-  - name: auth
-  - name: workflows
-  - name: resource
-    description: ""

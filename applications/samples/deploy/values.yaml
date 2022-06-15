@@ -58,3 +58,6 @@ harness:
       - "--hypothesis-suppress-health-check=too_slow" 
       - "--hypothesis-deadline=60000"
       - "--request-timeout=60000"
+      - "--hypothesis-max-examples=2"
+      - "--show-errors-tracebacks"
+

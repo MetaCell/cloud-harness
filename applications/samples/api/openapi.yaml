@@ -1,175 +1,306 @@
 openapi: 3.0.0
 info:
-  description: CloudHarness Sample api
-  version: 0.1.0
   title: CloudHarness Sample API
+  version: 0.1.0
+  description: CloudHarness Sample api
   contact:
     email: cloudharness@metacell.us
   license:
     name: UNLICENSED
-
-tags:
-  - name: auth
-  - name: workflows
-
+servers:
+  - url: /api
 paths:
-  /valid:
-    get:
-      summary: Check if the token is valid. Get a token by logging into the base url
-      security:
-        - bearerAuth: []
-      tags:
-        - auth
-      operationId: valid_token
-      description: |
-        Check if the token is valid
-      responses:
-        "200":
-          description: Check if token is valid
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Valid"
-        "401":
-          description: invalid toke, unauthorized
-  /valid-cookie:
-    get:
-      summary: Check if the token is valid. Get a token by logging into the base url
-      security:
-        - cookieAuth: []
-      tags:
-        - auth
-      operationId: valid_cookie
-      description: |
-        Check if the token is valid
-      responses:
-        "200":
-          description: Check if token is valid
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Valid"
-        "401":
-          description: invalid toke, unauthorized
   /error:
     get:
-      summary: test sentry is working
-      operationId: error
-      deprecated: true
       tags:
         - test
       responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: This won't happen
         "500":
           description: Sentry entry should come!
-        "200":
-          description: This won't happen
-          content:
-            application/json:
-              schema:
-                type: string
-  /ping:
-    get:
-      summary: test the application is up
-      operationId: ping
-      tags:
-        - test
-      responses:
-        "500":
-          description: This shouldn't happen
-        "200":
-          description: What we want
-          content:
-            application/json:
-              schema:
-                type: string
-
-  /operation_sync:
-    get:
-      summary: Send a synchronous operation
-      operationId: submitSync
-      tags:
-        - workflows
-      responses:
-        "200":
-          description: Operation result
-          content:
-            application/json:
-              schema:
-                type: object
-
-  /operation_sync_results:
-    get:
-      summary: Send a synchronous operation and get results using the event queue. Just a sum, but in the cloud
-      operationId: submitSyncWithResults
-      tags:
-        - workflows
-      parameters:
-        - in: query
-          name: a
-          description: first number to sum
-          required: true
-          schema:
-            type: number
-          example: 10
-        - in: query
-          name: b
-          required: true
-          description: second number to sum
-          schema:
-            type: number
-          example: 10
-      responses:
-        "200":
-          description: Operation result
-          content:
-            application/json:
-              schema:
-                type: string
+      deprecated: true
+      operationId: error
+      summary: test sentry is working
+      x-openapi-router-controller: samples.controllers.test_controller
   /operation_async:
     get:
-      summary: Send an asynchronous operation
-      operationId: submitAsync
       tags:
         - workflows
       responses:
         "202":
-          description: Submitted operation. See also https://restfulapi.net/http-status-202-accepted/
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_202"
+          description: "Submitted operation. See also https://restfulapi.net/http-status-202-accepted/"
+      operationId: submit_async
+      summary: Send an asynchronous operation
+      x-openapi-router-controller: samples.controllers.workflows_controller
+  /operation_sync:
+    get:
+      tags:
+        - workflows
+      responses:
+        "200":
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  task:
-                    type: object
-                    properties:
-                      href:
-                        description: the url where to check the operation status
-                        type: string
-                        example: http://workflows.cloudharness.metacell.us/api/operation/my-op
-                      name:
-                        type: string
-                        example: my-op
-servers:
-  - url: /api
+          description: Operation result
+      deprecated: false
+      operationId: submit_sync
+      summary: Send a synchronous operation
+      x-openapi-router-controller: samples.controllers.workflows_controller
+  /operation_sync_results:
+    get:
+      tags:
+        - workflows
+      parameters:
+        - style: form
+          explode: true
+          example: 10
+          name: a
+          description: first number to sum
+          schema:
+            type: number
+          in: query
+          required: true
+        - style: form
+          explode: true
+          example: 10
+          name: b
+          description: second number to sum
+          schema:
+            type: number
+          in: query
+          required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Operation result
+      deprecated: false
+      operationId: submit_sync_with_results
+      summary: >-
+        Send a synchronous operation and get results using the event queue. Just a sum, but in the
+        cloud
+      x-openapi-router-controller: samples.controllers.workflows_controller
+  /ping:
+    get:
+      tags:
+        - test
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: What we want
+        "500":
+          description: This shouldn't happen
+      operationId: ping
+      summary: test the application is up
+      x-openapi-router-controller: samples.controllers.test_controller
+  /valid:
+    get:
+      tags:
+        - auth
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Valid"
+          description: Check if token is valid
+        "401":
+          description: "invalid toke, unauthorized"
+      security:
+        - bearerAuth: []
+      operationId: valid_token
+      summary: Check if the token is valid. Get a token by logging into the base url
+      description: |
+        Check if the token is valid
+      x-openapi-router-controller: samples.controllers.auth_controller
+  /valid-cookie:
+    get:
+      tags:
+        - auth
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Valid"
+          description: Check if token is valid
+        "401":
+          description: "invalid toke, unauthorized"
+      security:
+        - cookieAuth: []
+      operationId: valid_cookie
+      summary: Check if the token is valid. Get a token by logging into the base url
+      description: |
+        Check if the token is valid
+      x-openapi-router-controller: samples.controllers.auth_controller
+  /sampleresources:
+    summary: Path used to manage the list of sampleresources.
+    description: >-
+      The REST endpoint/path used to list and create zero or more `SampleResource` entities.  This path
+      contains a `GET` and `POST` operation to perform the list and create tasks, respectively.
+    get:
+      tags:
+        - resource
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SampleResource"
+          description: Successful response - returns an array of `SampleResource` entities.
+      operationId: getSampleResources
+      summary: List All SampleResources
+      description: Gets a list of all `SampleResource` entities.
+    post:
+      requestBody:
+        description: A new `SampleResource` to be created.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SampleResource"
+        required: true
+      tags:
+        - resource
+      responses:
+        "201":
+          description: Successful response.
+      operationId: createSampleResource
+      summary: Create a SampleResource
+      description: Creates a new instance of a `SampleResource`.
+  "/sampleresources/{sampleresourceId}":
+    summary: Path used to manage a single SampleResource.
+    description: >-
+      The REST endpoint/path used to get, update, and delete single instances of an `SampleResource`. 
+      This path contains `GET`, `PUT`, and `DELETE` operations used to perform the get, update, and
+      delete tasks, respectively.
+    get:
+      tags:
+        - resource
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SampleResource"
+          description: Successful response - returns a single `SampleResource`.
+      operationId: getSampleResource
+      summary: Get a SampleResource
+      description: Gets the details of a single instance of a `SampleResource`.
+    put:
+      requestBody:
+        description: Updated `SampleResource` information.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SampleResource"
+        required: true
+      tags:
+        - resource
+      responses:
+        "202":
+          description: Successful response.
+      operationId: updateSampleResource
+      summary: Update a SampleResource
+      description: Updates an existing `SampleResource`.
+    delete:
+      tags:
+        - resource
+      responses:
+        "204":
+          description: Successful response.
+      operationId: deleteSampleResource
+      summary: Delete a SampleResource
+      description: Deletes an existing `SampleResource`.
+    parameters:
+      - name: sampleresourceId
+        description: A unique identifier for a `SampleResource`.
+        schema:
+          type: string
+        in: path
+        required: true
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      x-bearerInfoFunc: cloudharness.auth.decode_token
-    cookieAuth:
-      type: apiKey
-      in: cookie
-      name: kc-access  
-      x-apikeyInfoFunc: cloudharness.auth.decode_token    
   schemas:
     Valid:
+      title: Valid
       type: object
       properties:
         response:
+          title: response
           type: string
+      example:
+        response: response
+    inline_response_202_task:
+      title: inline_response_202_task
+      type: object
+      properties:
+        href:
+          title: href
+          description: the url where to check the operation status
+          type: string
+          example: "http://workflows.cloudharness.metacell.us/api/operation/my-op"
+        name:
+          title: name
+          type: string
+          example: my-op
+      example:
+        name: my-op
+        href: "http://workflows.cloudharness.metacell.us/api/operation/my-op"
+    inline_response_202:
+      title: inline_response_202
+      type: object
+      properties:
+        task:
+          $ref: "#/components/schemas/inline_response_202_task"
+      example:
+        task:
+          name: my-op
+          href: "http://workflows.cloudharness.metacell.us/api/operation/my-op"
+    SampleResource:
+      description: ""
+      required:
+        - a
+      type: object
+      properties:
+        a:
+          description: ""
+          type: number
+        b:
+          description: ""
+          type: number
+  securitySchemes:
+    bearerAuth:
+      scheme: bearer
+      bearerFormat: JWT
+      type: http
+      x-bearerInfoFunc: cloudharness.auth.decode_token
+    cookieAuth:
+      type: apiKey
+      name: kc-access
+      in: cookie
+      x-apikeyInfoFunc: cloudharness.auth.decode_token
+tags:
+  - name: auth
+  - name: workflows
+  - name: resource
+    description: ""
