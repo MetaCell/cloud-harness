@@ -99,7 +99,7 @@ steps:
     stage: qa
     title: Api tests
     working_directory: /home/test
-    image: "${{api-jest}}"
+    image: "${{test-api}}"
     commands:
       - echo $APP_NAME
     scale: {}
@@ -113,7 +113,7 @@ steps:
     stage: qa
     title: End to end tests
     working_directory: /home/test
-    image: "${{jest-puppeteer}}"
+    image: "${{test-e2e}}"
     commands:
       - yarn test
     scale: {}

@@ -49,7 +49,7 @@ def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, inclu
         if not api_config.enabled:
             continue
 
-        api_filename = os.path.join(app_dir, "api", "openapi.yaml")
+        api_filename = get_api_filename(app_dir)
 
         if not app_config.domain and not app_config.subdomain:
             logging.warn(
@@ -93,6 +93,9 @@ def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, inclu
         logging.error(
             "Some api test failed. Check output for more information.")
         exit(1)
+
+def get_api_filename(app_dir):
+    return os.path.join(app_dir, "api", "openapi.yaml")
 
 
 

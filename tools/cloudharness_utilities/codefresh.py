@@ -1,16 +1,18 @@
 import os
-from re import template
+from os.path import join, relpath, exists, dirname
+import logging
+from cloudharness_model.models.api_tests_config import ApiTestsConfig
 
-from .models import HarnessMainConfig, ApplicationTestConfig, ApplicationHarnessConfig
 import oyaml as yaml
 import yaml.representer
 
-import logging
-
+from .testing.util import get_app_environment
+from .models import HarnessMainConfig, ApplicationTestConfig, ApplicationHarnessConfig
 from .constants import *
-from .helm import KEY_APPS, KEY_TASK_IMAGES, collect_helm_values
-from .utils import find_dockerfiles_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
-    get_image_name, get_template, merge_to_yaml_file, dict_merge, app_name_from_path
+from .helm import KEY_APPS, KEY_TASK_IMAGES
+from .utils import find_dockerfiles_paths, guess_build_dependencies_from_dockerfile, \
+    get_image_name, get_template, dict_merge, app_name_from_path
+from .testing.api import get_api_filename, get_schemathesis_command
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -60,7 +62,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
     for root_path in root_paths:
         for e in envs:
             template_name = f"codefresh-template-{e}.yaml"
-            template_path = os.path.join(
+            template_path = join(
                 root_path, DEPLOYMENT_CONFIGURATION_PATH, template_name)
 
             tpl = get_template(template_path)
@@ -76,14 +78,16 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
             def codefresh_steps_from_base_path(base_path, build_step, fixed_context=None, include=include):
 
                 for dockerfile_path in find_dockerfiles_paths(base_path):
-                    app_relative_to_root = os.path.relpath(
-                        dockerfile_path, '.')
-                    app_relative_to_base = os.path.relpath(
-                        dockerfile_path, base_path)
+                    app_relative_to_root = relpath(dockerfile_path, '.')
+                    app_relative_to_base = relpath(dockerfile_path, base_path)
                     app_name = app_name_from_path(app_relative_to_base)
+                    app_config: ApplicationHarnessConfig = app_name in helm_values.apps and helm_values.apps[
+                        app_name].harness
 
                     if include and not any(
-                            f"/{inc}/" in dockerfile_path or dockerfile_path.endswith(f"/{inc}") for inc in include):
+                        f"/{inc}/" in dockerfile_path or
+                        dockerfile_path.endswith(f"/{inc}")
+                            for inc in include):
                         # Skip not included apps
                         continue
 
@@ -95,16 +99,16 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     if build_step in steps:
                         build = codefresh_app_build_spec(
                             app_name=app_name,
-                            app_context_path=os.path.relpath(
+                            app_context_path=relpath(
                                 fixed_context, '.') if fixed_context else app_relative_to_root,
-                            dockerfile_path=os.path.join(
-                                os.path.relpath(
+                            dockerfile_path=join(
+                                relpath(
                                     dockerfile_path, root_path) if fixed_context else '',
                                 "Dockerfile"),
                             base_name=base_image_name,
                             helm_values=helm_values,
                             dependencies=guess_build_dependencies_from_dockerfile(
-                                os.path.join(dockerfile_path, "Dockerfile")
+                                join(dockerfile_path, "Dockerfile")
                             )
                         )
 
@@ -112,33 +116,6 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                             steps[build_step]['steps'] = {}
 
                         steps[build_step]['steps'][app_name] = build
-
-                    if CD_UNIT_TEST_STEP in steps:
-                        add_unit_test_step(app_name)
-
-                    if CD_E2E_TEST_STEP in steps:
-                        tests_path = os.path.join(
-                            base_path, app_relative_to_base, "test", E2E_TESTS_DIRNAME)
-                        if os.path.exists(tests_path) and helm_values.apps[app_name].harness.subdomain:
-
-                            steps[CD_E2E_TEST_STEP]['scale'][f"{app_name}_e2e_test"] = dict(
-                                volumes=e2e_test_volumes(
-                                    app_relative_to_root, app_name),
-                                environment=e2e_test_environment(
-                                    helm_values.apps[app_name].harness.subdomain)
-                            )
-
-                    if CD_API_TEST_STEP in steps:
-                        tests_path = os.path.join(
-                            base_path, app_relative_to_base, "test", API_TESTS_DIRNAME)
-                        if os.path.exists(tests_path) and helm_values.apps[app_name].harness.subdomain:
-
-                            steps[CD_API_TEST_STEP]['scale'][f"{app_name}_api_test"] = dict(
-                                volumes=e2e_test_volumes(
-                                    app_relative_to_root, app_name),
-                                environment=e2e_test_environment(
-                                    helm_values.apps[app_name].harness.subdomain)
-                            )
 
                     if CD_STEP_PUBLISH in steps and steps[CD_STEP_PUBLISH]:
                         if not type(steps[CD_STEP_PUBLISH]['steps']) == dict:
@@ -149,13 +126,40 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                             base_name=base_image_name
                         )
 
-            def add_unit_test_step(app_name):
+                    if CD_UNIT_TEST_STEP in steps and app_config:
+                        add_unit_test_step(app_config)
+
+                    if CD_API_TEST_STEP in steps and app_config and app_config.test.api.enabled:
+                        tests_path = join(
+                            base_path, app_relative_to_base, "test", API_TESTS_DIRNAME)
+
+                        if app_config.subdomain:
+                            steps[CD_API_TEST_STEP]['scale'][f"{app_name}_api_test"] = dict(
+                                volumes=e2e_test_volumes(
+                                    app_relative_to_root, app_name, API_TESTS_DIRNAME),
+                                environment=e2e_test_environment(app_config),
+                                commands=api_tests_commands(
+                                    app_relative_to_base, app_config, exists(tests_path))
+                            )
+                            
+                    if CD_E2E_TEST_STEP in steps and app_config and app_config.test.e2e.enabled:
+                        tests_path = join(
+                            base_path, app_relative_to_base, "test", E2E_TESTS_DIRNAME)
+
+                        if exists(tests_path) and app_config.subdomain:
+
+                            steps[CD_E2E_TEST_STEP]['scale'][f"{app_name}_e2e_test"] = dict(
+                                volumes=e2e_test_volumes(
+                                    app_relative_to_root, app_name),
+                                environment=e2e_test_environment(app_config)
+                            )
+
+
+            def add_unit_test_step(app_config: ApplicationHarnessConfig):
                 # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step
 
-                app_key = app_name.replace("-", "_")
-                if not app_key in helm_values.apps:
-                    return
-                test_config: ApplicationTestConfig = helm_values.apps[app_key].harness.test
+                test_config: ApplicationTestConfig = app_config.test
+                app_name = app_config.name
 
                 if test_config.unit.enabled and test_config.unit.commands:
                     steps[CD_UNIT_TEST_STEP]['steps'][f"{app_name}_ut"] = dict(
@@ -175,21 +179,21 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         rollout_commands.append(
                             ROLLOUT_CMD_TPL % app.service.name + "-gk")
 
-            codefresh_steps_from_base_path(os.path.join(root_path, BASE_IMAGES_PATH), CD_BUILD_STEP_BASE,
-                                           fixed_context=os.path.relpath(root_path, os.getcwd()), include=helm_values[KEY_TASK_IMAGES].keys())
-            codefresh_steps_from_base_path(os.path.join(root_path, STATIC_IMAGES_PATH), CD_BUILD_STEP_STATIC,
+            codefresh_steps_from_base_path(join(root_path, BASE_IMAGES_PATH), CD_BUILD_STEP_BASE,
+                                           fixed_context=relpath(root_path, os.getcwd()), include=helm_values[KEY_TASK_IMAGES].keys())
+            codefresh_steps_from_base_path(join(root_path, STATIC_IMAGES_PATH), CD_BUILD_STEP_STATIC,
                                            include=helm_values[KEY_TASK_IMAGES].keys())
 
-            codefresh_steps_from_base_path(os.path.join(
+            codefresh_steps_from_base_path(join(
                 root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
 
             if CD_WAIT_STEP in steps:
                 create_k8s_rollout_commands()
             if CD_E2E_TEST_STEP in steps:
-                codefresh_steps_from_base_path(os.path.join(
+                codefresh_steps_from_base_path(join(
                     root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_STATIC, include=("test-e2e",))
             if CD_API_TEST_STEP in steps:
-                codefresh_steps_from_base_path(os.path.join(
+                codefresh_steps_from_base_path(join(
                     root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_STATIC, include=("test-api",))
 
     if not codefresh:
@@ -224,10 +228,10 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
             cmds[i] = cmds[i].replace("$INCLUDE", "-i " + " -i ".join(include))
 
     if save:
-        codefresh_abs_path = os.path.join(
+        codefresh_abs_path = join(
             os.getcwd(), DEPLOYMENT_PATH, out_filename)
-        codefresh_dir = os.path.dirname(codefresh_abs_path)
-        if not os.path.exists(codefresh_dir):
+        codefresh_dir = dirname(codefresh_abs_path)
+        if not exists(codefresh_dir):
             os.makedirs(codefresh_dir)
         with open(codefresh_abs_path, 'w') as f:
             yaml.dump(codefresh, f)
@@ -246,15 +250,30 @@ def codefresh_template_spec(template_path, **kwargs):
     return build
 
 
-def e2e_test_volumes(app_relative_to_root, app_name):
-    return [r"${{CF_REPO_NAME}}/" + f"{app_relative_to_root}/test/{E2E_TESTS_DIRNAME}:/home/test/__tests__/{app_name}"]
+def api_tests_commands(app_dir, app_config: ApplicationHarnessConfig, run_custom_tests):
+    api_dir = join(app_dir, "test", API_TESTS_DIRNAME)
+    api_config: ApiTestsConfig = app_config.test.api
+    commands = []
+    if api_config.autotest:
+        commands.append(" ".join(get_schemathesis_command(
+            get_api_filename(app_dir), app_config, get_app_domain(app_config))))
+    if run_custom_tests:
+        commands.append(f"pytest -v .")
+    return commands
 
 
-def e2e_test_environment(app_subdomain):
-    return [
-        f"APP_URL=https://{app_subdomain}." +
-        r"${{CF_SHORT_REVISION}}.${{DOMAIN}}"
-    ]
+def e2e_test_volumes(app_relative_to_root, app_name, dirname=E2E_TESTS_DIRNAME):
+    return [r"${{CF_REPO_NAME}}/" + f"{app_relative_to_root}/test/{dirname}:/home/test/__tests__/{app_name}"]
+
+
+def e2e_test_environment(app_config: ApplicationHarnessConfig):
+    app_domain = get_app_domain(app_config)
+    env = get_app_environment(app_config, app_domain, False)
+    return [f"{k}={env[k]}" for k in env]
+
+
+def get_app_domain(app_config: ApplicationHarnessConfig):
+    return f"https://{app_config.subdomain}." + r"${{CF_SHORT_REVISION}}.${{DOMAIN}}"
 
 
 def codefresh_app_publish_spec(app_name, build_tag, base_name=None):
@@ -288,8 +307,8 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
         working_directory='./' + app_context_path,
         dockerfile=dockerfile_path)
 
-    specific_build_template_path = os.path.join(app_context_path, 'build.yaml')
-    if os.path.exists(specific_build_template_path):
+    specific_build_template_path = join(app_context_path, 'build.yaml')
+    if exists(specific_build_template_path):
         logging.info("Specific build template found: %s" %
                      (specific_build_template_path))
         with open(specific_build_template_path) as f:
