@@ -52,7 +52,7 @@ harness:
     unit:
       enabled: true
       commands:
-      - "pytest samples/test"
+      - "pytest /usr/src/app/samples/test"
     e2e:
       enabled: true
       smoketest: true
