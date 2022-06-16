@@ -22,7 +22,8 @@ REQUIREMENTS = [
     'python-keycloak',
     'cloudharness_model',
     'argo-workflows==5.0.0',
-    'cachetools'
+    'cachetools',
+    'schemathesis'
 ]
 
 

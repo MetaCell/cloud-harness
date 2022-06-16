@@ -1,4 +1,4 @@
-FROM node:14-slim
+FROM node:14.18-slim
 
 # Install latest chrome dev package and fonts to support major charsets (Chinese, Japanese, Arabic, Hebrew, Thai and a few others)
 # Note: this installs the necessary libs to make the bundled version of Chromium that Puppeteer
@@ -33,7 +33,7 @@ RUN groupadd -r test && useradd -r -g test -G audio,video test \
     && chown -R test:test /home/test \
     && chown -R test:test node_modules \
     && chown -R test:test package.json \
-    && chown -R test:test yarn.lock
+    && chown -R test:test package-lock.json
 
 # Run everything after as non-privileged user.
 
