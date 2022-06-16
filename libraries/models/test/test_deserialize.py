@@ -1,6 +1,6 @@
 import pytest
 from os.path import join, dirname as dn, realpath
-import yaml
+import oyaml as yaml
 
 from cloudharness_model import HarnessMainConfig, ApplicationConfig, User, ApplicationHarnessConfig, CDCEvent, ApplicationTestConfig
 
