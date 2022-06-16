@@ -357,7 +357,7 @@ def url_check(url):
         # Get Url
         get = requests.get(url)
         # if the request succeeds
-        if get.status_code < 400:
+        if get.status_code < 404:
             return True
         return False
 
