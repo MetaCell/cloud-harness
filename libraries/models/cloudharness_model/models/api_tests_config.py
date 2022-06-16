@@ -25,13 +25,13 @@ class ApiTestsConfig(Model):
         :param run_params: The run_params of this ApiTestsConfig.  # noqa: E501
         :type run_params: List[str]
         :param checks: The checks of this ApiTestsConfig.  # noqa: E501
-        :type checks: str
+        :type checks: List[str]
         """
         self.openapi_types = {
             'enabled': bool,
             'autotest': bool,
             'run_params': List[str],
-            'checks': str
+            'checks': List[str]
         }
 
         self.attribute_map = {
@@ -132,9 +132,10 @@ class ApiTestsConfig(Model):
     def checks(self):
         """Gets the checks of this ApiTestsConfig.
 
+        One of the Schemathesis checks: - not_a_server_error. The response has 5xx HTTP status; - status_code_conformance. The response status is not defined in the API schema; - content_type_conformance. The response content type is not defined in the API schema; - response_schema_conformance. The response content does not conform to the schema defined for this specific response; - response_headers_conformance. The response headers does not contain all defined headers.  # noqa: E501
 
         :return: The checks of this ApiTestsConfig.
-        :rtype: str
+        :rtype: List[str]
         """
         return self._checks
 
@@ -142,15 +143,12 @@ class ApiTestsConfig(Model):
     def checks(self, checks):
         """Sets the checks of this ApiTestsConfig.
 
+        One of the Schemathesis checks: - not_a_server_error. The response has 5xx HTTP status; - status_code_conformance. The response status is not defined in the API schema; - content_type_conformance. The response content type is not defined in the API schema; - response_schema_conformance. The response content does not conform to the schema defined for this specific response; - response_headers_conformance. The response headers does not contain all defined headers.  # noqa: E501
 
         :param checks: The checks of this ApiTestsConfig.
-        :type checks: str
+        :type checks: List[str]
         """
-        allowed_values = ["not_a_server_error", "status_code_conformance", "content_type_conformance", "esponse_headers_conformance", "esponse_schema_conformance", "all"]  # noqa: E501
-        if checks not in allowed_values:
-            raise ValueError(
-                "Invalid value for `checks` ({0}), must be one of {1}"
-                .format(checks, allowed_values)
-            )
+        if checks is None:
+            raise ValueError("Invalid value for `checks`, must not be `None`")  # noqa: E501
 
         self._checks = checks
