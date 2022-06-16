@@ -19,13 +19,13 @@ def test_api(case):
 @schema.parametrize(endpoint="/valid")
 def test_bearer(case):
     response = case.call()
-   
-    case.validate_response(response, checks=(not_a_server_error,))
+    
+    case.validate_response(response, checks=(response_schema_conformance,))
 
 @schema.parametrize(endpoint="/valid-cookie")
 def test_cookie(case):
     response = case.call()
-    case.validate_response(response, checks=(not_a_server_error,))
+    case.validate_response(response, checks=(response_schema_conformance,))
 
 @schema.parametrize(endpoint="/sampleresources", method="POST")
 def test_response(case):

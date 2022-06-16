@@ -239,7 +239,7 @@ class CloudHarnessHelm:
         ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
 
         bootstrap_file_path = os.path.join(
-            ROOT, 'utilities', 'cloudharness_utilities', 'scripts')
+            ROOT, 'tools', 'cloudharness_utilities', 'scripts')
         bootstrap_file = 'bootstrap.sh'
         certs_parent_folder_path = os.path.join(
             self.output_path, 'helm', 'resources')

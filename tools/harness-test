@@ -73,6 +73,8 @@ if __name__ == "__main__":
 
         base_domain = args.domain or helm_values.domain
         logging.info("Base domain is %s", base_domain)
+        from cloudharness.utils.config import CloudharnessConfig
+        CloudharnessConfig.allvalues["domain"] = base_domain
         if not url_check(f"http{'s' if helm_values.tls else ''}://{base_domain}"):
             logging.error(
                 "Base domain unreachable. Is your deployment up and running? If yes, check your DNS/hosts settings.")

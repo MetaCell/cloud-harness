@@ -4,6 +4,8 @@ import logging
 import subprocess
 
 from cloudharness_utilities.preprocessing import get_build_paths
+
+
 from cloudharness_model.models import  HarnessMainConfig, ApiTestsConfig, ApplicationHarnessConfig
 from cloudharness_utilities.testing.util import get_app_environment
 
@@ -11,12 +13,6 @@ from cloudharness_utilities.testing.util import get_app_environment
 from ruamel.yaml import YAML
 
 yaml = YAML(typ='safe')
-
-
-HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
-ROOT = dn(dn(dn(HERE)).replace(os.path.sep, '/'))
-
-
 
 
 def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, included_applications=[]):
@@ -38,7 +34,7 @@ def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, inclu
             continue
 
         app_dir = artifacts[appkey]
-        api_config: ApiTestsConfig = app_config.test.api
+        api_config: "ApiTestsConfig" = app_config.test.api
 
         if not api_config.enabled:
             continue
