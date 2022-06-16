@@ -26,8 +26,7 @@ REQUIREMENTS = [
     'docker',
     'six',
     'cloudharness_model',
-    'schemathesis',
-    'keycloak'
+    'schemathesis'
 ]
 
 

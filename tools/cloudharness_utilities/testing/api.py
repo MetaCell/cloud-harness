@@ -16,13 +16,7 @@ yaml = YAML(typ='safe')
 HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
 ROOT = dn(dn(dn(HERE)).replace(os.path.sep, '/'))
 
-try:
-    import cloudharness
-except ModuleNotFoundError:
-    logging.info("Installing cloudharness Python runtime library")
-    subprocess.run("pip install -e .".split(" "),
-                   cwd=os.path.join(ROOT, "libraries", "cloudharness-common"))
-    import cloudharness
+
 
 
 def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, included_applications=[]):

@@ -56,6 +56,8 @@ if __name__ == "__main__":
                         help='Disable tls (serve on http)')
     parser.add_argument('--deploy', dest='deploy', action="store_true",
                         help='Deploy helm chart')
+    parser.add_argument('-N', '--no-cd', dest='no_cd_gen', action="store_const", default=None, const=True,
+                        help=f'Do not generate ci/cd files')
 
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
@@ -94,17 +96,17 @@ if __name__ == "__main__":
 
         build_included = [app['harness']['name']
                           for app in helm_values['apps'].values() if 'harness' in app]
+        if not args.no_cd_gen:
+            if envs:
 
-        if envs:
+                create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                    envs=envs,
+                                                    base_image_name=helm_values['name'],
+                                                    helm_values=helm_values)
 
-            create_codefresh_deployment_scripts(root_paths, include=build_included,
-                                                envs=envs,
-                                                base_image_name=helm_values['name'],
-                                                helm_values=helm_values)
-
-        create_skaffold_configuration(root_paths, helm_values)
-        create_vscode_debug_configuration([os.path.join(os.getcwd(), path) for path in args.paths],
-                                          helm_values)
+            create_skaffold_configuration(root_paths, helm_values)
+            create_vscode_debug_configuration([os.path.join(os.getcwd(), path) for path in args.paths],
+                                            helm_values)
 
         hosts_info(helm_values)
 

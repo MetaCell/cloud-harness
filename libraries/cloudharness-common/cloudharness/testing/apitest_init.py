@@ -8,7 +8,11 @@ if "APP_URL" in os.environ and "USERNAME" in os.environ and "PASSWORD" in os.env
 
     app_url = os.environ["APP_URL"]
 
-    schema = st.from_uri(app_url + "/openapi.json")
+    try:
+        openapi_uri = app_url + "/openapi.json"
+        schema = st.from_uri(openapi_uri)
+    except Exception as e:
+        raise Exception(f"Cannot setup api tests: {openapi_uri} not reachable. Check your deployment is up and configuration") from e
 
     @st.auth.register()
     class TokenAuth:
