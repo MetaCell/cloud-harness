@@ -51,6 +51,7 @@ class UnitTestsConfig(Model):
     def enabled(self):
         """Gets the enabled of this UnitTestsConfig.
 
+        Enables unit tests for this application (default: true)  # noqa: E501
 
         :return: The enabled of this UnitTestsConfig.
         :rtype: bool
@@ -61,6 +62,7 @@ class UnitTestsConfig(Model):
     def enabled(self, enabled):
         """Sets the enabled of this UnitTestsConfig.
 
+        Enables unit tests for this application (default: true)  # noqa: E501
 
         :param enabled: The enabled of this UnitTestsConfig.
         :type enabled: bool
@@ -74,6 +76,7 @@ class UnitTestsConfig(Model):
     def commands(self):
         """Gets the commands of this UnitTestsConfig.
 
+        Commands to run unit tests  # noqa: E501
 
         :return: The commands of this UnitTestsConfig.
         :rtype: List[str]
@@ -84,6 +87,7 @@ class UnitTestsConfig(Model):
     def commands(self, commands):
         """Sets the commands of this UnitTestsConfig.
 
+        Commands to run unit tests  # noqa: E501
 
         :param commands: The commands of this UnitTestsConfig.
         :type commands: List[str]

@@ -515,6 +515,7 @@ class ApplicationHarnessConfig(Model):
     def name(self):
         """Gets the name of this ApplicationHarnessConfig.
 
+        Application's name. Do not edit, the value is automatically set from the application directory's name  # noqa: E501
 
         :return: The name of this ApplicationHarnessConfig.
         :rtype: str
@@ -525,6 +526,7 @@ class ApplicationHarnessConfig(Model):
     def name(self, name):
         """Sets the name of this ApplicationHarnessConfig.
 
+        Application's name. Do not edit, the value is automatically set from the application directory's name  # noqa: E501
 
         :param name: The name of this ApplicationHarnessConfig.
         :type name: str

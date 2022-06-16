@@ -1,4 +1,5 @@
 import os
+import logging
 
 import schemathesis as st
 
@@ -10,6 +11,7 @@ if "APP_URL" in os.environ and "USERNAME" in os.environ and "PASSWORD" in os.env
 
     try:
         openapi_uri = app_url + "/openapi.json"
+        logging.info("Using openapi spec at %s", openapi_uri)
         schema = st.from_uri(openapi_uri)
     except Exception as e:
         raise Exception(f"Cannot setup api tests: {openapi_uri} not reachable. Check your deployment is up and configuration") from e

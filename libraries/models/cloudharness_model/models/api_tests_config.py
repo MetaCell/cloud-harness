@@ -61,6 +61,7 @@ class ApiTestsConfig(Model):
     def enabled(self):
         """Gets the enabled of this ApiTestsConfig.
 
+        Enables api tests for this application (default: false)  # noqa: E501
 
         :return: The enabled of this ApiTestsConfig.
         :rtype: bool
@@ -71,6 +72,7 @@ class ApiTestsConfig(Model):
     def enabled(self, enabled):
         """Sets the enabled of this ApiTestsConfig.
 
+        Enables api tests for this application (default: false)  # noqa: E501
 
         :param enabled: The enabled of this ApiTestsConfig.
         :type enabled: bool
@@ -132,7 +134,7 @@ class ApiTestsConfig(Model):
     def checks(self):
         """Gets the checks of this ApiTestsConfig.
 
-        One of the Schemathesis checks: - not_a_server_error. The response has 5xx HTTP status; - status_code_conformance. The response status is not defined in the API schema; - content_type_conformance. The response content type is not defined in the API schema; - response_schema_conformance. The response content does not conform to the schema defined for this specific response; - response_headers_conformance. The response headers does not contain all defined headers.  # noqa: E501
+        One of the Schemathesis checks:  - not_a_server_error. The response has 5xx HTTP status; - status_code_conformance. The response status is not defined in the API schema; - content_type_conformance. The response content type is not defined in the API schema; - response_schema_conformance. The response content does not conform to the schema defined for this specific response; - response_headers_conformance. The response headers does not contain all defined headers.  # noqa: E501
 
         :return: The checks of this ApiTestsConfig.
         :rtype: List[str]
@@ -143,7 +145,7 @@ class ApiTestsConfig(Model):
     def checks(self, checks):
         """Sets the checks of this ApiTestsConfig.
 
-        One of the Schemathesis checks: - not_a_server_error. The response has 5xx HTTP status; - status_code_conformance. The response status is not defined in the API schema; - content_type_conformance. The response content type is not defined in the API schema; - response_schema_conformance. The response content does not conform to the schema defined for this specific response; - response_headers_conformance. The response headers does not contain all defined headers.  # noqa: E501
+        One of the Schemathesis checks:  - not_a_server_error. The response has 5xx HTTP status; - status_code_conformance. The response status is not defined in the API schema; - content_type_conformance. The response content type is not defined in the API schema; - response_schema_conformance. The response content does not conform to the schema defined for this specific response; - response_headers_conformance. The response headers does not contain all defined headers.  # noqa: E501
 
         :param checks: The checks of this ApiTestsConfig.
         :type checks: List[str]

@@ -124,7 +124,11 @@ components:
           description: ""
           type: string
     ApplicationProbe:
-      description: ""
+      description: >-
+        Define a Kubernetes probe See also the
+
+        [official
+        documentation](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
       required:
         - path
       type: object
@@ -145,14 +149,16 @@ components:
       description: ""
       type: string
     ApplicationConfig:
-      description: ""
+      description: Place here the values to configure your application helm templates.
       required:
         - harness
       type: object
       properties:
         harness:
           $ref: "#/components/schemas/ApplicationHarnessConfig"
-          description: ""
+          description: >-
+            Values inside this section have a special meaning to cloudharness (e.g. enabling and
+            configuring automatic deployment)
       additionalProperties: true
     HarnessMainConfig:
       description: ""
@@ -506,7 +512,9 @@ components:
           description: General description -- for human consumption
           type: string
     ApplicationHarnessConfig:
-      description: ""
+      description: |-
+        Define helm variables that allow CloudHarness to enable and configure your 
+        application's deployment
       required: []
       type: object
       properties:
@@ -579,28 +587,32 @@ components:
             $ref: "#/components/schemas/FileResourcesConfig"
         readinessProbe:
           $ref: "#/components/schemas/ApplicationProbe"
-          description: ""
+          description: Kubernetes readiness probe configuration
         startupProbe:
           $ref: "#/components/schemas/ApplicationProbe"
           description: ""
         livenessProbe:
           $ref: "#/components/schemas/ApplicationProbe"
-          description: ""
+          description: Kubernetes liveness probe configuration
         sourceRoot:
           $ref: "#/components/schemas/Filename"
           description: ""
         name:
-          description: ""
+          description: |-
+            Application's name. Do not edit, the value is automatically set from the
+            application directory's name
           type: string
         jupyterhub:
           $ref: "#/components/schemas/JupyterHubConfig"
-          description: ""
+          description: |
+            Configurations specific to jupyterhub. Edit only if your application is
+            configured as a jupyterhub deployment
         accounts:
           $ref: "#/components/schemas/ApplicationAccountsConfig"
-          description: ""
+          description: Define specific test users and roles for this application
         test:
           $ref: "#/components/schemas/ApplicationTestConfig"
-          description: ""
+          description: Enable and configure automated testing for this application.
       additionalProperties: true
     JupyterHubConfig:
       description: ""
@@ -706,13 +718,14 @@ components:
       type: object
       properties:
         enabled:
-          description: ""
+          description: "Enables unit tests for this application (default: true)"
           type: boolean
         commands:
-          description: ""
+          description: Commands to run unit tests
           type: array
           items:
             type: string
+          example: '["pytest /usr/src/app/samples/test"]'
     E2ETestsConfig:
       description: ""
       required:
@@ -721,7 +734,7 @@ components:
       type: object
       properties:
         enabled:
-          description: ""
+          description: "Enables end to end testing for this application (default: false)"
           type: boolean
         smoketest:
           description: Specify whether to run the common smoke tests
@@ -735,7 +748,7 @@ components:
       type: object
       properties:
         enabled:
-          description: ""
+          description: "Enables api tests for this application (default: false)"
           type: boolean
         autotest:
           description: Specify whether to run the common smoke tests
@@ -749,14 +762,20 @@ components:
           description: >-
             One of the Schemathesis checks:
 
+
             - not_a_server_error. The response has 5xx HTTP status;
+
             - status_code_conformance. The response status is not defined in the API schema;
+
             - content_type_conformance. The response content type is not defined in the API
             schema;
+
             - response_schema_conformance. The response content does not conform to the schema
             defined for this specific response;
+
             - response_headers_conformance. The response headers does not contain all defined
             headers.
           type: array
           items:
             type: string
+          example: '["not_a_server_error", "status_code_conformance"]'

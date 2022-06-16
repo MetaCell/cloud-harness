@@ -51,6 +51,7 @@ class E2ETestsConfig(Model):
     def enabled(self):
         """Gets the enabled of this E2ETestsConfig.
 
+        Enables end to end testing for this application (default: false)  # noqa: E501
 
         :return: The enabled of this E2ETestsConfig.
         :rtype: bool
@@ -61,6 +62,7 @@ class E2ETestsConfig(Model):
     def enabled(self, enabled):
         """Sets the enabled of this E2ETestsConfig.
 
+        Enables end to end testing for this application (default: false)  # noqa: E501
 
         :param enabled: The enabled of this E2ETestsConfig.
         :type enabled: bool

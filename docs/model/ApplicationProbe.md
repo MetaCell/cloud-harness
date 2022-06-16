@@ -1,5 +1,6 @@
 # ApplicationProbe
 
+Define a Kubernetes probe See also the [official documentation](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
 
 ## Properties
 Name | Type | Description | Notes
