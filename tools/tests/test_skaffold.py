@@ -95,7 +95,7 @@ def test_create_skaffold_configuration():
 
     samples_test = sk['test'][0]
     assert samples_test['image'] == 'reg/cloudharness/samples', 'Unit tests for samples should be included'
-    assert samples_test['custom'][0]['command'] == "docker run $IMAGE pytest samples/test", "The test command must come from unit.py"
+    assert "samples/test" in samples_test['custom'][0]['command'], "The test command must come from values.yaml test/unit/commands"
 
     assert len(sk['test'][1]['custom']) == 2
 
