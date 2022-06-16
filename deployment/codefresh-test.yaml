@@ -319,8 +319,11 @@ steps:
     - kubectl config use-context ${{CLUSTER_NAME}}
     - kubectl config set-context --current --namespace=test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}
     - kubectl -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} rollout status deployment/accounts
+    - kubectl -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} rollout status deployment/argo-server-gk
     - kubectl -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} rollout status deployment/samples
+    - kubectl -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} rollout status deployment/samples-gk
     - kubectl -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} rollout status deployment/events
+    - kubectl -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} rollout status deployment/events-gk
     - kubectl -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} rollout status deployment/workflows
     hooks:
       on_fail:
@@ -332,15 +335,23 @@ steps:
     stage: qa
     title: Api tests
     working_directory: /home/test
-    image: '${{api-jest}}'
+    image: '${{test-api}}'
     commands:
     - echo $APP_NAME
     scale:
       samples_api_test:
         volumes:
-        - '${{CF_REPO_NAME}}/applications/samples/test/e2e:/home/test/__tests__/samples'
+        - '${{CF_REPO_NAME}}/applications/samples/test/api:/home/test/__tests__/samples'
         environment:
         - APP_URL=https://samples.${{CF_SHORT_REVISION}}.${{DOMAIN}}
+        - USERNAME=sample@testuser.com
+        - PASSWORD=test
+        commands:
+        - st --pre-run cloudharness.testing.apitest_init run samples/api/openapi.yaml
+          --base-url https://samples.${{CF_SHORT_REVISION}}.${{DOMAIN}} -c all --skip-deprecated-operations
+          --hypothesis-suppress-health-check=too_slow --hypothesis-deadline=60000
+          --request-timeout=60000 --hypothesis-max-examples=2 --show-errors-tracebacks
+        - pytest -v .
     hooks:
       on_fail:
         exec:
@@ -351,7 +362,7 @@ steps:
     stage: qa
     title: End to end tests
     working_directory: /home/test
-    image: '${{jest-puppeteer}}'
+    image: '${{test-e2e}}'
     commands:
     - yarn test
     scale:
@@ -360,6 +371,8 @@ steps:
         - '${{CF_REPO_NAME}}/applications/samples/test/e2e:/home/test/__tests__/samples'
         environment:
         - APP_URL=https://samples.${{CF_SHORT_REVISION}}.${{DOMAIN}}
+        - USERNAME=sample@testuser.com
+        - PASSWORD=test
     hooks:
       on_fail:
         exec:
