@@ -26,8 +26,8 @@ RUN mkdir -p /home/test
 WORKDIR /home/test
 
 COPY package.json . 
-COPY yarn.lock . 
-RUN yarn
+COPY package-lock.json . 
+RUN npm install
 RUN groupadd -r test && useradd -r -g test -G audio,video test \
     && mkdir -p /home/test/Downloads \
     && chown -R test:test /home/test \
@@ -40,4 +40,4 @@ RUN groupadd -r test && useradd -r -g test -G audio,video test \
 
 COPY --chown=test . . 
 USER test
-CMD ["yarn", "test"]
+CMD ["npm", "run", "test"]
