@@ -1,4 +1,3 @@
-console.log(process.env)
 module.exports = {
   testEnvironment: "node",
   roots: [".", process.env.APP],
