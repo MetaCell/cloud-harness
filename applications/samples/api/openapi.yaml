@@ -27,71 +27,7 @@ paths:
       operationId: error
       summary: test sentry is working
       x-openapi-router-controller: samples.controllers.test_controller
-  /operation_async:
-    get:
-      tags:
-        - workflows
-      responses:
-        "202":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/inline_response_202"
-          description: "Submitted operation. See also https://restfulapi.net/http-status-202-accepted/"
-      operationId: submit_async
-      summary: Send an asynchronous operation
-      x-openapi-router-controller: samples.controllers.workflows_controller
-  /operation_sync:
-    get:
-      tags:
-        - workflows
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: object
-          description: Operation result
-      deprecated: false
-      operationId: submit_sync
-      summary: Send a synchronous operation
-      x-openapi-router-controller: samples.controllers.workflows_controller
-  /operation_sync_results:
-    get:
-      tags:
-        - workflows
-      parameters:
-        - style: form
-          explode: true
-          example: 10
-          name: a
-          description: first number to sum
-          schema:
-            type: number
-          in: query
-          required: true
-        - style: form
-          explode: true
-          example: 10
-          name: b
-          description: second number to sum
-          schema:
-            type: number
-          in: query
-          required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: string
-          description: Operation result
-      deprecated: true
-      operationId: submit_sync_with_results
-      summary: >-
-        Send a synchronous operation and get results using the event queue. Just a sum, but in the
-        cloud
-      x-openapi-router-controller: samples.controllers.workflows_controller
+  
   /ping:
     get:
       tags:
@@ -270,6 +206,70 @@ paths:
           type: string
         in: path
         required: true
+  /operation_async:
+    get:
+      tags:
+        - workflows
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_202"
+          description: "Submitted operation. See also https://restfulapi.net/http-status-202-accepted/"
+      operationId: submit_async
+      summary: Send an asynchronous operation
+      x-openapi-router-controller: samples.controllers.workflows_controller
+  /operation_sync:
+    get:
+      tags:
+        - workflows
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+          description: Operation result
+      deprecated: false
+      operationId: submit_sync
+      summary: Send a synchronous operation
+      x-openapi-router-controller: samples.controllers.workflows_controller
+  /operation_sync_results:
+    get:
+      tags:
+        - workflows
+      parameters:
+        - style: form
+          explode: true
+          example: 10
+          name: a
+          description: first number to sum
+          schema:
+            type: number
+          in: query
+          required: true
+        - style: form
+          explode: true
+          example: 10
+          name: b
+          description: second number to sum
+          schema:
+            type: number
+          in: query
+          required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Operation result
+      operationId: submit_sync_with_results
+      summary: >-
+        Send a synchronous operation and get results using the event queue. Just a sum, but in the
+        cloud
+      x-openapi-router-controller: samples.controllers.workflows_controller
 components:
   schemas:
     inline_response_202_task:
