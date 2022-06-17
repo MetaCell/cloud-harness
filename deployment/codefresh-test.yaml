@@ -341,17 +341,18 @@ steps:
     scale:
       samples_api_test:
         volumes:
-        - '${{CF_REPO_NAME}}/applications/samples/test/api:/home/test/__tests__/samples'
+        - '${{CF_REPO_NAME}}/applications/samples:/home/test'
+        - '${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml'
         environment:
-        - APP_URL=https://samples.${{CF_SHORT_REVISION}}.${{DOMAIN}}
+        - APP_URL=https://samples.${{CF_SHORT_REVISION}}.${{DOMAIN}}/api
         - USERNAME=sample@testuser.com
         - PASSWORD=test
         commands:
-        - st --pre-run cloudharness.testing.apitest_init run samples/api/openapi.yaml
-          --base-url https://samples.${{CF_SHORT_REVISION}}.${{DOMAIN}} -c all --skip-deprecated-operations
+        - st --pre-run cloudharness.testing.apitest_init run api/openapi.yaml --base-url
+          https://samples.${{CF_SHORT_REVISION}}.${{DOMAIN}}/api -c all --skip-deprecated-operations
           --hypothesis-suppress-health-check=too_slow --hypothesis-deadline=60000
           --request-timeout=60000 --hypothesis-max-examples=2 --show-errors-tracebacks
-        - pytest -v .
+        - pytest -v test/api
     hooks:
       on_fail:
         exec:
