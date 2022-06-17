@@ -184,6 +184,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     if app.secured and helm_values.secured_gatekeepers:
                         rollout_commands.append(
                             ROLLOUT_CMD_TPL % app.service.name + "-gk")
+                rollout_commands.append("sleep 60") # some time to the certificates to settle
 
             codefresh_steps_from_base_path(join(root_path, BASE_IMAGES_PATH), CD_BUILD_STEP_BASE,
                                            fixed_context=relpath(root_path, os.getcwd()), include=helm_values[KEY_TASK_IMAGES].keys())
