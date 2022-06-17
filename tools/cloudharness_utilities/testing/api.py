@@ -34,7 +34,7 @@ def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, inclu
             continue
 
         app_dir = artifacts[appkey]
-        api_config: "ApiTestsConfig" = app_config.test.api
+        api_config: ApiTestsConfig = app_config.test.api
 
         if not api_config.enabled:
             continue

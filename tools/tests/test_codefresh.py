@@ -5,7 +5,7 @@ from cloudharness_utilities.codefresh import *
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')
-OUT = './deployment'
+OUT = '/tmp/deployment'
 CLOUDHARNESS_ROOT = os.path.dirname(os.path.dirname(HERE))
 BUILD_MERGE_DIR = "./build/test_deployment"
 
@@ -211,9 +211,21 @@ def test_create_codefresh_configuration_tests():
         assert "test-api" in st_build_steps
         api_steps = l1_steps['tests_api']['scale']
         test_step = api_steps["samples_api_test"]
-        assert "APP_URL=https://samples.${{CF_SHORT_REVISION}}.${{DOMAIN}}" in test_step[
+        assert "APP_URL=https://samples.${{CF_SHORT_REVISION}}.${{DOMAIN}}/api" in test_step[
             'environment'], "APP_URL must be provided as environment variable"
-        assert len(test_step['volumes']) == 1
+        assert len(test_step['volumes']) == 2
+
+        assert any("allvalues.yaml" in v for v in test_step['volumes'])
+
+        assert len(test_step["commands"]) == 2, "Both default and custom api tests should be run"
+
+        st_cmd = test_step["commands"][0]
+        assert "--pre-run cloudharness.testing.apitest_init" in st_cmd, "Prerun hook must be specified in schemathesis command"
+        assert "api/openapi.yaml" in st_cmd, "Openapi file must be passed to the schemathesis command"
+
+        assert "-c all" in st_cmd, "Default check loaded is `all` on schemathesis command"
+        assert "--hypothesis-deadline=60000" in st_cmd, "Custom parameters are loaded from values.yaml"
+
 
         assert any("CLOUDHARNESS_BASE" in arg for arg in st_build_steps["test-api"]
                    ["build_arguments"]), "Missing build dependency on api test image"

@@ -12,7 +12,7 @@ from .constants import *
 from .helm import KEY_APPS, KEY_TASK_IMAGES
 from .utils import find_dockerfiles_paths, guess_build_dependencies_from_dockerfile, \
     get_image_name, get_template, dict_merge, app_name_from_path
-from .testing.api import get_api_filename, get_schemathesis_command
+from .testing.api import get_api_filename, get_schemathesis_command, get_urls_from_api_file
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -132,16 +132,23 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     if CD_API_TEST_STEP in steps and app_config and app_config.test.api.enabled:
                         tests_path = join(
                             base_path, app_relative_to_base, "test", API_TESTS_DIRNAME)
-
+                        api_filename = get_api_filename(app_relative_to_base)
                         if app_config.subdomain:
-                            steps[CD_API_TEST_STEP]['scale'][f"{app_name}_api_test"] = dict(
-                                volumes=e2e_test_volumes(
-                                    app_relative_to_root, app_name, API_TESTS_DIRNAME),
-                                environment=e2e_test_environment(app_config),
-                                commands=api_tests_commands(
-                                    app_relative_to_base, app_config, exists(tests_path))
-                            )
-                            
+                            server_urls = get_urls_from_api_file(
+                                os.path.join(root_path, APPS_PATH, api_filename))
+                            for app_domain in server_urls:
+                                if "http" not in app_domain:
+                                    app_domain = get_app_domain(
+                                        app_config) + app_domain
+                                steps[CD_API_TEST_STEP]['scale'][f"{app_name}_api_test"] = dict(
+                                    volumes=api_test_volumes(
+                                        app_relative_to_root),
+                                    environment=e2e_test_environment(
+                                        app_config, app_domain),
+                                    commands=api_tests_commands(
+                                        app_config, exists(tests_path), app_domain)
+                                )
+
                     if CD_E2E_TEST_STEP in steps and app_config and app_config.test.e2e.enabled:
                         tests_path = join(
                             base_path, app_relative_to_base, "test", E2E_TESTS_DIRNAME)
@@ -153,7 +160,6 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                     app_relative_to_root, app_name),
                                 environment=e2e_test_environment(app_config)
                             )
-
 
             def add_unit_test_step(app_config: ApplicationHarnessConfig):
                 # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step
@@ -215,7 +221,6 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 arguments["custom_values"] = []
             for app_name, app in helm_values.apps.items():
                 if app.harness.secrets:
-
                     for secret in [secret[0] for secret in app.harness.secrets.items() if secret[1]]:
                         secret_name = secret
                         arguments["custom_values"].append(
@@ -250,15 +255,14 @@ def codefresh_template_spec(template_path, **kwargs):
     return build
 
 
-def api_tests_commands(app_dir, app_config: ApplicationHarnessConfig, run_custom_tests):
-    api_dir = join(app_dir, "test", API_TESTS_DIRNAME)
+def api_tests_commands(app_config: ApplicationHarnessConfig, run_custom_tests, api_url):
     api_config: ApiTestsConfig = app_config.test.api
     commands = []
     if api_config.autotest:
         commands.append(" ".join(get_schemathesis_command(
-            get_api_filename(app_dir), app_config, get_app_domain(app_config))))
+            get_api_filename(""), app_config, api_url)))
     if run_custom_tests:
-        commands.append(f"pytest -v .")
+        commands.append(f"pytest -v test/api")
     return commands
 
 
@@ -266,8 +270,16 @@ def e2e_test_volumes(app_relative_to_root, app_name, dirname=E2E_TESTS_DIRNAME):
     return [r"${{CF_REPO_NAME}}/" + f"{app_relative_to_root}/test/{dirname}:/home/test/__tests__/{app_name}"]
 
 
-def e2e_test_environment(app_config: ApplicationHarnessConfig):
-    app_domain = get_app_domain(app_config)
+def api_test_volumes(app_relative_to_root):
+    return [
+        r"${{CF_REPO_NAME}}/" + f"{app_relative_to_root}:/home/test",
+        "${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml"
+        ]
+
+
+def e2e_test_environment(app_config: ApplicationHarnessConfig, app_domain: str = None):
+    if app_domain is None:
+        app_domain = get_app_domain(app_config)
     env = get_app_environment(app_config, app_domain, False)
     return [f"{k}={env[k]}" for k in env]
 

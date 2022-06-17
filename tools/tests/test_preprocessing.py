@@ -5,7 +5,7 @@ from cloudharness_utilities.preprocessing import *
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')
-OUT = './deployment'
+OUT = '/tmp/deployment'
 CLOUDHARNESS_ROOT = os.path.dirname(os.path.dirname(HERE))
 MERGE_BUILD_DIR = "/tmp/build"
 
