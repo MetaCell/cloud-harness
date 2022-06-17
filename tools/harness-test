@@ -69,9 +69,18 @@ if __name__ == "__main__":
         os.environ["CH_VALUES_PATH"] = os.path.abspath(helm_values_path)
 
         with open(helm_values_path) as f:
-            helm_values = HarnessMainConfig.from_dict(yaml.load(f))
+            helm_values_raw = yaml.load(f)
+        
+        
 
-        base_domain = args.domain or helm_values.domain
+        if args.domain:
+            helm_values_raw["domain"]  = args.domain
+            with open(helm_values_path, 'w') as f:
+                yaml.dump(helm_values_raw, f)
+
+        helm_values = HarnessMainConfig.from_dict(helm_values_raw)
+        base_domain = args.domain
+        
         logging.info("Base domain is %s", base_domain)
         from cloudharness.utils.config import CloudharnessConfig
         CloudharnessConfig.allvalues["domain"] = base_domain

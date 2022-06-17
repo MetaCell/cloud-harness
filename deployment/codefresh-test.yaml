@@ -331,6 +331,7 @@ steps:
         exec:
           image: alpine
           commands:
+          - echo "Waiting 30 minutes before deleting the namespace"
           - sleep 1800
   tests_api:
     stage: qa
@@ -359,6 +360,7 @@ steps:
         exec:
           image: alpine
           commands:
+          - echo "Waiting 30 minutes before deleting the namespace"
           - sleep 1800
   tests_e2e:
     stage: qa
@@ -380,6 +382,7 @@ steps:
         exec:
           image: alpine
           commands:
+          - echo "Waiting 30 minutes before deleting the namespace"
           - sleep 1800
 hooks:
   on_finish:
