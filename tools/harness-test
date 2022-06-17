@@ -26,7 +26,7 @@ try:
     import cloudharness
 except ModuleNotFoundError:
     install_path = os.path.join(ROOT, "libraries", "cloudharness-common")
-    logging.info("Installing cloudharness Python runtime library from %s")
+    logging.info("Installing cloudharness Python runtime library from %s", install_path)
     subprocess.run("pip install -e .".split(" "), cwd=install_path)
     import cloudharness
 
