@@ -231,9 +231,14 @@ class ContainerizedOperation(ManagedOperation):
 
     def volume_template(self, volume):
         path = volume
-        if ":" in path:
-            path = volume.split(':')[-1]
-        return dict({'name': self.name_from_path(path), 'mountPath': path})
+        splitted = volume.split(':')[1]
+        if len(splitted) > 1:
+            path = splitted[1]
+        return dict({
+            'name': self.name_from_path(path), 
+            'mountPath': path,
+            'readonly': False if len(splitted) < 3 else splitted[2] == "ro"
+            })
         
     def spec_volumeclaim(self, volume):
         # when the volume is NOT prefixed by a PVC (e.g. /location) then create a temporary PVC for the workflow
@@ -262,7 +267,8 @@ class ContainerizedOperation(ManagedOperation):
                 'name': self.name_from_path(path),
                 'persistentVolumeClaim': {
                     'claimName': pvc
-                }
+                },
+                
             }
         return {}
 
