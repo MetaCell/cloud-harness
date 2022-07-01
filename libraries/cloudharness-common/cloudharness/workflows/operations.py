@@ -1,8 +1,9 @@
 import time
 import pyaml
+from typing import Union
 
 from collections.abc import Iterable
-
+from kubernetes.client.models.v1_affinity import V1Affinity
 from cloudharness_cli.workflows.models.operation_status import OperationStatus
 
 from cloudharness.events.client import EventClient
@@ -60,7 +61,7 @@ class ContainerizedOperation(ManagedOperation):
     Abstract Containarized operation based on an argo workflow
     """
 
-    def __init__(self, basename: str, pod_context: PodExecutionContext = None, shared_directory=None, *args, **kwargs):
+    def __init__(self, basename: str, pod_context: Union[PodExecutionContext, list, tuple] = None, shared_directory=None, *args, **kwargs):
         """
         :param basename:
         :param pod_context: PodExecutionContext - represents affinity with other pods in the system
@@ -93,11 +94,11 @@ class ContainerizedOperation(ManagedOperation):
 
     @property
     def entrypoint(self):
-        raise NotImplemented
+        raise NotImplementedError()
 
     @property
     def templates(self):
-        raise NotImplemented
+        raise NotImplementedError()
 
     def to_workflow(self, **arguments):
         return {
@@ -135,39 +136,46 @@ class ContainerizedOperation(ManagedOperation):
         return spec
 
     def affinity_spec(self):
-
-        term = {
-            'labelSelector':
-                {
-                    'matchExpressions': [
-                        {
-                            'key': self.pod_context.key,
-                            'operator': 'In',
-                            'values': [self.pod_context.value]
-                        },
-                    ]
-                },
-            'topologyKey': 'kubernetes.io/hostname'
-        }
-        if not self.pod_context.required:
-            return {
-                'podAffinity':
-                    {
-                        'preferredDuringSchedulingIgnoredDuringExecution': [
-                            {
-                                'weight': 100,
-                                'podAffinityTerm': term
-
-                            }]
-                    }
-            }
+        if type(self.pod_context) in (list, tuple):
+            contexts = self.pod_context
         else:
-            return {
-                'podAffinity':
+            contexts = (self.pod_context,)
+        PREFERRED = 'preferredDuringSchedulingIgnoredDuringExecution'
+        REQUIRED = 'requiredDuringSchedulingIgnoredDuringExecution'
+
+        pod_affinity = {
+                PREFERRED: [],
+                REQUIRED: []
+            } 
+        
+
+        for context in contexts:
+            term= {
+                'labelSelector':
                     {
-                        'requiredDuringSchedulingIgnoredDuringExecution': [term]
-                    }
+                        'matchExpressions': [
+                            {
+                                'key': context.key,
+                                'operator': 'In',
+                                'values': [context.value]
+                            },
+                        ]
+                    },
+                'topologyKey': 'kubernetes.io/hostname'
             }
+            if not context.required:
+                pod_affinity[PREFERRED].append(
+                                {
+                                    'weight': 100,
+                                    'podAffinityTerm': term
+
+                                })
+            else:
+                pod_affinity[REQUIRED].append(term)
+
+        return {
+            'podAffinity': pod_affinity
+        }
 
     def add_on_exit_notify_handler(self, spec):
         queue = self.on_exit_notify['queue']
@@ -192,13 +200,18 @@ class ContainerizedOperation(ManagedOperation):
                 template['metadata'] = {}
             if 'labels' not in template['metadata']:
                 template['metadata']['labels'] = {}
-            template['metadata']['labels'][self.pod_context.key] = self.pod_context.value
+            contexts = self.pod_context if type(self.pod_context) in (
+                list, tuple) else [self.pod_context]
+            for context in contexts:
+                template['metadata']['labels'][context.key] = context.value
         if self.volumes:
             if 'container' in template:
-                template['container']['volumeMounts'] += [self.volume_template(volume) for volume in self.volumes]
+                template['container']['volumeMounts'] += [
+                    self.volume_template(volume) for volume in self.volumes]
             elif 'script' in template:
-                template['script']['volumeMounts'] += [self.volume_template(volume) for volume in self.volumes]
-        
+                template['script']['volumeMounts'] += [
+                    self.volume_template(volume) for volume in self.volumes]
+
         return template
 
     def submit(self):
@@ -231,7 +244,7 @@ class ContainerizedOperation(ManagedOperation):
 
     def volume_template(self, volume):
         path = volume
-        splitted = volume.split(':')[1]
+        splitted = volume.split(':')
         if len(splitted) > 1:
             path = splitted[1]
         return dict({
@@ -384,7 +397,7 @@ class CompositeOperation(AsyncOperation):
         self.entrypoint_template = {'name': self.entrypoint, 'steps': self.steps_spec()}
 
     def steps_spec(self):
-        raise NotImplemented
+        raise NotImplementedError()
 
     def task_list(self):
         return self.tasks
