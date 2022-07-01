@@ -11,7 +11,7 @@ from cloudharness_utilities.preprocessing import get_build_paths
 from cloudharness_utilities.testing.util import get_app_environment
 
 HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
-ROOT = dn(dn(dn(dn(HERE)).replace(os.path.sep, '/')))
+ROOT = dn(dn(dn(HERE)).replace(os.path.sep, '/'))
 
 E2E_TESTS_PROJECT_ROOT = os.path.abspath(E2E_TESTS_PROJECT_PATH) if os.path.exists(
     E2E_TESTS_PROJECT_PATH) else os.path.join(ROOT, E2E_TESTS_PROJECT_PATH)
