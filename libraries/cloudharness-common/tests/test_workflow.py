@@ -230,3 +230,38 @@ def test_workflow_with_context():
 
     for task in workflow['spec']['templates']:
         assert task['metadata']['labels']['a'] == 'b'
+
+
+    op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f), tasks.PythonTask('p2', f)),
+                                      pod_context=(
+                                        operations.PodExecutionContext('a', 'b'), 
+                                        operations.PodExecutionContext('c', 'd', required=True), 
+                                        operations.PodExecutionContext('e', 'f')
+                                        ))
+    workflow = op.to_workflow()
+    assert 'affinity' in workflow['spec']
+    preferred = workflow['spec']['affinity']['podAffinity']['preferredDuringSchedulingIgnoredDuringExecution']
+    assert len(preferred) == 2
+    affinity_expr = preferred[0]['podAffinityTerm']['labelSelector']['matchExpressions'][0]
+
+    assert affinity_expr['key'] == 'a'
+    assert affinity_expr['values'][0] == 'b'
+
+    for task in workflow['spec']['templates']:
+        assert task['metadata']['labels']['a'] == 'b'
+
+    affinity_expr = preferred[1][
+        'podAffinityTerm']['labelSelector']['matchExpressions'][0]
+
+    assert affinity_expr['key'] == 'e'
+    assert affinity_expr['values'][0] == 'f'
+
+    for task in workflow['spec']['templates']:
+        assert task['metadata']['labels']['e'] == 'f'
+
+    affinity_expr = \
+        workflow['spec']['affinity']['podAffinity']['requiredDuringSchedulingIgnoredDuringExecution'][0][
+            'labelSelector'][
+            'matchExpressions'][0]
+    assert affinity_expr['key'] == 'c'
+    assert affinity_expr['values'][0] == 'd'
