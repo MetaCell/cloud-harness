@@ -154,10 +154,24 @@ op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f
                                       pod_context=operations.PodExecutionContext(key='a', value='b', required=True))
 ```
 
+
+
 The execution context is set allows to group pods in the same node (see [here](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity)).
 This is important in particular when pods are sharing node resources like ReadWriteOnce volumes within a parallel execution or with other deployments in the cluster.
 The execution context sets the affinity and the metadata attributes so that all pods with the same context
-run in the same node 
+run in the same node.
+
+
+Is is also possible to specify a tuple or list for multiple affinities like:
+
+```Python
+op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f), tasks.PythonTask('p2', f)),
+                                      pod_context=(
+                                        operations.PodExecutionContext('a', 'b'), 
+                                        operations.PodExecutionContext('c', 'd', required=True), 
+                                        operations.PodExecutionContext('e', 'f')
+                                        ))
+```
 
 ## TTL (Time-To-Live) strategy
 
