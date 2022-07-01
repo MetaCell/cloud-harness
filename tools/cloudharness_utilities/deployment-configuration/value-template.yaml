@@ -114,6 +114,8 @@ harness:
       enabled: false
       autotest: true
       runParams: []
+      checks:
+        - all
     e2e:
       enabled: false
       smoketest: true
