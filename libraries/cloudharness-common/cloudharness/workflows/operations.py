@@ -275,7 +275,7 @@ class ContainerizedOperation(ManagedOperation):
     def spec_volume(self, volume):
         # when the volume is prefixed by a PVC (e.g. pvc-001:/location) then add the PVC to the volumes of the workflow
         if ':' in volume:
-            pvc, path = volume.split(':')
+            pvc, path, *c = volume.split(':')
             return {
                 'name': self.name_from_path(path),
                 'persistentVolumeClaim': {
