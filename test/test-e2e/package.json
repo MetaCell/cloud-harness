@@ -50,8 +50,8 @@
   "scripts": {
     "lint": "npx tslint -c tslint.json './__tests__/*.ts'",
     "pretty": "npx prettier --no-config './__tests__/*.{js,ts}' --write",
-    "test": "APP=. npx jest",
-    "test:app": "npx jest"
+    "test": "APP=. npx jest --runInBand",
+    "test:app": "npx jest --runInBand"
   },
   "version": "1.0.0"
 }

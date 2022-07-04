@@ -5,7 +5,7 @@ let browser: any;
 
 describe("Sandbox", () => {
   beforeAll(async () => {
-    browser = await puppeteer.launch({ args: ['--no-sandbox'], })
+    browser = await puppeteer.launch({ args: ['--no-sandbox'], headless: true, })
 
     page = await browser.newPage();
     page.on('pageerror', ({ message }: any) => expect(message).toBe(""))
@@ -34,8 +34,26 @@ describe("Sandbox", () => {
   });
 
   test("Check page", async () => {
-
     await page.waitForSelector("body");
 
   });
+
+  if (process.env.USERNAME && process.env.PASSWORD) {
+    test("Login", async () => {
+
+      page
+        .on("response", (response: any) => {
+        if (response.status() >= 300) {
+          expect(response.status()).toBeLessThan(400);
+        }
+        });
+
+      await page.type("#username", process.env.USERNAME); 
+      await page.type("#password", process.env.PASSWORD); 
+      await page.keyboard.press("Enter");
+      await page.waitForSelector("#user-menu"); 
+      await page.waitForTimeout(1000); 
+
+    });
+  }
 });
