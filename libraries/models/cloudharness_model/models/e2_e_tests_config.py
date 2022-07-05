@@ -15,26 +15,36 @@ class E2ETestsConfig(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, enabled=None, smoketest=None):  # noqa: E501
+    def __init__(self, enabled=None, smoketest=None, ignore_console_errors=None, ignore_request_errors=None):  # noqa: E501
         """E2ETestsConfig - a model defined in OpenAPI
 
         :param enabled: The enabled of this E2ETestsConfig.  # noqa: E501
         :type enabled: bool
         :param smoketest: The smoketest of this E2ETestsConfig.  # noqa: E501
         :type smoketest: bool
+        :param ignore_console_errors: The ignore_console_errors of this E2ETestsConfig.  # noqa: E501
+        :type ignore_console_errors: bool
+        :param ignore_request_errors: The ignore_request_errors of this E2ETestsConfig.  # noqa: E501
+        :type ignore_request_errors: bool
         """
         self.openapi_types = {
             'enabled': bool,
-            'smoketest': bool
+            'smoketest': bool,
+            'ignore_console_errors': bool,
+            'ignore_request_errors': bool
         }
 
         self.attribute_map = {
             'enabled': 'enabled',
-            'smoketest': 'smoketest'
+            'smoketest': 'smoketest',
+            'ignore_console_errors': 'ignoreConsoleErrors',
+            'ignore_request_errors': 'ignoreRequestErrors'
         }
 
         self._enabled = enabled
         self._smoketest = smoketest
+        self._ignore_console_errors = ignore_console_errors
+        self._ignore_request_errors = ignore_request_errors
 
     @classmethod
     def from_dict(cls, dikt) -> 'E2ETestsConfig':
@@ -96,3 +106,45 @@ class E2ETestsConfig(Model):
             raise ValueError("Invalid value for `smoketest`, must not be `None`")  # noqa: E501
 
         self._smoketest = smoketest
+
+    @property
+    def ignore_console_errors(self):
+        """Gets the ignore_console_errors of this E2ETestsConfig.
+
+
+        :return: The ignore_console_errors of this E2ETestsConfig.
+        :rtype: bool
+        """
+        return self._ignore_console_errors
+
+    @ignore_console_errors.setter
+    def ignore_console_errors(self, ignore_console_errors):
+        """Sets the ignore_console_errors of this E2ETestsConfig.
+
+
+        :param ignore_console_errors: The ignore_console_errors of this E2ETestsConfig.
+        :type ignore_console_errors: bool
+        """
+
+        self._ignore_console_errors = ignore_console_errors
+
+    @property
+    def ignore_request_errors(self):
+        """Gets the ignore_request_errors of this E2ETestsConfig.
+
+
+        :return: The ignore_request_errors of this E2ETestsConfig.
+        :rtype: bool
+        """
+        return self._ignore_request_errors
+
+    @ignore_request_errors.setter
+    def ignore_request_errors(self, ignore_request_errors):
+        """Sets the ignore_request_errors of this E2ETestsConfig.
+
+
+        :param ignore_request_errors: The ignore_request_errors of this E2ETestsConfig.
+        :type ignore_request_errors: bool
+        """
+
+        self._ignore_request_errors = ignore_request_errors

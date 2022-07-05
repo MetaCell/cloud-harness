@@ -38,11 +38,12 @@ def run_e2e_tests(root_paths, helm_values, base_domain, included_applications=[]
             
         if included_applications and appname not in included_applications:
             continue
+        if not app_config.test.e2e.enabled:
+            continue
 
         tests_dir = os.path.join(
                 artifacts[appkey], "test", E2E_TESTS_DIRNAME)
-        if not os.path.exists(tests_dir):
-            continue
+        
         if not app_config.domain and not app_config.subdomain:
             logging.warn(
                     "Application %s has a test folder but no subdomain/domain is specified", appname)
@@ -50,17 +51,21 @@ def run_e2e_tests(root_paths, helm_values, base_domain, included_applications=[]
 
         app_domain = f"http{'s' if helm_values.tls else ''}://" + \
                 (app_config.domain or f"{app_config.subdomain}.{base_domain}")
-        app_node_modules_path = os.path.join(tests_dir, "node_modules")
-        if not os.path.exists(app_node_modules_path):
-            logging.info("Linking tests libraries to  %s",
-                             app_node_modules_path)
-            os.symlink(node_modules_path, app_node_modules_path)
-        logging.info(
-                "Running tests for application %s on domain %s", appname, app_domain)
+       
+        
         
         env = get_app_environment(app_config, app_domain)
-        env["APP"] = artifacts[appkey]
+        if os.path.exists(tests_dir):
+            
+            app_node_modules_path = os.path.join(tests_dir, "node_modules")
+            if not os.path.exists(app_node_modules_path):
+                logging.info("Linking tests libraries to  %s",
+                                app_node_modules_path)
+                os.symlink(node_modules_path, app_node_modules_path)
+            env["APP"] = artifacts[appkey]
 
+        logging.info(
+                "Running tests for application %s on domain %s", appname, app_domain)
         result = subprocess.run(["npm", "run", "test:app"],
                            cwd=E2E_TESTS_PROJECT_ROOT, env=env)
 

@@ -739,6 +739,12 @@ components:
         smoketest:
           description: Specify whether to run the common smoke tests
           type: boolean
+        ignoreConsoleErrors:
+          description: ""
+          type: boolean
+        ignoreRequestErrors:
+          description: ""
+          type: boolean
     ApiTestsConfig:
       description: ""
       required:

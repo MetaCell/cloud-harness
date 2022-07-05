@@ -56,6 +56,8 @@ harness:
     e2e:
       enabled: true
       smoketest: true
+      ignoreRequestErrors: false
+      ignoreConsoleErrors: false
     api:
       enabled: true
       autotest: true
