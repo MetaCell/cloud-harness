@@ -52,6 +52,8 @@ def submit_sync():  # noqa: E501
     op = operations.DistributedSyncOperation('test-sync-op-', task)
     try:
         workflow = op.execute()
+        if workflow.status == "Error":
+            return 'Workflow error', 500
         return workflow.raw.to_dict()
     except Exception as e:
         log.error('Error submitting sync operation', exc_info=True)
@@ -77,4 +79,4 @@ def submit_sync_with_results(a=1, b=2):  # noqa: E501
         result = op.execute()
         return result[0]["result"]
     except Exception as e:
-        return jsonify(str(e)), 200
+        return jsonify(str(e)), 500
