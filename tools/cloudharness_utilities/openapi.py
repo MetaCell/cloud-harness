@@ -25,7 +25,8 @@ def generate_server(app_path):
     out_name = f"backend" if not os.path.exists(
         f"{app_path}/server") else f"server"
     out_path = f"{app_path}/{out_name}"
-    command = f"java -jar {CODEGEN} generate -i {openapi_file} -g python-flask -o {out_path} -c {openapi_dir}/config.json"
+    command = f"java -jar {CODEGEN} generate -i {openapi_file} -g python-flask -o {out_path} " \
+              f"-c {openapi_dir}/config.json -t {HERE}/openapi-generator-overrides"
     os.system(command)
 
 
@@ -39,7 +40,7 @@ def generate_model(base_path=ROOT):
     # Generate docs: use python generator
     tmp_path = f"{lib_path}/tmp"
     command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/api/openapi.yaml -g python -o {tmp_path}  --skip-validate-spec -c {base_path}/libraries/api/config.json"
-    
+
     os.system(command)
     try:
         source_dir = join(tmp_path, "docs")
