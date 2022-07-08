@@ -28,7 +28,7 @@ def generate_server(app_path):
         f"{app_path}/server") else f"server"
     out_path = f"{app_path}/{out_name}"
     command = f"java -jar {CODEGEN} generate -i {openapi_file} -g python-flask -o {out_path} " \
-              f"-c {openapi_dir}/config.json -t {os.path.join(HERE, APPLICATION_TEMPLATE_PATH, 'base')}"
+              f"-c {openapi_dir}/config.json -t {os.path.join(HERE, APPLICATION_TEMPLATE_PATH, 'server')}"
     os.system(command)
 
 
