@@ -68,7 +68,13 @@ class ContainerizedOperation(ManagedOperation):
         :param shared_directory: bool|str|list
         """
         super(ContainerizedOperation, self).__init__(basename, *args, **kwargs)
-        self.pod_context = pod_context
+        if type(pod_context) == PodExecutionContext:
+            self.pod_contexts = [pod_context]
+        elif pod_context is None:
+            self.pod_contexts = []
+        else:
+            self.pod_contexts = list(pod_context)
+        
         self.persisted = None
         shared_path = None
         if shared_directory:
@@ -88,6 +94,8 @@ class ContainerizedOperation(ManagedOperation):
                     task.add_env('shared_directory', shared_path)
         else:
             self.volumes = tuple()
+        
+        self.pod_contexts += [PodExecutionContext('usesvolume', v.split(':')[0], True) for v in self.volumes if ':' in v]
 
     def task_list(self):
         raise NotImplementedError()
@@ -126,7 +134,7 @@ class ContainerizedOperation(ManagedOperation):
         if self.on_exit_notify:
             spec = self.add_on_exit_notify_handler(spec)
 
-        if self.pod_context:
+        if self.pod_contexts:
             spec['affinity'] = self.affinity_spec()
         if self.volumes:
             spec['volumeClaimTemplates'] = [self.spec_volumeclaim(volume) for volume in self.volumes if
@@ -135,11 +143,10 @@ class ContainerizedOperation(ManagedOperation):
                                 ':' in volume]  # with PVC prefix (e.g. pvc-001:/location)
         return spec
 
+
+
     def affinity_spec(self):
-        if type(self.pod_context) in (list, tuple):
-            contexts = self.pod_context
-        else:
-            contexts = (self.pod_context,)
+        contexts=self.pod_contexts
         PREFERRED = 'preferredDuringSchedulingIgnoredDuringExecution'
         REQUIRED = 'requiredDuringSchedulingIgnoredDuringExecution'
 
@@ -195,15 +202,9 @@ class ContainerizedOperation(ManagedOperation):
 
     def modify_template(self, template):
         """Hook to modify templates (e.g. add volumes)"""
-        if self.pod_context:
-            if 'metadata' not in template:
-                template['metadata'] = {}
-            if 'labels' not in template['metadata']:
-                template['metadata']['labels'] = {}
-            contexts = self.pod_context if type(self.pod_context) in (
-                list, tuple) else [self.pod_context]
-            for context in contexts:
-                template['metadata']['labels'][context.key] = context.value
+
+        template["metadata"] = {"labels": {c.key:c.value for c in self.pod_contexts}}
+
         if self.volumes:
             if 'container' in template:
                 template['container']['volumeMounts'] += [

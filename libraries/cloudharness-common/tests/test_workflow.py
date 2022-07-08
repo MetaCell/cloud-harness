@@ -126,6 +126,14 @@ def test_single_task_shared_multiple():
     assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 3
 
     assert wf['spec']['templates'][0]['container']['volumeMounts'][2]['readonly'] == True
+
+    assert wf['spec']['templates'][0]['metadata']['labels']['usesvolume']
+
+    assert 'affinity' in wf['spec']
+    assert len(wf['spec']['affinity']['podAffinity']['requiredDuringSchedulingIgnoredDuringExecution']) == 2, "A pod affinity for each volume is expected"
+    affinity_expr = wf['spec']['affinity']['podAffinity']['requiredDuringSchedulingIgnoredDuringExecution'][0]['labelSelector']['matchExpressions'][0]
+    assert affinity_expr['key'] == 'usesvolume'
+    assert affinity_expr['values'][0] == 'myclaim'
     if execute:
         print(op.execute())
 
@@ -141,6 +149,7 @@ def test_single_task_shared_script():
     assert len(wf['spec']['volumes']) == 2
     assert wf['spec']['volumes'][1]['persistentVolumeClaim']['claimName'] == 'myclaim'
     assert len(wf['spec']['templates'][0]['script']['volumeMounts']) == 2
+    
     if execute:
         print(op.execute())
 
