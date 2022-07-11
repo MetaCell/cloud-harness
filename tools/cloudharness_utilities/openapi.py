@@ -20,7 +20,7 @@ ROOT = dn(dn(HERE))
 OPENAPI_GEN_URL = 'https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/5.4.0/openapi-generator-cli-5.4.0.jar'
 
 
-def generate_server(app_path):
+def generate_server(app_path, overrides_folder):
     get_dependencies()
     openapi_dir = os.path.join(app_path, 'api')
     openapi_file = glob.glob(os.path.join(openapi_dir, '*.yaml'))[0]
@@ -28,7 +28,7 @@ def generate_server(app_path):
         f"{app_path}/server") else f"server"
     out_path = f"{app_path}/{out_name}"
     command = f"java -jar {CODEGEN} generate -i {openapi_file} -g python-flask -o {out_path} " \
-              f"-c {openapi_dir}/config.json -t {os.path.join(HERE, APPLICATION_TEMPLATE_PATH, 'server')}"
+              f"-c {openapi_dir}/config.json -t {overrides_folder}"
     os.system(command)
 
 
