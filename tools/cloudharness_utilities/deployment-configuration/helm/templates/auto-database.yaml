@@ -8,7 +8,6 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-    - ReadOnlyMany
   resources:
     requests:
       storage: {{ .Values.backup.volumesize }}
