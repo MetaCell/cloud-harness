@@ -191,9 +191,64 @@ op = operations.ParallelOperation(..., on_exit_notify=on_exit_notify)
 
 Synchronous operation types use this mechanism to wait for the result and get the value.
 
-# How to monitor and debug my workflows?
+## Workflows query service api
+
+Workflows can be queried and retrieved through the Python api
+
+### List workflows
+
+```Python
+import cloudharness.workflows.argo import get_workflows, Phase, V1alpha1WorkflowList
+workflow_list: V1alpha1WorkflowList = get_workflows(status=Phase.Running, limit=10)
+workflows: list[V1alpha1Workflow] = workflow_list.items
+
+```
+
+For more info about parameters, see also https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/CustomObjectsApi.md#list_cluster_custom_object
+
+
+### Get a workflow details
+
+```Python
+import cloudharness.workflows.argo import get_workflow, Workflow
+wf: Workflow = get_workflow(workflow_name="my-workflow")
+raw_workflow = wf.raw
+status = wf.status
+is_succeeded = wf.succeeded()
+
+pod_names = wf.pod_names
+```
+
+### Submit a workflow 
+
+It is possible to submit a workflow by the raw specification.
+This is to be considered a low level api to be used when the operations api
+features don't provide a way to specify the workflow as desired.
+
+```Python
+import cloudharness.workflows.argo import submit_workflow
+spec: dict=...
+submitted_workflow = submit_workflow(spec=spec)
+```
+
+### Delete a workflow
+
+```Python
+import cloudharness.workflows.argo import delete_workflow
+delete_workflow(workflow_name="my-workflow")
+```
+
+### Get logs
+
+```Python
+import cloudharness.workflows.argo import get_workflow_logs_list, get_workflow_logs
+logs_as_list = get_workflow_logs_list(workflow_name="my-workflow")
+logs_as_str = get_workflow_logs(workflow_name="my-workflow")
+```
+
+## How to monitor and debug my workflows?
 Workflows can be monitored through argo ui going to argo.[DOMAIN] or through command line with the [argo cli](https://argoproj.github.io/argo-workflows/cli/)
 
-# More examples
+## More examples
 See the [samples application controller](../../../applications/samples/backend/samples/controllers/workflows_controller.py) for a practical case of a service using asynchronous and synchronous workflows as part of the api.
 Some examples are also available as unit tests.
