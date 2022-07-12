@@ -228,7 +228,7 @@ proxy:
     nodeSelector: {}
     tolerations: []
     networkPolicy:
-      enabled: true
+      enabled: false
       ingress: []
       egress:
         - to:
