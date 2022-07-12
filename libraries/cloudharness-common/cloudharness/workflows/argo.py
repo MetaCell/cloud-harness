@@ -47,16 +47,24 @@ class ArgoObject:
 # --- Wrapper objects for api results ---
 
 class Phase:
-    NodePending = "Pending"
-    NodeRunning = "Running"
-    NodeSucceeded = "Succeeded"
-    NodeSkipped = "Skipped"
-    NodeFailed = "Failed"
-    NodeError = "Error"
+    Pending = "Pending"
+    Running = "Running"
+    Succeeded = "Succeeded"
+    Skipped = "Skipped"
+    Failed = "Failed"
+    Error = "Error"
+
+    # Legacy names (deprecated)
+    NodeRunning = Running
+    NodePending = Pending
+    NodeSucceeded = Succeeded
+    NodeSkipped = Skipped
+    NodeFailed = Failed
+    NodeError = Error
 
     @classmethod
     def phases(cls):
-        return tuple(value for key, value in cls.__dict__.items() if 'Node' in key)
+        return (cls.Pending, cls.Running, cls.Succeeded, cls.Skipped, cls.Failed, cls.Error)
 
 
 class Workflow:
@@ -67,16 +75,16 @@ class Workflow:
         self.raw = api_workflow
 
     def is_finished(self):
-        return self.status in (Phase.NodeError, Phase.NodeSucceeded, Phase.NodeSkipped, Phase.NodeFailed)
+        return self.status in (Phase.Error, Phase.Succeeded, Phase.Skipped, Phase.Failed)
 
     def __str__(self):
         return yaml.dump(self.raw)
 
     def succeeded(self):
-        return self.status == Phase.NodeSucceeded
+        return self.status == Phase.Succeeded
 
     def failed(self):
-        return self.status == Phase.NodeFailed
+        return self.status == Phase.Failed
 
     def get_status_message(self):
         return self.raw.status.message
