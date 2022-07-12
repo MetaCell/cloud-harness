@@ -1,16 +1,15 @@
+import glob
+import json
+import logging
 import os
-from os.path import dirname as dn, join
+import shutil
 import subprocess
 import sys
-import shutil
-import json
-import glob
 import urllib.request
-from cloudharness_utilities import HERE
-from cloudharness_utilities.utils import copymergedir, replaceindir, movedircontent, replace_in_file, to_python_module
-import logging
+from os.path import dirname as dn, join
 
-from tools.cloudharness_utilities.constants import APPLICATION_TEMPLATE_PATH
+from cloudharness_utilities import HERE
+from cloudharness_utilities.utils import replaceindir, to_python_module
 
 CODEGEN = os.path.join(HERE, 'bin', 'openapi-generator-cli.jar')
 APPLICATIONS_SRC_PATH = os.path.join('applications')
