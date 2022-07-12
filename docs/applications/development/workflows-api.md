@@ -114,7 +114,15 @@ The shared volume must be indicated both in the Operation and it is propagated t
 The `shared_directory` parameter is a quick way to specify a shared directory, and, optionally,
 the name of a volume claim. 
 
-The syntax is `[CLAIM_NAME:]MOUNT_PATH`.
+The syntax is `[CLAIM_NAME:]MOUNT_PATH[:MODE]`.
+- The `CLAIM_NAME` can be an existing or new volume claim name. In the case a claim already exists with that name it will be used.
+Otherwise a new ephemeral volume is created: that volume will exist during the life of the workflow and deleted after completion
+- The `MOUNT_PATH` is the path where we want the volume to be mounted inside our pod
+- The appendix `:MODE` indicated the read/write mode. If `ro`, the
+volume is mounted as read-only. Read only volumes are useful to overcome
+scheduling limitations (ReadWriteOnce is usually available) when 
+writing is not required, and it's generally recommended whenever writing
+is not required.
 
 ```Python
 shared_directory="myclaim:/opt/shared"
@@ -126,11 +134,13 @@ op.execute()
 More than one directory/volume can be shared by passing a list/tuple:
 
 ```Python
-shared_directory=["myclaim:/opt/shared", "myclaim2:/opt/shared2"]
+shared_directory=["myclaim:/opt/shared:ro", "myclaim2:/opt/shared2"]
 my_task = tasks.CustomTask('print-file', 'myapp-mytask')
 op = operations.SingleTaskOperation('my-op-', my_task, shared_directory=shared_directory)
 op.execute()
 ```
+
+
 
 ## Pod execution context / affinity
 
@@ -144,10 +154,24 @@ op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f
                                       pod_context=operations.PodExecutionContext(key='a', value='b', required=True))
 ```
 
+
+
 The execution context is set allows to group pods in the same node (see [here](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity)).
 This is important in particular when pods are sharing node resources like ReadWriteOnce volumes within a parallel execution or with other deployments in the cluster.
 The execution context sets the affinity and the metadata attributes so that all pods with the same context
-run in the same node 
+run in the same node.
+
+
+Is is also possible to specify a tuple or list for multiple affinities like:
+
+```Python
+op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f), tasks.PythonTask('p2', f)),
+                                      pod_context=(
+                                        operations.PodExecutionContext('a', 'b'), 
+                                        operations.PodExecutionContext('c', 'd', required=True), 
+                                        operations.PodExecutionContext('e', 'f')
+                                        ))
+```
 
 ## TTL (Time-To-Live) strategy
 

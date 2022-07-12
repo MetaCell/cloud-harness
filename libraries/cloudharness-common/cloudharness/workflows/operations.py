@@ -1,8 +1,9 @@
 import time
 import pyaml
+from typing import Union
 
 from collections.abc import Iterable
-
+from kubernetes.client.models.v1_affinity import V1Affinity
 from cloudharness_cli.workflows.models.operation_status import OperationStatus
 
 from cloudharness.events.client import EventClient
@@ -60,14 +61,20 @@ class ContainerizedOperation(ManagedOperation):
     Abstract Containarized operation based on an argo workflow
     """
 
-    def __init__(self, basename: str, pod_context: PodExecutionContext = None, shared_directory=None, *args, **kwargs):
+    def __init__(self, basename: str, pod_context: Union[PodExecutionContext, list, tuple] = None, shared_directory=None, *args, **kwargs):
         """
         :param basename:
         :param pod_context: PodExecutionContext - represents affinity with other pods in the system
         :param shared_directory: bool|str|list
         """
         super(ContainerizedOperation, self).__init__(basename, *args, **kwargs)
-        self.pod_context = pod_context
+        if type(pod_context) == PodExecutionContext:
+            self.pod_contexts = [pod_context]
+        elif pod_context is None:
+            self.pod_contexts = []
+        else:
+            self.pod_contexts = list(pod_context)
+        
         self.persisted = None
         shared_path = None
         if shared_directory:
@@ -87,17 +94,19 @@ class ContainerizedOperation(ManagedOperation):
                     task.add_env('shared_directory', shared_path)
         else:
             self.volumes = tuple()
+        
+        self.pod_contexts += [PodExecutionContext('usesvolume', v.split(':')[0], True) for v in self.volumes if ':' in v]
 
     def task_list(self):
         raise NotImplementedError()
 
     @property
     def entrypoint(self):
-        raise NotImplemented
+        raise NotImplementedError()
 
     @property
     def templates(self):
-        raise NotImplemented
+        raise NotImplementedError()
 
     def to_workflow(self, **arguments):
         return {
@@ -125,7 +134,7 @@ class ContainerizedOperation(ManagedOperation):
         if self.on_exit_notify:
             spec = self.add_on_exit_notify_handler(spec)
 
-        if self.pod_context:
+        if self.pod_contexts:
             spec['affinity'] = self.affinity_spec()
         if self.volumes:
             spec['volumeClaimTemplates'] = [self.spec_volumeclaim(volume) for volume in self.volumes if
@@ -134,40 +143,46 @@ class ContainerizedOperation(ManagedOperation):
                                 ':' in volume]  # with PVC prefix (e.g. pvc-001:/location)
         return spec
 
+
+
     def affinity_spec(self):
+        contexts=self.pod_contexts
+        PREFERRED = 'preferredDuringSchedulingIgnoredDuringExecution'
+        REQUIRED = 'requiredDuringSchedulingIgnoredDuringExecution'
 
-        term = {
-            'labelSelector':
-                {
-                    'matchExpressions': [
-                        {
-                            'key': self.pod_context.key,
-                            'operator': 'In',
-                            'values': [self.pod_context.value]
-                        },
-                    ]
-                },
-            'topologyKey': 'kubernetes.io/hostname'
-        }
-        if not self.pod_context.required:
-            return {
-                'podAffinity':
+        pod_affinity = {
+                PREFERRED: [],
+                REQUIRED: []
+            } 
+        
+
+        for context in contexts:
+            term= {
+                'labelSelector':
                     {
-                        'preferredDuringSchedulingIgnoredDuringExecution': [
+                        'matchExpressions': [
                             {
-                                'weight': 100,
-                                'podAffinityTerm': term
+                                'key': context.key,
+                                'operator': 'In',
+                                'values': [context.value]
+                            },
+                        ]
+                    },
+                'topologyKey': 'kubernetes.io/hostname'
+            }
+            if not context.required:
+                pod_affinity[PREFERRED].append(
+                                {
+                                    'weight': 100,
+                                    'podAffinityTerm': term
 
-                            }]
-                    }
-            }
-        else:
-            return {
-                'podAffinity':
-                    {
-                        'requiredDuringSchedulingIgnoredDuringExecution': [term]
-                    }
-            }
+                                })
+            else:
+                pod_affinity[REQUIRED].append(term)
+
+        return {
+            'podAffinity': pod_affinity
+        }
 
     def add_on_exit_notify_handler(self, spec):
         queue = self.on_exit_notify['queue']
@@ -187,18 +202,17 @@ class ContainerizedOperation(ManagedOperation):
 
     def modify_template(self, template):
         """Hook to modify templates (e.g. add volumes)"""
-        if self.pod_context:
-            if 'metadata' not in template:
-                template['metadata'] = {}
-            if 'labels' not in template['metadata']:
-                template['metadata']['labels'] = {}
-            template['metadata']['labels'][self.pod_context.key] = self.pod_context.value
+
+        template["metadata"] = {"labels": {c.key:c.value for c in self.pod_contexts}}
+
         if self.volumes:
             if 'container' in template:
-                template['container']['volumeMounts'] += [self.volume_template(volume) for volume in self.volumes]
+                template['container']['volumeMounts'] += [
+                    self.volume_template(volume) for volume in self.volumes]
             elif 'script' in template:
-                template['script']['volumeMounts'] += [self.volume_template(volume) for volume in self.volumes]
-        
+                template['script']['volumeMounts'] += [
+                    self.volume_template(volume) for volume in self.volumes]
+
         return template
 
     def submit(self):
@@ -231,9 +245,14 @@ class ContainerizedOperation(ManagedOperation):
 
     def volume_template(self, volume):
         path = volume
-        if ":" in path:
-            path = volume.split(':')[-1]
-        return dict({'name': self.name_from_path(path), 'mountPath': path})
+        splitted = volume.split(':')
+        if len(splitted) > 1:
+            path = splitted[1]
+        return dict({
+            'name': self.name_from_path(path), 
+            'mountPath': path,
+            'readonly': False if len(splitted) < 3 else splitted[2] == "ro"
+            })
         
     def spec_volumeclaim(self, volume):
         # when the volume is NOT prefixed by a PVC (e.g. /location) then create a temporary PVC for the workflow
@@ -257,12 +276,13 @@ class ContainerizedOperation(ManagedOperation):
     def spec_volume(self, volume):
         # when the volume is prefixed by a PVC (e.g. pvc-001:/location) then add the PVC to the volumes of the workflow
         if ':' in volume:
-            pvc, path = volume.split(':')
+            pvc, path, *c = volume.split(':')
             return {
                 'name': self.name_from_path(path),
                 'persistentVolumeClaim': {
                     'claimName': pvc
-                }
+                },
+                
             }
         return {}
 
@@ -378,7 +398,7 @@ class CompositeOperation(AsyncOperation):
         self.entrypoint_template = {'name': self.entrypoint, 'steps': self.steps_spec()}
 
     def steps_spec(self):
-        raise NotImplemented
+        raise NotImplementedError()
 
     def task_list(self):
         return self.tasks
