@@ -1,5 +1,5 @@
 {{ define "deploy_utils.database.postgres.backup"}}
-apiVersion: batch/v1beta1
+apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: "{{ .app.harness.database.name }}-backup"
