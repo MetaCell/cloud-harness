@@ -536,7 +536,7 @@ class AuthClient():
         """
         admin_client=self.get_admin_client()
         user=self.get_user(user_id)
-        attributes=user.get('attributes', {})
+        attributes=user.get('attributes', {}) or {}
         attributes[attribute_name]=attribute_value
         admin_client.update_user(
             user_id,
