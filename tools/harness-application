@@ -28,7 +28,7 @@ if __name__ == "__main__":
                         help="""Add a template name. 
                         
                         Available templates:
-                        - server (backend flask app based on openapi)
+                        - flask-server (backend flask server based on openapi)
                         - webapp (webapp including backend and frontend)
                         - db-postgres
                         - db-neo4j
@@ -58,13 +58,13 @@ if __name__ == "__main__":
     if "django-app" in args.templates and "webapp" not in templates:
         templates = ["base", "webapp"] + templates
     for template_name in templates:
-        if "server" in templates:
-            generate_server(app_path)
-
         for base_path in (HERE, os.getcwd()):
             template_path = os.path.join(base_path, APPLICATION_TEMPLATE_PATH, template_name)
             if os.path.exists(template_path):
                 merge_configuration_directories(template_path, app_path)
+
+        if "flask-server" in templates:
+            generate_server(app_path)
 
         replace_in_file(os.path.join(app_path, 'api/config.json'), PLACEHOLDER, to_python_module(args.name))
 
