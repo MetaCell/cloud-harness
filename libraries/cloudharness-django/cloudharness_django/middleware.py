@@ -4,8 +4,6 @@ from django.contrib.auth.models import User
 
 from keycloak.exceptions import KeycloakGetError
 
-from rest_framework.authtoken.models import Token
-
 from cloudharness.middleware import get_authentication_token
 from cloudharness_django.services import get_user_service, get_auth_service
 
