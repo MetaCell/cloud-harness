@@ -8,7 +8,7 @@ import re
 from cloudharness_utilities import HERE
 from cloudharness_utilities.constants import APPLICATION_TEMPLATE_PATH
 import cloudharness_utilities.openapi
-from cloudharness_utilities.openapi import generate_server, APPLICATIONS_SRC_PATH, generate_ts_client
+from cloudharness_utilities.openapi import generate_server, generate_fastapi_server, APPLICATIONS_SRC_PATH, generate_ts_client
 from cloudharness_utilities.utils import merge_configuration_directories, replaceindir, replace_in_file, \
     to_python_module
 
@@ -24,15 +24,16 @@ if __name__ == "__main__":
         description='Creates a new Application.')
     parser.add_argument('name', metavar='name', type=str,
                         help='Application name')
-    parser.add_argument('-t', '--template', dest='templates', action="append", default=['base', 'server'],
+    parser.add_argument('-t', '--template', dest='templates', action="append", default=['base',],
                         help="""Add a template name. 
                         
                         Available templates:
-                        - base (backend flask app based on openapi, always included)
+                        - server (backend flask app based on openapi)
                         - webapp (webapp including backend and frontend)
                         - db-postgres
                         - db-neo4j
                         - db-mongo
+                        - djangp-app (fastapi django backend based on openapi)
                         """)
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
@@ -53,8 +54,11 @@ if __name__ == "__main__":
         exit(1)
 
     app_path = os.path.join(APPLICATIONS_SRC_PATH, args.name)
-    for template_name in args.templates:
-        if template_name == 'server':
+    templates = args.templates
+    if "django-app" in args.templates and "webapp" not in templates:
+        templates = ["base", "webapp"] + templates
+    for template_name in templates:
+        if "server" in templates:
             generate_server(app_path)
 
         for base_path in (HERE, os.getcwd()):
@@ -63,7 +67,16 @@ if __name__ == "__main__":
                 merge_configuration_directories(template_path, app_path)
 
         replace_in_file(os.path.join(app_path, 'api/config.json'), PLACEHOLDER, to_python_module(args.name))
+
+    if "django-app" in templates:
+        generate_fastapi_server(app_path)
+
     replaceindir(app_path, PLACEHOLDER, args.name)
-    if 'webapp' in args.templates:
-        os.remove(os.path.join(app_path, 'backend', 'Dockerfile'))
+
+    if 'webapp' in templates:
+        try:
+            os.remove(os.path.join(app_path, 'backend', 'Dockerfile'))
+        except FileNotFoundError:
+            # backend dockerfile not found, continue
+            pass
         generate_ts_client(openapi_file=os.path.join(app_path, 'api/openapi.yaml'))
