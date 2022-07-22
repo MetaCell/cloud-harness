@@ -5,6 +5,7 @@ harness:
     - accounts
     - events
     build:
-    - cloudharness-base
     - cloudharness-frontend-build
     - cloudharness-django
+  use_services:
+    - name: common
