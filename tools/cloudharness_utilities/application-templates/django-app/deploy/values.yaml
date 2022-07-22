@@ -5,4 +5,6 @@ harness:
     - accounts
     - events
     build:
+    - cloudharness-base
+    - cloudharness-frontend-build
     - cloudharness-django
