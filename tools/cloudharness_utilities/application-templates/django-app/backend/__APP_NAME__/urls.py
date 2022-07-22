@@ -15,23 +15,11 @@ Including another URLconf
 """
 import re
 from django.conf import settings
-from django.core.exceptions import ImproperlyConfigured
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, re_path
-from django.views.static import serve
 
 from __APP_NAME__.views import index
-
-
-def static(prefix, view=serve, **kwargs):
-    """
-    Return a URL pattern for serving files
-    """
-    if not prefix:
-        raise ImproperlyConfigured("Empty static prefix not permitted")
-    return [
-        re_path(r'^%s(?P<path>.*)$' % re.escape(prefix.lstrip('/')), view, kwargs=kwargs),
-    ]
 
 
 urlpatterns = [path("admin/", admin.site.urls)]

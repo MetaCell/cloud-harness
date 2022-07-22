@@ -10,6 +10,7 @@ from django.apps import apps
 from django.core.asgi import get_asgi_application
 
 from starlette.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 {{imports | replace(".","openapi.")}}
 
@@ -107,4 +108,6 @@ def {{operation.function_name}}({{operation.snake_case_arguments}}) -> {{operati
 
 app.include_router(prefix_router)
 
+app.mount("/static", StaticFiles(directory=settings.STATIC_ROOT), name="static")
+app.mount("/media", StaticFiles(directory=settings.MEDIA_ROOT), name="media")
 app.mount("/", get_asgi_application())
