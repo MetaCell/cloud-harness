@@ -1,0 +1,11 @@
+harness:
+  dependencies:
+    hard:
+    - common
+    - accounts
+    - events
+    build:
+    - cloudharness-frontend-build
+    - cloudharness-django
+  use_services:
+    - name: common

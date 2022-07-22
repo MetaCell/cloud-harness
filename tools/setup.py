@@ -24,7 +24,8 @@ REQUIREMENTS = [
     'oyaml',
     'docker',
     'six',
-    'cloudharness_model'
+    'cloudharness_model',
+    'fastapi-code-generator'
 ]
 
 
