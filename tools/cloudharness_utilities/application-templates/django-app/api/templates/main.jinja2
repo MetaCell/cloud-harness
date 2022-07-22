@@ -16,6 +16,9 @@ from starlette.middleware.cors import CORSMiddleware
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "__APP_NAME__.settings")
 apps.populate(settings.INSTALLED_APPS)
 
+# migrate the Django models
+os.system("python manage.py migrate")
+
 from api.controllers import *
 
 app = FastAPI(
