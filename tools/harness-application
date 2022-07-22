@@ -70,6 +70,11 @@ if __name__ == "__main__":
 
     if "django-app" in templates:
         generate_fastapi_server(app_path)
+        try:
+            os.remove(os.path.join(app_path, 'backend', "__APP_NAME__", "__main__.py"))
+        except FileNotFoundError:
+            # backend dockerfile not found, continue
+            pass
 
     replaceindir(app_path, PLACEHOLDER, args.name)
 
