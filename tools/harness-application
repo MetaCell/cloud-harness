@@ -69,6 +69,7 @@ if __name__ == "__main__":
         replace_in_file(os.path.join(app_path, 'api/config.json'), PLACEHOLDER, to_python_module(args.name))
 
     if "django-app" in templates:
+        replace_in_file(os.path.join(app_path, 'api/templates/main.jinja2'), PLACEHOLDER, to_python_module(args.name))
         generate_fastapi_server(app_path)
         replace_in_file(
             os.path.join(app_path, 'deploy/values.yaml'),
