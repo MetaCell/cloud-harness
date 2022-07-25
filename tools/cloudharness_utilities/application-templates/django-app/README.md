@@ -59,19 +59,13 @@ cd libraries/cloudharness-common
 pip install -e .
 ```
 
-4 - Install cloud-harness common library
-```
-cd libraries/cloudharness-common
-pip install -e .
-```
-
-5 - Install cloud-harness django library
+4 - Install cloud-harness django library
 ```
 cd ../cloudharness-django
 pip install -e .
 ```
 
-6 - Install cloud-harness fastapi requirements
+5 - Install cloud-harness fastapi requirements
 ```
 cd ../fastapi
 pip install -r requirements.txt
