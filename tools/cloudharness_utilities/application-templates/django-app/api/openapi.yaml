@@ -46,3 +46,5 @@ paths:
                 type: string
           description: Ready
       security: []
+security:
+  - bearerAuth: []
