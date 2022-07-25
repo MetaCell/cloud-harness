@@ -7,6 +7,19 @@ It can be also run locally for development and test purpose.
 The code is generated with the script `harness-application` and is in part automatically generated 
 from [openapi definition](./api/openapi.yaml).
 
+## Configuration
+
+### Accounts
+
+The CloudHarness Django application template comes with a configuration that can retrieve user account updates from Keycloak (accounts)
+To enable this feature:
+* log in into the accounts admin interface
+* select in the left sidebar Events
+* select the `Config` tab
+* enable "metacell-admin-event-listener" under the `Events Config` - `Event Listeners`
+
+An other option is to enable the "metacell-admin-event-listener" through customizing the Keycloak realm.json from the CloudHarness repository.
+
 ## Develop
 
 This application is composed of a FastAPI Django backend and a React frontend.
