@@ -99,3 +99,10 @@ start the FastAPI server
 ```bash
 uvicorn --workers 2 --host 0.0.0.0 --port 8000 main:app
 ```
+
+
+### Running local with port forwardings to a kubernetes cluster
+When you create port forwards to microservices in your k8s cluster you want to forced your local backend server to initialize
+the AuthService and EventService services.
+This can be done by setting the `KUBERNETES_SERVICE_HOST` environment variable to a dummy or correct k8s service host.
+The `KUBERNETES_SERVICE_HOST` switch will activate the creation of the keycloak client and client roles of this microservice.
