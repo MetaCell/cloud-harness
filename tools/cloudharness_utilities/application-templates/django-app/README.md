@@ -18,7 +18,7 @@ To enable this feature:
 * select the `Config` tab
 * enable "metacell-admin-event-listener" under the `Events Config` - `Event Listeners`
 
-An other option is to enable the "metacell-admin-event-listener" through customizing the Keycloak realm.json from the CloudHarness repository.
+Another option is to enable the "metacell-admin-event-listener" through customizing the Keycloak realm.json from the CloudHarness repository.
 
 ## Develop
 
