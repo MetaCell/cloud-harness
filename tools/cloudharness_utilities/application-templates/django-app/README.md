@@ -43,6 +43,36 @@ and `harness-generate`.
 THe backend openapi models and main.py can be updated using the `genapi.sh` from the api folder.
 
 ## Local build & run
+
+### Install dependencies 
+1 - Clone cloud-harness into your project root folder 
+
+2 - Install cloud-harness requirements
+```
+cd cloud-harness
+bash install.sh
+```
+
+3 - Install cloud-harness common library
+```
+cd libraries/cloudharness-common
+pip install -e .
+```
+
+4 - Install cloud-harness django library
+```
+cd ../cloudharness-django
+pip install -e .
+```
+
+5 - Install cloud-harness fastapi requirements
+```
+cd ../fastapi
+pip install -r requirements.txt
+```
+
+### Prepare backend
+
 Create a Django local superuser account, this you only need to do on initial setup
 ```bash
 cd backend
@@ -54,6 +84,8 @@ cd static/www
 ln -s ../../../frontend/dist dist
 ```
 
+### Build frontend
+
 Compile the frontend
 ```bash
 cd frontend
@@ -61,13 +93,7 @@ npm install
 npm run build
 ```
 
-
-sync the Django models with the database and collect all other assets
-```bash
-cd ../backend
-python3 manage.py migrate # to sync the database with the Django models
-python3 manage.py collectstatic --noinput # to copy all assets to the static folder
-```
+### Run backend application
 
 start the FastAPI server
 ```bash
