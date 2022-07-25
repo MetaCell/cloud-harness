@@ -76,7 +76,7 @@ if __name__ == "__main__":
             # backend dockerfile not found, continue
             pass
 
-    replaceindir(app_path, PLACEHOLDER, args.name)
+    replaceindir(app_path, PLACEHOLDER, to_python_module(args.name))
 
     if 'webapp' in templates:
         try:
