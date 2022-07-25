@@ -6,8 +6,8 @@ import shutil
 import sys
 import logging
 
-from cloudharness_utilities.openapi import LIB_NAME, generate_python_client, generate_server, get_dependencies, \
-    generate_ts_client, generate_model
+from cloudharness_utilities.openapi import LIB_NAME, generate_python_client, generate_server, generate_fastapi_server, \
+    get_dependencies, generate_ts_client, generate_model
 from cloudharness_utilities.utils import copymergedir
 
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -32,7 +32,11 @@ def generate_servers(root_path, interactive=False):
         if not interactive or input("Do you want to generate " + openapi_files[i] + "? [Y/n]").upper() != 'N':
             openapi_file = openapi_files[i]
             application_root = os.path.dirname(os.path.dirname(openapi_file))
-            generate_server(application_root)
+            if os.path.exists(os.path.join(application_root, "api", "genapi.sh")):
+                # fastapi server --> use the genapi.sh script
+                generate_fastapi_server(application_root)
+            else:
+                generate_server(application_root)
 
 
 def aggregate_packages(client_src_path, lib_name=LIB_NAME):
