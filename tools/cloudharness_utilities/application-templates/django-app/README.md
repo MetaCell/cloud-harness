@@ -71,6 +71,8 @@ cd ../fastapi
 pip install -r requirements.txt
 ```
 
+### Prepare backend
+
 Create a Django local superuser account, this you only need to do on initial setup
 ```bash
 cd backend
@@ -82,6 +84,8 @@ cd static/www
 ln -s ../../../frontend/dist dist
 ```
 
+### Build frontend
+
 Compile the frontend
 ```bash
 cd frontend
@@ -89,13 +93,7 @@ npm install
 npm run build
 ```
 
-
-sync the Django models with the database and collect all other assets
-```bash
-cd ../backend
-python3 manage.py migrate # to sync the database with the Django models
-python3 manage.py collectstatic --noinput # to copy all assets to the static folder
-```
+### Run backend application
 
 start the FastAPI server
 ```bash
