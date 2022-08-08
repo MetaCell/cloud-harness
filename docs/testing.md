@@ -117,7 +117,7 @@ executed, checking for:
 - No errors in the console
 - No error responses from network resources and fetch requests (code < 400)
 
-The smoke tests is defined [in this file](../test/jest-puppeteer/__tests__/common.spec.ts).
+The smoke tests is defined [in this file](../test/test-e2e/__tests__/common.spec.ts).
 
 
 

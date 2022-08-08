@@ -76,7 +76,7 @@ paths:
                 type: string
           description: Check if token is valid
         "401":
-          description: "invalid toke, unauthorized"
+          description: "invalid token, unauthorized"
       security:
         - cookieAuth: []
       operationId: valid_cookie
