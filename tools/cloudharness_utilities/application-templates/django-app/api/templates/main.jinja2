@@ -1,0 +1,115 @@
+from __future__ import annotations
+
+import os
+
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi.security import HTTPBearer, HTTPBasicCredentials
+
+from django.conf import settings
+from django.apps import apps
+from django.core.asgi import get_asgi_application
+
+from starlette.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+{{imports | replace(".","openapi.")}}
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "__APP_NAME__.settings")
+apps.populate(settings.INSTALLED_APPS)
+
+# migrate the Django models
+os.system("python manage.py migrate")
+
+from api.controllers import *
+
+app = FastAPI(
+    {% if info %}
+    {% for key,value in info.items() %}
+    {% if key != 'servers' %}
+    {{ key }} = {% if value is string %}"{{ value }}"{% else %}{{ value }}{% endif %},
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+    debug=settings.DEBUG
+    )
+
+{% if info %}
+{% for key,value in info.items() %}
+{% if key == 'servers' %}
+prefix_router = APIRouter(prefix="{{value[0].url}}")
+{% endif %}
+{% endfor %}
+{% endif %}
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_HOSTS or ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+from cloudharness.middleware import set_authentication_token
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    # retrieve the bearer token from the header
+    # and save it for use in the AuthClient
+    authorization = request.headers.get('Authorization')
+    if authorization:
+        set_authentication_token(authorization)
+
+    return await call_next(request)
+
+if os.environ.get('KUBERNETES_SERVICE_HOST', None):
+    # init the auth service when running in/for k8s
+    from cloudharness_django.services import init_services, get_auth_service
+    init_services()
+    # start the kafka event listener when running in/for k8s
+    import cloudharness_django.services.events
+
+# enable the Bearer Authentication
+security = HTTPBearer()
+
+async def has_access(credentials: HTTPBasicCredentials = Depends(security)):
+    """
+    Function that is used to validate the token in the case that it requires it
+    """
+    if not os.environ.get('KUBERNETES_SERVICE_HOST', None):
+        return {}
+    token = credentials.credentials
+
+    try:
+        payload = get_auth_service().get_auth_client().decode_token(token)
+    except Exception as e:  # catches any exception
+        raise HTTPException(
+            status_code=401,
+        )
+
+PROTECTED = [Depends(has_access)]
+
+# Operations
+
+{% for operation in operations %}
+@prefix_router.{{operation.type}}('{{operation.snake_case_path}}', response_model={{operation.response}}, tags={{operation["tags"]}}{% if operation.security %}, dependencies=PROTECTED{% endif %})
+def {{operation.function_name}}({{operation.snake_case_arguments}}) -> {{operation.response}}:
+    {%- if operation.summary %}
+    """
+    {{ operation.summary }}
+    """
+    {%- endif %}
+    {% if operation["tags"] -%}
+    return {{operation["tags"][0]}}_controller.{{operation.function_name}}(
+    {% else %}
+    return api_controller.{{operation.function_name}}(
+    {% endif %}
+    {% for params in operation.snake_case_arguments.split(",") -%}
+    {% if params %}{{params.split(":")[0]}}={{params.split(":")[0]}}{% if not loop.last %},{% endif %}{% endif %}
+    {% endfor -%})
+{% endfor %}
+
+
+app.include_router(prefix_router)
+
+app.mount("/static", StaticFiles(directory=settings.STATIC_ROOT), name="static")
+app.mount("/media", StaticFiles(directory=settings.MEDIA_ROOT), name="media")
+app.mount("/", get_asgi_application())

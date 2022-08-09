@@ -31,6 +31,11 @@ def generate_server(app_path, overrides_folder):
     os.system(command)
 
 
+def generate_fastapi_server(app_path):
+    command = f"cd {app_path}/api && bash -c ./genapi.sh"
+    os.system(command)
+
+
 def generate_model(base_path=ROOT):
     lib_path = f"{base_path}/libraries/models"
 

@@ -1,0 +1,19 @@
+harness:
+  secured: true
+  dependencies:
+    hard:
+    - common
+    - accounts
+    - events
+    build:
+    - cloudharness-frontend-build
+    - cloudharness-django
+  use_services:
+    - name: common
+  uri_role_mapping:
+    - uri: /*
+      roles:
+        - __APP_NAME__:__APP_NAME__-administrator
+        - __APP_NAME__:__APP_NAME__-manager
+        - __APP_NAME__:__APP_NAME__-user
+      require-any-role: true

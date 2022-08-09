@@ -153,7 +153,7 @@ harness-deployment cloud-harness . [PARAMS]
 ```
 
 to create the build and deployment artifacts for your solution.
-See the dedicated [Build and deploy](./docs/build-deploy-howto.md) document for more details and examples.
+See the dedicated [Build and deploy](./docs/build-deploy/README.md) document for more details and examples.
 
 # Add and manage applications
 

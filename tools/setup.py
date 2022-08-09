@@ -26,7 +26,8 @@ REQUIREMENTS = [
     'docker',
     'six',
     'cloudharness_model',
-    'schemathesis'
+    'schemathesis',
+    'fastapi-code-generator'
 ]
 
 
