@@ -61,7 +61,7 @@ pip install -e .
 
 4 - Install cloud-harness django library
 ```
-cd ../cloudharness-django
+cd ../../infrastructure/common-images/cloudharness-django/libraries/cloudharness-django
 pip install -e .
 ```
 
