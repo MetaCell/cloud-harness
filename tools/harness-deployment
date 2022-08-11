@@ -61,7 +61,8 @@ if __name__ == "__main__":
 
     root_paths = [os.path.join(os.getcwd(), path) for path in args.paths]
 
-    envs = (args.env.split("-") if "-" in args.env else [args.env])   if args.env else ()
+    envs = (args.env.split("-")
+            if "-" in args.env else [args.env]) if args.env else ()
 
     if unknown:
         print('There are unknown args. Make sure to call the script with the accepted args. Try --help')
@@ -90,17 +91,17 @@ if __name__ == "__main__":
             namespace=args.namespace
         )
 
-        root_paths = preprocess_build_overrides(root_paths=root_paths, helm_values=helm_values)
-
-        build_included = [app['harness']['name']
-                          for app in helm_values['apps'].values() if 'harness' in app]
+        root_paths = preprocess_build_overrides(
+            root_paths=root_paths, helm_values=helm_values)
 
         if envs:
-
-            create_codefresh_deployment_scripts(root_paths, include=build_included,
-                                                envs=envs,
-                                                base_image_name=helm_values['name'],
-                                                values_manual_deploy=helm_values)
+            create_codefresh_deployment_scripts(
+                root_paths,
+                include=args.include,
+                exclude=args.exclude,
+                envs=envs,
+                base_image_name=helm_values['name'],
+                values_manual_deploy=helm_values)
 
         create_skaffold_configuration(root_paths, helm_values)
         create_vscode_debug_configuration([os.path.join(os.getcwd(), path) for path in args.paths],
