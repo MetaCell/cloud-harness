@@ -149,4 +149,6 @@ def test_create_codefresh_configuration_multienv():
     for cmd in cf['steps']['prepare_deployment']['commands']:
         if 'harness-deployment' in cmd:
             assert '-e dev-test' in cmd
+            assert "test_deployment" in cmd
+            assert "-i samples" in cmd
     shutil.rmtree(BUILD_MERGE_DIR)
