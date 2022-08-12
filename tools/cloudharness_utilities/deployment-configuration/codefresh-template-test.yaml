@@ -32,7 +32,7 @@ steps:
     working_directory: .
     commands:
       - bash cloud-harness/install.sh
-      - harness-deployment cloud-harness . -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} $INCLUDE -t ${{CF_BUILD_ID}} -d ${{CF_SHORT_REVISION}}.${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e $ENV -N
+      - harness-deployment $PATHS -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} -t ${{CF_BUILD_ID}} -d ${{CF_SHORT_REVISION}}.${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e $ENV -N $PARAMS
   prepare_deployment_view:
     commands:
       - "helm template ./deployment/helm --debug -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}"

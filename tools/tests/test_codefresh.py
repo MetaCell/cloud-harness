@@ -151,7 +151,7 @@ def test_create_codefresh_configuration_multienv():
         cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
                                                 envs=['dev', 'test'],
                                                 base_image_name=values['name'],
-                                                values_manual_deploy=values, save=False)
+                                                helm_values=values, save=False)
 
         assert cf['test_step'] == 'test'
         assert cf['test'] == True
