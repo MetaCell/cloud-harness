@@ -31,7 +31,7 @@ module.exports = function webpacking(envVariables) {
 
   const output = {
     path: path.resolve(__dirname, 'dist'),
-    filename: '[name].[contenthash].js'
+    filename: 'js/[name].[contenthash].js'
   };
 
   const module = {

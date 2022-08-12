@@ -52,7 +52,7 @@ class Model(object):
         if type(item) == dict:
             return Model.from_dict(item)
         elif type(item) in [list, tuple]:
-            return [Model.from_dict(i) for i in item]
+            return [Model.from_dict(i) if type(i) == dict else i for i in item]
         return item
 
     

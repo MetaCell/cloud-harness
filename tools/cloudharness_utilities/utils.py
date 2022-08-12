@@ -1,3 +1,5 @@
+from .constants import HERE, NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
+    APPS_PATH, BUILD_FILENAMES, EXCLUDE_PATHS
 import socket
 import glob
 import subprocess
@@ -5,13 +7,14 @@ import os
 from os.path import join, dirname, isdir, basename, exists, relpath, sep
 import json
 import collections
-import oyaml as yaml
+import requests
+from ruamel.yaml import YAML
 import shutil
 import logging
 import fileinput
 
-from .constants import HERE, NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
-    APPS_PATH, BUILD_FILENAMES, EXCLUDE_PATHS
+yaml = YAML(typ='safe')
+
 
 REPLACE_TEXT_FILES_EXTENSIONS = (
     '.js', '.md', '.py', '.js', '.ts', '.tsx', '.txt', 'Dockerfile', 'yaml', 'json', '.ejs'
@@ -34,10 +37,12 @@ def find_file_paths(base_directory, file_name):
     return tuple(dirname(path).replace(sep, "/") for path in
                  glob.glob(f"{base_directory}/**/{file_name}", recursive=True))
 
+
 def find_subdirs(base_path):
     if exists(base_path):
         return (join(base_path, d) for d in os.listdir(base_path) if isdir(join(base_path, d)))
     return tuple()
+
 
 def find_dockerfiles_paths(base_directory):
     return find_file_paths(base_directory, 'Dockerfile')
@@ -49,6 +54,7 @@ def get_parent_app_name(app_relative_path):
 
 def get_image_name(app_name, base_name=None):
     return (base_name + '/' + app_name) if base_name else app_name
+
 
 def env_variable(name, value):
     return {'name': f"{name}".upper(), 'value': value}
@@ -98,10 +104,10 @@ def get_template(yaml_path, base_default=False):
     dict_template = {}
     if base_default and exists(default_template_path):
         with open(default_template_path) as f:
-            dict_template = yaml.safe_load(f)
+            dict_template = yaml.load(f)
     if exists(yaml_path):
         with open(yaml_path) as f:
-            override_tpl = yaml.safe_load(f)
+            override_tpl = yaml.load(f)
             if override_tpl:
                 dict_template = dict_merge(dict_template or {}, override_tpl)
     return dict_template or {}
@@ -204,7 +210,8 @@ def merge_configuration_directories(source, dest):
     if source == dest:
         return
     if not exists(source):
-        logging.warning("Trying to merge the not existing directory: %s", source)
+        logging.warning(
+            "Trying to merge the not existing directory: %s", source)
         return
     if not exists(dest):
         shutil.copytree(
@@ -231,7 +238,7 @@ def merge_configuration_directories(source, dest):
                     merge_yaml_files(fpath, fdest)
                     logging.info(
                         f"Merged/overridden file content of {fdest} with {fpath}")
-                except yaml.YAMLError as e:
+                except Exception as e:
                     logging.warning(f"Overwriting file {fdest} with {fpath}")
                     shutil.copy2(fpath, fdest)
             else:
@@ -241,7 +248,7 @@ def merge_configuration_directories(source, dest):
 
 def merge_yaml_files(fname, fdest):
     with open(fname) as f:
-        content_src = yaml.safe_load(f)
+        content_src = yaml.load(f)
     merge_to_yaml_file(content_src, fdest)
 
 
@@ -252,7 +259,7 @@ def merge_to_yaml_file(content_src, fdest):
         merged = content_src
     else:
         with open(fdest) as f:
-            content_dest = yaml.safe_load(f)
+            content_dest = yaml.load(f)
 
         merged = dict_merge(
             content_dest, content_src) if content_dest else content_src
@@ -331,6 +338,7 @@ def merge_app_directories(root_paths, destination) -> None:
 def to_python_module(name):
     return name.replace('-', '_')
 
+
 def guess_build_dependencies_from_dockerfile(filename):
     dependencies = []
     if not "Dockerfile" in filename:
@@ -343,3 +351,16 @@ def guess_build_dependencies_from_dockerfile(filename):
                 break
     return dependencies
 
+
+def url_check(url):
+    try:
+        # Get Url
+        get = requests.get(url)
+        # if the request succeeds
+        if get.status_code < 404:
+            return True
+        return False
+
+    except requests.exceptions.RequestException as e:
+        # print URL with Errs
+        return False

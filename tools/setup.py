@@ -21,10 +21,12 @@ VERSION = "1.0.0"
 # http://pypi.python.org/pypi/setuptools
 
 REQUIREMENTS = [
+    'ruamel.yaml',
     'oyaml',
     'docker',
     'six',
     'cloudharness_model',
+    'schemathesis',
     'fastapi-code-generator'
 ]
 
@@ -40,7 +42,7 @@ setup(
     install_requires=REQUIREMENTS,
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,
-    scripts=['harness-deployment', 'harness-generate', 'harness-application'],
+    scripts=['harness-deployment', 'harness-generate', 'harness-application', 'harness-test'],
     long_description="""\
     MetaCell Neuroscience Platform - CloudHarness deploy library
     """,

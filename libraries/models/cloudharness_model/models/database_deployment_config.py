@@ -34,7 +34,7 @@ class DatabaseDeploymentConfig(Model):
         :type user: str
         :param _pass: The _pass of this DatabaseDeploymentConfig.  # noqa: E501
         :type _pass: str
-        :param image_ref: The image_ref of this DatabaseDeploymentConfigAllOf.  # noqa: E501
+        :param image_ref: The image_ref of this DatabaseDeploymentConfig.  # noqa: E501
         :type image_ref: str
         :param mongo: The mongo of this DatabaseDeploymentConfig.  # noqa: E501
         :type mongo: Dict[str, object]
@@ -104,7 +104,7 @@ class DatabaseDeploymentConfig(Model):
     def type(self):
         """Gets the type of this DatabaseDeploymentConfig.
 
-        Define the database type.  One of (mongo, postgres, neo4j)  # noqa: E501
+        Define the database type.  One of (mongo, postgres, neo4j, sqlite3)  # noqa: E501
 
         :return: The type of this DatabaseDeploymentConfig.
         :rtype: str
@@ -115,7 +115,7 @@ class DatabaseDeploymentConfig(Model):
     def type(self, type):
         """Sets the type of this DatabaseDeploymentConfig.
 
-        Define the database type.  One of (mongo, postgres, neo4j)  # noqa: E501
+        Define the database type.  One of (mongo, postgres, neo4j, sqlite3)  # noqa: E501
 
         :param type: The type of this DatabaseDeploymentConfig.
         :type type: str

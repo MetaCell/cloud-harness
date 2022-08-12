@@ -1,4 +1,3 @@
----
 openapi: 3.0.2
 info:
   title: cloudharness
@@ -8,7 +7,7 @@ components:
     AutoArtifactSpec:
       description: ""
       required:
-      - auto
+        - auto
       type: object
       properties:
         auto:
@@ -18,15 +17,14 @@ components:
           description: ""
           type: string
     UriRoleMappingConfig:
-      description: "Defines the application Gatekeeper configuration, if enabled (i.e.\
-        \ `secured: true`."
+      description: "Defines the application Gatekeeper configuration, if enabled (i.e. `secured: true`."
       required:
-      - roles
-      - uri
+        - roles
+        - uri
       type: object
       properties:
         uri:
-          $ref: '#/components/schemas/PathSpecifier'
+          $ref: "#/components/schemas/PathSpecifier"
           description: Path to secure
         roles:
           description: Roles allowed to access the present uri
@@ -37,18 +35,18 @@ components:
       description: ""
       type: object
       allOf:
-      - type: object
-        properties:
-          port:
-            description: Service port
-            type: integer
-      - $ref: '#/components/schemas/AutoArtifactSpec'
+        - type: object
+          properties:
+            port:
+              description: Service port
+              type: integer
+        - $ref: "#/components/schemas/AutoArtifactSpec"
     DeploymentAutoArtifactConfig:
       description: ""
       type: object
       allOf:
-      - type: object
-      - $ref: '#/components/schemas/AutoArtifactSpec'
+        - type: object
+        - $ref: "#/components/schemas/AutoArtifactSpec"
       properties:
         port:
           description: Deployment port
@@ -68,20 +66,23 @@ components:
       type: object
       properties:
         hard:
-          description: Hard dependencies indicate that the application may not start
-            without these other applications.
+          description: >-
+            Hard dependencies indicate that the application may not start without these other
+            applications.
           type: array
           items:
             type: string
         soft:
-          description: Soft dependencies indicate that the application will work partially
-            without these other applications.
+          description: >-
+            Soft dependencies indicate that the application will work partially without these
+            other applications.
           type: array
           items:
             type: string
         build:
-          description: Hard dependencies indicate that the application Docker image
-            build requires these base/common images
+          description: >-
+            Hard dependencies indicate that the application Docker image build requires these
+            base/common images
           type: array
           items:
             type: string
@@ -90,10 +91,10 @@ components:
       type: object
       properties:
         requests:
-          $ref: '#/components/schemas/CpuMemoryConfig'
+          $ref: "#/components/schemas/CpuMemoryConfig"
           description: ""
         limits:
-          $ref: '#/components/schemas/CpuMemoryConfig'
+          $ref: "#/components/schemas/CpuMemoryConfig"
           description: ""
     CpuMemoryConfig:
       description: ""
@@ -108,28 +109,32 @@ components:
     FileResourcesConfig:
       description: ""
       required:
-      - name
-      - src
-      - dst
+        - name
+        - src
+        - dst
       type: object
       properties:
         name:
-          $ref: '#/components/schemas/Filename'
+          $ref: "#/components/schemas/Filename"
           description: ""
         src:
-          $ref: '#/components/schemas/Filename'
+          $ref: "#/components/schemas/Filename"
           description: ""
         dst:
           description: ""
           type: string
     ApplicationProbe:
-      description: ""
+      description: >-
+        Define a Kubernetes probe See also the
+
+        [official
+        documentation](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
       required:
-      - path
+        - path
       type: object
       properties:
         path:
-          $ref: '#/components/schemas/URL'
+          $ref: "#/components/schemas/URL"
           description: ""
         periodSeconds:
           description: ""
@@ -144,32 +149,35 @@ components:
       description: ""
       type: string
     ApplicationConfig:
-      description: ""
+      description: Place here the values to configure your application helm templates.
       required:
-      - harness
+        - harness
       type: object
       properties:
         harness:
-          $ref: '#/components/schemas/ApplicationHarnessConfig'
-          description: ""
+          $ref: "#/components/schemas/ApplicationHarnessConfig"
+          description: >-
+            Values inside this section have a special meaning to cloudharness (e.g. enabling and
+            configuring automatic deployment)
       additionalProperties: true
     HarnessMainConfig:
       description: ""
       required:
-      - local
-      - secured_gatekeepers
-      - domain
-      - namespace
-      - mainapp
-      - apps
+        - local
+        - secured_gatekeepers
+        - domain
+        - namespace
+        - mainapp
+        - apps
       type: object
       properties:
         local:
           description: "If set to true, local DNS mapping is added to pods."
           type: boolean
         secured_gatekeepers:
-          description: Enables/disables Gatekeepers on secured applications. Set to
-            false for testing/development
+          description: >-
+            Enables/disables Gatekeepers on secured applications. Set to false for
+            testing/development
           type: boolean
         domain:
           description: The root domain
@@ -182,39 +190,39 @@ components:
           description: Defines the app to map to the root domain
           type: string
         registry:
-          $ref: '#/components/schemas/RegistryConfig'
+          $ref: "#/components/schemas/RegistryConfig"
           description: ""
         tag:
           description: Docker tag used to push/pull the built images.
           type: string
         apps:
-          $ref: '#/components/schemas/ApplicationsConfigsMap'
+          $ref: "#/components/schemas/ApplicationsConfigsMap"
           description: ""
         env:
           description: Environmental variables added to all pods
           type: array
           items:
-            $ref: '#/components/schemas/NameValue'
+            $ref: "#/components/schemas/NameValue"
         privenv:
-          $ref: '#/components/schemas/NameValue'
+          $ref: "#/components/schemas/NameValue"
           description: Private environmental variables added to all pods
         backup:
-          $ref: '#/components/schemas/BackupConfig'
+          $ref: "#/components/schemas/BackupConfig"
           description: ""
         name:
           description: Base name
           type: string
         task-images:
-          $ref: '#/components/schemas/SimpleMap'
+          $ref: "#/components/schemas/SimpleMap"
           description: ""
     RegistryConfig:
       description: ""
       required:
-      - name
+        - name
       type: object
       properties:
         name:
-          $ref: '#/components/schemas/URL'
+          $ref: "#/components/schemas/URL"
           description: The docker registry where built images are pushed
         secret:
           description: Optional secret used for pulling from docker registry.
@@ -232,52 +240,52 @@ components:
       description: ""
       type: object
       allOf:
-      - type: object
-        properties:
-          type:
-            description: |-
-              Define the database type.
+        - type: object
+          properties:
+            type:
+              description: |-
+                Define the database type.
 
-              One of (mongo, postgres, neo4j, sqlite3)
-            pattern: ^(mongo|postgres|neo4j|sqlite3)$
-            type: string
-            example: '"neo4j"'
-          size:
-            description: Specify database disk size
-            type: string
-            example: 1Gi
-          user:
-            description: database username
-            type: string
-          pass:
-            format: password
-            description: Database password
-            type: string
-          image_ref:
-            description: Used for referencing images from the build
-            type: string
-            example: 'image_ref: myownpgimage'
-          mongo:
-            $ref: '#/components/schemas/FreeObject'
-            description: Mongo db specific configuration
-          postgres:
-            $ref: '#/components/schemas/FreeObject'
-            description: Postgres database specific configuration
-          neo4j:
-            description: Neo4j database specific configuration
-          resources:
-            $ref: '#/components/schemas/DeploymentResourcesConf'
-            description: Database deployment resources
-      - $ref: '#/components/schemas/AutoArtifactSpec'
+                One of (mongo, postgres, neo4j, sqlite3)
+              pattern: ^(mongo|postgres|neo4j|sqlite3)$
+              type: string
+              example: '"neo4j"'
+            size:
+              description: Specify database disk size
+              type: string
+              example: 1Gi
+            user:
+              description: database username
+              type: string
+            pass:
+              format: password
+              description: Database password
+              type: string
+            image_ref:
+              description: Used for referencing images from the build
+              type: string
+              example: "image_ref: myownpgimage"
+            mongo:
+              $ref: "#/components/schemas/FreeObject"
+              description: Mongo db specific configuration
+            postgres:
+              $ref: "#/components/schemas/FreeObject"
+              description: Postgres database specific configuration
+            neo4j:
+              description: Neo4j database specific configuration
+            resources:
+              $ref: "#/components/schemas/DeploymentResourcesConf"
+              description: Database deployment resources
+        - $ref: "#/components/schemas/AutoArtifactSpec"
     ApplicationsConfigsMap:
       description: ""
       type: object
       additionalProperties:
-        $ref: '#/components/schemas/ApplicationConfig'
+        $ref: "#/components/schemas/ApplicationConfig"
     NameValue:
       description: ""
       required:
-      - name
+        - name
       type: object
       properties:
         name:
@@ -290,23 +298,23 @@ components:
       description: ""
       type: object
       allOf:
-      - type: object
-        properties:
-          ssl_redirect:
-            description: ""
-            type: boolean
-          letsencrypt:
-            description: ""
-            type: object
-            properties:
-              email:
-                type: string
-      - $ref: '#/components/schemas/AutoArtifactSpec'
+        - type: object
+          properties:
+            ssl_redirect:
+              description: ""
+              type: boolean
+            letsencrypt:
+              description: ""
+              type: object
+              properties:
+                email:
+                  type: string
+        - $ref: "#/components/schemas/AutoArtifactSpec"
     BackupConfig:
       description: ""
       required:
-      - dir
-      - resources
+        - dir
+        - resources
       type: object
       properties:
         active:
@@ -323,9 +331,9 @@ components:
           type: integer
         schedule:
           description: Cron expression
-          pattern: "/(@(annually|yearly|monthly|weekly|daily|hourly|reboot))|(@every\
-            \ (\\d+(ns|us|µs|ms|s|m|h))+)|((((\\d+,)+\\d+|(\\d+(\\/|-)\\d+)|\\d+|\\\
-            *) ?){5,7})/"
+          pattern: >-
+            /(@(annually|yearly|monthly|weekly|daily|hourly|reboot))|(@every
+            (\d+(ns|us|µs|ms|s|m|h))+)|((((\d+,)+\d+|(\d+(\/|-)\d+)|\d+|\*) ?){5,7})/
           type: string
         suffix:
           description: The file suffix added to backup files
@@ -333,11 +341,10 @@ components:
           description: The volume size for backups (all backups share the same volume)
           type: string
         dir:
-          $ref: '#/components/schemas/Filename'
-          description: "Target directory of backups, the mount point of the persistent\
-            \ volume."
+          $ref: "#/components/schemas/Filename"
+          description: "Target directory of backups, the mount point of the persistent volume."
         resources:
-          $ref: '#/components/schemas/DeploymentResourcesConf'
+          $ref: "#/components/schemas/DeploymentResourcesConf"
           description: ""
     UserGroup:
       type: object
@@ -346,7 +353,7 @@ components:
           type: object
           additionalProperties: true
         attributes:
-          $ref: '#/components/schemas/SimpleMap'
+          $ref: "#/components/schemas/SimpleMap"
           additionalProperties: true
         clientRoles:
           type: object
@@ -364,7 +371,7 @@ components:
         subGroups:
           type: array
           items:
-            $ref: '#/components/schemas/UserGroup'
+            $ref: "#/components/schemas/UserGroup"
     UserCredential:
       type: object
       properties:
@@ -406,7 +413,7 @@ components:
         credentials:
           type: array
           items:
-            $ref: '#/components/schemas/UserCredential'
+            $ref: "#/components/schemas/UserCredential"
         disableableCredentialTypes:
           type: array
           items:
@@ -456,19 +463,19 @@ components:
         Applications can listen to these events to react to data change events happening
         on other applications.
       required:
-      - message_type
-      - operation
-      - uid
-      - meta
+        - message_type
+        - operation
+        - uid
+        - meta
       type: object
       properties:
         operation:
           description: the operation on the object e.g. create / update / delete
           enum:
-          - create
-          - update
-          - delete
-          - other
+            - create
+            - update
+            - delete
+            - other
           type: string
         uid:
           description: the unique identifier attribute of the object
@@ -477,50 +484,51 @@ components:
           description: the type of the message (relates to the object type) e.g. jobs
           type: string
         resource:
-          $ref: '#/components/schemas/FreeObject'
+          $ref: "#/components/schemas/FreeObject"
           description: The target object
         meta:
-          $ref: '#/components/schemas/CDCEventMeta'
+          $ref: "#/components/schemas/CDCEventMeta"
           description: ""
     CDCEventMeta:
       description: ""
       required:
-      - app_name
+        - app_name
       type: object
       properties:
         app_name:
           description: The name of the application/microservice sending the message
           type: string
         user:
-          $ref: '#/components/schemas/User'
+          $ref: "#/components/schemas/User"
           description: ""
         args:
           description: the caller function arguments
           type: array
           items:
-            $ref: '#/components/schemas/FreeObject'
+            $ref: "#/components/schemas/FreeObject"
         kwargs:
           description: the caller function keyword arguments
         description:
           description: General description -- for human consumption
           type: string
     ApplicationHarnessConfig:
-      description: ""
+      description: |-
+        Define helm variables that allow CloudHarness to enable and configure your 
+        application's deployment
+      required: []
       type: object
       properties:
         deployment:
-          $ref: '#/components/schemas/DeploymentAutoArtifactConfig'
-          description: Defines reference deployment parameters. Values maps to k8s
-            spec
+          $ref: "#/components/schemas/DeploymentAutoArtifactConfig"
+          description: Defines reference deployment parameters. Values maps to k8s spec
         service:
-          $ref: '#/components/schemas/ServiceAutoArtifactConfig'
+          $ref: "#/components/schemas/ServiceAutoArtifactConfig"
           description: Defines automatic service parameters.
         subdomain:
           description: "If specified, an ingress will be created at [subdomain].[.Values.domain]"
           type: string
         aliases:
-          description: "If specified, an ingress will be created at [alias].[.Values.domain]\
-            \ for each alias"
+          description: "If specified, an ingress will be created at [alias].[.Values.domain] for each alias"
           type: array
           items:
             type: string
@@ -528,21 +536,20 @@ components:
           description: "If specified, an ingress will be created at [domain]"
           type: string
         dependencies:
-          $ref: '#/components/schemas/ApplicationDependenciesConfig'
-          description: Application dependencies are used to define what is required
-            in the deployment when --include (-i) is used. Specify application names
-            in the list.
+          $ref: "#/components/schemas/ApplicationDependenciesConfig"
+          description: >-
+            Application dependencies are used to define what is required in the deployment when
+            --include (-i) is used. Specify application names in the list.
         secured:
           description: "When true, the application is shielded with a getekeeper"
           type: boolean
         uri_role_mapping:
-          description: "Map uri/roles to secure with the Gatekeeper (if `secured:\
-            \ true`)"
+          description: "Map uri/roles to secure with the Gatekeeper (if `secured: true`)"
           type: array
           items:
-            $ref: '#/components/schemas/UriRoleMappingConfig'
+            $ref: "#/components/schemas/UriRoleMappingConfig"
         secrets:
-          $ref: '#/components/schemas/SimpleMap'
+          $ref: "#/components/schemas/SimpleMap"
           description: |-
             Define secrets will be mounted in the deployment
 
@@ -556,13 +563,20 @@ components:
 
             Values if left empty are randomly generated
         use_services:
-          description: "Specify which services this application uses in the frontend\
-            \ to create proxy ingresses. e.g. \n```\n- name: samples\n```"
+          description: >-
+            Specify which services this application uses in the frontend to create proxy
+            ingresses. e.g. 
+
+            ```
+
+            - name: samples
+
+            ```
           type: array
           items:
             type: string
         database:
-          $ref: '#/components/schemas/DatabaseDeploymentConfig'
+          $ref: "#/components/schemas/DatabaseDeploymentConfig"
           description: ""
         resources:
           description: |-
@@ -570,25 +584,35 @@ components:
             configmaps
           type: array
           items:
-            $ref: '#/components/schemas/FileResourcesConfig'
+            $ref: "#/components/schemas/FileResourcesConfig"
         readinessProbe:
-          $ref: '#/components/schemas/ApplicationProbe'
-          description: ""
+          $ref: "#/components/schemas/ApplicationProbe"
+          description: Kubernetes readiness probe configuration
         startupProbe:
-          $ref: '#/components/schemas/ApplicationProbe'
+          $ref: "#/components/schemas/ApplicationProbe"
           description: ""
         livenessProbe:
-          $ref: '#/components/schemas/ApplicationProbe'
-          description: ""
+          $ref: "#/components/schemas/ApplicationProbe"
+          description: Kubernetes liveness probe configuration
         sourceRoot:
-          $ref: '#/components/schemas/Filename'
+          $ref: "#/components/schemas/Filename"
           description: ""
         name:
-          description: ""
+          description: |-
+            Application's name. Do not edit, the value is automatically set from the
+            application directory's name
           type: string
         jupyterhub:
-          $ref: '#/components/schemas/JupyterHubConfig'
-          description: ""
+          $ref: "#/components/schemas/JupyterHubConfig"
+          description: |
+            Configurations specific to jupyterhub. Edit only if your application is
+            configured as a jupyterhub deployment
+        accounts:
+          $ref: "#/components/schemas/ApplicationAccountsConfig"
+          description: Define specific test users and roles for this application
+        test:
+          $ref: "#/components/schemas/ApplicationTestConfig"
+          description: Enable and configure automated testing for this application.
       additionalProperties: true
     JupyterHubConfig:
       description: ""
@@ -600,17 +624,17 @@ components:
           items:
             type: string
         extraConfig:
-          $ref: '#/components/schemas/SimpleMap'
-          description: allows you to add Python snippets to the jupyterhub_config.py
-            file
+          $ref: "#/components/schemas/SimpleMap"
+          description: allows you to add Python snippets to the jupyterhub_config.py file
         spawnerExtraConfig:
-          $ref: '#/components/schemas/FreeObject'
-          description: allows you to add values to the spawner object without the
-            need of creating a new hook
+          $ref: "#/components/schemas/FreeObject"
+          description: allows you to add values to the spawner object without the need of creating a new hook
         applicationHook:
-          description: "change the hook function (advanced)\n\nSpecify the Python\
-            \ name of the function (full module path, the module must be \ninstalled\
-            \ in the Docker image)"
+          description: |-
+            change the hook function (advanced)
+
+            Specify the Python name of the function (full module path, the module must be 
+            installed in the Docker image)
           example: my_lib.change_pod_manifest
       additionalProperties: true
     UserRole:
@@ -632,3 +656,132 @@ components:
         name:
           type: string
       additionalProperties: true
+    ApplicationAccountsConfig:
+      description: ""
+      type: object
+      properties:
+        roles:
+          description: Specify roles to be created in this deployment specific for this application
+          type: array
+          items:
+            type: string
+        users:
+          description: "Defines test users to be added to the deployment, specific for this application"
+          type: array
+          items:
+            $ref: "#/components/schemas/ApplicationUser"
+    ApplicationUser:
+      description: Defines a user
+      required:
+        - username
+      type: object
+      properties:
+        username:
+          description: ""
+          type: string
+        password:
+          format: password
+          description: ""
+          type: string
+        clientRoles:
+          description: ""
+          type: array
+          items:
+            type: string
+        realmRoles:
+          description: ""
+          type: array
+          items:
+            type: string
+    ApplicationTestConfig:
+      description: ""
+      required:
+        - unit
+        - e2e
+        - api
+      type: object
+      properties:
+        unit:
+          $ref: "#/components/schemas/UnitTestsConfig"
+          description: ""
+        api:
+          $ref: "#/components/schemas/ApiTestsConfig"
+          description: ""
+        e2e:
+          $ref: "#/components/schemas/E2ETestsConfig"
+          description: ""
+    UnitTestsConfig:
+      description: ""
+      required:
+        - enabled
+        - commands
+      type: object
+      properties:
+        enabled:
+          description: "Enables unit tests for this application (default: true)"
+          type: boolean
+        commands:
+          description: Commands to run unit tests
+          type: array
+          items:
+            type: string
+          example: '["pytest /usr/src/app/samples/test"]'
+    E2ETestsConfig:
+      description: ""
+      required:
+        - enabled
+        - smoketest
+      type: object
+      properties:
+        enabled:
+          description: "Enables end to end testing for this application (default: false)"
+          type: boolean
+        smoketest:
+          description: Specify whether to run the common smoke tests
+          type: boolean
+        ignoreConsoleErrors:
+          description: ""
+          type: boolean
+        ignoreRequestErrors:
+          description: ""
+          type: boolean
+    ApiTestsConfig:
+      description: ""
+      required:
+        - enabled
+        - autotest
+        - checks
+      type: object
+      properties:
+        enabled:
+          description: "Enables api tests for this application (default: false)"
+          type: boolean
+        autotest:
+          description: Specify whether to run the common smoke tests
+          type: boolean
+        runParams:
+          description: Additional schemathesis parameters
+          type: array
+          items:
+            type: string
+        checks:
+          description: >-
+            One of the Schemathesis checks:
+
+
+            - not_a_server_error. The response has 5xx HTTP status;
+
+            - status_code_conformance. The response status is not defined in the API schema;
+
+            - content_type_conformance. The response content type is not defined in the API
+            schema;
+
+            - response_schema_conformance. The response content does not conform to the schema
+            defined for this specific response;
+
+            - response_headers_conformance. The response headers does not contain all defined
+            headers.
+          type: array
+          items:
+            type: string
+          example: '["not_a_server_error", "status_code_conformance"]'

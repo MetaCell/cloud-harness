@@ -3,11 +3,13 @@ from typing import List
 import jwt
 import json
 import requests
-from keycloak import KeycloakAdmin
+
+from keycloak import KeycloakAdmin, KeycloakOpenID
 from keycloak.exceptions import KeycloakAuthenticationError
+
 from cloudharness import log
 from cloudharness.middleware import get_authentication_token
-from cloudharness.models import UserGroup, User, UserRole
+from cloudharness.models import UserGroup, User
 
 
 try:
@@ -45,7 +47,7 @@ def with_refreshtoken(func):
     return wrapper
 
 
-def decode_token(token):
+def decode_token(token, **kwargs):
     """
     Check and retrieve authentication information from custom bearer token.
     Returned value will be passed in 'token_info' parameter of your operation function, if there is one.
@@ -58,7 +60,7 @@ def decode_token(token):
     """
 
     decoded = AuthClient.decode_token(token)
-    return {'uid': 'user_id'}
+    return decoded
 
 
 def get_server_url():
@@ -73,6 +75,15 @@ def get_server_url():
 def get_auth_realm():
     return conf.get_namespace()
 
+def get_token(username, password):
+    conf = get_configuration("accounts")
+
+    keycloak_openid = KeycloakOpenID(
+        server_url=get_server_url(), 
+        realm_name=get_auth_realm(), 
+        client_id=conf["webclient"]["id"], 
+        client_secret_key=conf["webclient"]["secret"])
+    return keycloak_openid.token(username, password)['access_token']
 
 class AuthClient():
     __public_key = None
@@ -150,7 +161,7 @@ class AuthClient():
         return cls.__public_key
 
     @classmethod
-    def decode_token(cls, token):
+    def decode_token(cls, token, audience="web-client"):
         """
         Check and retrieve authentication information from custom bearer token.
         Returned value will be passed in 'token_info' parameter of your operation function, if there is one.
@@ -163,7 +174,7 @@ class AuthClient():
         """
 
         decoded = jwt.decode(token, cls.get_public_key(),
-                             algorithms='RS256', audience='account')
+                             algorithms='RS256', audience=audience)
         return decoded
 
     @with_refreshtoken

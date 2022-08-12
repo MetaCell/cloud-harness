@@ -1,0 +1,9 @@
+{
+    "specs": [                                      
+        {                                            
+            "file": "./samples.yaml"          
+       }
+
+    ],
+    "html-injector": []                           
+}

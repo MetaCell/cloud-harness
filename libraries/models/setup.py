@@ -13,7 +13,8 @@ REQUIREMENTS = [
     "swagger-ui-bundle >= 0.0.2",
     "python_dateutil >= 2.6.0",
     "setuptools >= 21.0.0",
-    "pyhumps"
+    "pyhumps",
+    "oyaml"
 ]
 print(REQUIREMENTS)
 setup(name=NAME, version=VERSION, install_requires=REQUIREMENTS)

@@ -1,5 +1,6 @@
 # ApplicationConfig
 
+Place here the values to configure your application helm templates.
 
 ## Properties
 Name | Type | Description | Notes

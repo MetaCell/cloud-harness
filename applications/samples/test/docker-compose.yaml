@@ -1,0 +1,10 @@
+version: '3.7'
+
+services:
+  test:
+    image: e2e:latest
+    network_mode: "host"
+    environment:
+    - APP_URL=http://samples.ch.local
+    volumes:
+    - ./e2e:/home/test/app/__tests__

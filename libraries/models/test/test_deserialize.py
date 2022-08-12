@@ -1,8 +1,8 @@
 import pytest
 from os.path import join, dirname as dn, realpath
-import yaml
+import oyaml as yaml
 
-from cloudharness_model import HarnessMainConfig, ApplicationConfig, User, ApplicationHarnessConfig, CDCEvent
+from cloudharness_model import HarnessMainConfig, ApplicationConfig, User, ApplicationHarnessConfig, CDCEvent, ApplicationTestConfig
 
 HERE = dn(realpath(__file__))
 
@@ -25,6 +25,10 @@ def test_helm_values_deserialize():
     u = User(last_name="a")
     assert u.last_name == "a"
     assert u["last_name"] == "a"
+
+
+    app = ApplicationConfig.from_dict(values["apps"]["samples"])
+    assert type(app.harness.test) == ApplicationTestConfig
 
 
 def test_robustness():

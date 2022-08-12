@@ -1,5 +1,6 @@
 # ApplicationHarnessConfig
 
+Define helm variables that allow CloudHarness to enable and configure your  application's deployment
 
 ## Properties
 Name | Type | Description | Notes
@@ -20,8 +21,10 @@ Name | Type | Description | Notes
 **startup_probe** | [**ApplicationProbe**](ApplicationProbe.md) |  | [optional] 
 **liveness_probe** | [**ApplicationProbe**](ApplicationProbe.md) |  | [optional] 
 **source_root** | [**Filename**](Filename.md) |  | [optional] 
-**name** | **str** |  | [optional] 
+**name** | **str** | Application&#39;s name. Do not edit, the value is automatically set from the application directory&#39;s name | [optional] 
 **jupyterhub** | [**JupyterHubConfig**](JupyterHubConfig.md) |  | [optional] 
+**accounts** | [**ApplicationAccountsConfig**](ApplicationAccountsConfig.md) |  | [optional] 
+**test** | [**ApplicationTestConfig**](ApplicationTestConfig.md) |  | [optional] 
 **any string name** | **bool, date, datetime, dict, float, int, list, str, none_type** | any string name can be used but the value must be the correct type | [optional]
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)

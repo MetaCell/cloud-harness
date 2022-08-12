@@ -1,7 +1,7 @@
 
 from cloudharness_model import HarnessMainConfig, ApplicationConfig, User, ApplicationHarnessConfig, CDCEvent
 from os.path import join, dirname as dn, realpath
-import yaml
+import oyaml as yaml
 
 HERE = dn(realpath(__file__))
 

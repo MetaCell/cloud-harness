@@ -1,6 +1,4 @@
 from cloudharness.models import User
-import connexion
-import six
 
 from samples import util
 

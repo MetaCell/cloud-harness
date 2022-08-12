@@ -56,6 +56,8 @@ if __name__ == "__main__":
                         help='Disable tls (serve on http)')
     parser.add_argument('--deploy', dest='deploy', action="store_true",
                         help='Deploy helm chart')
+    parser.add_argument('-N', '--no-cd', dest='no_cd_gen', action="store_const", default=None, const=True,
+                        help=f'Do not generate ci/cd files')
 
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
@@ -94,7 +96,7 @@ if __name__ == "__main__":
         root_paths = preprocess_build_overrides(
             root_paths=root_paths, helm_values=helm_values)
 
-        if envs:
+        if not args.no_cd_gen and envs:
             create_codefresh_deployment_scripts(
                 root_paths,
                 include=args.include,
