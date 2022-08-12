@@ -39,13 +39,14 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
     """
     Entry point to create deployment scripts for codefresh: codefresh.yaml and helm chart
     """
-
+    build_included = [app['harness']['name']
+                            for app in values_manual_deploy['apps'].values() if 'harness' in app]
     out_filename = f"codefresh-{'-'.join(envs)}.yaml"
 
-    if include:
+    if build_included:
         logging.info(
             'Including the following subpaths to the build: %s.', ', '
-            .join(include)
+            .join(build_included)
         )
 
     if exclude:
@@ -73,9 +74,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
             if not 'steps' in codefresh:
                 continue
 
-            steps = codefresh['steps']
-
-            def codefresh_steps_from_base_path(base_path, build_step, fixed_context=None, include=include):
+            def codefresh_build_step_from_base_path(base_path, build_step, fixed_context=None, include=build_included):
 
                 for dockerfile_path in find_dockerfiles_paths(base_path):
                     app_relative_to_root = relpath(dockerfile_path, '.')
@@ -227,11 +226,16 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         arguments["custom_values"].append(
                             "apps.%s.harness.secrets.%s=${{%s}}" % (app_name, secret_name, secret_name.upper()))
 
-    cmds = steps['prepare_deployment']['commands']
+    cmds = codefresh['steps']['prepare_deployment']['commands']
+    
+    params = [p for inc in include for p in ["-i", inc]] +\
+        [p for ex in exclude for p in ["-i", ex]] 
+
     for i in range(len(cmds)):
         cmds[i] = cmds[i].replace("$ENV", "-".join(envs))
-        if include:
-            cmds[i] = cmds[i].replace("$INCLUDE", "-i " + " -i ".join(include))
+        cmds[i] = cmds[i].replace("$PARAMS", " ".join(params))
+        cmds[i] = cmds[i].replace("$PATHS", " ".join(os.path.relpath(
+                                    root_path, '.') for root_path in root_paths))
 
     if save:
         codefresh_abs_path = join(

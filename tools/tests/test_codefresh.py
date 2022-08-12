@@ -146,12 +146,12 @@ def test_create_codefresh_configuration_multienv():
         )
 
         build_included = [app['harness']['name']
-                          for app in values['apps'].values() if 'harness' in app]
+                        for app in values['apps'].values() if 'harness' in app]
 
         cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
-                                                 envs=['dev', 'test'],
-                                                 base_image_name=values['name'],
-                                                 helm_values=values, save=False)
+                                                envs=['dev', 'test'],
+                                                base_image_name=values['name'],
+                                                values_manual_deploy=values, save=False)
 
         assert cf['test_step'] == 'test'
         assert cf['test'] == True
@@ -159,9 +159,12 @@ def test_create_codefresh_configuration_multienv():
         for cmd in cf['steps']['prepare_deployment']['commands']:
             if 'harness-deployment' in cmd:
                 assert '-e dev-test' in cmd
+                assert "test_deployment" in cmd
+                assert "-i samples" in cmd
 
     finally:
         shutil.rmtree(BUILD_MERGE_DIR)
+
 
 
 def test_create_codefresh_configuration_tests():
