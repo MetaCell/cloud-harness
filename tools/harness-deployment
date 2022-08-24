@@ -103,7 +103,7 @@ if __name__ == "__main__":
                 exclude=args.exclude,
                 envs=envs,
                 base_image_name=helm_values['name'],
-                values_manual_deploy=helm_values)
+                helm_values=helm_values)
 
         create_skaffold_configuration(root_paths, helm_values)
         create_vscode_debug_configuration([os.path.join(os.getcwd(), path) for path in args.paths],
