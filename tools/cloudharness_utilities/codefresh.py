@@ -237,7 +237,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         cmds[i] = cmds[i].replace("$ENV", "-".join(envs))
         cmds[i] = cmds[i].replace("$PARAMS", " ".join(params))
         cmds[i] = cmds[i].replace("$PATHS", " ".join(os.path.relpath(
-                                    root_path, '.') for root_path in root_paths))
+                                    root_path, '.') for root_path in root_paths if DEFAULT_MERGE_PATH not in root_path))
 
     if save:
         codefresh_abs_path = join(
