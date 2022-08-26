@@ -6,6 +6,7 @@ HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
 ROOT = os.path.dirname(HERE)
 
 APPLICATION_TEMPLATE_PATH = 'application-templates'
+DEFAULT_MERGE_PATH = ".overrides"
 
 HELM_PATH = "helm"
 HELM_CHART_PATH = HELM_PATH

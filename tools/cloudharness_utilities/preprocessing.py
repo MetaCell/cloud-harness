@@ -1,4 +1,3 @@
-from email.mime import base
 from genericpath import exists
 import os
 
@@ -9,12 +8,11 @@ from os.path import join, basename, isabs, relpath
 from cloudharness_utilities.helm import KEY_APPS, KEY_TASK_IMAGES
 
 from .utils import app_name_from_path, merge_app_directories, merge_configuration_directories, find_subdirs
-from .constants import APPS_PATH, HELM_CHART_PATH, DEPLOYMENT_CONFIGURATION_PATH, DEPLOYMENT_PATH, \
-    BASE_IMAGES_PATH, STATIC_IMAGES_PATH
+from .constants import APPS_PATH,BASE_IMAGES_PATH, STATIC_IMAGES_PATH, DEFAULT_MERGE_PATH
 
 
 
-def preprocess_build_overrides(root_paths, helm_values, merge_build_path=".overrides"):
+def preprocess_build_overrides(root_paths, helm_values, merge_build_path=DEFAULT_MERGE_PATH):
     if not isabs(merge_build_path):
         merge_build_path = join(os.getcwd(), merge_build_path)
     if len(root_paths) < 2:
@@ -73,7 +71,7 @@ def preprocess_build_overrides(root_paths, helm_values, merge_build_path=".overr
 
     return (root_paths + [merge_build_path]) if merged else root_paths
 
-def get_build_paths(root_paths, helm_values, merge_build_path=".overrides"):
+def get_build_paths(root_paths, helm_values, merge_build_path=DEFAULT_MERGE_PATH):
     """
     Gets the same paths from preprocess_build_overrides
     """
