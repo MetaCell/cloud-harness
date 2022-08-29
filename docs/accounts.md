@@ -40,14 +40,28 @@ harness:
   ...
   secured: true
   uri_role_mapping:
-  - uri: /*
+  - uri: /admin/*
     methods:
     - POST
     - PUT
     - DELETE
     roles:
     - administrator
+  - uri: /open-page
+    white-listed: true
 ```
+
+Note: the `secured` attribute by default denies entry to every page.
+Can add white listed page but depending on the application a "default open"
+logic can be more appropriate.
+
+To specify a default open logic set secured to "open" and add all the secured paths to the mapping
+```yaml
+harness:
+  ...
+  secured: open
+```
+
 
 ### Secure an enpoint with OpenAPI
 
