@@ -15,6 +15,7 @@ data:
     client-secret: {{ .root.Values.apps.accounts.webclient.secret }}
     secure-cookie: {{ $tls }}
     forbidden-page: /templates/access-denied.html.tmpl
+    enable-default-deny:  {{ eq (.app.harness.secured | toString) "true" }}
     listen: 0.0.0.0:8080
     enable-refresh-tokens: true
     server-write-timeout: 60s
