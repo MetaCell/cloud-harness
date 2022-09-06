@@ -1,21 +1,23 @@
-= A simple date-clock application: tutorial cloud-harness
+= A simple date-clock application: tutorial CloudHarness
 
-In this small tutorial, we will see different aspects about the developement of applications with cloud harness through the developement from scratch of a small webapp that fetch information from a server on a regular basis.
+In this small tutorial, we will see different aspects about the developement of applications with CloudHarness through the developement from scratch of a small webapp that fetches information from a server on a regular basis.
 
-Cloud harness allows you to quickly setup app that needs to be ran in a kubernete cluster.
+CloudHarness allows you to quickly setup app that needs to be ran in a kubernete cluster.
 It generates the initial files and folders for your project depending on some templates tacking different aspects of your app depending on your requirements, __e.g.__, for a webapp project, it generates the frontend initial files for ReactJS and the initial Flask files for the backend.
-For the API part, cloud harness relies on OpenAPI 3 to deal with the endpoints/model description.
+For the API part, CloudHarness relies on OpenAPI 3 to deal with the endpoints/model description.
 
 The different aspects that will be covered here are:
 
-* how to install cloud-harness;
-* how to quickly setup a first version of a local cluster using minikube;
+* how to install CloudHarness locally on your machine;
+* how to quickly setup a first version of a local cluster using `minikube`;
 * how to build and locally deploy the projects from the repository;
 * how to bootstrap a new app, build it and run it;
 * how to modify/update the app, built it and run it again.
 
-== The tools you need
+== The tools you need to deploy/build your application
 
+The following tools, beside python, are not required to work with CloudHarness.
+They are here to deal with the local Kubernete cluster creation, monitoring and the application deployment.
 Before installing everything, please be sure you have the following tools installed on your machine:
 
 * `python`
@@ -25,13 +27,15 @@ Before installing everything, please be sure you have the following tools instal
 * `skaffold` -- to build/deploy/run the apps
 
 
-== Install cloud-harness (if it is not yet done)
+== Install CloudHarness (if it is not yet done)
 
-The installation is pretty straight forward.
-Cloud-harness is coded in Python, consequently, it's always better to create a local virtualenv dedicated to the project to avoid messing with your system dependencies.
+CloudHarness is coded in Python, consequently, it's always better to create a local virtualenv dedicated to the project to avoid messing with your system dependencies.
 As shown in the snippet above, we will clone the repository, change directory inside the freshly clone directory and create a virtualenv inside (for this tutorial, the Python's version used is CPython 3.10.6).
 
-.Cloning and installing cloud-harness
+First step is to clone the https://github.com/MetaCell/cloud-harness[CloudHarness repository] on your system.
+
+
+.Cloning and installing CloudHarness
 [source,bash]
 ----
 git clone git@github.com:MetaCell/cloud-harness.git
@@ -41,7 +45,7 @@ python -m venv --symlinks venv     # this creates a virtualenv in the "venv" dir
 
 Now that the virtualenv is created, we need to activate it to work in isolation.
 
-.Activating the virtualenv and installing cloud-harness
+.Activating the virtualenv and installing CloudHarness
 [source,bash]
 ----
 source venv/bin/activate
@@ -56,13 +60,17 @@ To test if your installation went successfully, check if at least the following 
 harness-application --help
 ----
 
-If everything is good, you're in the right path to use cloud-harness!
+If everything is good, you're in the right path to use CloudHarness!
 
 
 == How to setup your local cluster using minikube (if not done yet)
 
-Cloud-harness is designed to help you to generate all the required artifacts for a deployment on a Kebernete cluster.
+CloudHarness is designed to help you generate all the required artifacts for a deployment on a Kebernete cluster.
 For a local deployment, you can use minikube, which is basically https://minikube.sigs.k8s.io/docs/start/[a small Kubernete cluster on your machine].
+
+[IMPORTANT]
+The setup of a Kubernete cluster is not mandatory to use CloudHarness.
+This step is proposed in this tutorial to show you how to deploy an application generated with CloudHarness on a local cluster and to appreciate how much CloudHarness reduces the pain of writing deployment configuration artifacts.
 
 First, we will create a minikube cluster with 6Gb of memory, 4 CPUs and a disk of more or less 2GB.
 
@@ -140,7 +148,7 @@ In the state of the repository I have on my machine, the apps and services that 
 * notifications,
 * events.
 
-As you can see, some of those projects are services and not app per-say.
+As you can see, some of those projects are services and not app per se.
 
 If you only want to build/run/deploy a specific app with the dependent services, you need to add the option `-i NAME` to the line.
 
@@ -205,18 +213,21 @@ Nothing fancy, just a way to see how to interact with the generated sources and 
 The first step is to generate the projects files.
 In our case, we want to develop a webapp, meaning that we want a frontend and a backend.
 We use `harness-application` to generate the first files with a specific tempates: `webapp` and `server`.
+We first place ourself in the parent directory of where you cloned the `cloud-harness` repository.
+
+[NOTE]
+We could place ourself anywere, we would just have to remember the path towards the `cloud-harness` repository.
 
 .Generating the first project's file
 [source,bash]
 ----
-# run at the root of the cloud-harness repository
 harness-application clockdate -t webapp -t server
 ----
 
 The name of the application is `clockdate` and we use the `webapp` and `server` template.
 There is various existing templates with different purpose: for DB interaction, backend, frontend, ...
 
-We observe now that a new directory had been created in the `applications` folder named `clockdate`.
+We observe now that a new directory had been created in an `applications` folder named `clockdate`.
 The folder is organized with many sub-folders, all playing a different role in the app.
 Currently, we will not look at them, we will only run/deploy and access the application at least once.
 
@@ -226,11 +237,47 @@ As in the previous section, we use `harness-deployment` for that.
 .Generating the `helm` chart for our `clockdate` app
 [source,bash]
 ----
-harness-deployment  . -u -dtls -l -d azathoth.local -e local -n azathoth -i clockdate
+# run in the directory that contains the cloud-harness repository
+harness-deployment cloud-harness . -u -dtls -l -d azathoth.local -e local -n azathoth -i clockdate
 ----
+
+This time, we can notice that we added an extra parameter: `cloud-harness`.
+This parameter, with `.`, actually defines where `harness-deployment` needs to look for the `applications` folder in which it will find the actual apps that it will generate the deployment configuration for.
+In this case, we have this file tree.
+
+[source]
+----
++- CURRENT_DIRECTORY
+  + applications       -> the project generated by 'harness-application'
+    `- clockdate
+  +- cloud-harness     -> the 'cloud-harness' cloned repository
+    +- applications
+        `- ...
+----
+
+Consequently, we ask to `harness-deployment` to look for apps in `applications` (with `.`) and in `cloud-harness`.
+
+[IMPORTANT]
+The order of the search paths is important, the `cloud-harness` search path needs to be first.
+There is some variable/configuration overriding that are performed during the code generation.
+The last search path is the one that will have priority over the configuration parameters it overrides.
 
 [NOTE]
 Please note that here we consider that the namespace is already existing. If it doesn't, create it as seen in the previous section.
+
+After this step, you can see a `deployment` directory that have been created wth all the deployments artifacts for `helm`.
+The file tree should now be the following.
+
+[source]
+----
++- CURRENT_DIRECTORY
+  + applications       -> the project generated by 'harness-application'
+    `- clockdate
+  +- cloud-harness     -> the 'cloud-harness' cloned repository
+    +- applications
+        `- ...
+  +- deployment        -> the folder with all generated artifacts for the deployment
+----
 
 Now you can build/deploy/run it using `skaffold`.
 
@@ -401,8 +448,8 @@ const DateTime = () => {
 export default DateTime;
 ----
 
-<1> The `DatetimeApi` class is instanciated, this is now the instance we will use everytime we need to perform a request toward an API endpoint.
-<2> is where is actually perform the call. The `currentdate` method is generated by harness-cloud.
+<1> The `DatetimeApi` class is instantiated, this is now the instance we will use everytime we need to perform a request toward an API endpoint.
+<2> is where is actually perform the call. The `currentdate` method is generated by CloudHarness.
 
 Now that we have our dedicated component, we will integreate it in the current page.
 To do that, we need to modify the `App.tsx` component.
