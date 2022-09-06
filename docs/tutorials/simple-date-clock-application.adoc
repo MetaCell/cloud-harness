@@ -1,0 +1,435 @@
+= A simple date-clock application: tutorial cloud-harness
+
+In this small tutorial, we will see different aspects about the developement of applications with cloud harness through the developement from scratch of a small webapp that fetch information from a server on a regular basis.
+
+Cloud harness allows you to quickly setup app that needs to be ran in a kubernete cluster.
+It generates the initial files and folders for your project depending on some templates tacking different aspects of your app depending on your requirements, __e.g.__, for a webapp project, it generates the frontend initial files for ReactJS and the initial Flask files for the backend.
+For the API part, cloud harness relies on OpenAPI 3 to deal with the endpoints/model description.
+
+The different aspects that will be covered here are:
+
+* how to install cloud-harness;
+* how to quickly setup a first version of a local cluster using minikube;
+* how to build and locally deploy the projects from the repository;
+* how to bootstrap a new app, build it and run it;
+* how to modify/update the app, built it and run it again.
+
+== The tools you need
+
+Before installing everything, please be sure you have the following tools installed on your machine:
+
+* `python`
+* `minikube` -- the local mini cluster
+* `kubectl` -- to help controlling the cluster
+* `helm` -- to deal with Kubernete "packages" (helm is basically a package manager for Kubernete)
+* `skaffold` -- to build/deploy/run the apps
+
+
+== Install cloud-harness (if it is not yet done)
+
+The installation is pretty straight forward.
+Cloud-harness is coded in Python, consequently, it's always better to create a local virtualenv dedicated to the project to avoid messing with your system dependencies.
+As shown in the snippet above, we will clone the repository, change directory inside the freshly clone directory and create a virtualenv inside (for this tutorial, the Python's version used is CPython 3.10.6).
+
+.Cloning and installing cloud-harness
+[source,bash]
+----
+git clone git@github.com:MetaCell/cloud-harness.git
+cd cloud-harness
+python -m venv --symlinks venv     # this creates a virtualenv in the "venv" directory
+----
+
+Now that the virtualenv is created, we need to activate it to work in isolation.
+
+.Activating the virtualenv and installing cloud-harness
+[source,bash]
+----
+source venv/bin/activate
+sh ./install.sh
+----
+
+To test if your installation went successfully, check if at least the following command exist: `harness-application`.
+
+.Checking the installation
+[source,bash]
+----
+harness-application --help
+----
+
+If everything is good, you're in the right path to use cloud-harness!
+
+
+== How to setup your local cluster using minikube (if not done yet)
+
+Cloud-harness is designed to help you to generate all the required artifacts for a deployment on a Kebernete cluster.
+For a local deployment, you can use minikube, which is basically https://minikube.sigs.k8s.io/docs/start/[a small Kubernete cluster on your machine].
+
+First, we will create a minikube cluster with 6Gb of memory, 4 CPUs and a disk of more or less 2GB.
+
+.Creating minikube cluster
+[source,bash]
+----
+minikube start --memory="6000mb" --cpus=4
+----
+
+To check if the creation of the cluster went right, run `kubectl cluster-info`.
+
+The setup of the cluster is not yet entirely finished.
+To conclude this, you need to enable an addon.
+Kubernete comes with various addon to deal with various aspects of your cluster.
+As the app we will develop/run are sometimes webapps, they need to be exposed "outside" of your cluster.
+The https://kubernetes.io/docs/concepts/services-networking/ingress/[`ingress` addon] helps in exposing HTTP/HTTPS routes from outside your cluster to services inside your cluster.
+Its activation is fairly simple using minikube.
+
+.Activating `ingress` addon
+[source,bash]
+----
+minikube addons enable ingress
+----
+
+Finally, it's important to activate some environement variables *in each shell you'll use to run commands*.
+Those variable will connect the different tools (especially skaffold) to use the docker environement inside your minikube cluster to build your apps images.
+
+.Activating the different environement variables
+[source,bash]
+----
+minikube docker-env | source
+# OR
+eval $(minikube docker-env)
+----
+
+
+== Run the projects and examples from the cloud-harness repository
+
+To be able to build, locally deploy and run the existing app (or any app you'll develop), you have to generate a specific `helm` configuration that will be use by skaffold to build/deploy/run your apps.
+The generation of those `helm` artifacts is done using `harness-deployment` with specific options.
+The next snippet show how to generate the `helm` configuration, disabling TLS configuration, enabling the local environement, selecting the `azathoth` namespace to deploy the app, and run it for the `azathoth.local` domain (you can use whatever domain name you want).
+The namespace can be changed depending on in which namespace you want to deploy your app in your cluster.
+This configuration is generated for *all* the app present in the `applications` folder in the `cloud-harness` repository.
+
+Depending on the namespace you use for the generation of your configuration, you need to create it yourself.
+Create the namespace first, then generate the deployment configuration.
+
+.Creating the namespace for your minikube cluster
+[source,bash]
+----
+kubectl create ns azathoth
+----
+
+[IMPORTANT]
+If you don't create the namespace, the deployment will fail!
+
+
+.Generating the deployment/configuration artifacts for all apps/services
+[source,bash]
+----
+# ran from the cloud-harness repository root
+harness-deployment  . -u -dtls -l -d azathoth.local -e local -n azathoth.local
+----
+
+In the state of the repository I have on my machine, the apps and services that will be deployed and that `harness-deployment` generated the configuration for are:
+
+* samples,
+* jupyterhub,
+* sentry,
+* accounts,
+* common,
+* volumemanager,
+* argo,
+* workflows,
+* notifications,
+* events.
+
+As you can see, some of those projects are services and not app per-say.
+
+If you only want to build/run/deploy a specific app with the dependent services, you need to add the option `-i NAME` to the line.
+
+.Generatiung the deployment/configuration artifacts for the `samples` app
+[source,bash]
+----
+# This command is run at the root of the cloud-harness repository
+harness-deployment  . -u -dtls -l -d azathoth.local -e local -n azathoth -i samples
+----
+
+Pay attention at what's displayed.
+At the end of the output, you'll encounter a line like this one:
+
+[source,bash]
+----
+To test locally, update your hosts file
+X.X.X.X	azathoth.local samples.azathoth.local hub.azathoth.local sentry.azathoth.local accounts.azathoth.local common.azathoth.local volumemanager.azathoth.local argo.azathoth.local workflows.azathoth.local notifications.azathoth.local events.azathoth.local
+----
+
+Where `X.X.X.X` will be a dedicated IP address.
+Insert this line into your `hosts` file, and your good to go for the build/deployment.
+
+[NOTE]
+If you missed this line, you can run the previous `harness-deployment` command a second time line, or you can find the IP address launching `minikube ip`.
+
+Once your configuration is created, you can build/deploy/run all the services/apps using `skaffold`.
+Skaffold will connect to the local docker environnement inside your minikube cluster to build all the images.
+Obviously, this step takes time.
+
+.Building/deploying/running all services/apps
+[source,bash]
+----
+skaffold run
+----
+
+Now that everything is deployed and running, you can see the sample page by going to `http://samples.azathoth.local`.
+Of course, this address depends on what you used as domain name, and entirely relies on the modification of your `hosts` file.
+
+
+You can monitor the state of all of your apps and services using `minikube`'s dashboard.
+
+.Checking the state of the cluster and running apps/services
+[source,bash]
+----
+minikube dashboard
+----
+
+This command will launch a page in your browser that provides all the information you need for your minikube cluster.
+
+
+== Creating a very simple webapp
+
+Now that we know how to configure/run/deploy apps on our local cluster, we will create a very simple webapp.
+In this first time, we will only generate the project's artifacts using the `harness-application`, then, we will build/run/deploy it.
+In a second time, we will modify the API to add new endpoints and deal with the frontend accordingly.
+
+=== Creating a new webapp
+
+The webapp that we will create will be a useless webapp that will fetch the current date and time when a button is pressed.
+Nothing fancy, just a way to see how to interact with the generated sources and get everything running on your local cluster.
+
+The first step is to generate the projects files.
+In our case, we want to develop a webapp, meaning that we want a frontend and a backend.
+We use `harness-application` to generate the first files with a specific tempates: `webapp` and `server`.
+
+.Generating the first project's file
+[source,bash]
+----
+# run at the root of the cloud-harness repository
+harness-application clockdate -t webapp -t server
+----
+
+The name of the application is `clockdate` and we use the `webapp` and `server` template.
+There is various existing templates with different purpose: for DB interaction, backend, frontend, ...
+
+We observe now that a new directory had been created in the `applications` folder named `clockdate`.
+The folder is organized with many sub-folders, all playing a different role in the app.
+Currently, we will not look at them, we will only run/deploy and access the application at least once.
+
+To do so, we need to generate a specific `helm` configuration (`helm` chart).
+As in the previous section, we use `harness-deployment` for that.
+
+.Generating the `helm` chart for our `clockdate` app
+[source,bash]
+----
+harness-deployment  . -u -dtls -l -d azathoth.local -e local -n azathoth -i clockdate
+----
+
+[NOTE]
+Please note that here we consider that the namespace is already existing. If it doesn't, create it as seen in the previous section.
+
+Now you can build/deploy/run it using `skaffold`.
+
+.Building/deploying/running the webapp with skaffold
+[source,bash]
+----
+skaffold run
+----
+
+Now, you can go to http://clockdate.azathoth.local/ to check your app running!
+In the same time, you can check what the API is answering for the `ping` endpoint on this URL: http://clockdate.azathoth.local/api/ping.
+
+
+=== Modifying your webapp, adding behavior
+
+We are currently capable of generating/running applications, but we did not add our own behavior.
+We need to modify the generated sources to do so.
+If we take a deeper look to the folder generated by `harness-application`, we observe three folders that are the one we will modify on a normal usage/base:
+
+.Generated directory organization
+[source]
+----
++- api               -> owns the OpenAPI definition of the endpoints/resources handled by the API
++- backend
+  `- clockdate       -> the project backend files
+    |- controllers   -> the controller definition
+    `- models        -> the resources exposed by the API
++- fontend           -> the webpage files
+----
+
+In a first time, we will modify the backend to add a new endpoint that will answer in a string the current date and time.
+The process is the following:
+
+. we add the new endpoint in the `openapi` folder, modifying the `openapi.yaml` file,
+. we regenerate the code of the application using `harness-generate`
+. we code the behavior of the endpoint in the dedicated method generated in the `backend/clockdate/controllers` folder.
+. we build/deploy/run the code to see it running (this step can be changed with a pure python run of the backend for a quicker dev loop).
+
+==== Adding the new endpoint to the openapi specification
+
+We will add a new endpoint named `currentdate` that will answer a string when `GET`.
+To do so, we add a special path in the `path` section.
+
+.Modifiying the `api/openapi.yaml` file
+[source,yaml]
+----
+paths:
+  /currentdate:
+    get:
+      operationId: currentdate
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Current date and time
+        "500":
+          description: System cannot give the current time
+      summary: Gets the current date and time
+      tags: [datetime]
+----
+
+[NOTE]
+The name of the controller in wich the function related to the endpoint will be generated depends on the `tags` value in defined in the `api/openapi.yaml` file.
+
+We validate that our openAPI specification is correct.
+
+[source]
+----
+$ openapi-spec-validator applications/clockdate/api/openapi.yaml
+OK
+----
+
+Now we generate again the code the application using `harness-application` another time.
+
+.Regenerating the code of our modified app
+[source,bash]
+----
+harness-application clockdate -t server -t webapp
+----
+
+This will add a new `datetime_controller.py` in the `backend/clockdate/controllers` package.
+
+[IMPORTANT]
+You need to notice that all the controllers files (and all the files) are overriden in the `backend` directory.
+To prevent files of being overriden, you need to edit the `.openapi-generator-ignore` file, that acts like a `.gitignore` file (in a way), by marking the files/directories that needs to be ignored by the generation.
+
+When we open this file, we get the following controller method:
+
+[source,python]
+----
+def currentdate():  # noqa: E501
+    """Gets the current date and time
+
+     # noqa: E501
+
+
+    :rtype: str
+    """
+    return 'do some magic!'
+----
+
+This is the moment to add the behavior we want:
+
+[source,python]
+----
+def currentdate():  # noqa: E501
+    """Gets the current date and time
+
+     # noqa: E501
+
+
+    :rtype: str
+    """
+    from datetime import datetime
+    return f'{datetime.now()}'
+----
+
+We simply import the `datetime` module and type, and we ask for the current date and time.
+Here a string interpolation is used only to force the result to be considered and formated as a string.
+It's not mandatory.
+
+Now that our new endpoint is coded, we can build/deploy/run it on our local cluster using `skaffold run`.
+Skaffold will take care of removing the old app and deploy the new one.
+Once the deployment is done, we can navigate to: http://clockdate.azathoth.local/api/currentdate to appreciate the result.
+
+
+=== A quick and dirty frontend to test our endpoint
+
+
+Now that we have the "backend" running, we will modify the frontend to get a label and a button that will fetch the information about date and time from the new endpoint we defined.
+If we look in the frontend source code generated, we see a `src/rest/api.ts` file.
+The generated code targets ReactJS as framework.
+This module provides clients for the API generated from the `api/openapi.yaml` specification.
+Exactly, it provides one client by `tag` defined in the openAPI specification.
+In our case, we defined a tag `datetime`, so we find in `api.ts` a class `DatetimeApi`.
+This is the class we will instantiate and use to deal with the call to the API and the endpoint we defined in the previous section.
+
+First, we are going to code a new React component that will provide a header with the current date and time and a button to ask for a "fetch" of the current date and time from the server.
+
+We call this component `DateTime` inside of a `DateTime.tsx` file that is placed in the `src/components` directory.
+
+.Code of the `frontend/src/component/DateTime.tsx` component
+[source,javascript]
+----
+import React, { useState, useEffect, useCallback } from 'react';
+import { DatetimeApi } from '../rest/api'
+
+const api = new DatetimeApi() <1>
+
+const DateTime = () => {
+  const [datetime, setDatetime] = useState('unavailable');
+  useEffect(() => updateDate(), []);
+
+  const updateDate = useCallback(() => {
+    api.currentdate().then(r => setDatetime(r.data)); <2>
+  }, []);
+
+  return (
+    <div>
+        <h2>{datetime}</h2>
+        <button onClick={updateDate}>Fetch</button>
+    </div>
+  )
+}
+
+export default DateTime;
+----
+
+<1> The `DatetimeApi` class is instanciated, this is now the instance we will use everytime we need to perform a request toward an API endpoint.
+<2> is where is actually perform the call. The `currentdate` method is generated by harness-cloud.
+
+Now that we have our dedicated component, we will integreate it in the current page.
+To do that, we need to modify the `App.tsx` component.
+This component is located in `frontend/src/App.tsx`.
+We modify the content of this file this way:
+
+.Code of the `frontend/src/App.tsx` component
+[source,javascript]
+----
+import React from 'react';
+import './styles/style.less';
+import DateTime from './components/DateTime';
+
+const Main = () => (
+    <>
+      <h1>Ask for date and time</h1>
+      <DateTime />
+      <p>See api documentation <a href="/api/ui">here</a></p>
+    </>
+);
+
+export default Main;
+----
+
+Once this is done, we can build/deploy/run again our webapp on our local cluster using `skaffold run`.
+That's it!
+
+This tutorial focuses on the interaction between your code and your cluster, but does not consider exactly how to debug/run your app without a minikube cluster.
+The tutorial does not consider either the interactions with other existing services deployed in the cloud, nor advanced resource description with openAPI.
+We will see that in other tutorials.
