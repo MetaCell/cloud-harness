@@ -6,7 +6,7 @@
 
 = A simple date-clock application: tutorial {ch}
 
-In this small tutorial, we will see different aspects about the developement of applications with {ch} through the developement from scratch of a small webapp that fetches information from a server on a regular basis.
+In this small tutorial, we will see different aspects about the development of applications with {ch} through the development from scratch of a small webapp that fetches information from a server on a regular basis.
 
 {ch} allows you to quickly setup app that needs to be ran in a {kub} cluster.
 It generates the initial files and folders for your project depending on some templates tacking different aspects of your app depending on your requirements, __e.g.__, for a webapp project, it generates the frontend initial files for ReactJS and the initial Flask files for the backend.
@@ -71,7 +71,7 @@ If everything is good, you're in the right path to use {ch}!
 
 == How to setup your local cluster using minikube (if not done yet)
 
-{ch} is designed to help you generate all the required artifacts for a deployment on a Kebernete cluster.
+{ch} is designed to help you generate all the required artifacts for a deployment on a Kubernetes cluster.
 For a local deployment, you can use minikube, which is basically https://minikube.sigs.k8s.io/docs/start/[a small {kub} cluster on your machine].
 
 [IMPORTANT]
@@ -101,10 +101,10 @@ Its activation is fairly simple using minikube.
 minikube addons enable ingress
 ----
 
-Finally, it's important to activate some environement variables *in each shell you'll use to run commands*.
-Those variable will connect the different tools (especially skaffold) to use the docker environement inside your minikube cluster to build your apps images.
+Finally, it's important to activate some environment variables *in each shell you'll use to run commands*.
+Those variable will connect the different tools (especially skaffold) to use the docker environment inside your minikube cluster to build your apps images.
 
-.Activating the different environement variables
+.Activating the different environment variables
 [source,bash]
 ----
 minikube docker-env | source
@@ -117,7 +117,7 @@ eval $(minikube docker-env)
 
 To be able to build, locally deploy and run the existing app (or any app you'll develop), you have to generate a specific `helm` configuration that will be use by skaffold to build/deploy/run your apps.
 The generation of those `helm` artifacts is done using `harness-deployment` with specific options.
-The next snippet show how to generate the `helm` configuration, disabling TLS configuration, enabling the local environement, selecting the `azathoth` namespace to deploy the app, and run it for the `azathoth.local` domain (you can use whatever domain name you want).
+The next snippet show how to generate the `helm` configuration, disabling TLS configuration, enabling the local environment, selecting the `azathoth` namespace to deploy the app, and run it for the `azathoth.local` domain (you can use whatever domain name you want).
 The namespace can be changed depending on in which namespace you want to deploy your app in your cluster.
 This configuration is generated for *all* the app present in the `applications` folder in the `cloud-harness` repository.
 
@@ -167,7 +167,7 @@ As you can see, some of those projects are services and not app per se.
 
 If you only want to build/run/deploy a specific app with the dependent services, you need to add the option `-i NAME` to the line.
 
-.Generatiung the deployment/configuration artifacts for the `samples` app
+.Generating the deployment/configuration artifacts for the `samples` app
 [source,bash]
 ----
 # This command is run at the root of the cloud-harness repository
@@ -190,7 +190,7 @@ Insert this line into your `hosts` file, and your good to go for the build/deplo
 If you missed this line, you can run the previous `harness-deployment` command a second time line, or you can find the IP address launching `minikube ip`.
 
 Once your configuration is created, you can build/deploy/run all the services/apps using `skaffold`.
-Skaffold will connect to the local docker environnement inside your minikube cluster to build all the images.
+Skaffold will connect to the local docker environment inside your minikube cluster to build all the images.
 Obviously, this step takes time.
 
 .Building/deploying/running all services/apps
@@ -227,11 +227,11 @@ Nothing fancy, just a way to see how to interact with the generated sources and 
 
 The first step is to generate the projects files.
 In our case, we want to develop a webapp, meaning that we want a frontend and a backend.
-We use `harness-application` to generate the first files with a specific tempates: `webapp` and `flask-server`.
+We use `harness-application` to generate the first files with a specific templates: `webapp` and `flask-server`.
 We first place ourself in the parent directory of where you cloned the `cloud-harness` repository.
 
 [NOTE]
-We could place ourself anywere, we would just have to remember the path towards the `cloud-harness` repository.
+We could place ourself anywhere, we would just have to remember the path towards the `cloud-harness` repository.
 
 .Generating the first project's file
 [source,bash]
@@ -320,7 +320,7 @@ If we take a deeper look to the folder generated by `harness-application`, we ob
   `- clockdate       -> the project backend files
     |- controllers   -> the controller definition
     `- models        -> the resources exposed by the API
-+- fontend           -> the webpage files
++- frontend           -> the webpage files
 ----
 
 In a first time, we will modify the backend to add a new endpoint that will answer in a string the current date and time.
@@ -336,7 +336,7 @@ The process is the following:
 We will add a new endpoint named `currentdate` that will answer a string when `GET`.
 To do so, we add a special path in the `path` section.
 
-.Modifiying the `api/openapi.yaml` file
+.Modifying the `api/openapi.yaml` file
 [source,yaml]
 ----
 paths:
@@ -357,7 +357,7 @@ paths:
 ----
 
 [NOTE]
-The name of the controller in wich the function related to the endpoint will be generated depends on the `tags` value in defined in the `api/openapi.yaml` file.
+The name of the controller in which the function related to the endpoint will be generated depends on the `tags` value in defined in the `api/openapi.yaml` file.
 
 We validate that our openAPI specification is correct.
 
@@ -378,8 +378,8 @@ harness-application clockdate -t flask-server -t webapp
 This will add a new `datetime_controller.py` in the `backend/clockdate/controllers` package.
 
 [IMPORTANT]
-You need to notice that all the controllers files (and all the files) are overriden in the `backend` directory.
-To prevent files of being overriden, you need to edit the `.openapi-generator-ignore` file, that acts like a `.gitignore` file (in a way), by marking the files/directories that needs to be ignored by the generation.
+You need to notice that all the controllers files (and all the files) are overridden in the `backend` directory.
+To prevent files of being overridden, you need to edit the `.openapi-generator-ignore` file, that acts like a `.gitignore` file (in a way), by marking the files/directories that needs to be ignored by the generation.
 
 When we open this file, we get the following controller method:
 
@@ -413,7 +413,7 @@ def currentdate():  # noqa: E501
 ----
 
 We simply import the `datetime` module and type, and we ask for the current date and time.
-Here a string interpolation is used only to force the result to be considered and formated as a string.
+Here a string interpolation is used only to force the result to be considered and formatted as a string.
 It's not mandatory.
 
 Now that our new endpoint is coded, we can build/deploy/run it on our local cluster using `skaffold run`.
@@ -466,7 +466,7 @@ export default DateTime;
 <1> The `DatetimeApi` class is instantiated, this is now the instance we will use everytime we need to perform a request toward an API endpoint.
 <2> is where is actually perform the call. The `currentdate` method is generated by {ch}.
 
-Now that we have our dedicated component, we will integreate it in the current page.
+Now that we have our dedicated component, we will integrate it in the current page.
 To do that, we need to modify the `App.tsx` component.
 This component is located in `frontend/src/App.tsx`.
 We modify the content of this file this way:
