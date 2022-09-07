@@ -1,14 +1,20 @@
-= A simple date-clock application: tutorial CloudHarness
+:repo_url: ../../../../../
+:kub: Kubernetes
+:ch: CloudHarness
+:repo_fragment: MetaCell/cloud-harness
 
-In this small tutorial, we will see different aspects about the developement of applications with CloudHarness through the developement from scratch of a small webapp that fetches information from a server on a regular basis.
 
-CloudHarness allows you to quickly setup app that needs to be ran in a kubernete cluster.
+= A simple date-clock application: tutorial {ch}
+
+In this small tutorial, we will see different aspects about the developement of applications with {ch} through the developement from scratch of a small webapp that fetches information from a server on a regular basis.
+
+{ch} allows you to quickly setup app that needs to be ran in a {kub} cluster.
 It generates the initial files and folders for your project depending on some templates tacking different aspects of your app depending on your requirements, __e.g.__, for a webapp project, it generates the frontend initial files for ReactJS and the initial Flask files for the backend.
-For the API part, CloudHarness relies on OpenAPI 3 to deal with the endpoints/model description.
+For the API part, {ch} relies on OpenAPI 3 to deal with the endpoints/model description.
 
 The different aspects that will be covered here are:
 
-* how to install CloudHarness locally on your machine;
+* how to install {ch} locally on your machine;
 * how to quickly setup a first version of a local cluster using `minikube`;
 * how to build and locally deploy the projects from the repository;
 * how to bootstrap a new app, build it and run it;
@@ -16,36 +22,36 @@ The different aspects that will be covered here are:
 
 == The tools you need to deploy/build your application
 
-The following tools, beside python, are not required to work with CloudHarness.
-They are here to deal with the local Kubernete cluster creation, monitoring and the application deployment.
+The following tools, beside python, are not required to work with {ch}.
+They are here to deal with the local {kub} cluster creation, monitoring and the application deployment.
 Before installing everything, please be sure you have the following tools installed on your machine:
 
 * `python`
 * `minikube` -- the local mini cluster
 * `kubectl` -- to help controlling the cluster
-* `helm` -- to deal with Kubernete "packages" (helm is basically a package manager for Kubernete)
+* `helm` -- to deal with {kub} "packages" (helm is basically a package manager for {kub})
 * `skaffold` -- to build/deploy/run the apps
 
 
-== Install CloudHarness (if it is not yet done)
+== Install {ch} (if it is not yet done)
 
-CloudHarness is coded in Python, consequently, it's always better to create a local virtualenv dedicated to the project to avoid messing with your system dependencies.
+{ch} is coded in Python, consequently, it's always better to create a local virtualenv dedicated to the project to avoid messing with your system dependencies.
 As shown in the snippet above, we will clone the repository, change directory inside the freshly clone directory and create a virtualenv inside (for this tutorial, the Python's version used is CPython 3.10.6).
 
-First step is to clone the https://github.com/MetaCell/cloud-harness[CloudHarness repository] on your system.
+First step is to clone the link:{repo_url}[{ch} repository] on your system.
 
 
-.Cloning and installing CloudHarness
-[source,bash]
+.Cloning and installing {ch}
+[source,bash,subs="attributes+"]
 ----
-git clone git@github.com:MetaCell/cloud-harness.git
+git clone git@github.com:{repo_fragment}.git # check that the cloning address is the one you got from the {ch} repository
 cd cloud-harness
 python -m venv --symlinks venv     # this creates a virtualenv in the "venv" directory
 ----
 
 Now that the virtualenv is created, we need to activate it to work in isolation.
 
-.Activating the virtualenv and installing CloudHarness
+.Activating the virtualenv and installing {ch}
 [source,bash]
 ----
 source venv/bin/activate
@@ -60,17 +66,17 @@ To test if your installation went successfully, check if at least the following 
 harness-application --help
 ----
 
-If everything is good, you're in the right path to use CloudHarness!
+If everything is good, you're in the right path to use {ch}!
 
 
 == How to setup your local cluster using minikube (if not done yet)
 
-CloudHarness is designed to help you generate all the required artifacts for a deployment on a Kebernete cluster.
-For a local deployment, you can use minikube, which is basically https://minikube.sigs.k8s.io/docs/start/[a small Kubernete cluster on your machine].
+{ch} is designed to help you generate all the required artifacts for a deployment on a Kebernete cluster.
+For a local deployment, you can use minikube, which is basically https://minikube.sigs.k8s.io/docs/start/[a small {kub} cluster on your machine].
 
 [IMPORTANT]
-The setup of a Kubernete cluster is not mandatory to use CloudHarness.
-This step is proposed in this tutorial to show you how to deploy an application generated with CloudHarness on a local cluster and to appreciate how much CloudHarness reduces the pain of writing deployment configuration artifacts.
+The setup of a {kub} cluster is not mandatory to use {ch}.
+This step is proposed in this tutorial to show you how to deploy an application generated with {ch} on a local cluster and to appreciate how much {ch} reduces the pain of writing deployment configuration artifacts.
 
 First, we will create a minikube cluster with 6Gb of memory, 4 CPUs and a disk of more or less 2GB.
 
@@ -84,7 +90,7 @@ To check if the creation of the cluster went right, run `kubectl cluster-info`.
 
 The setup of the cluster is not yet entirely finished.
 To conclude this, you need to enable an addon.
-Kubernete comes with various addon to deal with various aspects of your cluster.
+{kub} comes with various addon to deal with various aspects of your cluster.
 As the app we will develop/run are sometimes webapps, they need to be exposed "outside" of your cluster.
 The https://kubernetes.io/docs/concepts/services-networking/ingress/[`ingress` addon] helps in exposing HTTP/HTTPS routes from outside your cluster to services inside your cluster.
 Its activation is fairly simple using minikube.
@@ -114,6 +120,15 @@ The generation of those `helm` artifacts is done using `harness-deployment` with
 The next snippet show how to generate the `helm` configuration, disabling TLS configuration, enabling the local environement, selecting the `azathoth` namespace to deploy the app, and run it for the `azathoth.local` domain (you can use whatever domain name you want).
 The namespace can be changed depending on in which namespace you want to deploy your app in your cluster.
 This configuration is generated for *all* the app present in the `applications` folder in the `cloud-harness` repository.
+
+To ensure we are working on our fresh `minikube` cluster and not on a cluster configured previously, use the `kubectl config use-context` to switch context (https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/[more about context switching for {kub}]).
+
+.Switching the context to our `minikube` cluster
+[source,bash]
+----
+kubectl config use-context minikube
+----
+
 
 Depending on the namespace you use for the generation of your configuration, you need to create it yourself.
 Create the namespace first, then generate the deployment configuration.
@@ -212,7 +227,7 @@ Nothing fancy, just a way to see how to interact with the generated sources and 
 
 The first step is to generate the projects files.
 In our case, we want to develop a webapp, meaning that we want a frontend and a backend.
-We use `harness-application` to generate the first files with a specific tempates: `webapp` and `server`.
+We use `harness-application` to generate the first files with a specific tempates: `webapp` and `flask-server`.
 We first place ourself in the parent directory of where you cloned the `cloud-harness` repository.
 
 [NOTE]
@@ -221,10 +236,10 @@ We could place ourself anywere, we would just have to remember the path towards 
 .Generating the first project's file
 [source,bash]
 ----
-harness-application clockdate -t webapp -t server
+harness-application clockdate -t webapp -t flask-server
 ----
 
-The name of the application is `clockdate` and we use the `webapp` and `server` template.
+The name of the application is `clockdate` and we use the `webapp` and `flask-server` template.
 There is various existing templates with different purpose: for DB interaction, backend, frontend, ...
 
 We observe now that a new directory had been created in an `applications` folder named `clockdate`.
@@ -357,7 +372,7 @@ Now we generate again the code the application using `harness-application` anoth
 .Regenerating the code of our modified app
 [source,bash]
 ----
-harness-application clockdate -t server -t webapp
+harness-application clockdate -t flask-server -t webapp
 ----
 
 This will add a new `datetime_controller.py` in the `backend/clockdate/controllers` package.
@@ -449,7 +464,7 @@ export default DateTime;
 ----
 
 <1> The `DatetimeApi` class is instantiated, this is now the instance we will use everytime we need to perform a request toward an API endpoint.
-<2> is where is actually perform the call. The `currentdate` method is generated by CloudHarness.
+<2> is where is actually perform the call. The `currentdate` method is generated by {ch}.
 
 Now that we have our dedicated component, we will integreate it in the current page.
 To do that, we need to modify the `App.tsx` component.
