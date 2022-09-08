@@ -202,6 +202,17 @@ skaffold run
 Now that everything is deployed and running, you can see the sample page by going to `http://samples.azathoth.local`.
 Of course, this address depends on what you used as domain name, and entirely relies on the modification of your `hosts` file.
 
+[NOTE]
+====
+Do not forget to modify your `hosts` file to add the generated app domain (here `clockdate`).
+
+[source]
+----
+X.X.X.X	azathoth.local clockdate.azathoth.local
+----
+
+Where `X.X.X.X` is the address returned by the command `minikube ip`.
+====
 
 You can monitor the state of all of your apps and services using `minikube`'s dashboard.
 
