@@ -103,7 +103,8 @@ def {{operation.function_name}}({{operation.snake_case_arguments}}) -> {{operati
     return api_controller.{{operation.function_name}}(
     {% endif %}
     {% for params in operation.snake_case_arguments.split(",") -%}
-    {% if params %}{{params.split(":")[0]}}={{params.split(":")[0]}}{% if not loop.last %},{% endif %}{% endif %}
+    {% if params and ':' in params %}
+        {{params.split(":")[0]}}={{params.split(":")[0]}},
     {% endfor -%})
 {% endfor %}
 
