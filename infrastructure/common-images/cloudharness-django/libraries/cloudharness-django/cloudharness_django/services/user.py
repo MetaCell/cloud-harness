@@ -89,6 +89,8 @@ class UserService:
     def sync_kc_user(self, kc_user, is_superuser=False, delete=False):
         # sync the kc user with the django user
         user, created = User.objects.get_or_create(email=kc_user["email"])
+        if created:
+            Member(user=user, kc_id=kc_user["id"]).save()
         user = self._map_kc_user(user, kc_user, is_superuser, delete)
         user.save()
         return user
