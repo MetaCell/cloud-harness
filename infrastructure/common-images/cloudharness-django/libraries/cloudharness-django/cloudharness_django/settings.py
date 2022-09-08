@@ -5,7 +5,7 @@ from django.conf import settings
 # ***********************************************************************
 # * CloudHarness Django settings
 # ***********************************************************************
-from cloudharness.applications import get_current_configuration, log
+from cloudharness import applications, log
 
 # add the 3rd party apps
 INSTALLED_APPS = getattr(
@@ -33,7 +33,7 @@ MIDDLEWARE = getattr(
 # get the application CH config
 app_name = settings.PROJECT_NAME.lower()
 try:
-    current_app = get_current_configuration()
+    current_app = applications.get_current_configuration()
     
 
     # if secured then set USE_X_FORWARDED_HOST because we are behind the GK proxy
@@ -46,8 +46,7 @@ except:
     # we are running on a developers local machine
     log.error("Error setting current app configuration, continuing...", exc_info=True)
 
-    from cloudharness.applications import ApplicationConfiguration
-    current_app = ApplicationConfiguration({
+    current_app = applications.ApplicationConfiguration({
         "name": app_name,
         "harness": {
             "database": {
