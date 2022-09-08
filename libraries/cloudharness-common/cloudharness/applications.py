@@ -43,6 +43,9 @@ class ApplicationConfiguration(ApplicationConfig):
             database_name = kwargs.get('database_name', self.harness.database.postgres['initialdb'])
             return f"postgres://{self.db_name}:{self.harness.database.postgres.ports[0]['port']}/" \
                    f"{database_name}?user={self.harness.database.user}&password={self.harness.database['pass']}"
+        elif self.db_type == 'neo4j':
+            return f"{self.harness.database.neo4j.get('ports')[1]['name']}://{self.db_name}:" \
+                   f"{self.harness.database.neo4j.get('ports')[1]['port']}/"
         else:
             raise NotImplementedError(
                 f'Database connection string discovery not yet supported for database type {self.db_type}')
