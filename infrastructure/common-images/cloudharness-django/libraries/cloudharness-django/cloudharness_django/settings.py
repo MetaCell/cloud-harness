@@ -44,7 +44,7 @@ try:
 except:
     # no current app found, fall back to the default settings, there is a god change that
     # we are running on a developers local machine
-    log.error("Error setting current app configuration, continuing...", exc_info=True)
+    log.warning("Error setting current app configuration, continuing...")
 
     current_app = applications.ApplicationConfiguration({
         "name": app_name,
