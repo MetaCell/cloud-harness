@@ -33,20 +33,24 @@ class ApplicationConfiguration(ApplicationConfig):
     def is_sentry_enabled(self) -> bool:
         return self.harness.sentry
 
-    def get_db_connection_string(self) -> str:
+    def get_db_connection_string(self, **kwargs) -> str:
         if not self.is_auto_db():
             raise ConfigurationCallException(
                 f"Cannot get configuration string: application {self.name} has no database enabled.")
         if self.db_type == 'mongo':
             return f"mongodb://{self.harness.database.user}:{self.harness.database.password}@{self.db_name}:{self.harness.database.mongo.ports[0]['port']}/"
+        elif self.db_type == 'postgres':
+            database_name = kwargs.get('database_name', self.harness.database.postgres['initialdb'])
+            return f"postgres://{self.db_name}:{self.harness.database.postgres.ports[0]['port']}/" \
+                   f"{database_name}?user={self.harness.database.user}&password={self.harness.database['pass']}"
         else:
             raise NotImplementedError(
-                f'Database connection string discovery not yet supported for databse type {self.db_type}')
+                f'Database connection string discovery not yet supported for database type {self.db_type}')
 
     @property
     def db_name(self) -> str:
         return self.harness.database.name
-        
+
     @property
     def conf(self):
         """
