@@ -5,7 +5,8 @@ from django.conf import settings
 # ***********************************************************************
 # * CloudHarness Django settings
 # ***********************************************************************
-from cloudharness.applications import get_current_configuration
+from cloudharness import applications, log
+from cloudharness.utils.config import CloudharnessConfig as conf
 
 # add the 3rd party apps
 INSTALLED_APPS = getattr(
@@ -33,15 +34,23 @@ MIDDLEWARE = getattr(
 # get the application CH config
 app_name = settings.PROJECT_NAME.lower()
 try:
-    current_app = get_current_configuration()
-
+    current_app = applications.get_current_configuration()
+    
     # if secured then set USE_X_FORWARDED_HOST because we are behind the GK proxy
     USE_X_FORWARDED_HOST = current_app.harness.secured
+    
+    # CSRF, set CSRF_TRUSTED_ORIGINS
+    CH_DOMAIN = conf.get_domain()
+    CSRF_TRUSTED_ORIGINS = getattr(
+        settings,
+        'CSRF_TRUSTED_ORIGINS',
+        []) + [f"https://{CH_DOMAIN}", f"https://*.{CH_DOMAIN}"]
 except:
     # no current app found, fall back to the default settings, there is a god change that
     # we are running on a developers local machine
-    from cloudharness.applications import ApplicationConfiguration
-    current_app = ApplicationConfiguration({
+    log.warning("Error setting current app configuration, continuing...")
+
+    current_app = applications.ApplicationConfiguration({
         "name": app_name,
         "harness": {
             "database": {
@@ -51,6 +60,8 @@ except:
             }
         }
     })
+    # CSRF
+    CSRF_TRUSTED_ORIGINS = ["http://localhost:8080"]
 
 if current_app.harness.database.type == "sqlite3":
     DATABASE_ENGINE = "django.db.backends.sqlite3"
