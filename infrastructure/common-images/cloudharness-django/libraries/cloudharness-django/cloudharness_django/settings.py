@@ -6,6 +6,7 @@ from django.conf import settings
 # * CloudHarness Django settings
 # ***********************************************************************
 from cloudharness import applications, log
+from cloudharness.utils.config import CloudharnessConfig as conf
 
 # add the 3rd party apps
 INSTALLED_APPS = getattr(
@@ -35,12 +36,15 @@ app_name = settings.PROJECT_NAME.lower()
 try:
     current_app = applications.get_current_configuration()
     
-
     # if secured then set USE_X_FORWARDED_HOST because we are behind the GK proxy
     USE_X_FORWARDED_HOST = current_app.harness.secured
     
-    # CSRF
-    CSRF_TRUSTED_ORIGINS = [current_app.get_public_address()]
+    # CSRF, set CSRF_TRUSTED_ORIGINS
+    CH_DOMAIN = conf.get_domain()
+    CSRF_TRUSTED_ORIGINS = getattr(
+        settings,
+        'CSRF_TRUSTED_ORIGINS',
+        []) + [f"https://{CH_DOMAIN}", f"https://*.{CH_DOMAIN}"]
 except:
     # no current app found, fall back to the default settings, there is a god change that
     # we are running on a developers local machine
