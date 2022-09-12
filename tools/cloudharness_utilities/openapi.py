@@ -37,6 +37,7 @@ def generate_fastapi_server(app_path):
 
 
 def generate_model(base_path=ROOT):
+    get_dependencies()
     lib_path = f"{base_path}/libraries/models"
 
     # Generate model stuff: use python-flask generator
@@ -78,6 +79,7 @@ def generate_python_client(module, openapi_file, client_src_path, lib_name=LIB_N
 
 
 def generate_ts_client(openapi_file):
+    get_dependencies()
     config_path = os.path.join(os.path.dirname(openapi_file), 'config.json')
     out_dir = f"{os.path.dirname(os.path.dirname(openapi_file))}/frontend/src/rest"
     command = f"java -jar {CODEGEN} generate " \
