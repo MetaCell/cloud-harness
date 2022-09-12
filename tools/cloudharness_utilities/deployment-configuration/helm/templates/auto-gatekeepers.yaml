@@ -20,6 +20,7 @@ data:
     enable-refresh-tokens: true
     server-write-timeout: 60s
     upstream-response-header-timeout: 60s
+    http-only-cookie: false
     tls-cert:
     tls-private-key:
     redirection-url: {{ ternary "https" "http" $tls }}://{{ .app.harness.subdomain }}.{{ .root.Values.domain }}
