@@ -19,7 +19,7 @@ ROOT = dn(dn(HERE))
 OPENAPI_GEN_URL = 'https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/5.4.0/openapi-generator-cli-5.4.0.jar'
 
 
-def generate_server(app_path, overrides_folder):
+def generate_server(app_path, overrides_folder=""):
     get_dependencies()
     openapi_dir = os.path.join(app_path, 'api')
     openapi_file = glob.glob(os.path.join(openapi_dir, '*.yaml'))[0]

@@ -1,6 +1,3 @@
-from __future__ import absolute_import
-
-# flake8: noqa
-
-# import apis into api package
-from cloudharness_cli.common.api.sentry_api import SentryApi
+# do not import all apis into this module because that uses a lot of memory and stack frames
+# if you need the ability to import all apis from one package, import them with
+# from cloudharness_cli.common.apis import AccountsApi

@@ -56,15 +56,27 @@ export interface InlineResponse202Task {
 /**
  * 
  * @export
- * @interface Valid
+ * @interface SampleResource
  */
-export interface Valid {
+export interface SampleResource {
     /**
      * 
-     * @type {string}
-     * @memberof Valid
+     * @type {number}
+     * @memberof SampleResource
      */
-    'response'?: string;
+    'a': number;
+    /**
+     * 
+     * @type {number}
+     * @memberof SampleResource
+     */
+    'b'?: number;
+    /**
+     * 
+     * @type {number}
+     * @memberof SampleResource
+     */
+    'id'?: number;
 }
 
 /**
@@ -73,6 +85,38 @@ export interface Valid {
  */
 export const AuthApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
+        /**
+         * Check if the token is valid 
+         * @summary Check if the token is valid. Get a token by logging into the base url
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        validCookie: async (options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/valid-cookie`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication cookieAuth required
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
         /**
          * Check if the token is valid 
          * @summary Check if the token is valid. Get a token by logging into the base url
@@ -123,7 +167,17 @@ export const AuthApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async validToken(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<Valid>>> {
+        async validCookie(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.validCookie(options);
+            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+        },
+        /**
+         * Check if the token is valid 
+         * @summary Check if the token is valid. Get a token by logging into the base url
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async validToken(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.validToken(options);
             return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
         },
@@ -143,7 +197,16 @@ export const AuthApiFactory = function (configuration?: Configuration, basePath?
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        validToken(options?: any): AxiosPromise<Array<Valid>> {
+        validCookie(options?: any): AxiosPromise<string> {
+            return localVarFp.validCookie(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Check if the token is valid 
+         * @summary Check if the token is valid. Get a token by logging into the base url
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        validToken(options?: any): AxiosPromise<string> {
             return localVarFp.validToken(options).then((request) => request(axios, basePath));
         },
     };
@@ -163,8 +226,396 @@ export class AuthApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof AuthApi
      */
+    public validCookie(options?: AxiosRequestConfig) {
+        return AuthApiFp(this.configuration).validCookie(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Check if the token is valid 
+     * @summary Check if the token is valid. Get a token by logging into the base url
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof AuthApi
+     */
     public validToken(options?: AxiosRequestConfig) {
         return AuthApiFp(this.configuration).validToken(options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+/**
+ * ResourceApi - axios parameter creator
+ * @export
+ */
+export const ResourceApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * Creates a new instance of a `SampleResource`.
+         * @summary Create a SampleResource
+         * @param {SampleResource} sampleResource A new &#x60;SampleResource&#x60; to be created.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createSampleResource: async (sampleResource: SampleResource, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'sampleResource' is not null or undefined
+            assertParamExists('createSampleResource', 'sampleResource', sampleResource)
+            const localVarPath = `/sampleresources`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(sampleResource, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Deletes an existing `SampleResource`.
+         * @summary Delete a SampleResource
+         * @param {string} sampleresourceId A unique identifier for a &#x60;SampleResource&#x60;.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteSampleResource: async (sampleresourceId: string, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'sampleresourceId' is not null or undefined
+            assertParamExists('deleteSampleResource', 'sampleresourceId', sampleresourceId)
+            const localVarPath = `/sampleresources/{sampleresourceId}`
+                .replace(`{${"sampleresourceId"}}`, encodeURIComponent(String(sampleresourceId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Gets the details of a single instance of a `SampleResource`.
+         * @summary Get a SampleResource
+         * @param {string} sampleresourceId A unique identifier for a &#x60;SampleResource&#x60;.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getSampleResource: async (sampleresourceId: string, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'sampleresourceId' is not null or undefined
+            assertParamExists('getSampleResource', 'sampleresourceId', sampleresourceId)
+            const localVarPath = `/sampleresources/{sampleresourceId}`
+                .replace(`{${"sampleresourceId"}}`, encodeURIComponent(String(sampleresourceId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Gets a list of all `SampleResource` entities.
+         * @summary List All SampleResources
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getSampleResources: async (options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/sampleresources`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Updates an existing `SampleResource`.
+         * @summary Update a SampleResource
+         * @param {string} sampleresourceId A unique identifier for a &#x60;SampleResource&#x60;.
+         * @param {SampleResource} sampleResource Updated &#x60;SampleResource&#x60; information.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateSampleResource: async (sampleresourceId: string, sampleResource: SampleResource, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'sampleresourceId' is not null or undefined
+            assertParamExists('updateSampleResource', 'sampleresourceId', sampleresourceId)
+            // verify required parameter 'sampleResource' is not null or undefined
+            assertParamExists('updateSampleResource', 'sampleResource', sampleResource)
+            const localVarPath = `/sampleresources/{sampleresourceId}`
+                .replace(`{${"sampleresourceId"}}`, encodeURIComponent(String(sampleresourceId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PUT', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(sampleResource, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * ResourceApi - functional programming interface
+ * @export
+ */
+export const ResourceApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = ResourceApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * Creates a new instance of a `SampleResource`.
+         * @summary Create a SampleResource
+         * @param {SampleResource} sampleResource A new &#x60;SampleResource&#x60; to be created.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async createSampleResource(sampleResource: SampleResource, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.createSampleResource(sampleResource, options);
+            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+        },
+        /**
+         * Deletes an existing `SampleResource`.
+         * @summary Delete a SampleResource
+         * @param {string} sampleresourceId A unique identifier for a &#x60;SampleResource&#x60;.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async deleteSampleResource(sampleresourceId: string, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.deleteSampleResource(sampleresourceId, options);
+            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+        },
+        /**
+         * Gets the details of a single instance of a `SampleResource`.
+         * @summary Get a SampleResource
+         * @param {string} sampleresourceId A unique identifier for a &#x60;SampleResource&#x60;.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getSampleResource(sampleresourceId: string, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SampleResource>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getSampleResource(sampleresourceId, options);
+            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+        },
+        /**
+         * Gets a list of all `SampleResource` entities.
+         * @summary List All SampleResources
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getSampleResources(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<SampleResource>>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getSampleResources(options);
+            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+        },
+        /**
+         * Updates an existing `SampleResource`.
+         * @summary Update a SampleResource
+         * @param {string} sampleresourceId A unique identifier for a &#x60;SampleResource&#x60;.
+         * @param {SampleResource} sampleResource Updated &#x60;SampleResource&#x60; information.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async updateSampleResource(sampleresourceId: string, sampleResource: SampleResource, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.updateSampleResource(sampleresourceId, sampleResource, options);
+            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+        },
+    }
+};
+
+/**
+ * ResourceApi - factory interface
+ * @export
+ */
+export const ResourceApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = ResourceApiFp(configuration)
+    return {
+        /**
+         * Creates a new instance of a `SampleResource`.
+         * @summary Create a SampleResource
+         * @param {SampleResource} sampleResource A new &#x60;SampleResource&#x60; to be created.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createSampleResource(sampleResource: SampleResource, options?: any): AxiosPromise<void> {
+            return localVarFp.createSampleResource(sampleResource, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Deletes an existing `SampleResource`.
+         * @summary Delete a SampleResource
+         * @param {string} sampleresourceId A unique identifier for a &#x60;SampleResource&#x60;.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteSampleResource(sampleresourceId: string, options?: any): AxiosPromise<void> {
+            return localVarFp.deleteSampleResource(sampleresourceId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Gets the details of a single instance of a `SampleResource`.
+         * @summary Get a SampleResource
+         * @param {string} sampleresourceId A unique identifier for a &#x60;SampleResource&#x60;.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getSampleResource(sampleresourceId: string, options?: any): AxiosPromise<SampleResource> {
+            return localVarFp.getSampleResource(sampleresourceId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Gets a list of all `SampleResource` entities.
+         * @summary List All SampleResources
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getSampleResources(options?: any): AxiosPromise<Array<SampleResource>> {
+            return localVarFp.getSampleResources(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Updates an existing `SampleResource`.
+         * @summary Update a SampleResource
+         * @param {string} sampleresourceId A unique identifier for a &#x60;SampleResource&#x60;.
+         * @param {SampleResource} sampleResource Updated &#x60;SampleResource&#x60; information.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateSampleResource(sampleresourceId: string, sampleResource: SampleResource, options?: any): AxiosPromise<void> {
+            return localVarFp.updateSampleResource(sampleresourceId, sampleResource, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * ResourceApi - object-oriented interface
+ * @export
+ * @class ResourceApi
+ * @extends {BaseAPI}
+ */
+export class ResourceApi extends BaseAPI {
+    /**
+     * Creates a new instance of a `SampleResource`.
+     * @summary Create a SampleResource
+     * @param {SampleResource} sampleResource A new &#x60;SampleResource&#x60; to be created.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ResourceApi
+     */
+    public createSampleResource(sampleResource: SampleResource, options?: AxiosRequestConfig) {
+        return ResourceApiFp(this.configuration).createSampleResource(sampleResource, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Deletes an existing `SampleResource`.
+     * @summary Delete a SampleResource
+     * @param {string} sampleresourceId A unique identifier for a &#x60;SampleResource&#x60;.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ResourceApi
+     */
+    public deleteSampleResource(sampleresourceId: string, options?: AxiosRequestConfig) {
+        return ResourceApiFp(this.configuration).deleteSampleResource(sampleresourceId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Gets the details of a single instance of a `SampleResource`.
+     * @summary Get a SampleResource
+     * @param {string} sampleresourceId A unique identifier for a &#x60;SampleResource&#x60;.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ResourceApi
+     */
+    public getSampleResource(sampleresourceId: string, options?: AxiosRequestConfig) {
+        return ResourceApiFp(this.configuration).getSampleResource(sampleresourceId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Gets a list of all `SampleResource` entities.
+     * @summary List All SampleResources
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ResourceApi
+     */
+    public getSampleResources(options?: AxiosRequestConfig) {
+        return ResourceApiFp(this.configuration).getSampleResources(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Updates an existing `SampleResource`.
+     * @summary Update a SampleResource
+     * @param {string} sampleresourceId A unique identifier for a &#x60;SampleResource&#x60;.
+     * @param {SampleResource} sampleResource Updated &#x60;SampleResource&#x60; information.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ResourceApi
+     */
+    public updateSampleResource(sampleresourceId: string, sampleResource: SampleResource, options?: AxiosRequestConfig) {
+        return ResourceApiFp(this.configuration).updateSampleResource(sampleresourceId, sampleResource, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
@@ -179,6 +630,7 @@ export const TestApiAxiosParamCreator = function (configuration?: Configuration)
          * 
          * @summary test sentry is working
          * @param {*} [options] Override http request option.
+         * @deprecated
          * @throws {RequiredError}
          */
         error: async (options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
@@ -249,6 +701,7 @@ export const TestApiFp = function(configuration?: Configuration) {
          * 
          * @summary test sentry is working
          * @param {*} [options] Override http request option.
+         * @deprecated
          * @throws {RequiredError}
          */
         async error(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
@@ -261,7 +714,7 @@ export const TestApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async ping(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+        async ping(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<number>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.ping(options);
             return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
         },
@@ -279,6 +732,7 @@ export const TestApiFactory = function (configuration?: Configuration, basePath?
          * 
          * @summary test sentry is working
          * @param {*} [options] Override http request option.
+         * @deprecated
          * @throws {RequiredError}
          */
         error(options?: any): AxiosPromise<string> {
@@ -290,7 +744,7 @@ export const TestApiFactory = function (configuration?: Configuration, basePath?
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        ping(options?: any): AxiosPromise<string> {
+        ping(options?: any): AxiosPromise<number> {
             return localVarFp.ping(options).then((request) => request(axios, basePath));
         },
     };
@@ -307,6 +761,7 @@ export class TestApi extends BaseAPI {
      * 
      * @summary test sentry is working
      * @param {*} [options] Override http request option.
+     * @deprecated
      * @throws {RequiredError}
      * @memberof TestApi
      */
@@ -396,12 +851,16 @@ export const WorkflowsApiAxiosParamCreator = function (configuration?: Configura
         /**
          * 
          * @summary Send a synchronous operation and get results using the event queue. Just a sum, but in the cloud
-         * @param {number} [a] first number to sum
-         * @param {number} [b] second number to sum
+         * @param {number} a first number to sum
+         * @param {number} b second number to sum
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        submitSyncWithResults: async (a?: number, b?: number, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+        submitSyncWithResults: async (a: number, b: number, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'a' is not null or undefined
+            assertParamExists('submitSyncWithResults', 'a', a)
+            // verify required parameter 'b' is not null or undefined
+            assertParamExists('submitSyncWithResults', 'b', b)
             const localVarPath = `/operation_sync_results`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -459,19 +918,19 @@ export const WorkflowsApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async submitSync(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+        async submitSync(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<object>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.submitSync(options);
             return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
         },
         /**
          * 
          * @summary Send a synchronous operation and get results using the event queue. Just a sum, but in the cloud
-         * @param {number} [a] first number to sum
-         * @param {number} [b] second number to sum
+         * @param {number} a first number to sum
+         * @param {number} b second number to sum
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async submitSyncWithResults(a?: number, b?: number, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+        async submitSyncWithResults(a: number, b: number, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.submitSyncWithResults(a, b, options);
             return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
         },
@@ -500,18 +959,18 @@ export const WorkflowsApiFactory = function (configuration?: Configuration, base
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        submitSync(options?: any): AxiosPromise<string> {
+        submitSync(options?: any): AxiosPromise<object> {
             return localVarFp.submitSync(options).then((request) => request(axios, basePath));
         },
         /**
          * 
          * @summary Send a synchronous operation and get results using the event queue. Just a sum, but in the cloud
-         * @param {number} [a] first number to sum
-         * @param {number} [b] second number to sum
+         * @param {number} a first number to sum
+         * @param {number} b second number to sum
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        submitSyncWithResults(a?: number, b?: number, options?: any): AxiosPromise<string> {
+        submitSyncWithResults(a: number, b: number, options?: any): AxiosPromise<string> {
             return localVarFp.submitSyncWithResults(a, b, options).then((request) => request(axios, basePath));
         },
     };
@@ -549,13 +1008,13 @@ export class WorkflowsApi extends BaseAPI {
     /**
      * 
      * @summary Send a synchronous operation and get results using the event queue. Just a sum, but in the cloud
-     * @param {number} [a] first number to sum
-     * @param {number} [b] second number to sum
+     * @param {number} a first number to sum
+     * @param {number} b second number to sum
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof WorkflowsApi
      */
-    public submitSyncWithResults(a?: number, b?: number, options?: AxiosRequestConfig) {
+    public submitSyncWithResults(a: number, b: number, options?: AxiosRequestConfig) {
         return WorkflowsApiFp(this.configuration).submitSyncWithResults(a, b, options).then((request) => request(this.axios, this.basePath));
     }
 }

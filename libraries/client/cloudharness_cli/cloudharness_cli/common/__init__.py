@@ -1,5 +1,3 @@
-# coding: utf-8
-
 # flake8: noqa
 
 """
@@ -12,20 +10,18 @@
 """
 
 
-from __future__ import absolute_import
-
 __version__ = "1.0.0"
-
-# import apis into sdk package
-from cloudharness_cli.common.api.sentry_api import SentryApi
 
 # import ApiClient
 from cloudharness_cli.common.api_client import ApiClient
+
+# import Configuration
 from cloudharness_cli.common.configuration import Configuration
+
+# import exceptions
 from cloudharness_cli.common.exceptions import OpenApiException
+from cloudharness_cli.common.exceptions import ApiAttributeError
 from cloudharness_cli.common.exceptions import ApiTypeError
 from cloudharness_cli.common.exceptions import ApiValueError
 from cloudharness_cli.common.exceptions import ApiKeyError
 from cloudharness_cli.common.exceptions import ApiException
-# import models into sdk package
-
