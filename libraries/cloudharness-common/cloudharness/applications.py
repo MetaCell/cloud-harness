@@ -38,7 +38,7 @@ class ApplicationConfiguration(ApplicationConfig):
             raise ConfigurationCallException(
                 f"Cannot get configuration string: application {self.name} has no database enabled.")
         if self.db_type == 'mongo':
-            return f"mongodb://{self.harness.database.user}:{self.harness.database.password}@{self.db_name}:{self.harness.database.mongo.ports[0]['port']}/"
+            return f"mongodb://{self.harness.database.user}:{self.harness.database['pass']}@{self.db_name}:{self.harness.database.mongo.ports[0]['port']}/"
         elif self.db_type == 'postgres':
             database_name = kwargs.get('database_name', self.harness.database.postgres['initialdb'])
             return f"postgres://{self.db_name}:{self.harness.database.postgres.ports[0]['port']}/" \
