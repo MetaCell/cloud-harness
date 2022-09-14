@@ -27,7 +27,8 @@ REQUIREMENTS = [
     'six',
     'cloudharness_model',
     'schemathesis',
-    'fastapi-code-generator'
+    'fastapi-code-generator',
+    'cloudharness'
 ]
 
 
