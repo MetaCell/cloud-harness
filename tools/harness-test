@@ -22,14 +22,6 @@ ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
 
 HELM_DIR = os.path.join('./', DEPLOYMENT_PATH, HELM_PATH)
 
-try:
-    import cloudharness
-except ModuleNotFoundError:
-    install_path = os.path.join(ROOT, "libraries", "cloudharness-common")
-    logging.info("Installing cloudharness Python runtime library from %s", install_path)
-    subprocess.run("pip install -e .".split(" "), cwd=install_path)
-    import cloudharness
-
 if __name__ == "__main__":
     import argparse
 
