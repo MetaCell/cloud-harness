@@ -33,7 +33,7 @@ def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, inclu
         if included_applications and appname not in included_applications:
             continue
 
-        app_dir = artifacts[appkey]
+        app_dir = artifacts[helm_values.apps[appkey].harness.name]
         api_config: ApiTestsConfig = app_config.test.api
 
         if not api_config.enabled:
