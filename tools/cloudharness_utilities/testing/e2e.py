@@ -42,7 +42,7 @@ def run_e2e_tests(root_paths, helm_values, base_domain, included_applications=[]
             continue
 
         tests_dir = os.path.join(
-                artifacts[appkey], "test", E2E_TESTS_DIRNAME)
+                artifacts[appkey.replace("_", "-")], "test", E2E_TESTS_DIRNAME)
         
         if not app_config.domain and not app_config.subdomain:
             logging.warn(
