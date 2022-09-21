@@ -62,7 +62,7 @@ def run_e2e_tests(root_paths, helm_values, base_domain, included_applications=[]
                 logging.info("Linking tests libraries to  %s",
                                 app_node_modules_path)
                 os.symlink(node_modules_path, app_node_modules_path)
-            env["APP"] = artifacts[appkey]
+            env["APP"] = artifacts[appkey.replace("_", "-")]
 
         logging.info(
                 "Running tests for application %s on domain %s", appname, app_domain)
