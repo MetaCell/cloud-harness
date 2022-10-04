@@ -2,6 +2,7 @@
 import requests
 import yaml
 
+from cloudharness.workflows.utils import is_accounts_present
 from .test_env import set_test_environment
 
 set_test_environment()
@@ -103,10 +104,13 @@ def test_single_task_shared():
     wf = op.to_workflow()
     print('\n', yaml.dump(wf))
 
+    accounts_offset = 1 if is_accounts_present() else 0
     assert len(op.volumes) == 1
-    assert len(wf['spec']['volumes']) == 3
-    assert wf['spec']['volumes'][2]['persistentVolumeClaim']['claimName'] == 'myclaim'
-    assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 3
+    assert len(wf['spec']['volumes']) == 2 + accounts_offset
+    assert wf['spec']['volumes'][1+accounts_offset]['persistentVolumeClaim']['claimName'] == 'myclaim'
+    if accounts_offset == 1:
+        assert wf['spec']['volumes'][1]['secret']['secretName'] == 'accounts'
+    assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 2 + accounts_offset
     if execute:
         print(op.execute())
 
@@ -119,13 +123,14 @@ def test_single_task_shared_multiple():
                                         shared_directory=shared_directory)
     wf = op.to_workflow()
     print('\n', yaml.dump(wf))
+    accounts_offset = 1 if is_accounts_present() else 0
 
     assert len(op.volumes) == 2
-    assert len(wf['spec']['volumes']) == 4
-    assert wf['spec']['volumes'][2]['persistentVolumeClaim']['claimName'] == 'myclaim'
-    assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 4
+    assert len(wf['spec']['volumes']) == 3 + accounts_offset
+    assert wf['spec']['volumes'][1+accounts_offset]['persistentVolumeClaim']['claimName'] == 'myclaim'
+    assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 3 + accounts_offset
 
-    assert wf['spec']['templates'][0]['container']['volumeMounts'][3]['readonly']
+    assert wf['spec']['templates'][0]['container']['volumeMounts'][2+accounts_offset]['readonly']
 
     assert wf['spec']['templates'][0]['metadata']['labels']['usesvolume']
 
@@ -148,11 +153,12 @@ def test_single_task_shared_script():
                                         shared_directory=shared_directory, shared_volume_size=100)
     wf = op.to_workflow()
     print('\n', yaml.dump(wf))
+    accounts_offset = 1 if is_accounts_present() else 0
 
     assert len(op.volumes) == 1
-    assert len(wf['spec']['volumes']) == 3
-    assert wf['spec']['volumes'][2]['persistentVolumeClaim']['claimName'] == 'myclaim'
-    assert len(wf['spec']['templates'][0]['script']['volumeMounts']) == 3
+    assert len(wf['spec']['volumes']) == 2+accounts_offset
+    assert wf['spec']['volumes'][1+accounts_offset]['persistentVolumeClaim']['claimName'] == 'myclaim'
+    assert len(wf['spec']['templates'][0]['script']['volumeMounts']) == 2+accounts_offset
 
     if execute:
         print(op.execute())

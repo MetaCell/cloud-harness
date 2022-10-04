@@ -1,7 +1,7 @@
 from . import argo
 
 from cloudharness.utils.env import get_cloudharness_variables, get_image_full_tag
-from .utils import WORKFLOW_NAME_VARIABLE_NAME
+from .utils import WORKFLOW_NAME_VARIABLE_NAME, is_accounts_present
 
 SERVICE_ACCOUNT = 'argo-workflows'
 
@@ -48,17 +48,19 @@ class Task(argo.ArgoObject):
         self.__envs[name] = value
 
     def cloudharness_configmap_spec(self):
-        return [
+        base_spec = [
             {
                 'name': 'cloudharness-allvalues',
                 'mountPath': '/opt/cloudharness/resources/allvalues.yaml',
                 'subPath': 'allvalues.yaml'
-            },
-            {
+            }
+        ]
+        if is_accounts_present():
+            base_spec.append({
                 'name': 'cloudharness-kc-accounts',
                 'mountPath': '/opt/cloudharness/resources/auth',
-            },
-        ]
+            })
+        return base_spec
 
 
 class ContainerizedTask(Task):

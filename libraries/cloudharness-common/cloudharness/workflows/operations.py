@@ -1,18 +1,16 @@
 import time
-import pyaml
+from collections.abc import Iterable
 from typing import Union
 
-from collections.abc import Iterable
-from kubernetes.client.models.v1_affinity import V1Affinity
-from cloudharness_cli.workflows.models.operation_status import OperationStatus
+import pyaml
 
+from cloudharness import log
 from cloudharness.events.client import EventClient
 from cloudharness.utils import env, config
-from cloudharness import log
-from cloudharness import applications
-
+from cloudharness_cli.workflows.models.operation_status import OperationStatus
 from . import argo
 from .tasks import Task, SendResultTask, CustomTask
+from .utils import is_accounts_present
 
 POLLING_WAIT_SECONDS = 1
 SERVICE_ACCOUNT = 'argo-workflows'
@@ -55,6 +53,7 @@ class ManagedOperation:
 
     def execute(self, **parameters):
         raise NotImplementedError(f"{self.__class__.__name__} is abstract")
+
 
 
 class ContainerizedOperation(ManagedOperation):
@@ -136,18 +135,11 @@ class ContainerizedOperation(ManagedOperation):
             }]
         }
 
-        is_accounts_present = False
-        try:
-            applications.ApplicationConfiguration = applications.get_configuration('accounts')
-            is_accounts_present = True
-        except applications.ConfigurationCallException:
-            pass
-
-        if is_accounts_present:
+        if is_accounts_present():
             spec['volumes'].append({
                 'name': 'cloudharness-kc-accounts',
                 'secret': {
-                    'secretName': 'cloudharness-kc-accounts'
+                    'secretName': 'accounts'
                 }
             })
 
