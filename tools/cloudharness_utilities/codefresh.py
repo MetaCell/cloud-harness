@@ -82,8 +82,9 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     app_relative_to_root = relpath(dockerfile_path, '.')
                     app_relative_to_base = relpath(dockerfile_path, base_path)
                     app_name = app_name_from_path(app_relative_to_base)
-                    app_config: ApplicationHarnessConfig = app_name in helm_values.apps and helm_values.apps[
-                        app_name].harness
+                    app_key = app_name.replace("-", "_")
+                    app_config: ApplicationHarnessConfig = app_key in helm_values.apps and helm_values.apps[
+                        app_key].harness
 
                     if include and not any(
                         f"/{inc}/" in dockerfile_path or
@@ -238,6 +239,16 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         cmds[i] = cmds[i].replace("$PARAMS", " ".join(params))
         cmds[i] = cmds[i].replace("$PATHS", " ".join(os.path.relpath(
                                     root_path, '.') for root_path in root_paths if DEFAULT_MERGE_PATH not in root_path))
+
+    steps = codefresh["steps"]
+    if CD_E2E_TEST_STEP in steps and not steps[CD_E2E_TEST_STEP]["scale"]:
+        del steps[CD_E2E_TEST_STEP]
+        del steps[CD_BUILD_STEP_STATIC]["steps"]["test-e2e"]
+
+    if CD_API_TEST_STEP in steps and not steps[CD_API_TEST_STEP]["scale"]:
+        del steps[CD_API_TEST_STEP]
+        del steps[CD_BUILD_STEP_STATIC]["steps"]["test-api"]
+
 
     if save:
         codefresh_abs_path = join(
