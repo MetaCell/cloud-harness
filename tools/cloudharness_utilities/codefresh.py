@@ -17,7 +17,7 @@ from .testing.api import get_api_filename, get_schemathesis_command, get_urls_fr
 logging.getLogger().setLevel(logging.INFO)
 
 CLOUD_HARNESS_PATH = "cloud-harness"
-ROLLOUT_CMD_TPL = "kubectl -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} rollout status deployment/%s"
+ROLLOUT_CMD_TPL = "kubectl -n test-${{NAMESPACE_BASE}}-${{CF_SHORT_REVISION}} rollout status deployment/%s"
 
 # Codefresh variables may need quotes: adjust yaml dump accordingly
 
