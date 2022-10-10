@@ -113,6 +113,8 @@ def test_create_codefresh_configuration():
             BUILD_MERGE_DIR, APPS_PATH, "workflows/tasks/notify-queue"))
 
         assert CD_UNIT_TEST_STEP in l1_steps, "Unit tests run step should be specified"
+        assert CD_API_TEST_STEP not in l1_steps, "Api steps are not available in the dev env template"
+        assert CD_E2E_TEST_STEP not in l1_steps, "E2E steps are not included in the dev env template"
         assert len(l1_steps[CD_UNIT_TEST_STEP]['steps']
                    ) == 2, "Two unit test steps are expected"
         assert 'myapp_ut' in l1_steps[CD_UNIT_TEST_STEP]['steps'], "Myapp test step is expected"
@@ -203,7 +205,7 @@ def test_create_codefresh_configuration_tests():
 
         assert "test-e2e" in st_build_steps, "e2e tests image should be built"
 
-        e2e_steps = l1_steps['tests_e2e']['scale']
+        e2e_steps = l1_steps[CD_E2E_TEST_STEP]['scale']
 
         assert "samples_e2e_test" in e2e_steps, "samples e2e test step must be included"
         test_step = e2e_steps["samples_e2e_test"]
@@ -232,6 +234,39 @@ def test_create_codefresh_configuration_tests():
 
         assert any("CLOUDHARNESS_BASE" in arg for arg in st_build_steps["test-api"]
                    ["build_arguments"]), "Missing build dependency on api test image"
+
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR)
+    
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['myapp'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env=['dev', 'test'],
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 envs=['dev', 'test'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+        l1_steps = cf['steps']
+        assert CD_API_TEST_STEP not in l1_steps, "Api steps are not included in any app"
+        assert CD_E2E_TEST_STEP not in l1_steps, "E2E steps are not included in any app"
 
     finally:
         shutil.rmtree(BUILD_MERGE_DIR)
