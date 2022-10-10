@@ -6,6 +6,6 @@ pyparsing==3.0.8
 pytest==7.1.2
 pytest-cov==3.0.0
 -e ../libraries/models
--e ../client/cloudharness_cli
+-e ../libraries/client/cloudharness_cli
 -e ../libraries/cloudharness-common
 -e .
