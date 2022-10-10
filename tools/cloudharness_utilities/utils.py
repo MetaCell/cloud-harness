@@ -293,6 +293,9 @@ def dict_merge(dct, merge_dct, add_keys=True):
         dict: updated dict
     """
     dct = dct.copy()
+    if merge_dct is None:
+        return dct
+
     if not add_keys:
         merge_dct = {
             k: merge_dct[k]

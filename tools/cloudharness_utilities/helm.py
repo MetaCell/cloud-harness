@@ -349,9 +349,11 @@ class CloudHarnessHelm:
                 harness[KEY_SERVICE]['name'] = app_name
             if not harness[KEY_DEPLOYMENT].get('name', None):
                 harness[KEY_DEPLOYMENT]['name'] = app_name
-            if not harness[KEY_DATABASE].get('name', None):
+
+            if harness[KEY_DATABASE] and not harness[KEY_DATABASE].get('name', None):
                 harness[KEY_DATABASE]['name'] = app_name.strip() + '-db'
 
+            self.__clear_unused_db_configuration(harness)
             values_set_legacy(v)
 
         if self.include:
@@ -370,6 +372,18 @@ class CloudHarnessHelm:
                 values[KEY_TASK_IMAGES].update(apps[v][KEY_TASK_IMAGES])
         create_env_variables(values)
         return values, self.include
+
+    def __clear_unused_db_configuration(self, harness_config):
+        database_config = harness_config[KEY_DATABASE]
+        database_type = database_config.get('type', None)
+        if database_type is None:
+            del harness_config[KEY_DATABASE]
+            return
+        db_specific_keys = [k for k, v in database_config.items()
+                            if isinstance(v, dict) and 'image' in v and 'ports' in v]
+        for db in db_specific_keys:
+            if database_type != db:
+                del database_config[db]
 
 
 def get_included_with_dependencies(values, include):
@@ -481,7 +495,8 @@ def collect_helm_values(deployment_root, env=()):
     return values
 
 
-def init_app_values(deployment_root, exclude, values={}):
+def init_app_values(deployment_root, exclude, values=None):
+    values = values if values is not None else {}
     app_base_path = os.path.join(deployment_root, APPS_PATH)
     overridden_template_path = os.path.join(
         deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')

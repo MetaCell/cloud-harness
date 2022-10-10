@@ -100,16 +100,18 @@ spec:
 ---
 {{ end }}
 {{- range $app := .Values.apps }}
-  {{- if $app.harness.database.auto  }}
-     {{ include "deploy_utils.database" (dict "root" $ "app" $app) }}
-  {{- end }}
-  {{- range $subapp := $app }}
-  {{- if contains "map" (typeOf $subapp)  }}
-  {{- if hasKey $subapp "harness"}}
-  {{- if and (hasKey $subapp.harness "database") $subapp.harness.database.auto }}
-      {{ include "deploy_utils.database" (dict "root" $ "app" $subapp) }}
-  {{- end }}
-  {{- end }}
-  {{- end }}
-  {{- end }}
-  {{- end }}
+  {{- if  $app.harness.database  }}
+    {{- if $app.harness.database.auto  }}
+      {{ include "deploy_utils.database" (dict "root" $ "app" $app) }}
+    {{- end }}
+    {{- range $subapp := $app }}
+    {{- if contains "map" (typeOf $subapp)  }}
+    {{- if hasKey $subapp "harness"}}
+    {{- if and (hasKey $subapp.harness "database") $subapp.harness.database.auto }}
+        {{ include "deploy_utils.database" (dict "root" $ "app" $subapp) }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+ {{- end }}
