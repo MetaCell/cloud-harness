@@ -16,4 +16,10 @@ kubernetes
 sentry-sdk[flask]==0.14.4
 python-keycloak==1.6.0
 argo-workflows==5.0.0
-schemathesis==3.15.4
+schemathesis==3.16.5
+hypothesis==6.54.2
+hypothesis-graphql==0.9.0
+hypothesis-jsonschema==0.22.0
+openapi-schema-validator==0.3.0
+openapi-spec-validator==0.3.1
+fastapi-code-generator==0.3.5
