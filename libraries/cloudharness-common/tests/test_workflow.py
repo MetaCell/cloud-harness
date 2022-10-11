@@ -2,6 +2,7 @@
 import requests
 import yaml
 
+from cloudharness.workflows.utils import is_accounts_present
 from .test_env import set_test_environment
 
 set_test_environment()
@@ -99,14 +100,17 @@ def test_single_task_shared():
     task_write = operations.CustomTask('download-file', 'workflows-extract-download',
                                        url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
     op = operations.SingleTaskOperation('test-custom-connected-op-', task_write,
-                                      shared_directory=shared_directory, shared_volume_size=100)
+                                        shared_directory=shared_directory, shared_volume_size=100)
     wf = op.to_workflow()
     print('\n', yaml.dump(wf))
 
-    assert len(op.volumes)  == 1
-    assert len(wf['spec']['volumes']) == 2
-    assert wf['spec']['volumes'][1]['persistentVolumeClaim']['claimName'] == 'myclaim'
-    assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 2
+    accounts_offset = 1 if is_accounts_present() else 0
+    assert len(op.volumes) == 1
+    assert len(wf['spec']['volumes']) == 2 + accounts_offset
+    assert wf['spec']['volumes'][1+accounts_offset]['persistentVolumeClaim']['claimName'] == 'myclaim'
+    if accounts_offset == 1:
+        assert wf['spec']['volumes'][1]['secret']['secretName'] == 'accounts'
+    assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 2 + accounts_offset
     if execute:
         print(op.execute())
 
@@ -116,42 +120,49 @@ def test_single_task_shared_multiple():
     task_write = operations.CustomTask('download-file', 'workflows-extract-download',
                                        url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
     op = operations.SingleTaskOperation('test-custom-connected-op-', task_write,
-                                      shared_directory=shared_directory)
+                                        shared_directory=shared_directory)
     wf = op.to_workflow()
     print('\n', yaml.dump(wf))
+    accounts_offset = 1 if is_accounts_present() else 0
 
-    assert len(op.volumes)  == 2
-    assert len(wf['spec']['volumes']) == 3
-    assert wf['spec']['volumes'][1]['persistentVolumeClaim']['claimName'] == 'myclaim'
-    assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 3
+    assert len(op.volumes) == 2
+    assert len(wf['spec']['volumes']) == 3 + accounts_offset
+    assert wf['spec']['volumes'][1+accounts_offset]['persistentVolumeClaim']['claimName'] == 'myclaim'
+    assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 3 + accounts_offset
 
-    assert wf['spec']['templates'][0]['container']['volumeMounts'][2]['readonly'] == True
+    assert wf['spec']['templates'][0]['container']['volumeMounts'][2+accounts_offset]['readonly']
 
     assert wf['spec']['templates'][0]['metadata']['labels']['usesvolume']
 
     assert 'affinity' in wf['spec']
-    assert len(wf['spec']['affinity']['podAffinity']['requiredDuringSchedulingIgnoredDuringExecution']) == 2, "A pod affinity for each volume is expected"
-    affinity_expr = wf['spec']['affinity']['podAffinity']['requiredDuringSchedulingIgnoredDuringExecution'][0]['labelSelector']['matchExpressions'][0]
+    assert len(wf['spec']['affinity']['podAffinity'][
+                   'requiredDuringSchedulingIgnoredDuringExecution']) == 2, "A pod affinity for each volume is expected"
+    affinity_expr = \
+        wf['spec']['affinity']['podAffinity']['requiredDuringSchedulingIgnoredDuringExecution'][0]['labelSelector'][
+            'matchExpressions'][0]
     assert affinity_expr['key'] == 'usesvolume'
     assert affinity_expr['values'][0] == 'myclaim'
     if execute:
         print(op.execute())
 
+
 def test_single_task_shared_script():
     shared_directory = 'myclaim:/mnt/shared'
     task_write = tasks.BashTask('download-file', source="ls -la")
     op = operations.SingleTaskOperation('test-custom-connected-op-', task_write,
-                                      shared_directory=shared_directory, shared_volume_size=100)
+                                        shared_directory=shared_directory, shared_volume_size=100)
     wf = op.to_workflow()
     print('\n', yaml.dump(wf))
+    accounts_offset = 1 if is_accounts_present() else 0
 
-    assert len(op.volumes)  == 1
-    assert len(wf['spec']['volumes']) == 2
-    assert wf['spec']['volumes'][1]['persistentVolumeClaim']['claimName'] == 'myclaim'
-    assert len(wf['spec']['templates'][0]['script']['volumeMounts']) == 2
-    
+    assert len(op.volumes) == 1
+    assert len(wf['spec']['volumes']) == 2+accounts_offset
+    assert wf['spec']['volumes'][1+accounts_offset]['persistentVolumeClaim']['claimName'] == 'myclaim'
+    assert len(wf['spec']['templates'][0]['script']['volumeMounts']) == 2+accounts_offset
+
     if execute:
         print(op.execute())
+
 
 def test_result_task_workflow():
     task_write = operations.CustomTask('download-file', 'workflows-extract-download',
@@ -242,13 +253,12 @@ def test_workflow_with_context():
     for task in workflow['spec']['templates']:
         assert task['metadata']['labels']['a'] == 'b'
 
-
     op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f), tasks.PythonTask('p2', f)),
                                       pod_context=(
-                                        operations.PodExecutionContext('a', 'b'), 
-                                        operations.PodExecutionContext('c', 'd', required=True), 
-                                        operations.PodExecutionContext('e', 'f')
-                                        ))
+                                          operations.PodExecutionContext('a', 'b'),
+                                          operations.PodExecutionContext('c', 'd', required=True),
+                                          operations.PodExecutionContext('e', 'f')
+                                      ))
     workflow = op.to_workflow()
     assert 'affinity' in workflow['spec']
     preferred = workflow['spec']['affinity']['podAffinity']['preferredDuringSchedulingIgnoredDuringExecution']
