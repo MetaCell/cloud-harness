@@ -331,8 +331,8 @@ steps:
         exec:
           image: alpine
           commands:
-          - echo "Waiting 30 minutes before deleting the namespace"
-          - sleep 1800
+          - echo "Waiting ${{WAIT_ON_FAIL}} seconds before deleting the namespace"
+          - sleep ${{WAIT_ON_FAIL}}
   tests_api:
     stage: qa
     title: Api tests
@@ -352,16 +352,16 @@ steps:
         commands:
         - st --pre-run cloudharness.testing.apitest_init run api/openapi.yaml --base-url
           https://samples.${{CF_SHORT_REVISION}}.${{DOMAIN}}/api -c all --skip-deprecated-operations
-          --hypothesis-suppress-health-check=too_slow --hypothesis-deadline=60000
-          --request-timeout=60000 --hypothesis-max-examples=2 --show-errors-tracebacks
+          --hypothesis-suppress-health-check=too_slow --hypothesis-deadline=180000
+          --request-timeout=180000 --hypothesis-max-examples=2 --show-errors-tracebacks
         - pytest -v test/api
     hooks:
       on_fail:
         exec:
           image: alpine
           commands:
-          - echo "Waiting 30 minutes before deleting the namespace"
-          - sleep 1800
+          - echo "Waiting ${{WAIT_ON_FAIL}} seconds before deleting the namespace"
+          - sleep ${{WAIT_ON_FAIL}}
   tests_e2e:
     stage: qa
     title: End to end tests
@@ -382,8 +382,8 @@ steps:
         exec:
           image: alpine
           commands:
-          - echo "Waiting 30 minutes before deleting the namespace"
-          - sleep 1800
+          - echo "Waiting ${{WAIT_ON_FAIL}} seconds before deleting the namespace"
+          - sleep ${{WAIT_ON_FAIL}}
 hooks:
   on_finish:
     image: codefresh/kubectl
