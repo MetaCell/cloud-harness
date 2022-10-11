@@ -9,6 +9,7 @@ harness:
       clientRoles:
       - role1
       realmRoles:
+      - administrator
       - offline_access
     - username: samples-test-user2
       email: sample2@testuser.com

@@ -18,8 +18,8 @@ data:
     enable-default-deny:  {{ eq (.app.harness.secured | toString) "true" }}
     listen: 0.0.0.0:8080
     enable-refresh-tokens: true
-    server-write-timeout: 60s
-    upstream-response-header-timeout: 60s
+    server-write-timeout: 180s
+    upstream-response-header-timeout: 180s
     http-only-cookie: false
     tls-cert:
     tls-private-key:
