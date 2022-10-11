@@ -379,11 +379,12 @@ steps:
           - cf_export  FAILED=failed
   approval:
     type: pending-approval
-    stage: publish
-    title: Approve build
-    description: Approve build release and tagging
+    stage: qa
+    title: Approve with failed tests
+    description: The pipeline will fail after ${{WAIT_ON_FAIL}} minutes
+    timeUnit: minutes
     timeout:
-      duration: 1
+      duration: '${{WAIT_ON_FAIL}}'
       finalState: denied
     when:
       condition:

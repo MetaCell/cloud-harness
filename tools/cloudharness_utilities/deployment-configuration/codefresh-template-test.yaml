@@ -122,7 +122,7 @@ steps:
   publish: null
   approval:
     type: pending-approval
-    stage: publish
+    stage: qa
     title: Approve with failed tests
     description: The pipeline will fail after ${{WAIT_ON_FAIL}} minutes
     timeUnit: minutes
