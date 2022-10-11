@@ -326,18 +326,12 @@ steps:
     - kubectl -n test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}} rollout status
       deployment/workflows
     - sleep 60
-    hooks:
-      on_fail:
-        exec:
-          image: alpine
-          commands:
-          - echo "Waiting ${{WAIT_ON_FAIL}} seconds before deleting the namespace"
-          - sleep ${{WAIT_ON_FAIL}}
   tests_api:
     stage: qa
     title: Api tests
     working_directory: /home/test
     image: '${{test-api}}'
+    fail_fast: false
     commands:
     - echo $APP_NAME
     scale:
@@ -360,13 +354,13 @@ steps:
         exec:
           image: alpine
           commands:
-          - echo "Waiting ${{WAIT_ON_FAIL}} seconds before deleting the namespace"
-          - sleep ${{WAIT_ON_FAIL}}
+          - cf_export  FAILED=failed
   tests_e2e:
     stage: qa
     title: End to end tests
     working_directory: /home/test
     image: '${{test-e2e}}'
+    fail_fast: false
     commands:
     - yarn test
     scale:
@@ -382,8 +376,20 @@ steps:
         exec:
           image: alpine
           commands:
-          - echo "Waiting ${{WAIT_ON_FAIL}} seconds before deleting the namespace"
-          - sleep ${{WAIT_ON_FAIL}}
+          - cf_export  FAILED=failed
+  approval:
+    type: pending-approval
+    stage: publish
+    title: Approve build
+    description: Approve build release and tagging
+    timeout:
+      duration: 1
+      finalState: denied
+    when:
+      condition:
+        all:
+          error: '"${{FAILED}}" == "failed"'
+          wait_on_fail: '${{WAIT_ON_FAIL}}'
 hooks:
   on_finish:
     image: codefresh/kubectl
