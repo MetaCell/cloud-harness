@@ -125,8 +125,8 @@ steps:
     stage: qa
     title: Approve with failed tests
     description: The pipeline will fail after ${{WAIT_ON_FAIL}} minutes
-    timeUnit: minutes
     timeout:
+      timeUnit: minutes
       duration: ${{WAIT_ON_FAIL}}
       finalState: denied
     when:
