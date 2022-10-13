@@ -105,6 +105,7 @@ def {{operation.function_name}}({{operation.snake_case_arguments}}) -> {{operati
     {% for params in operation.snake_case_arguments.split(",") -%}
     {% if params and ':' in params %}
         {{params.split(":")[0]}}={{params.split(":")[0]}},
+    {% endif %}
     {% endfor -%})
 {% endfor %}
 
