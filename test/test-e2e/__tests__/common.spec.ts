@@ -7,7 +7,7 @@ let browser: any;
 describe("Sandbox", () => {
   if (!process.env.SKIP_SMOKETEST) {
     beforeAll(async () => {
-      browser = await puppeteer.launch({ args: ['--no-sandbox'], headless: true, })
+      browser = await puppeteer.launch({ args: ['--no-sandbox'], headless: !process.env.DISPLAY, })
 
       page = await browser.newPage();
       page.on('pageerror', ({ message }: any) => {
