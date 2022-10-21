@@ -35,7 +35,7 @@ Secret editing/maintenance alternatives:
 
 ## Secret usage in Python backend apps
 
-The CloudHarness python library (`cloudharness-common`) provides easy access to the CH secrets, just import `get_secrets` from `cloudharness.utils.secrets`.
+The CloudHarness python library (`cloudharness-runtime`) provides easy access to the CH secrets, just import `get_secrets` from `cloudharness.utils.secrets`.
 
 Example:
 ```python

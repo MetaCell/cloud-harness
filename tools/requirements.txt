@@ -4,4 +4,3 @@ ruamel.yaml
 oyaml
 schemathesis
 cloudharness_model
-cloudharness

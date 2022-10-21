@@ -55,7 +55,7 @@ bash install.sh
 
 3 - Install cloud-harness common library
 ```
-cd libraries/cloudharness-common
+cd libraries/cloudharness-runtime
 pip install -e .
 ```
 
