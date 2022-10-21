@@ -5,9 +5,11 @@ let browser: any;
 
 
 describe("Sandbox", () => {
+  console.log(process.env);
   if (!process.env.SKIP_SMOKETEST) {
+    
     beforeAll(async () => {
-      browser = await puppeteer.launch({ args: ['--no-sandbox'], headless: !process.env.DISPLAY, })
+      browser = await puppeteer.launch({ args: ['--no-sandbox'], headless: !process.env.PUPPETEER_DISPLAY, })
 
       page = await browser.newPage();
       page.on('pageerror', ({ message }: any) => {
