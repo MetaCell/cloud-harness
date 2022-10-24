@@ -44,7 +44,9 @@ if __name__ == "__main__":
                         help=f'Run only end to end tests (default: run both api and end to end tests')
     parser.add_argument('-a', '--api', dest='run_api', action="store_const", default=None, const=True,
                         help=f'Run only end to end tests (default: run both api and end to end tests')
-
+                        
+    parser.add_argument('-hl', '--headless', dest='headless', action="store_true", default=False,
+                        help=f'Run headless end to end tests')
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
     root_paths = [os.path.join(os.getcwd(), path) for path in args.paths]
@@ -84,4 +86,4 @@ if __name__ == "__main__":
         if args.run_api == True or args.run_e2e is None:
             run_api_tests(root_paths, helm_values, base_domain, included_applications)
         if args.run_e2e == True or args.run_api is None:
-            run_e2e_tests(root_paths, helm_values, base_domain, included_applications)
+            run_e2e_tests(root_paths, helm_values, base_domain, included_applications, args.headless)

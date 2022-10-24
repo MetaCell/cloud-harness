@@ -16,7 +16,7 @@ ROOT = dn(dn(dn(HERE)).replace(os.path.sep, '/'))
 E2E_TESTS_PROJECT_ROOT = os.path.abspath(E2E_TESTS_PROJECT_PATH) if os.path.exists(
     E2E_TESTS_PROJECT_PATH) else os.path.join(ROOT, E2E_TESTS_PROJECT_PATH)
 
-def run_e2e_tests(root_paths, helm_values, base_domain, included_applications=[]):
+def run_e2e_tests(root_paths, helm_values, base_domain, included_applications=[], headless=False):
 
     if which("npm") is None:
         logging.error("npm is required to run end to end tests")
@@ -55,6 +55,8 @@ def run_e2e_tests(root_paths, helm_values, base_domain, included_applications=[]
         
         
         env = get_app_environment(app_config, app_domain)
+        if not headless and os.environ.get('DISPLAY'):
+            env["PUPPETEER_DISPLAY"] = "display"
         if os.path.exists(tests_dir):
             
             app_node_modules_path = os.path.join(tests_dir, "node_modules")

@@ -11,7 +11,7 @@ def get_user_password(main_user: ApplicationUser):
 def get_app_environment(app_config: ApplicationHarnessConfig, app_domain, use_local_env=True):
     my_env = os.environ.copy() if use_local_env else {}
     my_env["APP_URL"] = app_domain
-    my_env["PUPPETEER_DISPLAY"] = os.environ.get('DISPLAY')
+    
 
     if app_config.accounts and app_config.accounts.users:
         main_user: ApplicationUser = app_config.accounts.users[0]
