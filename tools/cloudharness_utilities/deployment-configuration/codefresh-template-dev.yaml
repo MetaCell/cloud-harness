@@ -82,7 +82,7 @@ steps:
     image: codefresh/kubectl
     commands:
       - kubectl config use-context ${{CLUSTER_NAME}}
-      - kubectl config set-context --current --namespace=test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
+      - kubectl config set-context --current --namespace=${{NAMESPACE}}
     when:
       condition:
         all:

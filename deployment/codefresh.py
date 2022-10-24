@@ -40,7 +40,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
     Entry point to create deployment scripts for codefresh: codefresh.yaml and helm chart
     """
     build_included = [app['harness']['name']
-                      for app in helm_values['apps'].values() if 'harness' in app]
+                            for app in helm_values['apps'].values() if 'harness' in app]
     out_filename = f"codefresh-{'-'.join(envs)}.yaml"
 
     if build_included:
@@ -176,6 +176,18 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         image=r"${{%s}}" % app_name
                     )
 
+            def create_k8s_rollout_commands():
+                rollout_commands = steps[CD_WAIT_STEP]['commands']
+                for app_key in helm_values[KEY_APPS]:
+                    app: ApplicationHarnessConfig = helm_values[KEY_APPS][app_key].harness
+                    if app.deployment.auto:
+                        rollout_commands.append(
+                            ROLLOUT_CMD_TPL % app.deployment.name)
+                    if app.secured and helm_values.secured_gatekeepers:
+                        rollout_commands.append(
+                            ROLLOUT_CMD_TPL % app.service.name + "-gk")
+                rollout_commands.append("sleep 60") # some time to the certificates to settle
+
             codefresh_steps_from_base_path(join(root_path, BASE_IMAGES_PATH), CD_BUILD_STEP_BASE,
                                            fixed_context=relpath(root_path, os.getcwd()), include=helm_values[KEY_TASK_IMAGES].keys())
             codefresh_steps_from_base_path(join(root_path, STATIC_IMAGES_PATH), CD_BUILD_STEP_STATIC,
@@ -184,6 +196,8 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
             codefresh_steps_from_base_path(join(
                 root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
 
+            if CD_WAIT_STEP in steps:
+                create_k8s_rollout_commands()
             if CD_E2E_TEST_STEP in steps:
                 codefresh_steps_from_base_path(join(
                     root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_STATIC, include=("test-e2e",))
@@ -191,18 +205,6 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 codefresh_steps_from_base_path(join(
                     root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_STATIC, include=("test-api",))
 
-    if CD_WAIT_STEP in steps:
-        rollout_commands = steps[CD_WAIT_STEP]['commands']
-        for app_key in helm_values[KEY_APPS]:
-            app: ApplicationHarnessConfig = helm_values[KEY_APPS][app_key].harness
-            if app.deployment.auto:
-                rollout_commands.append(
-                    ROLLOUT_CMD_TPL % app.deployment.name)
-            if app.secured and helm_values.secured_gatekeepers:
-                rollout_commands.append(
-                    ROLLOUT_CMD_TPL % app.service.name + "-gk")
-        # some time to the certificates to settle
-        rollout_commands.append("sleep 60")
     if not codefresh:
         logging.warning(
             "No template file found. Codefresh script not created.")
@@ -228,15 +230,15 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                             "apps_%s_harness_secrets_%s=${{%s}}" % (app_name.replace("_", "__"), secret_name, secret_name.upper()))
 
     cmds = codefresh['steps']['prepare_deployment']['commands']
-
+    
     params = [p for inc in include for p in ["-i", inc]] +\
-        [p for ex in exclude for p in ["-i", ex]]
+        [p for ex in exclude for p in ["-i", ex]] 
 
     for i in range(len(cmds)):
         cmds[i] = cmds[i].replace("$ENV", "-".join(envs))
         cmds[i] = cmds[i].replace("$PARAMS", " ".join(params))
         cmds[i] = cmds[i].replace("$PATHS", " ".join(os.path.relpath(
-            root_path, '.') for root_path in root_paths if DEFAULT_MERGE_PATH not in root_path))
+                                    root_path, '.') for root_path in root_paths if DEFAULT_MERGE_PATH not in root_path))
 
     steps = codefresh["steps"]
     if CD_E2E_TEST_STEP in steps and not steps[CD_E2E_TEST_STEP]["scale"]:
@@ -246,6 +248,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
     if CD_API_TEST_STEP in steps and not steps[CD_API_TEST_STEP]["scale"]:
         del steps[CD_API_TEST_STEP]
         del steps[CD_BUILD_STEP_STATIC]["steps"]["test-api"]
+
 
     if save:
         codefresh_abs_path = join(
@@ -289,7 +292,7 @@ def api_test_volumes(app_relative_to_root):
     return [
         r"${{CF_REPO_NAME}}/" + f"{app_relative_to_root}:/home/test",
         "${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml"
-    ]
+        ]
 
 
 def e2e_test_environment(app_config: ApplicationHarnessConfig, app_domain: str = None):
