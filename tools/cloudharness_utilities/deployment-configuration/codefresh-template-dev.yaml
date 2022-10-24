@@ -76,6 +76,44 @@ steps:
       cmd_ps: --wait --timeout 600s
       custom_value_files:
       - ./deployment/helm/values.yaml
+  wait_deployment:
+    stage: qa
+    title: Wait deployment to be ready
+    image: codefresh/kubectl
+    commands:
+      - kubectl config use-context ${{CLUSTER_NAME}}
+      - kubectl config set-context --current --namespace=test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
+    when:
+      condition:
+        all:
+          whenVarExists: 'includes("${{SKIP_TESTS}}", "{{SKIP_TESTS}}") == true'
+  tests_api:
+    stage: qa
+    title: Api tests
+    working_directory: /home/test
+    image: "${{test-api}}"
+    fail_fast: false
+    commands:
+      - echo $APP_NAME
+    scale: {}
+    when:
+      condition:
+        all:
+          whenVarExists: 'includes("${{SKIP_TESTS}}", "{{SKIP_TESTS}}") == true'
+  tests_e2e:
+    stage: qa
+    title: End to end tests
+    working_directory: /home/test
+    image: "${{test-e2e}}"
+    fail_fast: false
+    commands:
+      - yarn test
+    scale: {}
+    when:
+      condition:
+        all:
+          whenVarExists: 'includes("${{SKIP_TESTS}}", "{{SKIP_TESTS}}") == true'
+
   approval:
     type: pending-approval
     stage: publish
