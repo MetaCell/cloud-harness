@@ -1,0 +1,5 @@
+.idea
+*.pyc
+.vscode
+.coverage
+*.DS_Store

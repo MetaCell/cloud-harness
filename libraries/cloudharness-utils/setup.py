@@ -1,8 +1,16 @@
 # coding: utf-8
+
+"""
+    CloudHarness utils
+
+    Contact: cloudharness@metacell.us
+"""
+
+
 from setuptools import setup, find_packages
 
 
-NAME = "cloudharness"
+NAME = "cloudharness_utils"
 VERSION = "2.0.0"
 # To install the library, run the following
 #
@@ -12,19 +20,9 @@ VERSION = "2.0.0"
 # http://pypi.python.org/pypi/setuptools
 
 REQUIREMENTS = [
-    'kubernetes',
-    'kafka-python',
-    'pyaml',
-    'pyjwt>=1.7.1,<2',
-    'cryptography',
-    'requests>=2.21.0',
-    'sentry-sdk[flask]>=0.14.4',
-    'python-keycloak',
-    'cloudharness_model',
-    'argo-workflows>=6.3.9',
-    'cachetools',
-    'schemathesis',
-    'keycloak',
+    'ruamel.yaml',
+    'oyaml',
+    'cloudharness_model'
 ]
 
 
@@ -32,15 +30,14 @@ REQUIREMENTS = [
 setup(
     name=NAME,
     version=VERSION,
-    description="CloudHarness common runtime library",
+    description="CloudHarness utils and constants",
     author_email="cloudharness@metacell.us",
     url="",
-    keywords=["cloudharness", "cloud"],
+    keywords=["Cloud", "Kubernetes", "Helm", "Deploy"],
     install_requires=REQUIREMENTS,
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,
-    package_data={'': ['*.yaml']},
     long_description="""\
-    Cloudharness common library
+    CloudHarness utils library
     """
 )
