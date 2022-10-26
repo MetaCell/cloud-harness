@@ -186,10 +186,10 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
             if CD_E2E_TEST_STEP in steps:
                 codefresh_steps_from_base_path(join(
-                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_STATIC, include=("test-e2e",))
+                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=("test-e2e",))
             if CD_API_TEST_STEP in steps:
                 codefresh_steps_from_base_path(join(
-                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_STATIC, include=("test-api",))
+                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=("test-api",))
 
     if CD_WAIT_STEP in steps:
         rollout_commands = steps[CD_WAIT_STEP]['commands']
@@ -241,11 +241,11 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
     steps = codefresh["steps"]
     if CD_E2E_TEST_STEP in steps and not steps[CD_E2E_TEST_STEP]["scale"]:
         del steps[CD_E2E_TEST_STEP]
-        del steps[CD_BUILD_STEP_STATIC]["steps"]["test-e2e"]
+        del steps[CD_BUILD_STEP_TEST]["steps"]["test-e2e"]
 
     if CD_API_TEST_STEP in steps and not steps[CD_API_TEST_STEP]["scale"]:
         del steps[CD_API_TEST_STEP]
-        del steps[CD_BUILD_STEP_STATIC]["steps"]["test-api"]
+        del steps[CD_BUILD_STEP_TEST]["steps"]["test-api"]
 
     if save:
         codefresh_abs_path = join(

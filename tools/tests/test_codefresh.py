@@ -83,7 +83,7 @@ def test_create_codefresh_configuration():
             RESOURCES, STATIC_IMAGES_PATH, "my-common"))
 
         steps = l1_steps["build_application_images"]["steps"]
-        assert len(steps) == 11
+        assert len(steps) == 12
         assert "myapp" in steps
         assert "samples" in steps
         assert "accounts" in steps
@@ -113,8 +113,8 @@ def test_create_codefresh_configuration():
             BUILD_MERGE_DIR, APPS_PATH, "workflows/tasks/notify-queue"))
 
         assert CD_UNIT_TEST_STEP in l1_steps, "Unit tests run step should be specified"
-        assert CD_API_TEST_STEP not in l1_steps, "Api steps are not available in the dev env template"
-        assert CD_E2E_TEST_STEP not in l1_steps, "E2E steps are not included in the dev env template"
+        assert CD_API_TEST_STEP in l1_steps, "Api steps are available in the dev env template"
+        assert CD_E2E_TEST_STEP in l1_steps, "E2E steps are included in the dev env template"
         assert len(l1_steps[CD_UNIT_TEST_STEP]['steps']
                    ) == 2, "Two unit test steps are expected"
         assert 'myapp_ut' in l1_steps[CD_UNIT_TEST_STEP]['steps'], "Myapp test step is expected"
@@ -201,9 +201,9 @@ def test_create_codefresh_configuration_tests():
 
         l1_steps = cf['steps']
 
-        st_build_steps = l1_steps["build_static_images"]["steps"]
+        st_build_test_steps = l1_steps["build_test_images"]["steps"]
 
-        assert "test-e2e" in st_build_steps, "e2e tests image should be built"
+        assert "test-e2e" in st_build_test_steps, "e2e tests image should be built"
 
         e2e_steps = l1_steps[CD_E2E_TEST_STEP]['scale']
 
@@ -213,7 +213,7 @@ def test_create_codefresh_configuration_tests():
             'environment'], "APP_URL must be provided as environment variable"
         assert len(test_step['volumes']) == 1
 
-        assert "test-api" in st_build_steps
+        assert "test-api" in st_build_test_steps
         api_steps = l1_steps['tests_api']['scale']
         test_step = api_steps["samples_api_test"]
         assert "APP_URL=https://samples.${{CF_SHORT_REVISION}}.${{DOMAIN}}/api" in test_step[
@@ -229,10 +229,10 @@ def test_create_codefresh_configuration_tests():
         assert "api/openapi.yaml" in st_cmd, "Openapi file must be passed to the schemathesis command"
 
         assert "-c all" in st_cmd, "Default check loaded is `all` on schemathesis command"
-        assert "--hypothesis-deadline=60000" in st_cmd, "Custom parameters are loaded from values.yaml"
+        assert "--hypothesis-deadline=" in st_cmd, "Custom parameters are loaded from values.yaml"
 
 
-        assert any("CLOUDHARNESS_BASE" in arg for arg in st_build_steps["test-api"]
+        assert any("CLOUDHARNESS_BASE" in arg for arg in st_build_test_steps["test-api"]
                    ["build_arguments"]), "Missing build dependency on api test image"
 
     finally:

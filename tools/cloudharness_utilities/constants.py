@@ -35,6 +35,7 @@ CH_BASE_IMAGES = {'cloudharness-base': 'python:3.9.10-alpine', 'cloudharness-bas
 
 CD_BUILD_STEP_BASE = 'build_base_images'
 CD_BUILD_STEP_STATIC = 'build_static_images'
+CD_BUILD_STEP_TEST = 'build_test_images'
 CD_BUILD_STEP_PARALLEL = 'build_application_images'
 CD_UNIT_TEST_STEP = 'tests_unit'
 CD_STEP_INSTALL = 'deployment'

@@ -5,4 +5,6 @@ nose
 randomize
 pyparsing
 -e ../libraries/models
+-e ../libraries/client/cloudharness_cli
+-e ../libraries/cloudharness-common
 -e .
