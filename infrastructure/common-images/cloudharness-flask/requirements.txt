@@ -38,7 +38,6 @@ Jinja2==3.0.3
 jsonschema==4.4.0
 kafka-python==2.0.2
 kazoo==2.5.0
-kubernetes==11.0.0
 MarkupSafe==2.1.1
 mccabe==0.6.1
 more-itertools==8.12.0
