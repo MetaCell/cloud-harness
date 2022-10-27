@@ -4,6 +4,7 @@ coverage
 nose
 randomize
 pyparsing
+keycloak
 -e ../models
 -e ../client/cloudharness_cli
 -e .
