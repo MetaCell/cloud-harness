@@ -6,8 +6,8 @@ import os
 
 from cloudharness_model.models import HarnessMainConfig
 
-from cloudharness_test.testing.api import run_api_tests
-from cloudharness_test.testing.e2e import run_e2e_tests
+from cloudharness_test.api import run_api_tests
+from cloudharness_test.e2e import run_e2e_tests
 from cloudharness_test.utils import url_check
 from ruamel.yaml import YAML
 

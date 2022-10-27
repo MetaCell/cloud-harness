@@ -4,6 +4,8 @@ from typing import Union
 
 import pyaml
 
+from argo_workflows.api.workflow_service_api import IoArgoprojWorkflowV1alpha1Workflow as Workflow
+
 from cloudharness import log
 from cloudharness.events.client import EventClient
 from cloudharness.utils import env, config
@@ -112,12 +114,12 @@ class ContainerizedOperation(ManagedOperation):
         raise NotImplementedError()
 
     def to_workflow(self, **arguments):
-        return {
+        return Workflow._new_from_openapi_data(**{
             'apiVersion': 'argoproj.io/v1alpha1',
             'kind': 'Workflow',
             'metadata': {'generateName': self.name},
             'spec': self.spec()
-        }
+        }, _check_type=False)
 
     def spec(self):
         spec = {
@@ -228,7 +230,7 @@ class ContainerizedOperation(ManagedOperation):
         """Created and submits the Argo workflow"""
         op = self.to_workflow()
 
-        log.debug("Submitting workflow\n" + pyaml.dump(op))
+        log.debug("Submitting workflow\n" + pyaml.dump(op.to_dict()))
 
         # TODO use rest api for that? Include this into cloudharness.workflows?
         self.persisted = argo.submit_workflow(op)
@@ -269,6 +271,7 @@ class ContainerizedOperation(ManagedOperation):
             return {
                 'metadata': {
                     'name': self.name_from_path(volume.split(':')[0]),
+                    'creationTimestamp': "pippo"
                 },
                 'spec': {
                     'accessModes': ["ReadWriteOnce"],

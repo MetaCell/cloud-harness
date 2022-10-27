@@ -7,8 +7,8 @@ from ch_cli_tools.preprocessing import get_build_paths
 
 
 from cloudharness_model.models import  HarnessMainConfig, ApiTestsConfig, ApplicationHarnessConfig
-from ch_cli_tools.testing.util import get_app_environment
-
+from cloudharness_utils.testing.util import get_app_environment
+from cloudharness_utils.testing.api import get_api_filename, get_urls_from_api_file, get_schemathesis_command
 
 from ruamel.yaml import YAML
 

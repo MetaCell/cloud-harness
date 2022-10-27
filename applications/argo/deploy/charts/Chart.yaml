@@ -2,7 +2,7 @@ annotations:
   artifacthub.io/changes: |
     - "[Added]: Also test with default values"
 apiVersion: v2
-appVersion: v3.1.8
+appVersion: v3.4.2
 description: A Helm chart for Argo Workflows
 home: https://github.com/argoproj/argo-helm
 icon: https://raw.githubusercontent.com/argoproj/argo-workflows/master/docs/assets/argo.png

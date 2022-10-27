@@ -21,8 +21,7 @@ VERSION = "2.0.0"
 # http://pypi.python.org/pypi/setuptools
 
 REQUIREMENTS = [
-    'ruamel.yaml',
-    'oyaml',
+    'requests',
     'cloudharness_model',
     'cloudharness',
     'schemathesis',

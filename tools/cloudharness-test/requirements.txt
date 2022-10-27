@@ -1,6 +1,3 @@
-docker
-six
-ruamel.yaml
-oyaml
+openapi-spec-validator==0.5.1
 schemathesis
 cloudharness_model

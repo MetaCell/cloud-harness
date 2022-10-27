@@ -7,7 +7,7 @@ import subprocess
 from cloudharness_model.models import ApplicationHarnessConfig
 
 from cloudharness_utils.constants import  E2E_TESTS_PROJECT_PATH, E2E_TESTS_DIRNAME
-from cloudharness_utils.preprocessing import get_build_paths
+from ch_cli_tools.preprocessing import get_build_paths
 from cloudharness_utils.testing.util import get_app_environment
 
 HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')

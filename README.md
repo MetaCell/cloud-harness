@@ -74,10 +74,10 @@ Python 3.7-3.9 must be installed.
 
 It is recommended to setup a virtual environment.
 With conda: 
- ```bash
- conda create --name ch python=3.9
- conda activate ch
- ```
+```bash
+conda create --name ch python=3.9
+conda activate ch
+```
 
 ### Docker
 [Docker](https://www.docker.com) is required to build locally.

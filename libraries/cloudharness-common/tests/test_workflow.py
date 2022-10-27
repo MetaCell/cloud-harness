@@ -29,7 +29,7 @@ def test_sync_workflow():
     assert 'registry' in CloudharnessConfig.get_configuration()
     op = operations.DistributedSyncOperation('test-sync-op-', task)
     print('\n', yaml.dump(op.to_workflow()))
-
+    
     if execute:
         print(op.execute())
 
@@ -43,7 +43,7 @@ def test_pipeline_workflow():
     op = operations.PipelineOperation('test-pipeline-op-', (tasks.PythonTask('step1', f), tasks.PythonTask('step2', f)))
     print('\n', yaml.dump(op.to_workflow()))
     if execute:
-        print(op.execute())
+        op.execute()
 
 
 def test_parallel_workflow():
@@ -54,8 +54,8 @@ def test_parallel_workflow():
 
     op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f), tasks.PythonTask('p2', f)))
     print('\n', yaml.dump(op.to_workflow()))
-    if execute:
-        print(op.execute())
+    
+    op.execute()
 
 
 def test_simpledag_workflow():
@@ -160,8 +160,8 @@ def test_single_task_shared_script():
     assert wf['spec']['volumes'][1+accounts_offset]['persistentVolumeClaim']['claimName'] == 'myclaim'
     assert len(wf['spec']['templates'][0]['script']['volumeMounts']) == 2+accounts_offset
 
-    if execute:
-        print(op.execute())
+    
+    
 
 
 def test_result_task_workflow():
