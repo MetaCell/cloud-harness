@@ -11,7 +11,7 @@ from argo_workflows import ApiClient, Configuration
 from argo_workflows.api.workflow_service_api import WorkflowServiceApi,\
     IoArgoprojWorkflowV1alpha1WorkflowCreateRequest as V1alpha1WorkflowCreateRequest,\
     IoArgoprojWorkflowV1alpha1WorkflowList as V1alpha1WorkflowList,\
-    IoArgoprojWorkflowV1alpha1Workflow as V1alpha1Workflow
+    IoArgoprojWorkflowV1alpha1Workflow as V1alpha1Workflow, IoArgoprojWorkflowV1alpha1WorkflowSubmitRequest, 
 
 
 # determine the namespace of the current app and run the workflow in that namespace
@@ -155,11 +155,11 @@ def submit_workflow(spec) -> Workflow:
 
     service = WorkflowServiceApi(api_client=get_api_client())
 
-    req = V1alpha1WorkflowCreateRequest(
+    req = IoArgoprojWorkflowV1alpha1WorkflowSubmitRequest(
         workflow=spec, instance_id=namespace, namespace=namespace)
 
     # pprint(service.list_workflows('ch', V1alpha1WorkflowList()))
-    wf = service.create_workflow(namespace, req)
+    wf = service.submit_workflow(namespace, req)
     return Workflow(wf)
 
 

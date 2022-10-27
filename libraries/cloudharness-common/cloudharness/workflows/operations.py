@@ -4,7 +4,7 @@ from typing import Union
 
 import pyaml
 
-from argo_workflows.api.workflow_service_api import IoArgoprojWorkflowV1alpha1Workflow as Workflow
+from argo_workflows.api.workflow_service_api import IoArgoprojWorkflowV1alpha1Workflow
 
 from cloudharness import log
 from cloudharness.events.client import EventClient
@@ -114,7 +114,7 @@ class ContainerizedOperation(ManagedOperation):
         raise NotImplementedError()
 
     def to_workflow(self, **arguments):
-        return Workflow._new_from_openapi_data(**{
+        return IoArgoprojWorkflowV1alpha1Workflow._new_from_openapi_data(**{
             'apiVersion': 'argoproj.io/v1alpha1',
             'kind': 'Workflow',
             'metadata': {'generateName': self.name},
@@ -270,8 +270,7 @@ class ContainerizedOperation(ManagedOperation):
         if ':' not in volume:
             return {
                 'metadata': {
-                    'name': self.name_from_path(volume.split(':')[0]),
-                    'creationTimestamp': "pippo"
+                    'name': self.name_from_path(volume.split(':')[0])
                 },
                 'spec': {
                     'accessModes': ["ReadWriteOnce"],
