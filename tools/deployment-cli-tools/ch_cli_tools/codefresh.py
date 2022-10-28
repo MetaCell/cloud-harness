@@ -89,7 +89,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 env = get_app_environment(app_config, app_domain, False)
                 return [f"{k}={env[k]}" for k in env]
 
-            def codefresh_steps_from_base_path(base_path, build_step, fixed_context=None, include=build_included):
+            def codefresh_steps_from_base_path(base_path, build_step, fixed_context=None, include=build_included, publish=True):
 
                 for dockerfile_path in find_dockerfiles_paths(base_path):
                     app_relative_to_root = relpath(dockerfile_path, '.')
@@ -132,7 +132,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
                         steps[build_step]['steps'][app_name] = build
 
-                    if CD_STEP_PUBLISH in steps and steps[CD_STEP_PUBLISH]:
+                    if CD_STEP_PUBLISH in steps and steps[CD_STEP_PUBLISH] and publish:
                         if not type(steps[CD_STEP_PUBLISH]['steps']) == dict:
                             steps[CD_STEP_PUBLISH]['steps'] = {}
                         steps[CD_STEP_PUBLISH]['steps']['publish_' + app_name] = codefresh_app_publish_spec(
@@ -199,10 +199,10 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
             if CD_E2E_TEST_STEP in steps:
                 codefresh_steps_from_base_path(join(
-                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=("test-e2e",))
+                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=("test-e2e",), publish=False)
             if CD_API_TEST_STEP in steps:
                 codefresh_steps_from_base_path(join(
-                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=("test-api",), fixed_context=relpath(root_path, os.getcwd()))
+                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=("test-api",), fixed_context=relpath(root_path, os.getcwd()), publish=False)
 
     if CD_WAIT_STEP in steps:
         rollout_commands = steps[CD_WAIT_STEP]['commands']
