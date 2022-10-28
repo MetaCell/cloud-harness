@@ -179,7 +179,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
             codefresh_steps_from_base_path(join(root_path, BASE_IMAGES_PATH), CD_BUILD_STEP_BASE,
                                            fixed_context=relpath(root_path, os.getcwd()), include=helm_values[KEY_TASK_IMAGES].keys())
             codefresh_steps_from_base_path(join(root_path, STATIC_IMAGES_PATH), CD_BUILD_STEP_STATIC,
-                                           include=helm_values[KEY_TASK_IMAGES].keys())
+                                            include=helm_values[KEY_TASK_IMAGES].keys())
 
             codefresh_steps_from_base_path(join(
                 root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
@@ -189,7 +189,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=("test-e2e",))
             if CD_API_TEST_STEP in steps:
                 codefresh_steps_from_base_path(join(
-                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=("test-api",))
+                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=("test-api",), fixed_context=relpath(root_path, os.getcwd()))
 
     if CD_WAIT_STEP in steps:
         rollout_commands = steps[CD_WAIT_STEP]['commands']

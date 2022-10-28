@@ -14,7 +14,7 @@ deploy:
       upgrade:
         - --install
     releases:
-    - name:
+    - name: null
       chartPath: deployment/helm
       #wait: true
       #valuesFiles:

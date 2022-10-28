@@ -204,6 +204,11 @@ def test_create_codefresh_configuration_tests():
         st_build_test_steps = l1_steps["build_test_images"]["steps"]
 
         assert "test-e2e" in st_build_test_steps, "e2e tests image should be built"
+        assert "test-api" in st_build_test_steps, "api tests image should be built"
+
+        assert "test-api" in st_build_test_steps["test-api"]["dockerfile"], "test-api image must be built from root context"
+
+        
 
         e2e_steps = l1_steps[CD_E2E_TEST_STEP]['scale']
 
