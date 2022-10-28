@@ -60,8 +60,11 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         template_name = f"codefresh-template-{e}.yaml"
         codefresh = dict_merge(codefresh, get_template(template_name, True))
 
+    
+
     for root_path in root_paths:
         for e in envs:
+            
             template_name = f"codefresh-template-{e}.yaml"
             template_path = join(
                 root_path, DEPLOYMENT_CONFIGURATION_PATH, template_name)
@@ -75,6 +78,16 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 continue
 
             steps = codefresh['steps']
+
+            def get_app_domain(app_config: ApplicationHarnessConfig):
+                base_domain=[c for c in codefresh['steps']['prepare_deployment']['commands'] if 'harness-deployment' in c][0].split("-d ")[1].split(" ")[0]
+                return f"https://{app_config.subdomain}.{base_domain}"
+
+            def e2e_test_environment(app_config: ApplicationHarnessConfig, app_domain: str = None):
+                if app_domain is None:
+                    app_domain = get_app_domain(app_config)
+                env = get_app_environment(app_config, app_domain, False)
+                return [f"{k}={env[k]}" for k in env]
 
             def codefresh_steps_from_base_path(base_path, build_step, fixed_context=None, include=build_included):
 
@@ -292,15 +305,10 @@ def api_test_volumes(app_relative_to_root):
     ]
 
 
-def e2e_test_environment(app_config: ApplicationHarnessConfig, app_domain: str = None):
-    if app_domain is None:
-        app_domain = get_app_domain(app_config)
-    env = get_app_environment(app_config, app_domain, False)
-    return [f"{k}={env[k]}" for k in env]
 
 
-def get_app_domain(app_config: ApplicationHarnessConfig):
-    return f"https://{app_config.subdomain}." + r"${{CF_SHORT_REVISION}}.${{DOMAIN}}"
+
+
 
 
 def codefresh_app_publish_spec(app_name, build_tag, base_name=None):
