@@ -54,8 +54,8 @@ def test_parallel_workflow():
 
     op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f), tasks.PythonTask('p2', f)))
     print('\n', yaml.dump(op.to_workflow()))
-    
-    op.execute()
+    if execute:
+        op.execute()
 
 
 def test_simpledag_workflow():

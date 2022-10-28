@@ -6,13 +6,8 @@ https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/CustomOb
 
 import yaml
 
-from argo_workflows import ApiClient, Configuration
-
-from argo_workflows.api.workflow_service_api import WorkflowServiceApi,\
-    IoArgoprojWorkflowV1alpha1WorkflowCreateRequest as V1alpha1WorkflowCreateRequest,\
-    IoArgoprojWorkflowV1alpha1WorkflowList as V1alpha1WorkflowList,\
-    IoArgoprojWorkflowV1alpha1Workflow as V1alpha1Workflow
-
+from argo.workflows.client import ApiClient, WorkflowServiceApi, Configuration, V1alpha1WorkflowCreateRequest, \
+    V1alpha1Workflow, V1alpha1WorkflowList
 
 # determine the namespace of the current app and run the workflow in that namespace
 from cloudharness.utils.config import CloudharnessConfig as conf
@@ -101,8 +96,7 @@ class Workflow:
 
 class SearchResult:
     def __init__(self, raw_dict):
-        self.items = tuple(Workflow(
-            item) for item in raw_dict.items) if raw_dict.items is not None else []
+        self.items = tuple(Workflow(item) for item in raw_dict.items) if raw_dict.items is not None else []
         self.continue_token = raw_dict.metadata._continue
         self.raw = raw_dict
 
@@ -138,11 +132,11 @@ def get_workflows(status=None, limit=10, continue_token=None, timeout_seconds=3,
     service = WorkflowServiceApi(api_client=get_api_client())
 
     try:
-        api_response = service.list_workflows(namespace, list_options_limit=limit, list_options_continue=continue_token,
-                                              list_options_label_selector=f"workflows.argoproj.io/phase={status}" if status else None,
-                                              _request_timeout=timeout_seconds,
-                                              list_options_field_selector=field_selector, fields=fields, **kwargs)
-
+        api_response = service.list_workflows(namespace, list_options_limit=limit, list_options_continue=continue_token, 
+        list_options_label_selector=f"workflows.argoproj.io/phase={status}" if status else None,
+         _request_timeout=timeout_seconds, 
+         list_options_field_selector=field_selector, fields=fields, **kwargs)
+       
     except ValueError:
         # Exception is raised when no results are found
         return V1alpha1WorkflowList(items=[], metadata={})
@@ -155,8 +149,7 @@ def submit_workflow(spec) -> Workflow:
 
     service = WorkflowServiceApi(api_client=get_api_client())
 
-    req = V1alpha1WorkflowCreateRequest(
-        workflow=spec, instance_id=namespace, namespace=namespace)
+    req = V1alpha1WorkflowCreateRequest(workflow=spec, instance_id=namespace, namespace=namespace)
 
     # pprint(service.list_workflows('ch', V1alpha1WorkflowList()))
     wf = service.create_workflow(namespace, req)
@@ -166,8 +159,7 @@ def submit_workflow(spec) -> Workflow:
 def delete_workflow(workflow_name):
     service = WorkflowServiceApi(api_client=get_api_client())
     try:
-        service.delete_workflow(namespace, workflow_name,
-                                delete_options_grace_period_seconds=0)
+        service.delete_workflow(namespace, workflow_name, delete_options_grace_period_seconds=0)
     except Exception as e:
         if e.status == 404:
             raise WorkflowNotFound()
@@ -184,8 +176,7 @@ def get_workflow(workflow_name) -> Workflow:
         raise WorkflowException("Workflow get error") from e
     workflow = Workflow(api_response)
     if workflow.failed():
-        raise WorkflowException("Workflow failed: " +
-                                workflow.get_status_message())
+        raise WorkflowException("Workflow failed: " + workflow.get_status_message())
 
     return workflow
 

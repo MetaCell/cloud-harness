@@ -23,11 +23,6 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
     base_image_name = (helm_values.registry.name or "") + helm_values.name
     artifacts = {}
     overrides = {}
-    release_config = skaffold_conf['deploy']['helm']['releases'][0]
-    release_config['name'] = helm_values.namespace
-    release_config['namespace'] = helm_values.namespace
-
-
 
     def remove_tag(image_name):
         return image_name[0:-len(helm_values.tag)-1]
@@ -56,7 +51,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
                                          in requirements]
         return artifact_spec
 
-    release_config['artifactOverrides'][KEY_APPS] = {}
+    
     base_images = set()
 
     def process_build_dockerfile(dockerfile_path, root_path, global_context=False, requirements=None, app_name=None):
@@ -83,7 +78,13 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
         for dockerfile_path in base_dockerfiles:
             process_build_dockerfile(dockerfile_path, root_path, global_context=True)
-
+            
+    
+    release_config = skaffold_conf['deploy']['helm']['releases'][0]
+    release_config['name'] = helm_values.namespace
+    release_config['namespace'] = helm_values.namespace
+    release_config['artifactOverrides'][KEY_APPS] = {}
+    
     static_images = set()
     for root_path in root_paths:
         static_dockerfiles = find_dockerfiles_paths(

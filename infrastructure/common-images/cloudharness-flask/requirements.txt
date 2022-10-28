@@ -1,4 +1,4 @@
-argo-workflows==6.4.2
+argo-workflows==5.0.0
 asn1crypto==0.24.0
 atomicwrites==1.4.0
 attrs==21.4.

@@ -9,7 +9,7 @@ import subprocess
 import tarfile
 from docker import from_env as DockerClient
 
-from . import HERE
+from . import HERE, CH_ROOT
 from cloudharness_utils.constants import VALUES_MANUAL_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, \
     DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH
 from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
@@ -84,7 +84,7 @@ class CloudHarnessHelm:
             shutil.rmtree(self.dest_deployment_path)
         # Initialize with default
         copy_merge_base_deployment(self.dest_deployment_path, os.path.join(
-            HERE, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
+            CH_ROOT, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
 
         # Override for every cloudharness scaffolding
         for root_path in self.root_paths:
@@ -221,9 +221,9 @@ class CloudHarnessHelm:
 
     def __get_default_helm_values(self):
         helm_values = get_template(os.path.join(
-            HERE, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH, 'values.yaml'))
+            CH_ROOT, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH, 'values.yaml'))
         helm_values = dict_merge(helm_values,
-                                 collect_helm_values(HERE, env=self.env))
+                                 collect_helm_values(CH_ROOT, env=self.env))
 
         return helm_values
 
@@ -235,12 +235,7 @@ class CloudHarnessHelm:
             return
         helm_values['tls'] = self.domain.replace(".", "-") + "-tls"
 
-        HERE = os.path.dirname(os.path.realpath(
-            __file__)).replace(os.path.sep, '/')
-        ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
-
-        bootstrap_file_path = os.path.join(
-            ROOT, 'tools', 'cloudharness_utilities', 'scripts')
+        
         bootstrap_file = 'bootstrap.sh'
         certs_parent_folder_path = os.path.join(
             self.output_path, 'helm', 'resources')
@@ -271,7 +266,7 @@ class CloudHarnessHelm:
 
         # copy bootstrap file
         cur_dir = os.getcwd()
-        os.chdir(bootstrap_file_path)
+        os.chdir(os.path.join(HERE, 'scripts'))
         tar = tarfile.open(bootstrap_file + '.tar', mode='w')
         try:
             tar.add(bootstrap_file)
@@ -487,7 +482,7 @@ def init_app_values(deployment_root, exclude, values={}):
     overridden_template_path = os.path.join(
         deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
     default_values_path = os.path.join(
-        HERE, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
+        CH_ROOT, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
 
     for app_path in get_sub_paths(app_base_path):
 

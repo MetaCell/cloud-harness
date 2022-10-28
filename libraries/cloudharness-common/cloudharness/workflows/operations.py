@@ -4,12 +4,9 @@ from typing import Union
 
 import pyaml
 
-from argo_workflows.api.workflow_service_api import IoArgoprojWorkflowV1alpha1Workflow as Workflow
-
 from cloudharness import log
 from cloudharness.events.client import EventClient
 from cloudharness.utils import env, config
-from cloudharness_cli.workflows.models.operation_status import OperationStatus
 from . import argo
 from .tasks import Task, SendResultTask, CustomTask
 from .utils import is_accounts_present
@@ -17,7 +14,13 @@ from .utils import is_accounts_present
 POLLING_WAIT_SECONDS = 1
 SERVICE_ACCOUNT = 'argo-workflows'
 
-
+class OperationStatus(object):
+    PENDING = "Pending"
+    RUNNING = "Running"
+    ERROR = "Error"
+    SUCCEEDED = "Succeeded"
+    SKIPPED = "Skipped"
+    FAILED = "Failed"
 class BadOperationConfiguration(RuntimeError):
     pass
 
@@ -114,12 +117,12 @@ class ContainerizedOperation(ManagedOperation):
         raise NotImplementedError()
 
     def to_workflow(self, **arguments):
-        return Workflow._new_from_openapi_data(**{
+        return {
             'apiVersion': 'argoproj.io/v1alpha1',
             'kind': 'Workflow',
             'metadata': {'generateName': self.name},
             'spec': self.spec()
-        }, _check_type=False)
+        }
 
     def spec(self):
         spec = {
@@ -230,7 +233,7 @@ class ContainerizedOperation(ManagedOperation):
         """Created and submits the Argo workflow"""
         op = self.to_workflow()
 
-        log.debug("Submitting workflow\n" + pyaml.dump(op.to_dict()))
+        log.debug("Submitting workflow\n" + pyaml.dump(op))
 
         # TODO use rest api for that? Include this into cloudharness.workflows?
         self.persisted = argo.submit_workflow(op)
@@ -271,7 +274,6 @@ class ContainerizedOperation(ManagedOperation):
             return {
                 'metadata': {
                     'name': self.name_from_path(volume.split(':')[0]),
-                    'creationTimestamp': "pippo"
                 },
                 'spec': {
                     'accessModes': ["ReadWriteOnce"],
@@ -391,7 +393,6 @@ class CompositeOperation(AsyncOperation):
                  pod_context: PodExecutionContext = None,
                  *args, **kwargs):
         """
-
         :param basename:
         :param tasks:
         :param shared_directory: can set to True or a path. If set, tasks will use that directory to store results. It

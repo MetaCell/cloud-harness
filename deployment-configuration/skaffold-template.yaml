@@ -21,7 +21,7 @@ deploy:
       #- helm-skaffold-values.yaml
       skipBuildDependencies: true # Skip helm dep build
       artifactOverrides:
-        apps:
+        apps: {}
       overrides:
         apps: {}
 test: []

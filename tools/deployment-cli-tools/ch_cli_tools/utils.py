@@ -1,10 +1,9 @@
-from cloudharness_utils.constants import NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
-    APPS_PATH, BUILD_FILENAMES, EXCLUDE_PATHS
+
 import socket
 import glob
 import subprocess
 import os
-from os.path import join, dirname, isdir, basename, exists, relpath, sep
+from os.path import join, dirname, isdir, basename, exists, relpath, sep, dirname as dn
 import json
 import collections
 import requests
@@ -13,8 +12,12 @@ import shutil
 import logging
 import fileinput
 
+from cloudharness_utils.constants import NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
+    APPS_PATH, BUILD_FILENAMES, EXCLUDE_PATHS
+from . import CH_ROOT
+
 yaml = YAML(typ='safe')
-BASE_TEMPLATES_PATH = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
+BASE_TEMPLATES_PATH = CH_ROOT
 
 
 REPLACE_TEXT_FILES_EXTENSIONS = (
