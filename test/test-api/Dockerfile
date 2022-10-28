@@ -11,5 +11,5 @@ RUN pip install -r /tools/cloudharness-test/requirements.txt --no-cache-dir
 COPY libraries/cloudharness-utils /libraries/cloudharness-utils
 RUN pip install -e /libraries/cloudharness-utils
 
-COPY tools/cloudharness-tests /tools/cloudharness-test
+COPY tools/cloudharness-test /tools/cloudharness-test
 RUN pip install -e /tools/cloudharness-test
