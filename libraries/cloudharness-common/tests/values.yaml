@@ -2,9 +2,10 @@ local: true
 secured_gatekeepers: true
 nameOverride: ''
 fullnameOverride: ''
-domain: cloudharness.metacell.us
+domain: ch.local
 namespace: ch
 mainapp: accounts
+test: true
 registry:
   name: ''
   secret: ''
@@ -1171,5 +1172,5 @@ task-images:
   cloudharness-frontend-build: cloudharness/cloudharness-frontend-build:latest
   cloudharness-flask: cloudharness/cloudharness-flask:latest
 name: cloudharness
-tls: cloudharness-metacell-us-tls
+tls: false
 localIp: 192.168.99.106

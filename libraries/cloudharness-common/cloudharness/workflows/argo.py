@@ -5,13 +5,15 @@ https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/CustomOb
 """
 
 import yaml
+import random
+import string
 
-from argo_workflows import ApiClient, Configuration
+from argo_workflows import ApiClient, Configuration, ApiTypeError
 
 from argo_workflows.api.workflow_service_api import WorkflowServiceApi,\
     IoArgoprojWorkflowV1alpha1WorkflowCreateRequest as V1alpha1WorkflowCreateRequest,\
     IoArgoprojWorkflowV1alpha1WorkflowList as V1alpha1WorkflowList,\
-    IoArgoprojWorkflowV1alpha1Workflow as V1alpha1Workflow, IoArgoprojWorkflowV1alpha1WorkflowSubmitRequest, 
+    IoArgoprojWorkflowV1alpha1Workflow as V1alpha1Workflow
 
 
 # determine the namespace of the current app and run the workflow in that namespace
@@ -149,18 +151,28 @@ def get_workflows(status=None, limit=10, continue_token=None, timeout_seconds=3,
     else:
         return SearchResult(api_response)
 
+def get_random_string(length):
+    # choose from all lowercase letter
+    letters = string.ascii_lowercase
+    result_str = ''.join(random.choice(letters) for i in range(length))
+    return result_str
 
-def submit_workflow(spec) -> Workflow:
+def submit_workflow(spec: V1alpha1Workflow) -> Workflow:
     log.debug(f"Submitting workflow %s", spec)
 
     service = WorkflowServiceApi(api_client=get_api_client())
+    spec.metadata["name"] = spec.metadata["generateName"] + get_random_string(8)
+    del spec.metadata["generateName"]
 
-    req = IoArgoprojWorkflowV1alpha1WorkflowSubmitRequest(
+    req = V1alpha1WorkflowCreateRequest(
         workflow=spec, instance_id=namespace, namespace=namespace)
 
     # pprint(service.list_workflows('ch', V1alpha1WorkflowList()))
-    wf = service.submit_workflow(namespace, req)
-    return Workflow(wf)
+    try:
+        service.create_workflow(namespace, req)
+    except ApiTypeError as e:
+        pass
+    return Workflow(get_workflow(spec.metadata["name"]))
 
 
 def delete_workflow(workflow_name):
