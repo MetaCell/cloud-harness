@@ -60,7 +60,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         template_name = f"codefresh-template-{e}.yaml"
         codefresh = dict_merge(codefresh, get_template(template_name, True))
 
-    
+    steps = {}
 
     for root_path in root_paths:
         for e in envs:
@@ -168,7 +168,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         tests_path = join(
                             base_path, app_relative_to_base, "test", E2E_TESTS_DIRNAME)
 
-                        if exists(tests_path) and app_config.subdomain:
+                        if app_config.subdomain:
 
                             steps[CD_E2E_TEST_STEP]['scale'][f"{app_name}_e2e_test"] = dict(
                                 volumes=e2e_test_volumes(
