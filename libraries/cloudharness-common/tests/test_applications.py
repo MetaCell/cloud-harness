@@ -84,7 +84,7 @@ def test_get_configuration():
     assert uut.is_auto_deployment()
     assert uut.is_sentry_enabled()
     assert uut.image_name == 'image1-name'
-    assert uut.get_public_address() == "https://myapp.cloudharness.metacell.us"
+    assert uut.get_public_address() == "http://myapp.ch.local"
     assert uut.get_service_address() == "http://app1.ch:9000"
     assert uut["freefield"]["a"] == 1
     assert uut["freefield"].a == 1

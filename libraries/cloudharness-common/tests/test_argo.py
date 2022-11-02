@@ -17,5 +17,12 @@ def test_submit():
     with open(os.path.join(HERE, "wf.yaml")) as f:
         wfy = yaml.safe_load(f)
         wfd = dict(wfy)
-        wf = IoArgoprojWorkflowV1alpha1Workflow._new_from_openapi_data(**wfd, _check_type=False)
-        w = argo.submit_workflow(wf)
+    wf = IoArgoprojWorkflowV1alpha1Workflow._new_from_openapi_data(**wfd, _check_type=False)
+    w = argo.submit_workflow(wf)
+
+    assert "hello-world-" in w.name
+
+    wg = argo.get_workflow(w.name)
+    assert wg
+
+    wfs = argo.get_workflows()

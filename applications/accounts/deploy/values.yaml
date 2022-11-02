@@ -14,7 +14,7 @@ harness:
         cpu: "500m"
   service:
     auto: true
-    port: 8080
+    port: 80
   env:
     - name: KEYCLOAK_IMPORT
       value: "/tmp/realm.json"

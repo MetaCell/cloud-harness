@@ -76,16 +76,16 @@ class Phase:
 
 class Workflow:
     def __init__(self, api_workflow: V1alpha1Workflow):
-        self.name = api_workflow.metadata.name
-        self.status = api_workflow.status.phase if api_workflow.status else None
-        self.create_time = api_workflow.metadata.creation_timestamp
+        self.name = api_workflow.metadata['name']
+        self.status = api_workflow.status.get('phase', None) if api_workflow.status else None
+        self.create_time = api_workflow.metadata['creationTimestamp']
         self.raw = api_workflow
 
     def is_finished(self):
         return self.status in (Phase.Error, Phase.Succeeded, Phase.Skipped, Phase.Failed)
 
     def __str__(self):
-        return yaml.dump(self.raw)
+        return yaml.dump(self.raw.to_dict())
 
     def succeeded(self):
         return self.status == Phase.Succeeded
@@ -94,11 +94,11 @@ class Workflow:
         return self.status == Phase.Failed
 
     def get_status_message(self):
-        return self.raw.status.message
+        return self.raw.status.get('message', '')
 
     @property
     def pod_names(self):
-        return [node.id for node in self.raw.status.nodes.values() if not node.children]
+        return [node.id for node in self.raw.status['nodes'].values() if not node.children]
 
 
 class SearchResult:
@@ -133,21 +133,22 @@ def get_configuration():
     return Configuration(host=host)
 
 
-def get_workflows(status=None, limit=10, continue_token=None, timeout_seconds=3, field_selector=None, fields=None, **kwargs) -> SearchResult:
+def get_workflows(status=Phase.Succeeded, limit=10, continue_token='', timeout_seconds=3, field_selector='', fields='', **kwargs) -> SearchResult:
     """https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/CustomObjectsApi.md#list_namespaced_custom_object"""
     # Notice: field selector doesn't work though advertised, except fot metadata.name and metadata.namespace https://github.com/kubernetes/kubernetes/issues/51046
     # The filtering by phase can be obtained through labels: https://github.com/argoproj/argo/issues/496
     service = WorkflowServiceApi(api_client=get_api_client())
 
     try:
-        api_response = service.list_workflows(namespace, list_options_limit=limit, list_options_continue=continue_token,
-                                              list_options_label_selector=f"workflows.argoproj.io/phase={status}" if status else None,
-                                              _request_timeout=timeout_seconds,
-                                              list_options_field_selector=field_selector, fields=fields, **kwargs)
-
-    except ValueError:
+        api_response = service.list_workflows(namespace, list_options_limit=str(limit), list_options_continue=continue_token, 
+        list_options_label_selector=f"workflows.argoproj.io/phase={status}" if status else '',
+         _request_timeout=str(timeout_seconds), 
+         list_options_field_selector=field_selector, fields=fields, _check_input_type=False, _check_return_type=False, _content_type='', _host_index=0, **kwargs)
+       
+    except ValueError as e:
         # Exception is raised when no results are found
-        return V1alpha1WorkflowList(items=[], metadata={})
+        raise
+        # return V1alpha1WorkflowList(items=[], metadata={})
     else:
         return SearchResult(api_response)
 
@@ -161,18 +162,14 @@ def submit_workflow(spec: V1alpha1Workflow) -> Workflow:
     log.debug(f"Submitting workflow %s", spec)
 
     service = WorkflowServiceApi(api_client=get_api_client())
-    spec.metadata["name"] = spec.metadata["generateName"] + get_random_string(8)
-    del spec.metadata["generateName"]
 
-    req = V1alpha1WorkflowCreateRequest(
-        workflow=spec, instance_id=namespace, namespace=namespace)
+    req = V1alpha1WorkflowCreateRequest(workflow=spec, instance_id=namespace, namespace=namespace, _check_type=False)
 
     # pprint(service.list_workflows('ch', V1alpha1WorkflowList()))
-    try:
-        service.create_workflow(namespace, req)
-    except ApiTypeError as e:
-        pass
-    return Workflow(get_workflow(spec.metadata["name"]))
+   
+    wf_returned = service.create_workflow(namespace, req, _check_return_type=False)
+    return Workflow(wf_returned)
+
 
 
 def delete_workflow(workflow_name):
@@ -189,7 +186,7 @@ def delete_workflow(workflow_name):
 def get_workflow(workflow_name) -> Workflow:
     service = WorkflowServiceApi(api_client=get_api_client())
     try:
-        api_response = service.get_workflow(namespace, name=workflow_name)
+        api_response = service.get_workflow(namespace, name=workflow_name, _check_return_type=False)
     except Exception as e:
         if e.status == 404:
             raise WorkflowNotFound()
