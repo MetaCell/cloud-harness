@@ -1,3 +1,5 @@
+# coding: utf-8
+
 # flake8: noqa
 
 # import all models into this package
@@ -9,4 +11,3 @@
 # import sys
 # sys.setrecursionlimit(n)
 
-from cloudharness_cli.common.model.inline_response200 import InlineResponse200
