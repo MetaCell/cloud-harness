@@ -6,5 +6,4 @@ randomize
 pyparsing
 python-keycloak
 -e ../models
--e ../client/cloudharness_cli
 -e .
