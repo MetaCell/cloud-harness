@@ -1,5 +1,6 @@
 import datetime
 import logging
+import humps
 
 import six
 import typing
@@ -129,7 +130,7 @@ def deserialize_model(data, klass):
 
             for attr in data:
                 value = data[attr]
-
+                attr = humps.decamelize(attr)
                 if attr in instance.attribute_map:
                     try:
                         setattr(instance, attr, _deserialize(value, instance.openapi_types[attr]))
