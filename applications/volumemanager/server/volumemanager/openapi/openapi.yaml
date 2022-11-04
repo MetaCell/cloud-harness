@@ -79,6 +79,7 @@ components:
           description: The size of the Persistent Volume Claim to create.
           example: 2Gi (see also https://github.com/kubernetes/community/blob/master/contributors/design-proposals/scheduling/resources.md#resource-quantities)
           type: string
+      title: PersistentVolumeClaimCreate
       type: object
     PersistentVolumeClaim:
       example:
@@ -103,6 +104,7 @@ components:
           description: The size of the Persistent Volume Claim.
           example: 2Gi (see also https://github.com/kubernetes/community/blob/master/contributors/design-proposals/scheduling/resources.md#resource-quantities)
           type: string
+      title: PersistentVolumeClaim
       type: object
   securitySchemes:
     bearerAuth:

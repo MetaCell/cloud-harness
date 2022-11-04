@@ -9,7 +9,7 @@ info:
   version: 0.1.0
 servers:
 - description: Metacell host
-  url: https://workflows.cloudharness.metacell.us/api
+  url: /api
 tags:
 - description: standard creation, listing and retrieve
   name: Create and Access
@@ -21,7 +21,7 @@ paths:
       operationId: list_operations
       parameters:
       - description: filter by status
-        example: QUEUED
+        example: Pending
         explode: true
         in: query
         name: status
@@ -30,6 +30,9 @@ paths:
           $ref: '#/components/schemas/OperationStatus'
         style: form
       - description: continue previous search (pagination chunks)
+        examples:
+          example1:
+            value: '"eyJ2IjoibWV0YS5rOHMuaW8vdjEiLCJydiI6NDUzMDMzOCwic3RhcnQiOiJoZWxsby13b3JsZC05YnE2ZFx1MDAwMCJ8"'
         explode: true
         in: query
         name: previous_search_token
@@ -67,7 +70,8 @@ paths:
         delete operation by its name
       operationId: delete_operation
       parameters:
-      - explode: false
+      - example: my-workflow
+        explode: false
         in: path
         name: name
         required: true
@@ -88,11 +92,15 @@ paths:
         retrieves an operation by its name
       operationId: get_operation
       parameters:
-      - explode: false
+      - examples:
+          my-operation:
+            value: my-operation
+        explode: false
         in: path
         name: name
         required: true
         schema:
+          pattern: ^[0-9A-Za-z\s\-]+$
           type: string
         style: simple
       responses:
@@ -116,11 +124,17 @@ paths:
         retrieves an operation log by its name
       operationId: log_operation
       parameters:
-      - explode: false
+      - examples:
+          e1:
+            value: '"my-operation"'
+          e2:
+            value: my-operation-122a
+        explode: false
         in: path
         name: name
         required: true
         schema:
+          pattern: ^[0-9A-Za-z\s\-]+$
           type: string
         style: simple
       responses:
@@ -148,18 +162,20 @@ components:
         - workflow: workflow
           createTime: 2016-08-29T09:12:33.001Z
           name: name
-          message: message
+          message: ""
         - workflow: workflow
           createTime: 2016-08-29T09:12:33.001Z
           name: name
-          message: message
+          message: ""
       properties:
         meta:
           $ref: '#/components/schemas/SearchResultData'
         items:
           items:
             $ref: '#/components/schemas/Operation'
+          title: items
           type: array
+      title: OperationSearchResult
     SearchResultData:
       description: describes a search
       example:
@@ -167,31 +183,39 @@ components:
       properties:
         continueToken:
           description: token to use for pagination
+          title: continueToken
           type: string
+      title: SearchResultData
     Operation:
       description: represents the status of a distributed API call
       example:
         workflow: workflow
         createTime: 2016-08-29T09:12:33.001Z
         name: name
-        message: message
+        message: ""
       properties:
         message:
           description: usually set when an error occurred
+          example: ""
+          title: message
           type: string
         name:
           description: operation name
+          title: name
           type: string
         createTime:
           example: 2016-08-29T09:12:33.001Z
           format: date-time
           readOnly: true
+          title: createTime
           type: string
         status:
           $ref: '#/components/schemas/OperationStatus'
         workflow:
           description: low level representation as an Argo json
+          title: workflow
           type: string
+      title: Operation
     OperationStatus:
       default: Pending
       enum:
@@ -201,4 +225,5 @@ components:
       - Succeeded
       - Skipped
       - Failed
+      title: OperationStatus
       type: string

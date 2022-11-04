@@ -32,6 +32,11 @@ def image_name_from_dockerfile_path(dockerfile_path, base_name=None):
 def app_name_from_path(dockerfile_path):
     return "-".join(p for p in dockerfile_path.split("/") if p not in NEUTRAL_PATHS)
 
+def clean_path(path):
+    return "/".join(p for p in path.split("/") if p not in NEUTRAL_PATHS)
+    
+def get_app_relative_to_base_path(base_path, dockerfile_path):
+    return clean_path(relpath(dockerfile_path, base_path)) 
 
 def get_sub_paths(base_path):
     return tuple(path for path in glob.glob(base_path + "/*") if isdir(path))

@@ -366,6 +366,15 @@ steps:
           --hypothesis-suppress-health-check=too_slow --hypothesis-deadline=180000
           --request-timeout=180000 --hypothesis-max-examples=2 --show-errors-tracebacks
         - pytest -v test/api
+      workflows_api_test:
+        volumes:
+        - '${{CF_REPO_NAME}}/applications/workflows/server:/home/test'
+        - '${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml'
+        environment:
+        - APP_URL=https://workflows.${{CF_SHORT_REVISION}}.${{DOMAIN}}/api
+        commands:
+        - st --pre-run cloudharness_test.apitest_init run api/openapi.yaml --base-url
+          https://workflows.${{CF_SHORT_REVISION}}.${{DOMAIN}}/api -c all
     hooks:
       on_fail:
         exec:

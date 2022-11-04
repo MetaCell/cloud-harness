@@ -12,51 +12,63 @@ tags:
 - description: Sentry
   name: Sentry
 paths:
-  /sentry/getdsn/{appname}:
-    parameters:
-      - in: path
-        name: appname
-        schema:
-          type: string
-        required: true
+  /accounts/config:
     get:
+      description: Gets the config for logging in into accounts
+      operationId: get_config
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/inline_response_200'
+          description: Config for accounts log in
+      summary: Gets the config for logging in into accounts
       tags:
-      - Sentry
+      - Accounts
+      x-openapi-router-controller: common.controllers.accounts_controller
+  /sentry/getdsn/{appname}:
+    get:
       description: Gets the Sentry DSN for a given application
       operationId: getdsn
+      parameters:
+      - explode: false
+        in: path
+        name: appname
+        required: true
+        schema:
+          type: string
+        style: simple
       responses:
-        '200':
-          description: Sentry DSN for the given application
+        "200":
           content:
             application/json:
               schema:
                 type: string
+          description: Sentry DSN for the given application
       summary: Gets the Sentry DSN for a given application
-      x-openapi-router-controller: common.controllers.sentry_controller
-  /accounts/config:
-    get:
       tags:
-      - Accounts
-      description: Gets the config for logging in into accounts
-      operationId: get_config
-      responses:
-        '200':
-          description: Config for accounts log in
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  url:
-                    type: string
-                    description: The auth URL.
-                  realm:
-                    type: string
-                    description: The realm.
-                  clientId:
-                    type: string
-                    description: The clientID.
-      summary: Gets the config for logging in into accounts
-      x-openapi-router-controller: common.controllers.accounts_controller
+      - Sentry
+      x-openapi-router-controller: common.controllers.sentry_controller
 components:
-  schemas: {}
+  schemas:
+    inline_response_200:
+      example:
+        clientId: clientId
+        realm: realm
+        url: url
+      properties:
+        url:
+          description: The auth URL.
+          title: url
+          type: string
+        realm:
+          description: The realm.
+          title: realm
+          type: string
+        clientId:
+          description: The clientID.
+          title: clientId
+          type: string
+      title: inline_response_200
+      type: object

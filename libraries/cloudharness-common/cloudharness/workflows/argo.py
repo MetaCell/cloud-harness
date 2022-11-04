@@ -7,7 +7,8 @@ https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/CustomOb
 import yaml
 
 from argo.workflows.client import ApiClient, WorkflowServiceApi, Configuration, V1alpha1WorkflowCreateRequest, \
-    V1alpha1Workflow, V1alpha1WorkflowList
+    V1alpha1Workflow, V1alpha1WorkflowList, exceptions
+
 
 # determine the namespace of the current app and run the workflow in that namespace
 from cloudharness.utils.config import CloudharnessConfig as conf
@@ -95,10 +96,10 @@ class Workflow:
 
 
 class SearchResult:
-    def __init__(self, raw_dict):
-        self.items = tuple(Workflow(item) for item in raw_dict.items) if raw_dict.items is not None else []
-        self.continue_token = raw_dict.metadata._continue
-        self.raw = raw_dict
+    def __init__(self, workflows: V1alpha1WorkflowList):
+        self.items = tuple(Workflow(item) for item in workflows.items) if workflows.items is not None else []
+        self.continue_token = workflows.metadata._continue if workflows.metadata else None
+        self.raw = workflows
 
     def __str__(self):
         return self.raw
@@ -136,10 +137,12 @@ def get_workflows(status=None, limit=10, continue_token=None, timeout_seconds=3,
         list_options_label_selector=f"workflows.argoproj.io/phase={status}" if status else None,
          _request_timeout=timeout_seconds, 
          list_options_field_selector=field_selector, fields=fields, **kwargs)
-       
+    
     except ValueError:
         # Exception is raised when no results are found
-        return V1alpha1WorkflowList(items=[], metadata={})
+        return SearchResult(V1alpha1WorkflowList(items=[], metadata={}))
+    except exceptions.ApiException as e:
+        raise WorkflowException(400, e.body)
     else:
         return SearchResult(api_response)
 

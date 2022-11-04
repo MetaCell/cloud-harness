@@ -10,7 +10,7 @@ from cloudharness_utils.testing.util import get_app_environment
 from .models import HarnessMainConfig, ApplicationTestConfig, ApplicationHarnessConfig
 from cloudharness_utils.constants import *
 from .helm import KEY_APPS, KEY_TASK_IMAGES
-from .utils import find_dockerfiles_paths, guess_build_dependencies_from_dockerfile, \
+from .utils import find_dockerfiles_paths, get_app_relative_to_base_path, guess_build_dependencies_from_dockerfile, \
     get_image_name, get_template, dict_merge, app_name_from_path
 from cloudharness_utils.testing.api import get_api_filename, get_schemathesis_command, get_urls_from_api_file
 
@@ -93,7 +93,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
                 for dockerfile_path in find_dockerfiles_paths(base_path):
                     app_relative_to_root = relpath(dockerfile_path, '.')
-                    app_relative_to_base = relpath(dockerfile_path, base_path)
+                    app_relative_to_base = get_app_relative_to_base_path(base_path, dockerfile_path)
                     app_name = app_name_from_path(app_relative_to_base)
                     app_key = app_name.replace("-", "_")
                     app_config: ApplicationHarnessConfig = app_key in helm_values.apps and helm_values.apps[
@@ -175,6 +175,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                     app_relative_to_root, app_name),
                                 environment=e2e_test_environment(app_config)
                             )
+            
 
             def add_unit_test_step(app_config: ApplicationHarnessConfig):
                 # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step

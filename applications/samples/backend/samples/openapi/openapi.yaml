@@ -31,6 +31,70 @@ paths:
       tags:
       - test
       x-openapi-router-controller: samples.controllers.test_controller
+  /operation_async:
+    get:
+      operationId: submit_async
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/inline_response_202'
+          description: Submitted operation. See also https://restfulapi.net/http-status-202-accepted/
+      summary: Send an asynchronous operation
+      tags:
+      - workflows
+      x-openapi-router-controller: samples.controllers.workflows_controller
+  /operation_sync:
+    get:
+      deprecated: true
+      operationId: submit_sync
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+          description: Operation result
+      summary: Send a synchronous operation
+      tags:
+      - workflows
+      x-openapi-router-controller: samples.controllers.workflows_controller
+  /operation_sync_results:
+    get:
+      deprecated: true
+      operationId: submit_sync_with_results
+      parameters:
+      - description: first number to sum
+        example: 10
+        explode: true
+        in: query
+        name: a
+        required: true
+        schema:
+          type: number
+        style: form
+      - description: second number to sum
+        example: 10
+        explode: true
+        in: query
+        name: b
+        required: true
+        schema:
+          type: number
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Operation result
+      summary: Send a synchronous operation and get results using the event queue.
+        Just a sum, but in the cloud
+      tags:
+      - workflows
+      x-openapi-router-controller: samples.controllers.workflows_controller
   /ping:
     get:
       operationId: ping
@@ -213,70 +277,6 @@ paths:
       tags:
       - auth
       x-openapi-router-controller: samples.controllers.auth_controller
-  /operation_async:
-    get:
-      operationId: submit_async
-      responses:
-        "202":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/inline_response_202'
-          description: Submitted operation. See also https://restfulapi.net/http-status-202-accepted/
-      summary: Send an asynchronous operation
-      tags:
-      - workflows
-      x-openapi-router-controller: samples.controllers.workflows_controller
-  /operation_sync:
-    get:
-      deprecated: true
-      operationId: submit_sync
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: object
-          description: Operation result
-      summary: Send a synchronous operation
-      tags:
-      - workflows
-      x-openapi-router-controller: samples.controllers.workflows_controller
-  /operation_sync_results:
-    get:
-      deprecated: true
-      operationId: submit_sync_with_results
-      parameters:
-      - description: first number to sum
-        example: 10
-        explode: true
-        in: query
-        name: a
-        required: true
-        schema:
-          type: number
-        style: form
-      - description: second number to sum
-        example: 10
-        explode: true
-        in: query
-        name: b
-        required: true
-        schema:
-          type: number
-        style: form
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: string
-          description: Operation result
-      summary: Send a synchronous operation and get results using the event queue.
-        Just a sum, but in the cloud
-      tags:
-      - workflows
-      x-openapi-router-controller: samples.controllers.workflows_controller
 components:
   schemas:
     inline_response_202_task:

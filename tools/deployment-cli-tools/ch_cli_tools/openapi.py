@@ -27,7 +27,7 @@ def generate_server(app_path, overrides_folder=""):
         f"{app_path}/server") else f"server"
     out_path = f"{app_path}/{out_name}"
     command = f"java -jar {CODEGEN} generate -i {openapi_file} -g python-flask -o {out_path} " \
-              f"-c {openapi_dir}/config.json -t {overrides_folder}"
+              f"-c {openapi_dir}/config.json " + (f"-t {overrides_folder}" if overrides_folder else "")
     os.system(command)
 
 
