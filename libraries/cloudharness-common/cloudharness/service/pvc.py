@@ -18,6 +18,17 @@ def _get_corev1_api():
     return kubernetes.client.CoreV1Api(_get_client())
 
 
+def _get_nfs_storage_class() -> str:
+    """
+    NFS storage class
+
+    :return:    Returns the NFS storage class name that belongs
+                to this namespace (deployment)
+    """
+    nfsserver_conf = conf.get_application_by_filter(storageClass__name=True)[0]
+    return f"{nfsserver_conf['storageClass']['name']}-{conf.get_configuration()['namespace']}"
+
+
 def _get_default_storage_class() -> str:
     """
     Default storage class
@@ -53,8 +64,7 @@ def _get_default_storage_class() -> str:
             break
     return selected_sc
 
-
-def create_persistent_volume_claim(name, size, logger, storage_class=None, template=None, **kwargs):
+def create_persistent_volume_claim(name, size, logger, storage_class=None, useNFS=False, template=None, **kwargs):
     """
     Create a Persistent Volume Claim in the Kubernetes cluster.
     If a PVC with the name given already exists then the function
@@ -64,6 +74,10 @@ def create_persistent_volume_claim(name, size, logger, storage_class=None, templ
         name (string): the name of the PVC
         size (string): the size of the PVC, e.g. 2Gi for a 2Gb PVC
         logger (logger): the logger where the information message is sent to
+        storage_class (string, optional): the name of the K8s storage class to use
+        useNFS (boolean, default False): if set to True CH will search
+          for the storage class that is linked to the local CH NFS Server
+        template (text, optional): the template to use to create the PVC
         **kwargs - the dictionary is used to override the default template
     Returns:
         -
@@ -72,7 +86,11 @@ def create_persistent_volume_claim(name, size, logger, storage_class=None, templ
         raise Exception(f"Size must be set. Got {size!r}.")
     
     if not storage_class:
-        storage_class = _get_default_storage_class()
+        if not useNFS:
+            storage_class = _get_default_storage_class()
+        else:
+            # determine the NFS storage class
+            storage_class = _get_nfs_storage_class()
 
     if not persistent_volume_claim_exists(name):
         if not template:
