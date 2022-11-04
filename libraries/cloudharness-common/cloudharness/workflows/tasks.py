@@ -1,7 +1,7 @@
 from . import argo
 
 from cloudharness.utils.env import get_cloudharness_variables, get_image_full_tag
-from .utils import WORKFLOW_NAME_VARIABLE_NAME
+from .utils import WORKFLOW_NAME_VARIABLE_NAME, is_accounts_present
 
 SERVICE_ACCOUNT = 'argo-workflows'
 
@@ -41,18 +41,26 @@ class Task(argo.ArgoObject):
                 for key, value in self.__envs.items()]
         # Add the name of the workflow to task env
         envs.append({'name': WORKFLOW_NAME_VARIABLE_NAME, 'valueFrom': {
-                    'fieldRef': {'fieldPath': 'metadata.name'}}})
+            'fieldRef': {'fieldPath': 'metadata.name'}}})
         return envs
 
     def add_env(self, name, value):
         self.__envs[name] = value
 
     def cloudharness_configmap_spec(self):
-        return {
-            'name': 'cloudharness-allvalues',
-                    'mountPath': '/opt/cloudharness/resources/allvalues.yaml',
-                    'subPath': 'allvalues.yaml'
-        }
+        base_spec = [
+            {
+                'name': 'cloudharness-allvalues',
+                'mountPath': '/opt/cloudharness/resources/allvalues.yaml',
+                'subPath': 'allvalues.yaml'
+            }
+        ]
+        if is_accounts_present():
+            base_spec.append({
+                'name': 'cloudharness-kc-accounts',
+                'mountPath': '/opt/cloudharness/resources/auth',
+            })
+        return base_spec
 
 
 class ContainerizedTask(Task):
@@ -69,7 +77,7 @@ class ContainerizedTask(Task):
                 'env': self.envs,
                 'resources': self.resources,
                 'imagePullPolicy': self.image_pull_policy,
-                'volumeMounts': [self.cloudharness_configmap_spec()],
+                'volumeMounts': self.cloudharness_configmap_spec(),
             },
             'inputs': {},
             'metadata': {},
@@ -99,7 +107,7 @@ class InlinedTask(Task):
                     'image': self.image_name,
                     'env': self.envs,
                     'source': self.source,
-                    'volumeMounts': [self.cloudharness_configmap_spec()],
+                    'volumeMounts': self.cloudharness_configmap_spec(),
                     'command': [self.command]
                 }
         }
@@ -161,7 +169,7 @@ class CommandBasedTask(ContainerizedTask):
 
 
 class SendResultTask(CustomTask):
-    """Special task used to send the a workflow result to a queue.
+    """Special task used to send a workflow result to a queue.
     The workflow result consists of all the files inside the shared directory"""
 
     def __init__(self):

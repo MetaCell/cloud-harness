@@ -231,12 +231,13 @@ paths:
               schema:
                 type: object
           description: Operation result
-      deprecated: false
+      deprecated: true
       operationId: submit_sync
       summary: Send a synchronous operation
       x-openapi-router-controller: samples.controllers.workflows_controller
   /operation_sync_results:
     get:
+      deprecated: true
       tags:
         - workflows
       parameters:

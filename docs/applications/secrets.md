@@ -18,15 +18,18 @@ Example
 ```yaml
 harness:
   secrets:
-    Secret1: <value>
-    SecondSecret:
-    third-secret:
+    unsecureSecret: <value>
+    secureSecret:
+    random-secret: ""
 ```
 
-It is a wise decision to store the secret's `<value>` outside the git(hub) repository and leave the secret's value `null` / ommit it.
+Secret values are initialized in three different ways:
+* Set the secret's value (as in `unsecureSecret`). Do that only if you aware of what you are doing as the value may be pushed in the git(hub) repository.
+* Leave the secret's value `null` (as in `secureSecret`) to configure manually later in the ci/cd pipeline.
+* Use the "" (empty string) value (as in `random-secret`) to let cloudharness generate a random value for you.
 
-CloudHarness supports 3 ways for editing/maintenance of the secrets outside the git(hub) repository:
-* Codefresh support, all secrets will be added to the codefresh deployment file(s) and can be set/overwritten through the codefresh variable configuration
+Secret editing/maintenance alternatives:
+* CI/CD Codefresh support: all `null` and `<value>` secrets will be added to the codefresh deployment file(s) and can be set/overwritten through the codefresh variable configuration
 * Using Helm to set/overwrite the secret's value `helm ... --set apps.<appname>.harness.secrets.<secret>=<value>`
 * Using kubernetes secret edit `kubectl edit secret <secret>`
 

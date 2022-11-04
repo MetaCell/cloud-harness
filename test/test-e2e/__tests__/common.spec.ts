@@ -6,15 +6,15 @@ let browser: any;
 
 describe("Sandbox", () => {
   if (!process.env.SKIP_SMOKETEST) {
+    
     beforeAll(async () => {
-      browser = await puppeteer.launch({ args: ['--no-sandbox'], headless: false, })
+      browser = await puppeteer.launch({ args: ['--no-sandbox'], headless: !process.env.PUPPETEER_DISPLAY })
 
       page = await browser.newPage();
       page.on('pageerror', ({ message }: any) => {
         throw new Error("Page error -- " + message)
       }
-      )
-        .on('response', (response: any) => {
+      ).on('response', (response: any) => {
           if (!process.env.IGNORE_REQUEST_ERRORS) {
             if (response.status() >= 400) {
               console.log(`${response.status()} ${response.url()}`)
@@ -59,6 +59,7 @@ describe("Sandbox", () => {
       }
 
     });
+
     afterAll(() => {
       if (!page.isClosed()) {
         browser.close();
@@ -69,6 +70,7 @@ describe("Sandbox", () => {
       await page.waitForSelector("body");
 
     });
+    
   } else {
     test("Skip Smoke test", async () => {
 

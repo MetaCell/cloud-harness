@@ -1,5 +1,0 @@
-docker
-six
-ruamel.yaml
-oyaml
-schemathesis

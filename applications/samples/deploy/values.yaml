@@ -66,8 +66,8 @@ harness:
       runParams:
       - "--skip-deprecated-operations" 
       - "--hypothesis-suppress-health-check=too_slow" 
-      - "--hypothesis-deadline=60000"
-      - "--request-timeout=60000"
+      - "--hypothesis-deadline=180000"
+      - "--request-timeout=180000"
       - "--hypothesis-max-examples=2"
       - "--show-errors-tracebacks"
 

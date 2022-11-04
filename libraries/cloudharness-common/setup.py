@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 
 NAME = "cloudharness"
-VERSION = "1.0.0"
+VERSION = "2.0.0"
 # To install the library, run the following
 #
 # python setup.py install
@@ -15,15 +15,14 @@ REQUIREMENTS = [
     'kubernetes',
     'kafka-python',
     'pyaml',
-    'pyjwt>=1.7.1,<2',
+    'pyjwt>=2.6.0',
     'cryptography',
     'requests>=2.21.0',
     'sentry-sdk[flask]>=0.14.4',
     'python-keycloak',
     'cloudharness_model',
     'argo-workflows==5.0.0',
-    'cachetools',
-    'schemathesis'
+    'cachetools'
 ]
 
 
@@ -31,7 +30,7 @@ REQUIREMENTS = [
 setup(
     name=NAME,
     version=VERSION,
-    description="CloudHarness common library",
+    description="CloudHarness common runtime library",
     author_email="cloudharness@metacell.us",
     url="",
     keywords=["cloudharness", "cloud"],
