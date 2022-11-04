@@ -1,22 +1,26 @@
 import time
-import pyaml
+from collections.abc import Iterable
 from typing import Union
 
-from collections.abc import Iterable
-from kubernetes.client.models.v1_affinity import V1Affinity
-from cloudharness_cli.workflows.models.operation_status import OperationStatus
+import pyaml
 
+from cloudharness import log
 from cloudharness.events.client import EventClient
 from cloudharness.utils import env, config
-from cloudharness import log
-
 from . import argo
 from .tasks import Task, SendResultTask, CustomTask
+from .utils import is_accounts_present
 
 POLLING_WAIT_SECONDS = 1
 SERVICE_ACCOUNT = 'argo-workflows'
 
-
+class OperationStatus(object):
+    PENDING = "Pending"
+    RUNNING = "Running"
+    ERROR = "Error"
+    SUCCEEDED = "Succeeded"
+    SKIPPED = "Skipped"
+    FAILED = "Failed"
 class BadOperationConfiguration(RuntimeError):
     pass
 
@@ -39,15 +43,15 @@ class ManagedOperation:
     """
 
     def __init__(self,
-        name,
-        ttl_strategy: dict = {
-            'secondsAfterCompletion': 60 * 60,
-            'secondsAfterSuccess': 60 * 20,
-            'secondsAfterFailure': 60 * 120
-            },
-        *args,
-        on_exit_notify=None,
-        **kwargs):
+                 name,
+                 ttl_strategy: dict = {
+                     'secondsAfterCompletion': 60 * 60,
+                     'secondsAfterSuccess': 60 * 20,
+                     'secondsAfterFailure': 60 * 120
+                 },
+                 *args,
+                 on_exit_notify=None,
+                 **kwargs):
         self.name = name
         self.ttl_strategy = ttl_strategy
         self.on_exit_notify = on_exit_notify
@@ -56,12 +60,14 @@ class ManagedOperation:
         raise NotImplementedError(f"{self.__class__.__name__} is abstract")
 
 
+
 class ContainerizedOperation(ManagedOperation):
     """
     Abstract Containarized operation based on an argo workflow
     """
 
-    def __init__(self, basename: str, pod_context: Union[PodExecutionContext, list, tuple] = None, shared_directory=None, *args, **kwargs):
+    def __init__(self, basename: str, pod_context: Union[PodExecutionContext, list, tuple] = None,
+                 shared_directory=None, *args, **kwargs):
         """
         :param basename:
         :param pod_context: PodExecutionContext - represents affinity with other pods in the system
@@ -74,7 +80,7 @@ class ContainerizedOperation(ManagedOperation):
             self.pod_contexts = []
         else:
             self.pod_contexts = list(pod_context)
-        
+
         self.persisted = None
         shared_path = None
         if shared_directory:
@@ -87,15 +93,17 @@ class ContainerizedOperation(ManagedOperation):
             else:
                 self.volumes = shared_directory
                 assert len(set(shared_directory)) == len(shared_directory), "Shared directories are not unique"
-                assert len(set(s.split(":")[0] for s in shared_directory)) == len(shared_directory), "Shared directories volumes are not unique"
-                
+                assert len(set(s.split(":")[0] for s in shared_directory)) == len(
+                    shared_directory), "Shared directories volumes are not unique"
+
             if shared_path:
                 for task in self.task_list():
                     task.add_env('shared_directory', shared_path)
         else:
             self.volumes = tuple()
-        
-        self.pod_contexts += [PodExecutionContext('usesvolume', v.split(':')[0], True) for v in self.volumes if ':' in v]
+
+        self.pod_contexts += [PodExecutionContext('usesvolume', v.split(':')[0], True) for v in self.volumes if
+                              ':' in v]
 
     def task_list(self):
         raise NotImplementedError()
@@ -131,6 +139,15 @@ class ContainerizedOperation(ManagedOperation):
                 }
             }]
         }
+
+        if is_accounts_present():
+            spec['volumes'].append({
+                'name': 'cloudharness-kc-accounts',
+                'secret': {
+                    'secretName': 'accounts'
+                }
+            })
+
         if self.on_exit_notify:
             spec = self.add_on_exit_notify_handler(spec)
 
@@ -143,21 +160,18 @@ class ContainerizedOperation(ManagedOperation):
                                 ':' in volume]  # with PVC prefix (e.g. pvc-001:/location)
         return spec
 
-
-
     def affinity_spec(self):
-        contexts=self.pod_contexts
+        contexts = self.pod_contexts
         PREFERRED = 'preferredDuringSchedulingIgnoredDuringExecution'
         REQUIRED = 'requiredDuringSchedulingIgnoredDuringExecution'
 
         pod_affinity = {
-                PREFERRED: [],
-                REQUIRED: []
-            } 
-        
+            PREFERRED: [],
+            REQUIRED: []
+        }
 
         for context in contexts:
-            term= {
+            term = {
                 'labelSelector':
                     {
                         'matchExpressions': [
@@ -172,11 +186,11 @@ class ContainerizedOperation(ManagedOperation):
             }
             if not context.required:
                 pod_affinity[PREFERRED].append(
-                                {
-                                    'weight': 100,
-                                    'podAffinityTerm': term
+                    {
+                        'weight': 100,
+                        'podAffinityTerm': term
 
-                                })
+                    })
             else:
                 pod_affinity[REQUIRED].append(term)
 
@@ -203,7 +217,7 @@ class ContainerizedOperation(ManagedOperation):
     def modify_template(self, template):
         """Hook to modify templates (e.g. add volumes)"""
 
-        template["metadata"] = {"labels": {c.key:c.value for c in self.pod_contexts}}
+        template["metadata"] = {"labels": {c.key: c.value for c in self.pod_contexts}}
 
         if self.volumes:
             if 'container' in template:
@@ -249,11 +263,11 @@ class ContainerizedOperation(ManagedOperation):
         if len(splitted) > 1:
             path = splitted[1]
         return dict({
-            'name': self.name_from_path(path), 
+            'name': self.name_from_path(path),
             'mountPath': path,
             'readonly': False if len(splitted) < 3 else splitted[2] == "ro"
-            })
-        
+        })
+
     def spec_volumeclaim(self, volume):
         # when the volume is NOT prefixed by a PVC (e.g. /location) then create a temporary PVC for the workflow
         if ':' not in volume:
@@ -282,9 +296,10 @@ class ContainerizedOperation(ManagedOperation):
                 'persistentVolumeClaim': {
                     'claimName': pvc
                 },
-                
+
             }
         return {}
+
 
 class SyncOperation(ManagedOperation):
     """A Sync operation returns the result directly with the execute method"""
@@ -321,10 +336,9 @@ class SingleTaskOperation(ContainerizedOperation):
         """
         self.task = task
         super().__init__(name, *args, **kwargs)
-        
 
     def task_list(self):
-        return (self.task, )
+        return (self.task,)
 
     @property
     def entrypoint(self):
@@ -379,7 +393,6 @@ class CompositeOperation(AsyncOperation):
                  pod_context: PodExecutionContext = None,
                  *args, **kwargs):
         """
-
         :param basename:
         :param tasks:
         :param shared_directory: can set to True or a path. If set, tasks will use that directory to store results. It
@@ -389,8 +402,6 @@ class CompositeOperation(AsyncOperation):
         """
         self.tasks = tasks
         AsyncOperation.__init__(self, basename, pod_context, shared_directory=shared_directory, *args, **kwargs)
-        
-
 
         self.shared_volume_size = shared_volume_size
         if len(self.task_list()) != len(set(self.task_list())):
@@ -415,12 +426,8 @@ class CompositeOperation(AsyncOperation):
     def modify_template(self, template):
         # TODO verify the following condition. Can we mount volumes also with source based templates
         super().modify_template(template)
-      
+
         return template
-
-
-
-
 
 
 class PipelineOperation(CompositeOperation):
@@ -472,10 +479,12 @@ class ParallelOperation(CompositeOperation):
 class SimpleDagOperation(CompositeOperation):
     """Simple DAG definition limited to a pipeline of parallel operations"""
 
-    def __init__(self, basename, *task_groups, shared_directory=None, pod_context: PodExecutionContext = None, **kwargs):
+    def __init__(self, basename, *task_groups, shared_directory=None, pod_context: PodExecutionContext = None,
+                 **kwargs):
         task_groups = tuple(
             task_group if isinstance(task_group, Iterable) else (task_group,) for task_group in task_groups)
-        super().__init__(basename, pod_context=pod_context, tasks=task_groups, shared_directory=shared_directory, **kwargs)
+        super().__init__(basename, pod_context=pod_context, tasks=task_groups, shared_directory=shared_directory,
+                         **kwargs)
 
     def steps_spec(self):
         return [[task.instance() for task in task_group] for task_group in self.tasks]

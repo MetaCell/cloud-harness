@@ -32,13 +32,12 @@ steps:
     working_directory: .
     commands:
     - bash cloud-harness/install.sh
-    - harness-deployment cloud-harness . -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}
-      -i accounts -i argo -i samples -i events -i workflows -t ${{CF_BUILD_ID}} -d
-      ${{CF_SHORT_REVISION}}.${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}}
-      -e test -N
+    - harness-deployment . -n test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
+      -t ${{CF_BUILD_ID}} -d ${{CF_SHORT_REVISION}}.${{DOMAIN}} -r ${{REGISTRY}} -rs
+      ${{REGISTRY_SECRET}} -e test -N -i samples
   prepare_deployment_view:
     commands:
-    - helm template ./deployment/helm --debug -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}
+    - helm template ./deployment/helm --debug -n test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
     environment:
     - ACTION=auth
     - KUBE_CONTEXT=test-${{CF_BUILD_ID}}
@@ -101,37 +100,6 @@ steps:
         image_name: cloudharness/cloudharness-flask
         title: Cloudharness flask
         working_directory: ./infrastructure/common-images/cloudharness-flask
-      test-e2e:
-        type: build
-        stage: build
-        tag: '${{CF_BUILD_ID}}'
-        dockerfile: Dockerfile
-        registry: '${{CODEFRESH_REGISTRY}}'
-        buildkit: true
-        build_arguments:
-        - TAG=${{CF_BUILD_ID}}
-        - DOMAIN=${{DOMAIN}}
-        - NOCACHE=${{CF_BUILD_ID}}
-        - REGISTRY=${{REGISTRY}}/cloudharness/
-        image_name: cloudharness/test-e2e
-        title: Test e2e
-        working_directory: ./test/test-e2e
-      test-api:
-        type: build
-        stage: build
-        tag: '${{CF_BUILD_ID}}'
-        dockerfile: Dockerfile
-        registry: '${{CODEFRESH_REGISTRY}}'
-        buildkit: true
-        build_arguments:
-        - TAG=${{CF_BUILD_ID}}
-        - DOMAIN=${{DOMAIN}}
-        - NOCACHE=${{CF_BUILD_ID}}
-        - REGISTRY=${{REGISTRY}}/cloudharness/
-        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloudharness/cloudharness-base:${{CF_BUILD_ID}}
-        image_name: cloudharness/test-api
-        title: Test api
-        working_directory: ./test/test-api
   build_application_images:
     type: parallel
     stage: build
@@ -184,6 +152,22 @@ steps:
         image_name: cloudharness/samples-print-file
         title: Samples print file
         working_directory: ./applications/samples/tasks/print-file
+      samples-secret:
+        type: build
+        stage: build
+        tag: '${{CF_BUILD_ID}}'
+        dockerfile: Dockerfile
+        registry: '${{CODEFRESH_REGISTRY}}'
+        buildkit: true
+        build_arguments:
+        - TAG=${{CF_BUILD_ID}}
+        - DOMAIN=${{DOMAIN}}
+        - NOCACHE=${{CF_BUILD_ID}}
+        - REGISTRY=${{REGISTRY}}/cloudharness/
+        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloudharness/cloudharness-base:${{CF_BUILD_ID}}
+        image_name: cloudharness/samples-secret
+        title: Samples secret
+        working_directory: ./applications/samples/tasks/secret
       samples-sum:
         type: build
         stage: build
@@ -293,7 +277,7 @@ steps:
     fail_fast: false
     commands:
     - kubectl config use-context ${{CLUSTER_NAME}}
-    - kubectl create ns test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}
+    - kubectl create ns test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
   deployment:
     stage: deploy
     type: helm
@@ -302,42 +286,69 @@ steps:
     arguments:
       helm_version: 3.6.2
       chart_name: deployment/helm
-      release_name: test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}
+      release_name: test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
       kube_context: '${{CLUSTER_NAME}}'
-      namespace: test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}
+      namespace: test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
       chart_version: '${{CF_BUILD_ID}}'
-      cmd_ps: --wait --timeout 600s
+      cmd_ps: --timeout 600s
       custom_value_files:
       - ./deployment/helm/values.yaml
       custom_values:
-      - apps.samples.harness.secrets.asecret=${{ASECRET}}
+      - apps_samples_harness_secrets_asecret=${{ASECRET}}
+  build_test_images:
+    title: Build test images
+    type: parallel
+    stage: qa
+    steps:
+      test-e2e:
+        type: build
+        stage: build
+        tag: '${{CF_BUILD_ID}}'
+        dockerfile: Dockerfile
+        registry: '${{CODEFRESH_REGISTRY}}'
+        buildkit: true
+        build_arguments:
+        - TAG=${{CF_BUILD_ID}}
+        - DOMAIN=${{DOMAIN}}
+        - NOCACHE=${{CF_BUILD_ID}}
+        - REGISTRY=${{REGISTRY}}/cloudharness/
+        image_name: cloudharness/test-e2e
+        title: Test e2e
+        working_directory: ./test/test-e2e
+      test-api:
+        type: build
+        stage: build
+        tag: '${{CF_BUILD_ID}}'
+        dockerfile: test/test-api/Dockerfile
+        registry: '${{CODEFRESH_REGISTRY}}'
+        buildkit: true
+        build_arguments:
+        - TAG=${{CF_BUILD_ID}}
+        - DOMAIN=${{DOMAIN}}
+        - NOCACHE=${{CF_BUILD_ID}}
+        - REGISTRY=${{REGISTRY}}/cloudharness/
+        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloudharness/cloudharness-base:${{CF_BUILD_ID}}
+        image_name: cloudharness/test-api
+        title: Test api
+        working_directory: ./.
   wait_deployment:
     stage: qa
     title: Wait deployment to be ready
     image: codefresh/kubectl
     commands:
     - kubectl config use-context ${{CLUSTER_NAME}}
-    - kubectl config set-context --current --namespace=test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}
-    - kubectl -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} rollout status deployment/accounts
-    - kubectl -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} rollout status deployment/argo-server-gk
-    - kubectl -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} rollout status deployment/samples
-    - kubectl -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} rollout status deployment/samples-gk
-    - kubectl -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} rollout status deployment/events
-    - kubectl -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} rollout status deployment/events-gk
-    - kubectl -n test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}} rollout status deployment/workflows
+    - kubectl config set-context --current --namespace=test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
+    - kubectl rollout status deployment/accounts
+    - kubectl rollout status deployment/samples
+    - kubectl rollout status deployment/events
+    - kubectl rollout status deployment/workflows
     - sleep 60
-    hooks:
-      on_fail:
-        exec:
-          image: alpine
-          commands:
-          - echo "Waiting 30 minutes before deleting the namespace"
-          - sleep 1800
   tests_api:
     stage: qa
     title: Api tests
     working_directory: /home/test
     image: '${{test-api}}'
+    fail_fast: false
     commands:
     - echo $APP_NAME
     scale:
@@ -350,23 +361,23 @@ steps:
         - USERNAME=sample@testuser.com
         - PASSWORD=test
         commands:
-        - st --pre-run cloudharness.testing.apitest_init run api/openapi.yaml --base-url
+        - st --pre-run cloudharness_test.apitest_init run api/openapi.yaml --base-url
           https://samples.${{CF_SHORT_REVISION}}.${{DOMAIN}}/api -c all --skip-deprecated-operations
-          --hypothesis-suppress-health-check=too_slow --hypothesis-deadline=60000
-          --request-timeout=60000 --hypothesis-max-examples=2 --show-errors-tracebacks
+          --hypothesis-suppress-health-check=too_slow --hypothesis-deadline=180000
+          --request-timeout=180000 --hypothesis-max-examples=2 --show-errors-tracebacks
         - pytest -v test/api
     hooks:
       on_fail:
         exec:
           image: alpine
           commands:
-          - echo "Waiting 30 minutes before deleting the namespace"
-          - sleep 1800
+          - cf_export  FAILED=failed
   tests_e2e:
     stage: qa
     title: End to end tests
     working_directory: /home/test
     image: '${{test-e2e}}'
+    fail_fast: false
     commands:
     - yarn test
     scale:
@@ -382,11 +393,24 @@ steps:
         exec:
           image: alpine
           commands:
-          - echo "Waiting 30 minutes before deleting the namespace"
-          - sleep 1800
+          - cf_export  FAILED=failed
+  approval:
+    type: pending-approval
+    stage: qa
+    title: Approve with failed tests
+    description: The pipeline will fail after ${{WAIT_ON_FAIL}} minutes
+    timeout:
+      timeUnit: minutes
+      duration: '${{WAIT_ON_FAIL}}'
+      finalState: denied
+    when:
+      condition:
+        all:
+          error: '"${{FAILED}}" == "failed"'
+          wait_on_fail: '${{WAIT_ON_FAIL}}'
 hooks:
   on_finish:
     image: codefresh/kubectl
     commands:
     - kubectl config use-context ${{CLUSTER_NAME}}
-    - kubectl delete ns test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}
+    - kubectl delete ns test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}

@@ -179,6 +179,12 @@ integrate the results on Github (or equivalent) PRs.
 The cli tool `harness-test` allows you to run end to end tests against any 
 deployment.
 
+In order to use `harness-test` install the library with
+
+```
+pip install -r requirements-test.txt
+```
+
 In order to run tests against an existing deployment based on a domain (say, my.domain), run:
 ```
 harness-deployment PATHS ... -d my.domain # Create helm chart values

@@ -1,0 +1,4 @@
+-e libraries/models
+-e libraries/cloudharness-utils
+-e libraries/cloudharness
+-e tools/cloudharness-test

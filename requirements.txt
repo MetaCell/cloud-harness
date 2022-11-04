@@ -1,3 +1,4 @@
 -e libraries/models
--e tools
-oyaml
+-e libraries/cloudharness-utils
+-e tools/deployment-cli-tools
+

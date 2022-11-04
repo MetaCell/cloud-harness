@@ -1,5 +1,6 @@
 import os
 
+from cloudharness import applications
 from cloudharness.events.client import EventClient
 from cloudharness.utils.env import get_variable
 
@@ -22,3 +23,11 @@ def get_shared_directory():
 def notify_queue(queue, message):
     client = EventClient(queue)
     client.produce(message)
+
+
+def is_accounts_present():
+    try:
+        applications.ApplicationConfiguration = applications.get_configuration('accounts')
+        return True
+    except Exception:
+        return False
