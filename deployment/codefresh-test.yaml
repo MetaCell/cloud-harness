@@ -119,6 +119,21 @@ steps:
         image_name: cloudharness/accounts
         title: Accounts
         working_directory: ./applications/accounts
+      sentry:
+        type: build
+        stage: build
+        tag: '${{CF_BUILD_ID}}'
+        dockerfile: Dockerfile
+        registry: '${{CODEFRESH_REGISTRY}}'
+        buildkit: true
+        build_arguments:
+        - TAG=${{CF_BUILD_ID}}
+        - DOMAIN=${{DOMAIN}}
+        - NOCACHE=${{CF_BUILD_ID}}
+        - REGISTRY=${{REGISTRY}}/cloudharness/
+        image_name: cloudharness/sentry
+        title: Sentry
+        working_directory: ./applications/sentry
       samples:
         type: build
         stage: build
@@ -184,6 +199,22 @@ steps:
         image_name: cloudharness/samples-sum
         title: Samples sum
         working_directory: ./applications/samples/tasks/sum
+      common:
+        type: build
+        stage: build
+        tag: '${{CF_BUILD_ID}}'
+        dockerfile: Dockerfile
+        registry: '${{CODEFRESH_REGISTRY}}'
+        buildkit: true
+        build_arguments:
+        - TAG=${{CF_BUILD_ID}}
+        - DOMAIN=${{DOMAIN}}
+        - NOCACHE=${{CF_BUILD_ID}}
+        - REGISTRY=${{REGISTRY}}/cloudharness/
+        - CLOUDHARNESS_FLASK=${{REGISTRY}}/cloudharness/cloudharness-flask:${{CF_BUILD_ID}}
+        image_name: cloudharness/common
+        title: Common
+        working_directory: ./applications/common/server
       events:
         type: build
         stage: build
@@ -294,6 +325,9 @@ steps:
       custom_value_files:
       - ./deployment/helm/values.yaml
       custom_values:
+      - apps_sentry_harness_secrets_email-server=${{EMAIL-SERVER}}
+      - apps_sentry_harness_secrets_email-user=${{EMAIL-USER}}
+      - apps_sentry_harness_secrets_email-password=${{EMAIL-PASSWORD}}
       - apps_samples_harness_secrets_asecret=${{ASECRET}}
   build_test_images:
     title: Build test images
@@ -339,7 +373,9 @@ steps:
     - kubectl config use-context ${{CLUSTER_NAME}}
     - kubectl config set-context --current --namespace=test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
     - kubectl rollout status deployment/accounts
+    - kubectl rollout status deployment/sentry
     - kubectl rollout status deployment/samples
+    - kubectl rollout status deployment/common
     - kubectl rollout status deployment/events
     - kubectl rollout status deployment/workflows
     - sleep 60
@@ -366,6 +402,15 @@ steps:
           --hypothesis-suppress-health-check=too_slow --hypothesis-deadline=180000
           --request-timeout=180000 --hypothesis-max-examples=2 --show-errors-tracebacks
         - pytest -v test/api
+      common_api_test:
+        volumes:
+        - '${{CF_REPO_NAME}}/applications/common/server:/home/test'
+        - '${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml'
+        environment:
+        - APP_URL=https://common.${{CF_SHORT_REVISION}}.${{DOMAIN}}/api
+        commands:
+        - st --pre-run cloudharness_test.apitest_init run api/openapi.yaml --base-url
+          https://common.${{CF_SHORT_REVISION}}.${{DOMAIN}}/api -c all
       workflows_api_test:
         volumes:
         - '${{CF_REPO_NAME}}/applications/workflows/server:/home/test'
