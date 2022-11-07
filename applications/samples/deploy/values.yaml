@@ -37,7 +37,6 @@ harness:
       - events
       - accounts 
       - common
-      - sentry
     build:
       - cloudharness-flask
       - cloudharness-frontend-build
