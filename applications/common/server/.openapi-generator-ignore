@@ -27,3 +27,4 @@ Dockerfile
 */__main__.py
 */test/*
 test-requirements.txt
+.dockerignore
