@@ -18,5 +18,4 @@ python-keycloak==2.6.0
 argo-workflows==5.0.0
 hypothesis==6.54.2
 jsonschema<4.0.0
-
 httpx==0.23.0

@@ -4,11 +4,15 @@ import six
 import typing
 import json
 
+import humps
+
 from cloudharness_model import util
 
 T = typing.TypeVar('T')
 
-import humps
+
+def clean_snake_cased(adict: dict):
+    return {k:v for k, v in adict.items() if not (humps.is_snakecase(k) and not humps.is_camelcase(k) and humps.camelize(k) in adict)}
 
 class Model(object):
     # openapiTypes: The key is attribute name and the
@@ -114,8 +118,9 @@ class Model(object):
         if hasattr(self, "_raw_dict"):
             merged = dict(self._raw_dict)
             merged.update(result)
-            return merged
-        return result
+            return clean_snake_cased(merged)
+
+        return clean_snake_cased(result)
 
     def to_str(self):
         """Returns the string representation of the model

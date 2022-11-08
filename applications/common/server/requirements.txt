@@ -8,9 +8,4 @@ werkzeug == 0.16.1; python_version=="3.5" or python_version=="3.4"
 swagger-ui-bundle >= 0.0.2
 python_dateutil >= 2.6.0
 setuptools >= 21.0.0
-
-psycopg2
-Flask-SQLAlchemy==2.4.3
-SQLAlchemy==1.3.17
-requests==2.21.0
-flask-cors
+Flask == 1.1.2

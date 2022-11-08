@@ -27,3 +27,11 @@ def test_json_serialize():
     assert v["name"] == cloned["name"]
     assert cloned["apps"]["accounts"]["harness"]["name"] == "accounts2"
     assert cloned["apps"]["accounts"]["other"] == "test"
+
+def test_camelcase():
+    u = User(last_name="a", email="a@email")
+    d = u.to_dict()
+    assert "lastName" in d
+    assert d["lastName"] == "a"
+    assert "email" in d
+    assert d["email"] == "a@email"

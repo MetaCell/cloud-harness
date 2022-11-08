@@ -1,0 +1,6 @@
+harness:
+    users:
+    - username: __APP_NAME__
+      email: __APP_NAME__@testuser.com
+      clientRoles: []
+      realmRoles: []

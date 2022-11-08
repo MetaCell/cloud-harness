@@ -140,7 +140,25 @@ op = operations.SingleTaskOperation('my-op-', my_task, shared_directory=shared_d
 op.execute()
 ```
 
+## Specify resources
 
+Resources can be directly specified in the task as:
+
+```python
+from cloudharness.workflows import operations, tasks
+
+my_task = tasks.CustomTask('my-gpu', 'myapp-mytask', resources={"requests": {"cpu": "50m", "memory": "128Mi"}, "limits": {"memory": "256Mi"}})
+op = operations.PipelineOperation('my-op-gpu-', [my_task])
+```
+
+To use a gpu specify the resource like:
+
+```python
+from cloudharness.workflows import operations, tasks
+
+my_task = tasks.CustomTask('my-gpu', 'myapp-mytask', resources={"limits": {"nvidia.com/gpu": 1}})
+op = operations.PipelineOperation('my-op-gpu-', [my_task])
+```
 
 ## Pod execution context / affinity
 

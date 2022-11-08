@@ -83,7 +83,7 @@ def test_create_codefresh_configuration():
             RESOURCES, STATIC_IMAGES_PATH, "my-common"))
 
         steps = l1_steps["build_application_images"]["steps"]
-        assert len(steps) == 12
+        assert len(steps) == 13
         assert "myapp" in steps
         assert "samples" in steps
         assert "accounts" in steps
@@ -235,6 +235,10 @@ def test_create_codefresh_configuration_tests():
 
         assert "-c all" in st_cmd, "Default check loaded is `all` on schemathesis command"
         assert "--hypothesis-deadline=" in st_cmd, "Custom parameters are loaded from values.yaml"
+
+        test_step = api_steps["common_api_test"]
+        for volume in test_step["volumes"]:
+            assert "server" not in volume
 
 
         assert any("CLOUDHARNESS_BASE" in arg for arg in st_build_test_steps["test-api"]

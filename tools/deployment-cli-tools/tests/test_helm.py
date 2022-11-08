@@ -69,7 +69,7 @@ def test_collect_helm_values():
     assert exists(helm_path, 'resources/myapp/aresource.txt')
     assert exists(helm_path, 'templates/myapp/mytemplate.yaml')
 
-    # Checl base and task images 
+    # Checl base and task images
     assert values[KEY_TASK_IMAGES]
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
     assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'reg/cloudharness/cloudharness-base:1'
@@ -152,11 +152,11 @@ def test_collect_helm_values_multiple_envs():
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
                                namespace='test', env=['dev', 'test'], local=False, tag=1, include=["myapp"])
 
-    
+
     assert values[KEY_APPS]['myapp']['test'] == True, 'values-test not loaded'
     assert values[KEY_APPS]['myapp']['dev'] == True, 'values-dev not loaded'
     assert values[KEY_APPS]['myapp']['a'] == 'test', 'values-test not overriding'
-    
+
 
 
 def test_collect_helm_values_wrong_dependencies_validate():
@@ -227,3 +227,49 @@ def test_collect_helm_values_build_dependencies_exclude():
     assert 'cloudharness-flask' in values[KEY_TASK_IMAGES], "Cloudharness-flask is included in the build dependencies"
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES], "Cloudharness-base is included in cloudharness-flask Dockerfile and it should be guessed"
     assert 'workflows-extract-download' not in values[KEY_TASK_IMAGES], "workflows-extract-download has been explicitly excluded"
+
+
+def test_clear_unused_dbconfig():
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
+                               env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
+
+    # There is a DB config
+    assert KEY_DATABASE in values[KEY_APPS]['myapp'][KEY_HARNESS]
+
+    db_config = values[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DATABASE]
+    # postgres is set, but other entries are not.
+    assert db_config['postgres'] is not None
+    assert db_config['postgres']['image'].startswith('postgres:')
+
+    # However, it seems that even after removing unused entries,
+    # the finale instance of the HarnessMainConfig class that is created
+    # adds back those entries and set them to None.
+    assert db_config['mongo'] is None
+    assert db_config['neo4j'] is None
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
+                               env='withmongo', local=False, include=["myapp"], exclude=["legacy"])
+
+    assert KEY_DATABASE in values[KEY_APPS]['myapp'][KEY_HARNESS]
+    db_config = values[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DATABASE]
+
+    # mongo is set, but other entries are not.
+    assert db_config['mongo'] is not None
+    assert db_config['mongo']['image'].startswith('mongo:')
+    assert db_config['neo4j'] is None
+
+    assert db_config['postgres'] is None
+
+
+def test_clear_all_dbconfig_if_nodb():
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
+                               env='withoutdb', local=False, include=["myapp"], exclude=["legacy"])
+
+    # There is a DB config
+    assert KEY_DATABASE in values[KEY_APPS]['myapp'][KEY_HARNESS]
+
+    # But it is None
+    db_config = values[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DATABASE]
+    assert db_config is None

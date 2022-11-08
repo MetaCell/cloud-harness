@@ -25,13 +25,14 @@ def test_dict_behaviour():
     user.firstName = "d"
     assert user.first_name == "d"
     assert user["firstName"] == "d"
+    assert user["first_name"] == "d"
 
     user.first_name = "e"
     assert user.first_name == "e"
     assert user["firstName"] == "e"
+    assert user["first_name"] == "e"
 
     u = user.to_dict()
-    assert u["first_name"] == "e"
     assert u["firstName"] == "e"
 
 def test_usages():

@@ -15,3 +15,9 @@ harness:
     build:
       - cloudharness-base
       - cloudharness-flask
+  test:
+    api:
+      enabled: true
+      autotest: true
+      checks:
+        - all

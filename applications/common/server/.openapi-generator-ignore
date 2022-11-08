@@ -21,5 +21,10 @@
 #docs/*.md
 # Then explicitly reverse the ignore rule for a single file:
 #!docs/README.md
-
+setup.py
 */controllers/*
+Dockerfile
+*/__main__.py
+*/test/*
+test-requirements.txt
+.dockerignore

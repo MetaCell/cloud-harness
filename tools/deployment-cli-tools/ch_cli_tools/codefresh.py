@@ -10,8 +10,8 @@ from cloudharness_utils.testing.util import get_app_environment
 from .models import HarnessMainConfig, ApplicationTestConfig, ApplicationHarnessConfig
 from cloudharness_utils.constants import *
 from .helm import KEY_APPS, KEY_TASK_IMAGES
-from .utils import find_dockerfiles_paths, guess_build_dependencies_from_dockerfile, \
-    get_image_name, get_template, dict_merge, app_name_from_path
+from .utils import find_dockerfiles_paths, get_app_relative_to_base_path, guess_build_dependencies_from_dockerfile, \
+    get_image_name, get_template, dict_merge, app_name_from_path, clean_path
 from cloudharness_utils.testing.api import get_api_filename, get_schemathesis_command, get_urls_from_api_file
 
 logging.getLogger().setLevel(logging.INFO)
@@ -92,9 +92,9 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
             def codefresh_steps_from_base_path(base_path, build_step, fixed_context=None, include=build_included, publish=True):
 
                 for dockerfile_path in find_dockerfiles_paths(base_path):
-                    app_relative_to_root = relpath(dockerfile_path, '.')
-                    app_relative_to_base = relpath(dockerfile_path, base_path)
-                    app_name = app_name_from_path(app_relative_to_base)
+                    dockerfile_relative_to_root = relpath(dockerfile_path, '.')
+                    dockerfile_relative_to_base = get_app_relative_to_base_path(base_path, dockerfile_path)
+                    app_name = app_name_from_path(dockerfile_relative_to_base)
                     app_key = app_name.replace("-", "_")
                     app_config: ApplicationHarnessConfig = app_key in helm_values.apps and helm_values.apps[
                         app_key].harness
@@ -115,7 +115,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         build = codefresh_app_build_spec(
                             app_name=app_name,
                             app_context_path=relpath(
-                                fixed_context, '.') if fixed_context else app_relative_to_root,
+                                fixed_context, '.') if fixed_context else dockerfile_relative_to_root,
                             dockerfile_path=join(
                                 relpath(
                                     dockerfile_path, root_path) if fixed_context else '',
@@ -146,8 +146,8 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
                     if CD_API_TEST_STEP in steps and app_config and app_config.test.api.enabled:
                         tests_path = join(
-                            base_path, app_relative_to_base, "test", API_TESTS_DIRNAME)
-                        api_filename = get_api_filename(app_relative_to_base)
+                            base_path, dockerfile_relative_to_base, "test", API_TESTS_DIRNAME)
+                        api_filename = get_api_filename(dockerfile_relative_to_base)
                         if app_config.subdomain:
                             server_urls = get_urls_from_api_file(
                                 os.path.join(root_path, APPS_PATH, api_filename))
@@ -156,8 +156,8 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                     app_domain = get_app_domain(
                                         app_config) + app_domain
                                 steps[CD_API_TEST_STEP]['scale'][f"{app_name}_api_test"] = dict(
-                                    volumes=api_test_volumes(
-                                        app_relative_to_root),
+                                    volumes=api_test_volumes(clean_path(
+                                        dockerfile_relative_to_root)),
                                     environment=e2e_test_environment(
                                         app_config, app_domain),
                                     commands=api_tests_commands(
@@ -166,15 +166,16 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
                     if CD_E2E_TEST_STEP in steps and app_config and app_config.test.e2e.enabled:
                         tests_path = join(
-                            base_path, app_relative_to_base, "test", E2E_TESTS_DIRNAME)
+                            base_path, dockerfile_relative_to_base, "test", E2E_TESTS_DIRNAME)
 
                         if app_config.subdomain:
 
                             steps[CD_E2E_TEST_STEP]['scale'][f"{app_name}_e2e_test"] = dict(
                                 volumes=e2e_test_volumes(
-                                    app_relative_to_root, app_name),
+                                    clean_path(dockerfile_relative_to_root), app_name),
                                 environment=e2e_test_environment(app_config)
                             )
+            
 
             def add_unit_test_step(app_config: ApplicationHarnessConfig):
                 # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step

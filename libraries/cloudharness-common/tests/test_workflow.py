@@ -15,6 +15,7 @@ from cloudharness.utils.config import CloudharnessConfig
 set_debug()
 
 execute = False
+verbose = True
 
 assert 'registry' in CloudharnessConfig.get_configuration()
 
@@ -286,3 +287,17 @@ def test_workflow_with_context():
             'matchExpressions'][0]
     assert affinity_expr['key'] == 'c'
     assert affinity_expr['values'][0] == 'd'
+
+
+def test_gpu_workflow():
+
+    
+    from cloudharness.workflows import operations, tasks
+
+    my_task = tasks.CustomTask('my-gpu', 'myapp-mytask', resources={"limits": {"nvidia.com/gpu": 1}})
+    op = operations.PipelineOperation('my-op-gpu-', [my_task])
+    wf = op.to_workflow()
+
+    if verbose:
+        print('\n', yaml.dump(wf))
+    assert "nvidia.com/gpu" in wf['spec']['templates'][1]["container"]["resources"]["limits"]

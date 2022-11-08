@@ -822,6 +822,7 @@ export const WorkflowsApiAxiosParamCreator = function (configuration?: Configura
          * 
          * @summary Send a synchronous operation
          * @param {*} [options] Override http request option.
+         * @deprecated
          * @throws {RequiredError}
          */
         submitSync: async (options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
@@ -854,6 +855,7 @@ export const WorkflowsApiAxiosParamCreator = function (configuration?: Configura
          * @param {number} a first number to sum
          * @param {number} b second number to sum
          * @param {*} [options] Override http request option.
+         * @deprecated
          * @throws {RequiredError}
          */
         submitSyncWithResults: async (a: number, b: number, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
@@ -916,6 +918,7 @@ export const WorkflowsApiFp = function(configuration?: Configuration) {
          * 
          * @summary Send a synchronous operation
          * @param {*} [options] Override http request option.
+         * @deprecated
          * @throws {RequiredError}
          */
         async submitSync(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<object>> {
@@ -928,6 +931,7 @@ export const WorkflowsApiFp = function(configuration?: Configuration) {
          * @param {number} a first number to sum
          * @param {number} b second number to sum
          * @param {*} [options] Override http request option.
+         * @deprecated
          * @throws {RequiredError}
          */
         async submitSyncWithResults(a: number, b: number, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
@@ -957,6 +961,7 @@ export const WorkflowsApiFactory = function (configuration?: Configuration, base
          * 
          * @summary Send a synchronous operation
          * @param {*} [options] Override http request option.
+         * @deprecated
          * @throws {RequiredError}
          */
         submitSync(options?: any): AxiosPromise<object> {
@@ -968,6 +973,7 @@ export const WorkflowsApiFactory = function (configuration?: Configuration, base
          * @param {number} a first number to sum
          * @param {number} b second number to sum
          * @param {*} [options] Override http request option.
+         * @deprecated
          * @throws {RequiredError}
          */
         submitSyncWithResults(a: number, b: number, options?: any): AxiosPromise<string> {
@@ -998,6 +1004,7 @@ export class WorkflowsApi extends BaseAPI {
      * 
      * @summary Send a synchronous operation
      * @param {*} [options] Override http request option.
+     * @deprecated
      * @throws {RequiredError}
      * @memberof WorkflowsApi
      */
@@ -1011,6 +1018,7 @@ export class WorkflowsApi extends BaseAPI {
      * @param {number} a first number to sum
      * @param {number} b second number to sum
      * @param {*} [options] Override http request option.
+     * @deprecated
      * @throws {RequiredError}
      * @memberof WorkflowsApi
      */
