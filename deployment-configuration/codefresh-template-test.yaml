@@ -143,7 +143,7 @@ steps:
     title: "Dummy step"
     description: Without this, the on_finish hook is executed before the approval step
     image: python:3.9.10
-    stage: prepare
+    stage: qa
     when:
       condition:
         all:
