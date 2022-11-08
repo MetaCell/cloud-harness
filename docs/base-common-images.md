@@ -41,7 +41,10 @@ In workflow tasks, the build dependency must be specified in the main applicatio
 CloudHarness defines the following base images:
 - `cloudharness-base`: python-alpine with cloudharness common libraries preinstalled
 - `cloudharness-base-debian`: python-debian with cloudharness common libraries preinstalled
-- `cloudharness-frontend-build`: node image to be used as a build step in npm based frontends
+- `cloudharness-django`: cloudharness-base with cloudharness django fastapi libraries preinstalled
+- `cloudharness-django-debian`: cloudharness-base-debian with cloudharness django fastapi libraries preinstalled
+- `cloudharness-fastapi`: cloudharness-base with fastapi libraries preinstalled
+- `cloudharness-fastapi-debian`: cloudharness-base-debian with fastapi libraries preinstalled
 
 Also the following common images are defined:
 - `cloudharness-flask`: common ground image to create Flask backends

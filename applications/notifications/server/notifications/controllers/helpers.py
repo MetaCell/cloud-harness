@@ -11,6 +11,10 @@ def send(operation, context):
 
     for c in notification["channels"]:
         channel = notification_app["notification"]["channels"][c]
+
+        if not channel:
+            continue
+        
         for b in channel["backends"]:
             if   b == "email":
                 channel_backend = NotificationEmailBackend

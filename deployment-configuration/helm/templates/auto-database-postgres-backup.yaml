@@ -1,0 +1,71 @@
+{{ define "deploy_utils.database.postgres.backup"}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: "{{ .app.harness.database.name }}-backup"
+spec:
+  schedule: {{ .root.Values.backup.schedule | quote }}
+  jobTemplate:
+    spec:
+
+      template:
+        metadata:
+          labels:
+            name: "{{ .app.harness.database.name }}-backup"
+            service: db
+        spec:
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchExpressions:
+                      - key: service
+                        operator: In
+                        values:
+                          - db
+                  topologyKey: kubernetes.io/hostname
+          containers:
+            - name: "{{ .app.harness.database.name }}-backup"
+              imagePullPolicy: IfNotPresent
+              image: prodrigestivill/postgres-backup-local
+              command: ["/bin/bash"]
+              args: ["-c" , "./backup.sh"]
+              env:
+                - name: POSTGRES_HOST
+                  value: {{ .app.harness.database.name | quote }}
+                - name: POSTGRES_DB
+                  value: {{ (index .app.harness.database .app.harness.database.type).initialdb | quote }}
+                - name: POSTGRES_USER
+                  value: {{ .app.harness.database.user | quote }}
+                - name: POSTGRES_PASSWORD
+                  value: {{ .app.harness.database.pass | quote }}
+                - name: SCHEDULE
+                  value: {{ .root.Values.backup.schedule | quote }}
+                - name: BACKUP_KEEP_DAYS
+                  value: {{ .root.Values.backup.keep_days | quote }}
+                - name: BACKUP_KEEP_WEEKS
+                  value: {{ .root.Values.backup.keep_weeks |quote }}
+                - name: BACKUP_KEEP_MONTHS
+                  value: {{ .root.Values.backup.keep_months | quote }}
+                - name: BACKUP_SUFFIX
+                  value: {{ .root.Values.backup.suffix | quote }}
+                - name: BACKUP_DIR
+                  value: {{ (printf "%s/%s/%s" .root.Values.backup.dir .app.harness.database.type .app.harness.database.name) | quote }}
+              volumeMounts:
+                - name: "db-backups"
+                  mountPath: {{ (printf "%s/%s/%s" .root.Values.backup.dir .app.harness.database.type .app.harness.database.name) | quote }}
+                  readOnly: false
+              resources:
+                requests:
+                  memory: {{ .root.Values.backup.resources.requests.memory | default "32Mi" }}
+                  cpu: {{ .root.Values.backup.resources.requests.cpu | default "25Mi" }}
+                limits:
+                  memory: {{ .root.Values.backup.resources.limits.memory | default "64Mi" }}
+                  cpu: {{ .root.Values.backup.resources.limits.cpu | default "50mi" }}
+          restartPolicy: OnFailure
+          volumes:
+            - name: "db-backups"
+              persistentVolumeClaim:
+                claimName: "db-backups"
+
+{{ end }}

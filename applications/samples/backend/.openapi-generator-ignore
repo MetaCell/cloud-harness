@@ -24,4 +24,5 @@
 setup.py
 */controllers/*
 Dockerfile
-src/__main__.py
+*/__main__.py
+*/test/*

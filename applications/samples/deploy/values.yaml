@@ -1,6 +1,6 @@
 harness:
   subdomain: samples
-  secured: false
+  secured: true
   sentry: true
   port: 80
   service:
@@ -9,6 +9,25 @@ harness:
   deployment:
     auto: true
     port: 8080
+  uri_role_mapping:
+    - uri: /
+      white-listed: true
+    - uri: /api/error
+      white-listed: true
+    - uri: /api/operation_sync
+      white-listed: true
+    - uri: /api/operation_sync_results
+      white-listed: true
+    - uri: /api/ping
+      white-listed: true
+    - uri: /api/openapi.json
+      white-listed: true
+    - uri: /icon.png
+      white-listed: true
+    - uri: /js/*
+      white-listed: true
+    - uri: /assets/*
+      white-listed: true
   env:
     - name: WORKERS
       value: "3"
@@ -16,7 +35,8 @@ harness:
     soft:
       - workflows
       - events
-      - accounts
+      - accounts 
+      - common
     build:
       - cloudharness-flask
       - cloudharness-frontend-build
@@ -27,4 +47,28 @@ harness:
     - name: example
       src: "example.yaml"
       dst: "/usr/src/app/important_config.yaml"
+  secrets:
+    asecret: "value"
+  test:
+    unit:
+      enabled: true
+      commands:
+      - "pytest /usr/src/app/samples/test"
+    e2e:
+      enabled: true
+      smoketest: true
+      ignoreRequestErrors: false
+      ignoreConsoleErrors: false
+    api:
+      enabled: true
+      autotest: true
+      checks:
+        - all
+      runParams:
+      - "--skip-deprecated-operations" 
+      - "--hypothesis-suppress-health-check=too_slow" 
+      - "--hypothesis-deadline=180000"
+      - "--request-timeout=180000"
+      - "--hypothesis-max-examples=2"
+      - "--show-errors-tracebacks"
 

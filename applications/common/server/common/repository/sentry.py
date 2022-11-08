@@ -1,3 +1,5 @@
+
+import sqlalchemy 
 from sqlalchemy.sql import text
 
 from cloudharness.utils.env import get_service_public_address
@@ -46,9 +48,13 @@ def get_dsn(appname):
     join sentry_project p on pkey.project_id=p.id 
     where p.slug=:project_slug
     ''')
-    public_key = get_db().engine.execute(s, 
-        project_slug=appname
-        ).fetchall()
+    try:
+        public_key = get_db().engine.execute(s, 
+            project_slug=appname
+            ).fetchall()
+    except sqlalchemy.exc.OperationalError:
+        raise SentryProjectNotFound('Sentry is not initialized.')
+
     if len(public_key) == 0:
         raise SentryProjectNotFound('Application not found!')
     else:

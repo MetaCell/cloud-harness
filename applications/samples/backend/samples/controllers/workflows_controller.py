@@ -1,6 +1,7 @@
 import connexion
 import six
 
+from cloudharness.auth import get_api_password
 from samples.models.inline_response202 import InlineResponse202  # noqa: E501
 from samples import util
 from samples.models import InlineResponse202
@@ -12,7 +13,8 @@ from cloudharness import log
 try:
     from cloudharness.workflows import operations, tasks
 except Exception as e:
-    log.error("Cannot start workflows module. Probably this is related some problem with the kubectl configuration", exc_info=True)
+    log.error("Cannot start workflows module. Probably this is related some problem with the kubectl configuration",
+              exc_info=True)
 
 
 def submit_async():  # noqa: E501
@@ -33,7 +35,8 @@ def submit_async():  # noqa: E501
 
     submitted = op.execute()
     if not op.is_error():
-        return InlineResponse202(task=InlineResponse202Task(href=op.get_operation_update_url(), name=submitted.name)), 202
+        return InlineResponse202(
+            task=InlineResponse202Task(href=op.get_operation_update_url(), name=submitted.name)), 202
     else:
         return 'Error submitting operation', 500
 
@@ -47,15 +50,34 @@ def submit_sync():  # noqa: E501
     :rtype: str
     """
     task = tasks.CustomTask(
-        'download-file', 'workflows-extract-download', url='https://github.com/MetaCell/cloud-harness/blob/master/README.md')
+        'download-file', 'workflows-extract-download',
+        url='https://github.com/MetaCell/cloud-harness/blob/master/README.md')
 
     op = operations.DistributedSyncOperation('test-sync-op-', task)
     try:
         workflow = op.execute()
+        if workflow.status == "Error":
+            return 'Workflow error', 500
         return workflow.raw.to_dict()
     except Exception as e:
         log.error('Error submitting sync operation', exc_info=True)
         return 'Error submitting operation: %s' % e, 500
+
+
+def submit_secret_sync_with_results():  # noqa: E501
+    """Send a synchronous operation and get results using the event queue. Checks access to get_api_password
+
+    :rtype: str
+    """
+    task = tasks.CustomTask('test-secret', 'samples-secret')
+    try:
+        op = operations.DistributedSyncOperationWithResults(
+            'test-sync-secret-op-results-', task)
+        result = op.execute()
+        assert result[0]["result"] != ''
+        return result[0]["result"]
+    except Exception as e:
+        return jsonify(str(e)), 500
 
 
 def submit_sync_with_results(a=1, b=2):  # noqa: E501
@@ -75,6 +97,6 @@ def submit_sync_with_results(a=1, b=2):  # noqa: E501
         op = operations.DistributedSyncOperationWithResults(
             'test-sync-op-results-', task)
         result = op.execute()
-        return result
+        return result[0]["result"]
     except Exception as e:
-        return jsonify(str(e)), 200
+        return jsonify(str(e)), 500

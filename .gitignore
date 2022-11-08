@@ -6,7 +6,7 @@ node_modules
 .vscode
 .coverage
 *.DS_Store
-deployment
+deployment/helm
 *.egg-info
 *.idea
 /build
@@ -14,3 +14,6 @@ skaffold.yaml
 .tox
 .pytest_cache
 .overrides
+deployment.yaml
+.hypothesis
+__pycache__

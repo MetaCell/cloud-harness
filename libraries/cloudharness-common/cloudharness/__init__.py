@@ -3,6 +3,7 @@ import sys
 
 log = logging
 
+from cloudharness_model.encoder import CloudHarnessJSONEncoder
 FORMAT = "%(asctime)s [%(levelname)s] %(module)s.%(funcName)s: %(message)s"
 logging.basicConfig(stream=sys.stdout, format=FORMAT, level=logging.INFO)
 
@@ -12,6 +13,21 @@ def set_debug():
 
 # TODO log will write through a rest service
 
+import json as js
+
+json_dumps = js.dumps
+
+def dumps(o, *args, **kwargs):
+    try:
+        if  "cls" not in kwargs:
+            return json_dumps(o, cls=CloudHarnessJSONEncoder, *args, **kwargs)
+        return json_dumps(o, *args, **kwargs)
+    except:
+        logging.error(repr(o))
+        raise
+
+json = js
+json.dumps = dumps
 
 class NotCorrectlyInitialized(Exception):
     pass

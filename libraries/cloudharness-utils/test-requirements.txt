@@ -1,0 +1,8 @@
+pytest
+pytest-cov
+coverage
+nose
+randomize
+pyparsing
+-e ../libraries/models
+-e .

@@ -1,0 +1,86 @@
+#!/usr/bin/env python
+import logging
+
+import sys
+import os
+
+from cloudharness_model.models import HarnessMainConfig
+
+from cloudharness_test.api import run_api_tests
+from cloudharness_test.e2e import run_e2e_tests
+from cloudharness_test.utils import url_check
+from ruamel.yaml import YAML
+
+yaml = YAML(typ='safe')
+
+
+HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
+ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
+
+HELM_DIR = os.path.join('./deployment/helm')
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="""Run end to end test on deployed application. 
+        In order to run tests harness-deployment must run first and the deployment must be up at the 
+        specified domain.""")
+
+    parser.add_argument('paths', metavar='paths', default=[ROOT], type=str, nargs='*',
+                        help='Base paths to start looking for applications. The paths will be processed '
+                             'in the given order so determining the build and overriding precedence.')
+    parser.add_argument('-d', '--domain', dest='domain', action="store", default=None,
+                        help='Override the domain specified with harness-deployment')
+    parser.add_argument('-i', '--include', dest='include', action="append", default=[],
+                        help='Specify the applications to include and exclude the rest. '
+                             'Omit to test all application included by harness-deployment.')
+    parser.add_argument('-c', '--helm-chart', dest='helm_chart_path', action="store", default=HELM_DIR,
+                        help=f'Specify helm chart base path (default `{HELM_DIR}`')
+    parser.add_argument('-e', '--e2e', dest='run_e2e', action="store_const", default=None, const=True,
+                        help=f'Run only end to end tests (default: run both api and end to end tests')
+    parser.add_argument('-a', '--api', dest='run_api', action="store_const", default=None, const=True,
+                        help=f'Run only end to end tests (default: run both api and end to end tests')
+                        
+    parser.add_argument('-hl', '--headless', dest='headless', action="store_true", default=False,
+                        help=f'Run headless end to end tests')
+    args, unknown = parser.parse_known_args(sys.argv[1:])
+
+    root_paths = [os.path.join(os.getcwd(), path) for path in args.paths]
+
+    if unknown:
+        print('There are unknown args. Make sure to call the script with the accepted args. Try --help')
+        print(f'unknown: {unknown}')
+    else:
+        helm_values_path = os.path.join(HELM_DIR, 'values.yaml')
+        if not os.path.exists(helm_values_path):
+            logging.error(
+                "Could not find helm installation. Have you run harness-deployment already?")
+            sys.exit(1)
+        os.environ["CH_VALUES_PATH"] = os.path.abspath(helm_values_path)
+
+        with open(helm_values_path) as f:
+            helm_values_raw = yaml.load(f)
+        
+        
+
+        if args.domain:
+            helm_values_raw["domain"]  = args.domain
+            with open(helm_values_path, 'w') as f:
+                yaml.dump(helm_values_raw, f)
+
+        helm_values = HarnessMainConfig.from_dict(helm_values_raw)
+        base_domain = args.domain or helm_values.domain
+        
+        logging.info("Base domain is %s", base_domain)
+        from cloudharness.utils.config import CloudharnessConfig
+        CloudharnessConfig.allvalues["domain"] = base_domain
+        if not url_check(f"http{'s' if helm_values.tls else ''}://{base_domain}"):
+            logging.error(
+                "Base domain unreachable. Is your deployment up and running? If yes, check your DNS/hosts settings.")
+        
+        included_applications = args.include
+        if args.run_api == True or args.run_e2e is None:
+            run_api_tests(root_paths, helm_values, base_domain, included_applications)
+        if args.run_e2e == True or args.run_api is None:
+            run_e2e_tests(root_paths, helm_values, base_domain, included_applications, args.headless)

@@ -1,10 +1,12 @@
 **/node_modules
 .tox
 docs
-applications
-infrastructure
-blueprint
+/applications
+/infrastructure
+/blueprint
 test
 .github
 .git
 .vscode
+/deployment
+skaffold.yaml

@@ -7,7 +7,8 @@ https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/CustomOb
 import yaml
 
 from argo.workflows.client import ApiClient, WorkflowServiceApi, Configuration, V1alpha1WorkflowCreateRequest, \
-    V1alpha1Workflow
+    V1alpha1Workflow, V1alpha1WorkflowList, exceptions
+
 
 # determine the namespace of the current app and run the workflow in that namespace
 from cloudharness.utils.config import CloudharnessConfig as conf
@@ -47,16 +48,24 @@ class ArgoObject:
 # --- Wrapper objects for api results ---
 
 class Phase:
-    NodePending = "Pending"
-    NodeRunning = "Running"
-    NodeSucceeded = "Succeeded"
-    NodeSkipped = "Skipped"
-    NodeFailed = "Failed"
-    NodeError = "Error"
+    Pending = "Pending"
+    Running = "Running"
+    Succeeded = "Succeeded"
+    Skipped = "Skipped"
+    Failed = "Failed"
+    Error = "Error"
+
+    # Legacy names (deprecated)
+    NodeRunning = Running
+    NodePending = Pending
+    NodeSucceeded = Succeeded
+    NodeSkipped = Skipped
+    NodeFailed = Failed
+    NodeError = Error
 
     @classmethod
     def phases(cls):
-        return tuple(value for key, value in cls.__dict__.items() if 'Node' in key)
+        return (cls.Pending, cls.Running, cls.Succeeded, cls.Skipped, cls.Failed, cls.Error)
 
 
 class Workflow:
@@ -67,16 +76,16 @@ class Workflow:
         self.raw = api_workflow
 
     def is_finished(self):
-        return self.status in (Phase.NodeError, Phase.NodeSucceeded, Phase.NodeSkipped, Phase.NodeFailed)
+        return self.status in (Phase.Error, Phase.Succeeded, Phase.Skipped, Phase.Failed)
 
     def __str__(self):
         return yaml.dump(self.raw)
 
     def succeeded(self):
-        return self.status == Phase.NodeSucceeded
+        return self.status == Phase.Succeeded
 
     def failed(self):
-        return self.status == Phase.NodeFailed
+        return self.status == Phase.Failed
 
     def get_status_message(self):
         return self.raw.status.message
@@ -87,10 +96,10 @@ class Workflow:
 
 
 class SearchResult:
-    def __init__(self, raw_dict):
-        self.items = tuple(Workflow(item) for item in raw_dict.items)
-        self.continue_token = raw_dict.metadata._continue
-        self.raw = raw_dict
+    def __init__(self, workflows: V1alpha1WorkflowList):
+        self.items = tuple(Workflow(item) for item in workflows.items) if workflows.items is not None else []
+        self.continue_token = workflows.metadata._continue if workflows.metadata else None
+        self.raw = workflows
 
     def __str__(self):
         return self.raw
@@ -117,17 +126,23 @@ def get_configuration():
     return Configuration(host=host)
 
 
-def get_workflows(status=None, limit=10, continue_token=None, timeout_seconds=3) -> SearchResult:
+def get_workflows(status=None, limit=10, continue_token=None, timeout_seconds=3, field_selector=None, fields=None, **kwargs) -> SearchResult:
     """https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/CustomObjectsApi.md#list_namespaced_custom_object"""
     # Notice: field selector doesn't work though advertised, except fot metadata.name and metadata.namespace https://github.com/kubernetes/kubernetes/issues/51046
     # The filtering by phase can be obtained through labels: https://github.com/argoproj/argo/issues/496
     service = WorkflowServiceApi(api_client=get_api_client())
 
     try:
-        api_response = service.list_workflows(namespace, list_options_limit=limit, list_options_continue=continue_token)
+        api_response = service.list_workflows(namespace, list_options_limit=limit, list_options_continue=continue_token, 
+        list_options_label_selector=f"workflows.argoproj.io/phase={status}" if status else None,
+         _request_timeout=timeout_seconds, 
+         list_options_field_selector=field_selector, fields=fields, **kwargs)
+    
     except ValueError:
-        log.exception("Couldn't find any workflows")
-        return None
+        # Exception is raised when no results are found
+        return SearchResult(V1alpha1WorkflowList(items=[], metadata={}))
+    except exceptions.ApiException as e:
+        raise WorkflowException(400, e.body)
     else:
         return SearchResult(api_response)
 
@@ -185,7 +200,7 @@ def get_workflow_logs_list(workflow_name):
 
 if __name__ == '__main__':
     from pprint import pprint
-
-    pprint(CUSTOM_OBJECT_URL)
-    pprint(get_workflows('Succeeded').raw)
+    conf.get_configuration()['test'] = True
+    res = get_workflows()
+    pprint(res)
     # pprint(get_workflow('hello-world-sfzd4'))

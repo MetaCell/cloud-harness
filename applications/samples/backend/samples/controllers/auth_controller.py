@@ -14,3 +14,14 @@ def valid_token():  # noqa: E501
     :rtype: List[Valid]
     """
     return 'OK!'
+
+
+def valid_cookie():  # noqa: E501
+    """Check if the token is valid. Get a token by logging into the dashboard
+
+    Check if the token is valid  # noqa: E501
+
+
+    :rtype: List[Valid]
+    """
+    return 'OK!'

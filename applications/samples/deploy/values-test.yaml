@@ -1,0 +1,21 @@
+harness:
+  accounts:
+    roles:
+    - role1
+    - role2
+    - role3
+    users:
+    - username: sample@testuser.com
+      clientRoles:
+      - role1
+      realmRoles:
+      - administrator
+      - offline_access
+    - username: samples-test-user2
+      email: sample2@testuser.com
+      password: test1
+      clientRoles:
+      - role1
+      realmRoles:
+      - offline_access
+

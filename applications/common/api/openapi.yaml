@@ -30,6 +30,24 @@ paths:
           content:
             application/json:
               schema:
+                type: object
+        '400':
+          description: Sentry not configured for the given application
+          content:
+            application/json:
+              schema:
+                type: object
+            text/html:
+              schema: 
+                type: string
+        '404':
+          description: Sentry not configured for the given application
+          content:
+            application/problem+json:
+              schema:
+                type: object
+            text/html:
+              schema: 
                 type: string
       summary: Gets the Sentry DSN for a given application
       x-openapi-router-controller: common.controllers.sentry_controller

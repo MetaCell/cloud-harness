@@ -1,21 +1,26 @@
 import time
+from collections.abc import Iterable
+from typing import Union
+
 import pyaml
 
-from collections.abc import Iterable
-
-from cloudharness_cli.workflows.models.operation_status import OperationStatus
-
+from cloudharness import log
 from cloudharness.events.client import EventClient
 from cloudharness.utils import env, config
-from cloudharness import log
-
 from . import argo
 from .tasks import Task, SendResultTask, CustomTask
+from .utils import is_accounts_present
 
 POLLING_WAIT_SECONDS = 1
 SERVICE_ACCOUNT = 'argo-workflows'
 
-
+class OperationStatus(object):
+    PENDING = "Pending"
+    RUNNING = "Running"
+    ERROR = "Error"
+    SUCCEEDED = "Succeeded"
+    SKIPPED = "Skipped"
+    FAILED = "Failed"
 class BadOperationConfiguration(RuntimeError):
     pass
 
@@ -38,15 +43,15 @@ class ManagedOperation:
     """
 
     def __init__(self,
-        name,
-        ttl_strategy: dict = {
-            'secondsAfterCompletion': 60 * 60,
-            'secondsAfterSuccess': 60 * 20,
-            'secondsAfterFailure': 60 * 120
-            },
-        *args,
-        on_exit_notify=None,
-        **kwargs):
+                 name,
+                 ttl_strategy: dict = {
+                     'secondsAfterCompletion': 60 * 60,
+                     'secondsAfterSuccess': 60 * 20,
+                     'secondsAfterFailure': 60 * 120
+                 },
+                 *args,
+                 on_exit_notify=None,
+                 **kwargs):
         self.name = name
         self.ttl_strategy = ttl_strategy
         self.on_exit_notify = on_exit_notify
@@ -55,19 +60,27 @@ class ManagedOperation:
         raise NotImplementedError(f"{self.__class__.__name__} is abstract")
 
 
+
 class ContainerizedOperation(ManagedOperation):
     """
     Abstract Containarized operation based on an argo workflow
     """
 
-    def __init__(self, basename: str, pod_context: PodExecutionContext = None, shared_directory=None, *args, **kwargs):
+    def __init__(self, basename: str, pod_context: Union[PodExecutionContext, list, tuple] = None,
+                 shared_directory=None, *args, **kwargs):
         """
         :param basename:
         :param pod_context: PodExecutionContext - represents affinity with other pods in the system
         :param shared_directory: bool|str|list
         """
         super(ContainerizedOperation, self).__init__(basename, *args, **kwargs)
-        self.pod_context = pod_context
+        if type(pod_context) == PodExecutionContext:
+            self.pod_contexts = [pod_context]
+        elif pod_context is None:
+            self.pod_contexts = []
+        else:
+            self.pod_contexts = list(pod_context)
+
         self.persisted = None
         shared_path = None
         if shared_directory:
@@ -80,24 +93,28 @@ class ContainerizedOperation(ManagedOperation):
             else:
                 self.volumes = shared_directory
                 assert len(set(shared_directory)) == len(shared_directory), "Shared directories are not unique"
-                assert len(set(s.split(":")[0] for s in shared_directory)) == len(shared_directory), "Shared directories volumes are not unique"
-                
+                assert len(set(s.split(":")[0] for s in shared_directory)) == len(
+                    shared_directory), "Shared directories volumes are not unique"
+
             if shared_path:
                 for task in self.task_list():
                     task.add_env('shared_directory', shared_path)
         else:
             self.volumes = tuple()
 
+        self.pod_contexts += [PodExecutionContext('usesvolume', v.split(':')[0], True) for v in self.volumes if
+                              ':' in v]
+
     def task_list(self):
         raise NotImplementedError()
 
     @property
     def entrypoint(self):
-        raise NotImplemented
+        raise NotImplementedError()
 
     @property
     def templates(self):
-        raise NotImplemented
+        raise NotImplementedError()
 
     def to_workflow(self, **arguments):
         return {
@@ -122,10 +139,19 @@ class ContainerizedOperation(ManagedOperation):
                 }
             }]
         }
+
+        if is_accounts_present():
+            spec['volumes'].append({
+                'name': 'cloudharness-kc-accounts',
+                'secret': {
+                    'secretName': 'accounts'
+                }
+            })
+
         if self.on_exit_notify:
             spec = self.add_on_exit_notify_handler(spec)
 
-        if self.pod_context:
+        if self.pod_contexts:
             spec['affinity'] = self.affinity_spec()
         if self.volumes:
             spec['volumeClaimTemplates'] = [self.spec_volumeclaim(volume) for volume in self.volumes if
@@ -135,39 +161,42 @@ class ContainerizedOperation(ManagedOperation):
         return spec
 
     def affinity_spec(self):
+        contexts = self.pod_contexts
+        PREFERRED = 'preferredDuringSchedulingIgnoredDuringExecution'
+        REQUIRED = 'requiredDuringSchedulingIgnoredDuringExecution'
 
-        term = {
-            'labelSelector':
-                {
-                    'matchExpressions': [
-                        {
-                            'key': self.pod_context.key,
-                            'operator': 'In',
-                            'values': [self.pod_context.value]
-                        },
-                    ]
-                },
-            'topologyKey': 'kubernetes.io/hostname'
+        pod_affinity = {
+            PREFERRED: [],
+            REQUIRED: []
         }
-        if not self.pod_context.required:
-            return {
-                'podAffinity':
-                    {
-                        'preferredDuringSchedulingIgnoredDuringExecution': [
-                            {
-                                'weight': 100,
-                                'podAffinityTerm': term
 
-                            }]
-                    }
-            }
-        else:
-            return {
-                'podAffinity':
+        for context in contexts:
+            term = {
+                'labelSelector':
                     {
-                        'requiredDuringSchedulingIgnoredDuringExecution': [term]
-                    }
+                        'matchExpressions': [
+                            {
+                                'key': context.key,
+                                'operator': 'In',
+                                'values': [context.value]
+                            },
+                        ]
+                    },
+                'topologyKey': 'kubernetes.io/hostname'
             }
+            if not context.required:
+                pod_affinity[PREFERRED].append(
+                    {
+                        'weight': 100,
+                        'podAffinityTerm': term
+
+                    })
+            else:
+                pod_affinity[REQUIRED].append(term)
+
+        return {
+            'podAffinity': pod_affinity
+        }
 
     def add_on_exit_notify_handler(self, spec):
         queue = self.on_exit_notify['queue']
@@ -187,18 +216,17 @@ class ContainerizedOperation(ManagedOperation):
 
     def modify_template(self, template):
         """Hook to modify templates (e.g. add volumes)"""
-        if self.pod_context:
-            if 'metadata' not in template:
-                template['metadata'] = {}
-            if 'labels' not in template['metadata']:
-                template['metadata']['labels'] = {}
-            template['metadata']['labels'][self.pod_context.key] = self.pod_context.value
+
+        template["metadata"] = {"labels": {c.key: c.value for c in self.pod_contexts}}
+
         if self.volumes:
             if 'container' in template:
-                template['container']['volumeMounts'] += [self.volume_template(volume) for volume in self.volumes]
+                template['container']['volumeMounts'] += [
+                    self.volume_template(volume) for volume in self.volumes]
             elif 'script' in template:
-                template['script']['volumeMounts'] += [self.volume_template(volume) for volume in self.volumes]
-        
+                template['script']['volumeMounts'] += [
+                    self.volume_template(volume) for volume in self.volumes]
+
         return template
 
     def submit(self):
@@ -231,10 +259,15 @@ class ContainerizedOperation(ManagedOperation):
 
     def volume_template(self, volume):
         path = volume
-        if ":" in path:
-            path = volume.split(':')[-1]
-        return dict({'name': self.name_from_path(path), 'mountPath': path})
-        
+        splitted = volume.split(':')
+        if len(splitted) > 1:
+            path = splitted[1]
+        return dict({
+            'name': self.name_from_path(path),
+            'mountPath': path,
+            'readonly': False if len(splitted) < 3 else splitted[2] == "ro"
+        })
+
     def spec_volumeclaim(self, volume):
         # when the volume is NOT prefixed by a PVC (e.g. /location) then create a temporary PVC for the workflow
         if ':' not in volume:
@@ -257,14 +290,16 @@ class ContainerizedOperation(ManagedOperation):
     def spec_volume(self, volume):
         # when the volume is prefixed by a PVC (e.g. pvc-001:/location) then add the PVC to the volumes of the workflow
         if ':' in volume:
-            pvc, path = volume.split(':')
+            pvc, path, *c = volume.split(':')
             return {
                 'name': self.name_from_path(path),
                 'persistentVolumeClaim': {
                     'claimName': pvc
-                }
+                },
+
             }
         return {}
+
 
 class SyncOperation(ManagedOperation):
     """A Sync operation returns the result directly with the execute method"""
@@ -301,10 +336,9 @@ class SingleTaskOperation(ContainerizedOperation):
         """
         self.task = task
         super().__init__(name, *args, **kwargs)
-        
 
     def task_list(self):
-        return (self.task, )
+        return (self.task,)
 
     @property
     def entrypoint(self):
@@ -359,7 +393,6 @@ class CompositeOperation(AsyncOperation):
                  pod_context: PodExecutionContext = None,
                  *args, **kwargs):
         """
-
         :param basename:
         :param tasks:
         :param shared_directory: can set to True or a path. If set, tasks will use that directory to store results. It
@@ -369,8 +402,6 @@ class CompositeOperation(AsyncOperation):
         """
         self.tasks = tasks
         AsyncOperation.__init__(self, basename, pod_context, shared_directory=shared_directory, *args, **kwargs)
-        
-
 
         self.shared_volume_size = shared_volume_size
         if len(self.task_list()) != len(set(self.task_list())):
@@ -378,7 +409,7 @@ class CompositeOperation(AsyncOperation):
         self.entrypoint_template = {'name': self.entrypoint, 'steps': self.steps_spec()}
 
     def steps_spec(self):
-        raise NotImplemented
+        raise NotImplementedError()
 
     def task_list(self):
         return self.tasks
@@ -395,12 +426,8 @@ class CompositeOperation(AsyncOperation):
     def modify_template(self, template):
         # TODO verify the following condition. Can we mount volumes also with source based templates
         super().modify_template(template)
-      
+
         return template
-
-
-
-
 
 
 class PipelineOperation(CompositeOperation):
@@ -452,10 +479,12 @@ class ParallelOperation(CompositeOperation):
 class SimpleDagOperation(CompositeOperation):
     """Simple DAG definition limited to a pipeline of parallel operations"""
 
-    def __init__(self, basename, *task_groups, shared_directory=None, pod_context: PodExecutionContext = None, **kwargs):
+    def __init__(self, basename, *task_groups, shared_directory=None, pod_context: PodExecutionContext = None,
+                 **kwargs):
         task_groups = tuple(
             task_group if isinstance(task_group, Iterable) else (task_group,) for task_group in task_groups)
-        super().__init__(basename, pod_context=pod_context, tasks=task_groups, shared_directory=shared_directory, **kwargs)
+        super().__init__(basename, pod_context=pod_context, tasks=task_groups, shared_directory=shared_directory,
+                         **kwargs)
 
     def steps_spec(self):
         return [[task.instance() for task in task_group] for task_group in self.tasks]
