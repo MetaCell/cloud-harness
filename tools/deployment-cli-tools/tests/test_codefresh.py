@@ -236,6 +236,10 @@ def test_create_codefresh_configuration_tests():
         assert "-c all" in st_cmd, "Default check loaded is `all` on schemathesis command"
         assert "--hypothesis-deadline=" in st_cmd, "Custom parameters are loaded from values.yaml"
 
+        test_step = api_steps["common_api_test"]
+        for volume in test_step["volumes"]:
+            assert "server" not in volume
+
 
         assert any("CLOUDHARNESS_BASE" in arg for arg in st_build_test_steps["test-api"]
                    ["build_arguments"]), "Missing build dependency on api test image"

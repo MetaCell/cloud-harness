@@ -8,9 +8,8 @@ info:
     license:
         name: UNLICENSED
 servers:
-    -
-        url: /api
-        description: Metacell host
+    - url: /api
+      description: Metacell host
 paths:
     /operations:
         get:

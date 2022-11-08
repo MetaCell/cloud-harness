@@ -385,7 +385,7 @@ steps:
         - pytest -v test/api
       common_api_test:
         volumes:
-        - '${{CF_REPO_NAME}}/applications/common/server:/home/test'
+        - '${{CF_REPO_NAME}}/applications/common:/home/test'
         - '${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml'
         environment:
         - APP_URL=https://common.${{CF_SHORT_REVISION}}.${{DOMAIN}}/api
@@ -394,7 +394,7 @@ steps:
           https://common.${{CF_SHORT_REVISION}}.${{DOMAIN}}/api -c all
       workflows_api_test:
         volumes:
-        - '${{CF_REPO_NAME}}/applications/workflows/server:/home/test'
+        - '${{CF_REPO_NAME}}/applications/workflows:/home/test'
         - '${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml'
         environment:
         - APP_URL=https://workflows.${{CF_SHORT_REVISION}}.${{DOMAIN}}/api
