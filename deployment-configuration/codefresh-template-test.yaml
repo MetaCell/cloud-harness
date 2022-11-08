@@ -139,6 +139,16 @@ steps:
         all:
           error: '"${{FAILED}}" == "failed"'
           wait_on_fail: ${{WAIT_ON_FAIL}}
+  dummy_end:
+    title: "Dummy step"
+    description: Without this, the on_finish hook is executed before the approval step
+    image: python:3.9.10
+    stage: prepare
+    when:
+      condition:
+        all:
+          error: '"${{FAILED}}" == "failed"'
+          wait_on_fail: ${{WAIT_ON_FAIL}}
 hooks:
   on_finish:
     image: codefresh/kubectl

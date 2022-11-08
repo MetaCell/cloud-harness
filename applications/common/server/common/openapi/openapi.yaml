@@ -44,8 +44,26 @@ paths:
           content:
             application/json:
               schema:
-                type: string
+                type: object
           description: Sentry DSN for the given application
+        "400":
+          content:
+            application/json:
+              schema:
+                type: object
+            text/html:
+              schema:
+                type: string
+          description: Sentry not configured for the given application
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                type: object
+            text/html:
+              schema:
+                type: string
+          description: Sentry not configured for the given application
       summary: Gets the Sentry DSN for a given application
       tags:
       - Sentry

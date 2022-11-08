@@ -112,6 +112,8 @@ paths:
                   $ref: '#/components/schemas/Operation'
                 type: array
           description: search results matching criteria
+        "400":
+          description: Bad request
         "404":
           description: not found
       summary: get operation by name
@@ -145,6 +147,8 @@ paths:
                 example: Hello world
                 type: string
           description: search results matching criteria
+        "400":
+          description: Bad request
         "404":
           description: not found
       summary: get operation by name
