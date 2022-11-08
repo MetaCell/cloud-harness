@@ -71,7 +71,7 @@ def list_operations(status=None, previous_search_token=None, limit=None):  # noq
         return (f'Bad parameter: {e.param}, {e}', e.status)
     except OperationException as e:
         log.error(f'Unhandled remote exception while retrieving workflows', exc_info=e)
-        return '', e.status
+        return f'{e}', e.status
 
 
 def log_operation(name):  # noqa: E501
@@ -86,5 +86,7 @@ def log_operation(name):  # noqa: E501
     """
     if not name or name == '':
         return ''
-
-    return workflow_service.log_operation(name)
+    try:
+        return workflow_service.log_operation(name)
+    except OperationNotFound as e:
+        return (f'{name} not found', 404)

@@ -21,13 +21,13 @@ python3 -m workflows_api
 and open your browser to here:
 
 ```
-http://localhost:8080/ui/
+http://localhost:8080/api/ui/
 ```
 
 Your OpenAPI definition lives here:
 
 ```
-http://localhost:8080/openapi.json
+http://localhost:8080/api/openapi.json
 ```
 
 To launch the integration tests, use tox:

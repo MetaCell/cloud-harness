@@ -27,7 +27,7 @@ def generate_server(app_path, overrides_folder=""):
         f"{app_path}/server") else f"server"
     out_path = f"{app_path}/{out_name}"
     command = f"java -jar {CODEGEN} generate -i {openapi_file} -g python-flask -o {out_path} " \
-              f"-c {openapi_dir}/config.json -t {overrides_folder}"
+              f"-c {openapi_dir}/config.json " + (f"-t {overrides_folder}" if overrides_folder else "")
     os.system(command)
 
 
@@ -65,22 +65,18 @@ def generate_model(base_path=ROOT):
 
 def generate_python_client(module, openapi_file, client_src_path, lib_name=LIB_NAME):
     get_dependencies()
-    config_path = os.path.join(os.path.dirname(openapi_file), 'config.json')
 
     module = to_python_module(module)
-    with open(config_path, 'w') as f:
-        f.write(json.dumps(dict(packageName=f"{lib_name}.{module}")))
     command = f"java -jar {CODEGEN} generate " \
               f"-i {openapi_file} " \
               f"-g python " \
               f"-o {client_src_path}/tmp-{module} " \
-              f"-c {config_path}"
+              f"packageName={lib_name}.{module}"
     os.system(command)
 
 
 def generate_ts_client(openapi_file):
     get_dependencies()
-    config_path = os.path.join(os.path.dirname(openapi_file), 'config.json')
     out_dir = f"{os.path.dirname(os.path.dirname(openapi_file))}/frontend/src/rest"
     command = f"java -jar {CODEGEN} generate " \
               f"-i {openapi_file} " \

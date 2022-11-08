@@ -36,6 +36,7 @@ harness:
       - workflows
       - events
       - accounts 
+      - common
     build:
       - cloudharness-flask
       - cloudharness-frontend-build
