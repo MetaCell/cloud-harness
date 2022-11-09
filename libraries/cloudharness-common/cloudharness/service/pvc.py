@@ -64,7 +64,7 @@ def _get_default_storage_class() -> str:
             break
     return selected_sc
 
-def create_persistent_volume_claim(name, size, logger, storage_class=None, useNFS=False, template=None, **kwargs):
+def create_persistent_volume_claim(name, size, logger, storage_class=None, useNFS=False, template=None, access_mode=None, **kwargs):
     """
     Create a Persistent Volume Claim in the Kubernetes cluster.
     If a PVC with the name given already exists then the function
@@ -82,6 +82,9 @@ def create_persistent_volume_claim(name, size, logger, storage_class=None, useNF
     Returns:
         -
     """
+    if persistent_volume_claim_exists(name):
+        return
+
     if not size:
         raise Exception(f"Size must be set. Got {size!r}.")
     
@@ -92,21 +95,26 @@ def create_persistent_volume_claim(name, size, logger, storage_class=None, useNF
             # determine the NFS storage class
             storage_class = _get_nfs_storage_class()
 
-    if not persistent_volume_claim_exists(name):
-        if not template:
-            path = os.path.join(os.path.dirname(__file__), 'templates', 'pvc.yaml')
-            template = open(path, 'rt').read()
-        text = template.format(
+    if not access_mode and useNFS:
+        access_mode = "ReadWriteMany"
+
+    if not template:
+        path = os.path.join(os.path.dirname(__file__), 'templates', 'pvc.yaml')
+        template = open(path, 'rt').read()
+    text = template.format(
             name=name,
             size=size,
             storageClass=storage_class)
-        data = dict_merge(yaml.safe_load(text), kwargs)
+    data = dict_merge(yaml.safe_load(text), kwargs)
 
-        obj = _get_corev1_api().create_namespaced_persistent_volume_claim(
+    if access_mode:
+        data["spec"]["accessModes"] = [access_mode]
+
+    obj = _get_corev1_api().create_namespaced_persistent_volume_claim(
             namespace=conf.get_configuration()['namespace'],
             body=data,
         )
-        logger.info(f"PVC child is created: %s", obj)
+    logger.info(f"PVC child is created: %s", obj)
 
 
 def persistent_volume_claim_exists(name):
