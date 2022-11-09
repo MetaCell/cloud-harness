@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "nfs-subdir-external-provisioner.fullname" . }}
+  labels:
+    {{- include "nfs-subdir-external-provisioner.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.apps.nfsserver.replicaCount }}
+  strategy:
+    type: {{ .Values.apps.nfsserver.strategyType }}
+  selector:
+    matchLabels:
+      {{- include "nfs-subdir-external-provisioner.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+      {{- with .Values.apps.nfsserver.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if and (.Values.apps.nfsserver.tolerations) (semverCompare "<1.6-0" .Capabilities.KubeVersion.GitVersion) }}
+        scheduler.alpha.kubernetes.io/tolerations: '{{ toJson .Values.apps.nfsserver.tolerations }}'
+      {{- end }}
+      labels:
+        {{- include "nfs-subdir-external-provisioner.podLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ template "nfs-subdir-external-provisioner.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.apps.nfsserver.podSecurityContext | nindent 8 }}
+      {{- if .Values.apps.nfsserver.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.apps.nfsserver.nodeSelector | indent 8 }}
+      {{- end }}
+      {{- if .Values.apps.nfsserver.affinity }}
+      affinity:
+{{ toYaml .Values.apps.nfsserver.affinity | indent 8 }}
+      {{- end }}
+      {{- if .Values.apps.nfsserver.priorityClassName }}
+      priorityClassName: {{ .Values.apps.nfsserver.priorityClassName | quote }}
+      {{- end }}
+      {{- with .Values.apps.nfsserver.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.apps.nfsserver.provisionerImage.repository }}:{{ .Values.apps.nfsserver.provisionerImage.tag }}"
+          imagePullPolicy: {{ .Values.apps.nfsserver.provisionerImage.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.apps.nfsserver.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: {{ .Values.apps.nfsserver.nfs.volumeName }}
+              mountPath: /persistentvolumes
+          env:
+            - name: PROVISIONER_NAME
+              value: {{ template "nfs-subdir-external-provisioner.provisionerName" . }}
+            - name: NFS_SERVER
+              value: {{ .Values.apps.nfsserver.nfs.server }}
+            - name: NFS_PATH
+              value: {{ .Values.apps.nfsserver.nfs.path }}
+            {{- if eq .Values.apps.nfsserver.leaderElection.enabled false }}
+            - name: ENABLE_LEADER_ELECTION
+              value: "false"
+            {{- end }}
+          {{- with .Values.apps.nfsserver.resources }}
+          resources:
+{{ toYaml . | indent 12 }}
+          {{- end }}
+      volumes:
+        - name: {{ .Values.apps.nfsserver.nfs.volumeName }}
+{{- if .Values.apps.nfsserver.buildMode }}
+          emptyDir: {}
+{{- else if .Values.apps.nfsserver.nfs.mountOptions }}
+          persistentVolumeClaim:
+            claimName: pvc-{{ template "nfs-subdir-external-provisioner.fullname" . }}
+{{- else }}
+          persistentVolumeClaim:
+            claimName: nfs-exports
+{{- end }}
+      {{- if and (.Values.apps.nfsserver.tolerations) (semverCompare "^1.6-0" .Capabilities.KubeVersion.GitVersion) }}
+      tolerations:
+{{ toYaml .Values.apps.nfsserver.tolerations | indent 6 }}
+      {{- end }}
