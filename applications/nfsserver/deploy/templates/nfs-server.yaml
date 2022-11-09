@@ -6,8 +6,7 @@ metadata:
     app: nfs-server
 spec:
   accessModes:
-    - ReadWriteMany
-  storageClassName: standard
+    - ReadWriteOnce
   resources:
     requests:
       storage: {{ .Values.apps.nfsserver.server.diskSize }}
