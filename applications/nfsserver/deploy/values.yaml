@@ -19,8 +19,8 @@ replicaCount: 1
 strategyType: Recreate
 
 provisionerImage:
-  repository: us.gcr.io/metacellllc/nfs-subdir-external-provisioner
-  tag: latest
+  repository: gcr.io/metacellllc/nfs-subdir-external-provisioner
+  tag: "1.0"
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 
