@@ -34,7 +34,8 @@ spec:
       imagePullSecrets:
       - name: {{ .root.Values.registry.secret }}
       {{- end }}
-      {{- if and .app.harness.deployment.volume }}
+      
+      {{- if and .app.harness.deployment.volume (or (not (hasKey .app.harness.deployment.volume "usenfs")) (not .app.harness.deployment.volume.usenfs))  }}
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
