@@ -8,7 +8,7 @@ metadata:
     app: {{ .app.harness.deployment.name| quote }}
 spec:
 {{- if and (hasKey .app.harness.deployment.volume "usenfs") .app.harness.deployment.volume.usenfs }}
-  storageClassName: {{ printf "%s-%s" .Values.apps.nfsserver.storageClass.name .Values.namespace }}
+  storageClassName: {{ printf "%s-%s" .root.Values.apps.nfsserver.storageClass.name .root.Values.namespace }}
 {{- end }}
   accessModes:
 {{- if or (not (hasKey .app.harness.deployment.volume "usenfs")) (not .app.harness.deployment.volume.usenfs) }}
