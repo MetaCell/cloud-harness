@@ -6,13 +6,9 @@ from datetime import date, datetime  # noqa: F401
 from typing import List, Dict  # noqa: F401
 
 from cloudharness_model.models.base_model_ import Model
-from cloudharness_model.models.auto_artifact_spec import AutoArtifactSpec
-from cloudharness_model.models.ingress_config_all_of import IngressConfigAllOf
 from cloudharness_model.models.ingress_config_all_of_letsencrypt import IngressConfigAllOfLetsencrypt
 from cloudharness_model import util
 
-from cloudharness_model.models.auto_artifact_spec import AutoArtifactSpec  # noqa: E501
-from cloudharness_model.models.ingress_config_all_of import IngressConfigAllOf  # noqa: E501
 from cloudharness_model.models.ingress_config_all_of_letsencrypt import IngressConfigAllOfLetsencrypt  # noqa: E501
 
 class IngressConfig(Model):
@@ -67,6 +63,7 @@ class IngressConfig(Model):
     def ssl_redirect(self):
         """Gets the ssl_redirect of this IngressConfig.
 
+          # noqa: E501
 
         :return: The ssl_redirect of this IngressConfig.
         :rtype: bool
@@ -77,6 +74,7 @@ class IngressConfig(Model):
     def ssl_redirect(self, ssl_redirect):
         """Sets the ssl_redirect of this IngressConfig.
 
+          # noqa: E501
 
         :param ssl_redirect: The ssl_redirect of this IngressConfig.
         :type ssl_redirect: bool
@@ -134,6 +132,7 @@ class IngressConfig(Model):
     def name(self):
         """Gets the name of this IngressConfig.
 
+          # noqa: E501
 
         :return: The name of this IngressConfig.
         :rtype: str
@@ -144,6 +143,7 @@ class IngressConfig(Model):
     def name(self, name):
         """Sets the name of this IngressConfig.
 
+          # noqa: E501
 
         :param name: The name of this IngressConfig.
         :type name: str

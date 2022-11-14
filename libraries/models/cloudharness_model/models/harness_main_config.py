@@ -283,6 +283,7 @@ class HarnessMainConfig(Model):
     def apps(self):
         """Gets the apps of this HarnessMainConfig.
 
+          # noqa: E501
 
         :return: The apps of this HarnessMainConfig.
         :rtype: Dict[str, ApplicationConfig]
@@ -293,6 +294,7 @@ class HarnessMainConfig(Model):
     def apps(self, apps):
         """Sets the apps of this HarnessMainConfig.
 
+          # noqa: E501
 
         :param apps: The apps of this HarnessMainConfig.
         :type apps: Dict[str, ApplicationConfig]
@@ -394,6 +396,7 @@ class HarnessMainConfig(Model):
     def task_images(self):
         """Gets the task_images of this HarnessMainConfig.
 
+          # noqa: E501
 
         :return: The task_images of this HarnessMainConfig.
         :rtype: Dict[str, str]
@@ -404,6 +407,7 @@ class HarnessMainConfig(Model):
     def task_images(self, task_images):
         """Sets the task_images of this HarnessMainConfig.
 
+          # noqa: E501
 
         :param task_images: The task_images of this HarnessMainConfig.
         :type task_images: Dict[str, str]

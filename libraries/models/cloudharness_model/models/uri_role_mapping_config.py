@@ -53,6 +53,7 @@ class UriRoleMappingConfig(Model):
     def uri(self):
         """Gets the uri of this UriRoleMappingConfig.
 
+          # noqa: E501
 
         :return: The uri of this UriRoleMappingConfig.
         :rtype: str
@@ -63,6 +64,7 @@ class UriRoleMappingConfig(Model):
     def uri(self, uri):
         """Sets the uri of this UriRoleMappingConfig.
 
+          # noqa: E501
 
         :param uri: The uri of this UriRoleMappingConfig.
         :type uri: str

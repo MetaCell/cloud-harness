@@ -61,13 +61,16 @@ def aggregate_packages(client_src_path, lib_name=LIB_NAME):
     test_req_lines_seen = set()
 
     for MODULE_TMP_PATH in glob.glob(client_src_path + '/tmp-*'):
-        module = MODULE_TMP_PATH.split(f'{lib_name}/tmp-')[-1].replace('-', '_')
+        module = MODULE_TMP_PATH.split(
+            f'{lib_name}/tmp-')[-1].replace('-', '_')
 
         # Moves package
 
         code_dest_dir = os.path.join(client_src_path, lib_name, module)
-        copymergedir(os.path.join(MODULE_TMP_PATH, lib_name, module), code_dest_dir)
-        copymergedir(f"{MODULE_TMP_PATH}/{lib_name}.{module}", code_dest_dir)  # Fixes a a bug with nested packages
+        copymergedir(os.path.join(MODULE_TMP_PATH,
+                     lib_name, module), code_dest_dir)
+        copymergedir(f"{MODULE_TMP_PATH}/{lib_name}.{module}",
+                     code_dest_dir)  # Fixes a a bug with nested packages
 
         # Adds Docs
         module_doc_path = os.path.join(DOCS_PATH, module)
@@ -125,12 +128,14 @@ def generate_clients(root_path, client_lib_name=LIB_NAME, interactive=False):
     openapi_files = get_openapi_file_paths(root_path)
     applications = get_application_paths(openapi_files)
 
-    client_src_path = os.path.join(root_path, 'libraries/client', client_lib_name)
+    client_src_path = os.path.join(
+        root_path, 'libraries/client', client_lib_name)
     for i in range(len(applications)):
         app_name = applications[i]
         openapi_file = openapi_files[i]
         app_dir = os.path.dirname(os.path.dirname(openapi_file))
-        generate_python_client(app_name, openapi_file, client_src_path, lib_name=client_lib_name)
+        generate_python_client(app_name, openapi_file,
+                               client_src_path, lib_name=client_lib_name)
         if os.path.exists(os.path.join(app_dir, 'frontend')):
             generate_ts_client(openapi_file)
 
@@ -150,10 +155,11 @@ if __name__ == "__main__":
                         help='Asks before generate')
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
-    root_path = os.path.join(os.getcwd(), args.path) if not os.path.isabs(args.path) else args.path
+    root_path = os.path.join(os.getcwd(), args.path) if not os.path.isabs(
+        args.path) else args.path
 
     get_dependencies()
-    if not args.interactive or input("Do you want to generate the main model? [Y/n]").upper() != 'N':
+    if os.path.exists(os.path.join(ROOT, "libraries/models")) and not args.interactive or input("Do you want to generate the main model? [Y/n]").upper() != 'N':
         generate_model()
 
     generate_servers(root_path, interactive=args.interactive)

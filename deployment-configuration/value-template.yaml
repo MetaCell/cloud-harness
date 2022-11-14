@@ -19,7 +19,7 @@ harness:
   uri_role_mapping:
     - uri: /*
       roles:
-      - administrator
+        - administrator
     - uri: /api/openapi.json
       white-listed: true
   # -- Defines reference deployment parameters. Values maps to k8s spec
@@ -34,6 +34,8 @@ harness:
     name:
     # -- Deployment port.
     port: 8080
+    # -- volume specification
+    volume:
     # -- Deployment resources.
     resources:
       requests:

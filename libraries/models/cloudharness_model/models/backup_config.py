@@ -90,6 +90,7 @@ class BackupConfig(Model):
     def active(self):
         """Gets the active of this BackupConfig.
 
+          # noqa: E501
 
         :return: The active of this BackupConfig.
         :rtype: bool
@@ -100,6 +101,7 @@ class BackupConfig(Model):
     def active(self, active):
         """Sets the active of this BackupConfig.
 
+          # noqa: E501
 
         :param active: The active of this BackupConfig.
         :type active: bool
@@ -111,6 +113,7 @@ class BackupConfig(Model):
     def keep_days(self):
         """Gets the keep_days of this BackupConfig.
 
+          # noqa: E501
 
         :return: The keep_days of this BackupConfig.
         :rtype: int
@@ -121,6 +124,7 @@ class BackupConfig(Model):
     def keep_days(self, keep_days):
         """Sets the keep_days of this BackupConfig.
 
+          # noqa: E501
 
         :param keep_days: The keep_days of this BackupConfig.
         :type keep_days: int
@@ -132,6 +136,7 @@ class BackupConfig(Model):
     def keep_weeks(self):
         """Gets the keep_weeks of this BackupConfig.
 
+          # noqa: E501
 
         :return: The keep_weeks of this BackupConfig.
         :rtype: int
@@ -142,6 +147,7 @@ class BackupConfig(Model):
     def keep_weeks(self, keep_weeks):
         """Sets the keep_weeks of this BackupConfig.
 
+          # noqa: E501
 
         :param keep_weeks: The keep_weeks of this BackupConfig.
         :type keep_weeks: int
@@ -153,6 +159,7 @@ class BackupConfig(Model):
     def keep_months(self):
         """Gets the keep_months of this BackupConfig.
 
+          # noqa: E501
 
         :return: The keep_months of this BackupConfig.
         :rtype: int
@@ -163,6 +170,7 @@ class BackupConfig(Model):
     def keep_months(self, keep_months):
         """Sets the keep_months of this BackupConfig.
 
+          # noqa: E501
 
         :param keep_months: The keep_months of this BackupConfig.
         :type keep_months: int
@@ -245,6 +253,7 @@ class BackupConfig(Model):
     def dir(self):
         """Gets the dir of this BackupConfig.
 
+          # noqa: E501
 
         :return: The dir of this BackupConfig.
         :rtype: str
@@ -255,6 +264,7 @@ class BackupConfig(Model):
     def dir(self, dir):
         """Sets the dir of this BackupConfig.
 
+          # noqa: E501
 
         :param dir: The dir of this BackupConfig.
         :type dir: str

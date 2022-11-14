@@ -1,13 +1,44 @@
-# ApplicationAccountsConfig
+# cloudharness_model.model.application_accounts_config.ApplicationAccountsConfig
 
-
-## Properties
-Name | Type | Description | Notes
+## Model Type Info
+Input Type | Accessed Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**roles** | **[str]** | Specify roles to be created in this deployment specific for this application | [optional] 
-**users** | [**[ApplicationUser]**](ApplicationUser.md) | Defines test users to be added to the deployment, specific for this application | [optional] 
-**any string name** | **bool, date, datetime, dict, float, int, list, str, none_type** | any string name can be used but the value must be the correct type | [optional]
+dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
 
-[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+### Dictionary Keys
+Key | Input Type | Accessed Type | Description | Notes
+------------ | ------------- | ------------- | ------------- | -------------
+**[roles](#roles)** | list, tuple,  | tuple,  | Specify roles to be created in this deployment specific for this application | [optional] 
+**[users](#users)** | list, tuple,  | tuple,  | Defines test users to be added to the deployment, specific for this application | [optional] 
+**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
 
+# roles
+
+Specify roles to be created in this deployment specific for this application
+
+## Model Type Info
+Input Type | Accessed Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+list, tuple,  | tuple,  | Specify roles to be created in this deployment specific for this application | 
+
+### Tuple Items
+Class Name | Input Type | Accessed Type | Description | Notes
+------------- | ------------- | ------------- | ------------- | -------------
+items | str,  | str,  |  | 
+
+# users
+
+Defines test users to be added to the deployment, specific for this application
+
+## Model Type Info
+Input Type | Accessed Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+list, tuple,  | tuple,  | Defines test users to be added to the deployment, specific for this application | 
+
+### Tuple Items
+Class Name | Input Type | Accessed Type | Description | Notes
+------------- | ------------- | ------------- | ------------- | -------------
+[**ApplicationUser**](ApplicationUser.md) | [**ApplicationUser**](ApplicationUser.md) | [**ApplicationUser**](ApplicationUser.md) |  | 
+
+[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
 

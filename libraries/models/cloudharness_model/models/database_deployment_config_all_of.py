@@ -207,6 +207,7 @@ class DatabaseDeploymentConfigAllOf(Model):
     def mongo(self):
         """Gets the mongo of this DatabaseDeploymentConfigAllOf.
 
+          # noqa: E501
 
         :return: The mongo of this DatabaseDeploymentConfigAllOf.
         :rtype: Dict[str, object]
@@ -217,6 +218,7 @@ class DatabaseDeploymentConfigAllOf(Model):
     def mongo(self, mongo):
         """Sets the mongo of this DatabaseDeploymentConfigAllOf.
 
+          # noqa: E501
 
         :param mongo: The mongo of this DatabaseDeploymentConfigAllOf.
         :type mongo: Dict[str, object]
@@ -228,6 +230,7 @@ class DatabaseDeploymentConfigAllOf(Model):
     def postgres(self):
         """Gets the postgres of this DatabaseDeploymentConfigAllOf.
 
+          # noqa: E501
 
         :return: The postgres of this DatabaseDeploymentConfigAllOf.
         :rtype: Dict[str, object]
@@ -238,6 +241,7 @@ class DatabaseDeploymentConfigAllOf(Model):
     def postgres(self, postgres):
         """Sets the postgres of this DatabaseDeploymentConfigAllOf.
 
+          # noqa: E501
 
         :param postgres: The postgres of this DatabaseDeploymentConfigAllOf.
         :type postgres: Dict[str, object]

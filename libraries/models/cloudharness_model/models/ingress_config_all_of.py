@@ -53,6 +53,7 @@ class IngressConfigAllOf(Model):
     def ssl_redirect(self):
         """Gets the ssl_redirect of this IngressConfigAllOf.
 
+          # noqa: E501
 
         :return: The ssl_redirect of this IngressConfigAllOf.
         :rtype: bool
@@ -63,6 +64,7 @@ class IngressConfigAllOf(Model):
     def ssl_redirect(self, ssl_redirect):
         """Sets the ssl_redirect of this IngressConfigAllOf.
 
+          # noqa: E501
 
         :param ssl_redirect: The ssl_redirect of this IngressConfigAllOf.
         :type ssl_redirect: bool
