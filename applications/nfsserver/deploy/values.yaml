@@ -12,24 +12,25 @@ server:
 
 # nfs-subdir-external-provisioner
 # https://github.com/MetaCell/nfs-subdir-external-provisioner
-fullnameOverride: nfs-provisioner
+#fullnameOverride: nfs-provisioner
 nameOverride: nfs-provisioner
 
 replicaCount: 1
 strategyType: Recreate
 
-provisionerImage:
-  repository: gcr.io/metacellllc/nfs-subdir-external-provisioner
-  tag: "1.0"
-  pullPolicy: IfNotPresent
-imagePullSecrets: []
+# provisionerImage:
+#   repository: gcr.io/metacellllc/nfs-subdir-external-provisioner
+#   tag: "1.0"
+#   pullPolicy: IfNotPresent
+# imagePullSecrets: []
 
 # buildMode: true
 
 nfs:
-  server: nfs-server
-  path: /exports
+  server:    # auto set via nfs service ip address
+  path:      # /exports
   mountOptions:
+  -  nfsvers=3
   volumeName: nfs-subdir-external-provisioner-root
   # Reclaim policy for the main nfs volume
   reclaimPolicy: Retain

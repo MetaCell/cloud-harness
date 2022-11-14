@@ -35,7 +35,7 @@ Create chart name and version as used by the chart label.
 {{- if .Values.apps.nfsserver.storageClass.provisionerName -}}
 {{- printf .Values.apps.nfsserver.storageClass.provisionerName -}}
 {{- else -}}
-cluster.local/{{ template "nfs-subdir-external-provisioner.fullname" . -}}
+{{ template "nfs-subdir-external-provisioner.fullname" . -}}
 {{- end -}}
 {{- end -}}
 

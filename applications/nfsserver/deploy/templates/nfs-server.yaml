@@ -28,7 +28,13 @@ spec:
     spec:
       containers:
       - name: nfs-server
-        image: k8s.gcr.io/volume-nfs:0.8
+        image: {{ .Values.apps.nfsserver.harness.deployment.image }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: NFS_PATH
+          value: /exports
+        - name: PROVISIONER_NAME
+          value: {{ printf "%s-nfs-provisioner" .Values.namespace }}
         ports:
         - name: nfs
           containerPort: 2049
@@ -49,7 +55,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: nfs-service
+  name: nfs-server
   labels:
     app: nfs-server
 spec:
