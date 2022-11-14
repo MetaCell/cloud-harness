@@ -2,6 +2,10 @@
 # Author: Zoran Sinnema
 # Date: 14-11-2022
 
+
+# example of resizing a mounted pvc:
+# dd if=/dev/zero bs=1MiB of=/export/<filename.quota> conv=notrunc oflag=append count=<num blocks to add>
+
 set -e
 
 print_usage(){
