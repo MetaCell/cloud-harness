@@ -2,7 +2,7 @@
 FROM golang:1.18.8 as provisioner
 
 WORKDIR /usr/src/app
-COPY provisioner/nfs-subdir-external-provisioner ./
+COPY nfs-subdir-external-provisioner ./
 
 RUN make
 
@@ -15,8 +15,5 @@ COPY --from=provisioner /usr/src/app/bin/nfs-subdir-external-provisioner /usr/lo
 
 COPY resources/*.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/*.sh
-
-# COPY resources/run_nfs.sh /usr/local/bin/run_nfs.sh
-# RUN chmod +x /usr/local/bin/run_nfs.sh
 
 RUN echo "/exports *(rw,fsid=0,no_root_squash,no_subtree_check,crossmnt)" > /etc/exports
