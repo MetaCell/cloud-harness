@@ -51,6 +51,7 @@ class CpuMemoryConfig(Model):
     def cpu(self):
         """Gets the cpu of this CpuMemoryConfig.
 
+          # noqa: E501
 
         :return: The cpu of this CpuMemoryConfig.
         :rtype: str
@@ -61,6 +62,7 @@ class CpuMemoryConfig(Model):
     def cpu(self, cpu):
         """Sets the cpu of this CpuMemoryConfig.
 
+          # noqa: E501
 
         :param cpu: The cpu of this CpuMemoryConfig.
         :type cpu: str
@@ -72,6 +74,7 @@ class CpuMemoryConfig(Model):
     def memory(self):
         """Gets the memory of this CpuMemoryConfig.
 
+          # noqa: E501
 
         :return: The memory of this CpuMemoryConfig.
         :rtype: str
@@ -82,6 +85,7 @@ class CpuMemoryConfig(Model):
     def memory(self, memory):
         """Sets the memory of this CpuMemoryConfig.
 
+          # noqa: E501
 
         :param memory: The memory of this CpuMemoryConfig.
         :type memory: str

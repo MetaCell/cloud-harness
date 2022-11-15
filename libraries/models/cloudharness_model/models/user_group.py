@@ -102,6 +102,7 @@ class UserGroup(Model):
     def attributes(self):
         """Gets the attributes of this UserGroup.
 
+          # noqa: E501
 
         :return: The attributes of this UserGroup.
         :rtype: Dict[str, str]
@@ -112,6 +113,7 @@ class UserGroup(Model):
     def attributes(self, attributes):
         """Sets the attributes of this UserGroup.
 
+          # noqa: E501
 
         :param attributes: The attributes of this UserGroup.
         :type attributes: Dict[str, str]

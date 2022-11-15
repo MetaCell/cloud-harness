@@ -21,7 +21,10 @@ spec:
 {{- if (hasKey .app.harness.deployment.volume "usenfs") }}
 {{- if .app.harness.deployment.volume.usenfs }}
   storageClassName: {{ printf "%s-%s" .root.Values.apps.nfsserver.storageClass.name .root.Values.namespace }}
+{{- else }}
+  storageClassName: standard
 {{- end }}
+
 {{- end }}
 
 {{- end }}

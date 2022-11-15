@@ -147,6 +147,7 @@ class CDCEvent(Model):
     def resource(self):
         """Gets the resource of this CDCEvent.
 
+          # noqa: E501
 
         :return: The resource of this CDCEvent.
         :rtype: Dict[str, object]
@@ -157,6 +158,7 @@ class CDCEvent(Model):
     def resource(self, resource):
         """Sets the resource of this CDCEvent.
 
+          # noqa: E501
 
         :param resource: The resource of this CDCEvent.
         :type resource: Dict[str, object]

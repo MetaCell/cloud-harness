@@ -111,6 +111,7 @@ class E2ETestsConfig(Model):
     def ignore_console_errors(self):
         """Gets the ignore_console_errors of this E2ETestsConfig.
 
+          # noqa: E501
 
         :return: The ignore_console_errors of this E2ETestsConfig.
         :rtype: bool
@@ -121,6 +122,7 @@ class E2ETestsConfig(Model):
     def ignore_console_errors(self, ignore_console_errors):
         """Sets the ignore_console_errors of this E2ETestsConfig.
 
+          # noqa: E501
 
         :param ignore_console_errors: The ignore_console_errors of this E2ETestsConfig.
         :type ignore_console_errors: bool
@@ -132,6 +134,7 @@ class E2ETestsConfig(Model):
     def ignore_request_errors(self):
         """Gets the ignore_request_errors of this E2ETestsConfig.
 
+          # noqa: E501
 
         :return: The ignore_request_errors of this E2ETestsConfig.
         :rtype: bool
@@ -142,6 +145,7 @@ class E2ETestsConfig(Model):
     def ignore_request_errors(self, ignore_request_errors):
         """Sets the ignore_request_errors of this E2ETestsConfig.
 
+          # noqa: E501
 
         :param ignore_request_errors: The ignore_request_errors of this E2ETestsConfig.
         :type ignore_request_errors: bool
