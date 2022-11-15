@@ -26,7 +26,7 @@ def _get_nfs_storage_class() -> str:
                 to this namespace (deployment)
     """
     nfsserver_conf = conf.get_application_by_filter(storageClass__name=True)[0]
-    return f"{nfsserver_conf['storageClass']['name']}-{conf.get_configuration()['namespace']}"
+    return f"{conf.get_configuration()['namespace']}-{nfsserver_conf['storageClass']['name']}"
 
 
 def _get_default_storage_class() -> str:

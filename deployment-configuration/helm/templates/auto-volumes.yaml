@@ -13,20 +13,13 @@ spec:
 
   accessModes:
 {{- if or (not (hasKey .app.harness.deployment.volume "usenfs")) (not .app.harness.deployment.volume.usenfs) }}
+  # ZS: {{ printf "%s-%s" .root.Values.apps.nfsserver.storageClass.name .root.Values.namespace }}
   - ReadWriteOnce
+  storageClassName: standard
 {{- else }}
   - ReadWriteMany
+  storageClassName: {{ printf "%s-%s" .root.Values.namespace .root.Values.apps.nfsserver.storageClass.name }}
 {{- end }}
-
-{{- if (hasKey .app.harness.deployment.volume "usenfs") }}
-{{- if .app.harness.deployment.volume.usenfs }}
-  storageClassName: {{ printf "%s-%s" .root.Values.apps.nfsserver.storageClass.name .root.Values.namespace }}
-{{- else }}
-  storageClassName: standard
-{{- end }}
-
-{{- end }}
-
 {{- end }}
 ---
 {{- end }}
