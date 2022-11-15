@@ -13,7 +13,6 @@ spec:
 
   accessModes:
 {{- if or (not (hasKey .app.harness.deployment.volume "usenfs")) (not .app.harness.deployment.volume.usenfs) }}
-  # ZS: {{ printf "%s-%s" .root.Values.apps.nfsserver.storageClass.name .root.Values.namespace }}
   - ReadWriteOnce
   storageClassName: standard
 {{- else }}
