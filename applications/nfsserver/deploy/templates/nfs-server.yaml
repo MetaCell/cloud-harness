@@ -21,11 +21,23 @@ spec:
   selector:
     matchLabels:
       app: nfs-server
+
   template:
+
     metadata:
       labels:
         app: nfs-server
     spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: usesvolume
+                    operator: In
+                    values:
+                      - nfs-exports
+              topologyKey: "kubernetes.io/hostname"
       containers:
       - name: nfs-server
         image: {{ .Values.apps.nfsserver.harness.deployment.image }}
