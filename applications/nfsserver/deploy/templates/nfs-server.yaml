@@ -17,16 +17,17 @@ metadata:
   name: nfs-server
   labels:
     app: nfs-server
+    usesvolume: nfs-exports
 spec:
   selector:
     matchLabels:
       app: nfs-server
-
   template:
 
     metadata:
       labels:
         app: nfs-server
+        usesvolume: nfs-exports
     spec:
       affinity:
         podAffinity:
