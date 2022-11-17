@@ -32,7 +32,7 @@ parse_args(){
     option_handler(){
 
         case ${opt} in
-            m) mountpoint=$( realpath -e "${OPTARG}" );;
+            m) mountpoint=${OPTARG} ;;
             s) size=${OPTARG} ;;
             h) print_usage; exit 0 ;;
             \?) echo ">>>Invalid option: -$OPTARG" > /dev/stderr; exit 1;;
@@ -62,16 +62,24 @@ main(){
 
     parse_args "$@"
     quota_fs=${mountpoint}.quota
-    lodev=`losetup -f`
 
-    truncate -s ${size} ${quota_fs}
-    losetup -P ${lodev} ${quota_fs}
+    i=1
+    while [ -e /dev/loop${i} ]; do i=$(( i+1 )); done
+    # lodev=`losetup -f`
+    lodev=/dev/loop${i}
+
+    # truncate -s ${size} ${quota_fs}
+    count_mb=$(( ${size}/1024/1024 + 1))
+    dd if=/dev/zero of=${quota_fs} bs=1M count=${count_mb}
     yes | mkfs.ext4 ${quota_fs}
 
-    mount -o loop ${lodev} ${mountpoint}
+    mknod -m666 ${lodev} b 7 ${i} || true
+    losetup -P ${lodev} ${quota_fs}
 
+    rm -rf ${mountpoint}
+    mkdir ${mountpoint}
     chmod go+w ${mountpoint}
-
+    mount -o loop ${lodev} ${mountpoint}
 }
 
 main "$@"

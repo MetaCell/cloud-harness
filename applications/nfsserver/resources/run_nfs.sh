@@ -22,6 +22,7 @@ function start()
     echo Starting provisioner done.
 
     # remound loopback mounts
+    losetup -a|grep deleted|awk '{print $1}'|cut -f 1 -d :|xargs losetup -d
     for qf in `ls /exports/*.quota`
     do
         mountpoint=`basename ${qf}`

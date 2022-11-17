@@ -2,8 +2,6 @@
 # Author: Zoran Sinnema
 # Date: 14-11-2022
 
-set -e
-
 print_usage(){
 
 cat <<EOF
@@ -27,7 +25,7 @@ parse_args(){
     option_handler(){
 
         case ${opt} in
-            m) mountpoint=$( realpath -e "${OPTARG}" );;
+            m) mountpoint=${OPTARG} ;;
             h) print_usage; exit 0 ;;
             \?) echo ">>>Invalid option: -$OPTARG" > /dev/stderr; exit 1;;
             \:) echo ">>>Missing argument to -${OPTARG}" > /dev/stderr; exit 2;;
@@ -61,7 +59,7 @@ main(){
     # find the loop back device and delete/unmount it
     lodev=`losetup -a | grep ${mountname} | awk '{print $1}' | cut -f 1 -d :` || true
     losetup -d ${lodev} || true
-    rm -rf ${mountpoint}
+    rm -rf ${mountpoint} || true
     mv ${quota_fs} ${mountpoint} || true
 
 }

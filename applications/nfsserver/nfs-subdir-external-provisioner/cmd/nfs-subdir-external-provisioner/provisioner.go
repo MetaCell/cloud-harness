@@ -115,14 +115,14 @@ func (p *nfsProvisioner) Provision(ctx context.Context, options controller.Provi
 	}
 
 
-	glog.V(4).Infof("creating path %s", fullPath)
-	if err := os.MkdirAll(fullPath, 0o777); err != nil {
-		return nil, controller.ProvisioningFinished, errors.New("unable to create directory to provision new pv: " + err.Error())
-	}
+	// glog.V(4).Infof("creating path %s", fullPath)
+	// if err := os.MkdirAll(fullPath, 0o777); err != nil {
+	// 	return nil, controller.ProvisioningFinished, errors.New("unable to create directory to provision new pv: " + err.Error())
+	// }
 	
-	if err := os.Chmod(fullPath, 0o777); err != nil {
-		return nil, "", err
-	}
+	// if err := os.Chmod(fullPath, 0o777); err != nil {
+	// 	return nil, "", err
+	// }
 
 	cmd := exec.Command("/usr/local/bin/mklimdir.sh", "-m", fullPath, "-s", strconv.FormatInt(requestBytes, 10))
 	if err := cmd.Run(); err != nil {
