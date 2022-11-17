@@ -63,6 +63,8 @@ main(){
     parse_args "$@"
     quota_fs=${mountpoint}.quota
 
+    losetup -a|grep ${mountpoint}|awk '{print $1}'|cut -f 1 -d :|xargs losetup -d || true
+
     i=1
     while [ -e /dev/loop${i} ]; do i=$(( i+1 )); done
     # lodev=`losetup -f`
