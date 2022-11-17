@@ -1,6 +1,6 @@
 {{- if and (not .Values.local) (not (not .Values.tls)) }}
-apiVersion: cert-manager.io/v1alpha2
-kind: ClusterIssuer
+apiVersion: cert-manager.io/v1
+kind: Issuer
 metadata:
   name: {{ printf "%s-%s" "letsencrypt" .Values.namespace }}
 spec:
