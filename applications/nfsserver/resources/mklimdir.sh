@@ -82,6 +82,7 @@ main(){
     mkdir ${mountpoint}
     chmod go+w ${mountpoint}
     mount -o loop ${lodev} ${mountpoint}
+    chmod go+w ${mountpoint}
 }
 
 main "$@"
