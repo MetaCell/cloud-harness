@@ -2,12 +2,14 @@ harness:
   subdomain: events
   secured: true
   service:
-    auto: true
-    port: 80
+    auto: false
+    name: events-ui
   deployment:
-    auto: true
+    auto: false
     port: 9000
-    name: events
+  test:
+    e2e:
+      enabled: true
   env:
     - name: ZK_HOSTS
       value: zookeeper:2181
