@@ -200,21 +200,6 @@ steps:
         image_name: cloudharness/common
         title: Common
         working_directory: ./applications/common/server
-      events:
-        type: build
-        stage: build
-        tag: '${{CF_BUILD_ID}}'
-        dockerfile: Dockerfile
-        registry: '${{CODEFRESH_REGISTRY}}'
-        buildkit: true
-        build_arguments:
-        - TAG=${{CF_BUILD_ID}}
-        - DOMAIN=${{DOMAIN}}
-        - NOCACHE=${{CF_BUILD_ID}}
-        - REGISTRY=${{REGISTRY}}/cloudharness/
-        image_name: cloudharness/events
-        title: Events
-        working_directory: ./applications/events
       workflows-send-result-event:
         type: build
         stage: build
@@ -424,11 +409,6 @@ steps:
         - APP_URL=https://samples.${{CF_SHORT_REVISION}}.${{DOMAIN}}
         - USERNAME=sample@testuser.com
         - PASSWORD=test
-      events_e2e_test:
-        volumes:
-        - '${{CF_REPO_NAME}}/applications/events/test/e2e:/home/test/__tests__/events'
-        environment:
-        - APP_URL=https://events.${{CF_SHORT_REVISION}}.${{DOMAIN}}
     hooks:
       on_fail:
         exec:
