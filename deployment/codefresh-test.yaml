@@ -357,7 +357,6 @@ steps:
     - kubectl rollout status deployment/accounts
     - kubectl rollout status deployment/samples
     - kubectl rollout status deployment/common
-    - kubectl rollout status deployment/events
     - kubectl rollout status deployment/workflows
     - sleep 60
   tests_api:
@@ -423,6 +422,11 @@ steps:
         - APP_URL=https://samples.${{CF_SHORT_REVISION}}.${{DOMAIN}}
         - USERNAME=sample@testuser.com
         - PASSWORD=test
+      events_e2e_test:
+        volumes:
+        - '${{CF_REPO_NAME}}/applications/events/test/e2e:/home/test/__tests__/events'
+        environment:
+        - APP_URL=https://events.${{CF_SHORT_REVISION}}.${{DOMAIN}}
     hooks:
       on_fail:
         exec:

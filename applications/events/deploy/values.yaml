@@ -7,7 +7,9 @@ harness:
   deployment:
     auto: false
     port: 9000
-    
+  test:
+    e2e:
+      enabled: true
   env:
     - name: ZK_HOSTS
       value: zookeeper:2181
