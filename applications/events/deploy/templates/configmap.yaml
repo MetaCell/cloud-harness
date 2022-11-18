@@ -6,7 +6,7 @@ data:
   config.yml: |-
     kafka:
       clusters:
-        - name: "cluster-{{ .Values.namespaces }}"
+        - name: "cluster-{{ .Values.namespace }}"
           bootstrapServers: "{{ .Values.apps.events.kafka.name }}:9092"
     auth:
       type: disabled

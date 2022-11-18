@@ -1,2 +1,4 @@
 harness:
   secured: false
+kafka:
+  storage: 100Mi
