@@ -37,6 +37,7 @@ harness:
       - events
       - accounts 
       - common
+      - nfsserver
     build:
       - cloudharness-flask
       - cloudharness-frontend-build
@@ -49,6 +50,12 @@ harness:
       dst: "/usr/src/app/important_config.yaml"
   secrets:
     asecret: "value"
+  volume:
+    name: mySharedVolume
+    mountpath: /mnt/myvolume
+    auto: true
+    size: 10Mi
+    usenfs: true
   test:
     unit:
       enabled: true
