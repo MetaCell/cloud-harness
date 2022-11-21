@@ -200,21 +200,6 @@ steps:
         image_name: cloudharness/common
         title: Common
         working_directory: ./applications/common/server
-      events:
-        type: build
-        stage: build
-        tag: '${{CF_BUILD_ID}}'
-        dockerfile: Dockerfile
-        registry: '${{CODEFRESH_REGISTRY}}'
-        buildkit: true
-        build_arguments:
-        - TAG=${{CF_BUILD_ID}}
-        - DOMAIN=${{DOMAIN}}
-        - NOCACHE=${{CF_BUILD_ID}}
-        - REGISTRY=${{REGISTRY}}/cloudharness/
-        image_name: cloudharness/events
-        title: Events
-        working_directory: ./applications/events
       workflows-send-result-event:
         type: build
         stage: build
@@ -355,9 +340,10 @@ steps:
     - kubectl config use-context ${{CLUSTER_NAME}}
     - kubectl config set-context --current --namespace=test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
     - kubectl rollout status deployment/accounts
+    - kubectl rollout status deployment/argo-server-gk
     - kubectl rollout status deployment/samples
+    - kubectl rollout status deployment/samples-gk
     - kubectl rollout status deployment/common
-    - kubectl rollout status deployment/events
     - kubectl rollout status deployment/workflows
     - sleep 60
   tests_api:

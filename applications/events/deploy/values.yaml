@@ -6,7 +6,6 @@ harness:
     name: events-ui
   deployment:
     auto: false
-    port: 9000
   test:
     e2e:
       enabled: true
