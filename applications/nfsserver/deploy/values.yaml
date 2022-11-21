@@ -30,7 +30,8 @@ nfs:
   server:    # auto set via nfs service ip address
   path:      # /exports
   mountOptions:
-  -  nfsvers=3
+  - nfsvers=3
+  - local_lock=all
   volumeName: nfs-subdir-external-provisioner-root
   # Reclaim policy for the main nfs volume
   reclaimPolicy: Retain
