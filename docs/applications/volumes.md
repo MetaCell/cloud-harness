@@ -23,7 +23,7 @@ harness:
   deployment:
     ...
     volume:
-      name: myFirstVolume
+      name: my-first-volume
       mountpath: /usr/src/app/myvolume
       auto: true
       size: 5Gi
@@ -55,7 +55,7 @@ harness:
   deployment:
     ...
     volume:
-      name: mySharedVolume
+      name: my-shared-volume
       mountpath: /usr/src/app/myvolume
       auto: true
       size: 5Gi
