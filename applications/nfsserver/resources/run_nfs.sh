@@ -26,9 +26,7 @@ function start()
     for qf in `ls /exports/*.quota`
     do
         mountpoint=`basename ${qf}`
-        echo $mountpoint
-        lodev=`losetup -a | grep ${mountpoint} | awk '{print $1}' | cut -f 1 -d :`
-        mount -o loop ${lodev} /exports/`basename -s .quota ${mountpoint}`
+        mklimdir -m ${mountpoint} --mountOnly
     done
 
     unset gid
@@ -39,20 +37,6 @@ function start()
         esac
     done
     shift $(($OPTIND - 1))
-
-    # prepare /etc/exports
-    for i in "$@"; do
-        # fsid=0: needed for NFSv4
-        echo "$i *(rw,fsid=0,insecure,no_root_squash)" >> /etc/exports
-        if [ -v gid ] ; then
-            chmod 070 $i
-            chgrp $gid $i
-        fi
-        # move index.html to here
-        /bin/cp /tmp/index.html $i/
-        chmod 644 $i/index.html
-        echo "Serving $i"
-    done
 
     # start rpcbind if it is not started yet
     /usr/sbin/rpcinfo 127.0.0.1 > /dev/null; s=$?
