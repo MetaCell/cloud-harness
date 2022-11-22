@@ -250,13 +250,13 @@ class AuthClient():
         return True
 
     @with_refreshtoken
-    def get_group(self, group_id, with_members=False, brief_representation=False) -> UserGroup:
+    def get_group(self, group_id, with_members=False, brief_representation=True) -> UserGroup:
         """
         Return the group in the application realm
         
         :param group_id: the group id to get
         :param with_members: Default False, when set to True all members of the group are also retrieved
-        :param brief_representation: Default False, when set to True all attributes of the group are also retrieved
+        :param brief_representation: Default True, when set to False all attributes of the group are also retrieved
 
 
         GroupRepresentation
@@ -374,12 +374,12 @@ class AuthClient():
         return admin_client.group_user_remove(user_id, group_id)
 
     @with_refreshtoken
-    def get_users(self, query=None, brief_representation=False) -> List[User]:
+    def get_users(self, query=None, brief_representation=True) -> List[User]:
         """
         Return a list of all users in the application realm
         
         :param query: Default None, the query filter for getting the users
-        :param brief_representation: Default False, when set to True all attributes of the group are also retrieved
+        :param brief_representation: Default True, when set to True all attributes of the group are also retrieved
 
         UserRepresentation
         https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_userrepresentation
@@ -401,12 +401,12 @@ class AuthClient():
         return users
 
     @with_refreshtoken
-    def get_user(self, user_id, brief_representation=False):
+    def get_user(self, user_id, brief_representation=True):
         """
         Get the user including the user groups
 
         :param user_id: User id
-        :param brief_representation: Default False, when set to True all attributes of the group are also retrieved
+        :param brief_representation: Default True, when set to False all attributes of the group are also retrieved
 
 
         UserRepresentation
