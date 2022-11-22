@@ -250,9 +250,14 @@ class AuthClient():
         return True
 
     @with_refreshtoken
-    def get_group(self, group_id, with_members=False) -> UserGroup:
+    def get_group(self, group_id, with_members=False, brief_representation=False) -> UserGroup:
         """
         Return the group in the application realm
+        
+        :param group_id: the group id to get
+        :param with_members: Default False, when set to True all members of the group are also retrieved
+        :param brief_representation: Default False, when set to True all attributes of the group are also retrieved
+
 
         GroupRepresentation
         https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_grouprepresentation
@@ -266,7 +271,7 @@ class AuthClient():
             members = admin_client.get_group_members(group_id)
             for user in members:
                 user.update(
-                    {'userGroups': admin_client.get_user_groups(user['id'])})
+                    {'userGroups': admin_client.get_user_groups(user['id'], brief_representation=brief_representation)})
                 user.update(
                     {'realmRoles': admin_client.get_realm_roles_of_user(user['id'])})
             group.update({'members': members})
@@ -369,9 +374,12 @@ class AuthClient():
         return admin_client.group_user_remove(user_id, group_id)
 
     @with_refreshtoken
-    def get_users(self, query=None) -> List[User]:
+    def get_users(self, query=None, brief_representation=False) -> List[User]:
         """
         Return a list of all users in the application realm
+        
+        :param query: Default None, the query filter for getting the users
+        :param brief_representation: Default False, when set to True all attributes of the group are also retrieved
 
         UserRepresentation
         https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_userrepresentation
@@ -386,18 +394,20 @@ class AuthClient():
         users = []
         for user in admin_client.get_users(query=query):
             user.update({
-                "userGroups": admin_client.get_user_groups(user['id']),
+                "userGroups": admin_client.get_user_groups(user['id'], brief_representation=brief_representation),
                 'realmRoles': admin_client.get_realm_roles_of_user(user['id'])
                 })
             users.append(User.from_dict(user))
         return users
 
     @with_refreshtoken
-    def get_user(self, user_id):
+    def get_user(self, user_id, brief_representation=False):
         """
         Get the user including the user groups
 
         :param user_id: User id
+        :param brief_representation: Default False, when set to True all attributes of the group are also retrieved
+
 
         UserRepresentation
         https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_userrepresentation
@@ -410,7 +420,7 @@ class AuthClient():
         admin_client = self.get_admin_client()
         user = admin_client.get_user(user_id)
         user.update({
-                "userGroups": admin_client.get_user_groups(user['id']),
+                "userGroups": admin_client.get_user_groups(user_id=user['id'], brief_representation=brief_representation),
                 'realmRoles': admin_client.get_realm_roles_of_user(user['id'])
                 })
         return User.from_dict(user)
@@ -428,7 +438,7 @@ class AuthClient():
         :return: UserRepresentation + GroupRepresentation
         """
         return self.get_user(self._get_keycloak_user_id())
-
+    
     @with_refreshtoken
     def get_user_realm_roles(self, user_id) -> List[str]:
         """
