@@ -379,7 +379,7 @@ class AuthClient():
         Return a list of all users in the application realm
         
         :param query: Default None, the query filter for getting the users
-        :param brief_representation: Default True, when set to True all attributes of the group are also retrieved
+        :param brief_representation: Default True, when set to False all attributes of the group are also retrieved
 
         UserRepresentation
         https://www.keycloak.org/docs-api/16.0/rest-api/index.html#_userrepresentation
