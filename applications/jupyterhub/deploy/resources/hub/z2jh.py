@@ -6,6 +6,7 @@ Methods here can be imported by extraConfig in values.yaml
 from collections import Mapping
 from functools import lru_cache
 import os
+import re
 
 import yaml
 
@@ -115,6 +116,17 @@ def get_config(key, default=None):
             return default
         else:
             value = value[level]
+
+    
+    if value and isinstance(value, str):
+        replace_var = re.search("{{.*?}}",  value)
+        if replace_var:
+            variable = replace_var.group(0)[2:-2].strip()
+            print("replace", variable, "in", value)
+            repl = get_config(variable)
+            print("config value to replace:", repl)
+            if repl:
+                value = re.sub("{{.*?}}", repl, value)
     return value
 
 
@@ -123,6 +135,9 @@ def set_config_if_not_none(cparent, name, key):
     Find a config item of a given name, set the corresponding Jupyter
     configuration item if not None
     """
+    import re
     data = get_config(key)
+    
+
     if data is not None:
         setattr(cparent, name, data)
