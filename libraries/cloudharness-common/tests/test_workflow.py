@@ -115,6 +115,24 @@ def test_single_task_shared():
     if execute:
         print(op.execute())
 
+def test_single_task_shared_rwx():
+    shared_directory = 'myclaim:/mnt/shared:rwx'
+    task_write = operations.CustomTask('download-file', 'workflows-extract-download',
+                                       url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
+    op = operations.SingleTaskOperation('test-custom-connected-op-', task_write,
+                                        shared_directory=shared_directory, shared_volume_size=100)
+    wf = op.to_workflow()
+    print('\n', yaml.dump(wf))
+
+    accounts_offset = 1 if is_accounts_present() else 0
+    assert len(op.volumes) == 1
+    assert len(wf['spec']['volumes']) == 2 + accounts_offset
+    assert wf['spec']['volumes'][1+accounts_offset]['persistentVolumeClaim']['claimName'] == 'myclaim'
+    if accounts_offset == 1:
+        assert wf['spec']['volumes'][1]['secret']['secretName'] == 'accounts'
+    assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 2 + accounts_offset
+
+    assert not 'affinity' in wf['spec'], "Pod affinity should not be added for rwx volumes"
 
 def test_single_task_shared_multiple():
     shared_directory = ['myclaim:/mnt/shared', 'myclaim2:/mnt/shared2:ro']
