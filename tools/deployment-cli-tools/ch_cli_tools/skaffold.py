@@ -203,18 +203,13 @@ def create_vscode_debug_configuration(root_paths, helm_values):
             if app_key in apps.keys():
                 debug_conf["debug"].append({
                     "image": get_image_tag(app_name),
-                    # the double source map doesn't work at the moment. Hopefully will be fixed in future skaffold updates
                     "sourceFileMap": {
+                        "justMyCode": False,
                         f"${{workspaceFolder}}/{app_relative_to_root}": apps[app_key].harness.get('sourceRoot',
                                                                                                        "/usr/src/app"),
                     }
                 })
-                debug_conf["debug"].append({
-                    "image": get_image_tag(app_name),
-                    "sourceFileMap": {
-                        "${workspaceFolder}/cloud-harness/libraries": "/libraries"
-                    }
-                })
+                
 
     if not os.path.exists(os.path.dirname(vscode_launch_path)):
         os.makedirs(os.path.dirname(vscode_launch_path))
