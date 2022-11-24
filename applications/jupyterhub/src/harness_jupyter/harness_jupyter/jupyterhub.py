@@ -8,6 +8,10 @@ handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.DEBUG)
 logging.getLogger().addHandler(handler)
 
+class PodSpawnException(Exception):
+    pass
+
+
 def harness_hub():
     """Wraps the method to change spawner configuration"""
     KubeSpawner.get_pod_manifest_base = KubeSpawner.get_pod_manifest
@@ -127,5 +131,7 @@ def change_pod_manifest(self: KubeSpawner):
                             f(self=self)
                     break
 
+    except TooManyPodsException as e:
+        raise e
     except Exception as e:
         logging.error("Harness error changing manifest", exc_info=True)
