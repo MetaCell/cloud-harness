@@ -28,7 +28,7 @@ strategyType: Recreate
 
 nfs:
   server:  # auto set via nfs service ip address
-  useDNS: true
+  useDNS: false
   path: /exports     # /exports
   mountOptions:
   - nolock

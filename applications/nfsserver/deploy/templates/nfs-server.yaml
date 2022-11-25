@@ -44,8 +44,13 @@ spec:
         image: {{ .Values.apps.nfsserver.harness.deployment.image }}
         imagePullPolicy: IfNotPresent
         env:
+        # NFS useDNS {{ .Values.apps.nfsserver.nfs.useDNS }}
+        {{- if .Values.apps.nfsserver.nfs.useDNS }}
+        - name: NFS_SERVER
+          value: {{ printf "nfs-server.%s" .Values.namespace }}
+        {{- end }}
         - name: NFS_PATH
-          value: /exports
+          value: {{ .Values.apps.nfsserver.nfs.path }}
         - name: PROVISIONER_NAME
           value: {{ printf "%s-nfs-provisioner" .Values.namespace }}
         ports:
