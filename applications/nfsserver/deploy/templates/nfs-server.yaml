@@ -47,7 +47,7 @@ spec:
         # NFS useDNS {{ .Values.apps.nfsserver.nfs.useDNS }}
         {{- if .Values.apps.nfsserver.nfs.useDNS }}
         - name: NFS_SERVER
-          value: {{ printf "nfs-server.%s" .Values.namespace }}
+          value: {{ printf "nfs-server.%s.svc.cluster.local" .Values.namespace }}
         {{- end }}
         - name: NFS_PATH
           value: {{ .Values.apps.nfsserver.nfs.path }}
