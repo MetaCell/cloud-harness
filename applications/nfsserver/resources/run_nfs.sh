@@ -22,6 +22,7 @@ function start()
     echo Starting provisioner done.
 
     # remound loopback mounts
+    losetup -D
     for lodev in `losetup -a|grep deleted|awk '{print $1}'|cut -f 1 -d :`
     do
         losetup -d ${lodev}

@@ -67,7 +67,7 @@ mkmount(){
     i=$(losetup -f|cut -f 2 -d p)
     lodev=/dev/loop${i}
 
-    mknod -m666 ${lodev} b 7 ${i} || true
+    mknod -m666 ${lodev} b 7 ${i} 2>/dev/null || true
     losetup -P ${lodev} ${quota_fs}
 
     rm -rf ${mountpoint}
