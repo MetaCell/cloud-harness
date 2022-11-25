@@ -9,7 +9,7 @@ RUN make
 #
 FROM k8s.gcr.io/volume-nfs:0.8
 
-RUN yum install -y e4fsprogs rpcbind nfs-utils nfs-utils-lib
+RUN yum install -y e4fsprogs rpcbind nfs-utils nfs-utils-lib sysvinit-tools
 
 COPY --from=provisioner /usr/src/app/bin/nfs-subdir-external-provisioner /usr/local/bin/nfs-subdir-external-provisioner
 

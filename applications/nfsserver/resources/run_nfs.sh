@@ -22,11 +22,14 @@ function start()
     echo Starting provisioner done.
 
     # remound loopback mounts
-    losetup -a|grep deleted|awk '{print $1}'|cut -f 1 -d :|xargs losetup -d
+    for lodev in `losetup -a|grep deleted|awk '{print $1}'|cut -f 1 -d :`
+    do
+        losetup -d ${lodev}
+    done
     for qf in `ls /exports/*.quota`
     do
         mountpoint=`basename ${qf}`
-        mklimdir -m ${mountpoint} --mountOnly
+        mklimdir.sh -m ${mountpoint} --mountOnly
     done
 
     unset gid
