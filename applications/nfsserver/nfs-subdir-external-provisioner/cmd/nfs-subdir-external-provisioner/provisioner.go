@@ -75,7 +75,7 @@ func (meta *pvcMetadata) stringParser(str string) string {
 }
 
 const (
-	mountPath = "/"
+	mountPath = "/exports"
 )
 
 var _ controller.Provisioner = &nfsProvisioner{}
