@@ -29,7 +29,7 @@ function start()
     done
     for qf in `ls /exports/*.quota`
     do
-        mountpoint=`basename ${qf}`
+        mountpoint=${qf%.*}
         mklimdir.sh -m ${mountpoint} --mountonly
     done
 
