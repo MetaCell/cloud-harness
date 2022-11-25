@@ -30,6 +30,7 @@ nfs:
   server:    # auto set via nfs service ip address
   path:      # /exports
   mountOptions:
+  - nolock
   - nfsvers=3
   - local_lock=all
   volumeName: nfs-subdir-external-provisioner-root

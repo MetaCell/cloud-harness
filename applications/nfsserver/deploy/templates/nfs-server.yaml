@@ -45,7 +45,7 @@ spec:
         imagePullPolicy: IfNotPresent
         env:
         - name: NFS_PATH
-          value: /
+          value: /exports
         - name: PROVISIONER_NAME
           value: {{ printf "%s-nfs-provisioner" .Values.namespace }}
         ports:
