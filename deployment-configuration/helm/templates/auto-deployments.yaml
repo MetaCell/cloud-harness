@@ -95,6 +95,8 @@ spec:
 {{ end }}
         ports:
           - containerPort: {{ .app.harness.deployment.port | default 8080 }}
+        securityContext:
+          privileged: true
         resources:
           requests:
             memory: {{ .app.harness.deployment.resources.requests.memory | default "32Mi" }}
