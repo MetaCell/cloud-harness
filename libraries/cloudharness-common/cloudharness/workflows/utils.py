@@ -27,7 +27,24 @@ def notify_queue(queue, message):
 
 def is_accounts_present():
     try:
-        applications.ApplicationConfiguration = applications.get_configuration('accounts')
+        applications.ApplicationConfiguration = applications.get_configuration(
+            'accounts')
         return True
     except Exception:
         return False
+
+
+def name_from_path(path):
+    return path.replace('/', '').replace('_', '').lower()
+
+
+def volume_mount_template(volume):
+    path = volume
+    splitted = volume.split(':')
+    if len(splitted) > 1:
+        path = splitted[1]
+    return dict({
+        'name': name_from_path(path),
+        'mountPath': path,
+        'readonly': False if len(splitted) < 3 else splitted[2] == "ro"
+    })
