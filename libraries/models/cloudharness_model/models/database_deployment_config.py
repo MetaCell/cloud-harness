@@ -6,14 +6,10 @@ from datetime import date, datetime  # noqa: F401
 from typing import List, Dict  # noqa: F401
 
 from cloudharness_model.models.base_model_ import Model
-from cloudharness_model.models.auto_artifact_spec import AutoArtifactSpec
-from cloudharness_model.models.database_deployment_config_all_of import DatabaseDeploymentConfigAllOf
 from cloudharness_model.models.deployment_resources_conf import DeploymentResourcesConf
 import re
 from cloudharness_model import util
 
-from cloudharness_model.models.auto_artifact_spec import AutoArtifactSpec  # noqa: E501
-from cloudharness_model.models.database_deployment_config_all_of import DatabaseDeploymentConfigAllOf  # noqa: E501
 from cloudharness_model.models.deployment_resources_conf import DeploymentResourcesConf  # noqa: E501
 import re  # noqa: E501
 
@@ -221,6 +217,7 @@ class DatabaseDeploymentConfig(Model):
     def mongo(self):
         """Gets the mongo of this DatabaseDeploymentConfig.
 
+          # noqa: E501
 
         :return: The mongo of this DatabaseDeploymentConfig.
         :rtype: Dict[str, object]
@@ -231,6 +228,7 @@ class DatabaseDeploymentConfig(Model):
     def mongo(self, mongo):
         """Sets the mongo of this DatabaseDeploymentConfig.
 
+          # noqa: E501
 
         :param mongo: The mongo of this DatabaseDeploymentConfig.
         :type mongo: Dict[str, object]
@@ -242,6 +240,7 @@ class DatabaseDeploymentConfig(Model):
     def postgres(self):
         """Gets the postgres of this DatabaseDeploymentConfig.
 
+          # noqa: E501
 
         :return: The postgres of this DatabaseDeploymentConfig.
         :rtype: Dict[str, object]
@@ -252,6 +251,7 @@ class DatabaseDeploymentConfig(Model):
     def postgres(self, postgres):
         """Sets the postgres of this DatabaseDeploymentConfig.
 
+          # noqa: E501
 
         :param postgres: The postgres of this DatabaseDeploymentConfig.
         :type postgres: Dict[str, object]
@@ -332,6 +332,7 @@ class DatabaseDeploymentConfig(Model):
     def name(self):
         """Gets the name of this DatabaseDeploymentConfig.
 
+          # noqa: E501
 
         :return: The name of this DatabaseDeploymentConfig.
         :rtype: str
@@ -342,6 +343,7 @@ class DatabaseDeploymentConfig(Model):
     def name(self, name):
         """Sets the name of this DatabaseDeploymentConfig.
 
+          # noqa: E501
 
         :param name: The name of this DatabaseDeploymentConfig.
         :type name: str
