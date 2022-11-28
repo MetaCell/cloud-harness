@@ -19,12 +19,12 @@ def test_get_quotas(mocker):
     def mock_get_user(self, user_id, with_details):
         return {
             "attributes": {
-                "attributes": {}
+                "quota-ws-guaranteemem": [0.5]
             },
             "userGroups": [
-                {"path": "/Base", "attributes": {'quota-ws-maxmem': [2.5], 'quota-ws-maxcpu': [1], 'quota-ws-open': [3]} },
+                {"path": "/Base", "attributes": {'quota-ws-maxmem': [2.5], 'quota-ws-maxcpu': [1], 'quota-ws-open': [3], "quota-ws-guaranteemem": [0.1]} },
                 {"path": "/Base/Base 1/Base 1 1", "attributes": {'quota-ws-maxcpu': [2], 'quota-ws-open': [10]}},
-                {"path": "/Base/Base 2", "attributes": {'quota-ws-maxmem': [8], 'quota-ws-maxcpu': [0.25]}},
+                {"path": "/Base/Base 2", "attributes": {'quota-ws-maxmem': [8], 'quota-ws-maxcpu': [0.25], 'quota-ws-guaranteecpu': [0.25]}},
                 {"path": "/Low CU", "attributes": {'quota-ws-maxmem': [3], 'quota-ws-maxcpu': [2.5], 'quota-ws-open': [1]}}
             ]
         }
@@ -36,4 +36,6 @@ def test_get_quotas(mocker):
     assert user_quotas_jh.get("quota-ws-maxmem") == 8.0
     assert user_quotas_jh.get("quota-ws-maxcpu") == 2.5
     assert user_quotas_jh.get("quota-ws-open") == 10.0
+    assert user_quotas_jh.get("quota-ws-guaranteecpu") == 0.25
+    assert user_quotas_jh.get("quota-ws-guaranteemem") == 0.5
     print(user_quotas_jh)
