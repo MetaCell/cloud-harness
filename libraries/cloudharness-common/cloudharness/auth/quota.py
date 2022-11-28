@@ -84,9 +84,9 @@ def _compute_quotas_from_tree(node: QuotaNode):
         child_attrs = _compute_quotas_from_tree(child)
         for key in child_attrs:
             try:
-                child_val = int(child_attrs[key])
+                child_val = float(child_attrs[key])
             except:
-                # value not an int, skip (use 0)
+                # value not a float, skip (use 0)
                 child_val = 0
             if not key in new_attrs or new_attrs[key] < child_val:
                 new_attrs.update({key: child_val})
