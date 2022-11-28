@@ -14,7 +14,7 @@ from .utils import replaceindir, to_python_module
 CODEGEN = os.path.join(HERE, 'bin', 'openapi-generator-cli.jar')
 APPLICATIONS_SRC_PATH = os.path.join('applications')
 LIB_NAME = 'cloudharness_cli'
-ROOT = dn(dn(HERE))
+ROOT = dn(dn(dn(HERE)))
 
 OPENAPI_GEN_URL = 'https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/6.2.1/openapi-generator-cli-6.2.1.jar'
 
