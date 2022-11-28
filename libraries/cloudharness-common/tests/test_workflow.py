@@ -19,6 +19,11 @@ verbose = True
 
 assert 'registry' in CloudharnessConfig.get_configuration()
 
+def check_wf(wf):
+    
+    assert wf["kind"] == "Workflow"
+    assert "spec" in wf
+    
 
 def test_sync_workflow():
     def f():
@@ -29,7 +34,9 @@ def test_sync_workflow():
     task = tasks.PythonTask('my-task', f)
     assert 'registry' in CloudharnessConfig.get_configuration()
     op = operations.DistributedSyncOperation('test-sync-op-', task)
-    print('\n', yaml.dump(op.to_workflow()))
+    # print('\n', yaml.dump(op.to_workflow()))
+    wf = op.to_workflow()
+    
     
     if execute:
         print(op.execute())
@@ -42,7 +49,8 @@ def test_pipeline_workflow():
         print('whatever')
 
     op = operations.PipelineOperation('test-pipeline-op-', (tasks.PythonTask('step1', f), tasks.PythonTask('step2', f)))
-    print('\n', yaml.dump(op.to_workflow()))
+    # print('\n', yaml.dump(op.to_workflow()))
+    wf = op.to_workflow()
     if execute:
         op.execute()
 
@@ -54,7 +62,7 @@ def test_parallel_workflow():
         print('whatever')
 
     op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f), tasks.PythonTask('p2', f)))
-    print('\n', yaml.dump(op.to_workflow()))
+    # print('\n', yaml.dump(op.to_workflow()))
     if execute:
         op.execute()
 
@@ -68,7 +76,7 @@ def test_simpledag_workflow():
     # p3 runs after p1 and p2 finish
     op = operations.SimpleDagOperation('test-dag-op-', (tasks.PythonTask('p1', f), tasks.PythonTask('p2', f)),
                                        tasks.PythonTask('p3', f))
-    print('\n', yaml.dump(op.to_workflow()))
+    # print('\n', yaml.dump(op.to_workflow()))
     if execute:
         print(op.execute())
 
@@ -76,7 +84,7 @@ def test_simpledag_workflow():
 def test_custom_task_workflow():
     task = operations.CustomTask('download-file', 'workflows-extract-download', url='https://www.bing.com')
     op = operations.PipelineOperation('test-custom-op-', (task,))
-    print('\n', yaml.dump(op.to_workflow()))
+    # print('\n', yaml.dump(op.to_workflow()))
     if execute:
         print(op.execute())
 
@@ -90,8 +98,8 @@ def test_custom_connected_task_workflow():
                                        file_path=shared_directory + '/README.md')
     op = operations.PipelineOperation('test-custom-connected-op-', (task_write, task_print),
                                       shared_directory=shared_directory, shared_volume_size=100)
-    # op.execute()
-    print('\n', yaml.dump(op.to_workflow()))
+    wf = op.to_workflow()
+    # print('\n', yaml.dump(op.to_workflow()))
     if execute:
         print(op.execute())
 
@@ -128,6 +136,19 @@ def test_single_task_volume_notshared():
     if accounts_offset == 1:
         assert wf['spec']['volumes'][1]['secret']['secretName'] == 'accounts'
     assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 3 + accounts_offset
+
+    affinity_glob = \
+        wf['spec']['affinity']['podAffinity']['requiredDuringSchedulingIgnoredDuringExecution'][0]['labelSelector'][
+            'matchExpressions'][0]
+    assert affinity_glob['key'] == 'usesvolume'
+    assert affinity_glob['values'][0] == 'myclaim'
+
+    affinity_tpl = \
+        wf['spec']['templates'][0]['affinity']['podAffinity']['requiredDuringSchedulingIgnoredDuringExecution'][0]['labelSelector'][
+            'matchExpressions'][0]
+    assert affinity_tpl['key'] == 'usesvolume'
+    assert affinity_tpl['values'][0] == 'a'
+
     if execute:
         print(op.execute())
 
@@ -187,7 +208,7 @@ def test_result_task_workflow():
     op = operations.DistributedSyncOperationWithResults('test-sync-results-', task_write)
 
     # op.execute()
-    print('\n', yaml.dump(op.to_workflow()))
+    wf = op.to_workflow()
     if execute:
         print(op.execute())
 

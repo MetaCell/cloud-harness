@@ -9,7 +9,7 @@ from cloudharness.events.client import EventClient
 from cloudharness.utils import env, config
 from . import argo
 from .tasks import Task, SendResultTask, CustomTask
-from .utils import is_accounts_present, name_from_path, volume_mount_template
+from .utils import PodExecutionContext, affinity_spec, is_accounts_present, name_from_path, volume_mount_template
 
 POLLING_WAIT_SECONDS = 1
 SERVICE_ACCOUNT = 'argo-workflows'
@@ -25,16 +25,7 @@ class BadOperationConfiguration(RuntimeError):
     pass
 
 
-class PodExecutionContext:
-    """
-    Key-value pair representing the execution context with other pods.
-    Automatically assigns meta data and pod affinity
-    """
 
-    def __init__(self, key, value, required=False):
-        self.key = str(key)
-        self.value = str(value)
-        self.required = required
 
 
 class ManagedOperation:
@@ -153,7 +144,7 @@ class ContainerizedOperation(ManagedOperation):
             spec = self.add_on_exit_notify_handler(spec)
 
         if self.pod_contexts:
-            spec['affinity'] = self.affinity_spec()
+            spec['affinity'] = affinity_spec(self.pod_contexts)
 
         volumes_mounts = list(self.volumes) or []
         # Tasks volumes must be declared at workflow level
@@ -166,43 +157,7 @@ class ContainerizedOperation(ManagedOperation):
 
         return spec
 
-    def affinity_spec(self):
-        contexts = self.pod_contexts
-        PREFERRED = 'preferredDuringSchedulingIgnoredDuringExecution'
-        REQUIRED = 'requiredDuringSchedulingIgnoredDuringExecution'
 
-        pod_affinity = {
-            PREFERRED: [],
-            REQUIRED: []
-        }
-
-        for context in contexts:
-            term = {
-                'labelSelector':
-                    {
-                        'matchExpressions': [
-                            {
-                                'key': context.key,
-                                'operator': 'In',
-                                'values': [context.value]
-                            },
-                        ]
-                    },
-                'topologyKey': 'kubernetes.io/hostname'
-            }
-            if not context.required:
-                pod_affinity[PREFERRED].append(
-                    {
-                        'weight': 100,
-                        'podAffinityTerm': term
-
-                    })
-            else:
-                pod_affinity[REQUIRED].append(term)
-
-        return {
-            'podAffinity': pod_affinity
-        }
 
     def add_on_exit_notify_handler(self, spec):
         queue = self.on_exit_notify['queue']

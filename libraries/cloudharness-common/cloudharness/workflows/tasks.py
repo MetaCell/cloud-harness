@@ -1,7 +1,7 @@
 from . import argo
 
 from cloudharness.utils.env import get_cloudharness_variables, get_image_full_tag
-from .utils import WORKFLOW_NAME_VARIABLE_NAME, is_accounts_present, volume_mount_template
+from .utils import WORKFLOW_NAME_VARIABLE_NAME, PodExecutionContext, affinity_spec, is_accounts_present, volume_mount_template
 
 SERVICE_ACCOUNT = 'argo-workflows'
 
@@ -73,7 +73,6 @@ class ContainerizedTask(Task):
         super().__init__(name, resources, **env_args)
         self.image_pull_policy = image_pull_policy
         self.command = command
-        
 
     def spec(self):
         spec = {
@@ -87,7 +86,9 @@ class ContainerizedTask(Task):
             'inputs': {},
             'metadata': {},
             'name': self.name,
-            'outputs': {}
+            'outputs': {},
+            'affinity': affinity_spec([PodExecutionContext('usesvolume', v.split(':')[0], True) for v in self.volume_mounts if
+                                       ':' in v])
 
         }
         if self.command is not None:
@@ -107,6 +108,10 @@ class InlinedTask(Task):
     def spec(self):
         return {
             'name': self.name,
+            'affinity': affinity_spec([
+                PodExecutionContext('usesvolume', v.split(':')[0], True)
+                for v in self.volume_mounts if ':' in v
+            ]),
             'script':
                 {
                     'image': self.image_name,
@@ -114,7 +119,7 @@ class InlinedTask(Task):
                     'source': self.source,
                     'volumeMounts': self.volumes_mounts_spec(),
                     'command': [self.command]
-                }
+            }
         }
 
     @property
