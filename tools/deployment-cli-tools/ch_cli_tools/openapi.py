@@ -49,7 +49,7 @@ def generate_model(base_path=ROOT):
     command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/api/openapi.yaml -g python -o {tmp_path}  --skip-validate-spec -c {base_path}/libraries/api/config.json"
     os.system(command)
     try:
-        source_dir = join(tmp_path, "docs")
+        source_dir = join(tmp_path, "docs/models")
         dest = join(base_path, "docs/model")
         if os.path.exists(dest):
             shutil.rmtree(dest)
