@@ -12,6 +12,19 @@ harness:
     - accounts
     build:
     - cloudharness-base
+  quotas:
+    # sets the maximum number of (included named) servers open concurrently (int)
+    quota-ws-open: 3
+    # sets the cpu guaranteed on a single workspace in CPU units (float)
+    quota-ws-guaranteecpu: 0.05
+    # sets the cpu limit on a single workspace in CPU units (float)
+    quota-ws-maxcpu: 0.4
+    # sets the memory guaranteed on a single workspace in Gb units (float)
+    quota-ws-guaranteemem: 0.1
+    # sets the memory limit on a single workspace in Gb units (float)
+    quota-ws-maxmem: 0.5
+    # sets the storage dedicated to the user data in Gb units (float)
+    quota-storage-max: 1.25
 
 # fullnameOverride and nameOverride distinguishes blank strings, null values,
 # and non-blank strings. For more details, see the configuration reference.
