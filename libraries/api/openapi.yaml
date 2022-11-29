@@ -346,6 +346,14 @@ components:
         resources:
           $ref: "#/components/schemas/DeploymentResourcesConf"
           description: ""
+    Quota:
+      description: ""
+      type: object
+      additionalProperties:
+        type: string
+      example:
+        quota-ws-max: 5
+        quota-storage-max: 1G
     UserGroup:
       type: object
       properties:

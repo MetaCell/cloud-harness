@@ -6,11 +6,9 @@ from datetime import date, datetime  # noqa: F401
 from typing import List, Dict  # noqa: F401
 
 from cloudharness_model.models.base_model_ import Model
-from cloudharness_model.models.auto_artifact_spec import AutoArtifactSpec
 import re
 from cloudharness_model import util
 
-from cloudharness_model.models.auto_artifact_spec import AutoArtifactSpec  # noqa: E501
 import re  # noqa: E501
 
 class DeploymentAutoArtifactConfig(Model):
@@ -194,6 +192,7 @@ class DeploymentAutoArtifactConfig(Model):
     def name(self):
         """Gets the name of this DeploymentAutoArtifactConfig.
 
+          # noqa: E501
 
         :return: The name of this DeploymentAutoArtifactConfig.
         :rtype: str
@@ -204,6 +203,7 @@ class DeploymentAutoArtifactConfig(Model):
     def name(self, name):
         """Sets the name of this DeploymentAutoArtifactConfig.
 
+          # noqa: E501
 
         :param name: The name of this DeploymentAutoArtifactConfig.
         :type name: str

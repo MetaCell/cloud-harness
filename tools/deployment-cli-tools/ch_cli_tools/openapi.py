@@ -14,7 +14,7 @@ from .utils import replaceindir, to_python_module
 CODEGEN = os.path.join(HERE, 'bin', 'openapi-generator-cli.jar')
 APPLICATIONS_SRC_PATH = os.path.join('applications')
 LIB_NAME = 'cloudharness_cli'
-ROOT = dn(dn(HERE))
+ROOT = dn(dn(dn(HERE)))
 
 OPENAPI_GEN_URL = 'https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/6.2.1/openapi-generator-cli-6.2.1.jar'
 
@@ -49,7 +49,7 @@ def generate_model(base_path=ROOT):
     command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/api/openapi.yaml -g python -o {tmp_path}  --skip-validate-spec -c {base_path}/libraries/api/config.json"
     os.system(command)
     try:
-        source_dir = join(tmp_path, "docs")
+        source_dir = join(tmp_path, "docs/models")
         dest = join(base_path, "docs/model")
         if os.path.exists(dest):
             shutil.rmtree(dest)

@@ -1,4 +1,4 @@
-# cloudharness_model.model.simple_map.SimpleMap
+# cloudharness_model.model.quota.Quota
 
 ## Model Type Info
 Input Type | Accessed Type | Description | Notes

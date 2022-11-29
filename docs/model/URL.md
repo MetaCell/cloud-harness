@@ -1,4 +1,4 @@
-# cloudharness_model.model.filename.Filename
+# cloudharness_model.model.url.URL
 
 ## Model Type Info
 Input Type | Accessed Type | Description | Notes

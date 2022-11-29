@@ -1,13 +1,16 @@
-# CpuMemoryConfig
+# cloudharness_model.model.cpu_memory_config.CpuMemoryConfig
 
-
-## Properties
-Name | Type | Description | Notes
+## Model Type Info
+Input Type | Accessed Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**cpu** | **str** |  | [optional] 
-**memory** | **str** |  | [optional] 
-**any string name** | **bool, date, datetime, dict, float, int, list, str, none_type** | any string name can be used but the value must be the correct type | [optional]
+dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
 
-[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+### Dictionary Keys
+Key | Input Type | Accessed Type | Description | Notes
+------------ | ------------- | ------------- | ------------- | -------------
+**cpu** | str,  | str,  |  | [optional] 
+**memory** | str,  | str,  |  | [optional] 
+**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
 
+[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
 

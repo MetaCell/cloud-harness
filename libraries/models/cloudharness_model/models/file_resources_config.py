@@ -58,6 +58,7 @@ class FileResourcesConfig(Model):
     def name(self):
         """Gets the name of this FileResourcesConfig.
 
+          # noqa: E501
 
         :return: The name of this FileResourcesConfig.
         :rtype: str
@@ -68,6 +69,7 @@ class FileResourcesConfig(Model):
     def name(self, name):
         """Sets the name of this FileResourcesConfig.
 
+          # noqa: E501
 
         :param name: The name of this FileResourcesConfig.
         :type name: str
@@ -83,6 +85,7 @@ class FileResourcesConfig(Model):
     def src(self):
         """Gets the src of this FileResourcesConfig.
 
+          # noqa: E501
 
         :return: The src of this FileResourcesConfig.
         :rtype: str
@@ -93,6 +96,7 @@ class FileResourcesConfig(Model):
     def src(self, src):
         """Sets the src of this FileResourcesConfig.
 
+          # noqa: E501
 
         :param src: The src of this FileResourcesConfig.
         :type src: str
@@ -108,6 +112,7 @@ class FileResourcesConfig(Model):
     def dst(self):
         """Gets the dst of this FileResourcesConfig.
 
+          # noqa: E501
 
         :return: The dst of this FileResourcesConfig.
         :rtype: str
@@ -118,6 +123,7 @@ class FileResourcesConfig(Model):
     def dst(self, dst):
         """Sets the dst of this FileResourcesConfig.
 
+          # noqa: E501
 
         :param dst: The dst of this FileResourcesConfig.
         :type dst: str

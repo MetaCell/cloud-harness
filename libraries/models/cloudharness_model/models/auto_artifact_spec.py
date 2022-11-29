@@ -76,6 +76,7 @@ class AutoArtifactSpec(Model):
     def name(self):
         """Gets the name of this AutoArtifactSpec.
 
+          # noqa: E501
 
         :return: The name of this AutoArtifactSpec.
         :rtype: str
@@ -86,6 +87,7 @@ class AutoArtifactSpec(Model):
     def name(self, name):
         """Sets the name of this AutoArtifactSpec.
 
+          # noqa: E501
 
         :param name: The name of this AutoArtifactSpec.
         :type name: str

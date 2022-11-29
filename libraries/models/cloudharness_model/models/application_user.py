@@ -61,6 +61,7 @@ class ApplicationUser(Model):
     def username(self):
         """Gets the username of this ApplicationUser.
 
+          # noqa: E501
 
         :return: The username of this ApplicationUser.
         :rtype: str
@@ -71,6 +72,7 @@ class ApplicationUser(Model):
     def username(self, username):
         """Sets the username of this ApplicationUser.
 
+          # noqa: E501
 
         :param username: The username of this ApplicationUser.
         :type username: str
@@ -84,6 +86,7 @@ class ApplicationUser(Model):
     def password(self):
         """Gets the password of this ApplicationUser.
 
+          # noqa: E501
 
         :return: The password of this ApplicationUser.
         :rtype: str
@@ -94,6 +97,7 @@ class ApplicationUser(Model):
     def password(self, password):
         """Sets the password of this ApplicationUser.
 
+          # noqa: E501
 
         :param password: The password of this ApplicationUser.
         :type password: str
@@ -105,6 +109,7 @@ class ApplicationUser(Model):
     def client_roles(self):
         """Gets the client_roles of this ApplicationUser.
 
+          # noqa: E501
 
         :return: The client_roles of this ApplicationUser.
         :rtype: List[str]
@@ -115,6 +120,7 @@ class ApplicationUser(Model):
     def client_roles(self, client_roles):
         """Sets the client_roles of this ApplicationUser.
 
+          # noqa: E501
 
         :param client_roles: The client_roles of this ApplicationUser.
         :type client_roles: List[str]
@@ -126,6 +132,7 @@ class ApplicationUser(Model):
     def realm_roles(self):
         """Gets the realm_roles of this ApplicationUser.
 
+          # noqa: E501
 
         :return: The realm_roles of this ApplicationUser.
         :rtype: List[str]
@@ -136,6 +143,7 @@ class ApplicationUser(Model):
     def realm_roles(self, realm_roles):
         """Sets the realm_roles of this ApplicationUser.
 
+          # noqa: E501
 
         :param realm_roles: The realm_roles of this ApplicationUser.
         :type realm_roles: List[str]
