@@ -38,4 +38,5 @@ def test_get_quotas(mocker):
     assert user_quotas_jh.get("quota-ws-open") == 10.0
     assert user_quotas_jh.get("quota-ws-guaranteecpu") == 0.25
     assert user_quotas_jh.get("quota-ws-guaranteemem") == 0.5
+    assert user_quotas_jh.get("quota-storage-max") == 1.25
     print(user_quotas_jh)

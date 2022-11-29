@@ -129,4 +129,7 @@ def get_user_quotas(application_config: ApplicationConfig =None, user_id: str=No
     for key in group_quotas:
         if key not in user_quotas:
             user_quotas.update({key: group_quotas[key]})
+    for key in base_quotas:
+        if key not in user_quotas:
+            user_quotas.update({key: base_quotas[key]})
     return user_quotas
