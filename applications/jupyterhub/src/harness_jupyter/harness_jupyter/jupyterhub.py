@@ -11,16 +11,30 @@ handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.DEBUG)
 logging.getLogger().addHandler(handler)
 
+
+def custom_options_form(spawner, abc):
+    # let's skip the profile selection form for now
+    # ToDo: for future we can remove this hook
+    spawner.profile_list = []
+    # ref: https://github.com/jupyterhub/kubespawner/blob/37a80abb0a6c826e5c118a068fa1cf2725738038/kubespawner/spawner.py#L1885-L1935
+    return spawner._options_form_default()
+
+
 def harness_hub():
     """Wraps the method to change spawner configuration"""
     KubeSpawner.get_pod_manifest_base = KubeSpawner.get_pod_manifest
     KubeSpawner.get_pod_manifest = spawner_pod_manifest
+    # let's skip the profile selection form for now
+    # TODO: for future we can remove this hook
+    KubeSpawner.options_form = custom_options_form
+
 
 def spawner_pod_manifest(self: KubeSpawner):
     print("Cloudharness: changing pod manifest")
     change_pod_manifest(self)
 
     return KubeSpawner.get_pod_manifest_base(self)
+
 
 def affinity_spec(key, value):
     return {
@@ -37,6 +51,7 @@ def affinity_spec(key, value):
             },
         'topologyKey': 'kubernetes.io/hostname'
     }
+
 
 def set_user_volume_affinity(self: KubeSpawner):
     # Add labels to use for affinity
@@ -69,7 +84,7 @@ def change_pod_manifest(self: KubeSpawner):
                             image_plus_tag = task_images[task_image]
                             if ws_image in image_plus_tag:
                                 ws_image = image_plus_tag
-                                logging.info(f'Found tag for image: {ws_image}')
+                                logging.error(f'Found tag for image: {ws_image}')
                                 break
                     else:
                         if app['name'] != 'jupyterhub': # Would use the hub image in that case, which we don't want.
