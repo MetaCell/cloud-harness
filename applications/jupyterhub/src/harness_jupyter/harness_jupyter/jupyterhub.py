@@ -4,6 +4,9 @@ import sys
 import urllib.parse
 
 from kubespawner.spawner import KubeSpawner
+
+from cloudharness.utils.config import CloudharnessConfig as conf
+
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.DEBUG)
 logging.getLogger().addHandler(handler)
@@ -48,7 +51,6 @@ def set_user_volume_affinity(self: KubeSpawner):
         self.pod_affinity_required.append(affinity_spec(key, value))
 
 def change_pod_manifest(self: KubeSpawner):
-
     try:
         subdomain = self.handler.request.host.split(str(self.config['domain']))[0][0:-1]
         app_config = self.config['apps']
@@ -58,9 +60,23 @@ def change_pod_manifest(self: KubeSpawner):
                 harness = app['harness']
 
                 if 'subdomain' in harness and harness['subdomain'] == subdomain:
-                    if app['name'] != 'jupyterhub': # Would use the hub image in that case, which we don't want.
-                        print('Change image to', harness['deployment']['image'])
-                        self.image = harness['deployment']['image']
+                    ws_image = getattr(self, "ws_image", None)
+                    if ws_image:
+                        # try getting the image + tag from values.yaml
+                        ch_conf = conf.get_configuration()
+                        task_images = ch_conf['task-images']
+                        for task_image in task_images:
+                            image_plus_tag = task_images[task_image]
+                            if ws_image in image_plus_tag:
+                                ws_image = image_plus_tag
+                                logging.info(f'Found tag for image: {ws_image}')
+                                break
+                    else:
+                        if app['name'] != 'jupyterhub': # Would use the hub image in that case, which we don't want.
+                            ws_image = harness['deployment']['image']
+                    if ws_image:
+                        logging.info(f'Change image to {ws_image}')
+                        self.image = ws_image
                         if registry['name'] in self.image and registry['secret']:
                             self.image_pull_secrets = registry['secret']
 
