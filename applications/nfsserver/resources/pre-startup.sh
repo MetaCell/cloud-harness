@@ -1,3 +1,3 @@
 #!/bin/bash
 
-source /usr/loca/bin/remount
+source /usr/local/bin/remount.sh
