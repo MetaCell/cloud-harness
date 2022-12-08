@@ -16,22 +16,9 @@
 
 function start()
 {
-
-    echo Starting provisioner...
-    /usr/local/bin/nfs-subdir-external-provisioner&
-    echo Starting provisioner done.
-
-    # remound loopback mounts
-    losetup -D
-    for lodev in `losetup -a|grep deleted|awk '{print $1}'|cut -f 1 -d :`
-    do
-        losetup -d ${lodev}
-    done
-    for qf in `ls /exports/*.quota`
-    do
-        mountpoint=${qf%.*}
-        mklimdir.sh -m ${mountpoint} --mountonly
-    done
+    # run pre startup script
+    bash -c "/usr/local/bin/pre-startup.sh"
+    bash -c "/usr/local/bin/start_provisioner.sh"
 
     unset gid
     # accept "-G gid" option
@@ -52,11 +39,11 @@ function start()
     mount -t nfsd nfds /proc/fs/nfsd
 
     # -V 3: enable NFSv3
-    /usr/sbin/rpc.mountd -N 2 -V 3
+    /usr/sbin/rpc.mountd -N 2 -V 3 -V 4
 
     /usr/sbin/exportfs -r
     # -G 10 to reduce grace time to 10 seconds (the lowest allowed)
-    /usr/sbin/rpc.nfsd -G 10 -N 2 -V 3
+    /usr/sbin/rpc.nfsd -G 10 -N 2 -V 3 -V 4
     /usr/sbin/rpc.statd --no-notify
     echo "NFS started"
 }

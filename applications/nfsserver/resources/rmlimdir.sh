@@ -55,10 +55,12 @@ main(){
     quota_fs=${mountpoint}.quota
     mountname=`basename ${mountpoint}`
 
-    umount -l -d -f ${mountpoint} || true
     # find the loop back device and delete/unmount it
     lodev=`losetup -a | grep ${mountname} | awk '{print $1}' | cut -f 1 -d :` || true
+
     losetup -d ${lodev} || true
+    umount -df ${mountpoint} || true
+
     rm -rf ${mountpoint} || true
     mv ${quota_fs} ${mountpoint} || true
 

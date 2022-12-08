@@ -32,7 +32,6 @@ nfs:
   path: /exports     # /exports
   mountOptions:
   - nolock
-  - nfsvers=3
   - local_lock=all
   volumeName: nfs-subdir-external-provisioner-root
   # Reclaim policy for the main nfs volume
