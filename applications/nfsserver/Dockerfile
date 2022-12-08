@@ -16,7 +16,4 @@ COPY --from=provisioner /usr/src/app/bin/nfs-subdir-external-provisioner /usr/lo
 COPY resources/*.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/*.sh
 
-RUN echo "/exports *(rw,fsid=0,insecure,no_subtree_check,crossmnt)" > /etc/exports
-#RUN echo "/exports 10.28.0.0/16*(rw,fsid=0,insecure,no_subtree_check,sync,no_wdelay,root_squash)" > /etc/exports
-# RUN echo "/ *.hfo-test.svc.cluster.local(ro,fsid=0)" > /etc/exports
-# RUN echo "/exports *.hfo-test.svc.cluster.local(rw,fsid=0,insecure,no_subtree_check,no_root_squash,crossmnt)" > /etc/exports
+RUN echo "/exports *(rw,fsid=0,insecure,no_subtree_check,no_root_squash,crossmnt)" > /etc/exports
