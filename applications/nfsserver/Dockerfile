@@ -16,4 +16,4 @@ COPY --from=provisioner /usr/src/app/bin/nfs-subdir-external-provisioner /usr/lo
 COPY resources/*.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/*.sh
 
-RUN echo "/exports *(rw,fsid=0,insecure,no_root_squash,no_subtree_check,crossmnt)" > /etc/exports
+RUN echo "/exports *(rw,fsid=0,insecure,no_subtree_check,no_root_squash,crossmnt)" > /etc/exports

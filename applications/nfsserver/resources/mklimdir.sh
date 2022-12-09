@@ -40,7 +40,7 @@ parse_args(){
     -s)
         shift; export size="$1" ;;
     --mountonly)
-        export mountOnly=1 ;;
+        export mountonly=1 ;;
     --)
         shift
         break;;
@@ -72,9 +72,11 @@ mkmount(){
 
     rm -rf ${mountpoint}
     mkdir ${mountpoint}
-    chmod go+w ${mountpoint}
+    # chmod go+w ${mountpoint}
+    chmod 777 ${mountpoint}
     mount ${lodev} ${mountpoint}
-    chmod go+w ${mountpoint}
+    # chmod go+w ${mountpoint}
+    chmod 777 ${mountpoint}
 }
 
 mklimfile(){
@@ -83,8 +85,8 @@ mklimfile(){
     count_mb=$(( ${size}/1024/1024 + 1))
 
     echo Create file ${quota_fs} size ${count_mb}Mb
-    # truncate -s ${size} ${quota_fs}
-    dd if=/dev/zero of=${quota_fs} bs=1M count=${count_mb}
+    truncate -s ${size} ${quota_fs}
+    #dd if=/dev/zero of=${quota_fs} bs=1M count=${count_mb}
     yes | mkfs.ext4 ${quota_fs}
 }
 
@@ -96,12 +98,12 @@ main(){
 
     local mountpoint=""
     local size=0
-    local mountOnly=
+    local mountonly=
 
     parse_args "$@"
     quota_fs=${mountpoint}.quota
 
-    if [ -z ${mountOnly} ]; then
+    if [ -z ${mountonly} ]; then
         if [ -f ${quota_fs} ]; then
             echo File ${quota_fs} already exists
             exit 1
