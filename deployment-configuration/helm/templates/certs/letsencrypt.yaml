@@ -12,5 +12,5 @@ spec:
     solvers:
     - http01:
         ingress:
-          name: cloudharness-ingress
+          class: nginx
 {{ end }}
