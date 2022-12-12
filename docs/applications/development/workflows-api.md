@@ -114,7 +114,15 @@ The shared volume must be indicated both in the Operation and it is propagated t
 The `shared_directory` parameter is a quick way to specify a shared directory, and, optionally,
 the name of a volume claim. 
 
-The syntax is `[CLAIM_NAME:]MOUNT_PATH`.
+The syntax is `[CLAIM_NAME:]MOUNT_PATH[:MODE]`.
+- The `CLAIM_NAME` can be an existing or new volume claim name. In the case a claim already exists with that name it will be used.
+Otherwise a new ephemeral volume is created: that volume will exist during the life of the workflow and deleted after completion
+- The `MOUNT_PATH` is the path where we want the volume to be mounted inside our pod
+- The appendix `:MODE` indicated the read/write mode. If `ro`, the
+volume is mounted as read-only. Read only volumes are useful to overcome
+scheduling limitations (ReadWriteOnce is usually available) when 
+writing is not required, and it's generally recommended whenever writing
+is not required.
 
 ```Python
 shared_directory="myclaim:/opt/shared"
@@ -126,10 +134,30 @@ op.execute()
 More than one directory/volume can be shared by passing a list/tuple:
 
 ```Python
-shared_directory=["myclaim:/opt/shared", "myclaim2:/opt/shared2"]
+shared_directory=["myclaim:/opt/shared:ro", "myclaim2:/opt/shared2"]
 my_task = tasks.CustomTask('print-file', 'myapp-mytask')
 op = operations.SingleTaskOperation('my-op-', my_task, shared_directory=shared_directory)
 op.execute()
+```
+
+## Specify resources
+
+Resources can be directly specified in the task as:
+
+```python
+from cloudharness.workflows import operations, tasks
+
+my_task = tasks.CustomTask('my-gpu', 'myapp-mytask', resources={"requests": {"cpu": "50m", "memory": "128Mi"}, "limits": {"memory": "256Mi"}})
+op = operations.PipelineOperation('my-op-gpu-', [my_task])
+```
+
+To use a gpu specify the resource like:
+
+```python
+from cloudharness.workflows import operations, tasks
+
+my_task = tasks.CustomTask('my-gpu', 'myapp-mytask', resources={"limits": {"nvidia.com/gpu": 1}})
+op = operations.PipelineOperation('my-op-gpu-', [my_task])
 ```
 
 ## Pod execution context / affinity
@@ -144,10 +172,24 @@ op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f
                                       pod_context=operations.PodExecutionContext(key='a', value='b', required=True))
 ```
 
+
+
 The execution context is set allows to group pods in the same node (see [here](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity)).
 This is important in particular when pods are sharing node resources like ReadWriteOnce volumes within a parallel execution or with other deployments in the cluster.
 The execution context sets the affinity and the metadata attributes so that all pods with the same context
-run in the same node 
+run in the same node.
+
+
+Is is also possible to specify a tuple or list for multiple affinities like:
+
+```Python
+op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f), tasks.PythonTask('p2', f)),
+                                      pod_context=(
+                                        operations.PodExecutionContext('a', 'b'), 
+                                        operations.PodExecutionContext('c', 'd', required=True), 
+                                        operations.PodExecutionContext('e', 'f')
+                                        ))
+```
 
 ## TTL (Time-To-Live) strategy
 
@@ -191,9 +233,64 @@ op = operations.ParallelOperation(..., on_exit_notify=on_exit_notify)
 
 Synchronous operation types use this mechanism to wait for the result and get the value.
 
-# How to monitor and debug my workflows?
+## Workflows query service api
+
+Workflows can be queried and retrieved through the Python api
+
+### List workflows
+
+```Python
+import cloudharness.workflows.argo import get_workflows, Phase, V1alpha1WorkflowList
+workflow_list: V1alpha1WorkflowList = get_workflows(status=Phase.Running, limit=10)
+workflows: list[V1alpha1Workflow] = workflow_list.items
+
+```
+
+For more info about parameters, see also https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/CustomObjectsApi.md#list_cluster_custom_object
+
+
+### Get a workflow details
+
+```Python
+import cloudharness.workflows.argo import get_workflow, Workflow
+wf: Workflow = get_workflow(workflow_name="my-workflow")
+raw_workflow = wf.raw
+status = wf.status
+is_succeeded = wf.succeeded()
+
+pod_names = wf.pod_names
+```
+
+### Submit a workflow 
+
+It is possible to submit a workflow by the raw specification.
+This is to be considered a low level api to be used when the operations api
+features don't provide a way to specify the workflow as desired.
+
+```Python
+import cloudharness.workflows.argo import submit_workflow
+spec: dict=...
+submitted_workflow = submit_workflow(spec=spec)
+```
+
+### Delete a workflow
+
+```Python
+import cloudharness.workflows.argo import delete_workflow
+delete_workflow(workflow_name="my-workflow")
+```
+
+### Get logs
+
+```Python
+import cloudharness.workflows.argo import get_workflow_logs_list, get_workflow_logs
+logs_as_list = get_workflow_logs_list(workflow_name="my-workflow")
+logs_as_str = get_workflow_logs(workflow_name="my-workflow")
+```
+
+## How to monitor and debug my workflows?
 Workflows can be monitored through argo ui going to argo.[DOMAIN] or through command line with the [argo cli](https://argoproj.github.io/argo-workflows/cli/)
 
-# More examples
+## More examples
 See the [samples application controller](../../../applications/samples/backend/samples/controllers/workflows_controller.py) for a practical case of a service using asynchronous and synchronous workflows as part of the api.
 Some examples are also available as unit tests.

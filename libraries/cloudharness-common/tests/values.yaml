@@ -592,6 +592,13 @@ apps:
           limits:
             memory: 500Mi
             cpu: 500m
+      quotas:
+        quota-ws-open: 3
+        quota-ws-guaranteecpu: 0.05
+        quota-ws-maxcpu: 0.4
+        quota-ws-guaranteemem: 0.1
+        quota-ws-maxmem: 0.5
+        quota-storage-max: 1.25
       service:
         auto: false
         name: proxy-public

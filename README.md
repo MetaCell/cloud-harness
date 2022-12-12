@@ -17,7 +17,6 @@ What building your cloud solution with CloudHarness gives to you:
     - access gatekeepers configuration
     - secrets
     - templated config maps from files
-    - secrets
   * Automatic build and push of images
   * REST-API scaffolding building based on OpenApi
   * Continuous deployment script generation
@@ -28,7 +27,12 @@ What building your cloud solution with CloudHarness gives to you:
   * Submit batch and asynchronous workflows - based on Argo
   * Orchestrate microservices - based on Kafka
   * Assign compute workspaces to users - based Jupyterhub
-  
+* Testing framework to help you write and run tests
+  * Unit tests
+  * API integration tests
+  * End to End tests (with Puppeteer)
+* CI/CD pipelines generation
+
 # Why CloudHarness?
 
 The microservice architecture is a great to get code separation and flexible development, but may not be of easy implementation, especially for small development teams/projects.
@@ -52,7 +56,7 @@ CloudHarness provides the following command line tools to help application scaff
 * `harness-deployment` - generate the helm chart to deploy on Kubernetes. 
 * `harness-application` - create a new CloudHarness REST application.
 * `harness-generate` - generates server and client code for all CloudHarness REST applications.
-
+* `harness-test` - run end to end tests
 # Get started
 
 ## Prerequisites
@@ -66,14 +70,14 @@ Cloudharness can be used on all major operative systems.
 - Windows native: mostly working, unsupported  
 
 ### Python
-Python 3.7-3.9 must be installed.
+Python 3.9 must be installed.
 
 It is recommended to setup a virtual environment.
 With conda: 
- ```bash
- conda create --name ch python=3.7
- conda activate ch
- ```
+```bash
+conda create --name ch python=3.9
+conda activate ch
+```
 
 ### Docker
 [Docker](https://www.docker.com) is required to build locally.
@@ -90,11 +94,26 @@ With conda:
 
 [Skaffold](https://skaffold.dev/docs/install/) is the way to go to build and debug your application in your local development environment.
 
+### Node environment
+
+A node environment with npm is required for developing web applications and to run end to end tests.
+
+Recommended:
+- node >= v14.0.0
+- npm >= 8.0.0
+
+### Java Runtime Environment
+
+A JRE is needed to run the code generators based on openapi-generator.
+
+For more info, see [here](https://openapi-generator.tech/docs/installation).
+
+
 ## CloudHarness command line tools
 To use the cli tools, install requirements first:
 
 ```bash
-source install.sh
+bash install.sh
 ```
 ### Generate deployment
 
@@ -141,7 +160,7 @@ harness-deployment cloud-harness . [PARAMS]
 ```
 
 to create the build and deployment artifacts for your solution.
-See the dedicated [Build and deploy](./docs/build-deploy-howto.md) document for more details and examples.
+See the dedicated [Build and deploy](./docs/build-deploy/README.md) document for more details and examples.
 
 # Add and manage applications
 

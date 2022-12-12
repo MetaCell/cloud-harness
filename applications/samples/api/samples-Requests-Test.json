@@ -1,0 +1,659 @@
+
+{
+    "system": "CloudHarness-Sample-API",
+    "has": {
+        "server": "/api",
+        "title": "CloudHarness Sample API",
+        "version": "0.1.0"
+    },
+    "GET_valid": {
+        "has": {
+            "path": "/valid",
+            "server": "/api",
+            "title": "CloudHarness Sample API",
+            "operation": "GET",
+            "version": "0.1.0"
+        },
+        "testCases": [
+            {
+                "id": 0,
+                "name": "Auth.bearerAuth.Defined='Yes'",
+                "has": {
+                    "path": "/valid",
+                    "server": "/api",
+                    "title": "CloudHarness Sample API",
+                    "operation": "GET",
+                    "version": "0.1.0",
+                    "properties": "secRecBearerAuth"
+                },
+                "security": {
+                    "Auth.bearerAuth.Defined": {
+                        "value": "Yes"
+                    },
+                    "Auth.bearerAuth.Type": {
+                        "value": "http"
+                    },
+                    "Auth.bearerAuth.Scheme": {
+                        "value": "bearer"
+                    }
+                }
+            },
+            {
+                "id": 1,
+                "name": "Auth.bearerAuth.Defined='No'",
+                "has": {
+                    "path": "/valid",
+                    "server": "/api",
+                    "title": "CloudHarness Sample API",
+                    "operation": "GET",
+                    "version": "0.1.0"
+                },
+                "security": {
+                    "Auth.bearerAuth.Defined": {
+                        "has": {
+                            "authFailure": "true"
+                        },
+                        "failure": true,
+                        "value": "No"
+                    },
+                    "Auth.bearerAuth.Type": {
+                        "NA": true
+                    },
+                    "Auth.bearerAuth.Scheme": {
+                        "NA": true
+                    }
+                }
+            }
+        ]
+    },
+    "GET_error": {
+        "has": {
+            "path": "/error",
+            "server": "/api",
+            "title": "CloudHarness Sample API",
+            "operation": "GET",
+            "version": "0.1.0"
+        },
+        "testCases": [
+            {
+                "id": 0,
+                "name": "None.Defined='No'",
+                "has": {
+                    "path": "/error",
+                    "server": "/api",
+                    "title": "CloudHarness Sample API",
+                    "operation": "GET",
+                    "version": "0.1.0"
+                },
+                "implicit": {
+                    "None.Defined": {
+                        "value": "No"
+                    }
+                }
+            }
+        ]
+    },
+    "GET_ping": {
+        "has": {
+            "path": "/ping",
+            "server": "/api",
+            "title": "CloudHarness Sample API",
+            "operation": "GET",
+            "version": "0.1.0"
+        },
+        "testCases": [
+            {
+                "id": 0,
+                "name": "None.Defined='No'",
+                "has": {
+                    "path": "/ping",
+                    "server": "/api",
+                    "title": "CloudHarness Sample API",
+                    "operation": "GET",
+                    "version": "0.1.0"
+                },
+                "implicit": {
+                    "None.Defined": {
+                        "value": "No"
+                    }
+                }
+            }
+        ]
+    },
+    "GET_operation_sync": {
+        "has": {
+            "path": "/operation_sync",
+            "server": "/api",
+            "title": "CloudHarness Sample API",
+            "operation": "GET",
+            "version": "0.1.0"
+        },
+        "testCases": [
+            {
+                "id": 0,
+                "name": "None.Defined='No'",
+                "has": {
+                    "path": "/operation_sync",
+                    "server": "/api",
+                    "title": "CloudHarness Sample API",
+                    "operation": "GET",
+                    "version": "0.1.0"
+                },
+                "implicit": {
+                    "None.Defined": {
+                        "value": "No"
+                    }
+                }
+            }
+        ]
+    },
+    "GET_operation_sync_results": {
+        "has": {
+            "path": "/operation_sync_results",
+            "server": "/api",
+            "title": "CloudHarness Sample API",
+            "operation": "GET",
+            "version": "0.1.0"
+        },
+        "testCases": [
+            {
+                "id": 0,
+                "name": "a.Defined='Yes'",
+                "has": {
+                    "path": "/operation_sync_results",
+                    "server": "/api",
+                    "title": "CloudHarness Sample API",
+                    "operation": "GET",
+                    "version": "0.1.0",
+                    "properties": "a,aValue,b,bValue"
+                },
+                "query": {
+                    "a.Defined": {
+                        "has": {
+                            "style": "form",
+                            "paramName": "a"
+                        },
+                        "value": "Yes"
+                    },
+                    "a.Type": {
+                        "has": {
+                            "paramName": "a"
+                        },
+                        "value": "number"
+                    },
+                    "a.Value.Is": {
+                        "has": {
+                            "paramName": "a"
+                        },
+                        "value": "< 0"
+                    },
+                    "b.Defined": {
+                        "has": {
+                            "style": "form",
+                            "paramName": "b"
+                        },
+                        "value": "Yes"
+                    },
+                    "b.Type": {
+                        "has": {
+                            "paramName": "b"
+                        },
+                        "value": "number"
+                    },
+                    "b.Value.Is": {
+                        "has": {
+                            "paramName": "b"
+                        },
+                        "value": "< 0"
+                    }
+                }
+            },
+            {
+                "id": 1,
+                "name": "a.Defined='No'",
+                "has": {
+                    "path": "/operation_sync_results",
+                    "server": "/api",
+                    "title": "CloudHarness Sample API",
+                    "operation": "GET",
+                    "version": "0.1.0"
+                },
+                "query": {
+                    "a.Defined": {
+                        "has": {
+                            "style": "form",
+                            "paramName": "a"
+                        },
+                        "value": "No"
+                    },
+                    "a.Type": {
+                        "has": {
+                            "paramName": "a"
+                        },
+                        "NA": true
+                    },
+                    "a.Value.Is": {
+                        "has": {
+                            "paramName": "a"
+                        },
+                        "NA": true
+                    },
+                    "b.Defined": {
+                        "has": {
+                            "style": "form",
+                            "paramName": "b"
+                        },
+                        "value": "No"
+                    },
+                    "b.Type": {
+                        "has": {
+                            "paramName": "b"
+                        },
+                        "NA": true
+                    },
+                    "b.Value.Is": {
+                        "has": {
+                            "paramName": "b"
+                        },
+                        "NA": true
+                    }
+                }
+            },
+            {
+                "id": 2,
+                "name": "a.Value.Is='0'",
+                "has": {
+                    "path": "/operation_sync_results",
+                    "server": "/api",
+                    "title": "CloudHarness Sample API",
+                    "operation": "GET",
+                    "version": "0.1.0",
+                    "properties": "a,aValue,b,bValue"
+                },
+                "query": {
+                    "a.Defined": {
+                        "has": {
+                            "style": "form",
+                            "paramName": "a"
+                        },
+                        "value": "Yes"
+                    },
+                    "a.Type": {
+                        "has": {
+                            "paramName": "a"
+                        },
+                        "value": "number"
+                    },
+                    "a.Value.Is": {
+                        "has": {
+                            "paramName": "a"
+                        },
+                        "value": "0"
+                    },
+                    "b.Defined": {
+                        "has": {
+                            "style": "form",
+                            "paramName": "b"
+                        },
+                        "value": "Yes"
+                    },
+                    "b.Type": {
+                        "has": {
+                            "paramName": "b"
+                        },
+                        "value": "number"
+                    },
+                    "b.Value.Is": {
+                        "has": {
+                            "paramName": "b"
+                        },
+                        "value": "0"
+                    }
+                }
+            },
+            {
+                "id": 3,
+                "name": "a.Value.Is='> 0'",
+                "has": {
+                    "path": "/operation_sync_results",
+                    "server": "/api",
+                    "title": "CloudHarness Sample API",
+                    "operation": "GET",
+                    "version": "0.1.0",
+                    "properties": "a,aValue"
+                },
+                "query": {
+                    "a.Defined": {
+                        "has": {
+                            "style": "form",
+                            "paramName": "a"
+                        },
+                        "value": "Yes"
+                    },
+                    "a.Type": {
+                        "has": {
+                            "paramName": "a"
+                        },
+                        "value": "number"
+                    },
+                    "a.Value.Is": {
+                        "has": {
+                            "paramName": "a"
+                        },
+                        "value": "> 0"
+                    },
+                    "b.Defined": {
+                        "has": {
+                            "style": "form",
+                            "paramName": "b"
+                        },
+                        "value": "No"
+                    },
+                    "b.Type": {
+                        "has": {
+                            "paramName": "b"
+                        },
+                        "NA": true
+                    },
+                    "b.Value.Is": {
+                        "has": {
+                            "paramName": "b"
+                        },
+                        "NA": true
+                    }
+                }
+            },
+            {
+                "id": 4,
+                "name": "b.Value.Is='> 0'",
+                "has": {
+                    "path": "/operation_sync_results",
+                    "server": "/api",
+                    "title": "CloudHarness Sample API",
+                    "operation": "GET",
+                    "version": "0.1.0",
+                    "properties": "b,bValue"
+                },
+                "query": {
+                    "a.Defined": {
+                        "has": {
+                            "style": "form",
+                            "paramName": "a"
+                        },
+                        "value": "No"
+                    },
+                    "a.Type": {
+                        "has": {
+                            "paramName": "a"
+                        },
+                        "NA": true
+                    },
+                    "a.Value.Is": {
+                        "has": {
+                            "paramName": "a"
+                        },
+                        "NA": true
+                    },
+                    "b.Defined": {
+                        "has": {
+                            "style": "form",
+                            "paramName": "b"
+                        },
+                        "value": "Yes"
+                    },
+                    "b.Type": {
+                        "has": {
+                            "paramName": "b"
+                        },
+                        "value": "number"
+                    },
+                    "b.Value.Is": {
+                        "has": {
+                            "paramName": "b"
+                        },
+                        "value": "> 0"
+                    }
+                }
+            },
+            {
+                "id": 5,
+                "name": "a.Type=null",
+                "has": {
+                    "path": "/operation_sync_results",
+                    "server": "/api",
+                    "title": "CloudHarness Sample API",
+                    "operation": "GET",
+                    "version": "0.1.0",
+                    "properties": "a"
+                },
+                "query": {
+                    "a.Defined": {
+                        "has": {
+                            "style": "form",
+                            "paramName": "a"
+                        },
+                        "value": "Yes"
+                    },
+                    "a.Type": {
+                        "has": {
+                            "paramName": "a"
+                        },
+                        "failure": true,
+                        "value": "null"
+                    },
+                    "a.Value.Is": {
+                        "has": {
+                            "paramName": "a"
+                        },
+                        "NA": true
+                    },
+                    "b.Defined": {
+                        "has": {
+                            "style": "form",
+                            "paramName": "b"
+                        },
+                        "value": "No"
+                    },
+                    "b.Type": {
+                        "has": {
+                            "paramName": "b"
+                        },
+                        "NA": true
+                    },
+                    "b.Value.Is": {
+                        "has": {
+                            "paramName": "b"
+                        },
+                        "NA": true
+                    }
+                }
+            },
+            {
+                "id": 6,
+                "name": "a.Type='Not number'",
+                "has": {
+                    "path": "/operation_sync_results",
+                    "server": "/api",
+                    "title": "CloudHarness Sample API",
+                    "operation": "GET",
+                    "version": "0.1.0",
+                    "properties": "a"
+                },
+                "query": {
+                    "a.Defined": {
+                        "has": {
+                            "style": "form",
+                            "paramName": "a"
+                        },
+                        "value": "Yes"
+                    },
+                    "a.Type": {
+                        "has": {
+                            "paramName": "a"
+                        },
+                        "failure": true,
+                        "value": "Not number"
+                    },
+                    "a.Value.Is": {
+                        "has": {
+                            "paramName": "a"
+                        },
+                        "NA": true
+                    },
+                    "b.Defined": {
+                        "has": {
+                            "style": "form",
+                            "paramName": "b"
+                        },
+                        "value": "No"
+                    },
+                    "b.Type": {
+                        "has": {
+                            "paramName": "b"
+                        },
+                        "NA": true
+                    },
+                    "b.Value.Is": {
+                        "has": {
+                            "paramName": "b"
+                        },
+                        "NA": true
+                    }
+                }
+            },
+            {
+                "id": 7,
+                "name": "b.Type=null",
+                "has": {
+                    "path": "/operation_sync_results",
+                    "server": "/api",
+                    "title": "CloudHarness Sample API",
+                    "operation": "GET",
+                    "version": "0.1.0",
+                    "properties": "a,aValue,b"
+                },
+                "query": {
+                    "a.Defined": {
+                        "has": {
+                            "style": "form",
+                            "paramName": "a"
+                        },
+                        "value": "Yes"
+                    },
+                    "a.Type": {
+                        "has": {
+                            "paramName": "a"
+                        },
+                        "value": "number"
+                    },
+                    "a.Value.Is": {
+                        "has": {
+                            "paramName": "a"
+                        },
+                        "value": "< 0"
+                    },
+                    "b.Defined": {
+                        "has": {
+                            "style": "form",
+                            "paramName": "b"
+                        },
+                        "value": "Yes"
+                    },
+                    "b.Type": {
+                        "has": {
+                            "paramName": "b"
+                        },
+                        "failure": true,
+                        "value": "null"
+                    },
+                    "b.Value.Is": {
+                        "has": {
+                            "paramName": "b"
+                        },
+                        "NA": true
+                    }
+                }
+            },
+            {
+                "id": 8,
+                "name": "b.Type='Not number'",
+                "has": {
+                    "path": "/operation_sync_results",
+                    "server": "/api",
+                    "title": "CloudHarness Sample API",
+                    "operation": "GET",
+                    "version": "0.1.0",
+                    "properties": "a,aValue,b"
+                },
+                "query": {
+                    "a.Defined": {
+                        "has": {
+                            "style": "form",
+                            "paramName": "a"
+                        },
+                        "value": "Yes"
+                    },
+                    "a.Type": {
+                        "has": {
+                            "paramName": "a"
+                        },
+                        "value": "number"
+                    },
+                    "a.Value.Is": {
+                        "has": {
+                            "paramName": "a"
+                        },
+                        "value": "< 0"
+                    },
+                    "b.Defined": {
+                        "has": {
+                            "style": "form",
+                            "paramName": "b"
+                        },
+                        "value": "Yes"
+                    },
+                    "b.Type": {
+                        "has": {
+                            "paramName": "b"
+                        },
+                        "failure": true,
+                        "value": "Not number"
+                    },
+                    "b.Value.Is": {
+                        "has": {
+                            "paramName": "b"
+                        },
+                        "NA": true
+                    }
+                }
+            }
+        ]
+    },
+    "GET_operation_async": {
+        "has": {
+            "path": "/operation_async",
+            "server": "/api",
+            "title": "CloudHarness Sample API",
+            "operation": "GET",
+            "version": "0.1.0"
+        },
+        "testCases": [
+            {
+                "id": 0,
+                "name": "None.Defined='No'",
+                "has": {
+                    "path": "/operation_async",
+                    "server": "/api",
+                    "title": "CloudHarness Sample API",
+                    "operation": "GET",
+                    "version": "0.1.0"
+                },
+                "implicit": {
+                    "None.Defined": {
+                        "value": "No"
+                    }
+                }
+            }
+        ]
+    }
+}

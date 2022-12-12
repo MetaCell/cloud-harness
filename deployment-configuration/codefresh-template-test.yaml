@@ -1,0 +1,157 @@
+version: "1.0"
+stages:
+  - prepare
+  - build
+  - unittest
+  - deploy
+  - qa
+steps:
+  main_clone:
+    title: Clone main repository
+    type: git-clone
+    stage: prepare
+    repo: "${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}"
+    revision: "${{CF_BRANCH}}"
+    git: github
+  post_main_clone:
+    title: Post main clone
+    type: parallel
+    stage: prepare
+    steps:
+      - title: Cloning cloud-harness repository...
+        type: git-clone
+        stage: prepare
+        repo: "https://github.com/MetaCell/cloud-harness.git"
+        revision: "${{CLOUDHARNESS_BRANCH}}"
+        working_directory: .
+        git: github
+  prepare_deployment:
+    title: "Prepare helm chart"
+    image: python:3.9.10
+    stage: prepare
+    working_directory: .
+    commands:
+      - bash cloud-harness/install.sh
+      - harness-deployment $PATHS -n test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}} -t ${{CF_BUILD_ID}} -d ${{CF_SHORT_REVISION}}.${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e $ENV -N $PARAMS
+  prepare_deployment_view:
+    commands:
+      - "helm template ./deployment/helm --debug -n test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}"
+    environment:
+      - ACTION=auth
+      - KUBE_CONTEXT=test-${{CF_BUILD_ID}}
+    image: codefresh/cfstep-helm:3.6.2
+    stage: prepare
+    title: "View helm chart"
+  build_base_images:
+    title: Build base images
+    type: parallel
+    stage: build
+    steps: {}
+  build_static_images:
+    title: Build static images
+    type: parallel
+    stage: build
+    steps: {}
+  build_application_images:
+    type: parallel
+    stage: build
+    steps: {}
+  tests_unit:
+    stage: unittest
+    type: parallel
+    steps: {}
+  prepare_cluster:
+    stage: deploy
+    image: codefresh/kubectl
+    fail_fast: false
+    commands:
+      - kubectl config use-context ${{CLUSTER_NAME}}
+      - kubectl create ns test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
+  deployment:
+    stage: deploy
+    type: helm
+    working_directory: ./${{CF_REPO_NAME}}
+    title: Installing chart
+    arguments:
+      helm_version: 3.6.2
+      chart_name: deployment/helm
+      release_name: test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
+      kube_context: ${{CLUSTER_NAME}}
+      namespace: test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
+      chart_version: ${{CF_BUILD_ID}}
+      cmd_ps: --timeout 600s
+      custom_value_files:
+        - ./deployment/helm/values.yaml
+  build_test_images:
+    title: Build test images
+    type: parallel
+    stage: qa
+    steps: []
+  wait_deployment:
+    stage: qa
+    title: Wait deployment to be ready
+    image: codefresh/kubectl
+    commands:
+      - kubectl config use-context ${{CLUSTER_NAME}}
+      - kubectl config set-context --current --namespace=test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
+  tests_api:
+    stage: qa
+    title: Api tests
+    working_directory: /home/test
+    image: "${{test-api}}"
+    fail_fast: false
+    commands:
+      - echo $APP_NAME
+    scale: {}
+    hooks:
+      on_fail:
+        exec:
+          image: alpine
+          commands:
+            - cf_export  FAILED=failed
+  tests_e2e:
+    stage: qa
+    title: End to end tests
+    working_directory: /home/test
+    image: "${{test-e2e}}"
+    fail_fast: false
+    commands:
+      - yarn test
+    scale: {}
+    hooks:
+      on_fail:
+        exec:
+          image: alpine
+          commands:
+            - cf_export  FAILED=failed
+  publish: null
+  approval:
+    type: pending-approval
+    stage: qa
+    title: Approve with failed tests
+    description: The pipeline will fail after ${{WAIT_ON_FAIL}} minutes
+    timeout:
+      timeUnit: minutes
+      duration: ${{WAIT_ON_FAIL}}
+      finalState: denied
+    when:
+      condition:
+        all:
+          error: '"${{FAILED}}" == "failed"'
+          wait_on_fail: ${{WAIT_ON_FAIL}}
+  dummy_end:
+    title: "Dummy step"
+    description: Without this, the on_finish hook is executed before the approval step
+    image: python:3.9.10
+    stage: qa
+    when:
+      condition:
+        all:
+          error: '"${{FAILED}}" == "failed"'
+          wait_on_fail: ${{WAIT_ON_FAIL}}
+hooks:
+  on_finish:
+    image: codefresh/kubectl
+    commands:
+      - kubectl config use-context ${{CLUSTER_NAME}}
+      - kubectl delete ns test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}

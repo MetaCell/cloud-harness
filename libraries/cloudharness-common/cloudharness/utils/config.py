@@ -6,7 +6,7 @@ ALLVALUES_PATH = os.getenv("CH_VALUES_PATH", '/opt/cloudharness/resources/allval
 
 
 class ConfigObject(object):
-    def __init__(self, dictionary):
+    def __init__(self, dictionary: dict):
         self.conf = dictionary
         for key, val in dictionary.items():
             if isinstance(val, (list, tuple)):
@@ -14,7 +14,7 @@ class ConfigObject(object):
             else:
                 setattr(self, key, ConfigObject(val) if isinstance(val, dict) else val)
 
-    def __getitem__(self, key_or_path):
+    def __getitem__(self, key_or_path: str):
         obj = self.conf
         if isinstance(key_or_path, int):
             return list(obj)[key_or_path]
@@ -35,14 +35,14 @@ class CloudharnessConfig:
     allvalues={}
 
     @classmethod
-    def _get_all_values(cls):
+    def _get_all_values(cls) -> dict:
         if not cls.allvalues and os.path.exists(ALLVALUES_PATH):
             with open(ALLVALUES_PATH) as f:
                 cls.allvalues = yaml.safe_load(f)
         return cls.allvalues
 
     @classmethod
-    def _get_apps(cls):
+    def _get_apps(cls) -> ConfigObject:
         if not hasattr(cls, 'apps'):
             cls.apps = ConfigObject(cls._get_all_values()['apps'])
         return cls.apps
@@ -115,16 +115,16 @@ class CloudharnessConfig:
         filter_value = next(iter(filter.values()))
         all_apps = cls._get_apps()
         for app_key in all_apps:
-            app = getattr(all_apps, app_key)
+            app = all_apps[app_key]
             tmp_obj = app
             try:
                 for key in filter_keys:
-                    tmp_obj = getattr(tmp_obj, key)
+                    tmp_obj = tmp_obj[key]
                 if (tmp_obj == filter_value) or \
                     (filter_value == False and tmp_obj is None) or \
                     (filter_value == True and tmp_obj is not None):
                     apps.append(app)
-            except AttributeError:
+            except KeyError:
                 pass
         return apps
 

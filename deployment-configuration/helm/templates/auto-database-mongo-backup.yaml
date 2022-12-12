@@ -1,0 +1,54 @@
+{{ define "deploy_utils.database.mongo.backup"}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: "{{ .app.harness.database.name }}-backup"
+spec:
+  schedule: {{ .root.Values.backup.schedule | quote }}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: "{{ .app.harness.database.name }}-backup"
+              image: {{ .app.harness.database.mongo.image }}
+              imagePullPolicy: IfNotPresent
+              command: ["/bin/bash"]
+              args:
+                - -c
+                - | {{ range .root.Files.Lines "files/db-mongo-backup.sh" }}
+                  {{ . }}
+                {{ end }}
+              env:
+                - name: DB_USER
+                  value: {{ .app.harness.database.user }}
+                - name: DB_PASS
+                  value: {{ .app.harness.database.pass }}
+                - name: DB_HOST
+                  value: {{ .app.harness.database.name }}
+                - name: BACKUP_KEEP_DAYS
+                  value: {{ .root.Values.backup.keep_days | quote }}
+                - name: BACKUP_KEEP_WEEKS
+                  value: {{ .root.Values.backup.keep_weeks | quote }}
+                - name: BACKUP_KEEP_MONTHS
+                  value: {{ .root.Values.backup.keep_months | quote }}
+                - name: BACKUP_SUFFIX
+                  value: {{ .root.Values.backup.suffix | quote }}
+                - name: BACKUP_DIR
+                  value: {{ (printf "%s/mongo/%s" .root.Values.backup.dir  .app.harness.database.name ) | quote }}
+              volumeMounts:
+                - name: "db-backups"
+                  mountPath: /backups
+              resources:
+                requests:
+                  memory: {{ .root.Values.backup.resources.requests.memory | default "32Mi" }}
+                  cpu: {{ .root.Values.backup.resources.requests.cpu | default "25Mi" }}
+                limits:
+                  memory: {{ .root.Values.backup.resources.limits.memory | default "64Mi" }}
+                  cpu: {{ .root.Values.backup.resources.limits.cpu | default "50mi" }}
+          restartPolicy: OnFailure
+          volumes:
+            - name: "db-backups"
+              persistentVolumeClaim:
+                claimName: "db-backups"
+{{ end }}

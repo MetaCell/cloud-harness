@@ -1,115 +1,105 @@
 # Develop in the backend with CloudHarness
 
-## Base images and libraries
-TODO 
-
 ## Create a default Backend with Flask and Openapi
-TODO
 
-## Use the CloudHarness Python library
+Although there is no restriction on the technology used to build
+your application, starting from a semi auto-generated Python/Flask application is the
+recommended way to create a backend microservice within a 
+CloudHarness based solution.
+
+To create the initial scaffolding, run:
+
+```
+harness-application app-name
+```
+
+The development then can go through the following steps:
+1. Edit the openapi file at `applications/app-name/api/openapi.yaml`. Can edit the yaml file directly or use more friendly interfaces like Apicurio Studio or SwaggerHub. It is recommended to use a different tag for every resource type: one controller is generated for each tag.
+1. Regenerate the application code stubs with `harness-generate . -i`
+1. *(optional)* edit the setup.py and requirements.txt according to your library requirements
+1. Implement your logic inside `backend/app_name/controllers`. It is recommended to implement the actual application logic on custom files implementing the business logic and the service logic.
+1. *(optional)*  add **/controllers to the .openapi-generator-ignore so that the controllers won't be overwritten by the next generation
+1. *(optional)* customize the Dockerfile
+1. *(optional)* add other custom endpoints
+
+The application entry point is `backend/__main__.py`: it can be run as
+a simple Python script or module to debug locally.
+
+
+### Base libraries and images
+
+The simplest way to use the shared CloudHarness functionality in an 
+application is to inherit your application Docker image from one
+of the base images.
+The base images include preinstalled the CloufHarness common libraries.
+
+Since the images are built together with the rest of the system,
+we use arguments for the reference, like:
+
+```dockerfile
+ARG $CLOUDHARNESS_BASE
+FROM $CLOUDHARNESS_BASE
+...
+```
+
+For the image dependency to be recognized by the build scripts,
+the dependencty must be declared in the `values.yaml` file of your application, e.g.:
+
+```yaml
+harness:
+  dependencies:
+    build:
+    - cloudharness-base
+```
+
+Every image defined as a base image or a common image can be used as a
+build dependency.
+
+For more details about how to define your custom image and the available images, see [here](../../base-common-images.md)
+
+## Use the CloudHarness runtime Python library
+
+The CloudHarness runtime library shares some common functionality that
+helps the backend development in Python.
+The runtime library depends on the `cloudharness_models` library, which builds the common 
+ground to understand and use the relevant data types.
+
+The main functionality provided is:
+- Access to the solution configuration and secrets
+- Access and manipulate users, authentication and authorization
+- Create and listen to orchestration events
+- Create and monitor workflow operations
 
 ### Get applications references and configurations
-TODO
+
+The applications configuration api gives access to a proxy object
+containing all the data from the values.yaml file at runtime.
+
+The object returned is of type `cloudharness.applications.ApplicationConfiguration`,
+a subtype of the wrapper [ApplicationConfig](../../model/ApplicationConfig.md).
+
+```python
+from cloudharness import applications
+
+uut: applications.ApplicationConfiguration = applications.get_configuration('app1')
+
+uut.is_auto_service() # has a service?
+uut.is_auto_deployment() # has a deployment?
+uut.is_sentry_enabled() # is sentry enabled?
+uut.image_name # get the image name
+uut.get_public_address() # get the public (external) address, as configured in Ingress
+uut.get_service_address() # internal address to make calls to this application
+```
 
 ### Check authentication and Authorization
 
-#### Secure a RESTful API
-
-Note: this document is not a tutorial on how to secure an application on Cloud Harness. The aim is giving the CH developer an insight on how it's implemented. To see an example of a secured api, see samples application:
-
-* [Secured backend api](/applications/samples/backend/samples/controllers/auth_controller.py) (actually a normal api, the openapi configuraition does everything)
-* [Openapi configuration: add bearerAuth](/applications/samples/api/samples.yaml#L20)  
-* [Openapi configuration: configure bearer handler](/applications/samples/api/samples.yaml#L141)  
-
-
-Following some insights to have a web application dashboard secured with username and password and then interact with a RESTful API using JWT 
-
-Using OpenAPI to generate the code, we introduce the following security
-
-```yaml
-security:
-  - bearerAuth: []
-components:
-  securitySchemes: 
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-```
-
-Then we look for `security_controller.py` file:
-
-```python
-def info_from_bearerAuth(token):
-    SCHEMA = 'https://'
-    AUTH_DOMAIN = os.environ.get('AUTH_DOMAIN')
-    AUTH_REALM = os.environ.get('AUTH_REALM')
-    BASE_PATH = f"//{os.path.join(AUTH_DOMAIN, 'auth/realms', AUTH_REALM)}"
-    AUTH_PUBLIC_KEY_URL = urljoin(SCHEMA, BASE_PATH)
-
-    # We extract KC public key to validate the JWT we receive 
-    KEY = json.loads(requests.get(AUTH_PUBLIC_KEY_URL, verify=False).text)['public_key'] 
-    
-    # Create the key
-    KEY = f"-----BEGIN PUBLIC KEY-----\n{KEY}\n-----END PUBLIC KEY-----"
-    
-    try:
-        # Here we decode the JWT
-        decoded = jwt.decode(token, KEY, audience='account', algorithms='RS256')
-    except:
-        current_app.logger.debug(f"Error validating user: {sys.exc_info()}")
-        return None
-    
-    # Here we proceed to do all the validation we need to check if we grant access to the RESTful API 
-    valid = 'offline_access' in decoded['realm_access']['roles']
-    current_app.logger.debug(valid)
-    return {'uid': 'user_id' }
-```
-
-#### Using the AuthClient
-
-The Cloudharness AuthClient is a handy wrapper for the Keycloak REST API.
-This wrapper class can be used to retrieve the current user of the http(s) request
-or to retrieve the Keycloak groups with all users etc.
-
-All functions of the AuthClient class are wrapped by the `with_refreshtoken` decorator
-to auto refresh the token in case the token is expired. There is no need to manually
-refresh the token.
-
-`AuthClient` uses the `admin_api` account to log in into the Keycloak admin REST api
-the password is stored in the `accounts` secret and is retrieve using the Cloudharness
-`get_secret` function (imported from `cloudharness.utils.secrets`)
-
-<br/>
-
-For more information about the usage of the `AuthClient` see the Python doc strings
-
-<br/>
-
-**Important note:**
-
-it is mandatory that the application deployment has a hard dependency to the 
-`accounts` application. This dependency will mount the accounts secret to the pods.
-
-<br/>
-
-Examples:
-```python
-from cloudharness.auth.keycloak import AuthClient
-
-ac = AuthClient()
-
-def example1():
-  current_user = ac.get_current_user()
-
-def exampl2():
-  all_groups = ac.get_groups(with_members=True)
-```
-
+See [accounts specific documentation](../../accounts.md#Backend-development).
 
 ### Run workflows
 
-See [the workflows api](./workflows-api.md) dedicated document.
+See the [workflows api](./workflows-api.md) dedicated document.
+
+### Events and orchestration 
 
 ## Debug inside the cluster
 

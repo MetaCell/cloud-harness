@@ -1,0 +1,193 @@
+openapi: 3.0.0
+info:
+    title: Workflows API
+    version: 0.1.0
+    description: Workflows API
+    contact:
+        email: cloudharness@metacell.us
+    license:
+        name: UNLICENSED
+servers:
+    - url: /api
+      description: Metacell host
+paths:
+    /operations:
+        get:
+            tags:
+                - Create and Access
+            parameters:
+                -
+                    example: Pending
+                    name: status
+                    description: filter by status
+                    schema:
+                        $ref: '#/components/schemas/OperationStatus'
+                    in: query
+                -
+                    examples:
+                        example1:
+                            value: >-
+                                "eyJ2IjoibWV0YS5rOHMuaW8vdjEiLCJydiI6NDUzMDMzOCwic3RhcnQiOiJoZWxsby13b3JsZC05YnE2ZFx1MDAwMCJ8"
+                    name: previous_search_token
+                    description: continue previous search (pagination chunks)
+                    schema:
+                        type: string
+                    in: query
+                -
+                    name: limit
+                    description: maximum number of records to return per page
+                    schema:
+                        default: 10
+                        maximum: 50
+                        minimum: 1
+                        type: integer
+                    in: query
+            responses:
+                '200':
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/OperationSearchResult'
+                    description: search results matching criteria
+                '400':
+                    description: bad input parameter
+            operationId: listOperations
+            summary: lists operations
+            description: |
+                see all operations for the user
+    '/operations/{name}':
+        get:
+            tags:
+                - Create and Access
+            responses:
+                '200':
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                items:
+                                    $ref: '#/components/schemas/Operation'
+                    description: search results matching criteria
+                '400':
+                    description: Bad request
+                '404':
+                    description: not found
+            operationId: getOperation
+            summary: get operation by name
+            description: |
+                retrieves an operation by its name
+        delete:
+            tags:
+                - Create and Access
+            parameters:
+                -
+                    example: my-workflow
+                    name: name
+                    schema:
+                        type: string
+                    in: path
+                    required: true
+            responses:
+                '200':
+                    description: delete OK
+                '404':
+                    description: not found
+            operationId: deleteOperation
+            summary: deletes operation by name
+            description: |
+                delete operation by its name
+        parameters:
+            -
+                examples:
+                    my-operation:
+                        value: my-operation
+                name: name
+                schema:
+                    pattern: '^[0-9A-Za-z\s\-]+$'
+                    type: string
+                in: path
+                required: true
+    '/operations/{name}/logs':
+        get:
+            tags:
+                - Create and Access
+            responses:
+                '200':
+                    content:
+                        text/plain:
+                            schema:
+                                type: string
+                                example: Hello world
+                    description: search results matching criteria
+                '400':
+                    description: Bad request
+                '404':
+                    description: not found
+            operationId: logOperation
+            summary: get operation by name
+            description: |
+                retrieves an operation log by its name
+        parameters:
+            -
+                examples:
+                    e1:
+                        value: '"my-operation"'
+                    e2:
+                        value: my-operation-122a
+                name: name
+                schema:
+                    pattern: '^[0-9A-Za-z\s\-]+$'
+                    type: string
+                in: path
+                required: true
+components:
+    schemas:
+        OperationSearchResult:
+            description: a list of operations with meta data about the result
+            properties:
+                meta:
+                    $ref: '#/components/schemas/SearchResultData'
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Operation'
+        SearchResultData:
+            description: describes a search
+            properties:
+                continueToken:
+                    description: token to use for pagination
+                    type: string
+        Operation:
+            description: represents the status of a distributed API call
+            properties:
+                message:
+                    description: usually set when an error occurred
+                    type: string
+                    example: ''
+                name:
+                    description: operation name
+                    type: string
+                createTime:
+                    format: date-time
+                    type: string
+                    readOnly: true
+                    example: '2016-08-29T09:12:33.001Z'
+                status:
+                    $ref: '#/components/schemas/OperationStatus'
+                workflow:
+                    description: low level representation as an Argo json
+                    type: string
+        OperationStatus:
+            default: Pending
+            enum:
+                - Pending
+                - Running
+                - Error
+                - Succeeded
+                - Skipped
+                - Failed
+            type: string
+tags:
+    -
+        name: Create and Access
+        description: 'standard creation, listing and retrieve'
