@@ -4,12 +4,22 @@ import sys
 import urllib.parse
 
 from kubespawner.spawner import KubeSpawner
+
+from cloudharness.applications import get_configuration
+from cloudharness.auth.quota import get_user_quotas
+from cloudharness.utils.config import CloudharnessConfig as conf
+
+
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.DEBUG)
 logging.getLogger().addHandler(handler)
 
-from cloudharness.applications import get_configuration
-from cloudharness.auth.quota import get_user_quotas
+def custom_options_form(spawner, abc):
+    # let's skip the profile selection form for now
+    # ToDo: for future we can remove this hook
+    spawner.profile_list = []
+    # ref: https://github.com/jupyterhub/kubespawner/blob/37a80abb0a6c826e5c118a068fa1cf2725738038/kubespawner/spawner.py#L1885-L1935
+    return spawner._options_form_default()
 
 
 class PodSpawnException(Exception):
@@ -20,6 +30,9 @@ def harness_hub():
     """Wraps the method to change spawner configuration"""
     KubeSpawner.get_pod_manifest_base = KubeSpawner.get_pod_manifest
     KubeSpawner.get_pod_manifest = spawner_pod_manifest
+    # let's skip the profile selection form for now
+    # TODO: for future we can remove this hook
+    KubeSpawner.options_form = custom_options_form
     KubeSpawner.get_pvc_manifest_base = KubeSpawner.get_pvc_manifest
     KubeSpawner.get_pvc_manifest = spawner_pvc_manifest
 
@@ -105,7 +118,6 @@ def change_pod_manifest(self: KubeSpawner):
                                     self.user.name, quota_ws_open
                                 ),
                             )
-
     try:
         subdomain = self.handler.request.host.split(str(self.config['domain']))[0][0:-1]
         app_config = self.config['apps']
@@ -115,9 +127,23 @@ def change_pod_manifest(self: KubeSpawner):
                 harness = app['harness']
 
                 if 'subdomain' in harness and harness['subdomain'] == subdomain:
-                    if app['name'] != 'jupyterhub': # Would use the hub image in that case, which we don't want.
-                        print('Change image to', harness['deployment']['image'])
-                        self.image = harness['deployment']['image']
+                    ws_image = getattr(self, "ws_image", None)
+                    if ws_image:
+                        # try getting the image + tag from values.yaml
+                        ch_conf = conf.get_configuration()
+                        task_images = ch_conf['task-images']
+                        for task_image in task_images:
+                            image_plus_tag = task_images[task_image]
+                            if ws_image in image_plus_tag:
+                                ws_image = image_plus_tag
+                                logging.error(f'Found tag for image: {ws_image}')
+                                break
+                    else:
+                        if app['name'] != 'jupyterhub': # Would use the hub image in that case, which we don't want.
+                            ws_image = harness['deployment']['image']
+                    if ws_image:
+                        logging.info(f'Change image to {ws_image}')
+                        self.image = ws_image
                         if registry['name'] in self.image and registry['secret']:
                             self.image_pull_secrets = registry['secret']
 
