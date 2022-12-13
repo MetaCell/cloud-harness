@@ -7,6 +7,12 @@ harness:
     port: 8080
     auto: true
   deployment:
+    volume:
+        name: my-shared-volume
+        mountpath: /mnt/myvolume
+        auto: true
+        size: 10Mi
+        usenfs: true
     auto: true
     port: 8080
   uri_role_mapping:
@@ -37,6 +43,7 @@ harness:
       - events
       - accounts 
       - common
+      - nfsserver
     build:
       - cloudharness-flask
       - cloudharness-frontend-build
@@ -49,6 +56,7 @@ harness:
       dst: "/usr/src/app/important_config.yaml"
   secrets:
     asecret: "value"
+    
   test:
     unit:
       enabled: true

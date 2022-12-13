@@ -7,12 +7,18 @@ metadata:
   labels:
     app: {{ .app.harness.deployment.name| quote }}
 spec:
-  storageClassName: standard
-  accessModes:
-  - ReadWriteOnce
   resources:
     requests:
       storage: {{ .app.harness.deployment.volume.size }}
+
+  accessModes:
+{{- if or (not (hasKey .app.harness.deployment.volume "usenfs")) (not .app.harness.deployment.volume.usenfs) }}
+  - ReadWriteOnce
+  storageClassName: standard
+{{- else }}
+  - ReadWriteMany
+  storageClassName: {{ printf "%s-%s" .root.Values.namespace .root.Values.apps.nfsserver.storageClass.name }}
+{{- end }}
 {{- end }}
 ---
 {{- end }}

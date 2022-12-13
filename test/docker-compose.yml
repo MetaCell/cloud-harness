@@ -1,0 +1,17 @@
+version: "3"
+services:
+  tests:
+    image: python:3.9
+    command:
+      - /bin/sh
+      - -c
+      - |
+        pip install tox
+        rm -rf /ch/libraries/models/.tox
+        rm -rf /ch/libraries/cloudharness-common/.tox
+        rm -rf /ch/tools/deployment-cli-tools/.tox
+        tox -c /ch/libraries/models/
+        tox -c /ch/libraries/cloudharness-common/
+        tox -c /ch/tools/deployment-cli-tools
+    volumes:
+      - ../:/ch

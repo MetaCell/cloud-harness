@@ -103,7 +103,7 @@ class ContainerizedOperation(ManagedOperation):
             self.volumes = tuple()
 
         self.pod_contexts += [PodExecutionContext('usesvolume', v.split(':')[0], True) for v in self.volumes if
-                              ':' in v]
+                              ':' in v and (len(v.split(':')) < 3 or v.split(':')[2] != "rwx")]
 
     def task_list(self):
         raise NotImplementedError()

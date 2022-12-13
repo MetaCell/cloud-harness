@@ -27,7 +27,8 @@ def generate_server(app_path, overrides_folder=""):
         f"{app_path}/server") else f"server"
     out_path = f"{app_path}/{out_name}"
     command = f"java -jar {CODEGEN} generate -i {openapi_file} -g python-flask -o {out_path} " \
-              f"-c {openapi_dir}/config.json " + (f"-t {overrides_folder}" if overrides_folder else "")
+              f"-c {openapi_dir}/config.json " + \
+        (f"-t {overrides_folder}" if overrides_folder else "")
     os.system(command)
 
 
@@ -41,15 +42,18 @@ def generate_model(base_path=ROOT):
     lib_path = f"{base_path}/libraries/models"
 
     # Generate model stuff: use python-flask generator
-    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/api/openapi.yaml -g python-flask -o {lib_path}  --skip-validate-spec -c {base_path}/libraries/api/config.json"
+    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/models/api/openapi.yaml -g python-flask -o {lib_path}  --skip-validate-spec -c {base_path}/libraries/models/api/config.json"
     os.system(command)
 
     # Generate docs: use python generator
     tmp_path = f"{lib_path}/tmp"
-    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/api/openapi.yaml -g python -o {tmp_path}  --skip-validate-spec -c {base_path}/libraries/api/config.json"
+    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/models/api/openapi.yaml -g python -o {tmp_path}  --skip-validate-spec -c {base_path}/libraries/models/api/config.json"
     os.system(command)
     try:
         source_dir = join(tmp_path, "docs/models")
+        if not os.path.exists(source_dir):
+            os.makedirs(source_dir)
+
         dest = join(base_path, "docs/model")
         if os.path.exists(dest):
             shutil.rmtree(dest)

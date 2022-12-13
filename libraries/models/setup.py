@@ -17,4 +17,4 @@ REQUIREMENTS = [
     "oyaml"
 ]
 print(REQUIREMENTS)
-setup(name=NAME, version=VERSION, install_requires=REQUIREMENTS)
+setup(name=NAME, version=VERSION, install_requires=REQUIREMENTS, packages=find_packages(),)
