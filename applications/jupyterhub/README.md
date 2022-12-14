@@ -23,3 +23,11 @@ harness:
           values: pool-highcpu   # k8s highcpu instance pool
           matchPurpose: require  # require | prefer | ignore
 ```
+
+## Customizations
+
+CloudHarness pre puller of tasks images support
+To support the pre pulling of task images see (https://github.com/MetaCell/cloud-harness/issues/657)
+the template `templates/image-puller/_helpers-daemonset.tpl` has been changed (see line 167 and on)
+
+TODO: remember to implement/revise this code after you have updated/changed the templates of JupyterHub

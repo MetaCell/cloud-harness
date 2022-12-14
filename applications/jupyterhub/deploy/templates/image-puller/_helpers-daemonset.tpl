@@ -165,6 +165,24 @@ spec:
             {{- . | toYaml | nindent 12 }}
           {{- end }}
         {{- end }}
+
+        {{- /* --- Pull CloudHarness tasks images --- */}}
+        {{- range $k, $v := ( index .Values "task-images" )  }}
+        - name: image-pull-{{ $k | replace "-" "" }}
+          image: {{ $v }}
+          command:
+            - /bin/sh
+            - -c
+            - echo "Pulling complete"
+          {{- with $.Values.apps.jupyterhub.prePuller.resources }}
+          resources:
+            {{- . | toYaml | nindent 12 }}
+          {{- end }}
+          {{- with $.Values.apps.jupyterhub.prePuller.containerSecurityContext }}
+          securityContext:
+            {{- . | toYaml | nindent 12 }}
+          {{- end }}
+        {{- end }}
       containers:
         - name: pause
           image: {{ .Values.apps.jupyterhub.prePuller.pause.image.name }}:{{ .Values.apps.jupyterhub.prePuller.pause.image.tag }}
