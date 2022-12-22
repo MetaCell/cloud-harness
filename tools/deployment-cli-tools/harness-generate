@@ -159,7 +159,7 @@ if __name__ == "__main__":
         args.path) else args.path
 
     get_dependencies()
-    if os.path.exists(os.path.join(ROOT, "libraries/models")) and not args.interactive or input("Do you want to generate the main model? [Y/n]").upper() != 'N':
+    if os.path.exists(os.path.join(root_path, "libraries/models")) and (not args.interactive or input("Do you want to generate the main model? [Y/n]").upper() != 'N'):
         generate_model()
 
     generate_servers(root_path, interactive=args.interactive)
