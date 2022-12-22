@@ -56,6 +56,8 @@ harness:
   secrets:
   # -- Specify which services this application uses in the frontend to create proxy ingresses. e.g. - name: mnp-checkout
   use_services: []
+  # -- enabled sentry for automated error report
+  sentry: false
   # -- Reference database specs
   database:
     # -- When true, enables automatic database deployment
