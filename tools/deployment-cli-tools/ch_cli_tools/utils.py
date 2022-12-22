@@ -4,16 +4,11 @@ import glob
 import subprocess
 import os
 from os.path import join, dirname, isdir, basename, exists, relpath, sep, dirname as dn
-import json
-import collections
-import requests
 from ruamel.yaml import YAML
-import shutil
-import logging
-import fileinput
+import re
 
-from cloudharness_utils.constants import NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
-    APPS_PATH, BUILD_FILENAMES, EXCLUDE_PATHS
+from cloudharness_utils.constants import NEUTRAL_PATHS
+
 from . import CH_ROOT
 
 yaml = YAML(typ='safe')
@@ -72,8 +67,8 @@ def env_variable(name, value):
 def get_cluster_ip():
     out = subprocess.check_output(
         ['kubectl', 'cluster-info'], timeout=10).decode("utf-8")
-    ip = out.split('\n')[0].split('://')[1].split(':')[0]
-    return ip if not "kubernetes.docker.internal" == ip else get_host_address()
+    ips = re.findall(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", out)
+    return ips[0] if ips else get_host_address()
 
 
 def get_host_address():
