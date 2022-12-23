@@ -3,7 +3,7 @@ import time
 from enum import Enum
 from typing import List
 
-from keycloak.exceptions import KeycloakGetError
+from keycloak.exceptions import KeycloakGetError, KeycloakError
 
 from cloudharness import log
 from cloudharness.auth import AuthClient, get_auth_realm
@@ -72,10 +72,11 @@ class AuthService:
 
             for role in self.client_roles:
                 try:
+                    log.info("Creating role %s", role)
                     auth_client.create_client_role(client["id"], role)
-                except KeycloakGetError as e:
+                except KeycloakError as e:
                     # Thrown if role already exists
-                    log.debug(e.error_message)
+                    log.error(e.error_message)
 
             if self.default_user_role:
                 # add the default user role to the default realm role
