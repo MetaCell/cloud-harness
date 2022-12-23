@@ -6,7 +6,7 @@ import os
 from os.path import join, dirname, isdir, basename, exists, relpath, sep, dirname as dn
 import json
 import collections
-import requests
+import re
 from ruamel.yaml import YAML
 import shutil
 import logging
