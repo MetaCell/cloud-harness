@@ -60,7 +60,6 @@ class AuthService:
         Create the client and client roles
         Checks if the client is present, if not the creates it
         """
-        nap_time = 30
 
         try:
             auth_client.refresh_token()
@@ -92,8 +91,8 @@ class AuthService:
                     [default_user_role, ]
                 )
         except Exception as e:
-            log.error("Error creating Keycloak client.", exc_info=True)
-            time.sleep(nap_time)
+            log.error("Error creating Keycloak client %s. May need to manually migrate the client.", self.get_client_name(), exc_info=True)
+            raise Exception("Error creating Keycloak client.") from e
 
     def get_auth_level(self, kc_user=None, kc_roles=None):
         if not kc_user:
