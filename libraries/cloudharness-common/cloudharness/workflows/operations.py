@@ -1,6 +1,6 @@
 import time
 from collections.abc import Iterable
-from typing import Union
+from typing import List, Union
 
 import pyaml
 
@@ -9,7 +9,7 @@ from cloudharness.events.client import EventClient
 from cloudharness.utils import env, config
 from . import argo
 from .tasks import Task, SendResultTask, CustomTask
-from .utils import is_accounts_present
+from .utils import PodExecutionContext, affinity_spec, is_accounts_present, name_from_path, volume_mount_template
 
 POLLING_WAIT_SECONDS = 1
 SERVICE_ACCOUNT = 'argo-workflows'
@@ -25,16 +25,7 @@ class BadOperationConfiguration(RuntimeError):
     pass
 
 
-class PodExecutionContext:
-    """
-    Key-value pair representing the execution context with other pods.
-    Automatically assigns meta data and pod affinity
-    """
 
-    def __init__(self, key, value, required=False):
-        self.key = str(key)
-        self.value = str(value)
-        self.required = required
 
 
 class ManagedOperation:
@@ -95,6 +86,7 @@ class ContainerizedOperation(ManagedOperation):
                 assert len(set(shared_directory)) == len(shared_directory), "Shared directories are not unique"
                 assert len(set(s.split(":")[0] for s in shared_directory)) == len(
                     shared_directory), "Shared directories volumes are not unique"
+            
 
             if shared_path:
                 for task in self.task_list():
@@ -105,7 +97,7 @@ class ContainerizedOperation(ManagedOperation):
         self.pod_contexts += [PodExecutionContext('usesvolume', v.split(':')[0], True) for v in self.volumes if
                               ':' in v and (len(v.split(':')) < 3 or v.split(':')[2] != "rwx")]
 
-    def task_list(self):
+    def task_list(self) -> List[Task]:
         raise NotImplementedError()
 
     @property
@@ -152,51 +144,20 @@ class ContainerizedOperation(ManagedOperation):
             spec = self.add_on_exit_notify_handler(spec)
 
         if self.pod_contexts:
-            spec['affinity'] = self.affinity_spec()
-        if self.volumes:
-            spec['volumeClaimTemplates'] = [self.spec_volumeclaim(volume) for volume in self.volumes if
+            spec['affinity'] = affinity_spec(self.pod_contexts)
+
+        volumes_mounts = list(self.volumes) or []
+        # Tasks volumes must be declared at workflow level
+        volumes_mounts += list({v for task in self.task_list() for v in task.volume_mounts if task.volume_mounts})
+        
+        spec['volumeClaimTemplates'] = [self.spec_volumeclaim(volume) for volume in volumes_mounts if
                                             ':' not in volume]  # without PVC prefix (e.g. /location)
-            spec['volumes'] += [self.spec_volume(volume) for volume in self.volumes if
+        spec['volumes'] += [self.spec_volume(volume) for volume in volumes_mounts if
                                 ':' in volume]  # with PVC prefix (e.g. pvc-001:/location)
+
         return spec
 
-    def affinity_spec(self):
-        contexts = self.pod_contexts
-        PREFERRED = 'preferredDuringSchedulingIgnoredDuringExecution'
-        REQUIRED = 'requiredDuringSchedulingIgnoredDuringExecution'
 
-        pod_affinity = {
-            PREFERRED: [],
-            REQUIRED: []
-        }
-
-        for context in contexts:
-            term = {
-                'labelSelector':
-                    {
-                        'matchExpressions': [
-                            {
-                                'key': context.key,
-                                'operator': 'In',
-                                'values': [context.value]
-                            },
-                        ]
-                    },
-                'topologyKey': 'kubernetes.io/hostname'
-            }
-            if not context.required:
-                pod_affinity[PREFERRED].append(
-                    {
-                        'weight': 100,
-                        'podAffinityTerm': term
-
-                    })
-            else:
-                pod_affinity[REQUIRED].append(term)
-
-        return {
-            'podAffinity': pod_affinity
-        }
 
     def add_on_exit_notify_handler(self, spec):
         queue = self.on_exit_notify['queue']
@@ -222,10 +183,10 @@ class ContainerizedOperation(ManagedOperation):
         if self.volumes:
             if 'container' in template:
                 template['container']['volumeMounts'] += [
-                    self.volume_template(volume) for volume in self.volumes]
+                    volume_mount_template(volume) for volume in self.volumes]
             elif 'script' in template:
                 template['script']['volumeMounts'] += [
-                    self.volume_template(volume) for volume in self.volumes]
+                    volume_mount_template(volume) for volume in self.volumes]
 
         return template
 
@@ -254,26 +215,16 @@ class ContainerizedOperation(ManagedOperation):
             return self.persisted.status in (OperationStatus.ERROR, OperationStatus.FAILED)
         return False
 
-    def name_from_path(self, path):
-        return path.replace('/', '').replace('_', '').lower()
+    
 
-    def volume_template(self, volume):
-        path = volume
-        splitted = volume.split(':')
-        if len(splitted) > 1:
-            path = splitted[1]
-        return dict({
-            'name': self.name_from_path(path),
-            'mountPath': path,
-            'readonly': False if len(splitted) < 3 else splitted[2] == "ro"
-        })
+    
 
     def spec_volumeclaim(self, volume):
         # when the volume is NOT prefixed by a PVC (e.g. /location) then create a temporary PVC for the workflow
         if ':' not in volume:
             return {
                 'metadata': {
-                    'name': self.name_from_path(volume.split(':')[0]),
+                    'name': name_from_path(volume.split(':')[0]),
                 },
                 'spec': {
                     'accessModes': ["ReadWriteOnce"],
@@ -292,7 +243,7 @@ class ContainerizedOperation(ManagedOperation):
         if ':' in volume:
             pvc, path, *c = volume.split(':')
             return {
-                'name': self.name_from_path(path),
+                'name': name_from_path(path),
                 'persistentVolumeClaim': {
                     'claimName': pvc
                 },
