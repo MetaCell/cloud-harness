@@ -1,4 +1,3 @@
-argo-workflows==5.0.0
 asn1crypto==0.24.0
 atomicwrites==1.4.0
 attrs==21.4.
@@ -21,9 +20,7 @@ flake8==4.0.1
 Flask==1.1.2
 Flask-Cors==3.0.9
 flask-oidc==1.4.0
-Flask-SQLAlchemy==2.4.1
 Flask-Testing==0.6.1
-google-auth==2.6.2
 greenlet==1.1.2
 gunicorn==20.1.0
 httplib2==0.20.4
@@ -35,7 +32,6 @@ isort==5.10.1
 itsdangerous==2.0.1
 Jinja2==3.0.3
 jsonschema<4.0.0
-kafka-python==2.0.2
 kazoo==2.5.0
 MarkupSafe==2.1.1
 mccabe==0.6.1
@@ -74,16 +70,13 @@ ruamel.yaml==0.16.13
 ruamel.yaml.clib==0.2.6
 sentry-sdk==0.14.4
 six==1.16.0
-SQLAlchemy==1.4.32
 swagger-ui-bundle==0.0.8
 tabulate==0.8.9
 toml==0.10.2
 tomli==2.0.1
-tox==3.24.5
 typed-ast==1.5.2
 typing_extensions==4.1.1
 urllib3==1.26.9
-virtualenv==20.13.4
 wcwidth==0.2.5
 websocket-client==1.3.1
 Werkzeug==2.0.3
