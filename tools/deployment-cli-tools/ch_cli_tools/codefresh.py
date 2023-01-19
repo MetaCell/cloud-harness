@@ -204,19 +204,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
             if CD_API_TEST_STEP in steps:
                 codefresh_steps_from_base_path(join(
                     root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=("test-api",), fixed_context=relpath(root_path, os.getcwd()), publish=False)
-
-    if CD_WAIT_STEP in steps:
-        rollout_commands = steps[CD_WAIT_STEP]['commands']
-        for app_key in helm_values[KEY_APPS]:
-            app: ApplicationHarnessConfig = helm_values[KEY_APPS][app_key].harness
-            if app.deployment.auto:
-                rollout_commands.append(
-                    ROLLOUT_CMD_TPL % app.deployment.name)
-            if app.secured and helm_values.secured_gatekeepers:
-                rollout_commands.append(
-                    ROLLOUT_CMD_TPL % app.service.name + "-gk")
-        # some time to the certificates to settle
-        rollout_commands.append("sleep 60")
+   
     if not codefresh:
         logging.warning(
             "No template file found. Codefresh script not created.")
@@ -260,6 +248,22 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
     if CD_API_TEST_STEP in steps and not steps[CD_API_TEST_STEP]["scale"]:
         del steps[CD_API_TEST_STEP]
         del steps[CD_BUILD_STEP_TEST]["steps"]["test-api"]
+
+    if not steps[CD_BUILD_STEP_TEST]["steps"]:
+        del steps[CD_BUILD_STEP_TEST]
+        del steps[CD_WAIT_STEP]
+    if CD_WAIT_STEP in steps:
+        rollout_commands = steps[CD_WAIT_STEP]['commands']
+        for app_key in helm_values[KEY_APPS]:
+            app: ApplicationHarnessConfig = helm_values[KEY_APPS][app_key].harness
+            if app.deployment.auto:
+                rollout_commands.append(
+                    ROLLOUT_CMD_TPL % app.deployment.name)
+            if app.secured and helm_values.secured_gatekeepers:
+                rollout_commands.append(
+                    ROLLOUT_CMD_TPL % app.service.name + "-gk")
+        # some time to the certificates to settle
+        rollout_commands.append("sleep 60")
 
     if save:
         codefresh_abs_path = join(
