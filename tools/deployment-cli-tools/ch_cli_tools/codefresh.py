@@ -249,7 +249,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         del steps[CD_API_TEST_STEP]
         del steps[CD_BUILD_STEP_TEST]["steps"]["test-api"]
 
-    if not steps[CD_BUILD_STEP_TEST]["steps"]:
+    if CD_BUILD_STEP_TEST in steps and not steps[CD_BUILD_STEP_TEST]["steps"]:
         del steps[CD_BUILD_STEP_TEST]
         del steps[CD_WAIT_STEP]
     if CD_WAIT_STEP in steps:
