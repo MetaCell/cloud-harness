@@ -12,7 +12,7 @@ WORKDIR $DIR
 # install dependencies
 RUN pip install --upgrade pip
 COPY ./requirements.txt requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt --default-timeout=1000
 
 EXPOSE $PORT
 CMD gunicorn --workers=$WORKERS --bind=0.0.0.0:$PORT $MODULE_NAME.__main__:app
