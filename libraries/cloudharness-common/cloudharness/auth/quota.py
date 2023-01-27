@@ -1,7 +1,8 @@
+from keycloak import KeycloakError
 from .keycloak import AuthClient
 from cloudharness.applications import get_current_configuration
 from cloudharness_model.models import ApplicationConfig
-
+from cloudharness import log
 
 # quota tree node to hold the tree quota attributes
 class QuotaNode:
@@ -111,13 +112,19 @@ def get_user_quotas(application_config: ApplicationConfig =None, user_id: str=No
     if not application_config:
         application_config = get_current_configuration()
 
-    auth_client = AuthClient()
-    if not user_id:
-        user_id = auth_client.get_current_user()["id"]
-    user = auth_client.get_user(user_id, with_details=True)
+    
+    base_quotas = application_config.get("harness",{}).get("quotas", {})
+    try:
+        auth_client = AuthClient()
+        if not user_id:
+            user_id = auth_client.get_current_user()["id"]
+            user = auth_client.get_user(user_id, with_details=True)
+    except KeycloakError as e:
+        log.warning("Quotas not available: error retrieving user: %s", user_id)
+        return base_quotas
 
     valid_keys_map = []
-    base_quotas = application_config.get("harness",{}).get("quotas", {})
+    
     for key in base_quotas:
         valid_keys_map.append(key)
     

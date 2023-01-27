@@ -103,6 +103,8 @@ def change_pvc_manifest(self: KubeSpawner):
 def change_pod_manifest(self: KubeSpawner):
     # check user quotas
     application_config = get_configuration("jupyterhub")
+
+    
     user_quotas = get_user_quotas(
         application_config=application_config,
         user_id=self.user.name)
