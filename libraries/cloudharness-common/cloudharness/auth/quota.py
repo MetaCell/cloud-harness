@@ -118,7 +118,7 @@ def get_user_quotas(application_config: ApplicationConfig =None, user_id: str=No
         auth_client = AuthClient()
         if not user_id:
             user_id = auth_client.get_current_user()["id"]
-            user = auth_client.get_user(user_id, with_details=True)
+        user = auth_client.get_user(user_id, with_details=True)
     except KeycloakError as e:
         log.warning("Quotas not available: error retrieving user: %s", user_id)
         return base_quotas
