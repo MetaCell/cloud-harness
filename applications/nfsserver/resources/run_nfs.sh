@@ -18,7 +18,7 @@ function start()
 {
     # run pre startup script
     bash -c "/usr/local/bin/pre-startup.sh"
-    bash -c "/usr/local/bin/start_provisioner.sh"
+    bash -c "/usr/local/bin/start_provisioner.sh&"
 
     unset gid
     # accept "-G gid" option

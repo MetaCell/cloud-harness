@@ -1,5 +1,8 @@
 #!/bin/bash
 
 echo Starting provisioner...
-/usr/local/bin/nfs-subdir-external-provisioner&
+while true; do
+    /usr/local/bin/nfs-subdir-external-provisioner
+    sleep 1
+done
 echo Starting provisioner done.

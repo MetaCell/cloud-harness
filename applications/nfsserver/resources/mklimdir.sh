@@ -104,11 +104,9 @@ main(){
     quota_fs=${mountpoint}.quota
 
     if [ -z ${mountonly} ]; then
-        if [ -f ${quota_fs} ]; then
-            echo File ${quota_fs} already exists
-            exit 1
+        if [ ! -f ${quota_fs} ]; then
+            mklimfile "${quota_fs}" "${size}" | true
         fi
-        mklimfile "${quota_fs}" "${size}"
     fi
     mkmount "${mountpoint}" "${quota_fs}"
 }
