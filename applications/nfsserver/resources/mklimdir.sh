@@ -63,7 +63,7 @@ mkmount(){
 
     unmount "${mountpoint}"
 
-    echo Mounting ${quota_fs} on ${mounpoint}
+    echo Mounting ${quota_fs} on ${mountpoint}
     i=$(losetup -f|cut -f 2 -d p)
     lodev=/dev/loop${i}
 
@@ -105,7 +105,7 @@ main(){
 
     if [ -z ${mountonly} ]; then
         if [ ! -f ${quota_fs} ]; then
-            mklimfile "${quota_fs}" "${size}" | true
+            mklimfile "${quota_fs}" "${size}" || true
         fi
     fi
     mkmount "${mountpoint}" "${quota_fs}"
