@@ -82,6 +82,7 @@ mkmount(){
 mklimfile(){
     quota_fs=$1
     size=$2
+
     count_mb=$(( ${size}/1024/1024 + 1))
 
     echo Create file ${quota_fs} size ${count_mb}Mb
@@ -104,9 +105,9 @@ main(){
     quota_fs=${mountpoint}.quota
 
     if [ -z ${mountonly} ]; then
-        if [ ! -f ${quota_fs} ]; then
-            mklimfile "${quota_fs}" "${size}" || true
-        fi
+        # cleanup before creating the folder and quota file
+        bash -c "rmlimdir.sh -m ${mountpoint}" || true
+        mklimfile "${quota_fs}" "${size}"
     fi
     mkmount "${mountpoint}" "${quota_fs}"
 }
