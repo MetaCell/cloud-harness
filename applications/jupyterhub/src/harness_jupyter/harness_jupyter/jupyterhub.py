@@ -113,7 +113,7 @@ def change_pod_manifest(self: KubeSpawner):
     if quota_ws_open:
         # get user number of pods running
         servers = [s for s in self.user.all_spawners(include_default=True)]
-        num_of_pods = len(s for s in servers if s.active)
+        num_of_pods = len([s for s in servers if s.active])
         if num_of_pods > int(quota_ws_open):
             raise PodSpawnException(
                                 "You reached your quota of {} concurrent servers."
