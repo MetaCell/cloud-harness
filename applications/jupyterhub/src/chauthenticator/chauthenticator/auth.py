@@ -47,7 +47,7 @@ class CloudHarnessAuthenticateHandler(BaseHandler):
                 print("Username", username)
                 raw_user = self.user_from_username(username)
 
-                # self.set_login_cookie(raw_user)
+                self.set_login_cookie(raw_user)
             except Exception as e:
                 logging.error("Error getting user from session", exc_info=True)
                 raise
