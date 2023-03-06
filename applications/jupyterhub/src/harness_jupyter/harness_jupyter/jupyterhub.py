@@ -112,12 +112,13 @@ def change_pod_manifest(self: KubeSpawner):
     quota_ws_open = user_quotas.get("quota-ws-open")
     if quota_ws_open:
         # get user number of pods running
-        num_of_pods = len(list(self.user.all_spawners(include_default=True)))
+        servers = [s for s in self.user.all_spawners(include_default=True)]
+        num_of_pods = len(s for s in servers if s.active)
         if num_of_pods > int(quota_ws_open):
             raise PodSpawnException(
-                                "User {} already has the maximum of {} servers."
+                                "You reached your quota of {} concurrent servers."
                                 "  One must be deleted before a new server can be started".format(
-                                    self.user.name, quota_ws_open
+                                    quota_ws_open
                                 ),
                             )
     try:
