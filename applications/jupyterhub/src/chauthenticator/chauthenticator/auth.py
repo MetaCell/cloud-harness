@@ -35,18 +35,22 @@ class CloudHarnessAuthenticateHandler(BaseHandler):
                     yield self.stop_single_user(raw_user)
         else:
             try:
-                accessToken = self.request.cookies.get('accessToken', None)
+                accessToken = self.request.cookies.get(
+                    'kc-access', None) or self.request.cookies.get('accessToken', None)
                 print("Token", accessToken)
                 if accessToken == '-1' or not accessToken:
                     self.redirect('/hub/logout')
 
                 accessToken = accessToken.value
                 user_data = AuthClient.decode_token(accessToken)
-                username = user_data['sub']
+                username = user_data['preferred_username']
+                print("Username", username)
                 raw_user = self.user_from_username(username)
-                self.set_login_cookie(raw_user)
+
+                # self.set_login_cookie(raw_user)
             except Exception as e:
                 logging.error("Error getting user from session", exc_info=True)
+                raise
 
         user = yield gen.maybe_future(self.process_user(raw_user, self))
         self.redirect(self.get_next_url(user))
