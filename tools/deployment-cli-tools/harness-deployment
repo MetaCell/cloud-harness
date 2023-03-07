@@ -110,7 +110,7 @@ if __name__ == "__main__":
                 helm_values=helm_values)
             
         if args.write_env:
-            write_env_file(helm_values, os.path.join(ROOT, DEPLOYMENT_PATH, ".env"))
+            write_env_file(helm_values, os.path.join(root_paths[0], DEPLOYMENT_PATH, ".env"))
 
         create_skaffold_configuration(root_paths, helm_values)
         create_vscode_debug_configuration([os.path.join(os.getcwd(), path) for path in args.paths],
