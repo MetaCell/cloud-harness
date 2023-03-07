@@ -1,6 +1,6 @@
 import os
 from os.path import join, relpath, exists, dirname
-import subprocess
+import requests
 import logging
 from cloudharness_model.models.api_tests_config import ApiTestsConfig
 
@@ -38,8 +38,13 @@ def write_env_file(helm_values: HarnessMainConfig, filename):
     logging.info("Create env file with image info %s", filename)
 
     def check_image_exists(name, image):
-        p = subprocess.run(f"docker manifest inspect {image}".split())
-        if p.returncode == 0:
+        tag = image.split(":")[1]
+        chunks = image.split(":")[0].split("/")
+        registry = chunks[0] if "." in chunks[0] else "docker.io"
+        image_name = "/".join(chunks[1::] if "." in chunks[0] else chunks[0::])
+        api_url = f"https://{registry}/v2/{image_name}/manifests/{tag}"
+        resp = requests.get(api_url)
+        if resp.status_code == 200:
             env[app_specific_tag_variable(name) + "_EXISTS"] = 1
         else:
             env[app_specific_tag_variable(name) + "_NEW"] = 1
