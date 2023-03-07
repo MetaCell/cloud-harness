@@ -273,3 +273,42 @@ def test_clear_all_dbconfig_if_nodb():
     # But it is None
     db_config = values[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DATABASE]
     assert db_config is None
+
+
+def test_collect_helm_values_auto_tag():
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, include=['samples', 'myapp'],
+                               exclude=['events'], domain="my.local",
+                               namespace='test', env='dev', local=False, tag=None, registry='reg')
+
+    # Auto values are set by using the directory hash
+    assert 'reg/cloudharness/myapp:' in values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image']
+    assert 'reg/cloudharness/myapp:' in values.apps['myapp'].harness.deployment.image 
+    assert 'cloudharness/myapp-mytask' in values[KEY_TASK_IMAGES]['myapp-mytask']
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == values.apps['myapp'].harness.deployment.image
+    v1 = values.apps['myapp'].harness.deployment.image
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, include=['samples', 'myapp'],
+                               exclude=['events'], domain="my.local",
+                               namespace='test', env='dev', local=False, tag=None, registry='reg')
+    assert v1 == values.apps['myapp'].harness.deployment.image, "Nothing changed the hash value"
+
+    fname = os.path.join(RESOURCES, 'applications', 'myapp', 'afile.txt')
+    with open(fname, 'w') as f:
+        f.write('a')
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, include=['samples', 'myapp'],
+                               exclude=['events'], domain="my.local",
+                               namespace='test', env='dev', local=False, tag=None, registry='reg')
+    assert v1 != values.apps['myapp'].harness.deployment.image, "Adding the file changed the hash value"
+    os.remove(fname)
+
+    fname = os.path.join(RESOURCES, 'applications', 'myapp', 'afile.ignored')
+    with open(fname, 'w') as f:
+        f.write('a')
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, include=['samples', 'myapp'],
+                               exclude=['events'], domain="my.local",
+                               namespace='test', env='dev', local=False, tag=None, registry='reg')
+    assert v1 == values.apps['myapp'].harness.deployment.image, "Nothing should change the hash value as the file is ignored in the .dockerignore"
+    os.remove(fname)
+

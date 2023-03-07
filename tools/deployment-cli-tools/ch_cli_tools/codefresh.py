@@ -1,5 +1,6 @@
 import os
 from os.path import join, relpath, exists, dirname
+import subprocess
 import logging
 from cloudharness_model.models.api_tests_config import ApiTestsConfig
 
@@ -31,6 +32,33 @@ def literal_presenter(dumper, data):
 
 
 yaml.add_representer(str, literal_presenter)
+
+def write_env_file(helm_values: HarnessMainConfig, filename):
+    env = {}
+    logging.info("Create env file with image info %s", filename)
+
+    def check_image_exists(name, image):
+        p = subprocess.run(f"docker manifest inspect {image}".split())
+        if p.returncode == 0:
+            env[app_specific_tag_variable(name) + "_EXISTS"] = 1
+        else:
+            env[app_specific_tag_variable(name) + "_NEW"] = 1
+
+    for app in helm_values.apps.values():
+        if app.harness and app.harness.deployment.image:
+            env[app_specific_tag_variable(app.name)] = app.harness.deployment.image.split(":")[1]
+            check_image_exists(app.name, app.harness.deployment.image)
+
+    for k, task_image in helm_values["task-images"].items():
+        env[app_specific_tag_variable(k)] = task_image.split(":")[1]
+        check_image_exists(k, task_image)
+
+    logging.info("Writing env file %s", filename)
+    with open(filename, 'w') as f:
+        for k, v in env.items():
+            f.write(f"{k}={v}\n")
+
+
 
 
 def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude=(),
@@ -310,12 +338,6 @@ def api_test_volumes(app_relative_to_root):
     ]
 
 
-
-
-
-
-
-
 def codefresh_app_publish_spec(app_name, build_tag, base_name=None):
     title = app_name.capitalize().replace(
         '-', ' ').replace('/', ' ').replace('.', ' ').strip()
@@ -333,7 +355,7 @@ def codefresh_app_publish_spec(app_name, build_tag, base_name=None):
 
 
 def app_specific_tag_variable(app_name):
-    return "${{ %s }}_${{DEPLOYMENT_PUBLISH_TAG}}" % app_name.replace('-', '_').upper()
+    return "%s_TAG" % app_name.replace('-', '_').upper().strip()
 
 
 def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Dockerfile", base_name=None, helm_values: HarnessMainConfig = {}, dependencies=None):
@@ -346,6 +368,9 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
         title=title,
         working_directory='./' + app_context_path,
         dockerfile=dockerfile_path)
+    
+    tag = app_specific_tag_variable(app_name)
+    build["tag"] = "${{%s}}" % tag
 
     specific_build_template_path = join(app_context_path, 'build.yaml')
     if exists(specific_build_template_path):
@@ -360,7 +385,7 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
     build['build_arguments'].append('REGISTRY=${{REGISTRY}}/%s/' % base_name)
 
     def add_arg_dependencies(dependencies):
-        arg_dependencies = [f"{d.upper().replace('-', '_')}=${{{{REGISTRY}}}}/{get_image_name(d, base_name)}:{build['tag']}" for
+        arg_dependencies = [f"{d.upper().replace('-', '_')}=${{{{REGISTRY}}}}/{get_image_name(d, base_name)}:${{{{{app_specific_tag_variable(d)}}}}}" for
                             d in dependencies]
         build['build_arguments'].extend(arg_dependencies)
 
@@ -373,5 +398,13 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
                 helm_values.apps[values_key].harness.dependencies.build)
         except (KeyError, AttributeError):
             add_arg_dependencies(helm_values['task-images'])
-
+    
+    is_built = tag + "_EXISTS"
+    build["when"] = {
+        "condition": {
+            "all": {
+                "whenVarExists": "includes('${{%s}}', '{{%s}}') == true" % (is_built, is_built)
+            }
+        }
+    }
     return build

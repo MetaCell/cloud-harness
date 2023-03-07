@@ -25,7 +25,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
     overrides = {}
 
     def remove_tag(image_name):
-        return image_name[0:-len(helm_values.tag)-1]
+        return image_name.split(":")[0]
 
     def get_image_tag(name):
         return f"{get_image_name(name, base_image_name)}"

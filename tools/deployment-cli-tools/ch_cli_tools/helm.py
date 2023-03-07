@@ -8,6 +8,7 @@ import logging
 import subprocess
 import tarfile
 from docker import from_env as DockerClient
+from dirhash import dirhash
 
 from . import HERE, CH_ROOT
 from cloudharness_utils.constants import VALUES_MANUAL_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, \
@@ -177,7 +178,7 @@ class CloudHarnessHelm:
             img_name = image_name_from_dockerfile_path(os.path.basename(
                 static_img_dockerfile), base_name=base_image_name)
             self.base_images[os.path.basename(static_img_dockerfile)] = image_tag(
-                img_name, self.registry, self.tag)
+                img_name, self.registry, tag=self.tag, dockerfile_path=static_img_dockerfile)
 
     def __assign_static_build_dependencies(self, helm_values):
         for static_img_dockerfile in self.static_images:
@@ -200,7 +201,7 @@ class CloudHarnessHelm:
                 img_name = image_name_from_dockerfile_path(
                     os.path.basename(base_img_dockerfile), base_name=base_image_name)
                 self.base_images[os.path.basename(base_img_dockerfile)] = image_tag(
-                    img_name, self.registry, self.tag)
+                    img_name, self.registry, self.tag, dockerfile_path=base_img_dockerfile)
 
             self.static_images.update(find_dockerfiles_paths(
                 os.path.join(root_path, STATIC_IMAGES_PATH)))
@@ -235,7 +236,6 @@ class CloudHarnessHelm:
             return
         helm_values['tls'] = self.domain.replace(".", "-") + "-tls"
 
-        
         bootstrap_file = 'bootstrap.sh'
         certs_parent_folder_path = os.path.join(
             self.output_path, 'helm', 'resources')
@@ -590,7 +590,8 @@ def create_app_values_spec(app_name, app_path, tag=None, registry='', env=(), ba
     if len(image_paths) > 0:
         image_name = image_name_from_dockerfile_path(os.path.relpath(
             image_paths[0], os.path.dirname(app_path)), base_image_name)
-        values['image'] = image_tag(image_name, registry, tag)
+        values['image'] = image_tag(
+            image_name, registry, tag=tag, dockerfile_path=app_path)
     elif KEY_HARNESS in values and values[KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('image', None) and values[
             KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('auto', False) and not values('image', None):
         raise Exception(f"At least one Dockerfile must be specified on application {app_name}. "
@@ -604,7 +605,8 @@ def create_app_values_spec(app_name, app_path, tag=None, registry='', env=(), ba
             task_path, os.path.dirname(app_path)))
         img_name = image_name_from_dockerfile_path(task_name, base_image_name)
 
-        values[KEY_TASK_IMAGES][task_name] = image_tag(img_name, registry, tag)
+        values[KEY_TASK_IMAGES][task_name] = image_tag(
+            img_name, registry, tag=tag, dockerfile_path=task_path)
 
     if KEY_HARNESS in values and 'dependencies' in values[KEY_HARNESS] and 'build' in values[KEY_HARNESS]['dependencies']:
         for build_dependency in values[KEY_HARNESS]['dependencies']['build']:
@@ -614,7 +616,14 @@ def create_app_values_spec(app_name, app_path, tag=None, registry='', env=(), ba
     return values
 
 
-def image_tag(image_name, registry, tag):
+def image_tag(image_name, registry, tag=None, dockerfile_path=None):
+    if tag is None:
+        ignore_path = os.path.join(dockerfile_path, '.dockerignore')
+        ignore = ['tasks']
+        if os.path.exists(ignore_path):
+            with open(ignore_path) as f:
+                ignore += f.readlines()
+        tag = dirhash(dockerfile_path, 'sha1', ignore=ignore)
     return registry + image_name + f':{tag}' if tag else ''
 
 
