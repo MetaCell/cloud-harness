@@ -35,6 +35,7 @@ steps:
       - bash cloud-harness/install.sh
       - harness-deployment $PATHS -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -n ${{NAMESPACE}} --write-env -e $ENV $PARAMS
       - cat deployment/.env >> ${{CF_VOLUME_PATH}}/env_vars_to_export
+      - cat ${{CF_VOLUME_PATH}}/env_vars_to_export
   prepare_deployment_view:
     commands:
       - 'helm template ./deployment/helm --debug -n ${{NAMESPACE}}'
