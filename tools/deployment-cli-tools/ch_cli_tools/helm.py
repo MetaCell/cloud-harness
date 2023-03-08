@@ -624,6 +624,7 @@ def image_tag(image_name, registry, tag=None, dockerfile_path=None):
             with open(ignore_path) as f:
                 ignore += f.readlines()
         tag = dirhash(dockerfile_path, 'sha1', ignore=ignore)
+        # TODO the tag should take also the dependencies into account
     return registry + image_name + f':{tag}' if tag else ''
 
 

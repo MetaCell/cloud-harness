@@ -32,7 +32,7 @@ steps:
     working_directory: .
     commands:
       - bash cloud-harness/install.sh
-      - harness-deployment $PATHS -n test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}} -t ${{CF_BUILD_ID}} -d ${{CF_SHORT_REVISION}}.${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e $ENV --write-env -N $PARAMS
+      - harness-deployment $PATHS -n test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}} -d ${{CF_SHORT_REVISION}}.${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e $ENV --write-env -N $PARAMS
       - cat deployment/.env >> ${{CF_VOLUME_PATH}}/env_vars_to_export
   prepare_deployment_view:
     commands:

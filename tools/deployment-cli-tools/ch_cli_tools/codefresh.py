@@ -45,6 +45,7 @@ def write_env_file(helm_values: HarnessMainConfig, filename):
         api_url = f"https://{registry}/v2/{image_name}/manifests/{tag}"
         resp = requests.get(api_url)
         if resp.status_code == 200:
+            # TODO the hash might be the same but not the parent's hash
             env[app_specific_tag_variable(name) + "_EXISTS"] = 1
         else:
             env[app_specific_tag_variable(name) + "_NEW"] = 1
@@ -220,7 +221,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     steps[CD_UNIT_TEST_STEP]['steps'][f"{app_name}_ut"] = dict(
                         title=f"Unit tests for {app_name}",
                         commands=test_config.unit.commands,
-                        image=r"${{%s}}" % app_name
+                        image=app_config.deployment.image
                     )
 
             codefresh_steps_from_base_path(join(root_path, BASE_IMAGES_PATH), CD_BUILD_STEP_BASE,

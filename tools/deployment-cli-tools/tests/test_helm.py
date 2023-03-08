@@ -300,6 +300,17 @@ def test_collect_helm_values_auto_tag():
                                exclude=['events'], domain="my.local",
                                namespace='test', env='dev', local=False, tag=None, registry='reg')
     assert v1 != values.apps['myapp'].harness.deployment.image, "Adding the file changed the hash value"
+    v2 = values.apps['myapp'].harness.deployment.image
+    os.remove(fname)
+
+
+    with open(fname, 'w') as f:
+        f.write('a')
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, include=['samples', 'myapp'],
+                               exclude=['events'], domain="my.local",
+                               namespace='test', env='dev', local=False, tag=None, registry='reg')
+    assert v2 == values.apps['myapp'].harness.deployment.image, "Recreated an identical file, the hash value should be the same"
     os.remove(fname)
 
     fname = os.path.join(RESOURCES, 'applications', 'myapp', 'afile.ignored')
