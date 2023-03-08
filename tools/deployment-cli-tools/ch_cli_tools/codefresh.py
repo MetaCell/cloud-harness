@@ -37,8 +37,11 @@ def write_env_file(helm_values: HarnessMainConfig, filename):
     env = {}
     logging.info("Create env file with image info %s", filename)
 
+    def extract_tag(image_name):
+        return image_name.split(":") if ":" in image_name else "latest"
+
     def check_image_exists(name, image):
-        tag = image.split(":")[1]
+        tag = extract_tag(image)
         chunks = image.split(":")[0].split("/")
         registry = chunks[0] if "." in chunks[0] else "docker.io"
         image_name = "/".join(chunks[1::] if "." in chunks[0] else chunks[0::])
@@ -52,15 +55,15 @@ def write_env_file(helm_values: HarnessMainConfig, filename):
 
     for app in helm_values.apps.values():
         if app.harness and app.harness.deployment.image:
-            env[app_specific_tag_variable(app.name)] = app.harness.deployment.image.split(":")[1]
+            env[app_specific_tag_variable(app.name)] = extract_tag(app.harness.deployment.image)
             check_image_exists(app.name, app.harness.deployment.image)
 
     for k, task_image in helm_values[KEY_TASK_IMAGES].items():
-        env[app_specific_tag_variable(k)] = task_image.split(":")[1]
+        env[app_specific_tag_variable(k)] = extract_tag(task_image)
         check_image_exists(k, task_image)
 
     for k, task_image in helm_values[KEY_TEST_IMAGES].items():
-        env[app_specific_tag_variable(k)] = task_image.split(":")[1]
+        env[app_specific_tag_variable(k)] = extract_tag(task_image)
         check_image_exists(k, task_image)
 
     logging.info("Writing env file %s", filename)
