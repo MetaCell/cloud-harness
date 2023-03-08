@@ -38,7 +38,7 @@ def write_env_file(helm_values: HarnessMainConfig, filename):
     logging.info("Create env file with image info %s", filename)
 
     def extract_tag(image_name):
-        return image_name.split(":") if ":" in image_name else "latest"
+        return image_name.split(":")[1] if ":" in image_name else "latest"
 
     def check_image_exists(name, image):
         tag = extract_tag(image)
