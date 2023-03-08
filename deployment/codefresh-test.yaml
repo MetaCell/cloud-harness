@@ -343,7 +343,7 @@ steps:
         title: Unit tests for samples
         commands:
         - pytest /usr/src/app/samples/test
-        image: cloudharness/samples:SAMPLES_TAG
+        image: '${{REGISTRY}}/cloudharness/samples:${{SAMPLES_TAG}}'
   prepare_cluster:
     stage: deploy
     image: codefresh/kubectl
