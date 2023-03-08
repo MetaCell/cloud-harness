@@ -343,12 +343,7 @@ steps:
         title: Unit tests for samples
         commands:
         - pytest /usr/src/app/samples/test
-        image: '${{samples}}'
-        when:
-          condition:
-            all:
-              whenVarExists: includes('${{SAMPLES_TAG_EXISTS}}', '{{SAMPLES_TAG_EXISTS}}')
-                == true
+        image: cloudharness/samples:SAMPLES_TAG
   prepare_cluster:
     stage: deploy
     image: codefresh/kubectl
@@ -482,7 +477,7 @@ steps:
     stage: qa
     title: End to end tests
     working_directory: /home/test
-    image: '${{test-e2e}}'
+    image: '${{REGISTRY}}/cloudharness/test-api:${{TEST_API_TAG}}'
     fail_fast: false
     commands:
     - yarn test

@@ -120,7 +120,7 @@ class CloudHarnessHelm:
 
         self.__init_base_images(base_image_name)
         self.__init_static_images(base_image_name)
-        helm_values[KEY_TEST_IMAGES] = self.__init_test_images()
+        helm_values[KEY_TEST_IMAGES] = self.__init_test_images(base_image_name)
 
         self.__process_applications(helm_values, base_image_name)
 
@@ -209,12 +209,12 @@ class CloudHarnessHelm:
                 os.path.join(root_path, STATIC_IMAGES_PATH)))
         return self.base_images
     
-    def __init_test_images(self):
+    def __init_test_images(self, base_image_name):
         test_images = {}
         for root_path in self.root_paths:
             for base_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, TEST_IMAGES_PATH)):
                 img_name = image_name_from_dockerfile_path(
-                    os.path.basename(base_img_dockerfile), base_name="cloudharness")
+                    os.path.basename(base_img_dockerfile), base_name=base_image_name)
                 test_images[os.path.basename(base_img_dockerfile)] = self.image_tag(
                     img_name, build_context_path=base_img_dockerfile)
 

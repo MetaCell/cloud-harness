@@ -226,11 +226,8 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     steps[CD_UNIT_TEST_STEP]['steps'][f"{app_name}_ut"] = dict(
                         title=f"Unit tests for {app_name}",
                         commands=test_config.unit.commands,
-                        image=r"${{%s}}" % app_name,
-                        when=existing_build_when_condition(tag),
+                        image=f"{app_config.deployment.image.split(':')[0]}:{tag}",
                     )
-                    
-
 
             codefresh_steps_from_base_path(join(root_path, BASE_IMAGES_PATH), CD_BUILD_STEP_BASE,
                                            fixed_context=relpath(root_path, os.getcwd()), include=helm_values[KEY_TASK_IMAGES].keys())
@@ -241,11 +238,16 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
 
             if CD_E2E_TEST_STEP in steps:
+                name = "test-e2e"
                 codefresh_steps_from_base_path(join(
-                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=("test-e2e",), publish=False)
+                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=(name,), publish=False)
+                steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_image_name)
+
             if CD_API_TEST_STEP in steps:
+                name = "test-api"
                 codefresh_steps_from_base_path(join(
-                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=("test-api",), fixed_context=relpath(root_path, os.getcwd()), publish=False)
+                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=(name,), fixed_context=relpath(root_path, os.getcwd()), publish=False)
+                steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_image_name)
    
     if not codefresh:
         logging.warning(
@@ -358,14 +360,17 @@ def codefresh_app_publish_spec(app_name, build_tag, base_name=None):
 
     step_spec = codefresh_template_spec(
         template_path=CF_TEMPLATE_PUBLISH_PATH,
-        candidate="${{REGISTRY}}/%s:%s" % (get_image_name(
-            app_name, base_name), build_tag or '${{DEPLOYMENT_TAG}}'),
+        candidate=image_tag_with_variables(app_name, build_tag, base_name),
         title=title,
     )
     if not build_tag:
         # if not build tag we are reusing old images and deploying on a production env
         step_spec['tags'].append('latest')
     return step_spec
+
+def image_tag_with_variables(app_name, build_tag, base_name=""):
+    return "${{REGISTRY}}/%s:${{%s}}" % (get_image_name(
+            app_name, base_name), build_tag or '${{DEPLOYMENT_TAG}}')
 
 
 def app_specific_tag_variable(app_name):
@@ -399,7 +404,7 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
     build['build_arguments'].append('REGISTRY=${{REGISTRY}}/%s/' % base_name)
 
     def add_arg_dependencies(dependencies):
-        arg_dependencies = [f"{d.upper().replace('-', '_')}=${{{{REGISTRY}}}}/{get_image_name(d, base_name)}:${{{{{app_specific_tag_variable(d)}}}}}" for
+        arg_dependencies = [f"{d.upper().replace('-', '_')}={image_tag_with_variables(d, app_specific_tag_variable(d), base_name)}" for
                             d in dependencies]
         build['build_arguments'].extend(arg_dependencies)
 
