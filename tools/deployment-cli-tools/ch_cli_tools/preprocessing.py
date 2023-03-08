@@ -32,7 +32,9 @@ def preprocess_build_overrides(root_paths, helm_values, merge_build_path=DEFAULT
                     )
         merge_configuration_directories(artifacts[app_name], dest_path)
         merge_configuration_directories(base_path, dest_path)
-        
+
+
+
 
     for root_path in root_paths:
 
@@ -69,6 +71,12 @@ def preprocess_build_overrides(root_paths, helm_values, merge_build_path=DEFAULT
                 merge_appdir(root_path, base_path)
                 merged = True
 
+    with open(join(merge_build_path, ".dockerignore"), "a") as dst:
+        
+        for root_path in root_paths:
+            with open(join(root_path, ".dockerignore")) as src:
+                dst.write(src.read())
+                
     return (root_paths + [merge_build_path]) if merged else root_paths
 
 def get_build_paths(root_paths, helm_values, merge_build_path=DEFAULT_MERGE_PATH):

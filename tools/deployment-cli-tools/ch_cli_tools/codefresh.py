@@ -197,6 +197,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                     app_domain = get_app_domain(
                                         app_config) + app_domain
                                 steps[CD_API_TEST_STEP]['scale'][f"{app_name}_api_test"] = dict(
+                                    title=f"{app_name} api test",
                                     volumes=api_test_volumes(clean_path(
                                         dockerfile_relative_to_root)),
                                     environment=e2e_test_environment(
@@ -212,6 +213,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         if app_config.subdomain:
 
                             steps[CD_E2E_TEST_STEP]['scale'][f"{app_name}_e2e_test"] = dict(
+                                title=f"{app_name} e2e test",
                                 volumes=e2e_test_volumes(
                                     clean_path(dockerfile_relative_to_root), app_name),
                                 environment=e2e_test_environment(app_config)
