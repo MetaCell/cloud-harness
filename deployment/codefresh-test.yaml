@@ -343,7 +343,12 @@ steps:
         title: Unit tests for samples
         commands:
         - pytest /usr/src/app/samples/test
-        image: gcr.io/metacellllc/cloudharness/samples:d8e9c599f346204d22703975879f1e01d0245277
+        image: '${{samples}}'
+        when:
+          condition:
+            all:
+              whenVarExists: includes('${{SAMPLES_TAG_EXISTS}}', '{{SAMPLES_TAG_EXISTS}}')
+                == true
   prepare_cluster:
     stage: deploy
     image: codefresh/kubectl

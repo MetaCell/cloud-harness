@@ -5,6 +5,7 @@ docs
 /infrastructure
 /blueprint
 test
+/tools
 .github
 .git
 .vscode
