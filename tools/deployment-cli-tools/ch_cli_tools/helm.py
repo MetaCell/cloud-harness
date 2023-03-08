@@ -11,7 +11,7 @@ from docker import from_env as DockerClient
 from dirhash import dirhash
 
 from . import HERE, CH_ROOT
-from cloudharness_utils.constants import VALUES_MANUAL_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, \
+from cloudharness_utils.constants import TEST_IMAGES_PATH, VALUES_MANUAL_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, \
     DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH
 from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
     get_template, merge_configuration_directories, merge_to_yaml_file, dict_merge, app_name_from_path, \
@@ -25,7 +25,7 @@ KEY_DATABASE = 'database'
 KEY_DEPLOYMENT = 'deployment'
 KEY_APPS = 'apps'
 KEY_TASK_IMAGES = 'task-images'
-
+KEY_TEST_IMAGES = 'test-images'
 
 def deploy(namespace, output_path='./deployment'):
     helm_path = os.path.join(output_path, HELM_CHART_PATH)
@@ -118,6 +118,7 @@ class CloudHarnessHelm:
 
         self.__init_base_images(base_image_name)
         self.__init_static_images(base_image_name)
+        helm_values[KEY_TEST_IMAGES] = self.__init_test_images()
 
         self.__process_applications(helm_values, base_image_name)
 
@@ -206,7 +207,19 @@ class CloudHarnessHelm:
             self.static_images.update(find_dockerfiles_paths(
                 os.path.join(root_path, STATIC_IMAGES_PATH)))
         return self.base_images
+    
+    def __init_test_images(self):
+        test_images = {}
+        for root_path in self.root_paths:
+            for base_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, TEST_IMAGES_PATH)):
+                img_name = image_name_from_dockerfile_path(
+                    os.path.basename(base_img_dockerfile), base_name="ch")
+                test_images[os.path.basename(base_img_dockerfile)] = image_tag(
+                    img_name, self.registry, self.tag, dockerfile_path=base_img_dockerfile)
 
+        return test_images
+
+    
     def __find_static_dockerfile_paths(self, root_path):
         return find_dockerfiles_paths(os.path.join(root_path, BASE_IMAGES_PATH)) + find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH))
 
@@ -623,9 +636,12 @@ def image_tag(image_name, registry, tag=None, dockerfile_path=None):
         if os.path.exists(ignore_path):
             with open(ignore_path) as f:
                 ignore += f.readlines()
-        tag = dirhash(dockerfile_path, 'sha1', ignore=ignore)
+        tag = generate_tag_from_content(dockerfile_path, ignore)
         # TODO the tag should take also the dependencies into account
     return registry + image_name + f':{tag}' if tag else ''
+
+def generate_tag_from_content(content_path, ignore):
+    return dirhash(content_path, 'sha1', ignore=ignore)
 
 
 def extract_env_variables_from_values(values, envs=tuple(), prefix=''):
@@ -713,7 +729,7 @@ def validate_dependencies(values):
                 d for d in app_values[KEY_HARNESS]['dependencies']['build']}
 
             not_found = {
-                d for d in build_dependencies if d not in values['task-images']}
+                d for d in build_dependencies if d not in values[KEY_TASK_IMAGES]}
             not_found = {d for d in not_found if d not in all_apps}
             if not_found:
                 raise ValuesValidationException(
