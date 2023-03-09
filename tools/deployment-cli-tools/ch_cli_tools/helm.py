@@ -29,6 +29,9 @@ KEY_APPS = 'apps'
 KEY_TASK_IMAGES = 'task-images'
 KEY_TEST_IMAGES = 'test-images'
 
+DEFAULT_IGNORE = ('/tasks', '.dockerignore', '.hypothesis', "__pycache__", '.node_modules', 'dist', 'build', '.coverage')
+
+
 def deploy(namespace, output_path='./deployment'):
     helm_path = os.path.join(output_path, HELM_CHART_PATH)
     logging.info('Deploying helm chart %s', helm_path)
@@ -401,7 +404,7 @@ class CloudHarnessHelm:
         if tag is None and not self.local:
             logging.info(f"Generating tag for {image_name} from {build_context_path} and {dependencies}")
             ignore_path = os.path.join(build_context_path, '.dockerignore')
-            ignore = {'/tasks', '.dockerignore', '.hypothesis', "__pycache__", '.node_modules', 'dist', 'build', '.coverage'}
+            ignore = set(DEFAULT_IGNORE)
             if os.path.exists(ignore_path):
                 with open(ignore_path) as f:
                     ignore.union({line.strip() for line in f})
