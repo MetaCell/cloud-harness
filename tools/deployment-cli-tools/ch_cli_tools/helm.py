@@ -401,7 +401,7 @@ class CloudHarnessHelm:
         if tag is None and not self.local:
             logging.info(f"Generating tag for {image_name} from {build_context_path} and {dependencies}")
             ignore_path = os.path.join(build_context_path, '.dockerignore')
-            ignore = ['tasks']
+            ignore = ['/tasks', '.dockerignore']
             if os.path.exists(ignore_path):
                 with open(ignore_path) as f:
                     ignore += [line.strip() for line in f]

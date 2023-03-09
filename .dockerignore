@@ -18,3 +18,5 @@ __pycache__
 .pytest_cache
 /application-templates
 /deployment-configuration
+/cloud-harness
+.openapi-generator
