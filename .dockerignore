@@ -16,3 +16,5 @@ __pycache__
 .hypothesis
 .coverage
 .pytest_cache
+/application-templates
+/deployment-configuration
