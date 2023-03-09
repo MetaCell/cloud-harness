@@ -252,7 +252,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 name = "test-api"
                 codefresh_steps_from_base_path(join(
                     root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=(name,), fixed_context=relpath(root_path, os.getcwd()), publish=False)
-                steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_image_name)
+                steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_image_name)
    
     if not codefresh:
         logging.warning(
