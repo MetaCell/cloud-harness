@@ -5,6 +5,7 @@ import yaml
 import os
 import shutil
 import logging
+from hashlib import sha1
 import subprocess
 from functools import cache
 import tarfile
@@ -398,15 +399,18 @@ class CloudHarnessHelm:
     def image_tag(self, image_name, build_context_path=None, dependencies=()):
         tag = self.tag
         if tag is None and not self.local:
+            logging.info(f"Generating tag for {image_name} from {build_context_path} and {dependencies}")
             ignore_path = os.path.join(build_context_path, '.dockerignore')
             ignore = ['tasks']
             if os.path.exists(ignore_path):
                 with open(ignore_path) as f:
                     ignore += [line.strip() for line in f]
+            logging.info(f"Ignoring {ignore}")
             tag = generate_tag_from_content(build_context_path, ignore)
-            from hashlib import sha1
+            logging.info(f"Content hash: {tag}")
             dependencies = dependencies or guess_build_dependencies_from_dockerfile(build_context_path)
             tag = sha1((tag + "".join(self.all_images.get(n , '') for n in dependencies)).encode("utf-8")).hexdigest()
+            logging.info(f"Generated tag: {tag}")
             app_name = image_name.split("/")[-1] # the image name can have a prefix
             self.all_images[app_name] = tag
         return self.registry + image_name + (f':{tag}' if tag else '')
