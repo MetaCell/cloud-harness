@@ -428,11 +428,18 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
     return build
 
 def existing_build_when_condition(tag):
+    """
+    See https://codefresh.io/docs/docs/pipelines/conditional-execution-of-steps/#execute-steps-according-to-the-presence-of-a-variable
+    the _EXISTS variable is added in the preparation step
+    the _FORCE_BUILD variable may be added manually by the user to force the build of a specific image
+    """
     is_built = tag + "_EXISTS"
+    force_build = tag + "_FORCE_BUILD"
     when_condition = {
         "condition": {
-            "all": {
-                "whenVarExists": "includes('${{%s}}', '{{%s}}') == true" % (is_built, is_built)
+            "any": {
+                "buildDoesNotExist": "includes('${{%s}}', '{{%s}}') == true" % (is_built, is_built),
+                "forceNoCache": "includes('${{%s}}', '{{%s}}') == false" % (force_build, force_build),
             }
         }
     }
