@@ -373,13 +373,6 @@ steps:
         commands:
         - pytest /usr/src/app/samples/test
         image: '${{REGISTRY}}/cloudharness/samples:${{SAMPLES_TAG}}'
-  prepare_cluster:
-    stage: deploy
-    image: codefresh/kubectl
-    fail_fast: false
-    commands:
-    - kubectl config use-context ${{CLUSTER_NAME}}
-    - kubectl create ns test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
   deployment:
     stage: deploy
     type: helm
@@ -392,7 +385,7 @@ steps:
       kube_context: '${{CLUSTER_NAME}}'
       namespace: test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
       chart_version: '${{CF_BUILD_ID}}'
-      cmd_ps: --timeout 600s
+      cmd_ps: --timeout 600s --create-namespace
       custom_value_files:
       - ./deployment/helm/values.yaml
       custom_values:
