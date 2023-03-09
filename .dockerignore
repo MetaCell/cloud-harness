@@ -11,3 +11,8 @@ test
 .vscode
 /deployment
 skaffold.yaml
+*.egg-info
+__pycache__
+.hypothesis
+.coverage
+.pytest_cache
