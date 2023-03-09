@@ -29,7 +29,7 @@ WORKDIR /home/test
 USER test
 COPY package.json . 
 COPY yarn.lock . 
-RUN yarn --timeout 99999999
+RUN yarn install --timeout 99999999
 
 
 # Run everything after as non-privileged user.
