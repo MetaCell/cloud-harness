@@ -463,7 +463,7 @@ steps:
     stage: qa
     title: Api tests
     working_directory: /home/test
-    image: '${{test-api}}'
+    image: '${{REGISTRY}}/cloudharness/test-api:${{TEST_API_TAG}}'
     fail_fast: false
     commands:
     - echo $APP_NAME
@@ -513,7 +513,7 @@ steps:
     stage: qa
     title: End to end tests
     working_directory: /home/test
-    image: '${{REGISTRY}}/cloudharness/test-api:${{TEST_API_TAG}}'
+    image: '${{REGISTRY}}/cloudharness/test-e2e:${{TEST_E2E_TAG}}'
     fail_fast: false
     commands:
     - yarn test
