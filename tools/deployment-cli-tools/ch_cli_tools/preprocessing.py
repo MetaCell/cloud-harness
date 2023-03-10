@@ -74,8 +74,10 @@ def preprocess_build_overrides(root_paths, helm_values, merge_build_path=DEFAULT
     with open(join(merge_build_path, ".dockerignore"), "a") as dst:
         
         for root_path in root_paths:
-            with open(join(root_path, ".dockerignore")) as src:
-                dst.write(src.read())
+            ignore_file = join(root_path, ".dockerignore")
+            if os.path.exists(ignore_file):
+                with open(ignore_file) as src:
+                    dst.write(src.read())
                 
     return (root_paths + [merge_build_path]) if merged else root_paths
 
