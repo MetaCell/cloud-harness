@@ -10,7 +10,7 @@ import subprocess
 from functools import cache
 import tarfile
 from docker import from_env as DockerClient
-from dirhash import dirhash
+
 
 from . import HERE, CH_ROOT
 from cloudharness_utils.constants import TEST_IMAGES_PATH, VALUES_MANUAL_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, \
@@ -660,6 +660,7 @@ def values_set_legacy(values):
 
 
 def generate_tag_from_content(content_path, ignore=()):
+    from dirhash import dirhash
     return dirhash(content_path, 'sha1', ignore=ignore)
 
 
