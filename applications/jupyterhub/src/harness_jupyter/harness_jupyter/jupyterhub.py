@@ -1,5 +1,3 @@
-import imp
-import logging
 import sys
 import urllib.parse
 
@@ -8,11 +6,9 @@ from kubespawner.spawner import KubeSpawner
 from cloudharness.applications import get_configuration
 from cloudharness.auth.quota import get_user_quotas
 from cloudharness.utils.config import CloudharnessConfig as conf
+from cloudharness import log as logging, set_debug
 
-
-handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.DEBUG)
-logging.getLogger().addHandler(handler)
+set_debug()
 
 def custom_options_form(spawner, abc):
     # let's skip the profile selection form for now
@@ -104,7 +100,7 @@ def change_pod_manifest(self: KubeSpawner):
     # check user quotas
     application_config = get_configuration("jupyterhub")
 
-    
+    logging.info("Cloudharness: changing pod manifest")
     user_quotas = get_user_quotas(
         application_config=application_config,
         user_id=self.user.name)
@@ -131,6 +127,7 @@ def change_pod_manifest(self: KubeSpawner):
 
                 if 'subdomain' in harness and harness['subdomain'] == subdomain:
                     ws_image = getattr(self, "ws_image", None)
+                    logging.info("Subdomain is", subdomain)
                     if ws_image:
                         # try getting the image + tag from values.yaml
                         ch_conf = conf.get_configuration()
@@ -144,17 +141,20 @@ def change_pod_manifest(self: KubeSpawner):
                     else:
                         if app['name'] != 'jupyterhub': # Would use the hub image in that case, which we don't want.
                             ws_image = harness['deployment']['image']
+                            logging.info(f'Use spacific app image: {ws_image}')
                     if ws_image:
-                        logging.info(f'Change image to {ws_image}')
+                        logging.info(f'Use image: {ws_image}')
                         self.image = ws_image
                         if registry['name'] in self.image and registry['secret']:
                             self.image_pull_secrets = registry['secret']
 
                     if 'jupyterhub' in harness and harness['jupyterhub']:
                         if 'args' in harness['jupyterhub']:
+                            logging.info("Setting custom args")
                             self.args = harness['jupyterhub']['args']
 
                         if harness['jupyterhub'].get('mountUserVolume', True):
+                            logging.info("Setting user volume affinity")
                             set_user_volume_affinity(self)
                         else:
                             self.volume_mounts = []
@@ -164,15 +164,18 @@ def change_pod_manifest(self: KubeSpawner):
                         self.http_timeout = 60 * 5 # 5 minutes
 
                         if 'spawnerExtraConfig' in harness['jupyterhub']:
+                            logging.info("Setting custom spawner config")
                             try:
                                 for k, v in harness['jupyterhub']['spawnerExtraConfig'].items():
                                     if k != 'node_selectors':
+                                        logging.info(f"Setting {k} to {v}")
                                         setattr(self, k, v)
 
                                 # check if there are node selectors, if so apply them to the pod
                                 node_selectors = harness['jupyterhub']['spawnerExtraConfig'].get('node_selectors')
                                 if node_selectors:
                                     for node_selector in node_selectors:
+                                        logging.info("Setting node selector", node_selector["key"])
                                         ns = dict(
                                             matchExpressions=[
                                                 dict(
@@ -200,6 +203,7 @@ def change_pod_manifest(self: KubeSpawner):
                                 logging.error("Error loading Spawner extra configuration", exc_info=True)
 
                         # set user quota cpu/mem usage if value has a "value" else don't change the value
+                        logging.info("Setting user quota cpu/mem usage")
                         set_key_value(self, key="cpu_guarantee", value=user_quotas.get("quota-ws-guaranteecpu"))
                         set_key_value(self, key="cpu_limit", value=user_quotas.get("quota-ws-maxcpu"))
                         set_key_value(self, key="mem_guarantee", value=user_quotas.get("quota-ws-guaranteemem"), unit="G")
@@ -215,6 +219,7 @@ def change_pod_manifest(self: KubeSpawner):
                         # this will execute jupyter.change_pod_manifest(self=self)
                         if 'applicationHook' in harness['jupyterhub']:
                             func_name = harness['jupyterhub']['applicationHook'].split('.')
+                            logging.info(f"Executing application hook {func_name}")
                             module = __import__('.'.join(func_name[:-1]))
                             f = getattr(module, func_name[-1])
                             f(self=self)

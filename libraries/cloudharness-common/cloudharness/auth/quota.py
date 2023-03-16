@@ -101,7 +101,7 @@ def get_user_quotas(application_config: ApplicationConfig =None, user_id: str=No
     
     Args:
         application_config (ApplicationConfig): the application config to use for getting the quotas
-        user_id (str): the Keycloak user id
+        user_id (str): the Keycloak user id or username to get the quotas for
     
     Returns:
         dict: key/value pairs of the user quota
