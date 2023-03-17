@@ -5,7 +5,7 @@ import json
 import requests
 
 from keycloak import KeycloakAdmin, KeycloakOpenID
-from keycloak.exceptions import KeycloakAuthenticationError
+from keycloak.exceptions import KeycloakAuthenticationError, KeycloakGetError
 
 from cloudharness import log
 from cloudharness.middleware import get_authentication_token
@@ -85,6 +85,16 @@ def get_token(username, password):
         client_secret_key=conf["webclient"]["secret"])
     return keycloak_openid.token(username, password)['access_token']
 
+def is_uuid(s):
+    import uuid
+    try:
+        uuid.UUID(s)
+        return True
+    except ValueError:
+        return False
+
+class UserNotFound(KeycloakGetError):
+    pass
 class AuthClient():
     __public_key = None
 
@@ -401,11 +411,11 @@ class AuthClient():
         return users
 
     @with_refreshtoken
-    def get_user(self, user_id, with_details=False):
+    def get_user(self, user_id, with_details=False) -> User:
         """
         Get the user including the user groups
 
-        :param user_id: User id
+        :param user_id_or_username: User id or username
         :param with_details: Default False, when set to True all attributes of the group are also retrieved
 
 
@@ -418,14 +428,25 @@ class AuthClient():
         :return: UserRepresentation + GroupRepresentation
         """
         admin_client = self.get_admin_client()
-        user = admin_client.get_user(user_id)
+        if is_uuid(user_id):
+            try:
+                user = admin_client.get_user(user_id)
+            except KeycloakGetError as e:
+                raise UserNotFound(user_id)
+                
+        else:
+            found_users = admin_client.get_users({"username": user_id})
+            if len(found_users) == 0:
+                raise UserNotFound(user_id)
+            user = admin_client.get_user(found_users[0]['id']) # Load full data
+        
         user.update({
                 "userGroups": admin_client.get_user_groups(user_id=user['id'], brief_representation=not with_details),
                 'realmRoles': admin_client.get_realm_roles_of_user(user['id'])
                 })
         return User.from_dict(user)
 
-    def get_current_user(self):
+    def get_current_user(self) -> User:
         """
         Get the current user including the user groups
 

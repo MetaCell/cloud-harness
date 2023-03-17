@@ -5,12 +5,15 @@ import yaml
 import os
 import shutil
 import logging
+from hashlib import sha1
 import subprocess
+from functools import cache
 import tarfile
 from docker import from_env as DockerClient
 
+
 from . import HERE, CH_ROOT
-from cloudharness_utils.constants import VALUES_MANUAL_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, \
+from cloudharness_utils.constants import TEST_IMAGES_PATH, VALUES_MANUAL_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, \
     DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH
 from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
     get_template, merge_configuration_directories, merge_to_yaml_file, dict_merge, app_name_from_path, \
@@ -24,6 +27,9 @@ KEY_DATABASE = 'database'
 KEY_DEPLOYMENT = 'deployment'
 KEY_APPS = 'apps'
 KEY_TASK_IMAGES = 'task-images'
+KEY_TEST_IMAGES = 'test-images'
+
+DEFAULT_IGNORE = ('/tasks', '.dockerignore', '.hypothesis', "__pycache__", '.node_modules', 'dist', 'build', '.coverage')
 
 
 def deploy(namespace, output_path='./deployment'):
@@ -75,6 +81,7 @@ class CloudHarnessHelm:
 
         self.static_images = set()
         self.base_images = {}
+        self.all_images = {}
 
     def __init_deployment(self):
         """
@@ -117,6 +124,7 @@ class CloudHarnessHelm:
 
         self.__init_base_images(base_image_name)
         self.__init_static_images(base_image_name)
+        helm_values[KEY_TEST_IMAGES] = self.__init_test_images(base_image_name)
 
         self.__process_applications(helm_values, base_image_name)
 
@@ -164,8 +172,7 @@ class CloudHarnessHelm:
                 continue
             app_key = app_name.replace('-', '_')
 
-            app_values = create_app_values_spec(app_name, app_path, tag=self.tag, registry=self.registry, env=self.env,
-                                                base_image_name=base_image_name, base_images=self.base_images)
+            app_values = self.create_app_values_spec(app_name, app_path, base_image_name=base_image_name)
 
             values[app_key] = dict_merge(
                 values[app_key], app_values) if app_key in values else app_values
@@ -176,8 +183,8 @@ class CloudHarnessHelm:
         for static_img_dockerfile in self.static_images:
             img_name = image_name_from_dockerfile_path(os.path.basename(
                 static_img_dockerfile), base_name=base_image_name)
-            self.base_images[os.path.basename(static_img_dockerfile)] = image_tag(
-                img_name, self.registry, self.tag)
+            self.base_images[os.path.basename(static_img_dockerfile)] = self.image_tag(
+                img_name, build_context_path=static_img_dockerfile)
 
     def __assign_static_build_dependencies(self, helm_values):
         for static_img_dockerfile in self.static_images:
@@ -199,13 +206,25 @@ class CloudHarnessHelm:
             for base_img_dockerfile in self.__find_static_dockerfile_paths(root_path):
                 img_name = image_name_from_dockerfile_path(
                     os.path.basename(base_img_dockerfile), base_name=base_image_name)
-                self.base_images[os.path.basename(base_img_dockerfile)] = image_tag(
-                    img_name, self.registry, self.tag)
+                self.base_images[os.path.basename(base_img_dockerfile)] = self.image_tag(
+                    img_name, build_context_path=root_path)
 
             self.static_images.update(find_dockerfiles_paths(
                 os.path.join(root_path, STATIC_IMAGES_PATH)))
         return self.base_images
+    
+    def __init_test_images(self, base_image_name):
+        test_images = {}
+        for root_path in self.root_paths:
+            for base_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, TEST_IMAGES_PATH)):
+                img_name = image_name_from_dockerfile_path(
+                    os.path.basename(base_img_dockerfile), base_name=base_image_name)
+                test_images[os.path.basename(base_img_dockerfile)] = self.image_tag(
+                    img_name, build_context_path=base_img_dockerfile)
 
+        return test_images
+
+    
     def __find_static_dockerfile_paths(self, root_path):
         return find_dockerfiles_paths(os.path.join(root_path, BASE_IMAGES_PATH)) + find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH))
 
@@ -235,7 +254,6 @@ class CloudHarnessHelm:
             return
         helm_values['tls'] = self.domain.replace(".", "-") + "-tls"
 
-        
         bootstrap_file = 'bootstrap.sh'
         certs_parent_folder_path = os.path.join(
             self.output_path, 'helm', 'resources')
@@ -380,6 +398,90 @@ class CloudHarnessHelm:
         for db in db_specific_keys:
             if database_type != db:
                 del database_config[db]
+
+    def image_tag(self, image_name, build_context_path=None, dependencies=()):
+        tag = self.tag
+        if tag is None and not self.local:
+            logging.info(f"Generating tag for {image_name} from {build_context_path} and {dependencies}")
+            ignore_path = os.path.join(build_context_path, '.dockerignore')
+            ignore = set(DEFAULT_IGNORE)
+            if os.path.exists(ignore_path):
+                with open(ignore_path) as f:
+                    ignore = ignore.union({line.strip() for line in f})
+            logging.info(f"Ignoring {ignore}")
+            tag = generate_tag_from_content(build_context_path, ignore)
+            logging.info(f"Content hash: {tag}")
+            dependencies = dependencies or guess_build_dependencies_from_dockerfile(build_context_path)
+            tag = sha1((tag + "".join(self.all_images.get(n , '') for n in dependencies)).encode("utf-8")).hexdigest()
+            logging.info(f"Generated tag: {tag}")
+            app_name = image_name.split("/")[-1] # the image name can have a prefix
+            self.all_images[app_name] = tag
+        return self.registry + image_name + (f':{tag}' if tag else '')
+    
+    def create_app_values_spec(self, app_name, app_path, base_image_name=None):
+        logging.info('Generating values script for ' + app_name)
+
+        specific_template_path = os.path.join(app_path, 'deploy', 'values.yaml')
+        if os.path.exists(specific_template_path):
+            logging.info("Specific values template found: " +
+                        specific_template_path)
+            values = get_template(specific_template_path)
+        else:
+            values = {}
+
+        for e in self.env:
+            specific_template_path = os.path.join(
+                app_path, 'deploy', f'values-{e}.yaml')
+            if os.path.exists(specific_template_path):
+                logging.info(
+                    "Specific environment values template found: " + specific_template_path)
+                with open(specific_template_path) as f:
+                    values_env_specific = yaml.safe_load(f)
+                values = dict_merge(values, values_env_specific)
+
+        if KEY_HARNESS in values and 'name' in values[KEY_HARNESS] and values[KEY_HARNESS]['name']:
+            logging.warning('Name is automatically set in applications: name %s will be ignored',
+                            values[KEY_HARNESS]['name'])
+
+        image_paths = [path for path in find_dockerfiles_paths(
+            app_path) if 'tasks/' not in path and 'subapps' not in path]
+        if len(image_paths) > 1:
+            logging.warning('Multiple Dockerfiles found in application %s. Picking the first one: %s', app_name,
+                            image_paths[0])
+        if KEY_HARNESS in values and 'dependencies' in values[KEY_HARNESS] and 'build' in values[KEY_HARNESS]['dependencies']:
+            build_dependencies = values[KEY_HARNESS]['dependencies']['build']
+        else:
+            build_dependencies = []
+
+        if len(image_paths) > 0:
+            image_name = image_name_from_dockerfile_path(os.path.relpath(
+                image_paths[0], os.path.dirname(app_path)), base_image_name)
+            
+            values['image'] = self.image_tag(
+                image_name, build_context_path=app_path, dependencies=build_dependencies)
+        elif KEY_HARNESS in values and values[KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('image', None) and values[
+                KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('auto', False) and not values('image', None):
+            raise Exception(f"At least one Dockerfile must be specified on application {app_name}. "
+                            f"Specify harness.deployment.image value if you intend to use a prebuilt image.")
+
+        task_images_paths = [path for path in find_dockerfiles_paths(
+            app_path) if 'tasks/' in path]
+        values[KEY_TASK_IMAGES] = values.get(KEY_TASK_IMAGES, {})
+
+        if build_dependencies:
+            for build_dependency in values[KEY_HARNESS]['dependencies']['build']:
+                if build_dependency in self.base_images:
+                    values[KEY_TASK_IMAGES][build_dependency] = self.base_images[build_dependency]
+
+        for task_path in task_images_paths:
+            task_name = app_name_from_path(os.path.relpath(
+                task_path, os.path.dirname(app_path)))
+            img_name = image_name_from_dockerfile_path(task_name, base_image_name)
+
+            values[KEY_TASK_IMAGES][task_name] = self.image_tag(
+                img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys())
+
+        return values
 
 
 def get_included_with_dependencies(values, include):
@@ -557,65 +659,9 @@ def values_set_legacy(values):
         values['resources'] = harness[KEY_DEPLOYMENT]['resources']
 
 
-def create_app_values_spec(app_name, app_path, tag=None, registry='', env=(), base_image_name=None, base_images=[]):
-    logging.info('Generating values script for ' + app_name)
-
-    specific_template_path = os.path.join(app_path, 'deploy', 'values.yaml')
-    if os.path.exists(specific_template_path):
-        logging.info("Specific values template found: " +
-                     specific_template_path)
-        values = get_template(specific_template_path)
-    else:
-        values = {}
-
-    for e in env:
-        specific_template_path = os.path.join(
-            app_path, 'deploy', f'values-{e}.yaml')
-        if os.path.exists(specific_template_path):
-            logging.info(
-                "Specific environment values template found: " + specific_template_path)
-            with open(specific_template_path) as f:
-                values_env_specific = yaml.safe_load(f)
-            values = dict_merge(values, values_env_specific)
-
-    if KEY_HARNESS in values and 'name' in values[KEY_HARNESS] and values[KEY_HARNESS]['name']:
-        logging.warning('Name is automatically set in applications: name %s will be ignored',
-                        values[KEY_HARNESS]['name'])
-
-    image_paths = [path for path in find_dockerfiles_paths(
-        app_path) if 'tasks/' not in path and 'subapps' not in path]
-    if len(image_paths) > 1:
-        logging.warning('Multiple Dockerfiles found in application %s. Picking the first one: %s', app_name,
-                        image_paths[0])
-    if len(image_paths) > 0:
-        image_name = image_name_from_dockerfile_path(os.path.relpath(
-            image_paths[0], os.path.dirname(app_path)), base_image_name)
-        values['image'] = image_tag(image_name, registry, tag)
-    elif KEY_HARNESS in values and values[KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('image', None) and values[
-            KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('auto', False) and not values('image', None):
-        raise Exception(f"At least one Dockerfile must be specified on application {app_name}. "
-                        f"Specify harness.deployment.image value if you intend to use a prebuilt image.")
-
-    task_images_paths = [path for path in find_dockerfiles_paths(
-        app_path) if 'tasks/' in path]
-    values[KEY_TASK_IMAGES] = values.get(KEY_TASK_IMAGES, {})
-    for task_path in task_images_paths:
-        task_name = app_name_from_path(os.path.relpath(
-            task_path, os.path.dirname(app_path)))
-        img_name = image_name_from_dockerfile_path(task_name, base_image_name)
-
-        values[KEY_TASK_IMAGES][task_name] = image_tag(img_name, registry, tag)
-
-    if KEY_HARNESS in values and 'dependencies' in values[KEY_HARNESS] and 'build' in values[KEY_HARNESS]['dependencies']:
-        for build_dependency in values[KEY_HARNESS]['dependencies']['build']:
-            if build_dependency in base_images:
-                values[KEY_TASK_IMAGES][build_dependency] = base_images[build_dependency]
-
-    return values
-
-
-def image_tag(image_name, registry, tag):
-    return registry + image_name + f':{tag}' if tag else ''
+def generate_tag_from_content(content_path, ignore=()):
+    from dirhash import dirhash
+    return dirhash(content_path, 'sha1', ignore=ignore)
 
 
 def extract_env_variables_from_values(values, envs=tuple(), prefix=''):
@@ -703,7 +749,7 @@ def validate_dependencies(values):
                 d for d in app_values[KEY_HARNESS]['dependencies']['build']}
 
             not_found = {
-                d for d in build_dependencies if d not in values['task-images']}
+                d for d in build_dependencies if d not in values[KEY_TASK_IMAGES]}
             not_found = {d for d in not_found if d not in all_apps}
             if not_found:
                 raise ValuesValidationException(

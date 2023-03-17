@@ -3,6 +3,7 @@ import socket
 import glob
 import subprocess
 import os
+from functools import cache
 from os.path import join, dirname, isdir, basename, exists, relpath, sep, dirname as dn
 import json
 import collections
@@ -350,11 +351,13 @@ def merge_app_directories(root_paths, destination) -> None:
 def to_python_module(name):
     return name.replace('-', '_')
 
-
+@cache
 def guess_build_dependencies_from_dockerfile(filename):
     dependencies = []
     if not "Dockerfile" in filename:
         filename = join(filename, "Dockerfile")
+    if not os.path.exists(filename):
+        return dependencies
     with open(filename) as f:
         for line in f:
             if line.startswith("ARG") and not "=" in line:
