@@ -1,8 +1,7 @@
 ARG PARENT=python:3.9.10
 FROM ${PARENT}
 
-RUN apt update
-RUN apt install -y nfs-common
+RUN apt-get update && apt-get install -y nfs-common && rm -rf /var/lib/apt/lists/*
 
 RUN pip install pytest --no-cache-dir
 COPY libraries/models/requirements.txt /libraries/models/requirements.txt
