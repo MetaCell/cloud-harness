@@ -70,14 +70,15 @@ def preprocess_build_overrides(root_paths, helm_values, merge_build_path=DEFAULT
             elif app_name.replace("-", "_") in helm_values[KEY_APPS]:
                 merge_appdir(root_path, base_path)
                 merged = True
-
-    with open(join(merge_build_path, ".dockerignore"), "a") as dst:
-        
-        for root_path in root_paths:
-            ignore_file = join(root_path, ".dockerignore")
-            if os.path.exists(ignore_file):
-                with open(ignore_file) as src:
-                    dst.write(src.read())
+                
+    if exists(merge_build_path):
+        with open(join(merge_build_path, ".dockerignore"), "a") as dst:
+            
+            for root_path in root_paths:
+                ignore_file = join(root_path, ".dockerignore")
+                if os.path.exists(ignore_file):
+                    with open(ignore_file) as src:
+                        dst.write(src.read())
                 
     return (root_paths + [merge_build_path]) if merged else root_paths
 
