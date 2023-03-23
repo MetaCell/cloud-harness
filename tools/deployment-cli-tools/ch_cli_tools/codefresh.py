@@ -365,7 +365,8 @@ def codefresh_app_publish_spec(app_name, build_tag, base_name=None):
 
     step_spec = codefresh_template_spec(
         template_path=CF_TEMPLATE_PUBLISH_PATH,
-        candidate=image_tag_with_variables(app_name, build_tag, base_name),
+        candidate="${{REGISTRY}}/%s:%s" % (get_image_name(
+            app_name, base_name), build_tag or '${{DEPLOYMENT_TAG}}'),
         title=title,
     )
     if not build_tag:
