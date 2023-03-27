@@ -43,8 +43,8 @@ class CloudHarnessAuthenticateHandler(BaseHandler):
 
                 accessToken = accessToken.value
                 user_data = AuthClient.decode_token(accessToken)
-                username = user_data['preferred_username']
-                print("Username", username)
+                username = user_data['sub']
+                print("Username", user_data['preferred_username'])
                 raw_user = self.user_from_username(username)
 
                 self.set_login_cookie(raw_user)

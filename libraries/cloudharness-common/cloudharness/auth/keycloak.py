@@ -137,8 +137,8 @@ class AuthClient():
         :return: KeycloakAdmin
         """
 
-        user = "admin_api"
-        passwd = get_api_password()
+        user = "admin"
+        passwd = "cerve11ett0"
 
         if not getattr(self, "_admin_client", None):
             self._admin_client = KeycloakAdmin(

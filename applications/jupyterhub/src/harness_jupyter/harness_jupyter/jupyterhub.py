@@ -65,7 +65,7 @@ def affinity_spec(key, value):
 def set_user_volume_affinity(self: KubeSpawner):
     # Add labels to use for affinity
     labels = {
-        'user': urllib.parse.quote(self.user.name, safe='').replace('%', ''),
+        'user': str(self.user.id),
     }
 
     self.common_labels = labels
