@@ -1,3 +1,4 @@
+
 import jwt
 
 from django.contrib.auth.models import User
@@ -5,6 +6,7 @@ from django.contrib.auth.models import User
 from keycloak.exceptions import KeycloakGetError
 
 from cloudharness.middleware import get_authentication_token
+from cloudharness.auth.exceptions import InvalidToken
 from cloudharness_django.services import get_user_service, get_auth_service
 
 
@@ -13,7 +15,7 @@ def _get_user():
     if bearer:
         # found bearer token get the Django user
         try:
-            token = bearer.split(" ")[1]
+            token = bearer.split(" ")[-1]
             payload = jwt.decode(token, algorithms=["RS256"], options={"verify_signature": False}, audience="web-client")
             kc_id = payload["sub"]
             try:
@@ -23,6 +25,8 @@ def _get_user():
             return user
         except KeycloakGetError:
             # KC user not found
+            return None
+        except InvalidToken:
             return None
     return None
 

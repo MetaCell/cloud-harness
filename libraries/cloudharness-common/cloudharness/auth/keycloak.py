@@ -11,6 +11,7 @@ from cloudharness import log
 from cloudharness.middleware import get_authentication_token
 from cloudharness.models import UserGroup, User
 
+from .exceptions import UserNotFound, InvalidToken, AuthSecretNotFound
 
 try:
     from cloudharness.utils.config import CloudharnessConfig as conf, ALLVALUES_PATH
@@ -20,9 +21,7 @@ except:
               ALLVALUES_PATH, exc_info=True)
 
 
-class AuthSecretNotFound(Exception):
-    def __init__(self, secret_name):
-        Exception.__init__(self, f"Secret {secret_name} not found.")
+
 
 
 def get_api_password() -> str:
@@ -58,8 +57,10 @@ def decode_token(token, **kwargs):
     :return: Decoded token information or None if token is invalid
     :rtype: dict | None
     """
-
-    decoded = AuthClient.decode_token(token)
+    try:
+        decoded = AuthClient.decode_token(token)
+    except InvalidToken:
+        return None
     return decoded
 
 
@@ -93,8 +94,7 @@ def is_uuid(s):
     except ValueError:
         return False
 
-class UserNotFound(KeycloakGetError):
-    pass
+
 class AuthClient():
     __public_key = None
 
@@ -115,8 +115,10 @@ class AuthClient():
         if not authentication_token or authentication_token == 'Bearer undefined':
             keycloak_user_id = "-1"  # No authorization --> no user
         else:
-            token = authentication_token.split(' ')[1]
+            token = authentication_token.split(' ')[-1]
+            
             keycloak_user_id = AuthClient.decode_token(token)['sub']
+
         return keycloak_user_id
 
     def __init__(self):
@@ -182,9 +184,11 @@ class AuthClient():
         :return: Decoded token information or None if token is invalid
         :rtype: dict | None
         """
-
-        decoded = jwt.decode(token, cls.get_public_key(),
-                             algorithms='RS256', audience=audience)
+        try:
+            decoded = jwt.decode(token, cls.get_public_key(),
+                                algorithms='RS256', audience=audience)
+        except jwt.exceptions.InvalidTokenError as e:
+            raise InvalidToken(e) from e
         return decoded
 
     @with_refreshtoken
@@ -432,6 +436,8 @@ class AuthClient():
             try:
                 user = admin_client.get_user(user_id)
             except KeycloakGetError as e:
+                raise UserNotFound(user_id)
+            except InvalidToken as e:
                 raise UserNotFound(user_id)
                 
         else:
