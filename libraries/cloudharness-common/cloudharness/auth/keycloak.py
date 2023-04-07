@@ -121,12 +121,16 @@ class AuthClient():
 
         return keycloak_user_id
 
-    def __init__(self):
+    def __init__(self, username=None, password=None):
         """
         Init the class and checks the connectivity to the KeyCloak server
         """
+
+        self.user = username or "admin_api"
+        self.passwd = password or get_api_password()
         # test if we can connect to the Keycloak server
         dummy_client = self.get_admin_client()
+        
 
     def get_admin_client(self):
         """
@@ -139,14 +143,13 @@ class AuthClient():
         :return: KeycloakAdmin
         """
 
-        user = "admin_api"
-        passwd = get_api_password()
+        
 
         if not getattr(self, "_admin_client", None):
             self._admin_client = KeycloakAdmin(
                 server_url=get_server_url(),
-                username=user,
-                password=passwd,
+                username=self.user,
+                password=self.passwd,
                 realm_name=get_auth_realm(),
                 user_realm_name='master',
                 verify=True)
