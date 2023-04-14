@@ -22,7 +22,8 @@ ENV PORT=8080
 
 COPY backend/requirements.txt /usr/src/app/
 
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache python -m pip install --upgrade pip &&\
+    pip3 install -r requirements.txt  --prefer-binary
 
 COPY backend/ /usr/src/app
 
