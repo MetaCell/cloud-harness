@@ -22,7 +22,7 @@ class AuthorizationLevel(Enum):
 # create the auth client
 if os.path.isfile(ALLVALUES_PATH):
     # CH values exists so running with a valid config
-    auth_client = AuthClient()
+    auth_client = AuthClient(os.getenv("ACCOUNTS_ADMIN_USERNAME", None), os.getenv("ACCOUNTS_ADMIN_PASSWORD", None))
 else:
     auth_client = None
 

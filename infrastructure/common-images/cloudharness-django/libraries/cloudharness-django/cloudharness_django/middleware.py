@@ -8,7 +8,7 @@ from keycloak.exceptions import KeycloakGetError
 from cloudharness.middleware import get_authentication_token
 from cloudharness.auth.exceptions import InvalidToken
 from cloudharness_django.services import get_user_service, get_auth_service
-
+from cloudharness import log
 
 def _get_user():
     bearer = get_authentication_token()
@@ -28,6 +28,10 @@ def _get_user():
             return None
         except InvalidToken:
             return None
+        except Exception as e:
+            log.exception("User mapping error, %s", payload["email"])
+            return None
+        
     return None
 
 
