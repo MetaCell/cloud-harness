@@ -126,8 +126,8 @@ class AuthClient():
         Init the class and checks the connectivity to the KeyCloak server
         """
 
-        self.user = username or "admin_api"
-        self.passwd = password or get_api_password()
+        self.user = username or os.getenv('ACCOUNTS_ADMIN_USERNAME', None) or "admin_api"
+        self.passwd = password or os.getenv('ACCOUNTS_ADMIN_PASSWORD', None) or  get_api_password()
         # test if we can connect to the Keycloak server
         dummy_client = self.get_admin_client()
         
