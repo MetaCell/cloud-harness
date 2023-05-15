@@ -1,7 +1,11 @@
 import sys
 import urllib.parse
+import asyncio
+from functools import partial
 
 from kubespawner.spawner import KubeSpawner
+from jupyterhub.utils import exponential_backoff
+
 
 from cloudharness.applications import get_configuration
 from cloudharness.auth.quota import get_user_quotas
@@ -9,6 +13,7 @@ from cloudharness.utils.config import CloudharnessConfig as conf
 from cloudharness import log as logging, set_debug
 
 set_debug()
+
 
 def custom_options_form(spawner, abc):
     # let's skip the profile selection form for now
@@ -73,7 +78,7 @@ def set_user_volume_affinity(self: KubeSpawner):
 
     for key, value in labels.items():
         self.pod_affinity_required.append(affinity_spec(key, value))
-        
+
 
 def set_key_value(self, key, value, unit=None):
     if value:
@@ -92,9 +97,11 @@ def change_pvc_manifest(self: KubeSpawner):
         user_quotas = get_user_quotas(
             application_config=application_config,
             user_id=self.user.name)
-        set_key_value(self, key="storage_capacity", value=user_quotas.get("quota-storage-max"), unit="Gi")
+        set_key_value(self, key="storage_capacity",
+                      value=user_quotas.get("quota-storage-max"), unit="Gi")
     except Exception as e:
         logging.error("Harness error changing pvc manifest", exc_info=True)
+
 
 def change_pod_manifest(self: KubeSpawner):
     # check user quotas
@@ -106,6 +113,10 @@ def change_pod_manifest(self: KubeSpawner):
         user_id=self.user.name)
 
     quota_ws_open = user_quotas.get("quota-ws-open")
+
+    # Default value, might be overwritten by the app config
+    self.storage_pvc_ensure =  bool(self.pvc_name) 
+
     if quota_ws_open:
         # get user number of pods running
         servers = [s for s in self.user.all_spawners(include_default=True)]
@@ -118,7 +129,8 @@ def change_pod_manifest(self: KubeSpawner):
                                 ),
                             )
     try:
-        subdomain = self.handler.request.host.split(str(self.config['domain']))[0][0:-1]
+        subdomain = self.handler.request.host.split(
+            str(self.config['domain']))[0][0:-1]
         app_config = self.config['apps']
         registry = self.config['registry']
         for app in app_config.values():
@@ -136,10 +148,12 @@ def change_pod_manifest(self: KubeSpawner):
                             image_plus_tag = task_images[task_image]
                             if ws_image in image_plus_tag:
                                 ws_image = image_plus_tag
-                                logging.error(f'Found tag for image: {ws_image}')
+                                logging.error(
+                                    f'Found tag for image: {ws_image}')
                                 break
                     else:
-                        if app['name'] != 'jupyterhub': # Would use the hub image in that case, which we don't want.
+                        # Would use the hub image in that case, which we don't want.
+                        if app['name'] != 'jupyterhub':
                             ws_image = harness['deployment']['image']
                             logging.info(f'Use spacific app image: {ws_image}')
                     if ws_image:
@@ -161,7 +175,7 @@ def change_pod_manifest(self: KubeSpawner):
                             self.volumes = []
 
                         # set http timeout higher to give the notebooks time to run their init scripts
-                        self.http_timeout = 60 * 5 # 5 minutes
+                        self.http_timeout = 60 * 5  # 5 minutes
 
                         if 'spawnerExtraConfig' in harness['jupyterhub']:
                             logging.info("Setting custom spawner config")
@@ -172,16 +186,19 @@ def change_pod_manifest(self: KubeSpawner):
                                         setattr(self, k, v)
 
                                 # check if there are node selectors, if so apply them to the pod
-                                node_selectors = harness['jupyterhub']['spawnerExtraConfig'].get('node_selectors')
+                                node_selectors = harness['jupyterhub']['spawnerExtraConfig'].get(
+                                    'node_selectors')
                                 if node_selectors:
                                     for node_selector in node_selectors:
-                                        logging.info("Setting node selector", node_selector["key"])
+                                        logging.info(
+                                            "Setting node selector", node_selector["key"])
                                         ns = dict(
                                             matchExpressions=[
                                                 dict(
                                                     key=node_selector['key'],
                                                     operator=node_selector['operator'],
-                                                    values=[node_selector['values']],
+                                                    values=[
+                                                        node_selector['values']],
                                                 )
                                             ],
                                         )
@@ -194,20 +211,27 @@ def change_pod_manifest(self: KubeSpawner):
                                                 ),
                                             )
                                         elif match_node_purpose == 'require':
-                                            self.node_affinity_required.append(ns)
+                                            self.node_affinity_required.append(
+                                                ns)
                                         elif match_node_purpose == 'ignore':
                                             pass
                                         else:
-                                            raise ValueError("Unrecognized value for matchNodePurpose: %r" % match_node_purpose)
+                                            raise ValueError(
+                                                "Unrecognized value for matchNodePurpose: %r" % match_node_purpose)
                             except:
-                                logging.error("Error loading Spawner extra configuration", exc_info=True)
+                                logging.error(
+                                    "Error loading Spawner extra configuration", exc_info=True)
 
                         # set user quota cpu/mem usage if value has a "value" else don't change the value
                         logging.info("Setting user quota cpu/mem usage")
-                        set_key_value(self, key="cpu_guarantee", value=user_quotas.get("quota-ws-guaranteecpu"))
-                        set_key_value(self, key="cpu_limit", value=user_quotas.get("quota-ws-maxcpu"))
-                        set_key_value(self, key="mem_guarantee", value=user_quotas.get("quota-ws-guaranteemem"), unit="G")
-                        set_key_value(self, key="mem_limit", value=user_quotas.get("quota-ws-maxmem"), unit="G")
+                        set_key_value(self, key="cpu_guarantee", value=user_quotas.get(
+                            "quota-ws-guaranteecpu"))
+                        set_key_value(self, key="cpu_limit",
+                                      value=user_quotas.get("quota-ws-maxcpu"))
+                        set_key_value(self, key="mem_guarantee", value=user_quotas.get(
+                            "quota-ws-guaranteemem"), unit="G")
+                        set_key_value(self, key="mem_limit", value=user_quotas.get(
+                            "quota-ws-maxmem"), unit="G")
 
                         # check if there is an applicationHook defined in the values.yaml
                         # if so then execute the applicationHook function with "self" as parameter
@@ -218,8 +242,10 @@ def change_pod_manifest(self: KubeSpawner):
                         #
                         # this will execute jupyter.change_pod_manifest(self=self)
                         if 'applicationHook' in harness['jupyterhub']:
-                            func_name = harness['jupyterhub']['applicationHook'].split('.')
-                            logging.info(f"Executing application hook {func_name}")
+                            func_name = harness['jupyterhub']['applicationHook'].split(
+                                '.')
+                            logging.info(
+                                f"Executing application hook {func_name}")
                             module = __import__('.'.join(func_name[:-1]))
                             f = getattr(module, func_name[-1])
                             f(self=self)
@@ -229,3 +255,20 @@ def change_pod_manifest(self: KubeSpawner):
         raise e
     except Exception as e:
         logging.error("Harness error changing manifest", exc_info=True)
+
+    if self.storage_pvc_ensure and self.volumes:
+
+        pvc = self.get_pvc_manifest()
+        from pprint import pprint
+        pprint(self.storage_class)
+
+
+        # If there's a timeout, just let it propagate
+        asyncio.ensure_future(exponential_backoff(
+                partial(
+                    self._make_create_pvc_request, pvc, self.k8s_api_request_timeout
+                ),
+                f'Could not create PVC {self.pvc_name}',
+                # Each req should be given k8s_api_request_timeout seconds.
+                timeout=self.k8s_api_request_retry_timeout,
+            ))
