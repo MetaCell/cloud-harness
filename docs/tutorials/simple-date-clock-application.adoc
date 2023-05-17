@@ -75,6 +75,11 @@ If everything is good, you're in the right path to use {ch}!
 {ch} is designed to help you generate all the required artifacts for a deployment on a Kubernetes cluster.
 For a local deployment, you can use minikube, which is basically https://minikube.sigs.k8s.io/docs/start/[a small {kub} cluster on your machine].
 
+
+[IMPORTANT - WSL2]
+If following this tutorial in a Windows WSL2 - then check https://stackoverflowteams.com/c/metacell/questions/84/[this] for help!
+
+
 [IMPORTANT]
 The setup of a {kub} cluster is not mandatory to use {ch}.
 This step is proposed in this tutorial to show you how to deploy an application generated with {ch} on a local cluster and to appreciate how much {ch} reduces the pain of writing deployment configuration artifacts.
