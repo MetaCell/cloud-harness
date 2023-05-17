@@ -71,6 +71,7 @@ If everything is good, you're in the right path to use {ch}!
 
 == How to setup your local cluster using minikube (if not done yet)
 
+
 {ch} is designed to help you generate all the required artifacts for a deployment on a Kubernetes cluster.
 For a local deployment, you can use minikube, which is basically https://minikube.sigs.k8s.io/docs/start/[a small {kub} cluster on your machine].
 
@@ -147,7 +148,7 @@ If you don't create the namespace, the deployment will fail!
 [source,bash]
 ----
 # ran from the cloud-harness repository root
-harness-deployment  . -u -dtls -l -d azathoth.local -e local -n azathoth.local
+harness-deployment  . -u -dtls -l -d azathoth.local -e local -n azathoth
 ----
 
 In the state of the repository I have on my machine, the apps and services that will be deployed and that `harness-deployment` generated the configuration for are:
