@@ -307,6 +307,8 @@ The file tree should now be the following.
 
 Now you can build/deploy/run it using `skaffold`.
 
+Before running `skaffold run` go inside the newly created application using harness-application; and make sure the frontend for the application contains package-lock.json. If not then install the dependencies by running `npm i --legacy-peer-deps`.
+
 .Building/deploying/running the webapp with skaffold
 [source,bash]
 ----
