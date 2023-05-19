@@ -77,7 +77,7 @@ For a local deployment, you can use minikube, which is basically https://minikub
 
 
 [IMPORTANT - WSL2]
-If following this tutorial in a Windows WSL2 - then check https://stackoverflowteams.com/c/metacell/questions/84/[this] for help!
+If you're following this tutorial in a Windows WSL2 - then check =>  link:./cloud-harness-wsl2-setup.md[cloud-harness-wsl2-setup] for help!
 
 
 [IMPORTANT]
