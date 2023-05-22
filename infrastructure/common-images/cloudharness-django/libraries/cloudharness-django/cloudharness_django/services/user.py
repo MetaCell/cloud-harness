@@ -3,6 +3,12 @@ from django.contrib.auth.models import User, Group
 from cloudharness_django.models import Team, Member
 from cloudharness_django.services.auth import AuthorizationLevel
 
+def get_user_by_kc_id(kc_id) -> User:
+    try:
+        return Member.objects.get(kc_id=kc_id).user
+    except Member.DoesNotExist:
+        return None
+
 class UserService:
     def __init__(self, auth_service):
         self.auth_service = auth_service
