@@ -30,7 +30,7 @@ jobs:
 
       - name: Build an image from Dockerfile
         run: |
-          docker build -t cloudharness-base:${{ github.sha }} . -f ./infrastructure/base-images/cloudharness-base/Dockerfile
+          DOCKER_BUILDKIT=1 docker build -t cloudharness-base:${{ github.sha }} . -f ./infrastructure/base-images/cloudharness-base/Dockerfile
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@2a2157eb22c08c9a1fac99263430307b8d1bc7a2
