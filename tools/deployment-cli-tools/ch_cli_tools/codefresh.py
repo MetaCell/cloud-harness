@@ -48,10 +48,12 @@ def write_env_file(helm_values: HarnessMainConfig, filename):
         # First check if the tag is present in the local file system cache.
         # This saves time from manifest checks and does not require auth to the registry.
         cache_filename = image_cache_filename(image)
+        logging.info("Checking local fs cache file: %s", cache_filename)
         if exists(cache_filename):
             with open(cache_filename) as f:
                 tags = {s.strip() for s in f.readlines()}
             if tag in tags:
+                logging.info("Image %s exists in local fs cache", image)
                 env[app_specific_tag_variable(name) + "_EXISTS"] = 1
                 return
         
@@ -62,6 +64,7 @@ def write_env_file(helm_values: HarnessMainConfig, filename):
         resp = requests.get(api_url)
         if resp.status_code == 200:
             # TODO the hash might be the same but not the parent's hash
+            logging.info("Image %s exists in remote registry cache", image)
             env[app_specific_tag_variable(name) + "_EXISTS"] = 1
         else:
             env[app_specific_tag_variable(name) + "_NEW"] = 1
