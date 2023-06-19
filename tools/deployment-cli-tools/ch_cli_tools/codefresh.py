@@ -32,6 +32,8 @@ def literal_presenter(dumper, data):
 
 
 yaml.add_representer(str, literal_presenter)
+def image_cache_filename(image):
+    return join("/codefresh/volume/.cache", image)
 
 def write_env_file(helm_values: HarnessMainConfig, filename):
     env = {}
@@ -42,6 +44,17 @@ def write_env_file(helm_values: HarnessMainConfig, filename):
 
     def check_image_exists(name, image):
         tag = extract_tag(image)
+
+        # First check if the tag is present in the local file system cache.
+        # This saves time from manifest checks and does not require auth to the registry.
+        cache_filename = image_cache_filename(image)
+        if exists(cache_filename):
+            with open(cache_filename) as f:
+                tags = {s.strip() for s in f.readlines()}
+            if tag in tags:
+                env[app_specific_tag_variable(name) + "_EXISTS"] = 1
+                return
+        
         chunks = image.split(":")[0].split("/")
         registry = chunks[0] if "." in chunks[0] else "docker.io"
         image_name = "/".join(chunks[1::] if "." in chunks[0] else chunks[0::])
@@ -52,6 +65,8 @@ def write_env_file(helm_values: HarnessMainConfig, filename):
             env[app_specific_tag_variable(name) + "_EXISTS"] = 1
         else:
             env[app_specific_tag_variable(name) + "_NEW"] = 1
+
+    
 
     for app in helm_values.apps.values():
         if app.harness and app.harness.deployment.image:
@@ -378,6 +393,8 @@ def image_tag_with_variables(app_name, build_tag, base_name=""):
     return "${{REGISTRY}}/%s:${{%s}}" % (get_image_name(
             app_name, base_name), build_tag or '${{DEPLOYMENT_TAG}}')
 
+def cf_var(varname):
+    return "${{%s}}" % varname
 
 def app_specific_tag_variable(app_name):
     return "%s_TAG" % app_name.replace('-', '_').upper().strip()
@@ -387,15 +404,16 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
     logging.info('Generating build script for ' + app_name)
     title = app_name.capitalize().replace(
         '-', ' ').replace('/', ' ').replace('.', ' ').strip()
+    image_name = get_image_name(app_name, base_name)
     build = codefresh_template_spec(
         template_path=CF_BUILD_PATH,
-        image_name=get_image_name(app_name, base_name),
+        image_name=image_name,
         title=title,
         working_directory='./' + app_context_path,
         dockerfile=dockerfile_path)
     
     tag = app_specific_tag_variable(app_name)
-    build["tag"] = "${{%s}}" % tag
+    build["tags"] = "${{%s}}" % tag
 
     specific_build_template_path = join(app_context_path, 'build.yaml')
     if exists(specific_build_template_path):
@@ -426,6 +444,9 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
     
     when_condition = existing_build_when_condition(tag)
     build["when"] = when_condition
+    build["hooks"]["on_success"]["commands"].append(f"echo {cf_var(tag)} >> {image_cache_filename(image_name)}")
+    build["cache_from"].append(f"{image_name}:{cf_var(tag)}")
+    build["cache_from"].append(f"{image_name}:latest")
     return build
 
 def existing_build_when_condition(tag):

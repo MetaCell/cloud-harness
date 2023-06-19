@@ -3,6 +3,14 @@ stage: build
 dockerfile: Dockerfile
 registry: '${{CODEFRESH_REGISTRY}}'
 buildkit: true
+registry_contexts:
+  - '${{CODEFRESH_REGISTRY}}'
 build_arguments:
+  - BUILDKIT_INLINE_CACHE=1
   - DOMAIN=${{DOMAIN}}
   - NOCACHE=${{CF_BUILD_ID}}
+cache_from: []
+hooks:
+  on_success:
+    image: alpine:3
+    commands: []

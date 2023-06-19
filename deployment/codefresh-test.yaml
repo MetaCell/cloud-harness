@@ -57,14 +57,25 @@ steps:
         dockerfile: infrastructure/base-images/cloudharness-base/Dockerfile
         registry: '${{CODEFRESH_REGISTRY}}'
         buildkit: true
+        registry_contexts:
+        - '${{CODEFRESH_REGISTRY}}'
         build_arguments:
+        - BUILDKIT_INLINE_CACHE=1
         - DOMAIN=${{DOMAIN}}
         - NOCACHE=${{CF_BUILD_ID}}
         - REGISTRY=${{REGISTRY}}/cloudharness/
+        cache_from:
+        - cloudharness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
+        - cloudharness/cloudharness-base:latest
+        hooks:
+          on_success:
+            image: alpine:3
+            commands:
+            - echo ${{CLOUDHARNESS_BASE_TAG}} >> /codefresh/volume/.cache/cloudharness/cloudharness-base
         image_name: cloudharness/cloudharness-base
         title: Cloudharness base
         working_directory: ./.
-        tag: '${{CLOUDHARNESS_BASE_TAG}}'
+        tags: '${{CLOUDHARNESS_BASE_TAG}}'
         when:
           condition:
             any:
@@ -78,14 +89,25 @@ steps:
         dockerfile: infrastructure/base-images/cloudharness-frontend-build/Dockerfile
         registry: '${{CODEFRESH_REGISTRY}}'
         buildkit: true
+        registry_contexts:
+        - '${{CODEFRESH_REGISTRY}}'
         build_arguments:
+        - BUILDKIT_INLINE_CACHE=1
         - DOMAIN=${{DOMAIN}}
         - NOCACHE=${{CF_BUILD_ID}}
         - REGISTRY=${{REGISTRY}}/cloudharness/
+        cache_from:
+        - cloudharness/cloudharness-frontend-build:${{CLOUDHARNESS_FRONTEND_BUILD_TAG}}
+        - cloudharness/cloudharness-frontend-build:latest
+        hooks:
+          on_success:
+            image: alpine:3
+            commands:
+            - echo ${{CLOUDHARNESS_FRONTEND_BUILD_TAG}} >> /codefresh/volume/.cache/cloudharness/cloudharness-frontend-build
         image_name: cloudharness/cloudharness-frontend-build
         title: Cloudharness frontend build
         working_directory: ./.
-        tag: '${{CLOUDHARNESS_FRONTEND_BUILD_TAG}}'
+        tags: '${{CLOUDHARNESS_FRONTEND_BUILD_TAG}}'
         when:
           condition:
             any:
@@ -104,15 +126,26 @@ steps:
         dockerfile: Dockerfile
         registry: '${{CODEFRESH_REGISTRY}}'
         buildkit: true
+        registry_contexts:
+        - '${{CODEFRESH_REGISTRY}}'
         build_arguments:
+        - BUILDKIT_INLINE_CACHE=1
         - DOMAIN=${{DOMAIN}}
         - NOCACHE=${{CF_BUILD_ID}}
         - REGISTRY=${{REGISTRY}}/cloudharness/
         - CLOUDHARNESS_BASE=${{REGISTRY}}/cloudharness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
+        cache_from:
+        - cloudharness/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}
+        - cloudharness/cloudharness-flask:latest
+        hooks:
+          on_success:
+            image: alpine:3
+            commands:
+            - echo ${{CLOUDHARNESS_FLASK_TAG}} >> /codefresh/volume/.cache/cloudharness/cloudharness-flask
         image_name: cloudharness/cloudharness-flask
         title: Cloudharness flask
         working_directory: ./infrastructure/common-images/cloudharness-flask
-        tag: '${{CLOUDHARNESS_FLASK_TAG}}'
+        tags: '${{CLOUDHARNESS_FLASK_TAG}}'
         when:
           condition:
             any:
@@ -130,14 +163,25 @@ steps:
         dockerfile: Dockerfile
         registry: '${{CODEFRESH_REGISTRY}}'
         buildkit: true
+        registry_contexts:
+        - '${{CODEFRESH_REGISTRY}}'
         build_arguments:
+        - BUILDKIT_INLINE_CACHE=1
         - DOMAIN=${{DOMAIN}}
         - NOCACHE=${{CF_BUILD_ID}}
         - REGISTRY=${{REGISTRY}}/cloudharness/
+        cache_from:
+        - cloudharness/nfsserver:${{NFSSERVER_TAG}}
+        - cloudharness/nfsserver:latest
+        hooks:
+          on_success:
+            image: alpine:3
+            commands:
+            - echo ${{NFSSERVER_TAG}} >> /codefresh/volume/.cache/cloudharness/nfsserver
         image_name: cloudharness/nfsserver
         title: Nfsserver
         working_directory: ./applications/nfsserver
-        tag: '${{NFSSERVER_TAG}}'
+        tags: '${{NFSSERVER_TAG}}'
         when:
           condition:
             any:
@@ -151,14 +195,25 @@ steps:
         dockerfile: Dockerfile
         registry: '${{CODEFRESH_REGISTRY}}'
         buildkit: true
+        registry_contexts:
+        - '${{CODEFRESH_REGISTRY}}'
         build_arguments:
+        - BUILDKIT_INLINE_CACHE=1
         - DOMAIN=${{DOMAIN}}
         - NOCACHE=${{CF_BUILD_ID}}
         - REGISTRY=${{REGISTRY}}/cloudharness/
+        cache_from:
+        - cloudharness/accounts:${{ACCOUNTS_TAG}}
+        - cloudharness/accounts:latest
+        hooks:
+          on_success:
+            image: alpine:3
+            commands:
+            - echo ${{ACCOUNTS_TAG}} >> /codefresh/volume/.cache/cloudharness/accounts
         image_name: cloudharness/accounts
         title: Accounts
         working_directory: ./applications/accounts
-        tag: '${{ACCOUNTS_TAG}}'
+        tags: '${{ACCOUNTS_TAG}}'
         when:
           condition:
             any:
@@ -172,16 +227,27 @@ steps:
         dockerfile: Dockerfile
         registry: '${{CODEFRESH_REGISTRY}}'
         buildkit: true
+        registry_contexts:
+        - '${{CODEFRESH_REGISTRY}}'
         build_arguments:
+        - BUILDKIT_INLINE_CACHE=1
         - DOMAIN=${{DOMAIN}}
         - NOCACHE=${{CF_BUILD_ID}}
         - REGISTRY=${{REGISTRY}}/cloudharness/
         - CLOUDHARNESS_FRONTEND_BUILD=${{REGISTRY}}/cloudharness/cloudharness-frontend-build:${{CLOUDHARNESS_FRONTEND_BUILD_TAG}}
         - CLOUDHARNESS_FLASK=${{REGISTRY}}/cloudharness/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}
+        cache_from:
+        - cloudharness/samples:${{SAMPLES_TAG}}
+        - cloudharness/samples:latest
+        hooks:
+          on_success:
+            image: alpine:3
+            commands:
+            - echo ${{SAMPLES_TAG}} >> /codefresh/volume/.cache/cloudharness/samples
         image_name: cloudharness/samples
         title: Samples
         working_directory: ./applications/samples
-        tag: '${{SAMPLES_TAG}}'
+        tags: '${{SAMPLES_TAG}}'
         when:
           condition:
             any:
@@ -195,15 +261,26 @@ steps:
         dockerfile: Dockerfile
         registry: '${{CODEFRESH_REGISTRY}}'
         buildkit: true
+        registry_contexts:
+        - '${{CODEFRESH_REGISTRY}}'
         build_arguments:
+        - BUILDKIT_INLINE_CACHE=1
         - DOMAIN=${{DOMAIN}}
         - NOCACHE=${{CF_BUILD_ID}}
         - REGISTRY=${{REGISTRY}}/cloudharness/
         - CLOUDHARNESS_BASE=${{REGISTRY}}/cloudharness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
+        cache_from:
+        - cloudharness/samples-print-file:${{SAMPLES_PRINT_FILE_TAG}}
+        - cloudharness/samples-print-file:latest
+        hooks:
+          on_success:
+            image: alpine:3
+            commands:
+            - echo ${{SAMPLES_PRINT_FILE_TAG}} >> /codefresh/volume/.cache/cloudharness/samples-print-file
         image_name: cloudharness/samples-print-file
         title: Samples print file
         working_directory: ./applications/samples/tasks/print-file
-        tag: '${{SAMPLES_PRINT_FILE_TAG}}'
+        tags: '${{SAMPLES_PRINT_FILE_TAG}}'
         when:
           condition:
             any:
@@ -217,15 +294,26 @@ steps:
         dockerfile: Dockerfile
         registry: '${{CODEFRESH_REGISTRY}}'
         buildkit: true
+        registry_contexts:
+        - '${{CODEFRESH_REGISTRY}}'
         build_arguments:
+        - BUILDKIT_INLINE_CACHE=1
         - DOMAIN=${{DOMAIN}}
         - NOCACHE=${{CF_BUILD_ID}}
         - REGISTRY=${{REGISTRY}}/cloudharness/
         - CLOUDHARNESS_BASE=${{REGISTRY}}/cloudharness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
+        cache_from:
+        - cloudharness/samples-secret:${{SAMPLES_SECRET_TAG}}
+        - cloudharness/samples-secret:latest
+        hooks:
+          on_success:
+            image: alpine:3
+            commands:
+            - echo ${{SAMPLES_SECRET_TAG}} >> /codefresh/volume/.cache/cloudharness/samples-secret
         image_name: cloudharness/samples-secret
         title: Samples secret
         working_directory: ./applications/samples/tasks/secret
-        tag: '${{SAMPLES_SECRET_TAG}}'
+        tags: '${{SAMPLES_SECRET_TAG}}'
         when:
           condition:
             any:
@@ -239,15 +327,26 @@ steps:
         dockerfile: Dockerfile
         registry: '${{CODEFRESH_REGISTRY}}'
         buildkit: true
+        registry_contexts:
+        - '${{CODEFRESH_REGISTRY}}'
         build_arguments:
+        - BUILDKIT_INLINE_CACHE=1
         - DOMAIN=${{DOMAIN}}
         - NOCACHE=${{CF_BUILD_ID}}
         - REGISTRY=${{REGISTRY}}/cloudharness/
         - CLOUDHARNESS_BASE=${{REGISTRY}}/cloudharness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
+        cache_from:
+        - cloudharness/samples-sum:${{SAMPLES_SUM_TAG}}
+        - cloudharness/samples-sum:latest
+        hooks:
+          on_success:
+            image: alpine:3
+            commands:
+            - echo ${{SAMPLES_SUM_TAG}} >> /codefresh/volume/.cache/cloudharness/samples-sum
         image_name: cloudharness/samples-sum
         title: Samples sum
         working_directory: ./applications/samples/tasks/sum
-        tag: '${{SAMPLES_SUM_TAG}}'
+        tags: '${{SAMPLES_SUM_TAG}}'
         when:
           condition:
             any:
@@ -261,15 +360,26 @@ steps:
         dockerfile: Dockerfile
         registry: '${{CODEFRESH_REGISTRY}}'
         buildkit: true
+        registry_contexts:
+        - '${{CODEFRESH_REGISTRY}}'
         build_arguments:
+        - BUILDKIT_INLINE_CACHE=1
         - DOMAIN=${{DOMAIN}}
         - NOCACHE=${{CF_BUILD_ID}}
         - REGISTRY=${{REGISTRY}}/cloudharness/
         - CLOUDHARNESS_FLASK=${{REGISTRY}}/cloudharness/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}
+        cache_from:
+        - cloudharness/common:${{COMMON_TAG}}
+        - cloudharness/common:latest
+        hooks:
+          on_success:
+            image: alpine:3
+            commands:
+            - echo ${{COMMON_TAG}} >> /codefresh/volume/.cache/cloudharness/common
         image_name: cloudharness/common
         title: Common
         working_directory: ./applications/common/server
-        tag: '${{COMMON_TAG}}'
+        tags: '${{COMMON_TAG}}'
         when:
           condition:
             any:
@@ -283,15 +393,26 @@ steps:
         dockerfile: Dockerfile
         registry: '${{CODEFRESH_REGISTRY}}'
         buildkit: true
+        registry_contexts:
+        - '${{CODEFRESH_REGISTRY}}'
         build_arguments:
+        - BUILDKIT_INLINE_CACHE=1
         - DOMAIN=${{DOMAIN}}
         - NOCACHE=${{CF_BUILD_ID}}
         - REGISTRY=${{REGISTRY}}/cloudharness/
         - CLOUDHARNESS_BASE=${{REGISTRY}}/cloudharness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
+        cache_from:
+        - cloudharness/workflows-send-result-event:${{WORKFLOWS_SEND_RESULT_EVENT_TAG}}
+        - cloudharness/workflows-send-result-event:latest
+        hooks:
+          on_success:
+            image: alpine:3
+            commands:
+            - echo ${{WORKFLOWS_SEND_RESULT_EVENT_TAG}} >> /codefresh/volume/.cache/cloudharness/workflows-send-result-event
         image_name: cloudharness/workflows-send-result-event
         title: Workflows send result event
         working_directory: ./applications/workflows/tasks/send-result-event
-        tag: '${{WORKFLOWS_SEND_RESULT_EVENT_TAG}}'
+        tags: '${{WORKFLOWS_SEND_RESULT_EVENT_TAG}}'
         when:
           condition:
             any:
@@ -305,14 +426,25 @@ steps:
         dockerfile: Dockerfile
         registry: '${{CODEFRESH_REGISTRY}}'
         buildkit: true
+        registry_contexts:
+        - '${{CODEFRESH_REGISTRY}}'
         build_arguments:
+        - BUILDKIT_INLINE_CACHE=1
         - DOMAIN=${{DOMAIN}}
         - NOCACHE=${{CF_BUILD_ID}}
         - REGISTRY=${{REGISTRY}}/cloudharness/
+        cache_from:
+        - cloudharness/workflows-extract-download:${{WORKFLOWS_EXTRACT_DOWNLOAD_TAG}}
+        - cloudharness/workflows-extract-download:latest
+        hooks:
+          on_success:
+            image: alpine:3
+            commands:
+            - echo ${{WORKFLOWS_EXTRACT_DOWNLOAD_TAG}} >> /codefresh/volume/.cache/cloudharness/workflows-extract-download
         image_name: cloudharness/workflows-extract-download
         title: Workflows extract download
         working_directory: ./applications/workflows/tasks/extract-download
-        tag: '${{WORKFLOWS_EXTRACT_DOWNLOAD_TAG}}'
+        tags: '${{WORKFLOWS_EXTRACT_DOWNLOAD_TAG}}'
         when:
           condition:
             any:
@@ -326,15 +458,26 @@ steps:
         dockerfile: Dockerfile
         registry: '${{CODEFRESH_REGISTRY}}'
         buildkit: true
+        registry_contexts:
+        - '${{CODEFRESH_REGISTRY}}'
         build_arguments:
+        - BUILDKIT_INLINE_CACHE=1
         - DOMAIN=${{DOMAIN}}
         - NOCACHE=${{CF_BUILD_ID}}
         - REGISTRY=${{REGISTRY}}/cloudharness/
         - CLOUDHARNESS_BASE=${{REGISTRY}}/cloudharness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
+        cache_from:
+        - cloudharness/workflows-notify-queue:${{WORKFLOWS_NOTIFY_QUEUE_TAG}}
+        - cloudharness/workflows-notify-queue:latest
+        hooks:
+          on_success:
+            image: alpine:3
+            commands:
+            - echo ${{WORKFLOWS_NOTIFY_QUEUE_TAG}} >> /codefresh/volume/.cache/cloudharness/workflows-notify-queue
         image_name: cloudharness/workflows-notify-queue
         title: Workflows notify queue
         working_directory: ./applications/workflows/tasks/notify-queue
-        tag: '${{WORKFLOWS_NOTIFY_QUEUE_TAG}}'
+        tags: '${{WORKFLOWS_NOTIFY_QUEUE_TAG}}'
         when:
           condition:
             any:
@@ -348,15 +491,26 @@ steps:
         dockerfile: Dockerfile
         registry: '${{CODEFRESH_REGISTRY}}'
         buildkit: true
+        registry_contexts:
+        - '${{CODEFRESH_REGISTRY}}'
         build_arguments:
+        - BUILDKIT_INLINE_CACHE=1
         - DOMAIN=${{DOMAIN}}
         - NOCACHE=${{CF_BUILD_ID}}
         - REGISTRY=${{REGISTRY}}/cloudharness/
         - CLOUDHARNESS_FLASK=${{REGISTRY}}/cloudharness/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}
+        cache_from:
+        - cloudharness/workflows:${{WORKFLOWS_TAG}}
+        - cloudharness/workflows:latest
+        hooks:
+          on_success:
+            image: alpine:3
+            commands:
+            - echo ${{WORKFLOWS_TAG}} >> /codefresh/volume/.cache/cloudharness/workflows
         image_name: cloudharness/workflows
         title: Workflows
         working_directory: ./applications/workflows/server
-        tag: '${{WORKFLOWS_TAG}}'
+        tags: '${{WORKFLOWS_TAG}}'
         when:
           condition:
             any:
@@ -401,14 +555,25 @@ steps:
         dockerfile: Dockerfile
         registry: '${{CODEFRESH_REGISTRY}}'
         buildkit: true
+        registry_contexts:
+        - '${{CODEFRESH_REGISTRY}}'
         build_arguments:
+        - BUILDKIT_INLINE_CACHE=1
         - DOMAIN=${{DOMAIN}}
         - NOCACHE=${{CF_BUILD_ID}}
         - REGISTRY=${{REGISTRY}}/cloudharness/
+        cache_from:
+        - cloudharness/test-e2e:${{TEST_E2E_TAG}}
+        - cloudharness/test-e2e:latest
+        hooks:
+          on_success:
+            image: alpine:3
+            commands:
+            - echo ${{TEST_E2E_TAG}} >> /codefresh/volume/.cache/cloudharness/test-e2e
         image_name: cloudharness/test-e2e
         title: Test e2e
         working_directory: ./test/test-e2e
-        tag: '${{TEST_E2E_TAG}}'
+        tags: '${{TEST_E2E_TAG}}'
         when:
           condition:
             any:
@@ -422,15 +587,26 @@ steps:
         dockerfile: test/test-api/Dockerfile
         registry: '${{CODEFRESH_REGISTRY}}'
         buildkit: true
+        registry_contexts:
+        - '${{CODEFRESH_REGISTRY}}'
         build_arguments:
+        - BUILDKIT_INLINE_CACHE=1
         - DOMAIN=${{DOMAIN}}
         - NOCACHE=${{CF_BUILD_ID}}
         - REGISTRY=${{REGISTRY}}/cloudharness/
         - CLOUDHARNESS_BASE=${{REGISTRY}}/cloudharness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
+        cache_from:
+        - cloudharness/test-api:${{TEST_API_TAG}}
+        - cloudharness/test-api:latest
+        hooks:
+          on_success:
+            image: alpine:3
+            commands:
+            - echo ${{TEST_API_TAG}} >> /codefresh/volume/.cache/cloudharness/test-api
         image_name: cloudharness/test-api
         title: Test api
         working_directory: ./.
-        tag: '${{TEST_API_TAG}}'
+        tags: '${{TEST_API_TAG}}'
         when:
           condition:
             any:
