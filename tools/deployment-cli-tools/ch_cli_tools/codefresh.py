@@ -36,7 +36,7 @@ def image_cache_filename(image):
     cache_dir = "/codefresh/volume/.cache"
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
-    return join(cache_dir, image)
+    return join(cache_dir, image.split("/")[-1])
 
 def write_env_file(helm_values: HarnessMainConfig, filename):
     env = {}
