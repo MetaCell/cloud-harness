@@ -53,12 +53,9 @@ def write_env_file(helm_values: HarnessMainConfig, filename):
         cache_filename = image_cache_filename(image)
         logging.info("Checking local fs cache file: %s", cache_filename)
         if exists(cache_filename):
-            with open(cache_filename) as f:
-                tags = {s.strip() for s in f.readlines()}
-            if tag in tags:
-                logging.info("Image %s exists in local fs cache", image)
-                env[app_specific_tag_variable(name) + "_EXISTS"] = 1
-                return
+            logging.info("Image %s exists in local fs cache", image)
+            env[app_specific_tag_variable(name) + "_EXISTS"] = 1
+            return
         
         chunks = image.split(":")[0].split("/")
         registry = chunks[0] if "." in chunks[0] else "docker.io"
@@ -450,8 +447,10 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
     
     when_condition = existing_build_when_condition(tag)
     build["when"] = when_condition
-    build["hooks"]["on_success"]["commands"].append(f"echo {cf_var(tag)} >> {image_cache_filename(image_name)}")
-    build["cache_from"].append(f"{image_name}:{cf_var(tag)}")
+    full_image_name = f"{image_name}:{cf_var(tag)}"
+    build["hooks"]["on_success"]["commands"].append(f"touch {image_cache_filename(full_image_name)}")
+    
+    build["cache_from"].append(full_image_name)
     build["cache_from"].append(f"{image_name}:latest")
     return build
 
