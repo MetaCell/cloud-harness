@@ -413,7 +413,7 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
         dockerfile=dockerfile_path)
     
     tag = app_specific_tag_variable(app_name)
-    build["tags"] = "${{%s}}" % tag
+    build["tag"] = cf_var(tag)
 
     specific_build_template_path = join(app_context_path, 'build.yaml')
     if exists(specific_build_template_path):
