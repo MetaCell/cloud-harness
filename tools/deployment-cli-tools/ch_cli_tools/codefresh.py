@@ -33,7 +33,10 @@ def literal_presenter(dumper, data):
 
 yaml.add_representer(str, literal_presenter)
 def image_cache_filename(image):
-    return join("/codefresh/volume/.cache", image)
+    cache_dir = "/codefresh/volume/.cache"
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir)
+    return join(cache_dir, image)
 
 def write_env_file(helm_values: HarnessMainConfig, filename):
     env = {}
