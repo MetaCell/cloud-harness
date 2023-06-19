@@ -21,7 +21,7 @@ CLOUD_HARNESS_PATH = "cloud-harness"
 ROLLOUT_CMD_TPL = "kubectl rollout status deployment/%s"
 
 # Codefresh variables may need quotes: adjust yaml dump accordingly
-
+CODEFRESH_IMAGE_CACHE_DIR = "/codefresh/volume/.cache"
 
 def literal_presenter(dumper, data):
     if isinstance(data, str) and "\n" in data:
@@ -32,16 +32,16 @@ def literal_presenter(dumper, data):
 
 
 yaml.add_representer(str, literal_presenter)
+
 def image_cache_filename(image):
-    cache_dir = "/codefresh/volume/.cache"
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir)
-    return join(cache_dir, image.split("/")[-1])
+    return join(CODEFRESH_IMAGE_CACHE_DIR, image.split("/")[-1])
 
 def write_env_file(helm_values: HarnessMainConfig, filename):
     env = {}
     logging.info("Create env file with image info %s", filename)
-
+    if not os.path.exists(CODEFRESH_IMAGE_CACHE_DIR):
+        os.makedirs(CODEFRESH_IMAGE_CACHE_DIR)
+        
     def extract_tag(image_name):
         return image_name.split(":")[1] if ":" in image_name else "latest"
 

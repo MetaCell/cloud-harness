@@ -71,7 +71,7 @@ steps:
           on_success:
             image: alpine:3
             commands:
-            - echo ${{CLOUDHARNESS_BASE_TAG}} >> /codefresh/volume/.cache/cloudharness/cloudharness-base
+            - touch /codefresh/volume/.cache/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
         image_name: cloudharness/cloudharness-base
         title: Cloudharness base
         working_directory: ./.
@@ -103,7 +103,7 @@ steps:
           on_success:
             image: alpine:3
             commands:
-            - echo ${{CLOUDHARNESS_FRONTEND_BUILD_TAG}} >> /codefresh/volume/.cache/cloudharness/cloudharness-frontend-build
+            - touch /codefresh/volume/.cache/cloudharness-frontend-build:${{CLOUDHARNESS_FRONTEND_BUILD_TAG}}
         image_name: cloudharness/cloudharness-frontend-build
         title: Cloudharness frontend build
         working_directory: ./.
@@ -141,7 +141,7 @@ steps:
           on_success:
             image: alpine:3
             commands:
-            - echo ${{CLOUDHARNESS_FLASK_TAG}} >> /codefresh/volume/.cache/cloudharness/cloudharness-flask
+            - touch /codefresh/volume/.cache/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}
         image_name: cloudharness/cloudharness-flask
         title: Cloudharness flask
         working_directory: ./infrastructure/common-images/cloudharness-flask
@@ -177,7 +177,7 @@ steps:
           on_success:
             image: alpine:3
             commands:
-            - echo ${{NFSSERVER_TAG}} >> /codefresh/volume/.cache/cloudharness/nfsserver
+            - touch /codefresh/volume/.cache/nfsserver:${{NFSSERVER_TAG}}
         image_name: cloudharness/nfsserver
         title: Nfsserver
         working_directory: ./applications/nfsserver
@@ -209,7 +209,7 @@ steps:
           on_success:
             image: alpine:3
             commands:
-            - echo ${{ACCOUNTS_TAG}} >> /codefresh/volume/.cache/cloudharness/accounts
+            - touch /codefresh/volume/.cache/accounts:${{ACCOUNTS_TAG}}
         image_name: cloudharness/accounts
         title: Accounts
         working_directory: ./applications/accounts
@@ -243,7 +243,7 @@ steps:
           on_success:
             image: alpine:3
             commands:
-            - echo ${{SAMPLES_TAG}} >> /codefresh/volume/.cache/cloudharness/samples
+            - touch /codefresh/volume/.cache/samples:${{SAMPLES_TAG}}
         image_name: cloudharness/samples
         title: Samples
         working_directory: ./applications/samples
@@ -276,7 +276,7 @@ steps:
           on_success:
             image: alpine:3
             commands:
-            - echo ${{SAMPLES_PRINT_FILE_TAG}} >> /codefresh/volume/.cache/cloudharness/samples-print-file
+            - touch /codefresh/volume/.cache/samples-print-file:${{SAMPLES_PRINT_FILE_TAG}}
         image_name: cloudharness/samples-print-file
         title: Samples print file
         working_directory: ./applications/samples/tasks/print-file
@@ -309,7 +309,7 @@ steps:
           on_success:
             image: alpine:3
             commands:
-            - echo ${{SAMPLES_SECRET_TAG}} >> /codefresh/volume/.cache/cloudharness/samples-secret
+            - touch /codefresh/volume/.cache/samples-secret:${{SAMPLES_SECRET_TAG}}
         image_name: cloudharness/samples-secret
         title: Samples secret
         working_directory: ./applications/samples/tasks/secret
@@ -342,7 +342,7 @@ steps:
           on_success:
             image: alpine:3
             commands:
-            - echo ${{SAMPLES_SUM_TAG}} >> /codefresh/volume/.cache/cloudharness/samples-sum
+            - touch /codefresh/volume/.cache/samples-sum:${{SAMPLES_SUM_TAG}}
         image_name: cloudharness/samples-sum
         title: Samples sum
         working_directory: ./applications/samples/tasks/sum
@@ -375,7 +375,7 @@ steps:
           on_success:
             image: alpine:3
             commands:
-            - echo ${{COMMON_TAG}} >> /codefresh/volume/.cache/cloudharness/common
+            - touch /codefresh/volume/.cache/common:${{COMMON_TAG}}
         image_name: cloudharness/common
         title: Common
         working_directory: ./applications/common/server
@@ -408,7 +408,7 @@ steps:
           on_success:
             image: alpine:3
             commands:
-            - echo ${{WORKFLOWS_SEND_RESULT_EVENT_TAG}} >> /codefresh/volume/.cache/cloudharness/workflows-send-result-event
+            - touch /codefresh/volume/.cache/workflows-send-result-event:${{WORKFLOWS_SEND_RESULT_EVENT_TAG}}
         image_name: cloudharness/workflows-send-result-event
         title: Workflows send result event
         working_directory: ./applications/workflows/tasks/send-result-event
@@ -440,7 +440,7 @@ steps:
           on_success:
             image: alpine:3
             commands:
-            - echo ${{WORKFLOWS_EXTRACT_DOWNLOAD_TAG}} >> /codefresh/volume/.cache/cloudharness/workflows-extract-download
+            - touch /codefresh/volume/.cache/workflows-extract-download:${{WORKFLOWS_EXTRACT_DOWNLOAD_TAG}}
         image_name: cloudharness/workflows-extract-download
         title: Workflows extract download
         working_directory: ./applications/workflows/tasks/extract-download
@@ -473,7 +473,7 @@ steps:
           on_success:
             image: alpine:3
             commands:
-            - echo ${{WORKFLOWS_NOTIFY_QUEUE_TAG}} >> /codefresh/volume/.cache/cloudharness/workflows-notify-queue
+            - touch /codefresh/volume/.cache/workflows-notify-queue:${{WORKFLOWS_NOTIFY_QUEUE_TAG}}
         image_name: cloudharness/workflows-notify-queue
         title: Workflows notify queue
         working_directory: ./applications/workflows/tasks/notify-queue
@@ -506,7 +506,7 @@ steps:
           on_success:
             image: alpine:3
             commands:
-            - echo ${{WORKFLOWS_TAG}} >> /codefresh/volume/.cache/cloudharness/workflows
+            - touch /codefresh/volume/.cache/workflows:${{WORKFLOWS_TAG}}
         image_name: cloudharness/workflows
         title: Workflows
         working_directory: ./applications/workflows/server
@@ -569,7 +569,7 @@ steps:
           on_success:
             image: alpine:3
             commands:
-            - echo ${{TEST_E2E_TAG}} >> /codefresh/volume/.cache/cloudharness/test-e2e
+            - touch /codefresh/volume/.cache/test-e2e:${{TEST_E2E_TAG}}
         image_name: cloudharness/test-e2e
         title: Test e2e
         working_directory: ./test/test-e2e
@@ -602,7 +602,7 @@ steps:
           on_success:
             image: alpine:3
             commands:
-            - echo ${{TEST_API_TAG}} >> /codefresh/volume/.cache/cloudharness/test-api
+            - touch /codefresh/volume/.cache/test-api:${{TEST_API_TAG}}
         image_name: cloudharness/test-api
         title: Test api
         working_directory: ./.
