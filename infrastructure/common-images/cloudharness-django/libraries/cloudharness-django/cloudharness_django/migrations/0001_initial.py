@@ -28,7 +28,7 @@ class Migration(migrations.Migration):
             name='Member',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('kc_id', models.CharField(max_length=100)),
+                ('kc_id', models.CharField(max_length=100, db_index=True)),
                 ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
             ],
         ),

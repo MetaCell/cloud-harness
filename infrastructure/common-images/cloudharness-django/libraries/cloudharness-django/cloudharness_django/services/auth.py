@@ -21,8 +21,12 @@ class AuthorizationLevel(Enum):
 
 # create the auth client
 if os.path.isfile(ALLVALUES_PATH):
+    try:
     # CH values exists so running with a valid config
-    auth_client = AuthClient(os.getenv("ACCOUNTS_ADMIN_USERNAME", None), os.getenv("ACCOUNTS_ADMIN_PASSWORD", None))
+        auth_client = AuthClient(os.getenv("ACCOUNTS_ADMIN_USERNAME", None), os.getenv("ACCOUNTS_ADMIN_PASSWORD", None))
+    except:
+        log.exception("Failed to initialize auth client")
+        auth_client = None
 else:
     auth_client = None
 
