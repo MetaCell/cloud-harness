@@ -1,0 +1,52 @@
+{
+  "commercial": {
+    "vendor_product_page": "https://www.ptglab.com/Products/MSN-Antibody-82009-1-RR.htm",
+    "vendor": "Proteintech",
+    "antibody_name": "Moesin AntiBody",
+    "host_species": "Rabbit",
+    "target_reactive_species": "Human, Mouse",
+    "antibody_target": "MSN",
+    "clone_id": "3B8",
+    "isotype": "IgG",
+    "conjugate": "Unconjugate",
+    "antibody_format": "Azide free",
+    "uniprot_id": "H5TG12",
+    "epitope": "KA34S6D",
+    "applications": "ELISA, WB",
+    "comments": "Comments from Automated Testing for Commercial Antibody"
+  },
+  "personal": {
+    "vendor_product_page": "https://www.ptglab.com/Products/MSN-Antibody-82009-1-RR.htm",
+    "vendor": "J. Doe - Harvard",
+    "antibody_name": "Personal Moesin AntiBody",
+    "host_species": "Whale",
+    "target_reactive_species": "Shark, Dolphin",
+    "antibody_target": "INST",
+    "clone_id": "5G1",
+    "isotype": "AbC",
+    "conjugate": "Fluor 488",
+    "antibody_format": "Glycerol free",
+    "uniprot_id": "Q128476",
+    "epitope": "IAVpdV43",
+    "applications": "WB",
+    "comments": "Comments from Automated Testing for Personal Antibody",
+    "citation": "26424258"
+  },
+  "custom": {
+    "vendor_product_page": "https://www.ptglab.com/Products/MSN-Antibody-82009-1-RR.htm",
+    "vendor": "J. Smith - Brown",
+    "antibody_name": "Custom Moesin AntiBody",
+    "host_species": "Eagle",
+    "target_reactive_species": "Bird",
+    "antibody_target": "TWIT",
+    "clone_id": "6f3",
+    "isotype": "PKw",
+    "conjugate": "Calcium 122",
+    "antibody_format": "carbon free",
+    "uniprot_id": "RSD5642",
+    "epitope": "988hG5",
+    "applications": "FC",
+    "comments": "Comments from Automated Testing for Custom Antibody",
+    "citation": "26448758"
+  }
+}
