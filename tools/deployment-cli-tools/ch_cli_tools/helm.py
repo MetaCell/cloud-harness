@@ -459,8 +459,8 @@ class CloudHarnessHelm:
             
             values['image'] = self.image_tag(
                 image_name, build_context_path=app_path, dependencies=build_dependencies)
-        elif KEY_HARNESS in values and values[KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('image', None) and values[
-                KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('auto', False) and not values('image', None):
+        elif KEY_HARNESS in values and not values[KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('image', None) and values[
+                KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('auto', False):
             raise Exception(f"At least one Dockerfile must be specified on application {app_name}. "
                             f"Specify harness.deployment.image value if you intend to use a prebuilt image.")
 
