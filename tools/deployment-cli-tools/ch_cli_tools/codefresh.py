@@ -196,7 +196,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                             steps[CD_STEP_PUBLISH]['steps'] = {}
                         steps[CD_STEP_PUBLISH]['steps']['publish_' + app_name] = codefresh_app_publish_spec(
                             app_name=app_name,
-                            build_tag=build and build['tag'],
+                            build_tag=build and build['tags'][0],
                             base_name=base_image_name
                         )
 
@@ -416,7 +416,7 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
         dockerfile=dockerfile_path)
     
     tag = app_specific_tag_variable(app_name)
-    build["tag"] = cf_var(tag)
+    build["tags"] = [cf_var(tag), "${{CF_BRANCH_TAG_NORMALIZED}}"]
 
     specific_build_template_path = join(app_context_path, 'build.yaml')
     if exists(specific_build_template_path):
@@ -425,8 +425,7 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
         with open(specific_build_template_path) as f:
             build_specific = yaml.safe_load(f)
 
-        build_specific.pop(
-            'build_arguments') if 'build_arguments' in build_specific else []
+        build_specific.pop('build_arguments') if 'build_arguments' in build_specific else []
 
     build['build_arguments'].append('REGISTRY=${{REGISTRY}}/%s/' % base_name)
 
@@ -447,11 +446,11 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
     
     when_condition = existing_build_when_condition(tag)
     build["when"] = when_condition
-    full_image_name = f"{image_name}:{cf_var(tag)}"
-    build["hooks"]["on_success"]["commands"].append(f"touch {image_cache_filename(full_image_name)}")
+    full_image_name = f"{cf_var('REGISTRY')}/{image_name}:{cf_var(tag)}"
+    # build["hooks"]["on_success"]["commands"].append(f"touch {image_cache_filename(full_image_name)}")
     
-    build["cache_from"].append(full_image_name)
-    build["cache_from"].append(f"{image_name}:latest")
+    build["cache_from"] += [f"{cf_var('REGISTRY')}/{image_name}:{tag}" for tag in build["tags"]]
+
     return build
 
 def existing_build_when_condition(tag):
