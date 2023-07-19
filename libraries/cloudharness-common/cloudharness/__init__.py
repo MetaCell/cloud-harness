@@ -46,8 +46,9 @@ def init(appname: str):
     if not appname:
         raise NotCorrectlyInitialized
     try:
-        from cloudharness import sentry
-        sentry.init(appname)
+        from cloudharness import sentry, applications
+        if applications.get_current_configuration().is_sentry_enabled():
+            sentry.init(appname)
     except Exception as e:
         log.warning(f'Error enabling Sentry for {appname}', exc_info=True)
 

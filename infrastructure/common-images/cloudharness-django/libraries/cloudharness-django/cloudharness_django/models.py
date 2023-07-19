@@ -13,7 +13,7 @@ class Team(models.Model):
 
 class Member(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    kc_id = models.CharField(max_length = 100)
+    kc_id = models.CharField(max_length = 100, db_index=True)
 
     def __str__(self):
         return f"{self.user.first_name} {self.user.last_name}"

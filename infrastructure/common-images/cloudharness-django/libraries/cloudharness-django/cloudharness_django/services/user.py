@@ -3,6 +3,12 @@ from django.contrib.auth.models import User, Group
 from cloudharness_django.models import Team, Member
 from cloudharness_django.services.auth import AuthorizationLevel
 
+def get_user_by_kc_id(kc_id) -> User:
+    try:
+        return Member.objects.get(kc_id=kc_id).user
+    except Member.DoesNotExist:
+        return None
+
 class UserService:
     def __init__(self, auth_service):
         self.auth_service = auth_service
@@ -28,6 +34,7 @@ class UserService:
         user.username = kc_user.get("username", kc_user["email"])
         user.first_name = kc_user.get("firstName", "")
         user.last_name = kc_user.get("lastName", "")
+        user.email = kc_user.get("email", "")
         
         user.is_active = kc_user.get("enabled", delete)
         return user
@@ -98,7 +105,7 @@ class UserService:
     
     def sync_kc_user_groups(self, kc_user):
         # Sync the user usergroups and memberships
-        user = User.objects.get(email=kc_user["email"])
+        user = User.objects.get(username=kc_user["email"])
         user_groups = []
         for kc_group in kc_user["userGroups"]:
             user_groups += [Group.objects.get(name=kc_group["name"])]
