@@ -11,7 +11,7 @@ from cloudharness_utils.testing.util import get_app_environment
 from .models import HarnessMainConfig, ApplicationTestConfig, ApplicationHarnessConfig
 from cloudharness_utils.constants import *
 from .helm import KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES, generate_tag_from_content
-from .utils import find_dockerfiles_paths, get_app_relative_to_base_path, guess_build_dependencies_from_dockerfile, \
+from .utils import check_docker_manifest_exists, find_dockerfiles_paths, get_app_relative_to_base_path, guess_build_dependencies_from_dockerfile, \
     get_image_name, get_template, dict_merge, app_name_from_path, clean_path
 from cloudharness_utils.testing.api import get_api_filename, get_schemathesis_command, get_urls_from_api_file
 
@@ -33,7 +33,7 @@ def literal_presenter(dumper, data):
 
 yaml.add_representer(str, literal_presenter)
 
-def write_env_file(helm_values: HarnessMainConfig, filename):
+def write_env_file(helm_values: HarnessMainConfig, filename, registry_secret=None):
     env = {}
     logging.info("Create env file with image info %s", filename)
 
@@ -45,13 +45,14 @@ def write_env_file(helm_values: HarnessMainConfig, filename):
         chunks = image.split(":")[0].split("/")
         registry = chunks[0] if "." in chunks[0] else "docker.io"
         image_name = "/".join(chunks[1::] if "." in chunks[0] else chunks[0::])
-        api_url = f"https://{registry}/v2/{image_name}/manifests/{tag}"
-        resp = requests.get(api_url)
-        if resp.status_code == 200:
+        exists = check_docker_manifest_exists(registry, image_name, tag, registry_secret=registry_secret)
+        if exists:
             # TODO the hash might be the same but not the parent's hash
             env[app_specific_tag_variable(name) + "_EXISTS"] = 1
         else:
             env[app_specific_tag_variable(name) + "_NEW"] = 1
+
+    
 
     for app in helm_values.apps.values():
         if app.harness and app.harness.deployment.image:

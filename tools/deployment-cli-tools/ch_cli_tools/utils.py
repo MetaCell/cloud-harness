@@ -2,6 +2,7 @@
 import socket
 import glob
 import subprocess
+import requests
 import os
 from functools import cache
 from os.path import join, dirname, isdir, basename, exists, relpath, sep, dirname as dn
@@ -33,11 +34,14 @@ def image_name_from_dockerfile_path(dockerfile_path, base_name=None):
 def app_name_from_path(dockerfile_path):
     return "-".join(p for p in dockerfile_path.split("/") if p not in NEUTRAL_PATHS)
 
+
 def clean_path(path):
     return "/".join(p for p in path.split("/") if p not in NEUTRAL_PATHS)
-    
+
+
 def get_app_relative_to_base_path(base_path, dockerfile_path):
-    return clean_path(relpath(dockerfile_path, base_path)) 
+    return clean_path(relpath(dockerfile_path, base_path))
+
 
 def get_sub_paths(base_path):
     return tuple(path for path in glob.glob(base_path + "/*") if isdir(path))
@@ -351,6 +355,7 @@ def merge_app_directories(root_paths, destination) -> None:
 def to_python_module(name):
     return name.replace('-', '_')
 
+
 @cache
 def guess_build_dependencies_from_dockerfile(filename):
     dependencies = []
@@ -367,4 +372,7 @@ def guess_build_dependencies_from_dockerfile(filename):
     return dependencies
 
 
-
+def check_docker_manifest_exists(registry, image_name, tag, registry_secret=None):
+    api_url = f"https://{registry}/v2/{image_name}/manifests/{tag}"
+    resp = requests.get(api_url)
+    return resp.status_code == 200
