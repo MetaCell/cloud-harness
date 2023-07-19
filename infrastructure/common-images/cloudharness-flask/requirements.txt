@@ -3,5 +3,6 @@ Flask==1.1.2
 Flask-Cors==3.0.9
 flask-oidc==1.4.0
 Flask-Testing==0.6.1
+gunicorn
 swagger-ui-bundle==0.0.8
 Werkzeug==2.0.3
