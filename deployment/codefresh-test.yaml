@@ -544,4 +544,4 @@ steps:
     stage: qa
     commands:
     - kubectl config use-context ${{CLUSTER_NAME}}
-    - kubectl delete ns test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
+    - kubectl delete ns test-${{NAMESPACE_BASENAME}}
