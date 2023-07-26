@@ -7,7 +7,7 @@ from .test_env import set_test_environment
 
 set_test_environment()
 
-from cloudharness.workflows import operations, tasks
+from cloudharness.workflows import operations, tasks, utils
 from cloudharness import set_debug
 from cloudharness.workflows import argo
 from cloudharness.utils.config import CloudharnessConfig
@@ -23,7 +23,12 @@ def check_wf(wf):
     
     assert wf["kind"] == "Workflow"
     assert "spec" in wf
-    
+
+def test_volume_affinity_check():
+    assert not utils.volume_requires_affinity("a")
+    assert utils.volume_requires_affinity("a:b")
+    assert utils.volume_requires_affinity("a:b:ro")
+    assert not utils.volume_requires_affinity("a:b:rwx")
 
 def test_sync_workflow():
     def f():
@@ -119,8 +124,43 @@ def test_single_task_shared():
     if accounts_offset == 1:
         assert wf['spec']['volumes'][1]['secret']['secretName'] == 'accounts'
     assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 2 + accounts_offset
+    assert wf['spec']['templates'][0]['metadata']['labels']['usesvolume'] == 'myclaim'
+
+    affinity_glob = \
+        wf['spec']['affinity']['podAffinity']['requiredDuringSchedulingIgnoredDuringExecution'][0]['labelSelector'][
+            'matchExpressions'][0]
+    assert affinity_glob['key'] == 'usesvolume'
+    assert affinity_glob['values'][0] == 'myclaim'
+
     if execute:
         print(op.execute())
+
+def test_pipeline_shared():
+    shared_directory = 'myclaim:/mnt/shared'
+    task_write = operations.CustomTask('download-file', 'workflows-extract-download',
+                                       url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
+    task_script = tasks.BashTask('print-file', source="ls -la")
+    op = operations.PipelineOperation('test-custom-connected-op-', [task_write, task_script],
+                                        shared_directory=shared_directory, shared_volume_size=100)
+    wf = op.to_workflow()
+
+    accounts_offset = 1 if is_accounts_present() else 0
+    assert len(op.volumes) == 1
+    assert len(wf['spec']['volumes']) == 2 + accounts_offset
+    assert wf['spec']['volumes'][1+accounts_offset]['persistentVolumeClaim']['claimName'] == 'myclaim'
+    if accounts_offset == 1:
+        assert wf['spec']['volumes'][1]['secret']['secretName'] == 'accounts'
+    assert len(wf['spec']['templates'][1]['container']['volumeMounts']) == 2 + accounts_offset
+    assert wf['spec']['templates'][1]['metadata']['labels']['usesvolume'] == 'myclaim'
+    assert wf['spec']['templates'][2]['metadata']['labels']['usesvolume'] == 'myclaim'
+    affinity_glob = \
+        wf['spec']['affinity']['podAffinity']['requiredDuringSchedulingIgnoredDuringExecution'][0]['labelSelector'][
+            'matchExpressions'][0]
+    assert affinity_glob['key'] == 'usesvolume'
+    assert affinity_glob['values'][0] == 'myclaim'
+
+    if execute:
+        print(op.execute())        
 
 def test_single_task_shared_rwx():
     shared_directory = 'myclaim:/mnt/shared:rwx'
@@ -139,9 +179,39 @@ def test_single_task_shared_rwx():
         assert wf['spec']['volumes'][1]['secret']['secretName'] == 'accounts'
     assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 2 + accounts_offset
 
+
+
+
     assert not 'affinity' in wf['spec'], "Pod affinity should not be added for rwx volumes"
-    
+
 def test_single_task_volume_notshared():
+
+    task_write = operations.CustomTask('download-file', 'workflows-extract-download', volume_mounts=["a:b"],
+                                       url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
+    op = operations.SingleTaskOperation('test-custom-connected-op-', task_write, shared_volume_size=100)
+    wf = op.to_workflow()
+
+    accounts_offset = 1 if is_accounts_present() else 0
+    assert len(op.volumes) == 0
+    assert len(wf['spec']['volumes']) == 2 + accounts_offset
+    assert wf['spec']['volumes'][1+accounts_offset]['persistentVolumeClaim']['claimName'] == 'a'
+    if accounts_offset == 1:
+        assert wf['spec']['volumes'][1]['secret']['secretName'] == 'accounts'
+    assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 2 + accounts_offset
+
+    
+    assert 'affinity' not in wf['spec']
+
+    affinity_tpl = \
+        wf['spec']['templates'][0]['affinity']['podAffinity']['requiredDuringSchedulingIgnoredDuringExecution'][0]['labelSelector'][
+            'matchExpressions'][0]
+    assert affinity_tpl['key'] == 'usesvolume'
+    assert affinity_tpl['values'][0] == 'a'
+    assert wf['spec']['templates'][0]['metadata']['labels']['usesvolume'] == 'a'
+    if execute:
+        print(op.execute())
+
+def test_single_task_volumes_notshared():
     shared_directory = 'myclaim:/mnt/shared'
     task_write = operations.CustomTask('download-file', 'workflows-extract-download', volume_mounts=["a:b"],
                                        url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
@@ -167,7 +237,7 @@ def test_single_task_volume_notshared():
             'matchExpressions'][0]
     assert affinity_tpl['key'] == 'usesvolume'
     assert affinity_tpl['values'][0] == 'a'
-
+    assert wf['spec']['templates'][0]['metadata']['labels']['usesvolume']
     if execute:
         print(op.execute())
 
@@ -200,6 +270,7 @@ def test_single_task_shared_multiple():
     assert affinity_expr['values'][0] == 'myclaim'
     if execute:
         print(op.execute())
+
 
 
 def test_single_task_shared_script():

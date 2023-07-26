@@ -178,7 +178,11 @@ class ContainerizedOperation(ManagedOperation):
     def modify_template(self, template):
         """Hook to modify templates (e.g. add volumes)"""
 
-        template["metadata"] = {"labels": {c.key: c.value for c in self.pod_contexts}}
+        if 'metadata' not in template:
+            template['metadata'] = dict()
+        if 'labels' not in template["metadata"]:
+            template["metadata"]["labels"] = dict()
+        template["metadata"]["labels"] = template["metadata"]["labels"] | {c.key: c.value for c in self.pod_contexts}
 
         if self.volumes:
             if 'container' in template:

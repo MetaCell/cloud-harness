@@ -25,6 +25,8 @@ def get_workflow_name():
     remove = name.split("-")[-1]
     return name[0:-len(remove) - 1]
 
+def volume_requires_affinity(v):
+    return ':' in v and 'rwx' not in v[-4:]
 
 def get_shared_directory():
     return os.getenv(SHARED_DIRECTORY_VARIABLE_NAME)
