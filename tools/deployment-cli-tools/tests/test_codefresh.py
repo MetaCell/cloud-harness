@@ -214,14 +214,14 @@ def test_create_codefresh_configuration_tests():
 
         assert "samples_e2e_test" in e2e_steps, "samples e2e test step must be included"
         test_step = e2e_steps["samples_e2e_test"]
-        assert "APP_URL=https://samples.${{CF_SHORT_REVISION}}.${{DOMAIN}}" in test_step[
+        assert "APP_URL=https://samples.${{DOMAIN}}" in test_step[
             'environment'], "APP_URL must be provided as environment variable"
         assert len(test_step['volumes']) == 1
 
         assert "test-api" in st_build_test_steps
         api_steps = l1_steps['tests_api']['scale']
         test_step = api_steps["samples_api_test"]
-        assert "APP_URL=https://samples.${{CF_SHORT_REVISION}}.${{DOMAIN}}/api" in test_step[
+        assert "APP_URL=https://samples.${{DOMAIN}}/api" in test_step[
             'environment'], "APP_URL must be provided as environment variable"
         assert len(test_step['volumes']) == 2
 
