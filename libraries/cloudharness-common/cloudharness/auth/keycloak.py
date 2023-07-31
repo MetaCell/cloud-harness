@@ -5,12 +5,13 @@ import json
 import requests
 
 from keycloak import KeycloakAdmin, KeycloakOpenID
-from keycloak.exceptions import KeycloakAuthenticationError
+from keycloak.exceptions import KeycloakAuthenticationError, KeycloakGetError
 
 from cloudharness import log
 from cloudharness.middleware import get_authentication_token
 from cloudharness.models import UserGroup, User
 
+from .exceptions import UserNotFound, InvalidToken, AuthSecretNotFound
 
 try:
     from cloudharness.utils.config import CloudharnessConfig as conf, ALLVALUES_PATH
@@ -20,9 +21,7 @@ except:
               ALLVALUES_PATH, exc_info=True)
 
 
-class AuthSecretNotFound(Exception):
-    def __init__(self, secret_name):
-        Exception.__init__(self, f"Secret {secret_name} not found.")
+
 
 
 def get_api_password() -> str:
@@ -58,8 +57,10 @@ def decode_token(token, **kwargs):
     :return: Decoded token information or None if token is invalid
     :rtype: dict | None
     """
-
-    decoded = AuthClient.decode_token(token)
+    try:
+        decoded = AuthClient.decode_token(token)
+    except InvalidToken:
+        return None
     return decoded
 
 
@@ -85,6 +86,15 @@ def get_token(username, password):
         client_secret_key=conf["webclient"]["secret"])
     return keycloak_openid.token(username, password)['access_token']
 
+def is_uuid(s):
+    import uuid
+    try:
+        uuid.UUID(s)
+        return True
+    except ValueError:
+        return False
+
+
 class AuthClient():
     __public_key = None
 
@@ -105,16 +115,22 @@ class AuthClient():
         if not authentication_token or authentication_token == 'Bearer undefined':
             keycloak_user_id = "-1"  # No authorization --> no user
         else:
-            token = authentication_token.split(' ')[1]
+            token = authentication_token.split(' ')[-1]
+            
             keycloak_user_id = AuthClient.decode_token(token)['sub']
+
         return keycloak_user_id
 
-    def __init__(self):
+    def __init__(self, username=None, password=None):
         """
         Init the class and checks the connectivity to the KeyCloak server
         """
+
+        self.user = username or os.getenv('ACCOUNTS_ADMIN_USERNAME', None) or "admin_api"
+        self.passwd = password or os.getenv('ACCOUNTS_ADMIN_PASSWORD', None) or  get_api_password()
         # test if we can connect to the Keycloak server
         dummy_client = self.get_admin_client()
+        
 
     def get_admin_client(self):
         """
@@ -127,14 +143,13 @@ class AuthClient():
         :return: KeycloakAdmin
         """
 
-        user = "admin_api"
-        passwd = get_api_password()
+        
 
         if not getattr(self, "_admin_client", None):
             self._admin_client = KeycloakAdmin(
                 server_url=get_server_url(),
-                username=user,
-                password=passwd,
+                username=self.user,
+                password=self.passwd,
                 realm_name=get_auth_realm(),
                 user_realm_name='master',
                 verify=True)
@@ -172,9 +187,11 @@ class AuthClient():
         :return: Decoded token information or None if token is invalid
         :rtype: dict | None
         """
-
-        decoded = jwt.decode(token, cls.get_public_key(),
-                             algorithms='RS256', audience=audience)
+        try:
+            decoded = jwt.decode(token, cls.get_public_key(),
+                                algorithms='RS256', audience=audience)
+        except jwt.exceptions.InvalidTokenError as e:
+            raise InvalidToken(e) from e
         return decoded
 
     @with_refreshtoken
@@ -401,11 +418,11 @@ class AuthClient():
         return users
 
     @with_refreshtoken
-    def get_user(self, user_id, with_details=False):
+    def get_user(self, user_id, with_details=False) -> User:
         """
         Get the user including the user groups
 
-        :param user_id: User id
+        :param user_id_or_username: User id or username
         :param with_details: Default False, when set to True all attributes of the group are also retrieved
 
 
@@ -418,14 +435,27 @@ class AuthClient():
         :return: UserRepresentation + GroupRepresentation
         """
         admin_client = self.get_admin_client()
-        user = admin_client.get_user(user_id)
+        if is_uuid(user_id):
+            try:
+                user = admin_client.get_user(user_id)
+            except KeycloakGetError as e:
+                raise UserNotFound(user_id)
+            except InvalidToken as e:
+                raise UserNotFound(user_id)
+                
+        else:
+            found_users = admin_client.get_users({"username": user_id})
+            if len(found_users) == 0:
+                raise UserNotFound(user_id)
+            user = admin_client.get_user(found_users[0]['id']) # Load full data
+        
         user.update({
                 "userGroups": admin_client.get_user_groups(user_id=user['id'], brief_representation=not with_details),
                 'realmRoles': admin_client.get_realm_roles_of_user(user['id'])
                 })
         return User.from_dict(user)
 
-    def get_current_user(self):
+    def get_current_user(self) -> User:
         """
         Get the current user including the user groups
 

@@ -31,6 +31,8 @@ kind: Deployment
 metadata:
   name: {{ .app.harness.database.name | quote }}
   namespace: {{ .root.Values.namespace }}
+  labels:
+    usesvolume: {{ .app.harness.database.name }}
 spec:
   replicas: 1
   selector:
@@ -41,7 +43,18 @@ spec:
       labels:
         app: {{ .app.harness.database.name | quote }}
         service: db
+        usesvolume: {{ .app.harness.database.name }}
     spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: usesvolume
+                    operator: In
+                    values:
+                      - {{ .app.harness.database.name }}
+              topologyKey: "kubernetes.io/hostname"
       containers:
       - name: {{ .app.harness.database.name | quote }}
         imagePullPolicy: IfNotPresent
@@ -66,10 +79,19 @@ spec:
             mountPath: {{ (printf "%s/%s/%s" .root.Values.backup.dir .app.harness.database.type .app.harness.database.name) | quote }}
             readOnly: true
           {{- end }}
+          {{- if eq .app.harness.database.type "postgres" }}
+          - mountPath: /dev/shm
+            name: dshm  
+          {{- end }}  
       volumes:
       - name: {{ .app.harness.database.name | quote }}
         persistentVolumeClaim:
           claimName: {{ .app.harness.database.name | quote }}
+      {{- if eq .app.harness.database.type "postgres" }}
+      - emptyDir:
+          medium: Memory
+        name: dshm     
+      {{- end }}     
       {{- if .root.Values.backup.active }}
       - name: "db-backups"
         persistentVolumeClaim:

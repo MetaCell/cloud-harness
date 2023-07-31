@@ -113,7 +113,8 @@ def deserialize_model(data, klass):
         instance = klass()
     except:
         raise
-    instance._raw_dict = data
+    if isinstance(data, dict):
+        instance._raw_dict = data
 
     if not hasattr(instance, "openapi_types") or isinstance(data, klass):
         return data

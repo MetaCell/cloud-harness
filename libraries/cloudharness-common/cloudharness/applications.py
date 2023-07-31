@@ -31,7 +31,7 @@ class ApplicationConfiguration(ApplicationConfig):
         return self.harness.database.auto
 
     def is_sentry_enabled(self) -> bool:
-        return self.harness.sentry
+        return self.harness["sentry"]
 
     def get_db_connection_string(self, **kwargs) -> str:
         if not self.is_auto_db():

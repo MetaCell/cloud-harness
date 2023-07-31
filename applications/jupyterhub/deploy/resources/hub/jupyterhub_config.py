@@ -271,7 +271,7 @@ if storage_type == "dynamic":
     pvc_name_template = get_config("singleuser.storage.dynamic.pvcNameTemplate")
     c.KubeSpawner.pvc_name_template = pvc_name_template
     volume_name_template = get_config("singleuser.storage.dynamic.volumeNameTemplate")
-    c.KubeSpawner.storage_pvc_ensure = True
+    c.KubeSpawner.storage_pvc_ensure = False
     set_config_if_not_none(
         c.KubeSpawner, "storage_class", "singleuser.storage.dynamic.storageClass"
     )
@@ -525,3 +525,4 @@ set_config_if_not_none(c.Authenticator, 'whitelist', 'auth.whitelist.users')
 c.apps = get_config('apps')
 c.registry = get_config('registry')
 c.domain = get_config('root.domain')
+c.namespace = get_config('root.namespace')

@@ -17,3 +17,4 @@ skaffold.yaml
 /deployment.yaml
 .hypothesis
 __pycache__
+.env

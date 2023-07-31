@@ -2,11 +2,13 @@
 import socket
 import glob
 import subprocess
+import requests
 import os
+from functools import cache
 from os.path import join, dirname, isdir, basename, exists, relpath, sep, dirname as dn
 import json
 import collections
-import requests
+import re
 from ruamel.yaml import YAML
 import shutil
 import logging
@@ -32,11 +34,14 @@ def image_name_from_dockerfile_path(dockerfile_path, base_name=None):
 def app_name_from_path(dockerfile_path):
     return "-".join(p for p in dockerfile_path.split("/") if p not in NEUTRAL_PATHS)
 
+
 def clean_path(path):
     return "/".join(p for p in path.split("/") if p not in NEUTRAL_PATHS)
-    
+
+
 def get_app_relative_to_base_path(base_path, dockerfile_path):
-    return clean_path(relpath(dockerfile_path, base_path)) 
+    return clean_path(relpath(dockerfile_path, base_path))
+
 
 def get_sub_paths(base_path):
     return tuple(path for path in glob.glob(base_path + "/*") if isdir(path))
@@ -72,8 +77,8 @@ def env_variable(name, value):
 def get_cluster_ip():
     out = subprocess.check_output(
         ['kubectl', 'cluster-info'], timeout=10).decode("utf-8")
-    ip = out.split('\n')[0].split('://')[1].split(':')[0]
-    return ip if not "kubernetes.docker.internal" == ip else get_host_address()
+    ips = re.findall(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", out)
+    return ips[0] if ips else get_host_address()
 
 
 def get_host_address():
@@ -351,10 +356,13 @@ def to_python_module(name):
     return name.replace('-', '_')
 
 
+@cache
 def guess_build_dependencies_from_dockerfile(filename):
     dependencies = []
     if not "Dockerfile" in filename:
         filename = join(filename, "Dockerfile")
+    if not os.path.exists(filename):
+        return dependencies
     with open(filename) as f:
         for line in f:
             if line.startswith("ARG") and not "=" in line:
@@ -364,4 +372,7 @@ def guess_build_dependencies_from_dockerfile(filename):
     return dependencies
 
 
-
+def check_docker_manifest_exists(registry, image_name, tag, registry_secret=None):
+    api_url = f"https://{registry}/v2/{image_name}/manifests/{tag}"
+    resp = requests.get(api_url)
+    return resp.status_code == 200

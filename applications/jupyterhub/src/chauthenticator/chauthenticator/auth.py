@@ -25,17 +25,12 @@ class CloudHarnessAuthenticateHandler(BaseHandler):
 
     @gen.coroutine
     def get(self):
-        raw_user = yield self.get_current_user()
-        if raw_user:
-            if self.force_new_server and user.running:
-                # Stop user's current server if it is running
-                # so we get a new one.
-                status = yield raw_user.spawner.poll_and_notify()
-                if status is None:
-                    yield self.stop_single_user(raw_user)
-        else:
-            try:
-                accessToken = self.request.cookies.get('accessToken', None)
+        self.clear_login_cookie()
+
+        try:
+                
+                accessToken = self.request.cookies.get(
+                    'kc-access', None) or self.request.cookies.get('accessToken', None)
                 print("Token", accessToken)
                 if accessToken == '-1' or not accessToken:
                     self.redirect('/hub/logout')
@@ -43,10 +38,13 @@ class CloudHarnessAuthenticateHandler(BaseHandler):
                 accessToken = accessToken.value
                 user_data = AuthClient.decode_token(accessToken)
                 username = user_data['sub']
+                print("Username", username, "-",user_data['preferred_username'])
                 raw_user = self.user_from_username(username)
+                print("JH user: ", raw_user.__dict__)
                 self.set_login_cookie(raw_user)
-            except Exception as e:
+        except Exception as e:
                 logging.error("Error getting user from session", exc_info=True)
+                raise
 
         user = yield gen.maybe_future(self.process_user(raw_user, self))
         self.redirect(self.get_next_url(user))

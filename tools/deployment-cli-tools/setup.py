@@ -27,7 +27,8 @@ REQUIREMENTS = [
     'six',
     'cloudharness_model',
     'cloudharness_utils',
-    'fastapi-code-generator'
+    'fastapi-code-generator',
+    'dirhash'
 ]
 
 

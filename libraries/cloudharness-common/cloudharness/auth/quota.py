@@ -1,9 +1,12 @@
+from keycloak import KeycloakError
 from .keycloak import AuthClient
 from cloudharness.applications import get_current_configuration
 from cloudharness_model.models import ApplicationConfig
-
+from cloudharness import log
 
 # quota tree node to hold the tree quota attributes
+
+
 class QuotaNode:
     def __init__(self, name, attrs):
         self.attrs = attrs
@@ -26,6 +29,12 @@ def _filter_quota_attrs(attrs, valid_keys_map):
     return valid_attrs
 
 
+def get_group_quotas(group, application_config: ApplicationConfig):
+    base_quotas = application_config.get("harness", {}).get("quotas", {})
+    valid_keys_map = {key for key in base_quotas}
+    return _compute_quotas_from_tree(_construct_quota_tree([group], valid_keys_map))
+
+
 def _construct_quota_tree(groups, valid_keys_map) -> QuotaNode:
     root = QuotaNode("root", {})
     for group in groups:
@@ -33,7 +42,7 @@ def _construct_quota_tree(groups, valid_keys_map) -> QuotaNode:
         paths = group["path"].split("/")[1:]
         # loop through all segements except the last segment
         # the last segment is the one we want to add the attributes to
-        for segment in paths[0 : len(paths) - 1]:
+        for segment in paths[0: len(paths) - 1]:
             for child in r.children:
                 if child.name == segment:
                     r = child
@@ -55,13 +64,13 @@ def _construct_quota_tree(groups, valid_keys_map) -> QuotaNode:
 def _compute_quotas_from_tree(node: QuotaNode):
     """Recursively traverse the tree and find the quota per level
     the lower leafs overrule parent leafs values
-    
+
     Args:
         node (QuotaNode): the quota tree of QuotaNodes of the user for the given application
-        
+
     Returns:
         dict: key/value pairs of the quotas
-        
+
     Example:
         {'quota-ws-maxcpu': 1000, 'quota-ws-open': 10, 'quota-ws-max': 8}
 
@@ -95,32 +104,34 @@ def _compute_quotas_from_tree(node: QuotaNode):
     return node.attrs
 
 
-def get_user_quotas(application_config: ApplicationConfig =None, user_id: str=None) -> dict:
+def get_user_quotas(application_config: ApplicationConfig = None, user_id: str = None) -> dict:
     """Get the user quota from Keycloak and application
-    
+
     Args:
         application_config (ApplicationConfig): the application config to use for getting the quotas
-        user_id (str): the Keycloak user id
-    
+        user_id (str): the Keycloak user id or username to get the quotas for
+
     Returns:
         dict: key/value pairs of the user quota
-        
+
     Example:
         {'quota-ws-maxcpu': 1000, 'quota-ws-open': 10, 'quota-ws-max': 8}
     """
     if not application_config:
         application_config = get_current_configuration()
 
-    auth_client = AuthClient()
-    if not user_id:
-        user_id = auth_client.get_current_user()["id"]
-    user = auth_client.get_user(user_id, with_details=True)
+    base_quotas = application_config.get("harness", {}).get("quotas", {})
+    try:
+        auth_client = AuthClient()
+        if not user_id:
+            user_id = auth_client.get_current_user()["id"]
+        user = auth_client.get_user(user_id, with_details=True)
+    except KeycloakError as e:
+        log.warning("Quotas not available: error retrieving user: %s", user_id)
+        return base_quotas
 
-    valid_keys_map = []
-    base_quotas = application_config.get("harness",{}).get("quotas", {})
-    for key in base_quotas:
-        valid_keys_map.append(key)
-    
+    valid_keys_map = {key for key in base_quotas}
+
     group_quotas = _compute_quotas_from_tree(
         _construct_quota_tree(
             user["userGroups"],

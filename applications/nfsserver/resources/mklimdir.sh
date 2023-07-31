@@ -63,7 +63,7 @@ mkmount(){
 
     unmount "${mountpoint}"
 
-    echo Mounting ${quota_fs} on ${mounpoint}
+    echo Mounting ${quota_fs} on ${mountpoint}
     i=$(losetup -f|cut -f 2 -d p)
     lodev=/dev/loop${i}
 
@@ -82,6 +82,7 @@ mkmount(){
 mklimfile(){
     quota_fs=$1
     size=$2
+
     count_mb=$(( ${size}/1024/1024 + 1))
 
     echo Create file ${quota_fs} size ${count_mb}Mb
@@ -104,10 +105,8 @@ main(){
     quota_fs=${mountpoint}.quota
 
     if [ -z ${mountonly} ]; then
-        if [ -f ${quota_fs} ]; then
-            echo File ${quota_fs} already exists
-            exit 1
-        fi
+        # cleanup before creating the folder and quota file
+        bash -c "rmlimdir.sh -m ${mountpoint}" || true
         mklimfile "${quota_fs}" "${size}"
     fi
     mkmount "${mountpoint}" "${quota_fs}"

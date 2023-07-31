@@ -5,6 +5,7 @@ import yaml
 from .. import log
 
 from .config import CloudharnessConfig as conf
+from ..applications import get_configuration
 
 TEST = 'TEST'
 PROD = 'PROD'
@@ -105,7 +106,7 @@ def get_sub_variable(*vars):
 
 
 def get_service_public_address(app_name):
-    return ".".join([get_sub_variable('CH', app_name.upper(), 'SUBDOMAIN'), get_public_domain()])
+    return get_configuration(app_name).get_public_address()
 
 
 def get_public_domain():
@@ -113,28 +114,27 @@ def get_public_domain():
 
 
 def get_cloudharness_workflows_service_url():
-    return get_service_public_address('WORKFLOWS')
+    return get_service_public_address('workflows')
 
 def get_cloudharness_sentry_service_url():
-    return 'https://' + get_service_public_address('sentry')
+    return get_configuration('sentry').get_public_address()
 
 def get_sentry_service_cluster_address():
-    sentry_app = conf.get_application_by_filter(name='sentry')[0]
-    return f'http://{sentry_app.name}:{sentry_app.port}'
+    return get_configuration('sentry').get_service_address()
 
 def get_cloudharness_common_service_url():
-    return 'https://' + get_service_public_address('common')
+    return get_configuration('common').get_public_address()
 
 def get_common_service_cluster_address():
-    common_app = conf.get_application_by_filter(name='common')[0]
-    return f'http://{common_app.name}:{common_app.port}'
+    common_app = get_configuration('common')
+    return common_app.get_service_address()
 
 def get_auth_service_cluster_address():
-    return get_service_cluster_address('ACCOUNTS')
+    return get_configuration('accounts').get_service_address()
 
 
 def get_auth_service_url():
-    return get_service_public_address('ACCOUNTS')
+    return get_configuration('accounts').get_public_address()
 
 
 def get_auth_realm():

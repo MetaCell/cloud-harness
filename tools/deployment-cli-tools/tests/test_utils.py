@@ -59,3 +59,9 @@ def test_guess_build_dependencies_from_dockerfile():
 
     deps = guess_build_dependencies_from_dockerfile(os.path.join(HERE, "resources/applications/myapp/tasks/mytask"))
     assert len(deps) == 0
+
+
+def test_check_docker_manifest_exists():
+    assert check_docker_manifest_exists("gcr.io/metacellllc", "cloudharness/cloudharness-base", "latest")
+    assert not check_docker_manifest_exists("gcr.io/metacellllc", "cloudharness/cloudharness-base", "RANDOM_TAG")
+    

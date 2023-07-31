@@ -12,7 +12,7 @@ harness:
         mountpath: /mnt/myvolume
         auto: true
         size: 10Mi
-        usenfs: true
+        usenfs: false
     auto: true
     port: 8080
   uri_role_mapping:

@@ -32,7 +32,9 @@ steps:
     working_directory: .
     commands:
       - bash cloud-harness/install.sh
-      - harness-deployment $PATHS -n test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}} -t ${{CF_BUILD_ID}} -d ${{CF_SHORT_REVISION}}.${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e $ENV -N $PARAMS
+      - harness-deployment $PATHS -n test-${{NAMESPACE_BASENAME}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e $ENV --write-env -N $PARAMS
+      - cat deployment/.env >> ${{CF_VOLUME_PATH}}/env_vars_to_export
+      - cat ${{CF_VOLUME_PATH}}/env_vars_to_export
   prepare_deployment_view:
     commands:
       - "helm template ./deployment/helm --debug -n test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}"
@@ -60,13 +62,6 @@ steps:
     stage: unittest
     type: parallel
     steps: {}
-  prepare_cluster:
-    stage: deploy
-    image: codefresh/kubectl
-    fail_fast: false
-    commands:
-      - kubectl config use-context ${{CLUSTER_NAME}}
-      - kubectl create ns test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
   deployment:
     stage: deploy
     type: helm
@@ -75,11 +70,11 @@ steps:
     arguments:
       helm_version: 3.6.2
       chart_name: deployment/helm
-      release_name: test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
+      release_name: test-${{NAMESPACE_BASENAME}}
       kube_context: ${{CLUSTER_NAME}}
-      namespace: test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
-      chart_version: ${{CF_BUILD_ID}}
-      cmd_ps: --timeout 600s
+      namespace: test-${{NAMESPACE_BASENAME}}
+      chart_version: ${{CF_SHORT_REVISION}}
+      cmd_ps: --timeout 600s --create-namespace
       custom_value_files:
         - ./deployment/helm/values.yaml
   build_test_images:
@@ -93,7 +88,7 @@ steps:
     image: codefresh/kubectl
     commands:
       - kubectl config use-context ${{CLUSTER_NAME}}
-      - kubectl config set-context --current --namespace=test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
+      - kubectl config set-context --current --namespace=test-${{NAMESPACE_BASENAME}}
   tests_api:
     stage: qa
     title: Api tests
@@ -128,7 +123,7 @@ steps:
   approval:
     type: pending-approval
     stage: qa
-    title: Approve with failed tests
+    title: Approve anyway and delete deployment
     description: The pipeline will fail after ${{WAIT_ON_FAIL}} minutes
     timeout:
       timeUnit: minutes
@@ -138,20 +133,11 @@ steps:
       condition:
         all:
           error: '"${{FAILED}}" == "failed"'
-          wait_on_fail: ${{WAIT_ON_FAIL}}
-  dummy_end:
-    title: "Dummy step"
-    description: Without this, the on_finish hook is executed before the approval step
-    image: python:3.9.10
-    stage: qa
-    when:
-      condition:
-        all:
-          error: '"${{FAILED}}" == "failed"'
-          wait_on_fail: ${{WAIT_ON_FAIL}}
-hooks:
-  on_finish:
+  delete_deployment:
+    title: "Delete deployment"
+    description: The deployment is deleted at the end of the pipeline
     image: codefresh/kubectl
+    stage: qa
     commands:
       - kubectl config use-context ${{CLUSTER_NAME}}
-      - kubectl delete ns test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}
+      - kubectl delete ns test-${{NAMESPACE_BASENAME}}
