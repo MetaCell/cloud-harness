@@ -19,7 +19,7 @@ harness:
   uri_role_mapping:
     - uri: /*
       roles:
-      - administrator
+        - administrator
     - uri: /api/openapi.json
       white-listed: true
   # -- Defines reference deployment parameters. Values maps to k8s spec
@@ -34,6 +34,8 @@ harness:
     name:
     # -- Deployment port.
     port: 8080
+    # -- volume specification
+    volume:
     # -- Deployment resources.
     resources:
       requests:
@@ -54,6 +56,8 @@ harness:
   secrets:
   # -- Specify which services this application uses in the frontend to create proxy ingresses. e.g. - name: mnp-checkout
   use_services: []
+  # -- enabled sentry for automated error report
+  sentry: false
   # -- Reference database specs
   database:
     # -- When true, enables automatic database deployment

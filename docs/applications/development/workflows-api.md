@@ -162,7 +162,16 @@ op = operations.PipelineOperation('my-op-gpu-', [my_task])
 
 ## Pod execution context / affinity
 
-Affinity is set through the 
+The execution context is set allows to group pods in the same node (see [here](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity)).
+This is important in particular when pods are sharing node resources like ReadWriteOnce volumes within a parallel execution or with other deployments in the cluster.
+The execution context sets the affinity and the metadata attributes so that all pods with the same context
+run in the same node.
+By default affinity is added to cover shared volumes (`usesvolume` label).
+
+> Note: if using ReadWriteMany volumes (e.g. through a NFS) the affinity is not needed. To explicitly state the 
+> volume is ReadWriteMany specify the "rwx" type like `"myvolume:/my/path:rwx"`
+
+Additional affinity is set through the PodExecutionContext specification.
 
 ```Python
 def f():
@@ -171,13 +180,6 @@ def f():
 op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f), tasks.PythonTask('p2', f)),
                                       pod_context=operations.PodExecutionContext(key='a', value='b', required=True))
 ```
-
-
-
-The execution context is set allows to group pods in the same node (see [here](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity)).
-This is important in particular when pods are sharing node resources like ReadWriteOnce volumes within a parallel execution or with other deployments in the cluster.
-The execution context sets the affinity and the metadata attributes so that all pods with the same context
-run in the same node.
 
 
 Is is also possible to specify a tuple or list for multiple affinities like:

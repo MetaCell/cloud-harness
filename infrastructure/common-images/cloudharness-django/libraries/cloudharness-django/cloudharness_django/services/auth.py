@@ -3,7 +3,7 @@ import time
 from enum import Enum
 from typing import List
 
-from keycloak.exceptions import KeycloakGetError
+from keycloak.exceptions import KeycloakGetError, KeycloakError
 
 from cloudharness import log
 from cloudharness.auth import AuthClient, get_auth_realm
@@ -21,8 +21,12 @@ class AuthorizationLevel(Enum):
 
 # create the auth client
 if os.path.isfile(ALLVALUES_PATH):
+    try:
     # CH values exists so running with a valid config
-    auth_client = AuthClient()
+        auth_client = AuthClient(os.getenv("ACCOUNTS_ADMIN_USERNAME", None), os.getenv("ACCOUNTS_ADMIN_PASSWORD", None))
+    except:
+        log.exception("Failed to initialize auth client")
+        auth_client = None
 else:
     auth_client = None
 
@@ -30,13 +34,13 @@ else:
 class AuthService:
 
     def __init__(
-            self,
-            client_name: str,
-            client_roles: List[str],
-            privileged_roles: List[str],
-            admin_role: str,
-            default_user_role: str=None,
-        ):
+        self,
+        client_name: str,
+        client_roles: List[str],
+        privileged_roles: List[str],
+        admin_role: str,
+        default_user_role: str = None,
+    ):
         if not admin_role:
             raise KeycloakOIDCNoAdminRole("No admin role given.")
         self.client_name = client_name
@@ -60,48 +64,45 @@ class AuthService:
         Create the client and client roles
         Checks if the client is present, if not the creates it
         """
-        nap_time = 30
-        installed = False
-        while not installed:
+
+        try:
+            auth_client.refresh_token()
             try:
-                auth_client.refresh_token()
+                client = auth_client.get_client(self.get_client_name())
+            except KeycloakGetError as e:
+                # thrown if client doesn't exist
+                auth_client.create_client(client_name=self.get_client_name())
+                client = auth_client.get_client(self.get_client_name())
+
+            for role in self.client_roles:
                 try:
-                    client = auth_client.get_client(self.get_client_name())
-                except KeycloakGetError as e:
-                    # thrown if client doesn't exist
-                    auth_client.create_client(client_name=self.get_client_name())
-                    client = auth_client.get_client(self.get_client_name())
+                    log.info("Creating role %s", role)
+                    auth_client.create_client_role(client["id"], role)
+                except KeycloakError as e:
+                    # Thrown if role already exists
+                    log.error(e.error_message)
 
-                for role in self.client_roles:
-                    try:
-                        auth_client.create_client_role(client["id"], role)
-                    except KeycloakGetError as e:
-                        # Thrown if role already exists
-                        log.debug(e.error_message)
-
-                if self.default_user_role:
-                    # add the default user role to the default realm role
-                    realm = get_auth_realm()
-                    admin_client = auth_client.get_admin_client()
-                    admin_client.refresh_token()
-                    default_user_role = admin_client.get_client_role(
-                        self.get_client_name(),
-                        self.default_user_role
-                    )
-                    admin_client.add_composite_realm_roles_to_role(
-                        f'default-roles-{realm}',
-                        [default_user_role,]
-                    )
-
-                installed = True
-            except Exception as e:
-                log.error(e)
-                time.sleep(nap_time)
+            if self.default_user_role:
+                # add the default user role to the default realm role
+                realm = get_auth_realm()
+                admin_client = auth_client.get_admin_client()
+                admin_client.refresh_token()
+                default_user_role = admin_client.get_client_role(
+                    self.get_client_name(),
+                    self.default_user_role
+                )
+                admin_client.add_composite_realm_roles_to_role(
+                    f'default-roles-{realm}',
+                    [default_user_role, ]
+                )
+        except Exception as e:
+            log.error("Error creating Keycloak client %s. May need to manually migrate the client.", self.get_client_name(), exc_info=True)
+            raise Exception("Error creating Keycloak client.") from e
 
     def get_auth_level(self, kc_user=None, kc_roles=None):
         if not kc_user:
             kc_user = auth_client.get_current_user()
-        
+
         if not kc_roles:
             kc_roles = auth_client.get_user_client_roles(
                 kc_user.get("id"),
@@ -113,11 +114,13 @@ class AuthService:
         if admin:
             return AuthorizationLevel.ADMIN
 
-        privileged = any([role in assigned_roles for role in self.privileged_roles])
+        privileged = any(
+            [role in assigned_roles for role in self.privileged_roles])
         if privileged:
             return AuthorizationLevel.PRIVILEGED
 
-        non_privileged = any([role in assigned_roles for role in self.client_roles])
+        non_privileged = any(
+            [role in assigned_roles for role in self.client_roles])
         if non_privileged:
             return AuthorizationLevel.NON_PRIVILEGED
 

@@ -1,10 +1,8 @@
 type: build
 stage: build
-tag: '${{CF_BUILD_ID}}'
 dockerfile: Dockerfile
 registry: '${{CODEFRESH_REGISTRY}}'
 buildkit: true
 build_arguments:
-  - TAG=${{CF_BUILD_ID}}
   - DOMAIN=${{DOMAIN}}
   - NOCACHE=${{CF_BUILD_ID}}

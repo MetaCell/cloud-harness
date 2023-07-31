@@ -1,0 +1,33 @@
+{{ if .Values.apps.nfsserver.storageClass.create -}}
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  labels:
+    {{- include "nfs-subdir-external-provisioner.labels" . | nindent 4 }}
+  name: {{ printf "%s-%s" .Values.namespace .Values.apps.nfsserver.storageClass.name }}
+  annotations:
+  {{- if .Values.apps.nfsserver.storageClass.defaultClass }}
+    storageclass.kubernetes.io/is-default-class: "true"
+  {{- end }}
+  {{- with .Values.apps.nfsserver.storageClass.annotations }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+provisioner: {{ template "nfs-subdir-external-provisioner.provisionerName" . }}
+allowVolumeExpansion: {{ .Values.apps.nfsserver.storageClass.allowVolumeExpansion }}
+reclaimPolicy: {{ .Values.apps.nfsserver.storageClass.reclaimPolicy }}
+volumeBindingMode: {{ .Values.apps.nfsserver.storageClass.volumeBindingMode }}
+parameters:
+  archiveOnDelete: "{{ .Values.apps.nfsserver.storageClass.archiveOnDelete }}"
+  {{- if .Values.apps.nfsserver.storageClass.pathPattern }}
+  pathPattern: "{{ .Values.apps.nfsserver.storageClass.pathPattern }}"
+  {{- end }}
+  {{- if .Values.apps.nfsserver.storageClass.onDelete }}
+  onDelete: "{{ .Values.apps.nfsserver.storageClass.onDelete }}"
+  {{- end }}
+{{- if .Values.apps.nfsserver.nfs.mountOptions }}
+mountOptions:
+  {{- range .Values.apps.nfsserver.nfs.mountOptions }}
+  - {{ . }}
+  {{- end }}
+{{- end }}
+{{ end -}}

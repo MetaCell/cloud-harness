@@ -17,7 +17,8 @@ REQUIRES = [
     "connexion>=2.0.2",
     "swagger-ui-bundle>=0.0.2",
     "python_dateutil>=2.6.0",
-    "psycopg2"
+    "psycopg2",
+    "flask_sqlalchemy",
 ]
 
 setup(

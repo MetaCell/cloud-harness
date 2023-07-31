@@ -35,6 +35,7 @@ spec:
       - name: {{ .root.Values.registry.secret }}
       {{- end }}
       {{- if and .app.harness.deployment.volume }}
+      {{- if or (not (hasKey .app.harness.deployment.volume "usenfs")) (not .app.harness.deployment.volume.usenfs) }}
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -45,6 +46,7 @@ spec:
                     values:
                       - {{ .app.harness.deployment.volume.name }}
               topologyKey: "kubernetes.io/hostname"
+      {{- end }}
       {{- end }}
       containers:
       - name: {{ .app.harness.deployment.name| default "cloudharness-docs" | quote }}
@@ -110,7 +112,7 @@ spec:
             mountPath: /opt/cloudharness/resources/auth
             readOnly: true
           {{- end }}
-          {{- if .app.harness.deployment.volume }}
+          {{- if  .app.harness.deployment.volume }}
           - name: {{ .app.harness.deployment.volume.name }}
             mountPath: {{ .app.harness.deployment.volume.mountpath }}
             readOnly: {{ .app.harness.deployment.volume.readonly | default false }}

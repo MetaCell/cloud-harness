@@ -51,6 +51,7 @@ class NameValue(Model):
     def name(self):
         """Gets the name of this NameValue.
 
+          # noqa: E501
 
         :return: The name of this NameValue.
         :rtype: str
@@ -61,6 +62,7 @@ class NameValue(Model):
     def name(self, name):
         """Sets the name of this NameValue.
 
+          # noqa: E501
 
         :param name: The name of this NameValue.
         :type name: str
@@ -74,6 +76,7 @@ class NameValue(Model):
     def value(self):
         """Gets the value of this NameValue.
 
+          # noqa: E501
 
         :return: The value of this NameValue.
         :rtype: str
@@ -84,6 +87,7 @@ class NameValue(Model):
     def value(self, value):
         """Sets the value of this NameValue.
 
+          # noqa: E501
 
         :param value: The value of this NameValue.
         :type value: str

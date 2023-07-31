@@ -1,7 +1,7 @@
 from . import argo
 
 from cloudharness.utils.env import get_cloudharness_variables, get_image_full_tag
-from .utils import WORKFLOW_NAME_VARIABLE_NAME, is_accounts_present
+from .utils import WORKFLOW_NAME_VARIABLE_NAME, PodExecutionContext, affinity_spec, is_accounts_present, volume_mount_template, volume_requires_affinity
 
 SERVICE_ACCOUNT = 'argo-workflows'
 
@@ -11,12 +11,29 @@ class Task(argo.ArgoObject):
     Abstract interface for a task.
     """
 
-    def __init__(self, name, resources={}, **env_args):
+    def __init__(self, name, resources={}, volume_mounts=[],  **env_args):
         self.name = name.replace(' ', '-').lower()
         self.resources = resources
         self.__envs = get_cloudharness_variables()
+        self.volume_mounts = volume_mounts
+        self.external_volumes = [
+            v.split(':')[0] for v in self.volume_mounts if volume_requires_affinity(v)]
         for k in env_args:
             self.__envs[k] = str(env_args[k])
+
+    def metadata_spec(self):
+        return {
+            'labels': {
+                'usesvolume': self.external_volumes[0],
+                **{f'usesvolume-{v}': 'true' for v in self.external_volumes}
+            }
+        } if self.external_volumes else {}
+
+    def affinity_spec(self):
+        return affinity_spec(([PodExecutionContext('usesvolume', self.external_volumes[0], True)] if self.external_volumes else []) + [
+            PodExecutionContext(f'usesvolume-{v}', 'true', True)
+            for v in self.external_volumes
+        ] )
 
     @property
     def image_name(self):
@@ -62,6 +79,9 @@ class Task(argo.ArgoObject):
             })
         return base_spec
 
+    def volumes_mounts_spec(self):
+        return self.cloudharness_configmap_spec() + [volume_mount_template(volume) for volume in self.volume_mounts]
+
 
 class ContainerizedTask(Task):
 
@@ -71,18 +91,20 @@ class ContainerizedTask(Task):
         self.command = command
 
     def spec(self):
+
         spec = {
             'container': {
                 'image': self.image_name,
                 'env': self.envs,
                 'resources': self.resources,
                 'imagePullPolicy': self.image_pull_policy,
-                'volumeMounts': self.cloudharness_configmap_spec(),
+                'volumeMounts': self.volumes_mounts_spec(),
             },
             'inputs': {},
-            'metadata': {},
+            'metadata': self.metadata_spec(),
             'name': self.name,
-            'outputs': {}
+            'outputs': {},
+            'affinity': self.affinity_spec()
 
         }
         if self.command is not None:
@@ -95,21 +117,24 @@ class InlinedTask(Task):
     Allows to run Python tasks
     """
 
-    def __init__(self, name, source):
-        super().__init__(name)
+    def __init__(self, name, source, **kwargs):
+        super().__init__(name, **kwargs)
         self.source = source
 
     def spec(self):
+
         return {
             'name': self.name,
+            'affinity': self.affinity_spec(),
+            'metadata': self.metadata_spec(),
             'script':
                 {
                     'image': self.image_name,
                     'env': self.envs,
                     'source': self.source,
-                    'volumeMounts': self.cloudharness_configmap_spec(),
+                    'volumeMounts': self.volumes_mounts_spec(),
                     'command': [self.command]
-                }
+            }
         }
 
     @property

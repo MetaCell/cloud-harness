@@ -7,7 +7,7 @@ from .test_env import set_test_environment
 
 set_test_environment()
 
-from cloudharness.workflows import operations, tasks
+from cloudharness.workflows import operations, tasks, utils
 from cloudharness import set_debug
 from cloudharness.workflows import argo
 from cloudharness.utils.config import CloudharnessConfig
@@ -19,6 +19,16 @@ verbose = True
 
 assert 'registry' in CloudharnessConfig.get_configuration()
 
+def check_wf(wf):
+    
+    assert wf["kind"] == "Workflow"
+    assert "spec" in wf
+
+def test_volume_affinity_check():
+    assert not utils.volume_requires_affinity("a")
+    assert utils.volume_requires_affinity("a:b")
+    assert utils.volume_requires_affinity("a:b:ro")
+    assert not utils.volume_requires_affinity("a:b:rwx")
 
 def test_sync_workflow():
     def f():
@@ -29,7 +39,9 @@ def test_sync_workflow():
     task = tasks.PythonTask('my-task', f)
     assert 'registry' in CloudharnessConfig.get_configuration()
     op = operations.DistributedSyncOperation('test-sync-op-', task)
-    print('\n', yaml.dump(op.to_workflow()))
+    # print('\n', yaml.dump(op.to_workflow()))
+    wf = op.to_workflow()
+    
     
     if execute:
         print(op.execute())
@@ -42,7 +54,8 @@ def test_pipeline_workflow():
         print('whatever')
 
     op = operations.PipelineOperation('test-pipeline-op-', (tasks.PythonTask('step1', f), tasks.PythonTask('step2', f)))
-    print('\n', yaml.dump(op.to_workflow()))
+    # print('\n', yaml.dump(op.to_workflow()))
+    wf = op.to_workflow()
     if execute:
         op.execute()
 
@@ -54,7 +67,7 @@ def test_parallel_workflow():
         print('whatever')
 
     op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f), tasks.PythonTask('p2', f)))
-    print('\n', yaml.dump(op.to_workflow()))
+    # print('\n', yaml.dump(op.to_workflow()))
     if execute:
         op.execute()
 
@@ -68,7 +81,7 @@ def test_simpledag_workflow():
     # p3 runs after p1 and p2 finish
     op = operations.SimpleDagOperation('test-dag-op-', (tasks.PythonTask('p1', f), tasks.PythonTask('p2', f)),
                                        tasks.PythonTask('p3', f))
-    print('\n', yaml.dump(op.to_workflow()))
+    # print('\n', yaml.dump(op.to_workflow()))
     if execute:
         print(op.execute())
 
@@ -76,7 +89,7 @@ def test_simpledag_workflow():
 def test_custom_task_workflow():
     task = operations.CustomTask('download-file', 'workflows-extract-download', url='https://www.bing.com')
     op = operations.PipelineOperation('test-custom-op-', (task,))
-    print('\n', yaml.dump(op.to_workflow()))
+    # print('\n', yaml.dump(op.to_workflow()))
     if execute:
         print(op.execute())
 
@@ -90,14 +103,67 @@ def test_custom_connected_task_workflow():
                                        file_path=shared_directory + '/README.md')
     op = operations.PipelineOperation('test-custom-connected-op-', (task_write, task_print),
                                       shared_directory=shared_directory, shared_volume_size=100)
-    # op.execute()
-    print('\n', yaml.dump(op.to_workflow()))
+    wf = op.to_workflow()
+    # print('\n', yaml.dump(op.to_workflow()))
     if execute:
         print(op.execute())
 
 
 def test_single_task_shared():
     shared_directory = 'myclaim:/mnt/shared'
+    task_write = operations.CustomTask('download-file', 'workflows-extract-download',
+                                       url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
+    op = operations.SingleTaskOperation('test-custom-connected-op-', task_write,
+                                        shared_directory=shared_directory, shared_volume_size=100)
+    wf = op.to_workflow()
+
+    accounts_offset = 1 if is_accounts_present() else 0
+    assert len(op.volumes) == 1
+    assert len(wf['spec']['volumes']) == 2 + accounts_offset
+    assert wf['spec']['volumes'][1+accounts_offset]['persistentVolumeClaim']['claimName'] == 'myclaim'
+    if accounts_offset == 1:
+        assert wf['spec']['volumes'][1]['secret']['secretName'] == 'accounts'
+    assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 2 + accounts_offset
+    assert wf['spec']['templates'][0]['metadata']['labels']['usesvolume'] == 'myclaim'
+
+    affinity_glob = \
+        wf['spec']['affinity']['podAffinity']['requiredDuringSchedulingIgnoredDuringExecution'][0]['labelSelector'][
+            'matchExpressions'][0]
+    assert affinity_glob['key'] == 'usesvolume'
+    assert affinity_glob['values'][0] == 'myclaim'
+
+    if execute:
+        print(op.execute())
+
+def test_pipeline_shared():
+    shared_directory = 'myclaim:/mnt/shared'
+    task_write = operations.CustomTask('download-file', 'workflows-extract-download',
+                                       url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
+    task_script = tasks.BashTask('print-file', source="ls -la")
+    op = operations.PipelineOperation('test-custom-connected-op-', [task_write, task_script],
+                                        shared_directory=shared_directory, shared_volume_size=100)
+    wf = op.to_workflow()
+
+    accounts_offset = 1 if is_accounts_present() else 0
+    assert len(op.volumes) == 1
+    assert len(wf['spec']['volumes']) == 2 + accounts_offset
+    assert wf['spec']['volumes'][1+accounts_offset]['persistentVolumeClaim']['claimName'] == 'myclaim'
+    if accounts_offset == 1:
+        assert wf['spec']['volumes'][1]['secret']['secretName'] == 'accounts'
+    assert len(wf['spec']['templates'][1]['container']['volumeMounts']) == 2 + accounts_offset
+    assert wf['spec']['templates'][1]['metadata']['labels']['usesvolume'] == 'myclaim'
+    assert wf['spec']['templates'][2]['metadata']['labels']['usesvolume'] == 'myclaim'
+    affinity_glob = \
+        wf['spec']['affinity']['podAffinity']['requiredDuringSchedulingIgnoredDuringExecution'][0]['labelSelector'][
+            'matchExpressions'][0]
+    assert affinity_glob['key'] == 'usesvolume'
+    assert affinity_glob['values'][0] == 'myclaim'
+
+    if execute:
+        print(op.execute())        
+
+def test_single_task_shared_rwx():
+    shared_directory = 'myclaim:/mnt/shared:rwx'
     task_write = operations.CustomTask('download-file', 'workflows-extract-download',
                                        url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
     op = operations.SingleTaskOperation('test-custom-connected-op-', task_write,
@@ -112,9 +178,68 @@ def test_single_task_shared():
     if accounts_offset == 1:
         assert wf['spec']['volumes'][1]['secret']['secretName'] == 'accounts'
     assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 2 + accounts_offset
+
+
+
+
+    assert not 'affinity' in wf['spec'], "Pod affinity should not be added for rwx volumes"
+
+def test_single_task_volume_notshared():
+
+    task_write = operations.CustomTask('download-file', 'workflows-extract-download', volume_mounts=["a:b"],
+                                       url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
+    op = operations.SingleTaskOperation('test-custom-connected-op-', task_write, shared_volume_size=100)
+    wf = op.to_workflow()
+
+    accounts_offset = 1 if is_accounts_present() else 0
+    assert len(op.volumes) == 0
+    assert len(wf['spec']['volumes']) == 2 + accounts_offset
+    assert wf['spec']['volumes'][1+accounts_offset]['persistentVolumeClaim']['claimName'] == 'a'
+    if accounts_offset == 1:
+        assert wf['spec']['volumes'][1]['secret']['secretName'] == 'accounts'
+    assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 2 + accounts_offset
+
+    
+    assert 'affinity' not in wf['spec']
+
+    affinity_tpl = \
+        wf['spec']['templates'][0]['affinity']['podAffinity']['requiredDuringSchedulingIgnoredDuringExecution'][0]['labelSelector'][
+            'matchExpressions'][0]
+    assert affinity_tpl['key'] == 'usesvolume'
+    assert affinity_tpl['values'][0] == 'a'
+    assert wf['spec']['templates'][0]['metadata']['labels']['usesvolume'] == 'a'
     if execute:
         print(op.execute())
 
+def test_single_task_volumes_notshared():
+    shared_directory = 'myclaim:/mnt/shared'
+    task_write = operations.CustomTask('download-file', 'workflows-extract-download', volume_mounts=["a:b"],
+                                       url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
+    op = operations.SingleTaskOperation('test-custom-connected-op-', task_write, shared_volume_size=100, shared_directory=shared_directory)
+    wf = op.to_workflow()
+
+    accounts_offset = 1 if is_accounts_present() else 0
+    assert len(op.volumes) == 1
+    assert len(wf['spec']['volumes']) == 3 + accounts_offset
+    assert wf['spec']['volumes'][1+accounts_offset]['persistentVolumeClaim']['claimName'] == 'myclaim'
+    if accounts_offset == 1:
+        assert wf['spec']['volumes'][1]['secret']['secretName'] == 'accounts'
+    assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 3 + accounts_offset
+
+    affinity_glob = \
+        wf['spec']['affinity']['podAffinity']['requiredDuringSchedulingIgnoredDuringExecution'][0]['labelSelector'][
+            'matchExpressions'][0]
+    assert affinity_glob['key'] == 'usesvolume'
+    assert affinity_glob['values'][0] == 'myclaim'
+
+    affinity_tpl = \
+        wf['spec']['templates'][0]['affinity']['podAffinity']['requiredDuringSchedulingIgnoredDuringExecution'][0]['labelSelector'][
+            'matchExpressions'][0]
+    assert affinity_tpl['key'] == 'usesvolume'
+    assert affinity_tpl['values'][0] == 'a'
+    assert wf['spec']['templates'][0]['metadata']['labels']['usesvolume']
+    if execute:
+        print(op.execute())
 
 def test_single_task_shared_multiple():
     shared_directory = ['myclaim:/mnt/shared', 'myclaim2:/mnt/shared2:ro']
@@ -147,6 +272,7 @@ def test_single_task_shared_multiple():
         print(op.execute())
 
 
+
 def test_single_task_shared_script():
     shared_directory = 'myclaim:/mnt/shared'
     task_write = tasks.BashTask('download-file', source="ls -la")
@@ -172,7 +298,7 @@ def test_result_task_workflow():
     op = operations.DistributedSyncOperationWithResults('test-sync-results-', task_write)
 
     # op.execute()
-    print('\n', yaml.dump(op.to_workflow()))
+    wf = op.to_workflow()
     if execute:
         print(op.execute())
 

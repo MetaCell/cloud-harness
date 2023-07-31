@@ -84,6 +84,7 @@ class JupyterHubConfig(Model):
     def extra_config(self):
         """Gets the extra_config of this JupyterHubConfig.
 
+          # noqa: E501
 
         :return: The extra_config of this JupyterHubConfig.
         :rtype: Dict[str, str]
@@ -94,6 +95,7 @@ class JupyterHubConfig(Model):
     def extra_config(self, extra_config):
         """Sets the extra_config of this JupyterHubConfig.
 
+          # noqa: E501
 
         :param extra_config: The extra_config of this JupyterHubConfig.
         :type extra_config: Dict[str, str]
@@ -105,6 +107,7 @@ class JupyterHubConfig(Model):
     def spawner_extra_config(self):
         """Gets the spawner_extra_config of this JupyterHubConfig.
 
+          # noqa: E501
 
         :return: The spawner_extra_config of this JupyterHubConfig.
         :rtype: Dict[str, object]
@@ -115,6 +118,7 @@ class JupyterHubConfig(Model):
     def spawner_extra_config(self, spawner_extra_config):
         """Sets the spawner_extra_config of this JupyterHubConfig.
 
+          # noqa: E501
 
         :param spawner_extra_config: The spawner_extra_config of this JupyterHubConfig.
         :type spawner_extra_config: Dict[str, object]

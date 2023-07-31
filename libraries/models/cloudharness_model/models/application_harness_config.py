@@ -341,6 +341,7 @@ class ApplicationHarnessConfig(Model):
     def secrets(self):
         """Gets the secrets of this ApplicationHarnessConfig.
 
+          # noqa: E501
 
         :return: The secrets of this ApplicationHarnessConfig.
         :rtype: Dict[str, str]
@@ -351,6 +352,7 @@ class ApplicationHarnessConfig(Model):
     def secrets(self, secrets):
         """Sets the secrets of this ApplicationHarnessConfig.
 
+          # noqa: E501
 
         :param secrets: The secrets of this ApplicationHarnessConfig.
         :type secrets: Dict[str, str]
@@ -492,6 +494,7 @@ class ApplicationHarnessConfig(Model):
     def source_root(self):
         """Gets the source_root of this ApplicationHarnessConfig.
 
+          # noqa: E501
 
         :return: The source_root of this ApplicationHarnessConfig.
         :rtype: str
@@ -502,6 +505,7 @@ class ApplicationHarnessConfig(Model):
     def source_root(self, source_root):
         """Sets the source_root of this ApplicationHarnessConfig.
 
+          # noqa: E501
 
         :param source_root: The source_root of this ApplicationHarnessConfig.
         :type source_root: str

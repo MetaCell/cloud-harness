@@ -36,12 +36,12 @@ printf '%s\n' "${SEDS[@]}" | sed -f - /etc/kafka-configmap/server.properties > /
 
 # wait for events to be up & running
 # install curl first
-apt update && apt install -y curl
-for i in {1..100}
-do
-  sleep 5
-  if curl events; then
-    curl events:80/clusters --data 'name=cluster-'${POD_NAMESPACE}'&zkHosts=zookeeper.'${POD_NAMESPACE}':2181&kafkaVersion=2.2.0&jmxEnabled=true&jmxUser=&jmxPass=&logkafkaEnabled=true&pollConsumers=true&activeOffsetCacheEnabled=true&tuning.brokerViewUpdatePeriodSeconds=30&tuning.clusterManagerThreadPoolSize=2&tuning.clusterManagerThreadPoolQueueSize=100&tuning.kafkaCommandThreadPoolSize=2&tuning.kafkaCommandThreadPoolQueueSize=100&tuning.logkafkaCommandThreadPoolSize=2&tuning.logkafkaCommandThreadPoolQueueSize=100&tuning.logkafkaUpdatePeriodSeconds=30&tuning.partitionOffsetCacheTimeoutSecs=5&tuning.brokerViewThreadPoolSize=2&tuning.brokerViewThreadPoolQueueSize=1000&tuning.offsetCacheThreadPoolSize=2&tuning.offsetCacheThreadPoolQueueSize=1000&tuning.kafkaAdminClientThreadPoolSize=2&tuning.kafkaAdminClientThreadPoolQueueSize=1000&tuning.kafkaManagedOffsetMetadataCheckMillis=30000&tuning.kafkaManagedOffsetGroupCacheSize=1000000&tuning.kafkaManagedOffsetGroupExpireDays=7&securityProtocol=PLAINTEXT&saslMechanism=DEFAULT&jaasConfig=' -X POST
-    exit 0
-  fi
-done
+# apt update && apt install -y curl
+# for i in {1..100}
+# do
+#   sleep 5
+#   if curl events; then
+#     curl events:80/clusters --data 'name=cluster-'${POD_NAMESPACE}'&zkHosts=zookeeper.'${POD_NAMESPACE}':2181&kafkaVersion=2.2.0&jmxEnabled=true&jmxUser=&jmxPass=&logkafkaEnabled=true&pollConsumers=true&activeOffsetCacheEnabled=true&tuning.brokerViewUpdatePeriodSeconds=30&tuning.clusterManagerThreadPoolSize=2&tuning.clusterManagerThreadPoolQueueSize=100&tuning.kafkaCommandThreadPoolSize=2&tuning.kafkaCommandThreadPoolQueueSize=100&tuning.logkafkaCommandThreadPoolSize=2&tuning.logkafkaCommandThreadPoolQueueSize=100&tuning.logkafkaUpdatePeriodSeconds=30&tuning.partitionOffsetCacheTimeoutSecs=5&tuning.brokerViewThreadPoolSize=2&tuning.brokerViewThreadPoolQueueSize=1000&tuning.offsetCacheThreadPoolSize=2&tuning.offsetCacheThreadPoolQueueSize=1000&tuning.kafkaAdminClientThreadPoolSize=2&tuning.kafkaAdminClientThreadPoolQueueSize=1000&tuning.kafkaManagedOffsetMetadataCheckMillis=30000&tuning.kafkaManagedOffsetGroupCacheSize=1000000&tuning.kafkaManagedOffsetGroupExpireDays=7&securityProtocol=PLAINTEXT&saslMechanism=DEFAULT&jaasConfig=' -X POST
+#     exit 0
+#   fi
+# done

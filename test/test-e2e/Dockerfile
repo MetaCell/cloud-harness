@@ -1,4 +1,4 @@
-FROM node:14.18-slim
+FROM node:lts-slim
 
 # Install latest chrome dev package and fonts to support major charsets (Chinese, Japanese, Arabic, Hebrew, Thai and a few others)
 # Note: this installs the necessary libs to make the bundled version of Chromium that Puppeteer
@@ -23,21 +23,18 @@ RUN apt-get update \
 #     browser.launch({executablePath: 'google-chrome-stable'})
 # ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD true
 RUN mkdir -p /home/test
-WORKDIR /home/test
-
-COPY package.json . 
-COPY package-lock.json . 
-RUN npm install
 RUN groupadd -r test && useradd -r -g test -G audio,video test \
-    && mkdir -p /home/test/Downloads \
-    && chown -R test:test /home/test \
-    && chown -R test:test node_modules \
-    && chown -R test:test package.json \
-    && chown -R test:test package-lock.json
+    && chown -R test:test /home/test
+WORKDIR /home/test
+USER test
+COPY package.json . 
+COPY yarn.lock . 
+RUN yarn install --timeout 99999999
+
 
 # Run everything after as non-privileged user.
 
 
 COPY --chown=test . . 
 USER test
-CMD ["npm", "run", "test"]
+CMD ["yarn", "test"]
