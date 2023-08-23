@@ -63,7 +63,7 @@ harness:
 ```
 
 #### Proxy specific configurations
-Proxy configurations can be personalized in the application in the case that we want to have more restrictive values than the global ones (see [here] for more (./ingress-domains-proxies.md#proxy-configurations))
+Proxy configurations can be personalized in the application in the case that we want to have more restrictive values than the global ones (see [here](./ingress-domains-proxies.md#proxy-configurations) for more )
 
 ```yaml
 harness:
