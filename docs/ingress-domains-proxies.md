@@ -36,7 +36,7 @@ harness-deployment ... -dtls -l
 ## Main application
 
 The "main" application is deployed on the base domain.
-In order to specify a main application, override the [root values file](../deployment-configuration/values-template.yaml)
+In order to specify a main application, override the value in your `/deployment-configuration/values-template.yaml` file.
 
 Example
 ```yaml
@@ -49,17 +49,19 @@ This creates a reverse proxy to https://ch.org pointing to myapp
 Ingress is a reverse proxy and as such has some configurations to take into account.
 The most common configurations are connection timeouts and payload size.
 
+To configure it, override the following values in your `deployment-configuration/values-template.yaml` file.
+
 ```yaml
 proxy:
-    timeout:
-      # -- Timeout for proxy connections in seconds.
-      send:
-      # -- Timeout for proxy responses in seconds.
-      read:
-      keepalive:
-    payload:
-      # -- Maximum size of payload in MB
-      max: 
+  timeout:
+    # -- Timeout for proxy connections in seconds.
+    send: 60
+    # -- Timeout for proxy responses in seconds.
+    read: 60
+    keepalive: 60
+  payload:
+    # -- Maximum size of payload in MB
+    max: 250
 ```
 
 Note that in the case that gatekeepers are enabled, the same configurations are applied
