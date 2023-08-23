@@ -18,8 +18,12 @@ data:
     enable-default-deny:  {{ eq (.app.harness.secured | toString) "true" }}
     listen: 0.0.0.0:8080
     enable-refresh-tokens: true
-    server-write-timeout: 180s
-    upstream-response-header-timeout: 180s
+    server-write-timeout: {{ .app.harness.proxy.timeout.send | default .root.Values.proxy.timeout.send | default 180 }}s
+    upstream-timeout: {{ .app.harness.proxy.timeout.read | default .root.Values.proxy.timeout.read | default 180 }}s
+    upstream-response-header-timeout:   {{ .app.harness.proxy.timeout.read | default .root.Values.proxy.timeout.read | default 180 }}s
+    upstream-expect-continue-timeout:  {{ .app.harness.proxy.timeout.read | default .root.Values.proxy.timeout.read | default 180 }}s
+    server-read-timeout:  {{ .app.harness.proxy.timeout.read | default .root.Values.proxy.timeout.read | default 180 }}s
+    upstream-keepalive-timeout:  {{ .app.harness.proxy.timeout.keepalive | default .root.Values.proxy.timeout.keepalive | default 180 }}s
     http-only-cookie: false
     tls-cert:
     tls-private-key:
@@ -65,7 +69,7 @@ data:
               <h2 class="message">403 Permission Denied</h2>
               <div class="error-details">
                 Sorry, you do not have access to this page, please contact your administrator.
-                If you have been assigned new authorizations try to <a href="/oauth/logout?redirect=/">login again</a>.
+                If you have been assigned new authorizations, try to refresh the page or to <a href="/oauth/logout?redirect=/">login again</a>.
               </div>
             </div>
           </div>

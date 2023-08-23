@@ -62,7 +62,22 @@ harness:
   secured: open
 ```
 
+#### Proxy specific configurations
+Proxy configurations can be personalized in the application in the case that we want to have more restrictive values than the global ones (see [here](./ingress-domains-proxies.md#proxy-configurations) for more )
 
+```yaml
+harness:
+  proxy:
+    timeout:
+      # -- Timeout for proxy connections in seconds.
+      send:
+      # -- Timeout for proxy responses in seconds.
+      read:
+      keepalive:
+    payload:
+      # -- Maximum size of payload in MB
+      max: 
+```
 ### Secure an enpoint with OpenAPI
 
 In every api endpoint that you want to secure, add the bearerAuth security as in the example:

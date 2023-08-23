@@ -37,7 +37,7 @@ class ApplicationHarnessConfig(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, deployment=None, service=None, subdomain=None, aliases=None, domain=None, dependencies=None, secured=None, uri_role_mapping=None, secrets=None, use_services=None, database=None, resources=None, readiness_probe=None, startup_probe=None, liveness_probe=None, source_root=None, name=None, jupyterhub=None, accounts=None, test=None):  # noqa: E501
+    def __init__(self, deployment=None, service=None, subdomain=None, aliases=None, domain=None, dependencies=None, secured=None, uri_role_mapping=None, secrets=None, use_services=None, database=None, resources=None, readiness_probe=None, startup_probe=None, liveness_probe=None, source_root=None, name=None, jupyterhub=None, accounts=None, test=None, quotas=None):  # noqa: E501
         """ApplicationHarnessConfig - a model defined in OpenAPI
 
         :param deployment: The deployment of this ApplicationHarnessConfig.  # noqa: E501
@@ -57,7 +57,7 @@ class ApplicationHarnessConfig(Model):
         :param uri_role_mapping: The uri_role_mapping of this ApplicationHarnessConfig.  # noqa: E501
         :type uri_role_mapping: List[UriRoleMappingConfig]
         :param secrets: The secrets of this ApplicationHarnessConfig.  # noqa: E501
-        :type secrets: Dict[str, str]
+        :type secrets: Dict[str, object]
         :param use_services: The use_services of this ApplicationHarnessConfig.  # noqa: E501
         :type use_services: List[str]
         :param database: The database of this ApplicationHarnessConfig.  # noqa: E501
@@ -80,6 +80,8 @@ class ApplicationHarnessConfig(Model):
         :type accounts: ApplicationAccountsConfig
         :param test: The test of this ApplicationHarnessConfig.  # noqa: E501
         :type test: ApplicationTestConfig
+        :param quotas: The quotas of this ApplicationHarnessConfig.  # noqa: E501
+        :type quotas: Dict[str, object]
         """
         self.openapi_types = {
             'deployment': DeploymentAutoArtifactConfig,
@@ -90,7 +92,7 @@ class ApplicationHarnessConfig(Model):
             'dependencies': ApplicationDependenciesConfig,
             'secured': bool,
             'uri_role_mapping': List[UriRoleMappingConfig],
-            'secrets': Dict[str, str],
+            'secrets': Dict[str, object],
             'use_services': List[str],
             'database': DatabaseDeploymentConfig,
             'resources': List[FileResourcesConfig],
@@ -101,7 +103,8 @@ class ApplicationHarnessConfig(Model):
             'name': str,
             'jupyterhub': JupyterHubConfig,
             'accounts': ApplicationAccountsConfig,
-            'test': ApplicationTestConfig
+            'test': ApplicationTestConfig,
+            'quotas': Dict[str, object]
         }
 
         self.attribute_map = {
@@ -124,7 +127,8 @@ class ApplicationHarnessConfig(Model):
             'name': 'name',
             'jupyterhub': 'jupyterhub',
             'accounts': 'accounts',
-            'test': 'test'
+            'test': 'test',
+            'quotas': 'quotas'
         }
 
         self._deployment = deployment
@@ -147,6 +151,7 @@ class ApplicationHarnessConfig(Model):
         self._jupyterhub = jupyterhub
         self._accounts = accounts
         self._test = test
+        self._quotas = quotas
 
     @classmethod
     def from_dict(cls, dikt) -> 'ApplicationHarnessConfig':
@@ -344,7 +349,7 @@ class ApplicationHarnessConfig(Model):
           # noqa: E501
 
         :return: The secrets of this ApplicationHarnessConfig.
-        :rtype: Dict[str, str]
+        :rtype: Dict[str, object]
         """
         return self._secrets
 
@@ -355,7 +360,7 @@ class ApplicationHarnessConfig(Model):
           # noqa: E501
 
         :param secrets: The secrets of this ApplicationHarnessConfig.
-        :type secrets: Dict[str, str]
+        :type secrets: Dict[str, object]
         """
 
         self._secrets = secrets
@@ -600,3 +605,26 @@ class ApplicationHarnessConfig(Model):
         """
 
         self._test = test
+
+    @property
+    def quotas(self):
+        """Gets the quotas of this ApplicationHarnessConfig.
+
+          # noqa: E501
+
+        :return: The quotas of this ApplicationHarnessConfig.
+        :rtype: Dict[str, object]
+        """
+        return self._quotas
+
+    @quotas.setter
+    def quotas(self, quotas):
+        """Sets the quotas of this ApplicationHarnessConfig.
+
+          # noqa: E501
+
+        :param quotas: The quotas of this ApplicationHarnessConfig.
+        :type quotas: Dict[str, object]
+        """
+
+        self._quotas = quotas

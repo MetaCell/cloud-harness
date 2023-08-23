@@ -21,7 +21,7 @@ class JupyterHubConfig(Model):
         :param args: The args of this JupyterHubConfig.  # noqa: E501
         :type args: List[str]
         :param extra_config: The extra_config of this JupyterHubConfig.  # noqa: E501
-        :type extra_config: Dict[str, str]
+        :type extra_config: Dict[str, object]
         :param spawner_extra_config: The spawner_extra_config of this JupyterHubConfig.  # noqa: E501
         :type spawner_extra_config: Dict[str, object]
         :param application_hook: The application_hook of this JupyterHubConfig.  # noqa: E501
@@ -29,7 +29,7 @@ class JupyterHubConfig(Model):
         """
         self.openapi_types = {
             'args': List[str],
-            'extra_config': Dict[str, str],
+            'extra_config': Dict[str, object],
             'spawner_extra_config': Dict[str, object],
             'application_hook': object
         }
@@ -87,7 +87,7 @@ class JupyterHubConfig(Model):
           # noqa: E501
 
         :return: The extra_config of this JupyterHubConfig.
-        :rtype: Dict[str, str]
+        :rtype: Dict[str, object]
         """
         return self._extra_config
 
@@ -98,7 +98,7 @@ class JupyterHubConfig(Model):
           # noqa: E501
 
         :param extra_config: The extra_config of this JupyterHubConfig.
-        :type extra_config: Dict[str, str]
+        :type extra_config: Dict[str, object]
         """
 
         self._extra_config = extra_config

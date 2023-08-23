@@ -67,3 +67,13 @@ backup:
       memory: "64Mi"
       # -- K8s cpu resource definition.
       cpu: "50m"
+proxy:
+  timeout:
+    # -- Timeout for proxy connections in seconds.
+    send: 60
+    # -- Timeout for proxy responses in seconds.
+    read: 60
+    keepalive: 60
+  payload:
+    # -- Maximum size of payload in MB
+    max: 250

@@ -51,7 +51,7 @@ class HarnessMainConfig(Model):
         :param name: The name of this HarnessMainConfig.  # noqa: E501
         :type name: str
         :param task_images: The task_images of this HarnessMainConfig.  # noqa: E501
-        :type task_images: Dict[str, str]
+        :type task_images: Dict[str, object]
         """
         self.openapi_types = {
             'local': bool,
@@ -66,7 +66,7 @@ class HarnessMainConfig(Model):
             'privenv': NameValue,
             'backup': BackupConfig,
             'name': str,
-            'task_images': Dict[str, str]
+            'task_images': Dict[str, object]
         }
 
         self.attribute_map = {
@@ -399,7 +399,7 @@ class HarnessMainConfig(Model):
           # noqa: E501
 
         :return: The task_images of this HarnessMainConfig.
-        :rtype: Dict[str, str]
+        :rtype: Dict[str, object]
         """
         return self._task_images
 
@@ -410,7 +410,7 @@ class HarnessMainConfig(Model):
           # noqa: E501
 
         :param task_images: The task_images of this HarnessMainConfig.
-        :type task_images: Dict[str, str]
+        :type task_images: Dict[str, object]
         """
 
         self._task_images = task_images
