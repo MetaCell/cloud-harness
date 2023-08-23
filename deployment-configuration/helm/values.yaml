@@ -76,4 +76,4 @@ proxy:
     keepalive: 60
   payload:
     # -- Maximum size of payload in MB
-    max: 100
+    max: 250
