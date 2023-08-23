@@ -108,16 +108,7 @@ The test can use environmental variables:
 Examples:
 - [Sample api test](../applications/samples/test/api/test_st.py)
 
-### Common smoke tests
 
-Once a test is created for your application, generic smoke tests are also
-executed, checking for:
-
-- Main page is reachable
-- No errors in the console
-- No error responses from network resources and fetch requests (code < 400)
-
-The smoke tests is defined [in this file](../test/test-e2e/__tests__/common.spec.ts).
 
 
 
@@ -125,6 +116,22 @@ The smoke tests is defined [in this file](../test/test-e2e/__tests__/common.spec
 
 End to end tests run in a headless browser ([Puppeteer](https://github.com/puppeteer/puppeteer)) against the full deployment on Kubernetes.
 
+Custom configuration:
+
+```yaml
+harness:
+  ...
+  test:
+    e2e:
+      # -- enable/disable e2e tests
+      enabled: true
+      # -- ignore errors on console by default
+      ignoreConsoleErrors: false
+      # -- ignore fetched resources errors by default
+      ignoreRequestErrors: false
+      # -- enable common smoke tests
+      smoketest: true
+```
 
 ### Write tests with Jest and Puppeteer
 
@@ -159,7 +166,7 @@ executed, checking for:
 - No errors in the console
 - No error responses from network resources and fetch requests (code < 400)
 
-The smoke tests is defined [in this file](../test/jest-puppeteer/__tests__/common.spec.ts).
+The smoke tests are defined [in this file](../test/jest-puppeteer/__tests__/common.spec.ts).
 
 
 ## Run API and E2E tests in the CI/CD pipeline
