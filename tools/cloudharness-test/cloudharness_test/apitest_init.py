@@ -16,7 +16,7 @@ if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
     else:
         try:
             openapi_uri = openapi_uri = app_url + "/openapi.json"
-            schema = st.from_file(openapi_uri)
+            schema = st.from_uri(openapi_uri)
         except st.exceptions.SchemaLoadingError as e:
             # Use alternative configuration
             try:
