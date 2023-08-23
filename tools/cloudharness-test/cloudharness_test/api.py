@@ -60,6 +60,12 @@ def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, inclu
 
             app_env = get_app_environment(app_config, app_domain)
 
+            schema_file = f"applications/{app_config.name}/api/openapi.yaml"
+
+            for path in root_paths:
+                if os.path.exists(os.path.join(path, schema_file)):
+                    app_env["APP_SCHEMA_FILE"] = schema_file
+
             if api_config.autotest:
                 logging.info("Running auto api tests")
                 cmd = get_schemathesis_command(api_filename, app_config, app_domain)

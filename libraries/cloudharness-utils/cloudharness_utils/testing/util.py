@@ -11,9 +11,7 @@ def get_user_password(main_user: ApplicationUser):
 def get_app_environment(app_config: ApplicationHarnessConfig, app_domain, use_local_env=True):
     my_env = os.environ.copy() if use_local_env else {}
     my_env["APP_URL"] = app_domain
-    schema_file = f"applications/{app_config.name}/api/openapi.yaml"
-    if os.path.exists(schema_file):
-        my_env["APP_SCHEMA_FILE"] = schema_file
+    
 
     if app_config.accounts and app_config.accounts.users:
         main_user: ApplicationUser = app_config.accounts.users[0]
