@@ -11,9 +11,11 @@ if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
     app_url = os.environ.get("APP_URL", "http://samples.ch.local/api")
     logging.info("Start schemathesis tests on %s", app_url)
     if app_schema:
+        # Test locally with harness-test -- use local schema for convenience during test development
         openapi_uri = app_schema
         schema = st.from_file(openapi_uri)
     else:
+        # remote testing: might be /api/openapi.json or /openapi.json
         try:
             openapi_uri = openapi_uri = app_url + "/openapi.json"
             schema = st.from_uri(openapi_uri)

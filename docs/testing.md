@@ -189,7 +189,7 @@ deployment.
 In order to use `harness-test` install the library with
 
 ```
-pip install -r requirements-test.txt
+pip install -e tools/cloudharness-test
 ```
 
 In order to run tests against an existing deployment based on a domain (say, my.domain), run:
@@ -204,6 +204,25 @@ If you want to run the deployment locally and then run the tests, can use skaffo
 1. Build and deploy locally `skaffold dev`
 1. Wait the deployment to settle
 1. Run `harness-test PATHS`
+
+### Tests development
+The `harness-test` client is useful while developing and tweaking the tests.
+In that case it's better to target the application under development and 
+the kind of tests we are working on.
+
+
+To target a specific application for end-to-end tests, use:
+```
+harness-test . -i [APPNAME] -e
+```
+
+To target a specific application for api tests, use:
+```
+harness-test . -i [APPNAME] -a
+```
+
+Note that the local version of the openapi.yaml file located at applications/[APPNAME]/api/openapi.yaml is used if available. That's useful to tweak examples and responses
+used by schemathesis to generate the test hypotheses.
 
 ## Create test users for your application
 

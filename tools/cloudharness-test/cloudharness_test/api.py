@@ -63,6 +63,7 @@ def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, inclu
             schema_file = f"applications/{app_config.name}/api/openapi.yaml"
 
             for path in root_paths:
+                # use local schema if available to simplify test development
                 if os.path.exists(os.path.join(path, schema_file)):
                     app_env["APP_SCHEMA_FILE"] = schema_file
 
