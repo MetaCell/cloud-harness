@@ -108,16 +108,7 @@ The test can use environmental variables:
 Examples:
 - [Sample api test](../applications/samples/test/api/test_st.py)
 
-### Common smoke tests
 
-Once a test is created for your application, generic smoke tests are also
-executed, checking for:
-
-- Main page is reachable
-- No errors in the console
-- No error responses from network resources and fetch requests (code < 400)
-
-The smoke tests is defined [in this file](../test/test-e2e/__tests__/common.spec.ts).
 
 
 
@@ -125,6 +116,22 @@ The smoke tests is defined [in this file](../test/test-e2e/__tests__/common.spec
 
 End to end tests run in a headless browser ([Puppeteer](https://github.com/puppeteer/puppeteer)) against the full deployment on Kubernetes.
 
+Custom configuration:
+
+```yaml
+harness:
+  ...
+  test:
+    e2e:
+      # -- enable/disable e2e tests
+      enabled: true
+      # -- ignore errors on console by default
+      ignoreConsoleErrors: false
+      # -- ignore fetched resources errors by default
+      ignoreRequestErrors: false
+      # -- enable common smoke tests
+      smoketest: true
+```
 
 ### Write tests with Jest and Puppeteer
 
@@ -159,7 +166,7 @@ executed, checking for:
 - No errors in the console
 - No error responses from network resources and fetch requests (code < 400)
 
-The smoke tests is defined [in this file](../test/jest-puppeteer/__tests__/common.spec.ts).
+The smoke tests are defined [in this file](../test/jest-puppeteer/__tests__/common.spec.ts).
 
 
 ## Run API and E2E tests in the CI/CD pipeline
@@ -182,7 +189,7 @@ deployment.
 In order to use `harness-test` install the library with
 
 ```
-pip install -r requirements-test.txt
+pip install -e tools/cloudharness-test
 ```
 
 In order to run tests against an existing deployment based on a domain (say, my.domain), run:
@@ -197,6 +204,25 @@ If you want to run the deployment locally and then run the tests, can use skaffo
 1. Build and deploy locally `skaffold dev`
 1. Wait the deployment to settle
 1. Run `harness-test PATHS`
+
+### Tests development
+The `harness-test` client is useful while developing and tweaking the tests.
+In that case it's better to target the application under development and 
+the kind of tests we are working on.
+
+
+To target a specific application for end-to-end tests, use:
+```
+harness-test . -i [APPNAME] -e
+```
+
+To target a specific application for api tests, use:
+```
+harness-test . -i [APPNAME] -a
+```
+
+Note that the local version of the openapi.yaml file located at applications/[APPNAME]/api/openapi.yaml is used if available. That's useful to tweak examples and responses
+used by schemathesis to generate the test hypotheses.
 
 ## Create test users for your application
 
