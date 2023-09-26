@@ -111,14 +111,49 @@ Per default, database backups are disabled. However, you can overwrite backups b
 
 ```yaml
 backup:
-    active: true
+  active: true
 ```
 
+See all the default values [here](../../deployment-configuration/helm/values.yaml).
 You can find additional configuration fields for backups to overwrite in the generated `deployment/helm/values.yaml` once you deploy your applications.
 
 Backups are defined for `mongo` and `postgres` database in form of a [K8s CronJob](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/) that creates a dump of the database and stores it in a different persistent volume on the same cluster.
 
-This is done periodically according to a configurable schedule, per default once a day.
+This is done periodically according to a configurable schedule, per default every 5 minutes.
+
+A smart retention strategy is used for backups, by default:
+- all current days backups
+- one per day, last 7 days
+- one per week, last 4 weeks
+- one per month, last 6 months
+
+Implementation of backups and retention is based on https://github.com/prodrigestivill/docker-postgres-backup-local.
+
+#### How to monitor and restore backups
+
+Backups are stored in a Kubernetes volume named `db-backups`.
+
+Can mount the volume to your database pod by adding the following to your db deployment:
+
+```yaml
+...
+spec:
+  template:
+    spec:
+      containers:
+      - ...
+        volumeMounts:
+        - name: "db-backups"
+          mountPath: /backups
+          readOnly: true
+      ...
+      volumes:
+      ...
+      - name: "db-backups"
+        persistentVolumeClaim:
+          claimName: "db-backups"
+```
+
 
 
 ### MongoDB
