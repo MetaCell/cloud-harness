@@ -7,6 +7,7 @@ from ch_cli_tools.skaffold import *
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')
+RESOURCES_BUGGY = os.path.join(HERE, 'resources_buggy')
 OUT = '/tmp/deployment'
 CLOUDHARNESS_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 
@@ -70,7 +71,7 @@ def test_create_skaffold_configuration():
         a for a in sk['build']['artifacts'] if a['image'] == 'reg/cloudharness/cloudharness-flask')
 
 
-    assert os.path.samefile(cloudharness_flask_artifact['context'], 
+    assert os.path.samefile(cloudharness_flask_artifact['context'],
        join(CLOUDHARNESS_ROOT, 'infrastructure/common-images/cloudharness-flask')
     )
 
@@ -102,3 +103,39 @@ def test_create_skaffold_configuration():
 
     shutil.rmtree(OUT)
     shutil.rmtree(BUILD_DIR)
+
+
+def test_create_skaffold_configuration_with_conflicting_dependencies(tmp_path):
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES_BUGGY],
+        output_path=OUT,
+        include=['myapp'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    root_paths = preprocess_build_overrides(
+        root_paths=[CLOUDHARNESS_ROOT, RESOURCES_BUGGY],
+        helm_values=values,
+        merge_build_path=str(tmp_path)
+    )
+
+    sk = create_skaffold_configuration(
+        root_paths=root_paths,
+        helm_values=values,
+        output_path=OUT
+    )
+
+    releases = sk['deploy']['helm']['releases']
+    assert len(releases) == 1  # Ensure we only found 1 deployment (for myapp)
+
+    release = releases[0]
+    assert 'myapp' in release['overrides']['apps']
+    assert 'matplotlib' not in release['overrides']['apps']
+
+    myapp_config = release['overrides']['apps']['myapp']
+    assert myapp_config['harness']['deployment']['args'][0] == '/usr/src/app/myapp_code/__main__.py'
