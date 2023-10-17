@@ -3,7 +3,7 @@ import logging
 import json
 import time
 
-from os.path import join, dirname, relpath, basename
+from os.path import join, relpath, basename, exists, abspath
 from cloudharness_model import ApplicationTestConfig, HarnessMainConfig
 
 from cloudharness_utils.constants import APPS_PATH, DEPLOYMENT_CONFIGURATION_PATH, \
@@ -140,24 +140,36 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
             mains_candidates = find_file_paths(context_path, '__main__.py')
 
-            def identify_flask_main(candidates):
+            def identify_unicorn_based_main(candidates):
                 import re
-                init_flask_pattern = re.compile(r"init_flask\(")
+                gunicorn_pattern = re.compile(r"gunicorn")
                 for candidate in candidates:
-                    with open(f"{candidate}/__main__.py", 'r') as file:
-                        if re.search(init_flask_pattern, file.read()):
+                    dockerfile_path = f"{candidate}/.."
+                    while not exists(f"{dockerfile_path}/Dockerfile") and abspath(dockerfile_path) != abspath(root_path):
+                        dockerfile_path += "/.."
+                    dockerfile = f"{dockerfile_path}/Dockerfile"
+                    if not exists(dockerfile):
+                        continue
+                    with open(dockerfile, 'r') as file:
+                        if re.search(gunicorn_pattern, file.read()):
+                            return candidate
+                    requirements = f"{candidate}/../requirements.txt"
+                    if not exists(requirements):
+                        continue
+                    with open(requirements, 'r') as file:
+                        if re.search(gunicorn_pattern, file.read()):
                             return candidate
                 return None
 
-            flask_main = identify_flask_main(mains_candidates)
+            task_main_file = identify_unicorn_based_main(mains_candidates)
 
-            if flask_main:
+            if task_main_file:
                 release_config['overrides']['apps'][app_key] = \
                     {
                         'harness': {
                             'deployment': {
                                 'command': ['python'],
-                                'args': [f'/usr/src/app/{os.path.basename(flask_main)}/__main__.py']
+                                'args': [f'/usr/src/app/{os.path.basename(task_main_file)}/__main__.py']
                             }
                         }
                 }
