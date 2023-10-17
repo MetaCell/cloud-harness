@@ -3,7 +3,7 @@ import logging
 import json
 import time
 
-from os.path import join, dirname, relpath, basename
+from os.path import join, relpath, basename, exists, abspath
 from cloudharness_model import ApplicationTestConfig, HarnessMainConfig
 
 from cloudharness_utils.constants import APPS_PATH, DEPLOYMENT_CONFIGURATION_PATH, \
@@ -51,7 +51,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
                                          in requirements]
         return artifact_spec
 
-    
+
     base_images = set()
 
     def process_build_dockerfile(dockerfile_path, root_path, global_context=False, requirements=None, app_name=None):
@@ -78,13 +78,13 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
         for dockerfile_path in base_dockerfiles:
             process_build_dockerfile(dockerfile_path, root_path, global_context=True)
-            
-    
+
+
     release_config = skaffold_conf['deploy']['helm']['releases'][0]
     release_config['name'] = helm_values.namespace
     release_config['namespace'] = helm_values.namespace
     release_config['artifactOverrides'][KEY_APPS] = {}
-    
+
     static_images = set()
     for root_path in root_paths:
         static_dockerfiles = find_dockerfiles_paths(
@@ -92,7 +92,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
         for dockerfile_path in static_dockerfiles:
             process_build_dockerfile(dockerfile_path, root_path)
-           
+
 
     for root_path in root_paths:
         apps_path = join(root_path, APPS_PATH)
@@ -138,22 +138,45 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
                         }
                 }
 
-            flask_main = find_file_paths(context_path, '__main__.py')
+            mains_candidates = find_file_paths(context_path, '__main__.py')
 
-            if flask_main:
+            def identify_unicorn_based_main(candidates):
+                import re
+                gunicorn_pattern = re.compile(r"gunicorn")
+                for candidate in candidates:
+                    dockerfile_path = f"{candidate}/.."
+                    while not exists(f"{dockerfile_path}/Dockerfile") and abspath(dockerfile_path) != abspath(root_path):
+                        dockerfile_path += "/.."
+                    dockerfile = f"{dockerfile_path}/Dockerfile"
+                    if not exists(dockerfile):
+                        continue
+                    with open(dockerfile, 'r') as file:
+                        if re.search(gunicorn_pattern, file.read()):
+                            return candidate
+                    requirements = f"{candidate}/../requirements.txt"
+                    if not exists(requirements):
+                        continue
+                    with open(requirements, 'r') as file:
+                        if re.search(gunicorn_pattern, file.read()):
+                            return candidate
+                return None
+
+            task_main_file = identify_unicorn_based_main(mains_candidates)
+
+            if task_main_file:
                 release_config['overrides']['apps'][app_key] = \
                     {
                         'harness': {
                             'deployment': {
                                 'command': ['python'],
-                                'args': [f'/usr/src/app/{os.path.basename(flask_main[0])}/__main__.py']
+                                'args': [f'/usr/src/app/{os.path.basename(task_main_file)}/__main__.py']
                             }
                         }
                 }
-            
+
             test_config: ApplicationTestConfig = helm_values.apps[app_key].harness.test
             if test_config.unit.enabled and test_config.unit.commands:
-                    
+
                     skaffold_conf['test'].append(dict(
                         image=get_image_tag(app_name),
                         custom=[dict(command="docker run $IMAGE " + cmd) for cmd in test_config.unit.commands]
@@ -209,7 +232,7 @@ def create_vscode_debug_configuration(root_paths, helm_values):
                                                                                                        "/usr/src/app"),
                     }
                 })
-                
+
 
     if not os.path.exists(os.path.dirname(vscode_launch_path)):
         os.makedirs(os.path.dirname(vscode_launch_path))
