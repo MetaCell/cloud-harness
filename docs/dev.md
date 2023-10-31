@@ -266,3 +266,48 @@ libraries/
     │   └── openapi.yaml
     └── cloudharness_model   # The generated CloudHarness Python model
 ```
+
+The `cloudharness-common` folder is where is located most of the custom code for the various tasks and applications.
+The code is structured as this:
+
+```bash
+cloudharness
+├── applications.py          # Contains helpers regarding about the application configuration
+├── auth                     # Primitives related to authentication and KeyCloak
+│   ├── exceptions.py        # Dedicated exceptions
+│   ├── __init__.py
+│   ├── keycloak.py          # Implementation specific code for KeyCloak, contains helpers to create KeyCloak clients, get tokens, configuration, ...
+│   └── quota.py             # Manage a quota by users
+├── errors.py                # Dedicated exceptions
+├── events                   # Primitives related to event streaming with Kafka
+│   ├── client.py            # Functions related to the connexion to the Kafka broker
+│   ├── decorators.py        # Decorator implementation to easily send the result of a function to Kafka
+│   ├── __init__.py
+├── infrastructure           # Primitives related to the management of the infrastructure with Kubernete
+│   ├── __init__.py
+│   ├── k8s.py               # Functions for Kubernete namespace and pod managment
+├── __init__.py
+├── middleware               # Manage user authentication header injection
+│   ├── django.py            # Way of injecting the auth token in requests for Django
+│   ├── flask.py             # Way of injecting the auth token in requests for Flask
+│   ├── __init__.py
+├── sentry                   # Primitives for sentry initialisation
+│   └── __init__.py
+├── service                  # Additional services to handle Persistent Volum Claim in Kubernetes
+│   ├── __init__.py
+│   ├── pvc.py
+│   └── templates
+│       └── pvc.yaml
+├── utils                    # Set of helpers
+│   ├── config.py            # Helper class for the CloudHarness configuration
+│   ├── env.py               # Helper for the env variables in configurations
+│   ├── __init__.py
+│   ├── secrets.py           # Helper class for the CloudHarness application secrets
+│   ├── server.py            # Helpers for flask/server bootstrapping
+└── workflows                # Primitives for the management of workflows
+    ├── argo.py              # Helpers and function to access the Argo REST API
+    ├── __init__.py
+    ├── operations.py        # Functions to create new Argo operations
+    ├── tasks.py             # Functions to create new Argo tasks
+    └── utils.py             # Helpers to get information from the pods that executes operations and tasks
+```
