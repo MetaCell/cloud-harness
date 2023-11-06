@@ -1,0 +1,18 @@
+{{- if .Values.apps.jupyterhub.proxy.traefik.pdb.enabled -}}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: proxy
+  labels:
+    {{- include "jupyterhub.labels" . | nindent 4 }}
+spec:
+  {{- if not (typeIs "<nil>" .Values.apps.jupyterhub.proxy.traefik.pdb.maxUnavailable) }}
+  maxUnavailable: {{ .Values.apps.jupyterhub.proxy.traefik.pdb.maxUnavailable }}
+  {{- end }}
+  {{- if not (typeIs "<nil>" .Values.apps.jupyterhub.proxy.traefik.pdb.minAvailable) }}
+  minAvailable: {{ .Values.apps.jupyterhub.proxy.traefik.pdb.minAvailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "jupyterhub.matchLabels" . | nindent 6 }}
+{{- end }}

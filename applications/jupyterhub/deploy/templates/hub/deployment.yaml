@@ -5,6 +5,9 @@ metadata:
   labels:
     {{- include "jupyterhub.labels" . | nindent 4 }}
 spec:
+  {{- if typeIs "int" .Values.apps.jupyterhub.hub.revisionHistoryLimit }}
+  revisionHistoryLimit: {{ .Values.apps.jupyterhub.hub.revisionHistoryLimit }}
+  {{- end }}
   replicas: 1
   selector:
     matchLabels:
@@ -34,7 +37,10 @@ spec:
       {{- if .Values.apps.jupyterhub.scheduling.podPriority.enabled }}
       priorityClassName: {{ include "jupyterhub.priority.fullname" . }}
       {{- end }}
-      nodeSelector: {{ toJson .Values.apps.jupyterhub.hub.nodeSelector }}
+      {{- with .Values.apps.jupyterhub.hub.nodeSelector }}
+      nodeSelector:
+        {{- . | toYaml | nindent 8 }}
+      {{- end }}
       {{- with concat .Values.apps.jupyterhub.scheduling.corePods.tolerations .Values.apps.jupyterhub.hub.tolerations }}
       tolerations:
         {{- . | toYaml | nindent 8 }}
@@ -82,11 +88,13 @@ spec:
           persistentVolumeClaim:
             claimName: {{ include "jupyterhub.hub-pvc.fullname" . }}
         {{- end }}
-      {{- if .Values.apps.jupyterhub.rbac.enabled }}
-      serviceAccountName: {{ include "jupyterhub.hub.fullname" . }}
+      {{- with include "jupyterhub.hub-serviceaccount.fullname" . }}
+      serviceAccountName: {{ . }}
       {{- end }}
+      {{- with .Values.apps.jupyterhub.hub.podSecurityContext }}
       securityContext:
-        fsGroup: {{ .Values.apps.jupyterhub.hub.fsGid }}
+        {{- . | toYaml | nindent 8 }}
+      {{- end }}
       {{- with include "jupyterhub.imagePullSecrets" (dict "root" . "image" .Values.apps.jupyterhub.hub.image) }}
       imagePullSecrets: {{ . }}
       {{- end }}

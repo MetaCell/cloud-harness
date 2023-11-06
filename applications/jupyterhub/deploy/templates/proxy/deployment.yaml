@@ -7,6 +7,9 @@ metadata:
   labels:
     {{- include "jupyterhub.labels" . | nindent 4 }}
 spec:
+  {{- if typeIs "int" .Values.apps.jupyterhub.proxy.chp.revisionHistoryLimit }}
+  revisionHistoryLimit: {{ .Values.apps.jupyterhub.proxy.chp.revisionHistoryLimit }}
+  {{- end }}
   replicas: 1
   selector:
     matchLabels:
@@ -35,7 +38,7 @@ spec:
         # match the k8s Secret during the first upgrade following an auth_token
         # was generated.
         checksum/auth-token: {{ include "jupyterhub.hub.config.ConfigurableHTTPProxy.auth_token" . | sha256sum | trunc 4 | quote }}
-        checksum/proxy-secret: {{ include (print $.Template.BasePath "/jupyterhub/hub/secret.yaml") . | sha256sum }}
+        checksum/proxy-secret: {{ include (print $.Template.BasePath "/proxy/secret.yaml") . | sha256sum | quote }}
         {{- with .Values.apps.jupyterhub.proxy.annotations }}
         {{- . | toYaml | nindent 8 }}
         {{- end }}
@@ -44,7 +47,10 @@ spec:
       {{- if .Values.apps.jupyterhub.scheduling.podPriority.enabled }}
       priorityClassName: {{ include "jupyterhub.priority.fullname" . }}
       {{- end }}
-      nodeSelector: {{ toJson .Values.apps.jupyterhub.proxy.chp.nodeSelector }}
+      {{- with .Values.apps.jupyterhub.proxy.chp.nodeSelector }}
+      nodeSelector:
+        {{- . | toYaml | nindent 8 }}
+      {{- end }}
       {{- with concat .Values.apps.jupyterhub.scheduling.corePods.tolerations .Values.apps.jupyterhub.proxy.chp.tolerations }}
       tolerations:
         {{- . | toYaml | nindent 8 }}
@@ -135,6 +141,8 @@ spec:
           livenessProbe:
             initialDelaySeconds: {{ .Values.apps.jupyterhub.proxy.chp.livenessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.apps.jupyterhub.proxy.chp.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.apps.jupyterhub.proxy.chp.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.apps.jupyterhub.proxy.chp.livenessProbe.failureThreshold }}
             httpGet:
               path: /_chp_healthz
               {{- if or $manualHTTPS $manualHTTPSwithsecret }}
@@ -149,6 +157,8 @@ spec:
           readinessProbe:
             initialDelaySeconds: {{ .Values.apps.jupyterhub.proxy.chp.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.apps.jupyterhub.proxy.chp.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.apps.jupyterhub.proxy.chp.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.apps.jupyterhub.proxy.chp.readinessProbe.failureThreshold }}
             httpGet:
               path: /_chp_healthz
               {{- if or $manualHTTPS $manualHTTPSwithsecret }}

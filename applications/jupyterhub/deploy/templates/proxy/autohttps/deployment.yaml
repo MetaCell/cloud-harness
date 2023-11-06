@@ -8,6 +8,9 @@ metadata:
   labels:
     {{- include "jupyterhub.labels" . | nindent 4 }}
 spec:
+  {{- if typeIs "int" .Values.apps.jupyterhub.proxy.traefik.revisionHistoryLimit }}
+  revisionHistoryLimit: {{ .Values.apps.jupyterhub.proxy.traefik.revisionHistoryLimit }}
+  {{- end }}
   replicas: 1
   selector:
     matchLabels:
@@ -27,13 +30,16 @@ spec:
         # entrypoint of all network traffic.
         checksum/static-config: {{ include "jupyterhub.traefik.yaml" . | fromYaml | merge .Values.apps.jupyterhub.proxy.traefik.extraStaticConfig | toYaml | sha256sum }}
     spec:
-      {{- if .Values.apps.jupyterhub.rbac.enabled }}
-      serviceAccountName: {{ include "jupyterhub.autohttps.fullname" . }}
+      {{- with include "jupyterhub.autohttps-serviceaccount.fullname" . }}
+      serviceAccountName: {{ . }}
       {{- end }}
       {{- if .Values.apps.jupyterhub.scheduling.podPriority.enabled }}
       priorityClassName: {{ include "jupyterhub.priority.fullname" . }}
       {{- end }}
-      nodeSelector: {{ toJson .Values.apps.jupyterhub.proxy.traefik.nodeSelector }}
+      {{- with .Values.apps.jupyterhub.proxy.traefik.nodeSelector }}
+      nodeSelector:
+        {{- . | toYaml | nindent 8 }}
+      {{- end }}
       {{- with concat .Values.apps.jupyterhub.scheduling.corePods.tolerations .Values.apps.jupyterhub.proxy.traefik.tolerations }}
       tolerations:
         {{- . | toYaml | nindent 8 }}
@@ -76,6 +82,9 @@ spec:
           securityContext:
             {{- . | toYaml | nindent 12 }}
           {{- end }}
+        {{- with .Values.apps.jupyterhub.proxy.traefik.extraInitContainers }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
       containers:
         - name: traefik
           image: "{{ .Values.apps.jupyterhub.proxy.traefik.image.name }}:{{ .Values.apps.jupyterhub.proxy.traefik.image.tag }}"
@@ -114,6 +123,10 @@ spec:
           image: "{{ .Values.apps.jupyterhub.proxy.secretSync.image.name }}:{{ .Values.apps.jupyterhub.proxy.secretSync.image.tag }}"
           {{- with .Values.apps.jupyterhub.proxy.secretSync.image.pullPolicy }}
           imagePullPolicy: {{ . }}
+          {{- end }}
+          {{- with .Values.apps.jupyterhub.proxy.secretSync.resources }}
+          resources:
+            {{- . | toYaml | nindent 12 }}
           {{- end }}
           args:
             - watch-save

@@ -34,6 +34,9 @@ spec:
     type: RollingUpdate
     rollingUpdate:
       maxUnavailable: 100%
+  {{- if typeIs "int" .Values.apps.jupyterhub.prePuller.revisionHistoryLimit }}
+  revisionHistoryLimit: {{ .Values.apps.jupyterhub.prePuller.revisionHistoryLimit }}
+  {{- end }}
   template:
     metadata:
       labels:
@@ -44,13 +47,17 @@ spec:
       {{- end }}
     spec:
       {{- /*
-        continuous-image-puller pods are made evictable to save on the k8s pods
-        per node limit all k8s clusters have.
+        image-puller pods are made evictable to save on the k8s pods
+        per node limit all k8s clusters have and have a higher priority
+        than user-placeholder pods that could block an entire node.
       */}}
-      {{- if and (not .hook) .Values.apps.jupyterhub.scheduling.podPriority.enabled }}
-      priorityClassName: {{ include "jupyterhub.user-placeholder-priority.fullname" . }}
+      {{- if .Values.apps.jupyterhub.scheduling.podPriority.enabled }}
+      priorityClassName: {{ include "jupyterhub.image-puller-priority.fullname" . }}
       {{- end }}
-      nodeSelector: {{ toJson .Values.apps.jupyterhub.singleuser.nodeSelector }}
+      {{- with .Values.apps.jupyterhub.singleuser.nodeSelector }}
+      nodeSelector:
+        {{- . | toYaml | nindent 8 }}
+      {{- end }}
       {{- with concat .Values.apps.jupyterhub.scheduling.userPods.tolerations .Values.apps.jupyterhub.singleuser.extraTolerations .Values.apps.jupyterhub.prePuller.extraTolerations }}
       tolerations:
         {{- . | toYaml | nindent 8 }}

@@ -1,12 +1,10 @@
 {{- $HTTPS := .Values.apps.jupyterhub.proxy.https.enabled -}}
 {{- $autoHTTPS := and $HTTPS (and (eq .Values.apps.jupyterhub.proxy.https.type "letsencrypt") .Values.apps.jupyterhub.proxy.https.hosts) -}}
-{{- $manualHTTPS := and $HTTPS (eq .Values.apps.jupyterhub.proxy.https.type "manual") -}}
-{{- $manualHTTPSwithsecret := and $HTTPS (eq .Values.apps.jupyterhub.proxy.https.type "secret") -}}
-{{- if .Values.apps.jupyterhub.proxy.chp.networkPolicy.enabled -}}
+{{- if and $autoHTTPS .Values.apps.jupyterhub.proxy.traefik.networkPolicy.enabled -}}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "jupyterhub.proxy.fullname" . }}
+  name: {{ include "jupyterhub.autohttps.fullname" . }}
   labels:
     {{- include "jupyterhub.labels" . | nindent 4 }}
 spec:
@@ -33,7 +31,7 @@ spec:
   # Read more at: https://kubernetes.io/docs/concepts/services-networking/network-policies/#behavior-of-to-and-from-selectors
   #
   ingress:
-    {{- with .Values.apps.jupyterhub.proxy.chp.networkPolicy.allowedIngressPorts }}
+    {{- with .Values.apps.jupyterhub.proxy.traefik.networkPolicy.allowedIngressPorts }}
     # allow incoming traffic to these ports independent of source
     - ports:
       {{- range $port := . }}
@@ -44,15 +42,13 @@ spec:
     # allowed pods (hub.jupyter.org/network-access-proxy-http) --> proxy (http/https port)
     - ports:
         - port: http
-        {{- if or $manualHTTPS $manualHTTPSwithsecret }}
         - port: https
-        {{- end }}
       from:
         # source 1 - labeled pods
         - podSelector:
             matchLabels:
               hub.jupyter.org/network-access-proxy-http: "true"
-        {{- if eq .Values.apps.jupyterhub.proxy.chp.networkPolicy.interNamespaceAccessLabels "accept" }}
+        {{- if eq .Values.apps.jupyterhub.proxy.traefik.networkPolicy.interNamespaceAccessLabels "accept" }}
           namespaceSelector:
             matchLabels: {}   # without this, the podSelector would only consider pods in the local namespace
         # source 2 - pods in labeled namespaces
@@ -61,48 +57,22 @@ spec:
               hub.jupyter.org/network-access-proxy-http: "true"
         {{- end }}
 
-    # allowed pods (hub.jupyter.org/network-access-proxy-api) --> proxy (api port)
-    - ports:
-        - port: api
-      from:
-        # source 1 - labeled pods
-        - podSelector:
-            matchLabels:
-              hub.jupyter.org/network-access-proxy-api: "true"
-        {{- if eq .Values.apps.jupyterhub.proxy.chp.networkPolicy.interNamespaceAccessLabels "accept" }}
-          namespaceSelector:
-            matchLabels: {}   # without this, the podSelector would only consider pods in the local namespace
-        # source 2 - pods in labeled namespaces
-        - namespaceSelector:
-            matchLabels:
-              hub.jupyter.org/network-access-proxy-api: "true"
-        {{- end }}
-
-    {{- with .Values.apps.jupyterhub.proxy.chp.networkPolicy.ingress}}
+    {{- with .Values.apps.jupyterhub.proxy.traefik.networkPolicy.ingress}}
     # depends, but default is nothing --> proxy
     {{- . | toYaml | nindent 4 }}
     {{- end }}
 
   egress:
-    # proxy --> hub
+    # autohttps --> proxy (http port)
     - to:
         - podSelector:
             matchLabels:
-              {{- $_ := merge (dict "componentLabel" "hub") . }}
+              {{- $_ := merge (dict "componentLabel" "proxy") . }}
               {{- include "jupyterhub.matchLabels" $_ | nindent 14 }}
       ports:
-        - port: 8081
+        - port: 8000
 
-    # proxy --> singleuser-server
-    - to:
-        - podSelector:
-            matchLabels:
-              {{- $_ := merge (dict "componentLabel" "singleuser-server") . }}
-              {{- include "jupyterhub.matchLabels" $_ | nindent 14 }}
-      ports:
-        - port: 8888
-
-    {{- with (include "jupyterhub.networkPolicy.renderEgressRules" (list . .Values.apps.jupyterhub.proxy.chp.networkPolicy)) }}
+    {{- with (include "jupyterhub.networkPolicy.renderEgressRules" (list . .Values.apps.jupyterhub.proxy.traefik.networkPolicy)) }}
     {{- . | nindent 4 }}
     {{- end }}
 {{- end }}
