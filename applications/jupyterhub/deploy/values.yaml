@@ -31,6 +31,11 @@ harness:
 fullnameOverride: ""
 nameOverride:
 
+# enabled is ignored by the jupyterhub chart itself, but a chart depending on
+# the jupyterhub chart conditionally can make use this config option as the
+# condition.
+enabled:
+
 # custom can contain anything you want to pass to the hub pod, as all passed
 # Helm template values will be made available there.
 custom: {}
@@ -54,6 +59,7 @@ imagePullSecrets: []
 # ConfigurableHTTPProxy speaks with the actual ConfigurableHTTPProxy server in
 # the proxy pod.
 hub:
+  revisionHistoryLimit:
   config:
     JupyterHub:
       admin_access: true
@@ -68,7 +74,6 @@ hub:
   baseUrl: /
   cookieSecret:
   initContainers: []
-  fsGid: 1000
   nodeSelector: {}
   tolerations: []
   concurrentSpawnLimit: 64
@@ -107,36 +112,37 @@ hub:
   extraVolumeMounts: []
   image:
     name: jupyterhub/k8s-hub
-    tag: "1.1.3"
+    tag: "set-by-chartpress"
     pullPolicy:
     pullSecrets: []
   resources: {}
+  podSecurityContext:
+    fsGroup: 1000
   containerSecurityContext:
     runAsUser: 1000
     runAsGroup: 1000
     allowPrivilegeEscalation: false
   lifecycle: {}
+  loadRoles: {}
   services: {}
   pdb:
     enabled: false
     maxUnavailable:
     minAvailable: 1
   networkPolicy:
-    enabled: false
+    enabled: true
     ingress: []
-    ## egress for JupyterHub already includes Kubernetes internal DNS and
-    ## access to the proxy, but can be restricted further, but ensure to allow
-    ## access to the Kubernetes API server that couldn't be pinned ahead of
-    ## time.
-    ##
-    ## ref: https://stackoverflow.com/a/59016417/2220152
-    egress:
-      - to:
-          - ipBlock:
-              cidr: 0.0.0.0/0
+    egress: []
+    egressAllowRules:
+      cloudMetadataServer: true
+      dnsPortsCloudMetadataServer: true
+      dnsPortsKubeSystemNamespace: true
+      dnsPortsPrivateIPs: true
+      nonPrivateIPs: true
+      privateIPs: true
     interNamespaceAccessLabels: ignore
     allowedIngressPorts: []
-  allowNamedServers: true
+  allowNamedServers: false
   namedServerLimitPerUser:
   authenticatePrometheus:
   redirectToServer:
@@ -163,11 +169,13 @@ hub:
     timeoutSeconds: 1
   existingSecret:
   serviceAccount:
+    create: true
+    name:
     annotations: {}
   extraPodSpec: {}
 
 rbac:
-  enabled: true
+  create: true
 
 # proxy relates to the proxy pod, the proxy-public service, and the autohttps
 # pod and proxy-http service.
@@ -202,7 +210,7 @@ proxy:
     rollingUpdate:
   # service relates to the proxy-public service
   service:
-    type: NodePort
+    type: LoadBalancer
     labels: {}
     annotations: {}
     nodePorts:
@@ -215,13 +223,17 @@ proxy:
   # chp relates to the proxy pod, which is responsible for routing traffic based
   # on dynamic configuration sent from JupyterHub to CHP's REST API.
   chp:
+    revisionHistoryLimit:
     containerSecurityContext:
       runAsUser: 65534 # nobody user
       runAsGroup: 65534 # nobody group
       allowPrivilegeEscalation: false
     image:
       name: jupyterhub/configurable-http-proxy
-      tag: 4.5.0 # https://github.com/jupyterhub/configurable-http-proxy/releases
+      # tag is automatically bumped to new patch versions by the
+      # watch-dependencies.yaml workflow.
+      #
+      tag: "4.6.0" # https://github.com/jupyterhub/configurable-http-proxy/tags
       pullPolicy:
       pullSecrets: []
     extraCommandLineFlags: []
@@ -229,11 +241,14 @@ proxy:
       enabled: true
       initialDelaySeconds: 60
       periodSeconds: 10
+      failureThreshold: 30
+      timeoutSeconds: 3
     readinessProbe:
       enabled: true
       initialDelaySeconds: 0
       periodSeconds: 2
       failureThreshold: 1000
+      timeoutSeconds: 1
     resources: {}
     defaultTarget:
     errorTarget:
@@ -241,12 +256,16 @@ proxy:
     nodeSelector: {}
     tolerations: []
     networkPolicy:
-      enabled: false
+      enabled: true
       ingress: []
-      egress:
-        - to:
-            - ipBlock:
-                cidr: 0.0.0.0/0
+      egress: []
+      egressAllowRules:
+        cloudMetadataServer: true
+        dnsPortsCloudMetadataServer: true
+        dnsPortsKubeSystemNamespace: true
+        dnsPortsPrivateIPs: true
+        nonPrivateIPs: true
+        privateIPs: true
       interNamespaceAccessLabels: ignore
       allowedIngressPorts: [http, https]
     pdb:
@@ -257,13 +276,17 @@ proxy:
   # traefik relates to the autohttps pod, which is responsible for TLS
   # termination when proxy.https.type=letsencrypt.
   traefik:
+    revisionHistoryLimit:
     containerSecurityContext:
       runAsUser: 65534 # nobody user
       runAsGroup: 65534 # nobody group
       allowPrivilegeEscalation: false
     image:
       name: traefik
-      tag: v2.4.11 # ref: https://hub.docker.com/_/traefik?tab=tags
+      # tag is automatically bumped to new patch versions by the
+      # watch-dependencies.yaml workflow.
+      #
+      tag: "v2.10.5" # ref: https://hub.docker.com/_/traefik?tab=tags
       pullPolicy:
       pullSecrets: []
     hsts:
@@ -272,6 +295,7 @@ proxy:
       maxAge: 15724800 # About 6 months
     resources: {}
     labels: {}
+    extraInitContainers: []
     extraEnv: {}
     extraVolumes: []
     extraVolumeMounts: []
@@ -283,10 +307,14 @@ proxy:
     networkPolicy:
       enabled: true
       ingress: []
-      egress:
-        - to:
-            - ipBlock:
-                cidr: 0.0.0.0/0
+      egress: []
+      egressAllowRules:
+        cloudMetadataServer: true
+        dnsPortsCloudMetadataServer: true
+        dnsPortsKubeSystemNamespace: true
+        dnsPortsPrivateIPs: true
+        nonPrivateIPs: true
+        privateIPs: true
       interNamespaceAccessLabels: ignore
       allowedIngressPorts: [http, https]
     pdb:
@@ -294,6 +322,8 @@ proxy:
       maxUnavailable:
       minAvailable: 1
     serviceAccount:
+      create: true
+      name:
       annotations: {}
     extraPodSpec: {}
   secretSync:
@@ -303,7 +333,7 @@ proxy:
       allowPrivilegeEscalation: false
     image:
       name: jupyterhub/k8s-secret-sync
-      tag: "1.1.3"
+      tag: "set-by-chartpress"
       pullPolicy:
       pullSecrets: []
     resources: {}
@@ -343,28 +373,26 @@ singleuser:
   networkTools:
     image:
       name: jupyterhub/k8s-network-tools
-      tag: "1.1.3"
+      tag: "set-by-chartpress"
       pullPolicy:
       pullSecrets: []
+    resources: {}
   cloudMetadata:
     # block set to true will append a privileged initContainer using the
     # iptables to block the sensitive metadata server at the provided ip.
-    blockWithIptables: false
+    blockWithIptables: true
+    ip: 169.254.169.254
   networkPolicy:
-    enabled: false
+    enabled: true
     ingress: []
-    egress:
-      # Required egress to communicate with the hub and DNS servers will be
-      # augmented to these egress rules.
-      #
-      # This default rule explicitly allows all outbound traffic from singleuser
-      # pods, except to a typical IP used to return metadata that can be used by
-      # someone with malicious intent.
-      - to:
-          - ipBlock:
-              cidr: 0.0.0.0/0
-              except:
-                - 169.254.169.254/32
+    egress: []
+    egressAllowRules:
+      cloudMetadataServer: false
+      dnsPortsCloudMetadataServer: true
+      dnsPortsKubeSystemNamespace: true
+      dnsPortsPrivateIPs: true
+      nonPrivateIPs: true
+      privateIPs: false
     interNamespaceAccessLabels: ignore
     allowedIngressPorts: []
   events: true
@@ -376,6 +404,7 @@ singleuser:
   lifecycleHooks: {}
   initContainers: []
   extraContainers: []
+  allowPrivilegeEscalation: false
   uid: 1000
   fsGid: 100
   serviceAccountName:
@@ -387,29 +416,29 @@ singleuser:
     static:
       pvcName:
       subPath: "{username}"
-    capacity: 10Mi
-    homeMountPath: /home/workspace
+    capacity: 10Gi
+    homeMountPath: /home/jovyan
     dynamic:
       storageClass:
-      pvcNameTemplate: jupyter-{username}
-      volumeNameTemplate: jupyter-{username}
+      pvcNameTemplate: claim-{username}{servername}
+      volumeNameTemplate: volume-{username}{servername}
       storageAccessModes: [ReadWriteOnce]
   image:
-    name: jupyter/base-notebook
-    tag: "hub-1.4.2"
+    name: jupyterhub/k8s-singleuser-sample
+    tag: "set-by-chartpress"
     pullPolicy:
     pullSecrets: []
   startTimeout: 300
   cpu:
-    limit: 0.4
-    guarantee: 0.05
+    limit:
+    guarantee:
   memory:
-    limit: 0.5G
-    guarantee: 0.1G
+    limit:
+    guarantee: 1G
   extraResource:
     limits: {}
     guarantees: {}
-  cmd: /usr/local/bin/start-singleuser.sh
+  cmd: jupyterhub-singleuser
   defaultUrl:
   extraPodConfig: {}
   profileList: []
@@ -417,35 +446,67 @@ singleuser:
 # scheduling relates to the user-scheduler pods and user-placeholder pods.
 scheduling:
   userScheduler:
-    enabled: false
+    enabled: true
+    revisionHistoryLimit:
     replicas: 2
     logLevel: 4
+    # plugins are configured on the user-scheduler to make us score how we
+    # schedule user pods in a way to help us schedule on the most busy node. By
+    # doing this, we help scale down more effectively. It isn't obvious how to
+    # enable/disable scoring plugins, and configure them, to accomplish this.
+    #
     # plugins ref: https://kubernetes.io/docs/reference/scheduling/config/#scheduling-plugins-1
+    # migration ref: https://kubernetes.io/docs/reference/scheduling/config/#scheduler-configuration-migrations
+    #
     plugins:
       score:
+        # These scoring plugins are enabled by default according to
+        # https://kubernetes.io/docs/reference/scheduling/config/#scheduling-plugins
+        # 2022-02-22.
+        #
+        # Enabled with high priority:
+        # - NodeAffinity
+        # - InterPodAffinity
+        # - NodeResourcesFit
+        # - ImageLocality
+        # Remains enabled with low default priority:
+        # - TaintToleration
+        # - PodTopologySpread
+        # - VolumeBinding
+        # Disabled for scoring:
+        # - NodeResourcesBalancedAllocation
+        #
         disabled:
-          - name: SelectorSpread
-          - name: TaintToleration
-          - name: PodTopologySpread
+          # We disable these plugins (with regards to scoring) to not interfere
+          # or complicate our use of NodeResourcesFit.
           - name: NodeResourcesBalancedAllocation
-          - name: NodeResourcesLeastAllocated
           # Disable plugins to be allowed to enable them again with a different
           # weight and avoid an error.
-          - name: NodePreferAvoidPods
           - name: NodeAffinity
           - name: InterPodAffinity
+          - name: NodeResourcesFit
           - name: ImageLocality
         enabled:
-          - name: NodePreferAvoidPods
-            weight: 161051
           - name: NodeAffinity
             weight: 14631
           - name: InterPodAffinity
             weight: 1331
-          - name: NodeResourcesMostAllocated
+          - name: NodeResourcesFit
             weight: 121
           - name: ImageLocality
             weight: 11
+    pluginConfig:
+      # Here we declare that we should optimize pods to fit based on a
+      # MostAllocated strategy instead of the default LeastAllocated.
+      - name: NodeResourcesFit
+        args:
+          scoringStrategy:
+            resources:
+              - name: cpu
+                weight: 1
+              - name: memory
+                weight: 1
+            type: MostAllocated
     containerSecurityContext:
       runAsUser: 65534 # nobody user
       runAsGroup: 65534 # nobody group
@@ -453,38 +514,78 @@ scheduling:
     image:
       # IMPORTANT: Bumping the minor version of this binary should go hand in
       #            hand with an inspection of the user-scheduelrs RBAC resources
-      #            that we have forked.
-      name: k8s.gcr.io/kube-scheduler
-      tag: v1.19.13 # ref: https://github.com/kubernetes/website/blob/main/content/en/releases/patch-releases.md
+      #            that we have forked in
+      #            templates/scheduling/user-scheduler/rbac.yaml.
+      #
+      #            Debugging advice:
+      #
+      #            - Is configuration of kube-scheduler broken in
+      #              templates/scheduling/user-scheduler/configmap.yaml?
+      #
+      #            - Is the kube-scheduler binary's compatibility to work
+      #              against a k8s api-server that is too new or too old?
+      #
+      #            - You can update the GitHub workflow that runs tests to
+      #              include "deploy/user-scheduler" in the k8s namespace report
+      #              and reduce the user-scheduler deployments replicas to 1 in
+      #              dev-config.yaml to get relevant logs from the user-scheduler
+      #              pods. Inspect the "Kubernetes namespace report" action!
+      #
+      #            - Typical failures are that kube-scheduler fails to search for
+      #              resources via its "informers", and won't start trying to
+      #              schedule pods before they succeed which may require
+      #              additional RBAC permissions or that the k8s api-server is
+      #              aware of the resources.
+      #
+      #            - If "successfully acquired lease" can be seen in the logs, it
+      #              is a good sign kube-scheduler is ready to schedule pods.
+      #
+      name: registry.k8s.io/kube-scheduler
+      # tag is automatically bumped to new patch versions by the
+      # watch-dependencies.yaml workflow. The minor version is pinned in the
+      # workflow, and should be updated there if a minor version bump is done
+      # here. We aim to stay around 1 minor version behind the latest k8s
+      # version.
+      #
+      tag: "v1.26.10" # ref: https://github.com/kubernetes/kubernetes/tree/master/CHANGELOG
       pullPolicy:
       pullSecrets: []
     nodeSelector: {}
     tolerations: []
+    labels: {}
+    annotations: {}
     pdb:
       enabled: true
       maxUnavailable: 1
       minAvailable:
     resources: {}
     serviceAccount:
+      create: true
+      name:
       annotations: {}
     extraPodSpec: {}
   podPriority:
     enabled: false
     globalDefault: false
     defaultPriority: 0
+    imagePullerPriority: -5
     userPlaceholderPriority: -10
   userPlaceholder:
     enabled: true
     image:
-      name: k8s.gcr.io/pause
-      # tag's can be updated by inspecting the output of the command:
-      # gcloud container images list-tags k8s.gcr.io/pause --sort-by=~tags
+      name: registry.k8s.io/pause
+      # tag is automatically bumped to new patch versions by the
+      # watch-dependencies.yaml workflow.
       #
       # If you update this, also update prePuller.pause.image.tag
-      tag: "3.5"
+      #
+      tag: "3.9"
       pullPolicy:
       pullSecrets: []
+    revisionHistoryLimit:
     replicas: 0
+    labels: {}
+    annotations: {}
     containerSecurityContext:
       runAsUser: 65534 # nobody user
       runAsGroup: 65534 # nobody group
@@ -517,6 +618,8 @@ scheduling:
 
 # prePuller relates to the hook|continuous-image-puller DaemonsSets
 prePuller:
+  revisionHistoryLimit:
+  labels: {}
   annotations: {}
   resources: {}
   containerSecurityContext:
@@ -531,7 +634,7 @@ prePuller:
     # image and the configuration below relates to the hook-image-awaiter Job
     image:
       name: jupyterhub/k8s-image-awaiter
-      tag: "1.1.3"
+      tag: "set-by-chartpress"
       pullPolicy:
       pullSecrets: []
     containerSecurityContext:
@@ -543,6 +646,8 @@ prePuller:
     tolerations: []
     resources: {}
     serviceAccount:
+      create: true
+      name:
       annotations: {}
   continuous:
     enabled: true
@@ -554,18 +659,20 @@ prePuller:
       runAsGroup: 65534 # nobody group
       allowPrivilegeEscalation: false
     image:
-      name: k8s.gcr.io/pause
-      # tag's can be updated by inspecting the output of the command:
-      # gcloud container images list-tags k8s.gcr.io/pause --sort-by=~tags
+      name: registry.k8s.io/pause
+      # tag is automatically bumped to new patch versions by the
+      # watch-dependencies.yaml workflow.
       #
       # If you update this, also update scheduling.userPlaceholder.image.tag
-      tag: "3.5"
+      #
+      tag: "3.9"
       pullPolicy:
       pullSecrets: []
 
 ingress:
   enabled: false
   annotations: {}
+  ingressClassName:
   hosts: []
   pathSuffix:
   pathType: Prefix
@@ -581,7 +688,8 @@ ingress:
 cull:
   enabled: true
   users: false # --cull-users
-  removeNamedServers: true # --remove-named-servers
+  adminUsers: true # --cull-admin-users
+  removeNamedServers: false # --remove-named-servers
   timeout: 3600 # --timeout
   every: 600 # --cull-every
   concurrency: 10 # --concurrency

@@ -3,15 +3,15 @@ Utility methods for use in jupyterhub_config.py and dynamic subconfigs.
 
 Methods here can be imported by extraConfig in values.yaml
 """
-from collections import Mapping
-from functools import lru_cache
 import os
-import re
+from collections.abc import Mapping
+from functools import lru_cache
 
 import yaml
 
+
 # memoize so we only load config once
-@lru_cache()
+@lru_cache
 def _load_config():
     """Load the Helm chart configuration used to render the Helm templates of
     the chart from a mounted k8s Secret, and merge in values from an optionally
@@ -27,18 +27,10 @@ def _load_config():
             cfg = _merge_dictionaries(cfg, values)
         else:
             print(f"No config at {path}")
-    path = f"/opt/cloudharness/resources/allvalues.yaml"
-    if os.path.exists(path):
-        print("Loading global CloudHarness config at", path)
-        with open(path) as f:
-            values = yaml.safe_load(f)
-        cfg = _merge_dictionaries(cfg, values)
-        cfg['root'] = values
-
     return cfg
 
 
-@lru_cache()
+@lru_cache
 def _get_config_value(key):
     """Load value from the k8s ConfigMap given a key."""
 
@@ -50,7 +42,7 @@ def _get_config_value(key):
         raise Exception(f"{path} not found!")
 
 
-@lru_cache()
+@lru_cache
 def get_secret_value(key, default="never-explicitly-set"):
     """Load value from the user managed k8s Secret or the default k8s Secret
     given a key."""
@@ -116,18 +108,6 @@ def get_config(key, default=None):
             return default
         else:
             value = value[level]
-
-    
-    if value and isinstance(value, str):
-        replace_var = re.search("{{.*?}}",  value)
-        if replace_var:
-            variable = replace_var.group(0)[2:-2].strip()
-
-            repl = get_config(variable)
-            
-            if repl:
-                print("replace", variable, "in", value, ":", repl)
-                value = re.sub("{{.*?}}", repl, value)
     return value
 
 
@@ -137,6 +117,5 @@ def set_config_if_not_none(cparent, name, key):
     configuration item if not None
     """
     data = get_config(key)
-    
     if data is not None:
         setattr(cparent, name, data)
