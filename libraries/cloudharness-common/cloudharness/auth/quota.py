@@ -1,3 +1,4 @@
+import re
 from keycloak import KeycloakError
 from .keycloak import AuthClient
 from cloudharness.applications import get_current_configuration
@@ -93,15 +94,21 @@ def _compute_quotas_from_tree(node: QuotaNode):
         child_attrs = _compute_quotas_from_tree(child)
         for key in child_attrs:
             try:
-                child_val = float(child_attrs[key])
+                # we expect all quota values to be numbers: the unit is implicit and
+                # defined at usage time
+                child_val = attribute_to_quota(child_attrs[key])
             except:
-                # value not a float, skip (use 0)
-                child_val = 0
+                # value not a float, skip
+                continue
             if not key in new_attrs or new_attrs[key] < child_val:
                 new_attrs.update({key: child_val})
     for key in new_attrs:
         node.attrs.update({key: new_attrs[key]})
     return node.attrs
+
+
+def attribute_to_quota(attr_value: str):
+    return float(re.sub("[^0-9.]", "", attr_value))
 
 
 def get_user_quotas(application_config: ApplicationConfig = None, user_id: str = None) -> dict:
@@ -142,5 +149,5 @@ def get_user_quotas(application_config: ApplicationConfig = None, user_id: str =
             user_quotas.update({key: group_quotas[key]})
     for key in base_quotas:
         if key not in user_quotas:
-            user_quotas.update({key: base_quotas[key]})
+            user_quotas.update({key: attribute_to_quota(base_quotas[key])})
     return user_quotas
