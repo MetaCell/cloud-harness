@@ -108,7 +108,7 @@ def _compute_quotas_from_tree(node: QuotaNode):
 
 
 def attribute_to_quota(attr_value: str):
-    return float(re.sub("[^0-9.]", "", attr_value))
+    return float(re.sub("[^0-9.]", "", attr_value) if type(attr_value) is str else attr_value)
 
 
 def get_user_quotas(application_config: ApplicationConfig = None, user_id: str = None) -> dict:
