@@ -442,13 +442,19 @@ class AuthClient():
                 raise UserNotFound(user_id)
             except InvalidToken as e:
                 raise UserNotFound(user_id)
+           
                 
         else:
-            found_users = admin_client.get_users({"username": user_id})
+            found_users = admin_client.get_users({"username": user_id, "exact": True})
             if len(found_users) == 0:
                 raise UserNotFound(user_id)
-            user = admin_client.get_user(found_users[0]['id']) # Load full data
-        
+            try:
+                user = admin_client.get_user(found_users[0]['id']) # Load full data
+            except KeycloakGetError as e:
+                raise UserNotFound(user_id)
+            except InvalidToken as e:
+                raise UserNotFound(user_id)
+            
         user.update({
                 "userGroups": admin_client.get_user_groups(user_id=user['id'], brief_representation=not with_details),
                 'realmRoles': admin_client.get_realm_roles_of_user(user['id'])
