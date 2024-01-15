@@ -71,8 +71,14 @@ If everything is good, you're in the right path to use {ch}!
 
 == How to setup your local cluster using minikube (if not done yet)
 
+
 {ch} is designed to help you generate all the required artifacts for a deployment on a Kubernetes cluster.
 For a local deployment, you can use minikube, which is basically https://minikube.sigs.k8s.io/docs/start/[a small {kub} cluster on your machine].
+
+
+[IMPORTANT - WSL2]
+If you're following this tutorial in a Windows WSL2 - then check =>  link:./cloud-harness-wsl2-setup.md[cloud-harness-wsl2-setup] for help!
+
 
 [IMPORTANT]
 The setup of a {kub} cluster is not mandatory to use {ch}.
@@ -147,7 +153,7 @@ If you don't create the namespace, the deployment will fail!
 [source,bash]
 ----
 # ran from the cloud-harness repository root
-harness-deployment  . -u -dtls -l -d azathoth.local -e local -n azathoth.local
+harness-deployment  . -u -dtls -l -d azathoth.local -e local -n azathoth
 ----
 
 In the state of the repository I have on my machine, the apps and services that will be deployed and that `harness-deployment` generated the configuration for are:
@@ -306,6 +312,8 @@ The file tree should now be the following.
 ----
 
 Now you can build/deploy/run it using `skaffold`.
+
+Before running `skaffold run` go inside the newly created application using harness-application; and make sure the frontend for the application contains package-lock.json. If not then install the dependencies by running `npm i --legacy-peer-deps`.
 
 .Building/deploying/running the webapp with skaffold
 [source,bash]

@@ -21,7 +21,7 @@ class UserGroup(Model):
         :param access: The access of this UserGroup.  # noqa: E501
         :type access: Dict[str, object]
         :param attributes: The attributes of this UserGroup.  # noqa: E501
-        :type attributes: Dict[str, str]
+        :type attributes: Dict[str, object]
         :param client_roles: The client_roles of this UserGroup.  # noqa: E501
         :type client_roles: Dict[str, object]
         :param id: The id of this UserGroup.  # noqa: E501
@@ -37,7 +37,7 @@ class UserGroup(Model):
         """
         self.openapi_types = {
             'access': Dict[str, object],
-            'attributes': Dict[str, str],
+            'attributes': Dict[str, object],
             'client_roles': Dict[str, object],
             'id': str,
             'name': str,
@@ -105,7 +105,7 @@ class UserGroup(Model):
           # noqa: E501
 
         :return: The attributes of this UserGroup.
-        :rtype: Dict[str, str]
+        :rtype: Dict[str, object]
         """
         return self._attributes
 
@@ -116,7 +116,7 @@ class UserGroup(Model):
           # noqa: E501
 
         :param attributes: The attributes of this UserGroup.
-        :type attributes: Dict[str, str]
+        :type attributes: Dict[str, object]
         """
 
         self._attributes = attributes

@@ -1,0 +1,14 @@
+harness:
+  name: "I'm useless"
+  subdomain: mysubdomain
+  dependencies:
+    soft:
+      - legacy
+    build:
+      - cloudharness-flask
+  test:
+    unit:
+      commands:
+      - tox
+      - echo "hello"
+a: b

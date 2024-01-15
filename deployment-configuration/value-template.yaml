@@ -22,6 +22,8 @@ harness:
         - administrator
     - uri: /api/openapi.json
       white-listed: true
+    - uri: /openapi.json
+      white-listed: true
   # -- Defines reference deployment parameters. Values maps to k8s spec
   deployment:
     # -- When true, enables automatic deployment
@@ -125,3 +127,13 @@ harness:
       smoketest: true
       ignoreConsoleErrors: false
       ignoreRequestErrors: false
+  proxy:
+    timeout:
+      # -- Timeout for proxy connections in seconds.
+      send:
+      # -- Timeout for proxy responses in seconds.
+      read:
+      keepalive:
+    payload:
+      # -- Maximum size of payload in MB
+      max: 

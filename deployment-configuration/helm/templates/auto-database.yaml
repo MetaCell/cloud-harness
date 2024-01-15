@@ -74,11 +74,6 @@ spec:
         volumeMounts:
           - name: {{ .app.harness.database.name | quote }}
             mountPath: /data/db
-          {{- if .root.Values.backup.active }}
-          - name: "db-backups"
-            mountPath: {{ (printf "%s/%s/%s" .root.Values.backup.dir .app.harness.database.type .app.harness.database.name) | quote }}
-            readOnly: true
-          {{- end }}
           {{- if eq .app.harness.database.type "postgres" }}
           - mountPath: /dev/shm
             name: dshm  
@@ -92,11 +87,6 @@ spec:
           medium: Memory
         name: dshm     
       {{- end }}     
-      {{- if .root.Values.backup.active }}
-      - name: "db-backups"
-        persistentVolumeClaim:
-          claimName: "db-backups"
-      {{- end }}
 ---
 {{- if .root.Values.backup.active }}
 {{- include (print "deploy_utils.database." .app.harness.database.type ".backup") . }}
