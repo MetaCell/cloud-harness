@@ -2,6 +2,6 @@ connexion[swagger-ui]==2.14.2
 swagger-ui-bundle >= 0.0.2
 python_dateutil >= 2.6.0
 setuptools >= 21.0.0
-Flask >= 2.1.0
-flask_sqlalchemy==2.4.4
-sqlalchemy
+Flask<3.0.0
+flask_sqlalchemy==3.0.2
+sqlalchemy<2.0.0
