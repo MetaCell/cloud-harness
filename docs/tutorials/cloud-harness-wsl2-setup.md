@@ -52,7 +52,7 @@ C:\Windows\System32\drivers\etc\hosts
 There are certain scripts that need to be run when running the CloudHarness and its dependent applications for the first time in a system. These are `sc.yaml` and `cluster-init.sh` which can be found in the following path w.r.t. cloud-harness.
 
 ```
-kubectl apply -f cloudharness/deployment/sc.yaml
+kubectl apply -f cloud-harness/deployment/sc.yaml
 ```
 
 ```
