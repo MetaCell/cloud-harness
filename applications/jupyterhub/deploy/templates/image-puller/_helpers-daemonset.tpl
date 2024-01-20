@@ -34,6 +34,9 @@ spec:
     type: RollingUpdate
     rollingUpdate:
       maxUnavailable: 100%
+  {{- if typeIs "int" .Values.apps.jupyterhub.prePuller.revisionHistoryLimit }}
+  revisionHistoryLimit: {{ .Values.apps.jupyterhub.prePuller.revisionHistoryLimit }}
+  {{- end }}
   template:
     metadata:
       labels:
@@ -44,13 +47,17 @@ spec:
       {{- end }}
     spec:
       {{- /*
-        continuous-image-puller pods are made evictable to save on the k8s pods
-        per node limit all k8s clusters have.
+        image-puller pods are made evictable to save on the k8s pods
+        per node limit all k8s clusters have and have a higher priority
+        than user-placeholder pods that could block an entire node.
       */}}
-      {{- if and (not .hook) .Values.apps.jupyterhub.scheduling.podPriority.enabled }}
-      priorityClassName: {{ include "jupyterhub.user-placeholder-priority.fullname" . }}
+      {{- if .Values.apps.jupyterhub.scheduling.podPriority.enabled }}
+      priorityClassName: {{ include "jupyterhub.image-puller-priority.fullname" . }}
       {{- end }}
-      nodeSelector: {{ toJson .Values.apps.jupyterhub.singleuser.nodeSelector }}
+      {{- with .Values.apps.jupyterhub.singleuser.nodeSelector }}
+      nodeSelector:
+        {{- . | toYaml | nindent 8 }}
+      {{- end }}
       {{- with concat .Values.apps.jupyterhub.scheduling.userPods.tolerations .Values.apps.jupyterhub.singleuser.extraTolerations .Values.apps.jupyterhub.prePuller.extraTolerations }}
       tolerations:
         {{- . | toYaml | nindent 8 }}
@@ -127,6 +134,7 @@ spec:
         {{- /* --- Conditionally pull profileList images --- */}}
         {{- if .Values.apps.jupyterhub.prePuller.pullProfileListImages }}
         {{- range $k, $container := .Values.apps.jupyterhub.singleuser.profileList }}
+        {{- /* profile's kubespawner_override */}}
         {{- if $container.kubespawner_override }}
         {{- if $container.kubespawner_override.image }}
         - name: image-pull-singleuser-profilelist-{{ $k }}
@@ -145,13 +153,15 @@ spec:
           {{- end }}
         {{- end }}
         {{- end }}
-        {{- end }}
-        {{- end }}
-
-        {{- /* --- Pull extra images --- */}}
-        {{- range $k, $v := .Values.apps.jupyterhub.prePuller.extraImages }}
-        - name: image-pull-{{ $k }}
-          image: {{ $v.name }}:{{ $v.tag }}
+        {{- /* kubespawner_override in profile's profile_options */}}
+        {{- if $container.profile_options }}
+        {{- range $option, $option_spec := $container.profile_options }}
+        {{- if $option_spec.choices }}
+        {{- range $choice, $choice_spec := $option_spec.choices }}
+        {{- if $choice_spec.kubespawner_override }}
+        {{- if $choice_spec.kubespawner_override.image }}
+        - name: image-pull-profile-{{ $k }}-option-{{ $option }}-{{ $choice }}
+          image: {{ $choice_spec.kubespawner_override.image }}
           command:
             - /bin/sh
             - -c
@@ -163,13 +173,20 @@ spec:
           {{- with $.Values.apps.jupyterhub.prePuller.containerSecurityContext }}
           securityContext:
             {{- . | toYaml | nindent 12 }}
-          {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
         {{- end }}
 
-        {{- /* --- Pull CloudHarness tasks images --- */}}
-        {{- range $k, $v := ( index .Values "task-images" )  }}
-        - name: image-pull-{{ $k | replace "-" "" }}
-          image: {{ $v }}
+        {{- /* --- Pull extra images --- */}}
+        {{- range $k, $v := .Values.apps.jupyterhub.prePuller.extraImages }}
+        - name: image-pull-{{ $k }}
+          image: {{ $v.name }}:{{ $v.tag }}
           command:
             - /bin/sh
             - -c

@@ -1,0 +1,3014 @@
+# This schema (a jsonschema in YAML format) is used to generate
+# values.schema.json which is packaged with the Helm chart for client side
+# validation by helm of values before template rendering.
+#
+# This schema is also used by our documentation system to build the
+# configuration reference section based on the description fields. See
+# docs/source/conf.py for that logic!
+#
+# We look to document everything we have default values for in values.yaml, but
+# we don't look to enforce the perfect validation logic within this file.
+#
+# ref: https://json-schema.org/learn/getting-started-step-by-step.html
+#
+$schema: http://json-schema.org/draft-07/schema#
+type: object
+additionalProperties: false
+required:
+  - imagePullSecrets
+  - hub
+  - proxy
+  - singleuser
+  - ingress
+  - prePuller
+  - custom
+  - cull
+  - debug
+  - rbac
+  - global
+properties:
+  enabled:
+    type: [boolean, "null"]
+    description: |
+      `enabled` is ignored by the jupyterhub chart itself, but a chart depending
+      on the jupyterhub chart conditionally can make use this config option as
+      the condition.
+  fullnameOverride:
+    type: [string, "null"]
+    description: |
+      fullnameOverride and nameOverride allow you to adjust how the resources
+      part of the Helm chart are named.
+
+      Name format               | Resource types | fullnameOverride | nameOverride | Note
+      ------------------------- | -------------- | ---------------- | ------------ | -
+      component                 | namespaced     | `""`             | *            | Default
+      release-component         | cluster wide   | `""`             | *            | Default
+      fullname-component        | *              | str              | *            | -
+      release-component         | *              | null             | `""`         | -
+      release-(name-)component  | *              | null             | str          | omitted if contained in release
+      release-(chart-)component | *              | null             | null         | omitted if contained in release
+
+      ```{admonition} Warning!
+      :class: warning
+      Changing fullnameOverride or nameOverride after the initial installation
+      of the chart isn't supported. Changing their values likely leads to a
+      reset of non-external JupyterHub databases, abandonment of users' storage,
+      and severed couplings to currently running user pods.
+      ```
+
+      If you are a developer of a chart depending on this chart, you should
+      avoid hardcoding names. If you want to reference the name of a resource in
+      this chart from a parent helm chart's template, you can make use of the
+      global named templates instead.
+
+      ```yaml
+      # some pod definition of a parent chart helm template
+      schedulerName: {{ include "jupyterhub.user-scheduler.fullname" . }}
+      ```
+
+      To access them from a container, you can also rely on the hub ConfigMap
+      that contains entries of all the resource names.
+
+      ```yaml
+      # some container definition in a parent chart helm template
+      env:
+        - name: SCHEDULER_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "jupyterhub.user-scheduler.fullname" . }}
+              key: user-scheduler
+      ```
+
+  nameOverride:
+    type: [string, "null"]
+    description: |
+      See the documentation under [`fullnameOverride`](schema_fullnameOverride).
+
+  imagePullSecret:
+    type: object
+    required: [create]
+    if:
+      properties:
+        create:
+          const: true
+    then:
+      additionalProperties: false
+      required: [registry, username, password]
+      description: |
+        This is configuration to create a k8s Secret resource of `type:
+        kubernetes.io/dockerconfigjson`, with credentials to pull images from a
+        private image registry. If you opt to do so, it will be available for use
+        by all pods in their respective `spec.imagePullSecrets` alongside other
+        k8s Secrets defined in `imagePullSecrets` or the pod respective
+        `...image.pullSecrets` configuration.
+
+        In other words, using this configuration option can automate both the
+        otherwise manual creation of a k8s Secret and the otherwise manual
+        configuration to reference this k8s Secret in all the pods of the Helm
+        chart.
+
+        ```sh
+        # you won't need to create a k8s Secret manually...
+        kubectl create secret docker-registry image-pull-secret \
+          --docker-server=<REGISTRY> \
+          --docker-username=<USERNAME> \
+          --docker-email=<EMAIL> \
+          --docker-password=<PASSWORD>
+        ```
+
+        If you just want to let all Pods reference an existing secret, use the
+        [`imagePullSecrets`](schema_imagePullSecrets) configuration instead.
+      properties:
+        create:
+          type: boolean
+          description: |
+            Toggle the creation of the k8s Secret with provided credentials to
+            access a private image registry.
+        automaticReferenceInjection:
+          type: boolean
+          description: |
+            Toggle the automatic reference injection of the created Secret to all
+            pods' `spec.imagePullSecrets` configuration.
+        registry:
+          type: string
+          description: |
+            Name of the private registry you want to create a credential set for.
+            It will default to Docker Hub's image registry.
+
+            Examples:
+              - https://index.docker.io/v1/
+              - quay.io
+              - eu.gcr.io
+              - alexmorreale.privatereg.net
+        username:
+          type: string
+          description: |
+            Name of the user you want to use to connect to your private registry.
+
+            For external gcr.io, you will use the `_json_key`.
+
+            Examples:
+              - alexmorreale
+              - alex@pfc.com
+              - _json_key
+        password:
+          type: string
+          description: |
+            Password for the private image registry's user.
+
+            Examples:
+              - plaintextpassword
+              - abc123SECRETzyx098
+
+            For gcr.io registries the password will be a big JSON blob for a
+            Google cloud service account, it should look something like below.
+
+            ```yaml
+            password: |-
+              {
+                "type": "service_account",
+                "project_id": "jupyter-se",
+                "private_key_id": "f2ba09118a8d3123b3321bd9a7d6d0d9dc6fdb85",
+                ...
+              }
+            ```
+        email:
+          type: [string, "null"]
+          description: |
+            Specification of an email is most often not required, but it is
+            supported.
+
+  imagePullSecrets:
+    type: array
+    description: |
+      Chart wide configuration to _append_ k8s Secret references to all its
+      pod's `spec.imagePullSecrets` configuration.
+
+      This will not override or get overridden by pod specific configuration,
+      but instead augment the pod specific configuration.
+
+      You can use both the k8s native syntax, where each list element is like
+      `{"name": "my-secret-name"}`, or you can let list elements be strings
+      naming the secrets directly.
+
+  hub:
+    type: object
+    additionalProperties: false
+    required: [baseUrl]
+    properties:
+      revisionHistoryLimit: &revisionHistoryLimit
+        type: [integer, "null"]
+        minimum: 0
+        description: |
+          Configures the resource's `spec.revisionHistoryLimit`. This is
+          available for Deployment, StatefulSet, and DaemonSet resources.
+
+          See the [Kubernetes docs](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#revision-history-limit)
+          for more info.
+      config:
+        type: object
+        additionalProperties: true
+        description: |
+          JupyterHub and its components (authenticators, spawners, etc), are
+          Python classes that expose its configuration through
+          [_traitlets_](https://traitlets.readthedocs.io/en/stable/). With this
+          Helm chart configuration (`hub.config`), you can directly configure
+          the Python classes through _static_ YAML values. To _dynamically_ set
+          values, you need to use [`hub.extraConfig`](schema_hub.extraConfig)
+          instead.
+
+          ```{admonition} Currently intended only for auth config
+          :class: warning
+          This config _currently_ (0.11.0) only influence the software in the
+          `hub` Pod, but some Helm chart config options such as
+          [`hub.baseUrl`](schema_hub.baseUrl) is used to set
+          `JupyterHub.base_url` in the `hub` Pod _and_ influence how other Helm
+          templates are rendered.
+
+          As we have not yet mapped out all the potential configuration
+          conflicts except for the authentication related configuration options,
+          please accept that using it for something else at this point can lead
+          to issues.
+          ```
+
+          __Example__
+
+          If you inspect documentation or some `jupyterhub_config.py` to contain
+          the following section:
+
+          ```python
+          c.JupyterHub.admin_access = true
+          c.JupyterHub.admin_users = ["jovyan1", "jovyan2"]
+          c.KubeSpawner.k8s_api_request_timeout = 10
+          c.GitHubOAuthenticator.allowed_organizations = ["jupyterhub"]
+          ```
+
+          Then, you would be able to represent it with this configuration like:
+
+          ```yaml
+          hub:
+            config:
+              JupyterHub:
+                admin_access: true
+                admin_users:
+                  - jovyan1
+                  - jovyan2
+              KubeSpawner:
+                k8s_api_request_timeout: 10
+              GitHubOAuthenticator:
+                allowed_organizations:
+                  - jupyterhub
+          ```
+
+          ```{admonition} YAML limitations
+          :class: tip
+          You can't represent Python `Bytes` or `Set` objects in YAML directly.
+          ```
+
+          ```{admonition} Helm value merging
+          :class: tip
+          `helm` merges a Helm chart's default values with values passed with
+          the `--values` or `-f` flag. During merging, lists are replaced while
+          dictionaries are updated.
+          ```
+      extraFiles: &extraFiles
+        type: object
+        additionalProperties: false
+        description: |
+          A dictionary with extra files to be injected into the pod's container
+          on startup. This can for example be used to inject: configuration
+          files, custom user interface templates, images, and more.
+
+          ```yaml
+          # NOTE: "hub" is used in this example, but the configuration is the
+          #       same for "singleuser".
+          hub:
+            extraFiles:
+              # The file key is just a reference that doesn't influence the
+              # actual file name.
+              <file key>:
+                # mountPath is required and must be the absolute file path.
+                mountPath: <full file path>
+
+                # Choose one out of the three ways to represent the actual file
+                # content: data, stringData, or binaryData.
+                #
+                # data should be set to a mapping (dictionary). It will in the
+                # end be rendered to either YAML, JSON, or TOML based on the
+                # filename extension that are required to be either .yaml, .yml,
+                # .json, or .toml.
+                #
+                # If your content is YAML, JSON, or TOML, it can make sense to
+                # use data to represent it over stringData as data can be merged
+                # instead of replaced if set partially from separate Helm
+                # configuration files.
+                #
+                # Both stringData and binaryData should be set to a string
+                # representing the content, where binaryData should be the
+                # base64 encoding of the actual file content.
+                #
+                data:
+                  myConfig:
+                    myMap:
+                      number: 123
+                      string: "hi"
+                    myList:
+                      - 1
+                      - 2
+                stringData: |
+                  hello world!
+                binaryData: aGVsbG8gd29ybGQhCg==
+
+                # mode is by default 0644 and you can optionally override it
+                # either by octal notation (example: 0400) or decimal notation
+                # (example: 256).
+                mode: <file system permissions>
+          ```
+
+          **Using --set-file**
+
+          To avoid embedding entire files in the Helm chart configuration, you
+          can use the `--set-file` flag during `helm upgrade` to set the
+          stringData or binaryData field.
+
+          ```yaml
+          hub:
+            extraFiles:
+              my_image:
+                mountPath: /usr/local/share/jupyterhub/static/my_image.png
+
+              # Files in /usr/local/etc/jupyterhub/jupyterhub_config.d are
+              # automatically loaded in alphabetical order of the final file
+              # name when JupyterHub starts.
+              my_config:
+                mountPath: /usr/local/etc/jupyterhub/jupyterhub_config.d/my_jupyterhub_config.py
+          ```
+
+          ```bash
+          # --set-file expects a text based file, so you need to base64 encode
+          # it manually first.
+          base64 my_image.png > my_image.png.b64
+
+          helm upgrade <...> \
+              --set-file hub.extraFiles.my_image.binaryData=./my_image.png.b64 \
+              --set-file hub.extraFiles.my_config.stringData=./my_jupyterhub_config.py
+          ```
+
+          **Common uses**
+
+          1. **JupyterHub template customization**
+
+             You can replace the default JupyterHub user interface templates in
+             the hub pod by injecting new ones to
+             `/usr/local/share/jupyterhub/templates`. These can in turn
+             reference custom images injected to
+             `/usr/local/share/jupyterhub/static`.
+
+          1. **JupyterHub standalone file config**
+
+             Instead of embedding JupyterHub python configuration as a string
+             within a YAML file through
+             [`hub.extraConfig`](schema_hub.extraConfig), you can inject a
+             standalone .py file into
+             `/usr/local/etc/jupyterhub/jupyterhub_config.d` that is
+             automatically loaded.
+
+          1. **Flexible configuration**
+
+             By injecting files, you don't have to embed them in a docker image
+             that you have to rebuild.
+
+             If your configuration file is a YAML/JSON/TOML file, you can also
+             use `data` instead of `stringData` which allow you to set various
+             configuration in separate Helm config files. This can be useful to
+             help dependent charts override only some configuration part of the
+             file, or to allow for the configuration be set through multiple
+             Helm configuration files.
+
+          **Limitations**
+
+          1. File size
+
+             The files in `hub.extraFiles` and `singleuser.extraFiles` are
+             respectively stored in their own k8s Secret resource. As k8s
+             Secret's are limited, typically to 1MB, you will be limited to a
+             total file size of less than 1MB as there is also base64 encoding
+             that takes place reducing available capacity to 75%.
+
+          2. File updates
+
+             The files that are mounted are only set during container startup.
+             This is [because we use
+             `subPath`](https://kubernetes.io/docs/concepts/storage/volumes/#secret)
+             as is required to avoid replacing the content of the entire
+             directory we mount in.
+        patternProperties:
+          ".*":
+            type: object
+            additionalProperties: false
+            required: [mountPath]
+            oneOf:
+              - required: [data]
+              - required: [stringData]
+              - required: [binaryData]
+            properties:
+              mountPath:
+                type: string
+              data:
+                type: object
+                additionalProperties: true
+              stringData:
+                type: string
+              binaryData:
+                type: string
+              mode:
+                type: number
+      baseUrl:
+        type: string
+        description: |
+          This is the equivalent of c.JupyterHub.base_url, but it is also needed
+          by the Helm chart in general. So, instead of setting
+          c.JupyterHub.base_url, use this configuration.
+      command:
+        type: array
+        description: |
+          A list of strings to be used to replace the JupyterHub image's
+          `ENTRYPOINT` entry. Note that in k8s lingo, the Dockerfile's
+          `ENTRYPOINT` is called `command`. The list of strings will be expanded
+          with Helm's template function `tpl` which can render Helm template
+          logic inside curly braces (`{{... }}`).
+
+          This could be useful to wrap the invocation of JupyterHub itself in
+          some custom way.
+
+          For more details, see the [Kubernetes
+          documentation](https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/).
+      args:
+        type: array
+        description: |
+          A list of strings to be used to replace the JupyterHub image's `CMD`
+          entry as well as the Helm chart's default way to start JupyterHub.
+          Note that in k8s lingo, the Dockerfile's `CMD` is called `args`. The
+          list of strings will be expanded with Helm's template function `tpl`
+          which can render Helm template logic inside curly braces (`{{... }}`).
+
+          ```{warning}
+          By replacing the entire configuration file, which is mounted to
+          `/usr/local/etc/jupyterhub/jupyterhub_config.py` by the Helm chart,
+          instead of appending to it with `hub.extraConfig`, you expose your
+          deployment for issues stemming from getting out of sync with the Helm
+          chart's config file.
+
+          These kind of issues will be significantly harder to debug and
+          diagnose, and can due to this could cause a lot of time expenditure
+          for both the community maintaining the Helm chart as well as yourself,
+          even if this wasn't the reason for the issue.
+
+          Due to this, we ask that you do your _absolute best to avoid replacing
+          the default provided `jupyterhub_config.py` file. It can often be
+          possible. For example, if your goal is to have a dedicated .py file
+          for more extensive additions that you can syntax highlight and such
+          and feel limited by passing code in `hub.extraConfig` which is part of
+          a YAML file, you can use [this
+          trick](https://github.com/jupyterhub/zero-to-jupyterhub-k8s/issues/1580#issuecomment-707776237)
+          instead.
+          ```
+
+          ```yaml
+          hub:
+            args:
+              - "jupyterhub"
+              - "--config"
+              - "/usr/local/etc/jupyterhub/jupyterhub_config.py"
+              - "--debug"
+              - "--upgrade-db"
+          ```
+
+          For more details, see the [Kubernetes
+          documentation](https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/).
+      cookieSecret:
+        type: [string, "null"]
+        description: |
+          ```{note}
+          As of version 1.0.0 this will automatically be generated and there is
+          no need to set it manually.
+
+          If you wish to reset a generated key, you can use `kubectl edit` on
+          the k8s Secret typically named `hub` and remove the
+          `hub.config.JupyterHub.cookie_secret` entry in the k8s Secret, then
+          perform a new `helm upgrade`.
+          ```
+
+          A 32-byte cryptographically secure randomly generated string used to sign values of
+          secure cookies set by the hub. If unset, jupyterhub will generate one on startup and
+          save it in the file `jupyterhub_cookie_secret` in the `/srv/jupyterhub` directory of
+          the hub container. A value set here will make JupyterHub overwrite any previous file.
+
+          You do not need to set this at all if you are using the default configuration for
+          storing databases - sqlite on a persistent volume (with `hub.db.type` set to the
+          default `sqlite-pvc`). If you are using an external database, then you must set this
+          value explicitly - or your users will keep getting logged out each time the hub pod
+          restarts.
+
+          Changing this value will all user logins to be invalidated. If this secret leaks,
+          *immediately* change it to something else, or user data can be compromised
+
+          ```sh
+          # to generate a value, run
+          openssl rand -hex 32
+          ```
+      image: &image-spec
+        type: object
+        additionalProperties: false
+        required: [name, tag]
+        description: |
+          Set custom image name, tag, pullPolicy, or pullSecrets for the pod.
+        properties:
+          name:
+            type: string
+            description: |
+              The name of the image, without the tag.
+
+              ```
+              # example name
+              gcr.io/my-project/my-image
+              ```
+          tag:
+            type: string
+            description: |
+              The tag of the image to pull. This is the value following `:` in
+              complete image specifications.
+
+              ```
+              # example tags
+              v1.11.1
+              zhy270a
+              ```
+          pullPolicy:
+            enum: [null, "", IfNotPresent, Always, Never]
+            description: |
+              Configures the Pod's `spec.imagePullPolicy`.
+
+              See the [Kubernetes docs](https://kubernetes.io/docs/concepts/containers/images/#updating-images)
+              for more info.
+          pullSecrets:
+            type: array
+            description: |
+              A list of references to existing Kubernetes Secrets with
+              credentials to pull the image.
+
+              This Pod's final `imagePullSecrets` k8s specification will be a
+              combination of:
+
+              1. This list of k8s Secrets, specific for this pod.
+              2. The list of k8s Secrets, for use by all pods in the Helm chart,
+                 declared in this Helm charts configuration called
+                 `imagePullSecrets`.
+              3. A k8s Secret, for use by all pods in the Helm chart, if
+                 conditionally created from image registry credentials provided
+                 under `imagePullSecret` if `imagePullSecret.create` is set to
+                 true.
+
+              ```yaml
+              # example - k8s native syntax
+              pullSecrets:
+                - name: my-k8s-secret-with-image-registry-credentials
+
+              # example - simplified syntax
+              pullSecrets:
+                - my-k8s-secret-with-image-registry-credentials
+              ```
+      networkPolicy: &networkPolicy-spec
+        type: object
+        additionalProperties: false
+        description: |
+          This configuration regards the creation and configuration of a k8s
+          _NetworkPolicy resource_.
+        properties:
+          enabled:
+            type: boolean
+            description: |
+              Toggle the creation of the NetworkPolicy resource targeting this
+              pod, and by doing so, restricting its communication to only what
+              is explicitly allowed in the NetworkPolicy.
+          ingress:
+            type: array
+            description: |
+              Additional ingress rules to add besides those that are required
+              for core functionality.
+          egress:
+            type: array
+            description: |
+              Additional egress rules to add besides those that are required for
+              core functionality and those added via
+              [`.egressAllowRules`](schema_hub.networkPolicy.egressAllowRules).
+
+              ```{versionchanged} 2.0.0
+              The default value changed from providing one very permissive rule
+              allowing all egress to providing no rule. The permissive rule is
+              still provided via
+              [`.egressAllowRules`](schema_hub.networkPolicy.egressAllowRules)
+              set to true though.
+              ```
+
+              As an example, below is a configuration that disables the more
+              broadly permissive `.privateIPs` egress allow rule for the hub
+              pod, and instead provides tightly scoped permissions to access a
+              specific k8s local service as identified by pod labels.
+
+              ```yaml
+              hub:
+                networkPolicy:
+                  egressAllowRules:
+                    privateIPs: false
+                  egress:
+                    - to:
+                        - podSelector:
+                            matchLabels:
+                              app: my-k8s-local-service
+                      ports:
+                        - protocol: TCP
+                          port: 5978
+              ```
+          egressAllowRules:
+            type: object
+            additionalProperties: false
+            description: |
+              This is a set of predefined rules that when enabled will be added
+              to the NetworkPolicy list of egress rules.
+
+              The resulting egress rules will be a composition of:
+              - rules specific for the respective pod(s) function within the
+                Helm chart
+              - rules based on enabled `egressAllowRules` flags
+              - rules explicitly specified by the user
+
+              ```{note}
+              Each flag under this configuration will not render into a
+              dedicated rule in the NetworkPolicy resource, but instead combine
+              with the other flags to a reduced set of rules to avoid a
+              performance penalty.
+              ```
+
+              ```{versionadded} 2.0.0
+              ```
+            properties:
+              cloudMetadataServer:
+                type: boolean
+                description: |
+                  Defaults to `false` for singleuser servers, but to `true` for
+                  all other network policies.
+
+                  When enabled this rule allows the respective pod(s) to
+                  establish outbound connections to the cloud metadata server.
+
+                  Note that the `nonPrivateIPs` rule is allowing all non Private
+                  IP ranges but makes an exception for the cloud metadata
+                  server, leaving this as the definitive configuration to allow
+                  access to the cloud metadata server.
+
+                  ```{versionchanged} 3.0.0
+                  This configuration is not allowed to be configured true at the
+                  same time as
+                  [`singleuser.cloudMetadata.blockWithIptables`](schema_singleuser.cloudMetadata.blockWithIptables)
+                  to avoid an ambiguous configuration.
+                  ```
+              dnsPortsCloudMetadataServer:
+                type: boolean
+                description: |
+                  Defaults to `true` for all network policies.
+
+                  When enabled this rule allows the respective pod(s) to
+                  establish outbound connections to the cloud metadata server
+                  via port 53.
+
+                  Relying on this rule for the singleuser config should go hand
+                  in hand with disabling
+                  [`singleuser.cloudMetadata.blockWithIptables`](schema_singleuser.cloudMetadata.blockWithIptables)
+                  to avoid an ambiguous configuration.
+
+                  Known situations when this rule can be relevant:
+
+                  - In GKE clusters with Cloud DNS that is reached at the
+                    cloud metadata server's non-private IP.
+
+                  ```{note}
+                  This chart doesn't know how to identify the DNS server that
+                  pods will rely on due to variations between how k8s clusters
+                  have been setup. Due to that, multiple rules are enabled by
+                  default to ensure DNS connectivity.
+                  ```
+
+                  ```{versionadded} 3.0.0
+                  ```
+              dnsPortsKubeSystemNamespace:
+                type: boolean
+                description: |
+                  Defaults to `true` for all network policies.
+
+                  When enabled this rule allows the respective pod(s) to
+                  establish outbound connections to pods in the kube-system
+                  namespace via port 53.
+
+                  Known situations when this rule can be relevant:
+
+                  - GKE, EKS, AKS, and other clusters relying directly on
+                    `kube-dns` or `coredns` pods in the `kube-system` namespace.
+
+                  ```{note}
+                  This chart doesn't know how to identify the DNS server that
+                  pods will rely on due to variations between how k8s clusters
+                  have been setup. Due to that, multiple rules are enabled by
+                  default to ensure DNS connectivity.
+                  ```
+
+                  ```{versionadded} 3.0.0
+                  ```
+              dnsPortsPrivateIPs:
+                type: boolean
+                description: |
+                  Defaults to `true` for all network policies.
+
+                  When enabled this rule allows the respective pod(s) to
+                  establish outbound connections to private IPs via port 53.
+
+                  Known situations when this rule can be relevant:
+
+                  - GKE clusters relying on a DNS server indirectly via a a node
+                    local DNS cache at an unknown private IP.
+
+                  ```{note}
+                  This chart doesn't know how to identify the DNS server that
+                  pods will rely on due to variations between how k8s clusters
+                  have been setup. Due to that, multiple rules are enabled by
+                  default to ensure DNS connectivity.
+
+                  ```{warning}
+                  This rule is not expected to work in clusters relying on
+                  Cilium to enforce the NetworkPolicy rules (includes GKE
+                  clusters with Dataplane v2), this is due to a [known
+                  limitation](https://github.com/cilium/cilium/issues/9209).
+                  ```
+              nonPrivateIPs:
+                type: boolean
+                description: |
+                  Defaults to `true` for all network policies.
+
+                  When enabled this rule allows the respective pod(s) to
+                  establish outbound connections to the non-private IP ranges
+                  with the exception of the cloud metadata server. This means
+                  respective pod(s) can establish connections to the internet
+                  but not (say) an unsecured prometheus server running in the
+                  same cluster.
+              privateIPs:
+                type: boolean
+                description: |
+                  Defaults to `false` for singleuser servers, but to `true` for
+                  all other network policies.
+
+                  Private IPs refer to the IP ranges `10.0.0.0/8`,
+                  `172.16.0.0/12`, `192.168.0.0/16`.
+
+                  When enabled this rule allows the respective pod(s) to
+                  establish outbound connections to the internal k8s cluster.
+                  This means users can access the internet but not (say) an
+                  unsecured prometheus server running in the same cluster.
+
+                  Since not all workloads in the k8s cluster may have
+                  NetworkPolicies setup to restrict their incoming connections,
+                  having this set to false can be a good defense against
+                  malicious intent from someone in control of software in these
+                  pods.
+
+                  If possible, try to avoid setting this to true as it gives
+                  broad permissions that could be specified more directly via
+                  the [`.egress`](schema_singleuser.networkPolicy.egress).
+
+                  ```{warning}
+                  This rule is not expected to work in clusters relying on
+                  Cilium to enforce the NetworkPolicy rules (includes GKE
+                  clusters with Dataplane v2), this is due to a [known
+                  limitation](https://github.com/cilium/cilium/issues/9209).
+                  ```
+          interNamespaceAccessLabels:
+            enum: [accept, ignore]
+            description: |
+              This configuration option determines if both namespaces and pods
+              in other namespaces, that have specific access labels, should be
+              accepted to allow ingress (set to `accept`), or, if the labels are
+              to be ignored when applied outside the local namespace (set to
+              `ignore`).
+
+              The available access labels for respective NetworkPolicy resources
+              are:
+
+              - `hub.jupyter.org/network-access-hub: "true"` (hub)
+              - `hub.jupyter.org/network-access-proxy-http: "true"` (proxy.chp, proxy.traefik)
+              - `hub.jupyter.org/network-access-proxy-api: "true"` (proxy.chp)
+              - `hub.jupyter.org/network-access-singleuser: "true"` (singleuser)
+          allowedIngressPorts:
+            type: array
+            description: |
+              A rule to allow ingress on these ports will be added no matter
+              what the origin of the request is. The default setting for
+              `proxy.chp` and `proxy.traefik`'s networkPolicy configuration is
+              `[http, https]`, while it is `[]` for other networkPolicies.
+
+              Note that these port names or numbers target a Pod's port name or
+              number, not a k8s Service's port name or number.
+      db:
+        type: object
+        additionalProperties: false
+        properties:
+          type:
+            enum: [sqlite-pvc, sqlite-memory, mysql, postgres, other]
+            description: |
+              Type of database backend to use for the hub database.
+
+              The Hub requires a persistent database to function, and this lets you specify
+              where it should be stored.
+
+              The various options are:
+
+              1. **sqlite-pvc**
+
+                 Use an `sqlite` database kept on a persistent volume attached to the hub.
+
+                 By default, this disk is created by the cloud provider using
+                 *dynamic provisioning* configured by a [storage
+                 class](https://kubernetes.io/docs/concepts/storage/storage-classes/).
+                 You can customize how this disk is created / attached by
+                 setting various properties under `hub.db.pvc`.
+
+                 This is the default setting, and should work well for most cloud provider
+                 deployments.
+
+              2. **sqlite-memory**
+
+                 Use an in-memory `sqlite` database. This should only be used for testing,
+                 since the database is erased whenever the hub pod restarts - causing the hub
+                 to lose all memory of users who had logged in before.
+
+                 When using this for testing, make sure you delete all other objects that the
+                 hub has created (such as user pods, user PVCs, etc) every time the hub restarts.
+                 Otherwise you might run into errors about duplicate resources.
+
+              3. **mysql**
+
+                 Use an externally hosted mysql database.
+
+                 You have to specify an sqlalchemy connection string for the mysql database you
+                 want to connect to in `hub.db.url` if using this option.
+
+                 The general format of the connection string is:
+                 ```
+                 mysql+pymysql://<db-username>:<db-password>@<db-hostname>:<db-port>/<db-name>
+                 ```
+
+                 The user specified in the connection string must have the rights to create
+                 tables in the database specified.
+
+              4. **postgres**
+
+                 Use an externally hosted postgres database.
+
+                 You have to specify an sqlalchemy connection string for the postgres database you
+                 want to connect to in `hub.db.url` if using this option.
+
+                 The general format of the connection string is:
+                 ```
+                 postgresql+psycopg2://<db-username>:<db-password>@<db-hostname>:<db-port>/<db-name>
+                 ```
+
+                 The user specified in the connection string must have the rights to create
+                 tables in the database specified.
+
+              5. **other**
+
+                 Use an externally hosted database of some kind other than mysql
+                 or postgres.
+
+                 When using _other_, the database password must be passed as
+                 part of [hub.db.url](schema_hub.db.url) as
+                 [hub.db.password](schema_hub.db.password) will be ignored.
+          pvc:
+            type: object
+            additionalProperties: false
+            required: [storage]
+            description: |
+              Customize the Persistent Volume Claim used when `hub.db.type` is `sqlite-pvc`.
+            properties:
+              annotations:
+                type: object
+                additionalProperties: false
+                patternProperties: &labels-and-annotations-patternProperties
+                  ".*":
+                    type: string
+                description: |
+                  Annotations to apply to the PVC containing the sqlite database.
+
+                  See [the Kubernetes
+                  documentation](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
+                  for more details about annotations.
+              selector:
+                type: object
+                additionalProperties: true
+                description: |
+                  Label selectors to set for the PVC containing the sqlite database.
+
+                  Useful when you are using a specific PV, and want to bind to
+                  that and only that.
+
+                  See [the Kubernetes
+                  documentation](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims)
+                  for more details about using a label selector for what PV to
+                  bind to.
+              storage:
+                type: string
+                description: |
+                  Size of disk to request for the database disk.
+              accessModes:
+                type: array
+                items:
+                  type: [string, "null"]
+                description: |
+                  AccessModes contains the desired access modes the volume
+                  should have. See [the k8s
+                  documentation](https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1)
+                  for more information.
+              storageClassName:
+                type: [string, "null"]
+                description: |
+                  Name of the StorageClass required by the claim.
+
+                  If this is a blank string it will be set to a blank string,
+                  while if it is null, it will not be set at all.
+              subPath:
+                type: [string, "null"]
+                description: |
+                  Path within the volume from which the container's volume
+                  should be mounted. Defaults to "" (volume's root).
+          upgrade:
+            type: [boolean, "null"]
+            description: |
+              Users with external databases need to opt-in for upgrades of the
+              JupyterHub specific database schema if needed as part of a
+              JupyterHub version upgrade.
+          url:
+            type: [string, "null"]
+            description: |
+              Connection string when `hub.db.type` is mysql or postgres.
+
+              See documentation for `hub.db.type` for more details on the format of this property.
+          password:
+            type: [string, "null"]
+            description: |
+              Password for the database when `hub.db.type` is mysql or postgres.
+      labels:
+        type: object
+        additionalProperties: false
+        patternProperties: *labels-and-annotations-patternProperties
+        description: |
+          Extra labels to add to the hub pod.
+
+          See the [Kubernetes docs](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/)
+          to learn more about labels.
+      initContainers:
+        type: array
+        description: |
+          list of initContainers to be run with hub pod. See [Kubernetes Docs](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/)
+
+          ```yaml
+          hub:
+            initContainers:
+              - name: init-myservice
+                image: busybox:1.28
+                command: ['sh', '-c', 'command1']
+              - name: init-mydb
+                image: busybox:1.28
+                command: ['sh', '-c', 'command2']
+          ```
+      extraEnv:
+        type: [object, array]
+        additionalProperties: true
+        description: |
+          Extra environment variables that should be set for the hub pod.
+
+          Environment variables are usually used to:
+            - Pass parameters to some custom code in `hub.extraConfig`.
+            - Configure code running in the hub pod, such as an authenticator or
+              spawner.
+
+          String literals with `$(ENV_VAR_NAME)` will be expanded by Kubelet which
+          is a part of Kubernetes.
+
+          ```yaml
+          hub:
+            extraEnv:
+              # basic notation (for literal values only)
+              MY_ENV_VARS_NAME1: "my env var value 1"
+
+              # explicit notation (the "name" field takes precedence)
+              HUB_NAMESPACE:
+                name: HUB_NAMESPACE
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.namespace
+
+              # implicit notation (the "name" field is implied)
+              PREFIXED_HUB_NAMESPACE:
+                value: "my-prefix-$(HUB_NAMESPACE)"
+              SECRET_VALUE:
+                valueFrom:
+                  secretKeyRef:
+                    name: my-k8s-secret
+                    key: password
+          ```
+
+          For more information, see the [Kubernetes EnvVar
+          specification](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#envvar-v1-core).
+      extraConfig:
+        type: object
+        additionalProperties: true
+        description: |
+          Arbitrary extra python based configuration that should be in `jupyterhub_config.py`.
+
+          This is the *escape hatch* - if you want to configure JupyterHub to do something specific
+          that is not present here as an option, you can write the raw Python to do it here.
+
+          extraConfig is a *dict*, so there can be multiple configuration
+          snippets under different names. The configuration sections are run in
+          alphabetical order based on the keys.
+
+          Non-exhaustive examples of things you can do here:
+            - Subclass authenticator / spawner to do a custom thing
+            - Dynamically launch different images for different sets of images
+            - Inject an auth token from GitHub authenticator into user pod
+            - Anything else you can think of!
+
+          Since this is usually a multi-line string, you want to format it using YAML's
+          [| operator](https://yaml.org/spec/1.2.2/#23-scalars).
+
+          For example:
+
+          ```yaml
+          hub:
+            extraConfig:
+              myConfig.py: |
+                c.JupyterHub.something = 'something'
+                c.Spawner.something_else = 'something else'
+          ```
+
+          ```{note}
+          No code validation is performed until JupyterHub loads it! If you make
+          a typo here, it will probably manifest itself as the hub pod failing
+          to start up and instead entering an `Error` state or the subsequent
+          `CrashLoopBackoff` state.
+
+          To make use of your own programs linters etc, it would be useful to
+          not embed Python code inside a YAML file. To do that, consider using
+          [`hub.extraFiles`](schema_hub.extraFiles) and mounting a file to
+          `/usr/local/etc/jupyterhub/jupyterhub_config.d` in order to load your
+          extra configuration logic.
+          ```
+
+      fsGid:
+        type: [integer, "null"]
+        minimum: 0
+        # This schema entry is needed to help us print a more helpful error
+        # message in NOTES.txt if hub.fsGid is set.
+        #
+        description: |
+          ```{note}
+          Removed in version 2.0.0. Use
+          [`hub.podSecurityContext`](schema_hub.podSecurityContext) and specify
+          `fsGroup` instead.
+          ```
+      service:
+        type: object
+        additionalProperties: false
+        description: |
+          Object to configure the service the JupyterHub will be exposed on by the Kubernetes server.
+        properties:
+          type:
+            enum: [ClusterIP, NodePort, LoadBalancer, ExternalName]
+            description: |
+              The Kubernetes ServiceType to be used.
+
+              The default type is `ClusterIP`.
+              See the [Kubernetes docs](https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types)
+              to learn more about service types.
+          ports:
+            type: object
+            additionalProperties: false
+            description: |
+              Object to configure the ports the hub service will be deployed on.
+            properties:
+              nodePort:
+                type: [integer, "null"]
+                minimum: 0
+                description: |
+                  The nodePort to deploy the hub service on.
+          annotations:
+            type: object
+            additionalProperties: false
+            patternProperties: *labels-and-annotations-patternProperties
+            description: |
+              Kubernetes annotations to apply to the hub service.
+          extraPorts:
+            type: array
+            description: |
+              Extra ports to add to the Hub Service object besides `hub` / `8081`.
+              This should be an array that includes `name`, `port`, and `targetPort`.
+              See [Multi-port Services](https://kubernetes.io/docs/concepts/services-networking/service/#multi-port-services) for more details.
+          loadBalancerIP:
+            type: [string, "null"]
+            description: |
+              A public IP address the hub Kubernetes service should be exposed
+              on. To expose the hub directly is not recommended. Instead route
+              traffic through the proxy-public service towards the hub.
+
+      pdb: &pdb-spec
+        type: object
+        additionalProperties: false
+        description: |
+          Configure a PodDisruptionBudget for this Deployment.
+
+          These are disabled by default for our deployments that don't support
+          being run in parallel with multiple replicas. Only the user-scheduler
+          currently supports being run in parallel with multiple replicas. If
+          they are enabled for a Deployment with only one replica, they will
+          block `kubectl drain` of a node for example.
+
+          Note that if you aim to block scaling down a node with the
+          hub/proxy/autohttps pod that would cause disruptions of the
+          deployment, then you should instead annotate the pods of the
+          Deployment [as described
+          here](https://github.com/kubernetes/autoscaler/blob/HEAD/cluster-autoscaler/FAQ.md#what-types-of-pods-can-prevent-ca-from-removing-a-node).
+
+              "cluster-autoscaler.kubernetes.io/safe-to-evict": "false"
+
+          See [the Kubernetes
+          documentation](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/)
+          for more details about disruptions.
+        properties:
+          enabled:
+            type: boolean
+            description: |
+              Decides if a PodDisruptionBudget is created targeting the
+              Deployment's pods.
+          maxUnavailable:
+            type: [integer, "null"]
+            description: |
+              The maximum number of pods that can be unavailable during
+              voluntary disruptions.
+          minAvailable:
+            type: [integer, "null"]
+            description: |
+              The minimum number of pods required to be available during
+              voluntary disruptions.
+      existingSecret:
+        type: [string, "null"]
+        description: |
+          This option allow you to provide the name of an existing k8s Secret to
+          use alongside of the chart managed k8s Secret. The content of this k8s
+          Secret will be merged with the chart managed k8s Secret, giving
+          priority to the self-managed k8s Secret.
+
+          ```{warning}
+          1. The self managed k8s Secret must mirror the structure in the chart
+             managed secret.
+          2. [`proxy.secretToken`](schema_proxy.secretToken) (aka.
+             `hub.config.ConfigurableHTTPProxy.auth_token`) is only read from
+             the chart managed k8s Secret.
+          ```
+      nodeSelector: &nodeSelector-spec
+        type: object
+        additionalProperties: true
+        description: |
+          An object with key value pairs representing labels. K8s Nodes are
+          required to have match all these labels for this Pod to scheduled on
+          them.
+
+          ```yaml
+          disktype: ssd
+          nodetype: awesome
+          ```
+
+          See [the Kubernetes
+          documentation](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector)
+          for more details.
+      tolerations: &tolerations-spec
+        type: array
+        description: |
+          Tolerations allow a pod to be scheduled on nodes with taints. These
+          tolerations are additional tolerations to the tolerations common to
+          all pods of a their respective kind
+          ([scheduling.corePods.tolerations](schema_scheduling.corePods.tolerations),
+          [scheduling.userPods.tolerations](schema_scheduling.userPods.tolerations)).
+
+          Pass this field an array of
+          [`Toleration`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#toleration-v1-core)
+          objects.
+
+          See the [Kubernetes
+          docs](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
+          for more info.
+      activeServerLimit:
+        type: [integer, "null"]
+        description: &jupyterhub-native-config-description |
+          JupyterHub native configuration, see the [JupyterHub
+          documentation](https://jupyterhub.readthedocs.io/en/stable/reference/api/app.html)
+          for more information.
+      allowNamedServers:
+        type: [boolean, "null"]
+        description: *jupyterhub-native-config-description
+      annotations:
+        type: object
+        additionalProperties: false
+        patternProperties: *labels-and-annotations-patternProperties
+        description: |
+          K8s annotations for the hub pod.
+      authenticatePrometheus:
+        type: [boolean, "null"]
+        description: *jupyterhub-native-config-description
+      concurrentSpawnLimit:
+        type: [integer, "null"]
+        description: *jupyterhub-native-config-description
+      consecutiveFailureLimit:
+        type: [integer, "null"]
+        description: *jupyterhub-native-config-description
+      podSecurityContext: &podSecurityContext-spec
+        additionalProperties: true
+        description: |
+          A k8s native specification of the pod's security context, see [the
+          documentation](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#podsecuritycontext-v1-core)
+          for details.
+      containerSecurityContext: &containerSecurityContext-spec
+        type: object
+        additionalProperties: true
+        description: |
+          A k8s native specification of the container's security context, see [the
+          documentation](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#securitycontext-v1-core)
+          for details.
+      deploymentStrategy:
+        type: object
+        additionalProperties: false
+        properties:
+          rollingUpdate:
+            type: [string, "null"]
+          type:
+            type: [string, "null"]
+            description: |
+              JupyterHub does not support running in parallel, due to this we
+              default to using a deployment strategy of Recreate.
+      extraContainers: &extraContainers-spec
+        type: array
+        description: |
+          Additional containers for the Pod. Use a k8s native syntax.
+      extraVolumeMounts: &extraVolumeMounts-spec
+        type: array
+        description: |
+          Additional volume mounts for the Container. Use a k8s native syntax.
+      extraVolumes: &extraVolumes-spec
+        type: array
+        description: |
+          Additional volumes for the Pod. Use a k8s native syntax.
+      livenessProbe: &probe-spec
+        type: object
+        additionalProperties: true
+        required: [enabled]
+        if:
+          properties:
+            enabled:
+              const: true
+        then:
+          description: |
+            This config option is like the k8s native specification of a
+            container probe, except that it also supports an `enabled` boolean
+            flag.
+
+            See [the k8s
+            documentation](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#probe-v1-core)
+            for more details.
+      readinessProbe: *probe-spec
+      namedServerLimitPerUser:
+        type: [integer, "null"]
+        description: *jupyterhub-native-config-description
+      redirectToServer:
+        type: [boolean, "null"]
+        description: *jupyterhub-native-config-description
+      resources: &resources-spec
+        type: object
+        additionalProperties: true
+        description: |
+          A k8s native specification of resources, see [the
+          documentation](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#resourcerequirements-v1-core).
+      lifecycle: &lifecycle-spec
+        type: object
+        additionalProperties: false
+        description: |
+          A k8s native specification of lifecycle hooks on the container, see [the
+          documentation](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#lifecycle-v1-core).
+        properties:
+          postStart:
+            type: object
+            additionalProperties: true
+          preStop:
+            type: object
+            additionalProperties: true
+      services:
+        type: object
+        additionalProperties: true
+        description: |
+          This is where you register JupyterHub services. For details on how to
+          configure these services in this Helm chart just keep reading but for
+          details on services themselves instead read [JupyterHub's
+          documentation](https://jupyterhub.readthedocs.io/en/stable/reference/api/service.html).
+
+          ```{note}
+          Only a selection of JupyterHub's configuration options that can be
+          configured for a service are documented below. All configuration set
+          here will be applied even if this Helm chart doesn't recognize it.
+          ```
+
+          JupyterHub's native configuration accepts a list of service objects,
+          this Helm chart only accept a dictionary where each key represents the
+          name of a service and the value is the actual service objects.
+
+          When configuring JupyterHub services via this Helm chart, the `name`
+          field can be omitted as it can be implied by the dictionary key.
+          Further, the `api_token` field can be omitted as it will be
+          automatically generated as of version 1.1.0 of this Helm chart.
+
+          If you have an external service that needs to access the automatically
+          generated api_token for the service, you can access it from the `hub`
+          k8s Secret part of this Helm chart under the key
+          `hub.services.my-service-config-key.apiToken`.
+
+          Here is an example configuration of two services where the first
+          explicitly sets a name and api_token, while the second omits those and
+          lets the name be implied from the key name and the api_token be
+          automatically generated.
+
+          ```yaml
+          hub:
+            services:
+              my-service-1:
+                admin: true
+                name: my-explicitly-set-service-name
+                api_token: my-explicitly-set-api_token
+
+              # the name of the following service will be my-service-2
+              # the api_token of the following service will be generated
+              my-service-2: {}
+          ```
+
+          If you develop a Helm chart depending on the JupyterHub Helm chart and
+          want to let some Pod's environment variable be populated with the
+          api_token of a service registered like above, then do something along
+          these lines.
+
+          ```yaml
+          # ... container specification of a pod ...
+          env:
+            - name: MY_SERVICE_1_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  # Don't hardcode the name, use the globally accessible
+                  # named templates part of the JupyterHub Helm chart.
+                  name: {{ include "jupyterhub.hub.fullname" . }}
+                  # Note below the use of the configuration key my-service-1
+                  # rather than the explicitly set service name.
+                  key: hub.services.my-service-1.apiToken
+          ```
+        properties:
+          name:
+            type: string
+            description: |
+              The name can be implied via the key name under which this
+              service is configured, and is due to that allowed to be
+              omitted in this Helm chart configuration of JupyterHub.
+          admin:
+            type: boolean
+          command:
+            type: [string, array]
+          url:
+            type: string
+          api_token:
+            type: [string, "null"]
+            description: |
+              The api_token will be automatically generated if not
+              explicitly set. It will also be exposed in via a k8s Secret
+              part of this Helm chart under a specific key.
+
+              See the documentation under
+              [`hub.services`](schema_hub.services) for details about this.
+          apiToken:
+            type: [string, "null"]
+            description: |
+              An alias for api_token provided for backward compatibility by
+              the JupyterHub Helm chart that will be transformed to
+              api_token.
+      loadRoles:
+        type: object
+        additionalProperties: true
+        description: |
+          This is where you should define JupyterHub roles and apply them to
+          JupyterHub users, groups, and services to grant them additional
+          permissions as defined in JupyterHub's RBAC system.
+
+          Complement this documentation with [JupyterHub's
+          documentation](https://jupyterhub.readthedocs.io/en/stable/rbac/roles.html#defining-roles)
+          about `load_roles`.
+
+          Note that while JupyterHub's native configuration `load_roles` accepts
+          a list of role objects, this Helm chart only accepts a dictionary where
+          each key represents the name of a role and the value is the actual
+          role object.
+
+          ```yaml
+          hub:
+            loadRoles:
+              teacher:
+                description: Access to users' information and group membership
+
+                # this role provides permissions to...
+                scopes: [users, groups]
+
+                # this role will be assigned to...
+                users: [erik]
+                services: [grading-service]
+                groups: [teachers]
+          ```
+
+          When configuring JupyterHub roles via this Helm chart, the `name`
+          field can be omitted as it can be implied by the dictionary key.
+      shutdownOnLogout:
+        type: [boolean, "null"]
+        description: *jupyterhub-native-config-description
+      templatePaths:
+        type: array
+        description: *jupyterhub-native-config-description
+      templateVars:
+        type: object
+        additionalProperties: true
+        description: *jupyterhub-native-config-description
+      serviceAccount: &serviceAccount
+        type: object
+        required: [create]
+        additionalProperties: false
+        description: |
+          Configuration for a k8s ServiceAccount dedicated for use by the
+          specific pod which this configuration is nested under.
+        properties:
+          create:
+            type: boolean
+            description: |
+              Whether or not to create the `ServiceAccount` resource.
+          name:
+            type: ["string", "null"]
+            description: |
+              This configuration serves multiple purposes:
+
+              - It will be the `serviceAccountName` referenced by related Pods.
+              - If `create` is set, the created ServiceAccount resource will be named like this.
+              - If [`rbac.create`](schema_rbac.create) is set, the associated (Cluster)RoleBindings will bind to this name.
+
+              If not explicitly provided, a default name will be used.
+          annotations:
+            type: object
+            additionalProperties: false
+            patternProperties: *labels-and-annotations-patternProperties
+            description: |
+              Kubernetes annotations to apply to the k8s ServiceAccount.
+      extraPodSpec: &extraPodSpec-spec
+        type: object
+        additionalProperties: true
+        description: |
+          Arbitrary extra k8s pod specification as a YAML object. The default
+          value of this setting is an empty object, i.e. no extra configuration.
+          The value of this property is augmented to the pod specification as-is.
+
+          This is a powerful tool for expert k8s administrators with advanced
+          configuration requirements. This setting should only be used for
+          configuration that cannot be accomplished through the other settings.
+          Misusing this setting can break your deployment and/or compromise
+          your system security.
+
+          This is one of four related settings for inserting arbitrary pod
+          specification:
+
+          1. hub.extraPodSpec
+          2. proxy.chp.extraPodSpec
+          3. proxy.traefik.extraPodSpec
+          4. scheduling.userScheduler.extraPodSpec
+
+          One real-world use of these settings is to enable host networking. For
+          example, to configure host networking for the hub pod, add the
+          following to your helm configuration values:
+
+          ```yaml
+          hub:
+            extraPodSpec:
+              hostNetwork: true
+              dnsPolicy: ClusterFirstWithHostNet
+          ```
+
+          Likewise, to configure host networking for the proxy pod, add the
+          following:
+
+          ```yaml
+          proxy:
+            chp:
+              extraPodSpec:
+                hostNetwork: true
+                dnsPolicy: ClusterFirstWithHostNet
+          ```
+
+          N.B. Host networking has special security implications and can easily
+          break your deployment. This is an example—not an endorsement.
+
+          See [PodSpec](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodSpec)
+          for the latest pod resource specification.
+
+  proxy:
+    type: object
+    additionalProperties: false
+    properties:
+      chp:
+        type: object
+        additionalProperties: false
+        description: |
+          Configure the configurable-http-proxy (chp) pod managed by jupyterhub to route traffic
+          both to itself and to user pods.
+        properties:
+          revisionHistoryLimit: *revisionHistoryLimit
+          networkPolicy: *networkPolicy-spec
+          extraCommandLineFlags:
+            type: array
+            description: |
+              A list of strings to be added as command line options when
+              starting
+              [configurable-http-proxy](https://github.com/jupyterhub/configurable-http-proxy#command-line-options)
+              that will be expanded with Helm's template function `tpl` which
+              can render Helm template logic inside curly braces (`{{ ... }}`).
+
+              ```yaml
+              proxy:
+                chp:
+                  extraCommandLineFlags:
+                    - "--auto-rewrite"
+                    - "--custom-header {{ .Values.myCustomStuff }}"
+              ```
+
+              Note that these will be appended last, and if you provide the same
+              flag twice, the last flag will be used, which mean you can
+              override the default flag values as well.
+          extraEnv:
+            type: [object, array]
+            additionalProperties: true
+            description: |
+              Extra environment variables that should be set for the chp pod.
+
+              Environment variables are usually used here to:
+                - override HUB_SERVICE_PORT or HUB_SERVICE_HOST default values
+                - set CONFIGPROXY_SSL_KEY_PASSPHRASE for setting passphrase of SSL keys
+
+              String literals with `$(ENV_VAR_NAME)` will be expanded by Kubelet which
+              is a part of Kubernetes.
+
+              ```yaml
+              proxy:
+                chp:
+                  extraEnv:
+                    # basic notation (for literal values only)
+                    MY_ENV_VARS_NAME1: "my env var value 1"
+
+                    # explicit notation (the "name" field takes precedence)
+                    CHP_NAMESPACE:
+                      name: CHP_NAMESPACE
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.namespace
+
+                    # implicit notation (the "name" field is implied)
+                    PREFIXED_CHP_NAMESPACE:
+                      value: "my-prefix-$(CHP_NAMESPACE)"
+                    SECRET_VALUE:
+                      valueFrom:
+                        secretKeyRef:
+                          name: my-k8s-secret
+                          key: password
+              ```
+
+              For more information, see the [Kubernetes EnvVar
+              specification](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#envvar-v1-core).
+          pdb: *pdb-spec
+          nodeSelector: *nodeSelector-spec
+          tolerations: *tolerations-spec
+          containerSecurityContext: *containerSecurityContext-spec
+          image: *image-spec
+          livenessProbe: *probe-spec
+          readinessProbe: *probe-spec
+          resources: *resources-spec
+          defaultTarget:
+            type: [string, "null"]
+            description: |
+              Override the URL for the default routing target for the proxy.
+              Defaults to JupyterHub itself.
+              This will generally only have an effect while JupyterHub is not running,
+              as JupyterHub adds itself as the default target after it starts.
+          errorTarget:
+            type: [string, "null"]
+            description: |
+              Override the URL for the error target for the proxy.
+              Defaults to JupyterHub itself.
+              Useful to reduce load on the Hub
+              or produce more informative error messages than the Hub's default,
+              e.g. in highly customized deployments such as BinderHub.
+              See Configurable HTTP Proxy for details on implementing an error target.
+          extraPodSpec: *extraPodSpec-spec
+      secretToken:
+        type: [string, "null"]
+        description: |
+          ```{note}
+          As of version 1.0.0 this will automatically be generated and there is
+          no need to set it manually.
+
+          If you wish to reset a generated key, you can use `kubectl edit` on
+          the k8s Secret typically named `hub` and remove the
+          `hub.config.ConfigurableHTTPProxy.auth_token` entry in the k8s Secret,
+          then perform a new `helm upgrade`.
+          ```
+
+          A 32-byte cryptographically secure randomly generated string used to
+          secure communications between the hub pod and the proxy pod running a
+          [configurable-http-proxy](https://github.com/jupyterhub/configurable-http-proxy)
+          instance.
+
+          ```sh
+          # to generate a value, run
+          openssl rand -hex 32
+          ```
+
+          Changing this value will cause the proxy and hub pods to restart. It is good security
+          practice to rotate these values over time. If this secret leaks, *immediately* change
+          it to something else, or user data can be compromised.
+      service:
+        type: object
+        additionalProperties: false
+        description: |
+          Configuration of the k8s Service `proxy-public` which either will
+          point to the `autohttps` pod running Traefik for TLS termination, or
+          the `proxy` pod running ConfigurableHTTPProxy. Incoming traffic from
+          users on the internet should always go through this k8s Service.
+
+          When this service targets the `autohttps` pod which then routes to the
+          `proxy` pod, a k8s Service named `proxy-http` will be added targeting
+          the `proxy` pod and only accepting HTTP traffic on port 80.
+        properties:
+          type:
+            enum: [ClusterIP, NodePort, LoadBalancer, ExternalName]
+            description: |
+              Default `LoadBalancer`.
+              See the [Kubernetes docs](https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types)
+              to learn more about service types.
+          labels:
+            type: object
+            additionalProperties: false
+            patternProperties: *labels-and-annotations-patternProperties
+            description: |
+              Extra labels to add to the proxy service.
+
+              See the [Kubernetes docs](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/)
+              to learn more about labels.
+          annotations:
+            type: object
+            additionalProperties: false
+            patternProperties: *labels-and-annotations-patternProperties
+            description: |
+              Annotations to apply to the service that is exposing the proxy.
+
+              See [the Kubernetes
+              documentation](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
+              for more details about annotations.
+          nodePorts:
+            type: object
+            additionalProperties: false
+            description: |
+              Object to set NodePorts to expose the service on for http and https.
+
+              See [the Kubernetes
+              documentation](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport)
+              for more details about NodePorts.
+            properties:
+              http:
+                type: [integer, "null"]
+                description: |
+                  The HTTP port the proxy-public service should be exposed on.
+              https:
+                type: [integer, "null"]
+                description: |
+                  The HTTPS port the proxy-public service should be exposed on.
+          disableHttpPort:
+            type: boolean
+            description: |
+              Default `false`.
+
+              If `true`, port 80 for incoming HTTP traffic will no longer be exposed. This should not be used with `proxy.https.type=letsencrypt` or `proxy.https.enabled=false` as it would remove the only exposed port.
+          extraPorts:
+            type: array
+            description: |
+              Extra ports the k8s Service should accept incoming traffic on,
+              which will be redirected to either the `autohttps` pod (treafik)
+              or the `proxy` pod (chp).
+
+              See [the Kubernetes
+              documentation](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#serviceport-v1-core)
+              for the structure of the items in this list.
+          loadBalancerIP:
+            type: [string, "null"]
+            description: |
+              The public IP address the proxy-public Kubernetes service should
+              be exposed on. This entry will end up at the configurable proxy
+              server that JupyterHub manages, which will direct traffic to user
+              pods at the `/user` path and the hub pod at the `/hub` path.
+
+              Set this if you want to use a fixed external IP address instead of
+              a dynamically acquired one. This is relevant if you have a domain
+              name that you want to point to a specific IP and want to ensure it
+              doesn't change.
+          loadBalancerSourceRanges:
+            type: array
+            description: |
+              A list of IP CIDR ranges that are allowed to access the load balancer service.
+              Defaults to allowing everyone to access it.
+      https:
+        type: object
+        additionalProperties: false
+        description: |
+          Object for customizing the settings for HTTPS used by the JupyterHub's proxy.
+          For more information on configuring HTTPS for your JupyterHub, see the [HTTPS section in our security guide](https)
+        properties:
+          enabled:
+            type: [boolean, "null"]
+            description: |
+              Indicator to set whether HTTPS should be enabled or not on the proxy. Defaults to `true` if the https object is provided.
+          type:
+            enum: [null, "", letsencrypt, manual, offload, secret]
+            description: |
+              The type of HTTPS encryption that is used.
+              Decides on which ports and network policies are used for communication via HTTPS. Setting this to `secret` sets the type to manual HTTPS with a secret that has to be provided in the `https.secret` object.
+              Defaults to `letsencrypt`.
+          letsencrypt:
+            type: object
+            additionalProperties: false
+            properties:
+              contactEmail:
+                type: [string, "null"]
+                description: |
+                  The contact email to be used for automatically provisioned HTTPS certificates by Let's Encrypt. For more information see [Set up automatic HTTPS](setup-automatic-https).
+                  Required for automatic HTTPS.
+              acmeServer:
+                type: [string, "null"]
+                description: |
+                  Let's Encrypt is one of various ACME servers that can provide
+                  a certificate, and by default their production server is used.
+
+                  Let's Encrypt staging:    https://acme-staging-v02.api.letsencrypt.org/directory
+                  Let's Encrypt production: acmeServer: https://acme-v02.api.letsencrypt.org/directory
+          manual:
+            type: object
+            additionalProperties: false
+            description: |
+              Object for providing own certificates for manual HTTPS configuration. To be provided when setting `https.type` to `manual`.
+              See [Set up manual HTTPS](setup-manual-https)
+            properties:
+              key:
+                type: [string, "null"]
+                description: |
+                  The RSA private key to be used for HTTPS.
+                  To be provided in the form of
+
+                  ```
+                  key: |
+                    -----BEGIN RSA PRIVATE KEY-----
+                    ...
+                    -----END RSA PRIVATE KEY-----
+                  ```
+              cert:
+                type: [string, "null"]
+                description: |
+                  The certificate to be used for HTTPS.
+                  To be provided in the form of
+
+                  ```
+                  cert: |
+                    -----BEGIN CERTIFICATE-----
+                    ...
+                    -----END CERTIFICATE-----
+                  ```
+          secret:
+            type: object
+            additionalProperties: false
+            description: |
+              Secret to be provided when setting `https.type` to `secret`.
+            properties:
+              name:
+                type: [string, "null"]
+                description: |
+                  Name of the secret
+              key:
+                type: [string, "null"]
+                description: |
+                  Path to the private key to be used for HTTPS.
+                  Example: `'tls.key'`
+              crt:
+                type: [string, "null"]
+                description: |
+                  Path to the certificate to be used for HTTPS.
+                  Example: `'tls.crt'`
+          hosts:
+            type: array
+            description: |
+              You domain in list form.
+              Required for automatic HTTPS. See [Set up automatic HTTPS](setup-automatic-https).
+              To be provided like:
+              ```
+              hosts:
+                - <your-domain-name>
+              ```
+      traefik:
+        type: object
+        additionalProperties: false
+        description: |
+          Configure the traefik proxy used to terminate TLS when 'autohttps' is enabled
+        properties:
+          revisionHistoryLimit: *revisionHistoryLimit
+          labels:
+            type: object
+            additionalProperties: false
+            patternProperties: *labels-and-annotations-patternProperties
+            description: |
+              Extra labels to add to the traefik pod.
+
+              See the [Kubernetes docs](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/)
+              to learn more about labels.
+          networkPolicy: *networkPolicy-spec
+          extraInitContainers:
+            type: array
+            description: |
+              list of extraInitContainers to be run with traefik pod, after the containers set in the chart. See [Kubernetes Docs](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/)
+
+              ```yaml
+              proxy:
+                traefik:
+                  extraInitContainers:
+                    - name: init-myservice
+                      image: busybox:1.28
+                      command: ['sh', '-c', 'command1']
+                    - name: init-mydb
+                      image: busybox:1.28
+                      command: ['sh', '-c', 'command2']
+              ```
+          extraEnv:
+            type: [object, array]
+            additionalProperties: true
+            description: |
+              Extra environment variables that should be set for the traefik pod.
+
+              Environment Variables here may be used to configure traefik.
+
+              String literals with `$(ENV_VAR_NAME)` will be expanded by Kubelet which
+              is a part of Kubernetes.
+
+              ```yaml
+              proxy:
+                traefik:
+                  extraEnv:
+                    # basic notation (for literal values only)
+                    MY_ENV_VARS_NAME1: "my env var value 1"
+
+                    # explicit notation (the "name" field takes precedence)
+                    TRAEFIK_NAMESPACE:
+                      name: TRAEFIK_NAMESPACE
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.namespace
+
+                    # implicit notation (the "name" field is implied)
+                    PREFIXED_TRAEFIK_NAMESPACE:
+                      value: "my-prefix-$(TRAEFIK_NAMESPACE)"
+                    SECRET_VALUE:
+                      valueFrom:
+                        secretKeyRef:
+                          name: my-k8s-secret
+                          key: password
+              ```
+
+              For more information, see the [Kubernetes EnvVar
+              specification](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#envvar-v1-core).
+          pdb: *pdb-spec
+          nodeSelector: *nodeSelector-spec
+          tolerations: *tolerations-spec
+          containerSecurityContext: *containerSecurityContext-spec
+          extraDynamicConfig:
+            type: object
+            additionalProperties: true
+            description: |
+              This refers to traefik's post-startup configuration.
+
+              This Helm chart already provide such configuration, so this is a
+              place where you can merge in additional configuration. If you are
+              about to use this configuration, you may want to inspect the
+              default configuration declared
+              [here](https://github.com/jupyterhub/zero-to-jupyterhub-k8s/blob/HEAD/jupyterhub/templates/proxy/autohttps/_configmap-dynamic.yaml).
+          extraPorts:
+            type: array
+            description: |
+              Extra ports for the traefik container within the autohttps pod
+              that you would like to expose, formatted in a k8s native way.
+          extraStaticConfig:
+            type: object
+            additionalProperties: true
+            description: |
+              This refers to traefik's startup configuration.
+
+              This Helm chart already provide such configuration, so this is a
+              place where you can merge in additional configuration. If you are
+              about to use this configuration, you may want to inspect the
+              default configuration declared
+              [here](https://github.com/jupyterhub/zero-to-jupyterhub-k8s/blob/HEAD/jupyterhub/templates/proxy/autohttps/_configmap-traefik.yaml).
+          extraVolumes: *extraVolumes-spec
+          extraVolumeMounts: *extraVolumeMounts-spec
+          hsts:
+            type: object
+            additionalProperties: false
+            required: [includeSubdomains, maxAge, preload]
+            description: |
+              This section regards a HTTP Strict-Transport-Security (HSTS)
+              response header. It can act as a request for a visiting web
+              browsers to enforce HTTPS on their end in for a given time into
+              the future, and optionally also for future requests to subdomains.
+
+              These settings relate to traefik configuration which we use as a
+              TLS termination proxy.
+
+              See [Mozilla's
+              documentation](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security)
+              for more information.
+            properties:
+              includeSubdomains:
+                type: boolean
+              maxAge:
+                type: integer
+              preload:
+                type: boolean
+          image: *image-spec
+          resources: *resources-spec
+          serviceAccount: *serviceAccount
+          extraPodSpec: *extraPodSpec-spec
+      labels:
+        type: object
+        additionalProperties: false
+        patternProperties: *labels-and-annotations-patternProperties
+        description: |
+          K8s labels for the proxy pod.
+
+          ```{note}
+          For consistency, this should really be located under
+          proxy.chp.labels but isn't for historical reasons.
+          ```
+      annotations:
+        type: object
+        additionalProperties: false
+        patternProperties: *labels-and-annotations-patternProperties
+        description: |
+          K8s annotations for the proxy pod.
+
+          ```{note}
+          For consistency, this should really be located under
+          proxy.chp.annotations but isn't for historical reasons.
+          ```
+      deploymentStrategy:
+        type: object
+        additionalProperties: false
+        properties:
+          rollingUpdate:
+            type: [string, "null"]
+          type:
+            type: [string, "null"]
+            description: |
+              While the proxy pod running
+              [configurable-http-proxy](https://github.com/jupyterhub/configurable-http-proxy)
+              could run in parallel, two instances running in parallel wouldn't
+              both receive updates from JupyterHub regarding how it should route
+              traffic. Due to this we default to using a deployment strategy of
+              Recreate instead of RollingUpdate.
+      secretSync:
+        type: object
+        additionalProperties: false
+        description: |
+          This configuration section refers to configuration of the sidecar
+          container in the autohttps pod running next to its traefik container
+          responsible for TLS termination.
+
+          The purpose of this container is to store away and load TLS
+          certificates from a k8s Secret. The TLS certificates are acquired by
+          the ACME client (LEGO) that is running within the traefik container,
+          where traefik is using them for TLS termination.
+        properties:
+          containerSecurityContext: *containerSecurityContext-spec
+          image: *image-spec
+          resources: *resources-spec
+
+  singleuser:
+    type: object
+    additionalProperties: false
+    description: |
+      Options for customizing the environment that is provided to the users after they log in.
+    properties:
+      networkPolicy: *networkPolicy-spec
+      podNameTemplate:
+        type: [string, "null"]
+        description: |
+          Passthrough configuration for
+          [KubeSpawner.pod_name_template](https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#kubespawner.KubeSpawner.pod_name_template).
+      cpu:
+        type: object
+        additionalProperties: false
+        description: |
+          Set CPU limits & guarantees that are enforced for each user.
+
+          See the [Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+          for more info.
+        properties:
+          limit:
+            type: [number, "null"]
+          guarantee:
+            type: [number, "null"]
+      memory:
+        type: object
+        additionalProperties: false
+        description: |
+          Set Memory limits & guarantees that are enforced for each user.
+
+          See the [Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+          for more info.
+        properties:
+          limit:
+            type: [number, string, "null"]
+          guarantee:
+            type: [number, string, "null"]
+            description: |
+              Note that this field is referred to as *requests* by the Kubernetes API.
+      image: *image-spec
+      initContainers:
+        type: array
+        description: |
+          list of initContainers to be run every singleuser pod. See [Kubernetes Docs](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/)
+
+          ```yaml
+          singleuser:
+            initContainers:
+              - name: init-myservice
+                image: busybox:1.28
+                command: ['sh', '-c', 'command1']
+              - name: init-mydb
+                image: busybox:1.28
+                command: ['sh', '-c', 'command2']
+          ```
+      profileList:
+        type: array
+        description: |
+          For more information about the profile list, see [KubeSpawner's
+          documentation](https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#kubespawner.KubeSpawner)
+          as this is simply a passthrough to that configuration.
+
+          ```{note}
+          The image-pullers are aware of the overrides of images in
+          `singleuser.profileList` but they won't be if you configure it in
+          JupyterHub's configuration of '`c.KubeSpawner.profile_list`.
+          ```
+
+          ```yaml
+          singleuser:
+            profileList:
+              - display_name: "Default: Shared, 8 CPU cores"
+                description: "Your code will run on a shared machine with CPU only."
+                default: True
+              - display_name: "Personal, 4 CPU cores & 26GB RAM, 1 NVIDIA Tesla K80 GPU"
+                description: "Your code will run a personal machine with a GPU."
+                kubespawner_override:
+                  extra_resource_limits:
+                    nvidia.com/gpu: "1"
+          ```
+      extraFiles: *extraFiles
+      extraEnv:
+        type: [object, array]
+        additionalProperties: true
+        description: |
+          Extra environment variables that should be set for the user pods.
+
+          String literals with `$(ENV_VAR_NAME)` will be expanded by Kubelet which
+          is a part of Kubernetes. Note that the user pods will already have
+          access to a set of environment variables that you can use, like
+          `JUPYTERHUB_USER` and `JUPYTERHUB_HOST`. For more information about these
+          inspect [this source
+          code](https://github.com/jupyterhub/jupyterhub/blob/cc8e7806530466dce8968567d1bbd2b39a7afa26/jupyterhub/spawner.py#L763).
+
+          ```yaml
+          singleuser:
+            extraEnv:
+              # basic notation (for literal values only)
+              MY_ENV_VARS_NAME1: "my env var value 1"
+
+              # explicit notation (the "name" field takes precedence)
+              USER_NAMESPACE:
+                name: USER_NAMESPACE
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.namespace
+
+              # implicit notation (the "name" field is implied)
+              PREFIXED_USER_NAMESPACE:
+                value: "my-prefix-$(USER_NAMESPACE)"
+              SECRET_VALUE:
+                valueFrom:
+                  secretKeyRef:
+                    name: my-k8s-secret
+                    key: password
+          ```
+
+          For more information, see the [Kubernetes EnvVar
+          specification](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#envvar-v1-core).
+      nodeSelector: *nodeSelector-spec
+      extraTolerations: *tolerations-spec
+      extraNodeAffinity:
+        type: object
+        additionalProperties: false
+        description: |
+          Affinities describe where pods prefer or require to be scheduled, they
+          may prefer or require a node where they are to be scheduled to have a
+          certain label (node affinity). They may also require to be scheduled
+          in proximity or with a lack of proximity to another pod (pod affinity
+          and anti pod affinity).
+
+          See the [Kubernetes
+          docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/)
+          for more info.
+        properties:
+          required:
+            type: array
+            description: |
+              Pass this field an array of
+              [`NodeSelectorTerm`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#nodeselectorterm-v1-core)
+              objects.
+          preferred:
+            type: array
+            description: |
+              Pass this field an array of
+              [`PreferredSchedulingTerm`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#preferredschedulingterm-v1-core)
+              objects.
+      extraPodAffinity:
+        type: object
+        additionalProperties: false
+        description: |
+          See the description of `singleuser.extraNodeAffinity`.
+        properties:
+          required:
+            type: array
+            description: |
+              Pass this field an array of
+              [`PodAffinityTerm`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#podaffinityterm-v1-core)
+              objects.
+          preferred:
+            type: array
+            description: |
+              Pass this field an array of
+              [`WeightedPodAffinityTerm`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#weightedpodaffinityterm-v1-core)
+              objects.
+      extraPodAntiAffinity:
+        type: object
+        additionalProperties: false
+        description: |
+          See the description of `singleuser.extraNodeAffinity`.
+        properties:
+          required:
+            type: array
+            description: |
+              Pass this field an array of
+              [`PodAffinityTerm`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#podaffinityterm-v1-core)
+              objects.
+          preferred:
+            type: array
+            description: |
+              Pass this field an array of
+              [`WeightedPodAffinityTerm`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#weightedpodaffinityterm-v1-core)
+              objects.
+      cloudMetadata:
+        type: object
+        additionalProperties: false
+        required: [blockWithIptables, ip]
+        description: |
+          Please refer to dedicated section in [the Helm chart
+          documentation](block-metadata-iptables) for more information about
+          this.
+        properties:
+          blockWithIptables:
+            type: boolean
+          ip:
+            type: string
+
+      cmd:
+        type: [array, string, "null"]
+        description: |
+          Passthrough configuration for
+          [KubeSpawner.cmd](https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#kubespawner.KubeSpawner.cmd).
+          The default is "jupyterhub-singleuser".
+          Use `cmd: null` to launch a custom CMD from the image,
+          which must launch jupyterhub-singleuser or an equivalent process eventually.
+          For example: Jupyter's docker-stacks images.
+      defaultUrl:
+        type: [string, "null"]
+        description: |
+          Passthrough configuration for
+          [KubeSpawner.default_url](https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#kubespawner.KubeSpawner.default_url).
+      # FIXME: name mismatch, named events_enabled in kubespawner
+      events:
+        type: [boolean, "null"]
+        description: |
+          Passthrough configuration for
+          [KubeSpawner.events_enabled](https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#kubespawner.KubeSpawner.events_enabled).
+      extraAnnotations:
+        type: object
+        additionalProperties: false
+        patternProperties: *labels-and-annotations-patternProperties
+        description: |
+          Passthrough configuration for
+          [KubeSpawner.extra_annotations](https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#kubespawner.KubeSpawner.extra_annotations).
+      extraContainers:
+        type: array
+        description: |
+          Passthrough configuration for
+          [KubeSpawner.extra_containers](https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#kubespawner.KubeSpawner.extra_containers).
+      extraLabels:
+        type: object
+        additionalProperties: false
+        patternProperties: *labels-and-annotations-patternProperties
+        description: |
+          Passthrough configuration for
+          [KubeSpawner.extra_labels](https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#kubespawner.KubeSpawner.extra_labels).
+      extraPodConfig:
+        type: object
+        additionalProperties: true
+        description: |
+          Passthrough configuration for
+          [KubeSpawner.extra_pod_config](https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#kubespawner.KubeSpawner.extra_pod_config).
+      extraResource:
+        type: object
+        additionalProperties: false
+        properties:
+          # FIXME: name mismatch, named extra_resource_guarantees in kubespawner
+          guarantees:
+            type: object
+            additionalProperties: true
+            description: |
+              Passthrough configuration for
+              [KubeSpawner.extra_resource_guarantees](https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#kubespawner.KubeSpawner.extra_resource_guarantees).
+          # FIXME: name mismatch, named extra_resource_limits in kubespawner
+          limits:
+            type: object
+            additionalProperties: true
+            description: |
+              Passthrough configuration for
+              [KubeSpawner.extra_resource_limits](https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#kubespawner.KubeSpawner.extra_resource_limits).
+      fsGid:
+        type: [integer, "null"]
+        description: |
+          Passthrough configuration for
+          [KubeSpawner.fs_gid](https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#kubespawner.KubeSpawner.fs_gid).
+      lifecycleHooks:
+        type: object
+        additionalProperties: false
+        description: |
+          Passthrough configuration for
+          [KubeSpawner.lifecycle_hooks](https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#kubespawner.KubeSpawner.lifecycle_hooks).
+        properties:
+          postStart:
+            type: object
+            additionalProperties: true
+          preStop:
+            type: object
+            additionalProperties: true
+      networkTools:
+        type: object
+        additionalProperties: false
+        description: |
+          This configuration section refers to configuration of a conditionally
+          created initContainer for the user pods with a purpose to block a
+          specific IP address.
+
+          This initContainer will be created if
+          [`singleuser.cloudMetadata.blockWithIptables`](schema_singleuser.cloudMetadata.blockWithIptables)
+          is set to true.
+        properties:
+          image: *image-spec
+          resources: *resources-spec
+      # FIXME: name mismatch, named service_account in kubespawner
+      serviceAccountName:
+        type: [string, "null"]
+        description: |
+          Passthrough configuration for
+          [KubeSpawner.service_account](https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#kubespawner.KubeSpawner.service_account).
+      startTimeout:
+        type: [integer, "null"]
+        description: |
+          Passthrough configuration for
+          [KubeSpawner.start_timeout](https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#kubespawner.KubeSpawner.start_timeout).
+      storage:
+        type: object
+        additionalProperties: false
+        required: [type, homeMountPath]
+        description: |
+          This section configures KubeSpawner directly to some extent but also
+          indirectly through Helm chart specific configuration options such as
+          [`singleuser.storage.type`](schema_singleuser.storage.type).
+        properties:
+          capacity:
+            type: [string, "null"]
+            description: |
+              Configures `KubeSpawner.storage_capacity`.
+
+              See the [KubeSpawner
+              documentation](https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html)
+              for more information.
+          dynamic:
+            type: object
+            additionalProperties: false
+            properties:
+              pvcNameTemplate:
+                type: [string, "null"]
+                description: |
+                  Configures `KubeSpawner.pvc_name_template` which will be the
+                  resource name of the PVC created by KubeSpawner for each user
+                  if needed.
+              storageAccessModes:
+                type: array
+                items:
+                  type: [string, "null"]
+                description: |
+                  Configures `KubeSpawner.storage_access_modes`.
+
+                  See KubeSpawners documentation and [the k8s
+                  documentation](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes)
+                  for more information.
+              storageClass:
+                type: [string, "null"]
+                description: |
+                  Configures `KubeSpawner.storage_class`, which can be an
+                  explicit StorageClass to dynamically provision storage for the
+                  PVC that KubeSpawner will create.
+
+                  There is of a default StorageClass available in k8s clusters
+                  for use if this is unspecified.
+              volumeNameTemplate:
+                type: [string, "null"]
+                description: |
+                  Configures `KubeSpawner.volume_name_template`, which is the
+                  name to reference from the containers volumeMounts section.
+          extraLabels:
+            type: object
+            additionalProperties: false
+            patternProperties: *labels-and-annotations-patternProperties
+            description: |
+              Configures `KubeSpawner.storage_extra_labels`. Note that these
+              labels are set on the PVC during creation only and won't be
+              updated after creation.
+          extraVolumeMounts: *extraVolumeMounts-spec
+          extraVolumes: *extraVolumes-spec
+          homeMountPath:
+            type: string
+            description: |
+              The location within the container where the home folder storage
+              should be mounted.
+          static:
+            type: object
+            additionalProperties: false
+            properties:
+              pvcName:
+                type: [string, "null"]
+                description: |
+                  Configures `KubeSpawner.pvc_claim_name` to reference
+                  pre-existing storage.
+              subPath:
+                type: [string, "null"]
+                description: |
+                  Configures the `subPath` field of a
+                  `KubeSpawner.volume_mounts` entry added by the Helm chart.
+
+                  Path within the volume from which the container's volume
+                  should be mounted.
+          type:
+            enum: [dynamic, static, none]
+            description: |
+              Decide if you want storage to be provisioned dynamically
+              (dynamic), or if you want to attach existing storage (static), or
+              don't want any storage to be attached (none).
+      allowPrivilegeEscalation:
+        type: [boolean, "null"]
+        description: |
+          Passthrough configuration for
+          [KubeSpawner.allow_privilege_escalation](https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#kubespawner.KubeSpawner.allow_privilege_escalation).
+      uid:
+        type: [integer, "null"]
+        description: |
+          Passthrough configuration for
+          [KubeSpawner.uid](https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#kubespawner.KubeSpawner.uid).
+
+          This dictates as what user the main container will start up as.
+
+          As an example of when this is needed, consider if you want to enable
+          sudo rights for some of your users. This can be done by starting up as
+          root, enabling it from the container in a startup script, and then
+          transitioning to the normal user.
+
+          Default is 1000, set to null to use the container's default.
+
+  scheduling:
+    type: object
+    additionalProperties: false
+    description: |
+      Objects for customizing the scheduling of various pods on the nodes and
+      related labels.
+    properties:
+      userScheduler:
+        type: object
+        additionalProperties: false
+        required: [enabled, plugins, pluginConfig, logLevel]
+        description: |
+          The user scheduler is making sure that user pods are scheduled
+          tight on nodes, this is useful for autoscaling of user node pools.
+        properties:
+          enabled:
+            type: boolean
+            description: |
+              Enables the user scheduler.
+          revisionHistoryLimit: *revisionHistoryLimit
+          replicas:
+            type: integer
+            description: |
+              You can have multiple schedulers to share the workload or improve
+              availability on node failure.
+          image: *image-spec
+          pdb: *pdb-spec
+          nodeSelector: *nodeSelector-spec
+          tolerations: *tolerations-spec
+          labels:
+            type: object
+            additionalProperties: false
+            patternProperties: *labels-and-annotations-patternProperties
+            description: |
+              Extra labels to add to the userScheduler pods.
+
+              See the [Kubernetes docs](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/)
+              to learn more about labels.
+          annotations:
+            type: object
+            additionalProperties: false
+            patternProperties: *labels-and-annotations-patternProperties
+            description: |
+              Extra annotations to add to the user-scheduler pods.
+          containerSecurityContext: *containerSecurityContext-spec
+          logLevel:
+            type: integer
+            description: |
+              Corresponds to the verbosity level of logging made by the
+              kube-scheduler binary running within the user-scheduler pod.
+          plugins:
+            type: object
+            additionalProperties: true
+            description: |
+              These plugins refers to kube-scheduler plugins as documented
+              [here](https://kubernetes.io/docs/reference/scheduling/config/).
+
+              The user-scheduler is really just a kube-scheduler configured in a
+              way to pack users tight on nodes using these plugins. See
+              values.yaml for information about the default plugins.
+          pluginConfig:
+            type: array
+            description: |
+              Individually activated plugins can be configured further.
+          resources: *resources-spec
+          serviceAccount: *serviceAccount
+          extraPodSpec: *extraPodSpec-spec
+      podPriority:
+        type: object
+        additionalProperties: false
+        description: |
+          Pod Priority is used to allow real users evict user placeholder pods
+          that in turn by entering a Pending state can trigger a scale up by a
+          cluster autoscaler.
+
+          Having this option enabled only make sense if the following conditions
+          are met:
+
+          1. A cluster autoscaler is installed.
+          2. user-placeholer pods are configured to have a priority equal or
+             higher than the cluster autoscaler's "priority cutoff" so that the
+             cluster autoscaler scales up a node in advance for a pending user
+             placeholder pod.
+          3. Normal user pods have a higher priority than the user-placeholder
+             pods.
+          4. Image puller pods have a priority between normal user pods and
+             user-placeholder pods.
+
+          Note that if the default priority cutoff if not configured on cluster
+          autoscaler, it will currently default to 0, and that in the future
+          this is meant to be lowered. If your cloud provider is installing the
+          cluster autoscaler for you, they may also configure this specifically.
+
+          Recommended settings for a cluster autoscaler...
+
+          ... with a priority cutoff of -10 (GKE):
+
+          ```yaml
+          podPriority:
+            enabled: true
+            globalDefault: false
+            defaultPriority: 0
+            imagePullerPriority: -5
+            userPlaceholderPriority: -10
+          ```
+
+          ... with a priority cutoff of 0:
+
+          ```yaml
+          podPriority:
+            enabled: true
+            globalDefault: true
+            defaultPriority: 10
+            imagePullerPriority: 5
+            userPlaceholderPriority: 0
+          ```
+        properties:
+          enabled:
+            type: boolean
+          globalDefault:
+            type: boolean
+            description: |
+              Warning! This will influence all pods in the cluster.
+
+              The priority a pod usually get is 0. But this can be overridden
+              with a PriorityClass resource if it is declared to be the global
+              default. This configuration option allows for the creation of such
+              global default.
+          defaultPriority:
+            type: integer
+            description: |
+              The actual value for the default pod priority.
+          imagePullerPriority:
+            type: integer
+            description: |
+              The actual value for the [hook|continuous]-image-puller pods' priority.
+          userPlaceholderPriority:
+            type: integer
+            description: |
+              The actual value for the user-placeholder pods' priority.
+      userPlaceholder:
+        type: object
+        additionalProperties: false
+        description: |
+          User placeholders simulate users but will thanks to PodPriority be
+          evicted by the cluster autoscaler if a real user shows up. In this way
+          placeholders allow you to create a headroom for the real users and
+          reduce the risk of a user having to wait for a node to be added. Be
+          sure to use the the continuous image puller as well along with
+          placeholders, so the images are also available when real users arrive.
+
+          To test your setup efficiently, you can adjust the amount of user
+          placeholders with the following command:
+          ```sh
+          # Configure to have 3 user placeholders
+          kubectl scale sts/user-placeholder --replicas=3
+          ```
+        properties:
+          enabled:
+            type: boolean
+          image: *image-spec
+          revisionHistoryLimit: *revisionHistoryLimit
+          replicas:
+            type: integer
+            description: |
+              How many placeholder pods would you like to have?
+          labels:
+            type: object
+            additionalProperties: false
+            patternProperties: *labels-and-annotations-patternProperties
+            description: |
+              Extra labels to add to the userPlaceholder pods.
+
+              See the [Kubernetes docs](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/)
+              to learn more about labels.
+          annotations:
+            type: object
+            additionalProperties: false
+            patternProperties: *labels-and-annotations-patternProperties
+            description: |
+              Extra annotations to add to the placeholder pods.
+          resources:
+            type: object
+            additionalProperties: true
+            description: |
+              Unless specified here, the placeholder pods will request the same
+              resources specified for the real singleuser pods.
+          containerSecurityContext: *containerSecurityContext-spec
+      corePods:
+        type: object
+        additionalProperties: false
+        description: |
+          These settings influence the core pods like the hub, proxy and
+          user-scheduler pods.
+          These settings influence all pods considered core pods, namely:
+
+          - hub
+          - proxy
+          - autohttps
+          - hook-image-awaiter
+          - user-scheduler
+
+          By defaults, the tolerations are:
+
+          - hub.jupyter.org/dedicated=core:NoSchedule
+          - hub.jupyter.org_dedicated=core:NoSchedule
+
+          Note that tolerations set here are combined with the respective
+          components dedicated tolerations, and that `_` is available in case
+          `/` isn't allowed in the clouds tolerations.
+        properties:
+          tolerations: *tolerations-spec
+          nodeAffinity:
+            type: object
+            additionalProperties: false
+            description: |
+              Where should pods be scheduled? Perhaps on nodes with a certain
+              label is preferred or even required?
+            properties:
+              matchNodePurpose:
+                enum: [ignore, prefer, require]
+                description: |
+                  Decide if core pods *ignore*, *prefer* or *require* to
+                  schedule on nodes with this label:
+                  ```
+                  hub.jupyter.org/node-purpose=core
+                  ```
+      userPods:
+        type: object
+        additionalProperties: false
+        description: |
+          These settings influence all pods considered user pods, namely:
+
+          - user-placeholder
+          - hook-image-puller
+          - continuous-image-puller
+          - jupyter-<username>
+
+          By defaults, the tolerations are:
+
+          - hub.jupyter.org/dedicated=core:NoSchedule
+          - hub.jupyter.org_dedicated=core:NoSchedule
+
+          Note that tolerations set here are combined with the respective
+          components dedicated tolerations, and that `_` is available in case
+          `/` isn't allowed in the clouds tolerations.
+        properties:
+          tolerations: *tolerations-spec
+          nodeAffinity:
+            type: object
+            additionalProperties: false
+            description: |
+              Where should pods be scheduled? Perhaps on nodes with a certain
+              label is preferred or even required?
+            properties:
+              matchNodePurpose:
+                enum: [ignore, prefer, require]
+                description: |
+                  Decide if user pods *ignore*, *prefer* or *require* to
+                  schedule on nodes with this label:
+                  ```
+                  hub.jupyter.org/node-purpose=user
+                  ```
+
+  ingress:
+    type: object
+    additionalProperties: false
+    required: [enabled]
+    properties:
+      enabled:
+        type: boolean
+        description: |
+          Enable the creation of a Kubernetes Ingress to proxy-public service.
+
+          See [Advanced Topics — Zero to JupyterHub with Kubernetes
+          0.7.0 documentation](ingress)
+          for more details.
+      annotations:
+        type: object
+        additionalProperties: false
+        patternProperties: *labels-and-annotations-patternProperties
+        description: |
+          Annotations to apply to the Ingress resource.
+
+          See [the Kubernetes
+          documentation](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
+          for more details about annotations.
+      ingressClassName:
+        type: [string, "null"]
+        description: |
+          Maps directly to the Ingress resource's `spec.ingressClassName``.
+
+          See [the Kubernetes
+          documentation](https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-class)
+          for more details.
+      hosts:
+        type: array
+        description: |
+          List of hosts to route requests to the proxy.
+      pathSuffix:
+        type: [string, "null"]
+        description: |
+          Suffix added to Ingress's routing path pattern.
+
+          Specify `*` if your ingress matches path by glob pattern.
+      pathType:
+        enum: [Prefix, Exact, ImplementationSpecific]
+        description: |
+          The path type to use. The default value is 'Prefix'.
+
+          See [the Kubernetes documentation](https://kubernetes.io/docs/concepts/services-networking/ingress/#path-types)
+          for more details about path types.
+      tls:
+        type: array
+        description: |
+          TLS configurations for Ingress.
+
+          See [the Kubernetes
+          documentation](https://kubernetes.io/docs/concepts/services-networking/ingress/#tls)
+          for more details about annotations.
+
+  prePuller:
+    type: object
+    additionalProperties: false
+    required: [hook, continuous]
+    properties:
+      revisionHistoryLimit: *revisionHistoryLimit
+      labels:
+        type: object
+        additionalProperties: false
+        patternProperties: *labels-and-annotations-patternProperties
+        description: |
+          Extra labels to add to the pre puller job pods.
+
+          See the [Kubernetes docs](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/)
+          to learn more about labels.
+      annotations:
+        type: object
+        additionalProperties: false
+        patternProperties: *labels-and-annotations-patternProperties
+        description: |
+          Annotations to apply to the hook and continous image puller pods. One example use case is to
+          disable istio sidecars which could interfere with the image pulling.
+      resources:
+        type: object
+        additionalProperties: true
+        description: |
+          These are standard Kubernetes resources with requests and limits for
+          cpu and memory. They will be used on the containers in the pods
+          pulling images. These should be set extremely low as the containers
+          shut down directly or is a pause container that just idles.
+
+          They were made configurable as usage of ResourceQuota may require
+          containers in the namespace to have explicit resources set.
+      extraTolerations: *tolerations-spec
+      hook:
+        type: object
+        additionalProperties: false
+        required: [enabled]
+        description: |
+          See the [*optimization
+          section*](pulling-images-before-users-arrive)
+          for more details.
+        properties:
+          enabled:
+            type: boolean
+          pullOnlyOnChanges:
+            type: boolean
+            description: |
+              Pull only if changes have been made to the images to pull, or more
+              accurately if the hook-image-puller daemonset has changed in any
+              way.
+          podSchedulingWaitDuration:
+            description: |
+              The `hook-image-awaiter` has a criteria to await all the
+              `hook-image-puller` DaemonSet's pods to both schedule and finish
+              their image pulling. This flag can be used to relax this criteria
+              to instead only await the pods that _has already scheduled_ to
+              finish image pulling after a certain duration.
+
+              The value of this is that sometimes the newly created
+              `hook-image-puller` pods cannot be scheduled because nodes are
+              full, and then it probably won't make sense to block a `helm
+              upgrade`.
+
+              An infinite duration to wait for pods to schedule can be
+              represented by `-1`. This was the default behavior of version
+              0.9.0 and earlier.
+            type: integer
+          nodeSelector: *nodeSelector-spec
+          tolerations: *tolerations-spec
+          containerSecurityContext: *containerSecurityContext-spec
+          image: *image-spec
+          resources: *resources-spec
+          serviceAccount: *serviceAccount
+      continuous:
+        type: object
+        additionalProperties: false
+        required: [enabled]
+        description: |
+          See the [*optimization
+          section*](pulling-images-before-users-arrive)
+          for more details.
+
+          ```{note}
+          If used with a Cluster Autoscaler (an autoscaling node pool), also add
+          user-placeholders and enable pod priority.
+          ```
+        properties:
+          enabled:
+            type: boolean
+      pullProfileListImages:
+        type: boolean
+        description: |
+          The singleuser.profileList configuration can provide a selection of
+          images. This option determines if all images identified there should
+          be pulled, both by the hook and continuous pullers.
+
+          Images are looked for under `kubespawner_override`, and also
+          `profile_options.choices.kubespawner_override` since version 3.2.0.
+
+          The reason to disable this, is that if you have for example 10 images
+          which start pulling in order from 1 to 10, a user that arrives and
+          wants to start a pod with image number 10 will need to wait for all
+          images to be pulled, and then it may be preferable to just let the
+          user arriving wait for a single image to be pulled on arrival.
+      extraImages:
+        type: object
+        additionalProperties: false
+        description: |
+          See the [*optimization section*](images-that-will-be-pulled) for more
+          details.
+
+          ```yaml
+          prePuller:
+            extraImages:
+              my-extra-image-i-want-pulled:
+                name: jupyter/all-spark-notebook
+                tag: 2343e33dec46
+          ```
+        patternProperties:
+          ".*":
+            type: object
+            additionalProperties: false
+            required: [name, tag]
+            properties:
+              name:
+                type: string
+              tag:
+                type: string
+      containerSecurityContext: *containerSecurityContext-spec
+      pause:
+        type: object
+        additionalProperties: false
+        description: |
+          The image-puller pods rely on initContainer to pull all images, and
+          their actual container when they are done is just running a `pause`
+          container. These are settings for that pause container.
+        properties:
+          containerSecurityContext: *containerSecurityContext-spec
+          image: *image-spec
+
+  custom:
+    type: object
+    additionalProperties: true
+    description: |
+      Additional values to pass to the Hub.
+      JupyterHub will not itself look at these,
+      but you can read values in your own custom config via `hub.extraConfig`.
+      For example:
+
+      ```yaml
+      custom:
+        myHost: "https://example.horse"
+      hub:
+        extraConfig:
+          myConfig.py: |
+            c.MyAuthenticator.host = get_config("custom.myHost")
+      ```
+
+  cull:
+    type: object
+    additionalProperties: false
+    required: [enabled]
+    description: |
+      The
+      [jupyterhub-idle-culler](https://github.com/jupyterhub/jupyterhub-idle-culler)
+      can run as a JupyterHub managed service to _cull_ running servers.
+    properties:
+      enabled:
+        type: boolean
+        description: |
+          Enable/disable use of jupyter-idle-culler.
+      users:
+        type: [boolean, "null"]
+        description: See the `--cull-users` flag.
+      adminUsers:
+        type: [boolean, "null"]
+        description: See the `--cull-admin-users` flag.
+      removeNamedServers:
+        type: [boolean, "null"]
+        description: See the `--remove-named-servers` flag.
+      timeout:
+        type: [integer, "null"]
+        description: See the `--timeout` flag.
+      every:
+        type: [integer, "null"]
+        description: See the `--cull-every` flag.
+      concurrency:
+        type: [integer, "null"]
+        description: See the `--concurrency` flag.
+      maxAge:
+        type: [integer, "null"]
+        description: See the `--max-age` flag.
+
+  debug:
+    type: object
+    additionalProperties: false
+    required: [enabled]
+    properties:
+      enabled:
+        type: boolean
+        description: |
+          Increases the loglevel throughout the resources in the Helm chart.
+
+  rbac:
+    type: object
+    additionalProperties: false
+    required: [create]
+    properties:
+      enabled:
+        type: boolean
+        # This schema entry is needed to help us print a more helpful error
+        # message in NOTES.txt if hub.fsGid is set.
+        #
+        description: |
+          ````{note}
+          Removed in version 2.0.0. If you have been using `rbac.enable=false`
+          (strongly discouraged), then the equivalent configuration would be:
+
+          ```yaml
+          rbac:
+            create: false
+          hub:
+            serviceAccount:
+              create: false
+          proxy:
+            traefik:
+              serviceAccount:
+                create: false
+          scheduling:
+            userScheduler:
+              serviceAccount:
+                create: false
+          prePuller:
+            hook:
+              serviceAccount:
+                create: false
+          ```
+          ````
+      create:
+        type: boolean
+        description: |
+          Decides if (Cluster)Role and (Cluster)RoleBinding resources are
+          created and bound to the configured serviceAccounts.
+
+  global:
+    type: object
+    additionalProperties: true
+    properties:
+      safeToShowValues:
+        type: boolean
+        description: |
+          A flag that should only be set to true temporarily when experiencing a
+          deprecation message that contain censored content that you wish to
+          reveal.
