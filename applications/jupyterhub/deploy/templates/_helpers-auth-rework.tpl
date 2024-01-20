@@ -178,7 +178,7 @@ ldap.dn.user.useLookupName: LDAPAuthenticator.use_lookup_dn_username
         representing the old z2jh config, output the result
         in $c.
     */}}
-    {{- include "jupyterhub.authDep.remapOldToNew.mappable" (list $c .Values.apps.jupyterhub.apps.jupyterhub.global.safeToSho.Values.apps.jupyterhub. }}
+    {{- include "jupyterhub.authDep.remapOldToNew.mappable" (list $c .Values.apps.jupyterhub.apps.jupyterhub.global.safeToSho.Values.apps.jupyterhub) }}
 
     {{- $class_old_config_key := .Values.apps.jupyterhub.apps.jupyterhub.auth.type | default "" }}  {{- /* ldap                                - github */}}
     {{- $class_new_entrypoint := "" }}                              {{- /* ldapauthenticator.LDAPAuthenticator - github */}}
@@ -191,7 +191,7 @@ ldap.dn.user.useLookupName: LDAPAuthenticator.use_lookup_dn_username
         {{- /* UPDATE c dict explicitly with auth.custom.config */}}
         {{- if .Values.apps.jupyterhub.apps.jupyterhub.auth.custom.config }}
             {{- $custom_config := merge (dict) .Values.apps.jupyterhub.apps.jupyterhub.auth.custom.config }}
-            {{- if not .Values.apps.jupyterhub.apps.jupyterhub.global.safeToSho.Values.apps.jupyterhub.}}
+            {{- if not .Values.apps.jupyterhub.apps.jupyterhub.global.safeToSho.Values.apps.jupyterhub }}
                 {{- range $key, $val := $custom_config }}
                     {{- $_ := set $custom_config $key "***" }}
                 {{- end }}

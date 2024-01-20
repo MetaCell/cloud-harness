@@ -119,6 +119,7 @@ def get_config(key, default=None):
             value = value[level]
 
     # EDIT: CLOUDHARNESS START
+    import re
     if value and isinstance(value, str):
         replace_var = re.search("{{.*?}}",  value)
         if replace_var:

@@ -194,7 +194,7 @@ component: {{ include "jupyterhub.componentLabel" . }}
                 using "toYaml | fromYaml" in order to be able to use normal helm
                 template functions on it.
     */}}
-    {{- $jupyterhub_values := .root.Values.apps.jupyterhub.}}
+    {{- $jupyterhub_values := .root.Values.apps.jupyterhub }}
     {{- if ne .root.Chart.Name "jupyterhub" }}
         {{- if .root.Values.apps.jupyterhub.jupyterhub }}
             {{- $jupyterhub_values = .root.Values.apps.jupyterhub.jupyterhub }}
