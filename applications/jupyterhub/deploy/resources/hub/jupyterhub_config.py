@@ -12,8 +12,6 @@ from tornado.httpclient import AsyncHTTPClient
 
 #CLOUDHARNESS: EDIT START
 import logging
-from kubernetes import client
-from jupyterhub.utils import url_path_join
 
 try:
     from harness_jupyter.jupyterhub import harness_hub
@@ -492,6 +490,7 @@ for app, cfg in get_config("hub.config", {}).items():
         cfg.pop("keys", None)
     c[app].update(cfg)
 
+
 # load /usr/local/etc/jupyterhub/jupyterhub_config.d config files
 config_dir = "/usr/local/etc/jupyterhub/jupyterhub_config.d"
 if os.path.isdir(config_dir):
@@ -561,3 +560,4 @@ c.registry = get_config('registry')
 c.domain = get_config('root.domain')
 c.namespace = get_config('root.namespace')
 # CLOUDHARNESS: EDIT END
+    

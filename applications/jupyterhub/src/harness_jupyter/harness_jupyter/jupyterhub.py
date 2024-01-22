@@ -139,7 +139,7 @@ def change_pod_manifest(self: KubeSpawner):
 
                 if 'subdomain' in harness and harness['subdomain'] == subdomain:
                     ws_image = getattr(self, "ws_image", None)
-                    logging.info("Subdomain is", subdomain)
+                    logging.info("Subdomain is %s", subdomain)
                     if ws_image:
                         # try getting the image + tag from values.yaml
                         ch_conf = conf.get_configuration()

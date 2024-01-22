@@ -25,6 +25,12 @@ harness: # EDIT: CLOUDHARNESS
     quota-ws-maxmem: 0.5
     # sets the storage dedicated to the user data in Gb units (float)
     quota-storage-max: 1.25
+  test:
+    e2e:
+      enabled: true
+      smoketest: true
+      ignoreRequestErrors: false
+      ignoreConsoleErrors: false
 
 # fullnameOverride and nameOverride distinguishes blank strings, null values,
 # and non-blank strings. For more details, see the configuration reference.

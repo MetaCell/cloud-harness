@@ -165,6 +165,28 @@ steps:
                 == true
               forceNoCache: includes('${{ACCOUNTS_TAG_FORCE_BUILD}}', '{{ACCOUNTS_TAG_FORCE_BUILD}}')
                 == false
+      jupyterhub:
+        type: build
+        stage: build
+        dockerfile: Dockerfile
+        registry: '${{CODEFRESH_REGISTRY}}'
+        buildkit: true
+        build_arguments:
+        - DOMAIN=${{DOMAIN}}
+        - NOCACHE=${{CF_BUILD_ID}}
+        - REGISTRY=${{REGISTRY}}/cloudharness/
+        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloudharness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
+        image_name: cloudharness/jupyterhub
+        title: Jupyterhub
+        working_directory: ./applications/jupyterhub
+        tag: '${{JUPYTERHUB_TAG}}'
+        when:
+          condition:
+            any:
+              buildDoesNotExist: includes('${{JUPYTERHUB_TAG_EXISTS}}', '{{JUPYTERHUB_TAG_EXISTS}}')
+                == true
+              forceNoCache: includes('${{JUPYTERHUB_TAG_FORCE_BUILD}}', '{{JUPYTERHUB_TAG_FORCE_BUILD}}')
+                == false
       samples:
         type: build
         stage: build
@@ -510,6 +532,14 @@ steps:
     commands:
     - yarn test
     scale:
+      jupyterhub_e2e_test:
+        title: jupyterhub e2e test
+        volumes:
+        - '${{CF_REPO_NAME}}/applications/jupyterhub/test/e2e:/home/test/__tests__/jupyterhub'
+        environment:
+        - APP_URL=https://hub.${{DOMAIN}}
+        - USERNAME=samplehub@testuser.com
+        - PASSWORD=test
       samples_e2e_test:
         title: samples e2e test
         volumes:
