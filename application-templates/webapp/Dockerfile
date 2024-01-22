@@ -7,28 +7,28 @@ ENV APP_DIR=/app
 
 WORKDIR ${APP_DIR}
 COPY frontend/package.json ${APP_DIR}
-COPY frontend/package-lock.json ${APP_DIR}
-RUN npm ci
+COPY frontend/yarn.lock ${APP_DIR}
+RUN yarn install --frozen-lockfile --timeout 60000
 
 COPY frontend ${APP_DIR}
-RUN npm run build
+RUN yarn build
 
 #####
-
 FROM $CLOUDHARNESS_FLASK
-
-ENV MODULE_NAME=__APP_NAME__
+ENV MODULE_NAME=samples
 
 ENV WORKERS=2
 ENV PORT=8080
 
 COPY backend/requirements.txt /usr/src/app/
 
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache python -m pip install --upgrade pip &&\
+    pip3 install -r requirements.txt  --prefer-binary
 
 COPY backend/ /usr/src/app
-RUN pip3 install -e .
 
 COPY --from=frontend app/dist/ /usr/src/app/www
 
-ENTRYPOINT gunicorn --workers=$WORKERS --bind=0.0.0.0:$PORT $MODULE_NAME.__main__:app
+RUN pip3 install -e .
+
+CMD gunicorn --workers=$WORKERS --bind=0.0.0.0:$PORT $MODULE_NAME.__main__:app --timeout 180
