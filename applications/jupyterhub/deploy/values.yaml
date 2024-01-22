@@ -136,7 +136,7 @@ hub:
     maxUnavailable:
     minAvailable: 1
   networkPolicy:
-    enabled: true
+    enabled: false # EDIT: CLOUDHARNESS -- cannot connect to accounts otherwise
     ingress: []
     egress: []
     egressAllowRules:
