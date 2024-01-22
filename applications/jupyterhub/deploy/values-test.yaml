@@ -1,7 +1,1 @@
-harness:
-  accounts:
-    users:
-    - username: samplehub@testuser.com
-      realmRoles:
-      - offline_access
 
