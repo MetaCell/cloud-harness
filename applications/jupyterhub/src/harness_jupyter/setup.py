@@ -2,6 +2,7 @@ from setuptools import setup, find_packages
 
 REQUIREMENTS = [
     'jupyterhub-kubespawner',
+    'kubernetes==20.13.0'
 ]
 
 setup(

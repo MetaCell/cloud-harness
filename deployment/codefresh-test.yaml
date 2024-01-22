@@ -445,9 +445,7 @@ steps:
     - kubectl config use-context ${{CLUSTER_NAME}}
     - kubectl config set-context --current --namespace=test-${{NAMESPACE_BASENAME}}
     - kubectl rollout status deployment/accounts
-    - kubectl rollout status deployment/argo-server-gk
     - kubectl rollout status deployment/samples
-    - kubectl rollout status deployment/samples-gk
     - kubectl rollout status deployment/common
     - kubectl rollout status deployment/workflows
     - sleep 60
