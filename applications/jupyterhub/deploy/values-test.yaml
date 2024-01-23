@@ -1,1 +1,5 @@
-
+harness:
+  jupyterhub:
+    prepull: 
+    - cloudharness-base
+ 

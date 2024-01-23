@@ -199,7 +199,27 @@ spec:
           securityContext:
             {{- . | toYaml | nindent 12 }}
           {{- end }}
+      {{- end }}
+      {{- /* --- EDIT: CLOUDHARNESS pull images --- */}}
+      {{- if $.Values.apps.jupyterhub.harness.jupyterhub.prepull -}}
+        {{- range $k, $v := $.Values.apps.jupyterhub.harness.jupyterhub.prepull }}
+        - name: image-pull--{{ $v }}
+          image: {{ get ( get $.Values "task-images" ) $v }}
+          command:
+            - /bin/sh
+            - -c
+            - echo "Pulling complete"
+          {{- with $.Values.apps.jupyterhub.prePuller.resources }}
+          resources:
+            {{- . | toYaml | nindent 12 }}
+          {{- end }}
+          {{- with $.Values.apps.jupyterhub.prePuller.containerSecurityContext }}
+          securityContext:
+            {{- . | toYaml | nindent 12 }}
+          {{- end }}
         {{- end }}
+      {{- end }}
+      {{- /* --- END EDIT: CLOUDHARNESS pull images --- */}}
       containers:
         - name: pause
           image: {{ .Values.apps.jupyterhub.prePuller.pause.image.name }}:{{ .Values.apps.jupyterhub.prePuller.pause.image.tag }}
