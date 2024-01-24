@@ -15,7 +15,7 @@ from docker import from_env as DockerClient
 from . import HERE, CH_ROOT
 from cloudharness_utils.constants import TEST_IMAGES_PATH, VALUES_MANUAL_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, \
     DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH
-from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
+from .utils import get_cluster_ip, get_git_commit_hash, get_image_name, env_variable, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
     get_template, merge_configuration_directories, merge_to_yaml_file, dict_merge, app_name_from_path, \
     find_dockerfiles_paths
 
@@ -323,6 +323,8 @@ class CloudHarnessHelm:
         """
         if self.registry:
             logging.info(f"Registry set: {self.registry}")
+
+
         if self.local:
             values['registry']['secret'] = ''
         if self.registry_secret:
@@ -330,6 +332,7 @@ class CloudHarnessHelm:
         values['registry']['name'] = self.registry
         values['registry']['secret'] = self.registry_secret
         values['tag'] = self.tag
+        values['build_hash'] = get_git_commit_hash(self.root_paths[-1])  # Fix: Call the defined function to get the git commit hash
         if self.namespace:
             values['namespace'] = self.namespace
         values['secured_gatekeepers'] = self.secured
