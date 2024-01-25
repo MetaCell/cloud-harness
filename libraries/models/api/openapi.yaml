@@ -834,6 +834,9 @@ components:
                 task-images:
                     $ref: '#/components/schemas/SimpleMap'
                     description: ''
+                build_hash:
+                    description: ''
+                    type: string
             additionalProperties: true
         SimpleMap:
             description: ''
