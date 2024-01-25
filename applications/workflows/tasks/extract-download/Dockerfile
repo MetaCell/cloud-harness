@@ -1,6 +1,6 @@
-FROM alpine
-RUN apk update
-RUN apk add file unzip wget
+ARG CLOUDHARNESS_BASE
+FROM $CLOUDHARNESS_BASE as base
+RUN apt update && apt install -y file unzip wget
 
 ADD . /
 

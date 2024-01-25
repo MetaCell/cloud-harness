@@ -6,8 +6,7 @@ ENV MODULE_NAME=common
 
 ENV WORKERS=2
 ENV PORT=8080
-RUN apk update
-RUN apk add postgresql-dev
+RUN apt update && apt install -y postgresql
 
 COPY ./requirements.txt /usr/src/app/
 
