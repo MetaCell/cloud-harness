@@ -376,3 +376,13 @@ def check_docker_manifest_exists(registry, image_name, tag, registry_secret=None
     api_url = f"https://{registry}/v2/{image_name}/manifests/{tag}"
     resp = requests.get(api_url)
     return resp.status_code == 200
+
+def get_git_commit_hash(path):
+    # return the short git commit hash in that path
+    # if the path is not a git repo, return None
+
+    try:
+        return subprocess.check_output(
+            ['git', 'rev-parse', '--short', 'HEAD'], cwd=path).decode("utf-8").strip()
+    except:
+        return None

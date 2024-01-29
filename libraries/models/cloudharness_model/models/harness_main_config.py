@@ -23,7 +23,7 @@ class HarnessMainConfig(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, local=None, secured_gatekeepers=None, domain=None, namespace=None, mainapp=None, registry=None, tag=None, apps=None, env=None, privenv=None, backup=None, name=None, task_images=None):  # noqa: E501
+    def __init__(self, local=None, secured_gatekeepers=None, domain=None, namespace=None, mainapp=None, registry=None, tag=None, apps=None, env=None, privenv=None, backup=None, name=None, task_images=None, build_hash=None):  # noqa: E501
         """HarnessMainConfig - a model defined in OpenAPI
 
         :param local: The local of this HarnessMainConfig.  # noqa: E501
@@ -52,6 +52,8 @@ class HarnessMainConfig(Model):
         :type name: str
         :param task_images: The task_images of this HarnessMainConfig.  # noqa: E501
         :type task_images: Dict[str, object]
+        :param build_hash: The build_hash of this HarnessMainConfig.  # noqa: E501
+        :type build_hash: str
         """
         self.openapi_types = {
             'local': bool,
@@ -66,7 +68,8 @@ class HarnessMainConfig(Model):
             'privenv': NameValue,
             'backup': BackupConfig,
             'name': str,
-            'task_images': Dict[str, object]
+            'task_images': Dict[str, object],
+            'build_hash': str
         }
 
         self.attribute_map = {
@@ -82,7 +85,8 @@ class HarnessMainConfig(Model):
             'privenv': 'privenv',
             'backup': 'backup',
             'name': 'name',
-            'task_images': 'task-images'
+            'task_images': 'task-images',
+            'build_hash': 'build_hash'
         }
 
         self._local = local
@@ -98,6 +102,7 @@ class HarnessMainConfig(Model):
         self._backup = backup
         self._name = name
         self._task_images = task_images
+        self._build_hash = build_hash
 
     @classmethod
     def from_dict(cls, dikt) -> 'HarnessMainConfig':
@@ -414,3 +419,26 @@ class HarnessMainConfig(Model):
         """
 
         self._task_images = task_images
+
+    @property
+    def build_hash(self):
+        """Gets the build_hash of this HarnessMainConfig.
+
+          # noqa: E501
+
+        :return: The build_hash of this HarnessMainConfig.
+        :rtype: str
+        """
+        return self._build_hash
+
+    @build_hash.setter
+    def build_hash(self, build_hash):
+        """Sets the build_hash of this HarnessMainConfig.
+
+          # noqa: E501
+
+        :param build_hash: The build_hash of this HarnessMainConfig.
+        :type build_hash: str
+        """
+
+        self._build_hash = build_hash

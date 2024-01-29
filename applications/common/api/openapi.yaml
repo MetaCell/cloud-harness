@@ -1,78 +1,111 @@
 openapi: 3.0.0
 info:
-  description: Cloud Harness Platform - Reference CH service API
-  license:
-    name: UNLICENSED
-  title: CH common service API
-  version: 0.1.0
+    title: CH common service API
+    version: 0.1.0
+    description: Cloud Harness Platform - Reference CH service API
+    license:
+        name: UNLICENSED
 servers:
-- description: SwaggerHub API Auto Mocking
-  url: /api
-tags:
-- description: Sentry
-  name: Sentry
+    -
+        url: /api
+        description: SwaggerHub API Auto Mocking
 paths:
-  /sentry/getdsn/{appname}:
-    parameters:
-      - in: path
-        name: appname
-        schema:
-          type: string
-        required: true
-    get:
-      tags:
-      - Sentry
-      description: Gets the Sentry DSN for a given application
-      operationId: getdsn
-      responses:
-        '200':
-          description: Sentry DSN for the given application
-          content:
-            application/json:
-              schema:
-                type: object
-        '400':
-          description: Sentry not configured for the given application
-          content:
-            application/json:
-              schema:
-                type: object
-            text/html:
-              schema: 
-                type: string
-        '404':
-          description: Sentry not configured for the given application
-          content:
-            application/problem+json:
-              schema:
-                type: object
-            text/html:
-              schema: 
-                type: string
-      summary: Gets the Sentry DSN for a given application
-      x-openapi-router-controller: common.controllers.sentry_controller
-  /accounts/config:
-    get:
-      tags:
-      - Accounts
-      description: Gets the config for logging in into accounts
-      operationId: get_config
-      responses:
-        '200':
-          description: Config for accounts log in
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  url:
+    '/sentry/getdsn/{appname}':
+        get:
+            tags:
+                - Sentry
+            responses:
+                '200':
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                    description: Sentry DSN for the given application
+                '400':
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                        text/html:
+                            schema:
+                                type: string
+                    description: Sentry not configured for the given application
+                '404':
+                    content:
+                        application/problem+json:
+                            schema:
+                                type: object
+                        text/html:
+                            schema:
+                                type: string
+                    description: Sentry not configured for the given application
+            operationId: getdsn
+            summary: Gets the Sentry DSN for a given application
+            description: Gets the Sentry DSN for a given application
+            x-openapi-router-controller: common.controllers.sentry_controller
+        parameters:
+            -
+                name: appname
+                schema:
                     type: string
-                    description: The auth URL.
-                  realm:
+                in: path
+                required: true
+    /accounts/config:
+        get:
+            tags:
+                - Accounts
+            responses:
+                '200':
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    url:
+                                        description: The auth URL.
+                                        type: string
+                                    realm:
+                                        description: The realm.
+                                        type: string
+                                    clientId:
+                                        description: The clientID.
+                                        type: string
+                    description: Config for accounts log in
+            operationId: get_config
+            summary: Gets the config for logging in into accounts
+            description: Gets the config for logging in into accounts
+            x-openapi-router-controller: common.controllers.accounts_controller
+    /version:
+        summary: Get the version for this deployment
+        get:
+            tags:
+                - config
+            responses:
+                '200':
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AppVersion'
+                            examples:
+                                version:
+                                    value: "{\r\n  \"build\": \"63498f19146bae1a6ae7e354\"\r\n  \"tag\": \"v1.2.0\"\r\n}"
+                    description: Deployment version GET
+            operationId: getVersion
+components:
+    schemas:
+        AppVersion:
+            title: Root Type for AppVersion
+            description: ''
+            type: object
+            properties:
+                build:
                     type: string
-                    description: The realm.
-                  clientId:
+                tag:
                     type: string
-                    description: The clientID.
-      summary: Gets the config for logging in into accounts
-      x-openapi-router-controller: common.controllers.accounts_controller
+            example:
+                build: 63498f19146bae1a6ae7e354
+                tag: v1.2.0
+tags:
+    -
+        name: Sentry
+        description: Sentry
