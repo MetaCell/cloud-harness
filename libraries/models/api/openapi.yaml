@@ -68,6 +68,11 @@ components:
                     type: array
                     items:
                         type: string
+                git:
+                    description: ''
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GitDependencyConfig'
         DeploymentResourcesConf:
             description: ''
             type: object
@@ -849,3 +854,22 @@ components:
             example:
                 quota-ws-max: 5
                 quota-storage-max: 1G
+        GitDependencyConfig:
+            title: Root Type for GitDependencyConfig
+            description: Defines a git repo to be cloned inside the application path
+            required:
+                - branch_tag
+                - url
+            type: object
+            properties:
+                url:
+                    type: string
+                branch_tag:
+                    type: string
+                path:
+                    description: 'Defines the path where the repo is cloned. default: /git'
+                    type: string
+            example:
+                url: 'https://github.com/MetaCell/nwb-explorer.git'
+                branch_tag: master
+                path: /git
