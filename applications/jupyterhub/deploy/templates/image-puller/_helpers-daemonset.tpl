@@ -201,8 +201,8 @@ spec:
           {{- end }}
       {{- end }}
       {{- /* --- EDIT: CLOUDHARNESS pull images --- */}}
-      {{- if $.Values.apps.jupyterhub.harness.jupyterhub.prepull -}}
-        {{- range $k, $v := $.Values.apps.jupyterhub.harness.jupyterhub.prepull }}
+      {{- if $.Values.apps.jupyterhub.harness.dependencies.prepull -}}
+        {{- range $k, $v := $.Values.apps.jupyterhub.harness.dependencies.prepull }}
         - name: image-pull--{{ $v }}
           image: {{ get ( get $.Values "task-images" ) $v }}
           command:

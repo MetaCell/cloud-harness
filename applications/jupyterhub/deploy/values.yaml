@@ -12,6 +12,7 @@ harness: # EDIT: CLOUDHARNESS
     - accounts
     build:
     - cloudharness-base
+    prepull: [] # additional images to add to the prepuller
   quotas:
     # sets the maximum number of (included named) servers open concurrently (int)
     quota-ws-open: 3
@@ -31,6 +32,7 @@ harness: # EDIT: CLOUDHARNESS
       smoketest: true
       ignoreRequestErrors: false
       ignoreConsoleErrors: false
+  
 
 # fullnameOverride and nameOverride distinguishes blank strings, null values,
 # and non-blank strings. For more details, see the configuration reference.
