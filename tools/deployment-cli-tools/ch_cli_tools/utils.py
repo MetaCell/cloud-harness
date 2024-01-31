@@ -59,7 +59,22 @@ def find_subdirs(base_path):
 
 
 def find_dockerfiles_paths(base_directory):
-    return find_file_paths(base_directory, 'Dockerfile')
+    all_dockerfiles = find_file_paths(base_directory, 'Dockerfile')
+
+    # We want to remove all dockerfiles that are not in a git repository
+    # This will exclude the cloned dependencies and other repos cloned for convenience
+    dockerfiles_without_git = []
+
+    for dockerfile in all_dockerfiles:
+        directory = dockerfile
+        while not os.path.samefile(directory, base_directory):
+            if os.path.exists(os.path.join(directory, '.git')):
+                break
+            directory = os.path.dirname(directory)
+        else:
+            dockerfiles_without_git.append(dockerfile.replace(os.sep, "/"))
+
+    return tuple(dockerfiles_without_git)
 
 
 def get_parent_app_name(app_relative_path):

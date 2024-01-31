@@ -86,7 +86,8 @@ def test_create_skaffold_configuration():
         a for a in sk['build']['artifacts'] if a['image'] == 'reg/cloudharness/myapp')
     assert os.path.samefile(myapp_artifact['context'], join(
         RESOURCES, 'applications/myapp'))
-
+    assert myapp_artifact['hooks']['before'], 'The hook for dependencies should be included'
+    assert len(myapp_artifact['hooks']['before']) == 2, 'The hook for dependencies should include 2 clone commands'
     accounts_artifact = next(
         a for a in sk['build']['artifacts'] if a['image'] == 'reg/cloudharness/accounts')
     assert os.path.samefile(accounts_artifact['context'], '/tmp/build/applications/accounts')

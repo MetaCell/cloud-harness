@@ -123,6 +123,8 @@ def test_create_codefresh_configuration():
         assert len(
             tstep['commands']) == 2, "Unit test commands are not properly loaded from the unit test configuration file"
         assert tstep['commands'][0] == "tox", "Unit test commands are not properly loaded from the unit test configuration file"
+    
+        assert len(l1_steps[CD_BUILD_STEP_DEPENDENCIES]['steps']) == 3, "3 clone steps should be included as we have 2 dependencies from myapp, plus cloudharness"
     finally:
         shutil.rmtree(BUILD_MERGE_DIR)
 
