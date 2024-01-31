@@ -1,5 +1,6 @@
 import os
 from os.path import join, relpath, exists, dirname
+from cloudharness_model.models.git_dependency_config import GitDependencyConfig
 import requests
 import logging
 from cloudharness_model.models.api_tests_config import ApiTestsConfig
@@ -32,6 +33,27 @@ def literal_presenter(dumper, data):
 
 
 yaml.add_representer(str, literal_presenter)
+
+def get_main_domain(url):
+    try:
+        url = url.split("//")[1].split("/")[0]
+        if "gitlab" in url:
+            return "gitlab"
+        if "bitbucket" in url:
+            return "bitbucket"
+        return "github"
+    except:
+        return "${{ DEFAULT_REPO }}"
+
+def clone_step_spec(conf: GitDependencyConfig, context_path: str):
+    return {
+        "title": f"Cloning {os.path.basename(conf.url)} repository...",
+        "type": "git-clone",
+        "repo": conf.url,
+        "revision": conf.branch_tag,
+        "working_directory": join(context_path, "dependencies", os.path.basename(conf.url)),
+        "git": get_main_domain(conf.url) # Cannot really tell what's the git config name, usually the name of the repo
+    }
 
 def write_env_file(helm_values: HarnessMainConfig, filename, registry_secret=None):
     env = {}
@@ -151,6 +173,10 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     if any(inc in dockerfile_path for inc in (list(exclude) + EXCLUDE_PATHS)):
                         # Skip excluded apps
                         continue
+
+                    if app_config and app_config.dependencies and app_config.dependencies.git:
+                        for dep in app_config.dependencies.git:
+                            steps[CD_BUILD_STEP_DEPENDENCIES]['steps'].append(clone_step_spec(dep, base_path))
 
                     build = None
                     if build_step in steps:
