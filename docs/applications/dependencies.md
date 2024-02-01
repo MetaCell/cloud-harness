@@ -75,7 +75,7 @@ The directory structure will be as following:
 ```
 Dockerfile
 dependencies
-  b
+  b.git
   myrepo
   .dockerignore
 ```
@@ -84,7 +84,7 @@ Hence, inside the Dockerfile we expect to see something like
 
 ```dockerfile
 COPY dependencies .
-COPY dependencies/b/src .
+COPY dependencies/b.git/src .
 COPY dependencies/myrepo .
 ```
 
