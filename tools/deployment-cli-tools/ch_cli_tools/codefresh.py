@@ -51,7 +51,7 @@ def clone_step_spec(conf: GitDependencyConfig, context_path: str):
         "type": "git-clone",
         "repo": conf.url,
         "revision": conf.branch_tag,
-        "working_directory": join(context_path, "dependencies", conf.path or os.path.basename(conf.url)),
+        "working_directory": join(context_path, "dependencies", conf.path or ""),
         "git": get_main_domain(conf.url) # Cannot really tell what's the git config name, usually the name of the repo
     }
 
@@ -176,7 +176,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
                     if app_config and app_config.dependencies and app_config.dependencies.git:
                         for dep in app_config.dependencies.git:
-                            steps[CD_BUILD_STEP_DEPENDENCIES]['steps'].append(clone_step_spec(dep, base_path))
+                            steps[CD_BUILD_STEP_DEPENDENCIES]['steps'].append(clone_step_spec(dep, dockerfile_relative_to_root))
 
                     build = None
                     if build_step in steps:

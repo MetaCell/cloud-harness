@@ -12,6 +12,8 @@ from .helm import KEY_APPS, KEY_HARNESS, KEY_DEPLOYMENT, KEY_TASK_IMAGES
 from .utils import get_template, dict_merge, find_dockerfiles_paths, app_name_from_path, \
     find_file_paths, guess_build_dependencies_from_dockerfile, merge_to_yaml_file, get_json_template, get_image_name
 
+from . import HERE
+
 def relpath_if(p1, p2):
     if os.path.isabs(p1):
         return p1
@@ -198,10 +200,10 @@ def git_clone_hook(conf: GitDependencyConfig, context_path: str):
     return {
         'command': [
             'sh',
-            'tools/clone.sh',
+            join(os.path.dirname(os.path.dirname(HERE)), 'clone.sh'),
             conf.branch_tag,
             conf.url,
-            join(context_path, "dependencies", conf.path or os.path.basename(conf.url))   
+            join(context_path, "dependencies", conf.path or os.path.basename(conf.url).split('.')[0])   
         ]
     }
 
