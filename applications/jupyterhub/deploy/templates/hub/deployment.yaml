@@ -5,6 +5,9 @@ metadata:
   labels:
     {{- include "jupyterhub.labels" . | nindent 4 }}
 spec:
+  {{- if typeIs "int" .Values.apps.jupyterhub.hub.revisionHistoryLimit }}
+  revisionHistoryLimit: {{ .Values.apps.jupyterhub.hub.revisionHistoryLimit }}
+  {{- end }}
   replicas: 1
   selector:
     matchLabels:
@@ -30,11 +33,14 @@ spec:
         {{- . | toYaml | nindent 8 }}
         {{- end }}
     spec:
-{{ include "deploy_utils.etcHosts" . | indent 6 }}
+{{ include "deploy_utils.etcHosts" . | indent 6 }}  # EDIT: CLOUDHARNESS
       {{- if .Values.apps.jupyterhub.scheduling.podPriority.enabled }}
       priorityClassName: {{ include "jupyterhub.priority.fullname" . }}
       {{- end }}
-      nodeSelector: {{ toJson .Values.apps.jupyterhub.hub.nodeSelector }}
+      {{- with .Values.apps.jupyterhub.hub.nodeSelector }}
+      nodeSelector:
+        {{- . | toYaml | nindent 8 }}
+      {{- end }}
       {{- with concat .Values.apps.jupyterhub.scheduling.corePods.tolerations .Values.apps.jupyterhub.hub.tolerations }}
       tolerations:
         {{- . | toYaml | nindent 8 }}
@@ -44,7 +50,7 @@ spec:
         - name: config
           configMap:
             name: {{ include "jupyterhub.hub.fullname" . }}
-        {{- /* This is needed by cloudharness libraries */}}
+        {{- /*  EDIT: CLOUDHARNESS This is needed by cloudharness libraries */}}
         - name: cloudharness-allvalues
           configMap:
             name: cloudharness-allvalues
@@ -82,11 +88,13 @@ spec:
           persistentVolumeClaim:
             claimName: {{ include "jupyterhub.hub-pvc.fullname" . }}
         {{- end }}
-      {{- if .Values.apps.jupyterhub.rbac.enabled }}
-      serviceAccountName: {{ include "jupyterhub.hub.fullname" . }}
+      {{- with include "jupyterhub.hub-serviceaccount.fullname" . }}
+      serviceAccountName: {{ . }}
       {{- end }}
+      {{- with .Values.apps.jupyterhub.hub.podSecurityContext }}
       securityContext:
-        fsGroup: {{ .Values.apps.jupyterhub.hub.fsGid }}
+        {{- . | toYaml | nindent 8 }}
+      {{- end }}
       {{- with include "jupyterhub.imagePullSecrets" (dict "root" . "image" .Values.apps.jupyterhub.hub.image) }}
       imagePullSecrets: {{ . }}
       {{- end }}
@@ -153,14 +161,14 @@ spec:
               name: config
             - mountPath: /usr/local/etc/jupyterhub/secret/
               name: secret
-            - name: cloudharness-allvalues
+            - name: cloudharness-allvalues  # EDIT: CLOUDHARNESS START
               mountPath: /opt/cloudharness/resources/allvalues.yaml
               subPath: allvalues.yaml
             {{- if .Values.apps.accounts }}
             - name: cloudharness-kc-accounts
               mountPath: /opt/cloudharness/resources/auth
               readOnly: true
-            {{- end }}
+            {{- end }}  # EDIT: CLOUDHARNESS END
             {{- if (include "jupyterhub.hub-existing-secret.fullname" .) }}
             - mountPath: /usr/local/etc/jupyterhub/existing-secret/
               name: existing-secret
