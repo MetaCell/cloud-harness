@@ -10,6 +10,7 @@ import subprocess
 from functools import cache
 import tarfile
 from docker import from_env as DockerClient
+from pathlib import Path
 
 
 from . import HERE, CH_ROOT
@@ -32,51 +33,41 @@ KEY_TEST_IMAGES = 'test-images'
 DEFAULT_IGNORE = ('/tasks', '.dockerignore', '.hypothesis', "__pycache__", '.node_modules', 'dist', 'build', '.coverage')
 
 
-def deploy(namespace, output_path='./deployment'):
-    helm_path = os.path.join(output_path, HELM_CHART_PATH)
-    logging.info('Deploying helm chart %s', helm_path)
-    subprocess.run("helm dependency update".split(), cwd=helm_path)
-
-    subprocess.run(
-        f"helm upgrade {namespace} {helm_path} -n {namespace} --install --reset-values".split())
-
-
-def create_helm_chart(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True,
+def create_docker_compose_configuration(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True,
                       output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
-                      namespace=None) -> HarnessMainConfig:
+                      namespace=None, templates_path=HELM_PATH) -> HarnessMainConfig:
     if (type(env)) == str:
         env = [env]
     return CloudHarnessHelm(root_paths, tag=tag, registry=registry, local=local, domain=domain, exclude=exclude, secured=secured,
                             output_path=output_path, include=include, registry_secret=registry_secret, tls=tls, env=env,
-                            namespace=namespace).process_values()
+                            namespace=namespace, templates_path=templates_path).process_values()
 
 
 class CloudHarnessHelm:
     def __init__(self, root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True,
                  output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
-                 namespace=None):
+                 namespace=None, templates_path=HELM_PATH):
         assert domain, 'A domain must be specified'
-        self.root_paths = root_paths
+        self.root_paths = [Path(r) for r in root_paths]
         self.tag = tag
-        if registry and registry[-1] != '/':
-            self.registry = registry + '/'
+        if not registry.endswith('/'):
+            self.registry = f'{registry}/'
         else:
             self.registry = registry
         self.local = local
         self.domain = domain
         self.exclude = exclude
         self.secured = secured
-        self.output_path = output_path
+        self.output_path = Path(output_path)
         self.include = include
         self.registry_secret = registry_secret
         self.tls = tls
         self.env = env
         self.namespace = namespace
 
-        self.dest_deployment_path = os.path.join(
-            self.output_path, HELM_CHART_PATH)
-        self.helm_chart_path = os.path.join(
-            self.dest_deployment_path, 'Chart.yaml')
+        self.templates_path = templates_path
+        self.dest_deployment_path = self.output_path / templates_path
+        self.helm_chart_path = self.dest_deployment_path / 'Chart.yaml'
         self.__init_deployment()
 
         self.static_images = set()
@@ -87,18 +78,17 @@ class CloudHarnessHelm:
         """
         Create the base helm chart
         """
-        if os.path.exists(self.dest_deployment_path):
+        if self.dest_deployment_path.exists():
             shutil.rmtree(self.dest_deployment_path)
         # Initialize with default
-        copy_merge_base_deployment(self.dest_deployment_path, os.path.join(
-            CH_ROOT, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
+        copy_merge_base_deployment(self.dest_deployment_path, Path(CH_ROOT) / DEPLOYMENT_CONFIGURATION_PATH / self.templates_path)
 
         # Override for every cloudharness scaffolding
         for root_path in self.root_paths:
             copy_merge_base_deployment(dest_helm_chart_path=self.dest_deployment_path,
-                                       base_helm_chart=os.path.join(root_path, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH))
+                                       base_helm_chart=root_path / DEPLOYMENT_CONFIGURATION_PATH /self.templates_path)
             collect_apps_helm_templates(root_path, exclude=self.exclude, include=self.include,
-                                        dest_helm_chart_path=self.dest_deployment_path)
+                                        dest_helm_chart_path=self.dest_deployment_path, templates_path=self.templates_path)
 
     def __adjust_missing_values(self, helm_values):
         if 'name' not in helm_values:
@@ -128,7 +118,7 @@ class CloudHarnessHelm:
 
         self.__process_applications(helm_values, base_image_name)
 
-        self.create_tls_certificate(helm_values)
+        # self.create_tls_certificate(helm_values)
 
         values, include = self.__finish_helm_values(values=helm_values)
 
@@ -137,11 +127,10 @@ class CloudHarnessHelm:
 
         for root_path in self.root_paths:
             collect_apps_helm_templates(root_path, exclude=self.exclude, include=self.include,
-                                        dest_helm_chart_path=self.dest_deployment_path)
+                                        dest_helm_chart_path=self.dest_deployment_path, templates_path=self.templates_path)
 
         # Save values file for manual helm chart
-        merged_values = merge_to_yaml_file(helm_values, os.path.join(
-            self.dest_deployment_path, VALUES_MANUAL_PATH))
+        merged_values = merge_to_yaml_file(helm_values, self.dest_deployment_path / VALUES_MANUAL_PATH)
         if self.namespace:
             merge_to_yaml_file({'metadata': {'namespace': self.namespace},
                                 'name': helm_values['name']}, self.helm_chart_path)
@@ -155,9 +144,9 @@ class CloudHarnessHelm:
             helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
                                                app_values)
 
-            app_base_path = os.path.join(root_path, APPS_PATH)
+            app_base_path = root_path / APPS_PATH
             app_values = self.collect_app_values(
-                app_base_path, base_image_name=base_image_name)
+                f"{app_base_path}", base_image_name=base_image_name)
             helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
                                                app_values)
 
@@ -255,11 +244,11 @@ class CloudHarnessHelm:
         helm_values['tls'] = self.domain.replace(".", "-") + "-tls"
 
         bootstrap_file = 'bootstrap.sh'
-        certs_parent_folder_path = os.path.join(
-            self.output_path, 'helm', 'resources')
-        certs_folder_path = os.path.join(certs_parent_folder_path, 'certs')
+        certs_parent_folder_path = self.output_path / 'helm' / 'resources'
+        certs_folder_path = certs_parent_folder_path / 'certs'
 
-        if os.path.exists(os.path.join(certs_folder_path)):
+        # if os.path.exists(os.path.join(certs_folder_path)):
+        if certs_folder_path.exists():
             # don't overwrite the certificate if it exists
             return
 
@@ -300,12 +289,11 @@ class CloudHarnessHelm:
 
         # retrieve the certs from the container
         bits, stat = container.get_archive('/mnt/certs')
-        if not os.path.exists(certs_folder_path):
-            os.makedirs(certs_folder_path)
-        f = open(f'{certs_parent_folder_path}/certs.tar', 'wb')
-        for chunk in bits:
-            f.write(chunk)
-        f.close()
+        if not certs_folder_path.exists():
+            certs_folder_path.mkdir(parents=True)
+        with open(certs_parent_folder_path / 'certs.tar', 'wb') as f:
+            for chunk in bits:
+                f.write(chunk)
         cf = tarfile.open(f'{certs_parent_folder_path}/certs.tar')
         cf.extractall(path=certs_parent_folder_path)
 
@@ -506,7 +494,7 @@ def merge_helm_chart(source_templates_path, dest_helm_chart_path=HELM_CHART_PATH
     pass
 
 
-def collect_apps_helm_templates(search_root, dest_helm_chart_path, exclude=(), include=None):
+def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_path, exclude=(), include=None):
     """
     Searches recursively for helm templates inside the applications and collects the templates in the destination
 
@@ -521,7 +509,7 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, exclude=(), i
         app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
         if app_name in exclude or (include and not any(inc in app_name for inc in include)):
             continue
-        template_dir = os.path.join(app_path, 'deploy', 'templates', HELM_PATH)
+        template_dir = os.path.join(app_path, 'deploy', 'templates', templates_path)
         if os.path.exists(template_dir):
             dest_dir = os.path.join(
                 dest_helm_chart_path, 'templates', app_name)
@@ -564,7 +552,7 @@ def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart):
     if os.path.exists(dest_helm_chart_path):
         logging.info("Merging/overriding all files in directory %s",
                      dest_helm_chart_path)
-        merge_configuration_directories(base_helm_chart, dest_helm_chart_path)
+        merge_configuration_directories(f"{base_helm_chart}", f"{dest_helm_chart_path}")
     else:
         logging.info("Copying base deployment chart from %s to %s",
                      base_helm_chart, dest_helm_chart_path)

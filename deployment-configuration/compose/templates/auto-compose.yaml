@@ -1,0 +1,103 @@
+version: '3.7'
+
+services:
+{{- range $app_name, $app_config := .Values.apps }}
+  {{- if has $app_name (list "argo" "nfsserver" "workflows" "events" ) }} {{- /* We deactivate generation for some services */}}
+  {{- continue }}
+  {{- end}}
+  {{ $deployment :=  $app_config.harness.deployment }}
+  {{ $app_name }}:
+    {{- with $app_config.domain }}
+    domainname: {{ . }}
+    {{- end }}
+    networks:
+    - ch
+    {{- with $app_config.image }}
+    image: {{ . }}
+    {{- end }}
+    {{- with $app_config.harness.service.port }}
+    ports:
+      - "{{ . }}:{{ $app_config.harness.deployment.port }}"
+    {{- end}}
+    deploy:
+      mode: "replicated"
+      replicas: {{ $deployment.replicas | default 1 }}
+      resources:
+        limits:
+          cpus: {{ $deployment.resources.limits.cpu | default "50m" }}
+          memory: {{ trimSuffix "i" $deployment.resources.limits.memory | default "64M" }}
+        reservations:
+          cpus: {{ $deployment.resources.requests.cpu | default "25m" }}
+          memory: {{ trimSuffix "i" $deployment.resources.requests.memory | default "32M" }}
+    environment:
+      - CH_CURRENT_APP_NAME={{ $app_name | quote }}
+
+      {{- range $.Values.env }}
+      - {{ .name }}={{ .value | quote }}
+      {{- end }}
+      {{- /*{{- range $.Values.env }}
+      - {{ .name }}={{ .value | quote }}
+      {{- end }} */}}
+      {{- range $app_config.harness.env }}
+      - {{ .name }}={{ .value | quote }}
+      {{- end }}
+    {{- with $app_config.harness.dependencies.soft }}
+    # links:
+    #   {{- range . }}
+    #   - {{ . }}
+    #   {{- end }}
+    {{- end }}
+    {{- with $app_config.harness.dependencies.hard }}
+    depends_on:
+      {{- range . }}
+      - {{ . }}
+      {{- end }}
+    {{- end }}
+    {{- if or $deployment.volume $app_config.harness.resources }}
+    volumes:
+    {{- with $deployment.volume }}
+      - type: volume
+        source: {{ .name }}
+        target: {{ .mountpath }}
+    {{- end}}
+    {{- with $app_config.harness.resources }}
+    {{- range .}}
+      - type: bind
+        source: compose/resources/{{ $app_name }}/{{.src }}
+        target: {{ .dst }}
+    {{- end }}
+    {{- end}}
+    {{- end }}
+{{- end }}
+
+  traefik:
+    image: "traefik:v2.2"
+    container_name: "traefik"
+    networks:
+    - ch
+    command:
+      - "--log.level=INFO"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--providers.file.directory=/etc/traefik/dynamic_conf"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./certs/:/certs/:ro"
+      - "./traefik.yaml:/etc/traefik/dynamic_conf/conf.yml:ro"
+
+networks:
+  ch:
+    name: ch_network
+
+volumes:  # this inclusion needs to be conditional
+{{- range $app_name, $app_config := .Values.apps }}
+  {{- with $app_config.harness.deployment.volume }}
+  {{ .name }}:
+  {{- end }}
+{{- end }}
