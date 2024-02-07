@@ -15,10 +15,10 @@ from pathlib import Path
 
 from . import HERE, CH_ROOT
 from cloudharness_utils.constants import TEST_IMAGES_PATH, VALUES_MANUAL_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, \
-    DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH
+    DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, COMPOSE
 from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
     get_template, merge_configuration_directories, merge_to_yaml_file, dict_merge, app_name_from_path, \
-    find_dockerfiles_paths
+    find_dockerfiles_paths, find_file_paths
 
 from .models import HarnessMainConfig
 
@@ -31,7 +31,6 @@ KEY_TASK_IMAGES = 'task-images'
 KEY_TEST_IMAGES = 'test-images'
 
 DEFAULT_IGNORE = ('/tasks', '.dockerignore', '.hypothesis', "__pycache__", '.node_modules', 'dist', 'build', '.coverage')
-COMPOSE = 'compose'
 
 def create_docker_compose_configuration(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True,
                       output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
@@ -50,7 +49,7 @@ class CloudHarnessHelm:
         assert domain, 'A domain must be specified'
         self.root_paths = [Path(r) for r in root_paths]
         self.tag = tag
-        if not registry.endswith('/'):
+        if registry and not registry.endswith('/'):
             self.registry = f'{registry}/'
         else:
             self.registry = registry
@@ -433,7 +432,10 @@ class CloudHarnessHelm:
 
         image_paths = [path for path in find_dockerfiles_paths(
             app_path) if 'tasks/' not in path and 'subapps' not in path]
-        import ipdb; ipdb.set_trace()  # fmt: skip
+
+        # Inject entry points commands
+        for image_path in image_paths:
+            self.inject_entry_points_commands(values, image_path, app_path)
 
         if len(image_paths) > 1:
             logging.warning('Multiple Dockerfiles found in application %s. Picking the first one: %s', app_name,
@@ -472,6 +474,18 @@ class CloudHarnessHelm:
                 img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys())
 
         return values
+
+
+    def inject_entry_points_commands(self, helm_values, image_path, app_path):
+        context_path = os.path.relpath(image_path, '.')
+
+        mains_candidates = find_file_paths(context_path, '__main__.py')
+
+        task_main_file = identify_unicorn_based_main(mains_candidates, app_path)
+
+        if task_main_file:
+            helm_values[KEY_HARNESS]['deployment']['command'] = ['python']
+            helm_values[KEY_HARNESS]['deployment']['args'] = [f'/usr/src/app/{os.path.basename(task_main_file)}/__main__.py']
 
 
 def get_included_with_dependencies(values, include):
@@ -749,3 +763,26 @@ def validate_dependencies(values):
             if not_found:
                 raise ValuesValidationException(
                     f"Bad service application dependencies specified for application {app}: {','.join(not_found)}")
+
+
+def identify_unicorn_based_main(candidates, app_path):
+        import re
+        gunicorn_pattern = re.compile(r"gunicorn")
+        # sort candidates, shortest path first
+        for candidate in sorted(candidates,key=lambda x: len(x.split("/"))):
+            dockerfile_path = f"{candidate}/.."
+            while not os.path.exists(f"{dockerfile_path}/Dockerfile") and os.path.abspath(dockerfile_path) != os.path.abspath(app_path):
+                dockerfile_path += "/.."
+            dockerfile = f"{dockerfile_path}/Dockerfile"
+            if not os.path.exists(dockerfile):
+                continue
+            with open(dockerfile, 'r') as file:
+                if re.search(gunicorn_pattern, file.read()):
+                    return candidate
+            requirements = f"{candidate}/../requirements.txt"
+            if not os.path.exists(requirements):
+                continue
+            with open(requirements, 'r') as file:
+                if re.search(gunicorn_pattern, file.read()):
+                    return candidate
+        return None

@@ -10,6 +10,8 @@ DEFAULT_MERGE_PATH = ".overrides"
 HELM_PATH = "helm"
 HELM_CHART_PATH = HELM_PATH
 
+COMPOSE = 'compose'
+
 INFRASTRUCTURE_PATH = 'infrastructure'
 STATIC_IMAGES_PATH = os.path.join(INFRASTRUCTURE_PATH, 'common-images')
 BASE_IMAGES_PATH = os.path.join(INFRASTRUCTURE_PATH, 'base-images')

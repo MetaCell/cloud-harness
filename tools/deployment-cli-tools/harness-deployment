@@ -7,6 +7,7 @@ import os
 from ch_cli_tools.dockercompose import create_docker_compose_configuration
 from ch_cli_tools.helm import create_helm_chart, hosts_info, deploy
 from ch_cli_tools.skaffold import create_skaffold_configuration, create_vscode_debug_configuration
+from ch_cli_tools.skaffoldcompose import create_skaffold_compose_configuration
 from ch_cli_tools.codefresh import create_codefresh_deployment_scripts, write_env_file
 from ch_cli_tools.preprocessing import preprocess_build_overrides
 from ch_cli_tools.utils import merge_app_directories
@@ -148,7 +149,10 @@ if __name__ == "__main__":
         if args.write_env:
             write_env_file(helm_values, os.path.join(root_paths[-1], DEPLOYMENT_PATH, ".env"))
 
-        create_skaffold_configuration(merged_root_paths, helm_values)
+        if not args.docker_compose:
+            create_skaffold_configuration(merged_root_paths, helm_values)
+        else:
+            create_skaffold_compose_configuration(merged_root_paths, helm_values)
         create_vscode_debug_configuration(root_paths, helm_values)
 
         hosts_info(helm_values)
