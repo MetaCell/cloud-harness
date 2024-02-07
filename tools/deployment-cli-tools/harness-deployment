@@ -7,11 +7,10 @@ import os
 from ch_cli_tools.dockercompose import create_docker_compose_configuration
 from ch_cli_tools.helm import create_helm_chart, hosts_info, deploy
 from ch_cli_tools.skaffold import create_skaffold_configuration, create_vscode_debug_configuration
-from ch_cli_tools.skaffoldcompose import create_skaffold_compose_configuration
 from ch_cli_tools.codefresh import create_codefresh_deployment_scripts, write_env_file
 from ch_cli_tools.preprocessing import preprocess_build_overrides
 from ch_cli_tools.utils import merge_app_directories
-from cloudharness_utils.constants import DEPLOYMENT_PATH
+from cloudharness_utils.constants import DEPLOYMENT_PATH, COMPOSE_ENGINE
 
 HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
 ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
@@ -85,22 +84,6 @@ if __name__ == "__main__":
             merge_app_directories(root_paths, destination=args.merge)
             root_paths = [args.merge]
 
-        # helm_values = create_helm_chart(
-        #     root_paths,
-        #     tag=args.tag,
-        #     registry=args.registry,
-        #     domain=args.domain,
-        #     local=args.local,
-        #     secured=not args.unsecured,
-        #     output_path=args.output_path,
-        #     exclude=args.exclude,
-        #     include=args.include,
-        #     registry_secret=args.registry_secret,
-        #     tls=not args.no_tls,
-        #     env=envs,
-        #     namespace=args.namespace
-        # )
-
         if not args.docker_compose:
             helm_values = create_helm_chart(
             root_paths,
@@ -152,7 +135,7 @@ if __name__ == "__main__":
         if not args.docker_compose:
             create_skaffold_configuration(merged_root_paths, helm_values)
         else:
-            create_skaffold_compose_configuration(merged_root_paths, helm_values)
+            create_skaffold_configuration(merged_root_paths, helm_values, backend_deploy=COMPOSE_ENGINE)
         create_vscode_debug_configuration(root_paths, helm_values)
 
         hosts_info(helm_values)

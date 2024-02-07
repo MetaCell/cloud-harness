@@ -7,7 +7,7 @@ from os.path import join, relpath, basename, exists, abspath
 from cloudharness_model import ApplicationTestConfig, HarnessMainConfig
 
 from cloudharness_utils.constants import APPS_PATH, DEPLOYMENT_CONFIGURATION_PATH, \
-    BASE_IMAGES_PATH, STATIC_IMAGES_PATH
+    BASE_IMAGES_PATH, STATIC_IMAGES_PATH, HELM_ENGINE, COMPOSE_ENGINE
 from .helm import KEY_APPS, KEY_HARNESS, KEY_DEPLOYMENT, KEY_TASK_IMAGES
 from .utils import get_template, dict_merge, find_dockerfiles_paths, app_name_from_path, \
     find_file_paths, guess_build_dependencies_from_dockerfile, merge_to_yaml_file, get_json_template, get_image_name
@@ -17,12 +17,13 @@ def relpath_if(p1, p2):
         return p1
     return relpath(p1, p2)
 
-def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, output_path='.', manage_task_images=True):
+def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, output_path='.', manage_task_images=True, backend_deploy=HELM_ENGINE):
     skaffold_conf = get_template('skaffold-template.yaml', True)
     apps = helm_values.apps
     base_image_name = (helm_values.registry.name or "") + helm_values.name
     artifacts = {}
     overrides = {}
+    backend = backend_deploy or HELM_ENGINE
 
     def remove_tag(image_name):
         return image_name.split(":")[0]
@@ -183,10 +184,18 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
                         custom=[dict(command="docker run $IMAGE " + cmd) for cmd in test_config.unit.commands]
                     ))
 
+    if backend == COMPOSE_ENGINE:
+        del skaffold_conf['deploy']
+        skaffold_conf['deploy'] = {
+            'docker': {
+                'useCompose': True,
+                'images': [artifact['image'] for artifact in artifacts.values() if artifact['image']]
+            }
+        }
 
-        skaffold_conf['build']['artifacts'] = [v for v in artifacts.values()]
-        merge_to_yaml_file(skaffold_conf, os.path.join(
-            output_path, 'skaffold.yaml'))
+    skaffold_conf['build']['artifacts'] = [v for v in artifacts.values()]
+    merge_to_yaml_file(skaffold_conf, os.path.join(
+        output_path, 'skaffold.yaml'))
     return skaffold_conf
 
 
