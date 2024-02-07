@@ -31,16 +31,16 @@ KEY_TASK_IMAGES = 'task-images'
 KEY_TEST_IMAGES = 'test-images'
 
 DEFAULT_IGNORE = ('/tasks', '.dockerignore', '.hypothesis', "__pycache__", '.node_modules', 'dist', 'build', '.coverage')
-
+COMPOSE = 'compose'
 
 def create_docker_compose_configuration(root_paths, tag='latest', registry='', local=True, domain=None, exclude=(), secured=True,
                       output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
-                      namespace=None, templates_path=HELM_PATH) -> HarnessMainConfig:
+                      namespace=None) -> HarnessMainConfig:
     if (type(env)) == str:
         env = [env]
     return CloudHarnessHelm(root_paths, tag=tag, registry=registry, local=local, domain=domain, exclude=exclude, secured=secured,
                             output_path=output_path, include=include, registry_secret=registry_secret, tls=tls, env=env,
-                            namespace=namespace, templates_path=templates_path).process_values()
+                            namespace=namespace, templates_path=COMPOSE).process_values()
 
 
 class CloudHarnessHelm:
@@ -146,16 +146,15 @@ class CloudHarnessHelm:
 
             app_base_path = root_path / APPS_PATH
             app_values = self.collect_app_values(
-                f"{app_base_path}", base_image_name=base_image_name)
+                app_base_path, base_image_name=base_image_name)
             helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
                                                app_values)
 
     def collect_app_values(self, app_base_path, base_image_name=None):
         values = {}
 
-        for app_path in get_sub_paths(app_base_path):
-            app_name = app_name_from_path(
-                os.path.relpath(app_path, app_base_path))
+        for app_path in app_base_path.glob("*/"):  # We get the sub-files that are directories
+            app_name = app_name_from_path(f"{app_path.relative_to(app_base_path)}")
 
             if app_name in self.exclude:
                 continue
@@ -185,7 +184,7 @@ class CloudHarnessHelm:
                     if dep in self.base_images and dep not in helm_values[KEY_TASK_IMAGES]:
                         helm_values[KEY_TASK_IMAGES][dep] = self.base_images[dep]
 
-        for image_name in list(helm_values[KEY_TASK_IMAGES].keys()):
+        for image_name in helm_values[KEY_TASK_IMAGES].keys():
             if image_name in self.exclude:
                 del helm_values[KEY_TASK_IMAGES][image_name]
 
@@ -228,10 +227,11 @@ class CloudHarnessHelm:
         return helm_values
 
     def __get_default_helm_values(self):
-        helm_values = get_template(os.path.join(
-            CH_ROOT, DEPLOYMENT_CONFIGURATION_PATH, HELM_PATH, 'values.yaml'))
+        ch_root_path = Path(CH_ROOT)
+        values_yaml_path = ch_root_path / DEPLOYMENT_CONFIGURATION_PATH / HELM_PATH / 'values.yaml'
+        helm_values = get_template(values_yaml_path)
         helm_values = dict_merge(helm_values,
-                                 collect_helm_values(CH_ROOT, env=self.env))
+                                 collect_helm_values(ch_root_path, env=self.env))
 
         return helm_values
 
@@ -273,7 +273,7 @@ class CloudHarnessHelm:
 
         # copy bootstrap file
         cur_dir = os.getcwd()
-        os.chdir(os.path.join(HERE, 'scripts'))
+        os.chdir(Path(HERE) / 'scripts')
         tar = tarfile.open(bootstrap_file + '.tar', mode='w')
         try:
             tar.add(bootstrap_file)
@@ -291,10 +291,11 @@ class CloudHarnessHelm:
         bits, stat = container.get_archive('/mnt/certs')
         if not certs_folder_path.exists():
             certs_folder_path.mkdir(parents=True)
-        with open(certs_parent_folder_path / 'certs.tar', 'wb') as f:
+        certs_tar = certs_parent_folder_path / 'certs.tar'
+        with open(certs_tar, 'wb') as f:
             for chunk in bits:
                 f.write(chunk)
-        cf = tarfile.open(f'{certs_parent_folder_path}/certs.tar')
+        cf = tarfile.open(certs_tar)
         cf.extractall(path=certs_parent_folder_path)
 
         logs = container.logs()
@@ -409,20 +410,19 @@ class CloudHarnessHelm:
     def create_app_values_spec(self, app_name, app_path, base_image_name=None):
         logging.info('Generating values script for ' + app_name)
 
-        specific_template_path = os.path.join(app_path, 'deploy', 'values.yaml')
-        if os.path.exists(specific_template_path):
-            logging.info("Specific values template found: " +
-                        specific_template_path)
+        deploy_path = app_path / 'deploy'
+        specific_template_path = deploy_path / 'values.yaml'
+        if specific_template_path.exists():
+            logging.info(f"Specific values template found: {specific_template_path}")
             values = get_template(specific_template_path)
         else:
             values = {}
 
         for e in self.env:
-            specific_template_path = os.path.join(
-                app_path, 'deploy', f'values-{e}.yaml')
-            if os.path.exists(specific_template_path):
+            specific_template_path = deploy_path / f'values-{e}.yaml'
+            if specific_template_path.exists():
                 logging.info(
-                    "Specific environment values template found: " + specific_template_path)
+                    f"Specific environment values template found: {specific_template_path}")
                 with open(specific_template_path) as f:
                     values_env_specific = yaml.safe_load(f)
                 values = dict_merge(values, values_env_specific)
@@ -433,6 +433,8 @@ class CloudHarnessHelm:
 
         image_paths = [path for path in find_dockerfiles_paths(
             app_path) if 'tasks/' not in path and 'subapps' not in path]
+        import ipdb; ipdb.set_trace()  # fmt: skip
+
         if len(image_paths) > 1:
             logging.warning('Multiple Dockerfiles found in application %s. Picking the first one: %s', app_name,
                             image_paths[0])
@@ -463,7 +465,7 @@ class CloudHarnessHelm:
 
         for task_path in task_images_paths:
             task_name = app_name_from_path(os.path.relpath(
-                task_path, os.path.dirname(app_path)))
+                task_path, app_path.parent))
             img_name = image_name_from_dockerfile_path(task_name, base_image_name)
 
             values[KEY_TASK_IMAGES][task_name] = self.image_tag(
@@ -503,53 +505,51 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_pat
     :param exclude:
     :return:
     """
-    app_base_path = os.path.join(search_root, APPS_PATH)
+    app_base_path = search_root / APPS_PATH
 
-    for app_path in get_sub_paths(app_base_path):
-        app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
+    for app_path in app_base_path.glob("*/"):  # We get the sub-files that are directories
+        app_name = app_name_from_path(os.path.relpath(f"{app_path}", app_base_path))
         if app_name in exclude or (include and not any(inc in app_name for inc in include)):
             continue
-        template_dir = os.path.join(app_path, 'deploy', 'templates', templates_path)
-        if os.path.exists(template_dir):
-            dest_dir = os.path.join(
-                dest_helm_chart_path, 'templates', app_name)
+        template_dir = app_path / 'deploy' / 'templates' / templates_path
+        if template_dir.exists():
+            dest_dir = dest_helm_chart_path / 'templates' / app_name
 
             logging.info(
                 "Collecting templates for application %s to %s", app_name, dest_dir)
-            if os.path.exists(dest_dir):
+            if dest_dir.exists():
                 logging.warning(
                     "Merging/overriding all files in directory %s", dest_dir)
-                merge_configuration_directories(template_dir, dest_dir)
+                merge_configuration_directories(f"{template_dir}", f"{dest_dir}")
             else:
                 shutil.copytree(template_dir, dest_dir)
-        resources_dir = os.path.join(app_path, 'deploy/resources')
-        if os.path.exists(resources_dir):
-            dest_dir = os.path.join(
-                dest_helm_chart_path, 'resources', app_name)
+        resources_dir = app_path / 'deploy' / 'resources'
+        if resources_dir.exists():
+            dest_dir = dest_helm_chart_path / 'resources' / app_name
 
             logging.info(
                 "Collecting resources for application  %s to %s", app_name, dest_dir)
 
-            merge_configuration_directories(resources_dir, dest_dir)
+            merge_configuration_directories(f"{resources_dir}", f"{dest_dir}")
 
-        subchart_dir = os.path.join(app_path, 'deploy/charts')
-        if os.path.exists(subchart_dir):
-            dest_dir = os.path.join(dest_helm_chart_path, 'charts', app_name)
+        subchart_dir = app_path / 'deploy/charts'
+        if subchart_dir.exists():
+            dest_dir = dest_helm_chart_path / 'charts' / app_name
 
             logging.info(
                 "Collecting templates for application %s to %s", app_name, dest_dir)
-            if os.path.exists(dest_dir):
+            if dest_dir.exists():
                 logging.warning(
                     "Merging/overriding all files in directory %s", dest_dir)
-                merge_configuration_directories(subchart_dir, dest_dir)
+                merge_configuration_directories(f"{subchart_dir}", f"{dest_dir}")
             else:
                 shutil.copytree(subchart_dir, dest_dir)
 
 
 def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart):
-    if not os.path.exists(base_helm_chart):
+    if not base_helm_chart.exists():
         return
-    if os.path.exists(dest_helm_chart_path):
+    if dest_helm_chart_path.exists():
         logging.info("Merging/overriding all files in directory %s",
                      dest_helm_chart_path)
         merge_configuration_directories(f"{base_helm_chart}", f"{dest_helm_chart_path}")
@@ -563,9 +563,7 @@ def collect_helm_values(deployment_root, env=()):
     """
     Creates helm values from a cloudharness deployment scaffolding
     """
-
-    values_template_path = os.path.join(
-        deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'values-template.yaml')
+    values_template_path = deployment_root / DEPLOYMENT_CONFIGURATION_PATH / 'values-template.yaml'
 
     values = get_template(values_template_path)
 

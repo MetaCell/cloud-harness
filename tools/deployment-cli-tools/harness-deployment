@@ -131,7 +131,6 @@ if __name__ == "__main__":
             tls=not args.no_tls,
             env=envs,
             namespace=args.namespace,
-            templates_path="compose",
         )
 
         merged_root_paths = preprocess_build_overrides(
