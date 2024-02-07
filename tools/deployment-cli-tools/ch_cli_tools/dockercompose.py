@@ -484,8 +484,8 @@ class CloudHarnessHelm:
         task_main_file = identify_unicorn_based_main(mains_candidates, app_path)
 
         if task_main_file:
-            helm_values[KEY_HARNESS]['deployment']['command'] = ['python']
-            helm_values[KEY_HARNESS]['deployment']['args'] = [f'/usr/src/app/{os.path.basename(task_main_file)}/__main__.py']
+            helm_values[KEY_HARNESS]['deployment']['command'] = 'python'
+            helm_values[KEY_HARNESS]['deployment']['args'] = f'/usr/src/app/{os.path.basename(task_main_file)}/__main__.py'
 
 
 def get_included_with_dependencies(values, include):

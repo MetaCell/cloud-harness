@@ -29,6 +29,9 @@ services:
         reservations:
           cpus: {{ $deployment.resources.requests.cpu | default "25m" }}
           memory: {{ trimSuffix "i" $deployment.resources.requests.memory | default "32M" }}
+    {{- with $deployment.command }}
+    entrypoint: {{ cat . $deployment.args }}
+    {{- end }}
     environment:
       - CH_CURRENT_APP_NAME={{ $app_name | quote }}
 
