@@ -546,18 +546,18 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_pat
 
             merge_configuration_directories(f"{resources_dir}", f"{dest_dir}")
 
-        subchart_dir = app_path / 'deploy/charts'
-        if subchart_dir.exists():
-            dest_dir = dest_helm_chart_path / 'charts' / app_name
+        # subchart_dir = app_path / 'deploy/charts'
+        # if subchart_dir.exists():
+        #     dest_dir = dest_helm_chart_path / 'charts' / app_name
 
-            logging.info(
-                "Collecting templates for application %s to %s", app_name, dest_dir)
-            if dest_dir.exists():
-                logging.warning(
-                    "Merging/overriding all files in directory %s", dest_dir)
-                merge_configuration_directories(f"{subchart_dir}", f"{dest_dir}")
-            else:
-                shutil.copytree(subchart_dir, dest_dir)
+        #     logging.info(
+        #         "Collecting templates for application %s to %s", app_name, dest_dir)
+        #     if dest_dir.exists():
+        #         logging.warning(
+        #             "Merging/overriding all files in directory %s", dest_dir)
+        #         merge_configuration_directories(f"{subchart_dir}", f"{dest_dir}")
+        #     else:
+        #         shutil.copytree(subchart_dir, dest_dir)
 
 
 def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart):
