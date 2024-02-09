@@ -45,10 +45,13 @@ services:
       - {{ .name }}={{ .value | quote }}
       {{- end }}
     {{- with $app_config.harness.dependencies.soft }}
-    # links:
-    #   {{- range . }}
-    #   - {{ . }}
-    #   {{- end }}
+    links:
+      {{- range . }}
+      - {{ . }}
+      {{- with $app_config.harness.domain }}
+      :{{- . }}
+      {{- end }}
+      {{- end }}
     {{- end }}
     {{- with $app_config.harness.dependencies.hard }}
     depends_on:

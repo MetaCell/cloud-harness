@@ -521,7 +521,7 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, exclude=(), i
         app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
         if app_name in exclude or (include and not any(inc in app_name for inc in include)):
             continue
-        template_dir = os.path.join(app_path, 'deploy', 'templates', HELM_PATH)
+        template_dir = os.path.join(app_path, 'deploy', 'templates')
         if os.path.exists(template_dir):
             dest_dir = os.path.join(
                 dest_helm_chart_path, 'templates', app_name)
