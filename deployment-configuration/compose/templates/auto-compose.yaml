@@ -48,8 +48,8 @@ services:
     links:
       {{- range . }}
       - {{ . }}
-      {{- with $app_config.harness.domain }}
-      :{{- . }}
+      {{- with $app_config.harness.subdomain }}
+      {{- ":" }}{{ . }}.{{ $.Values.domain }}
       {{- end }}
       {{- end }}
     {{- end }}
