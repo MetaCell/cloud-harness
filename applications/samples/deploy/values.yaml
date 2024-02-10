@@ -6,6 +6,8 @@ harness:
   service:
     port: 8080
     auto: true
+  use_services:
+    - name: common
   deployment:
     volume:
         name: my-shared-volume
@@ -47,6 +49,7 @@ harness:
     build:
       - cloudharness-flask
       - cloudharness-frontend-build
+  
   resources:
     - name: my-config
       src: "myConfig.json"

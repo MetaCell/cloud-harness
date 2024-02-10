@@ -72,3 +72,15 @@ def test_search_word_in_file():
 
 def test_search_word_in_folder():
     assert len(search_word_in_folder(os.path.join(HERE, './resources/applications/migration_app/'), "CLOUDHARNESS_BASE_DEBIAN")) == 2
+
+
+def test_find_dockerfile_paths():
+
+    myapp_path = os.path.join(HERE, "resources/applications/myapp")
+    if not os.path.exists(os.path.join(myapp_path, "dependencies/a/.git")):
+        os.makedirs(os.path.join(myapp_path, "dependencies/a/.git"))
+
+    dockerfiles = find_dockerfiles_paths(myapp_path)
+    assert len(dockerfiles) == 2
+    assert next(d for d in dockerfiles if d.endswith("myapp")), "Must find the Dockerfile in the root directory"
+    assert next(d for d in dockerfiles if d.endswith("myapp/tasks/mytask")), "Must find the Dockerfile in the tasks directory"

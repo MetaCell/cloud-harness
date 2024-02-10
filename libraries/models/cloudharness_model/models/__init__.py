@@ -25,6 +25,7 @@ from cloudharness_model.models.deployment_volume_spec import DeploymentVolumeSpe
 from cloudharness_model.models.deployment_volume_spec_all_of import DeploymentVolumeSpecAllOf
 from cloudharness_model.models.e2_e_tests_config import E2ETestsConfig
 from cloudharness_model.models.file_resources_config import FileResourcesConfig
+from cloudharness_model.models.git_dependency_config import GitDependencyConfig
 from cloudharness_model.models.harness_main_config import HarnessMainConfig
 from cloudharness_model.models.ingress_config import IngressConfig
 from cloudharness_model.models.ingress_config_all_of import IngressConfigAllOf
