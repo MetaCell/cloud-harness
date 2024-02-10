@@ -1,0 +1,17 @@
+{
+    "deprecated": [
+        {
+            "keyword": "CLOUDHARNESS_BASE_DEBIAN",
+            "to_be_replaced": [
+                {
+                    "old": "CLOUDHARNESS_BASE_DEBIAN",
+                    "new": "CLOUDHARNESS_BASE"
+                },
+                {
+                    "old": "apk",
+                    "new": "apt"
+                }
+            ]
+        }
+    ]
+}

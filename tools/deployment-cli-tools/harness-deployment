@@ -9,6 +9,7 @@ from ch_cli_tools.skaffold import create_skaffold_configuration, create_vscode_d
 from ch_cli_tools.codefresh import create_codefresh_deployment_scripts, write_env_file
 from ch_cli_tools.preprocessing import preprocess_build_overrides
 from ch_cli_tools.utils import merge_app_directories
+from ch_cli_tools.migration import perform_migration
 from cloudharness_utils.constants import DEPLOYMENT_PATH
 
 HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
@@ -61,7 +62,10 @@ if __name__ == "__main__":
                         help=f'Do not generate ci/cd files')
     parser.add_argument('-we', '--write-env', dest='write_env', action="store_const", default=None, const=True,
                             help=f'Write build env to .env file in {DEPLOYMENT_PATH}')
-
+    parser.add_argument('--migrate', dest='migration', action="store_true",
+                        help='Perform a migration of the deployment to the latest supported version.')
+    parser.add_argument('--migrate-accept-all', dest='migration_accept_all', action="store_true",
+                        help='Perform a migration of the deployment to the latest supported version without asking for confirmation. Use with caution.')
 
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
@@ -74,12 +78,16 @@ if __name__ == "__main__":
         print('There are unknown args. Make sure to call the script with the accepted args. Try --help')
         print(f'unknown: {unknown}')
     else:
-
         if args.merge:
             logging.warn(
                 "Merge (-m, --merge) argument is deprecated. Directory merging is now set automatically")
             merge_app_directories(root_paths, destination=args.merge)
             root_paths = [args.merge]
+
+        if args.migration_accept_all:
+            perform_migration(root_paths, accept_all=True)
+        elif args.migration:
+            perform_migration(root_paths, accept_all=False)
 
         helm_values = create_helm_chart(
             root_paths,

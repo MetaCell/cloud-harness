@@ -376,3 +376,37 @@ def check_docker_manifest_exists(registry, image_name, tag, registry_secret=None
     api_url = f"https://{registry}/v2/{image_name}/manifests/{tag}"
     resp = requests.get(api_url)
     return resp.status_code == 200
+
+
+def filter_empty_strings(value):
+    return value != ""
+
+
+def search_word_in_file(file, word):
+    p = subprocess.Popen('grep -l %s %s'% (word, file), shell=True,
+        stdout=subprocess.PIPE)
+    output, _ = p.communicate()
+    output = output.decode("utf-8")
+    matches = []
+    if p.returncode == 1: # no matches found
+        pass
+    elif p.returncode == 0: # matches found
+        matches = output.split('\n')
+    else:
+        raise Exception(f'Migration Error: {file} grep failed with return code {p.returncode} and output {output}')
+    return list(filter(filter_empty_strings, matches))
+
+
+def search_word_in_folder(folder, word):
+    p = subprocess.Popen('grep -rl %s %s'% (word, '*'), shell=True,
+        stdout=subprocess.PIPE, cwd=folder)
+    output, _ = p.communicate()
+    output = output.decode("utf-8")
+    matches = []
+    if p.returncode == 1: # no matches found
+        pass
+    elif p.returncode == 0: # matches found
+        matches = output.split('\n')
+    else:
+        raise Exception(f'Migration Error: {folder} grep failed with return code {p.returncode} and output {output}')
+    return list(filter(filter_empty_strings, matches))

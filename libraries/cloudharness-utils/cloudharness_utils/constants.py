@@ -29,7 +29,7 @@ CF_TEMPLATE_PUBLISH_PATH = f'{DEPLOYMENT_CONFIGURATION_PATH}/codefresh-publish-t
 VALUES_MANUAL_PATH = 'values.yaml'
 VALUE_TEMPLATE_PATH = f'{DEPLOYMENT_CONFIGURATION_PATH}/value-template.yaml'
 
-CH_BASE_IMAGES = {'cloudharness-base': 'python:3.9.10-alpine', 'cloudharness-base-debian': 'python:3.9.10'}
+CH_BASE_IMAGES = {'cloudharness-base': 'python:3.9.10'}
 
 
 CD_BUILD_STEP_BASE = 'build_base_images'
