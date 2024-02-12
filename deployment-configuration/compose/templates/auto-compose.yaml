@@ -2,16 +2,22 @@ version: '3.7'
 
 services:
 {{- range $app_name, $app_config := .Values.apps }}
-  {{- if has $app_name (list "argo" "nfsserver" "workflows" "events" ) }} {{- /* We deactivate generation for some services */}}
+  {{ $deployment :=  $app_config.harness.deployment }}
+  {{- if or (not $deployment.auto) (not $app_config.harness.service.auto) }}
   {{- continue }}
   {{- end}}
-  {{ $deployment :=  $app_config.harness.deployment }}
   {{ $app_name }}:
     {{- with $app_config.domain }}
     domainname: {{ . }}
     {{- end }}
     networks:
-    - ch
+      {{- if ne $app_config.harness.service.name $app_name}}
+      ch:
+        aliases:
+          - {{ $app_config.harness.service.name }}
+      {{- else }}
+      - ch
+      {{- end}}
     {{- with $app_config.image }}
     image: {{ . }}
     {{- end }}
@@ -47,7 +53,8 @@ services:
     {{- with $app_config.harness.dependencies.soft }}
     links:
       {{- range . }}
-      - {{ . }}:{{ . }}.{{ $.Values.domain }}
+      {{- $service_name := (get $.Values.apps .).harness.service.name }}
+      - {{ . }}:{{ $service_name }}.{{ $.Values.domain }}
       {{- end }}
     {{- end }}
     {{- with $app_config.harness.dependencies.hard }}
