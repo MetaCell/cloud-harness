@@ -1,0 +1,17 @@
+#!/usr/bin/env python
+import os
+import sys
+from ch_cli_tools.migration import perform_migration
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='Perform a migration of the deployment to the latest supported version.')
+
+    parser.add_argument('--accept-all', dest='migration_accept_all', action="store_true",
+                        help='Perform a migration of the deployment to the latest supported version without asking for confirmation. Use with caution.')
+
+    args, unknown = parser.parse_known_args(sys.argv[1:])
+
+    perform_migration(os.getcwd(), accept_all=args.migration_accept_all)

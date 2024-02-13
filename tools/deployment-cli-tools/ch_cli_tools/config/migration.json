@@ -8,8 +8,37 @@
                     "new": "CLOUDHARNESS_BASE"
                 },
                 {
-                    "old": "apk",
-                    "new": "apt"
+                    "old": "apk add",
+                    "new": "apt-get install"
+                },
+                {
+                    "old": "apk update",
+                    "new": "apt-get update"
+                },
+                {
+                    "old": "apk upgrade",
+                    "new": "apt-get upgrade"
+                },
+                {
+                    "old": "apk add --no-cache",
+                    "new": "apt-get install --no-cache"
+                },
+                {
+                    "old": "apk update --no-cache",
+                    "new": "apt-get update --no-cache"
+                },
+                {
+                    "old": "apk upgrade --no-cache",
+                    "new": "apt-get upgrade --no-cache"
+                }
+            ]
+        },
+        {
+            "keyword": "cloudharness-base-debian",
+            "to_be_replaced": [
+                {
+                    "old": "cloudharness-base-debian",
+                    "new": "cloudharness-base"
                 }
             ]
         }
