@@ -15,7 +15,7 @@ Closes [CH-X](https://metacell.atlassian.net/browse/CH-X)
 - [ ] The labels in the issue set the scope and the type of issue (bug, feature, etc.)
 - [ ] The relevant components are indicated in the issue (if any)
 - [ ] All the automated test checks are passing
-- [ ] All the linked issues are included in one release
+- [ ] All the linked issues are included in one Sprint
 - [ ] All the linked issues are in the Review state
 - [ ] All the linked issues are assigned
 
