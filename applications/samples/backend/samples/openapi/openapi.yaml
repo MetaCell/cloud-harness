@@ -12,7 +12,8 @@ servers:
 tags:
 - name: auth
 - name: workflows
-- name: resource
+- description: ""
+  name: resource
 paths:
   /error:
     get:
@@ -90,8 +91,8 @@ paths:
               schema:
                 type: string
           description: Operation result
-      summary: Send a synchronous operation and get results using the event queue.
-        Just a sum, but in the cloud
+      summary: "Send a synchronous operation and get results using the event queue.\
+        \ Just a sum, but in the cloud"
       tags:
       - workflows
       x-openapi-router-controller: samples.controllers.workflows_controller
@@ -112,9 +113,9 @@ paths:
       - test
       x-openapi-router-controller: samples.controllers.test_controller
   /sampleresources:
-    description: The REST endpoint/path used to list and create zero or more `SampleResource`
-      entities.  This path contains a `GET` and `POST` operation to perform the list
-      and create tasks, respectively.
+    description: "The REST endpoint/path used to list and create zero or more `SampleResource`\
+      \ entities.  This path contains a `GET` and `POST` operation to perform the\
+      \ list and create tasks, respectively."
     get:
       description: Gets a list of all `SampleResource` entities.
       operationId: get_sample_resources
@@ -176,9 +177,9 @@ paths:
       tags:
       - resource
       x-openapi-router-controller: samples.controllers.resource_controller
-    description: The REST endpoint/path used to get, update, and delete single instances
-      of an `SampleResource`.  This path contains `GET`, `PUT`, and `DELETE` operations
-      used to perform the get, update, and delete tasks, respectively.
+    description: "The REST endpoint/path used to get, update, and delete single instances\
+      \ of an `SampleResource`.  This path contains `GET`, `PUT`, and `DELETE` operations\
+      \ used to perform the get, update, and delete tasks, respectively."
     get:
       description: Gets the details of a single instance of a `SampleResource`.
       operationId: get_sample_resource
@@ -229,7 +230,7 @@ paths:
         "202":
           description: Successful response.
         "400":
-          description: Parameter must be integer, payload must be of type SampleResource
+          description: "Parameter must be integer, payload must be of type SampleResource"
         "404":
           description: Resource not found
       summary: Update a SampleResource
@@ -250,7 +251,7 @@ paths:
                 type: string
           description: Check if token is valid
         "401":
-          description: invalid token, unauthorized
+          description: "invalid token, unauthorized"
       security:
       - bearerAuth: []
       summary: Check if the token is valid. Get a token by logging into the base url
@@ -270,7 +271,7 @@ paths:
                 type: string
           description: Check if token is valid
         "401":
-          description: invalid token, unauthorized
+          description: "invalid token, unauthorized"
       security:
       - cookieAuth: []
       summary: Check if the token is valid. Get a token by logging into the base url
@@ -306,18 +307,22 @@ components:
       title: inline_response_202
       type: object
     SampleResource:
+      description: ""
       example:
         a: 0.8008281904610115
         b: 6.027456183070403
         id: 1.4658129805029452
       properties:
         a:
+          description: ""
           title: a
           type: number
         b:
+          description: ""
           title: b
           type: number
         id:
+          description: ""
           title: id
           type: number
       required:

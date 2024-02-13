@@ -56,6 +56,7 @@ class SampleResource(Model):
     def a(self):
         """Gets the a of this SampleResource.
 
+          # noqa: E501
 
         :return: The a of this SampleResource.
         :rtype: float
@@ -66,6 +67,7 @@ class SampleResource(Model):
     def a(self, a):
         """Sets the a of this SampleResource.
 
+          # noqa: E501
 
         :param a: The a of this SampleResource.
         :type a: float
@@ -79,6 +81,7 @@ class SampleResource(Model):
     def b(self):
         """Gets the b of this SampleResource.
 
+          # noqa: E501
 
         :return: The b of this SampleResource.
         :rtype: float
@@ -89,6 +92,7 @@ class SampleResource(Model):
     def b(self, b):
         """Sets the b of this SampleResource.
 
+          # noqa: E501
 
         :param b: The b of this SampleResource.
         :type b: float
@@ -100,6 +104,7 @@ class SampleResource(Model):
     def id(self):
         """Gets the id of this SampleResource.
 
+          # noqa: E501
 
         :return: The id of this SampleResource.
         :rtype: float
@@ -110,6 +115,7 @@ class SampleResource(Model):
     def id(self, id):
         """Sets the id of this SampleResource.
 
+          # noqa: E501
 
         :param id: The id of this SampleResource.
         :type id: float

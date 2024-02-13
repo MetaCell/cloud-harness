@@ -143,7 +143,8 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
             def identify_unicorn_based_main(candidates):
                 import re
                 gunicorn_pattern = re.compile(r"gunicorn")
-                for candidate in candidates:
+                # sort candidates, shortest path first
+                for candidate in sorted(candidates,key=lambda x: len(x.split("/"))):
                     dockerfile_path = f"{candidate}/.."
                     while not exists(f"{dockerfile_path}/Dockerfile") and abspath(dockerfile_path) != abspath(root_path):
                         dockerfile_path += "/.."

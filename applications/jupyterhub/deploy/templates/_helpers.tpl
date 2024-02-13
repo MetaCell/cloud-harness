@@ -12,7 +12,7 @@
 
   When you ask a helper to render its content, one often forward the current
   scope to the helper in order to allow it to access .Release.Name,
-  .Values.apps.jupyterhub.rbac.enabled and similar values.
+  .Values.apps.jupyterhub.rbac.create and similar values.
 
   #### Example - Passing the current scope
   {{ include "jupyterhub.commonLabels" . }}
@@ -180,8 +180,51 @@ component: {{ include "jupyterhub.componentLabel" . }}
     Augments passed .pullSecrets with $.Values.apps.jupyterhub.imagePullSecrets
 */}}
 {{- define "jupyterhub.imagePullSecrets" -}}
+    {{- /*
+        We have implemented a trick to allow a parent chart depending on this
+        chart to call this named templates.
 
+        Caveats and notes:
 
+            1. While parent charts can reference these, grandparent charts can't.
+            2. Parent charts must not use an alias for this chart.
+            3. There is no failsafe workaround to above due to
+                https://github.com/helm/helm/issues/9214.
+            4. .Chart is of its own type (*chart.Metadata) and needs to be casted
+                using "toYaml | fromYaml" in order to be able to use normal helm
+                template functions on it.
+    */}}
+    {{- $jupyterhub_values := .root.Values.apps.jupyterhub }}
+    {{- if ne .root.Chart.Name "jupyterhub" }}
+        {{- if .root.Values.apps.jupyterhub.jupyterhub }}
+            {{- $jupyterhub_values = .root.Values.apps.jupyterhub.jupyterhub }}
+        {{- end }}
+    {{- end }}
+
+    {{- /* Populate $_.list with all relevant entries */}}
+    {{- $_ := dict "list" (concat .image.pullSecrets $jupyterhub_values.imagePullSecrets | uniq) }}
+    {{- if and $jupyterhub_values.imagePullSecret.create $jupyterhub_values.imagePullSecret.automaticReferenceInjection }}
+        {{- $__ := set $_ "list" (append $_.list (include "jupyterhub.image-pull-secret.fullname" .root) | uniq) }}
+    {{- end }}
+
+    {{- /* Decide if something should be written */}}
+    {{- if not (eq ($_.list | toJson) "[]") }}
+
+        {{- /* Process the $_.list where strings become dicts with a name key and the
+        strings become the name keys' values into $_.res */}}
+        {{- $_ := set $_ "res" list }}
+        {{- range $_.list }}
+            {{- if eq (typeOf .) "string" }}
+                {{- $__ := set $_ "res" (append $_.res (dict "name" .)) }}
+            {{- else }}
+                {{- $__ := set $_ "res" (append $_.res .) }}
+            {{- end }}
+        {{- end }}
+
+        {{- /* Write the results */}}
+        {{- $_.res | toJson }}
+
+    {{- end }}
 {{- end }}
 
 {{- /*
@@ -338,4 +381,22 @@ limits:
     {{- if ne $field_count 1 }}
         {{- print "\n\nextraFiles entries (" $file_key ") must only contain one of the fields: 'data', 'stringData', and 'binaryData'." | fail }}
     {{- end }}
+{{- end }}
+
+{{- /*
+  jupyterhub.chart-version-to-git-ref:
+    Renders a valid git reference from a chartpress generated version string.
+    In practice, either a git tag or a git commit hash will be returned.
+
+    - The version string will follow a chartpress pattern, see
+      https://github.com/jupyterhub/chartpress#examples-chart-versions-and-image-tags.
+
+    - The regexReplaceAll function is a sprig library function, see
+      https://masterminds.github.io/sprig/strings.html.
+
+    - The regular expression is in golang syntax, but \d had to become \\d for
+      example.
+*/}}
+{{- define "jupyterhub.chart-version-to-git-ref" -}}
+{{- regexReplaceAll ".*[.-]n\\d+[.]h(.*)" . "${1}" }}
 {{- end }}

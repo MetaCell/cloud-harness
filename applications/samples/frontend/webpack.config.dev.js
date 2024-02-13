@@ -13,17 +13,20 @@ module.exports = env => {
   console.log('Dev server address: ', theDomain);
 
   const proxyTarget = theDomain;
-  const replaceHost = (uri, appName) => (uri.includes("__APP_NAME__") && uri.replace("__APP_NAME__", appName + '.' + theDomain)) || uri;
+  const replaceHost = (uri, appName) => (uri.includes("samples") && uri.replace("samples", appName + '.' + theDomain)) || uri;
   if (!env.port) {
     env.devPort = PORT;
   }
 
 
   const devServer = {
-    contentBase: path.join(__dirname, 'dist'),
+    static: [{
+      directory: path.resolve(__dirname, 'dist'),
+      publicPath: '/',
+    }],
     compress: true,
+    https: env.DOMAIN.includes("https"),
     port: Number(env.devPort),
-    disableHostCheck: true,
     historyApiFallback: true,
     proxy: {
       '/api/': {

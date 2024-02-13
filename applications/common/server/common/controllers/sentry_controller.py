@@ -5,13 +5,13 @@ from cloudharness import applications, log
 from cloudharness.utils.env import get_sentry_service_cluster_address
 from common.repository.sentry import get_token, get_dsn, SentryProjectNotFound
 
+
 try:
     global_dsn = os.environ.get("SENTRY_DSN", "")
     if len(global_dsn) < 1:
         global_dsn = None
 except:
     global_dsn = None
-
 
 def getdsn(appname):  # noqa: E501
     """

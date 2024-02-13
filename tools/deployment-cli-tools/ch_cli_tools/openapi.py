@@ -16,7 +16,7 @@ APPLICATIONS_SRC_PATH = os.path.join('applications')
 LIB_NAME = 'cloudharness_cli'
 ROOT = dn(dn(dn(HERE)))
 
-OPENAPI_GEN_URL = 'https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/6.2.1/openapi-generator-cli-6.2.1.jar'
+OPENAPI_GEN_URL = 'https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/7.2.0/openapi-generator-cli-7.2.0.jar'
 
 
 def generate_server(app_path, overrides_folder=""):
