@@ -24,6 +24,10 @@ services:
     {{- with $app_config.harness.service.port }}
     ports:
       - "{{ . }}:{{ $app_config.harness.deployment.port }}"
+    {{- end }}
+    {{- with $app_config.harness.deployment.port }}
+    expose:
+      - {{ . | quote }}
     {{- end}}
     deploy:
       mode: "replicated"
@@ -85,6 +89,8 @@ services:
   # Database for {{ $app_name }}, type {{ .type }} named {{ .name }}
   {{ .name }}:
     {{- $db_infos := (get . .type) }}
+    networks:
+      ch:
     image: {{ $db_infos.image }}
     expose:
     {{- range $port := $db_infos.ports }}
