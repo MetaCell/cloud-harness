@@ -78,8 +78,29 @@ services:
     {{- end }}
     {{- end}}
     {{- end }}
+  {{- with $app_config.harness.database }}
+  {{- if not .auto }}
+  {{- continue}}
+  {{- end }}
+  # Database for {{ $app_name }}, type {{ .type }} named {{ .name }}
+  {{ .name }}:
+    {{- $db_infos := (get . .type) }}
+    image: {{ $db_infos.image }}
+    expose:
+    {{- range $port := $db_infos.ports }}
+    - {{ $port.port | quote }}
+    {{- end }}
+    {{- with .resources }}
+    resources:
+      limits:
+        cpus: {{ .limits.cpu | default "1000m" }}
+        memory: {{ trimSuffix "i" .limits.memory | default "2G" }}
+      reservations:
+        cpus: {{ .requests.cpu | default "100m" }}
+        memory: {{ trimSuffix "i" .requests.memory | default "512M" }}
+    {{- end }}
+  {{- end}}
 {{- end }}
-
   traefik:
     image: "traefik:v2.10"
     container_name: "traefik"
