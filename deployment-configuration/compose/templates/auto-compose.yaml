@@ -97,13 +97,14 @@ services:
     - {{ $port.port | quote }}
     {{- end }}
     {{- with .resources }}
-    resources:
-      limits:
-        cpus: {{ .limits.cpu | default "1000m" }}
-        memory: {{ trimSuffix "i" .limits.memory | default "2G" }}
-      reservations:
-        cpus: {{ .requests.cpu | default "100m" }}
-        memory: {{ trimSuffix "i" .requests.memory | default "512M" }}
+    deploy:
+      resources:
+        limits:
+          cpus: {{ .limits.cpu | default "1000m" }}
+          memory: {{ trimSuffix "i" .limits.memory | default "2G" }}
+        reservations:
+          cpus: {{ .requests.cpu | default "100m" }}
+          memory: {{ trimSuffix "i" .requests.memory | default "512M" }}
     {{- end }}
   {{- end}}
 {{- end }}
