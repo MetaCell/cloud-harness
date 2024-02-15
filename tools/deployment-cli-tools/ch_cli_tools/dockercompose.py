@@ -11,6 +11,7 @@ from functools import cache
 import tarfile
 from docker import from_env as DockerClient
 from pathlib import Path
+import copy
 
 
 from . import HERE, CH_ROOT
@@ -134,6 +135,12 @@ class CloudHarnessHelm:
             merge_to_yaml_file({'metadata': {'namespace': self.namespace},
                                 'name': helm_values['name']}, self.helm_chart_path)
         validate_helm_values(merged_values)
+
+        # All values save
+        all_values = self.__get_default_helm_values_with_secrets(merged_values)
+
+        merge_to_yaml_file(all_values, self.dest_deployment_path / 'allvalues.yaml')
+
         return HarnessMainConfig.from_dict(merged_values)
 
     def __process_applications(self, helm_values, base_image_name):
@@ -232,6 +239,18 @@ class CloudHarnessHelm:
         helm_values = dict_merge(helm_values,
                                  collect_helm_values(ch_root_path, env=self.env))
 
+        return helm_values
+
+    def __get_default_helm_values_with_secrets(self, helm_values):
+        helm_values = copy.deepcopy(helm_values)
+        # {{- $values_copy := deepCopy .Values }}
+        # {{- range $key, $val := .Values.apps }}
+        #   {{- $new_secrets := dict "apps" (dict $key (dict "harness" (dict "secrets"))) }}
+        #   {{- $tmp := mergeOverwrite $values_copy $new_secrets }}
+        # {{- end }}
+        # {{ $values_copy | toYaml | indent 4 }}
+        for key, val in helm_values['apps'].items():
+            helm_values['apps'][key]['harness']['secrets'] = {}
         return helm_values
 
     def create_tls_certificate(self, helm_values):

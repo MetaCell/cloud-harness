@@ -71,7 +71,7 @@ services:
       {{- end }}
     {{- end }}
     volumes:
-      - ./compose/values.yaml:/opt/cloudharness/resources/allvalues.yaml:ro
+      - ./compose/allvalues.yaml:/opt/cloudharness/resources/allvalues.yaml:ro
     {{- if or $deployment.volume $app_config.harness.resources }}
     {{- with $deployment.volume }}
       - type: volume
