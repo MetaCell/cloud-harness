@@ -109,7 +109,16 @@ services:
           cpus: {{ .requests.cpu | default "100m" }}
           memory: {{ trimSuffix "i" .requests.memory | default "512M" }}
     {{- end }}
-  {{- include "deploy_utils.database.postgres" . }}
+    volumes:
+      - type: volume
+        source: {{ .name }}
+        target: /data/db
+    {{- if eq .type "postgres" }}
+      - type: volume
+        source: dshm
+        target: /dev/shm
+    {{- include "deploy_utils.database.postgres" . }}
+    {{- end }}
   {{- end}}
 {{- end }}
   traefik:
@@ -141,5 +150,11 @@ volumes:  # this inclusion needs to be conditional
 {{- range $app_name, $app_config := .Values.apps }}
   {{- with $app_config.harness.deployment.volume }}
   {{ .name }}:
+  {{- end }}
+  {{- with $app_config.harness.database }}
+  {{ .name }}:
+  {{- if eq .type "postgres" }}
+  dshm:
+  {{- end }}
   {{- end }}
 {{- end }}
