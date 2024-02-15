@@ -86,9 +86,9 @@ services:
     {{- end}}
     {{- end }}
   {{- with $app_config.harness.database }}
-  {{- if not .auto }}
-  {{- continue}}
-  {{- end }}
+    {{- if not .auto }}
+    {{- continue}}
+    {{- end }}
   # Database for {{ $app_name }}, type {{ .type }} named {{ .name }}
   {{ .name }}:
     {{- $db_infos := (get . .type) }}
@@ -109,6 +109,7 @@ services:
           cpus: {{ .requests.cpu | default "100m" }}
           memory: {{ trimSuffix "i" .requests.memory | default "512M" }}
     {{- end }}
+  {{- include "deploy_utils.database.postgres" . }}
   {{- end}}
 {{- end }}
   traefik:

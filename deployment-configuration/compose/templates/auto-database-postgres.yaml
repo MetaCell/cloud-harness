@@ -1,0 +1,7 @@
+{{- define "deploy_utils.database.postgres" }}
+    environment:
+      - POSTGRES_DB={{ .postgres.initialdb | quote }}
+      - POSTGRES_USER={{ .user | quote }}
+      - POSTGRES_PASSWORD={{ .pass | quote }}
+      - PGDATA=/data/db/pgdata
+{{- end }}
