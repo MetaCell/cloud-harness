@@ -21,9 +21,11 @@ services:
     {{- with $app_config.image }}
     image: {{ . }}
     {{- end }}
+    {{- if eq $.Values.mainapp $app_name }}
     {{- with $app_config.harness.service.port }}
     ports:
       - "{{ . }}:{{ $app_config.harness.deployment.port }}"
+    {{- end }}
     {{- end }}
     {{- with $app_config.harness.deployment.port }}
     expose:
@@ -40,19 +42,20 @@ services:
           cpus: {{ $deployment.resources.requests.cpu | default "25m" }}
           memory: {{ trimSuffix "i" $deployment.resources.requests.memory | default "32M" }}
     {{- with $deployment.command }}
-    entrypoint: {{ cat . $deployment.args }}
+    # entrypoint: {{ cat . $deployment.args }}
     {{- end }}
     environment:
-      - CH_CURRENT_APP_NAME={{ $app_name | quote }}
+      - CH_CURRENT_APP_NAME={{ $app_name }}
+      - CH_VALUES_PATH=/opt/cloudharness/resources/allvalues.yaml
 
       {{- range $.Values.env }}
-      - {{ .name }}={{ .value | quote }}
+      - {{ .name }}={{ .value }}
       {{- end }}
       {{- /*{{- range $.Values.env }}
-      - {{ .name }}={{ .value | quote }}
+      - {{ .name }}={{ .value }}
       {{- end }} */}}
       {{- range $app_config.harness.env }}
-      - {{ .name }}={{ .value | quote }}
+      - {{ .name }}={{ .value }}
       {{- end }}
     {{- with $app_config.harness.dependencies.soft }}
     links:
@@ -67,8 +70,9 @@ services:
       - {{ . }}
       {{- end }}
     {{- end }}
-    {{- if or $deployment.volume $app_config.harness.resources }}
     volumes:
+      - ./compose/values.yaml:/opt/cloudharness/resources/allvalues.yaml:ro
+    {{- if or $deployment.volume $app_config.harness.resources }}
     {{- with $deployment.volume }}
       - type: volume
         source: {{ .name }}
