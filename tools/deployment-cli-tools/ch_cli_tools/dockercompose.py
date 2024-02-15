@@ -141,7 +141,19 @@ class CloudHarnessHelm:
 
         merge_to_yaml_file(all_values, self.dest_deployment_path / 'allvalues.yaml')
 
+        self.generate_docker_compose_yaml()
+
         return HarnessMainConfig.from_dict(merged_values)
+
+    def generate_docker_compose_yaml(self):
+        compose_templates = self.dest_deployment_path
+        dest_compose_yaml = self.dest_deployment_path.parent / "docker-compose.yaml"
+
+        logging.info(f'Generate docker compose configuration in: {dest_compose_yaml}, using templates from {compose_templates}')
+        command = f"helm template {compose_templates} > {dest_compose_yaml}"
+
+        subprocess.call(command, shell=True)
+
 
     def __process_applications(self, helm_values, base_image_name):
         for root_path in self.root_paths:

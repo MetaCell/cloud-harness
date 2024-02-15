@@ -46,7 +46,6 @@ services:
     {{- end }}
     environment:
       - CH_CURRENT_APP_NAME={{ $app_name }}
-      - CH_VALUES_PATH=/opt/cloudharness/resources/allvalues.yaml
 
       {{- range $.Values.env }}
       - {{ .name }}={{ .value }}
