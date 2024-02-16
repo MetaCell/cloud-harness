@@ -104,11 +104,22 @@ services:
     {{- with $app_config.harness.resources }}
     {{- range .}}
       - type: bind
-        source: compose/resources/{{ $app_name }}/{{.src }}
+        source: compose/resources/{{ $app_name }}/{{ .src }}
         target: {{ .dst }}
     {{- end }}
     {{- end}}
     {{- end }}
+  {{- if $.Values.local }}
+  {{- $domain := $.Values.domain }}
+  {{- $ip := $.Values.localIp }}
+  extra_hosts:
+    - "{{ $.Values.domain }}:{{ $ip }}"
+    {{- range $app := $.Values.apps }}
+    {{- with $app.harness.subdomain}}
+    - "{{ . }}.{{ $domain }}:{{ $ip }}"
+    {{- end }}
+    {{- end }}
+  {{- end }}
   {{- with $app_config.harness.database }}
     {{- if not .auto }}
     {{- continue}}
