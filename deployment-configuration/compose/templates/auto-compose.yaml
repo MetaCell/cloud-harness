@@ -74,9 +74,13 @@ services:
       {{- range $.Values.env }}
       - {{ .name }}={{ .value }}
       {{- end }}
-      {{- /*{{- range $.Values.env }}
-      - {{ .name }}={{ .value }}
-      {{- end }} */}}
+      {{- with $.Values.apps.accounts }}
+      - CH_ACCOUNTS_CLIENT_SECRET={{ .client.secret }}
+      - CH_ACCOUNTS_REALM={{ $.Values.namespace }}
+      - CH_ACCOUNTS_AUTH_DOMAIN={{ printf "%s.%s" .harness.subdomain $.Values.domain }}
+      - CH_ACCOUNTS_CLIENT_ID={{ .client.id }}
+      - DOMAIN={{ $.Values.domain }}
+      {{- end}}
       {{- range $app_config.harness.env }}
       - {{ .name }}={{ .value }}
       {{- end }}
@@ -110,6 +114,7 @@ services:
     {{- end}}
     {{- end }}
   {{- if $.Values.local }}
+  # Extra /etc/hosts list
   {{- $domain := $.Values.domain }}
   {{- $ip := $.Values.localIp }}
   extra_hosts:
