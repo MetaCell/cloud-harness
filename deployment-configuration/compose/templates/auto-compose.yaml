@@ -25,7 +25,7 @@ services:
 {{- range $app_name, $app_config := .Values.apps }}
   {{ $deployment :=  $app_config.harness.deployment }}
   {{- if eq $app_name "nfsserver" }}
-  {{- include "events.deployment" $.Values}}
+  {{- include "events.deployment" $.Values | indent 2 }}
   {{- end }}
   {{- if or (not $deployment.auto) (not $app_config.harness.service.auto) }}
   {{- continue }}
@@ -113,40 +113,9 @@ services:
     {{- if not .auto }}
     {{- continue}}
     {{- end }}
-  # Database for {{ $app_name }}, type {{ .type }} named {{ .name }}
-  {{ .name }}:
-    {{- $db_infos := (get . .type) }}
-    networks:
-      ch:
-    image: {{ $db_infos.image }}
-    expose:
-    {{- range $port := $db_infos.ports }}
-    - {{ $port.port | quote }}
-    {{- end }}
-    {{- with .resources }}
-    deploy:
-      resources:
-        limits:
-          cpus: {{ .limits.cpu | default "1000m" }}
-          memory: {{ trimSuffix "i" .limits.memory | default "2G" }}
-        reservations:
-          cpus: {{ .requests.cpu | default "100m" }}
-          memory: {{ trimSuffix "i" .requests.memory | default "512M" }}
-    {{- end }}
-    volumes:
-      - type: volume
-        source: {{ .name }}
-        target: /data/db
-    {{- if eq .type "postgres" }}
-      - type: volume
-        source: dshm
-        target: /dev/shm
-    {{- include "deploy_utils.database.postgres" . }}
-    {{- end }}
+  {{- include "db.deployment" . | indent 2}}
   {{- end}}
-
 {{- end }}
-
 
 # Network definition
 networks:

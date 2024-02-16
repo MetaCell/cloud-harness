@@ -1,0 +1,32 @@
+{{- define "db.deployment" }}
+# Database type {{ .type }} named {{ .name }}
+{{ .name }}:
+  {{- $db_infos := (get . .type) }}
+  networks:
+    ch:
+  image: {{ $db_infos.image }}
+  expose:
+  {{- range $port := $db_infos.ports }}
+    - {{ $port.port | quote }}
+  {{- end }}
+  {{- with .resources }}
+  deploy:
+    resources:
+      limits:
+        cpus: {{ .limits.cpu | default "1000m" }}
+        memory: {{ trimSuffix "i" .limits.memory | default "2G" }}
+      reservations:
+        cpus: {{ .requests.cpu | default "100m" }}
+        memory: {{ trimSuffix "i" .requests.memory | default "512M" }}
+  {{- end }}
+  volumes:
+    - type: volume
+      source: {{ .name }}
+      target: /data/db
+  {{- if eq .type "postgres" }}
+    - type: volume
+      source: dshm
+      target: /dev/shm
+  {{- include "deploy_utils.database.postgres" . }}
+  {{- end }}
+{{- end }}
