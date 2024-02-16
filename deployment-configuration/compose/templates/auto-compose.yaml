@@ -1,8 +1,32 @@
 version: '3.7'
 
 services:
+  traefik:
+    image: "traefik:v2.10"
+    container_name: "traefik"
+    networks:
+    - ch
+    command:
+      - "--log.level=INFO"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--providers.file.directory=/etc/traefik/dynamic_conf"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./certs/:/certs/:ro"
+      - "./traefik.yaml:/etc/traefik/dynamic_conf/conf.yml:ro"
+
 {{- range $app_name, $app_config := .Values.apps }}
   {{ $deployment :=  $app_config.harness.deployment }}
+  {{- if eq $app_name "nfsserver" }}
+  {{- include "events.deployment" $.Values}}
+  {{- end }}
   {{- if or (not $deployment.auto) (not $app_config.harness.service.auto) }}
   {{- continue }}
   {{- end}}
@@ -120,28 +144,11 @@ services:
     {{- include "deploy_utils.database.postgres" . }}
     {{- end }}
   {{- end}}
-{{- end }}
-  traefik:
-    image: "traefik:v2.10"
-    container_name: "traefik"
-    networks:
-    - ch
-    command:
-      - "--log.level=INFO"
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--providers.file.directory=/etc/traefik/dynamic_conf"
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - "./certs/:/certs/:ro"
-      - "./traefik.yaml:/etc/traefik/dynamic_conf/conf.yml:ro"
 
+{{- end }}
+
+
+# Network definition
 networks:
   ch:
     name: ch_network

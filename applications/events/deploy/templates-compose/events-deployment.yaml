@@ -1,0 +1,13 @@
+{{- define "events.deployment" }}
+{{- $nfs := .apps.nfsserver}}
+
+{{ $nfs.name }}:
+  image: {{ $nfs.harness.deployment.image }}
+  environment:
+    # NFS useDNS? {{ $nfs.nfs.useDNS }}
+    {{- if $nfs.nfs.useDNS }}
+    - NFS_SERVER={{ printf "nfs-server.%s.svc.cluster.local" .namespace }}
+    {{- end }}
+    - NFS_PATH={{ $nfs.nfs.path }}
+    - PROVISIONER_NAME={{ printf "%s-nfs-provisioner" .namespace }}
+{{- end }}
