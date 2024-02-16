@@ -8,6 +8,4 @@ def test_migration_accept_all():
     perform_migration(os.path.join(HERE, './resources/migration'), accept_all=True)
     assert len(search_word_in_folder(os.path.join(HERE, './resources/migration/applications'), "CLOUDHARNESS_BASE_DEBIAN")) == 0
     os.system(f'cp -R {os.path.join(HERE, "resources/migration/backup/migration_app")} {os.path.join(HERE, "resources/migration/applications/")}')
-    # print(f'cp -R {os.path.join(HERE, "resources/migration/backup")} {os.path.join(HERE, "resources/migration/applications")}')
-    # subprocess.Popen(['cp', '-R', 'backup/*', 'applications/'], cwd=os.path.join(HERE, 'resources/migration'))
     assert len(search_word_in_folder(os.path.join(HERE, './resources/migration/applications'), "CLOUDHARNESS_BASE_DEBIAN")) == 2

@@ -21,7 +21,6 @@ RUN pip install -e /libraries/models --no-cache-dir
 COPY libraries/cloudharness-common /libraries/cloudharness-common
 COPY libraries/client/cloudharness_cli /libraries/client/cloudharness_cli
 
-#
 RUN pip install -e /libraries/models --no-cache-dir
 RUN pip install -e /libraries/cloudharness-common --no-cache-dir
 RUN pip install -e /libraries/client/cloudharness_cli --no-cache-dir
