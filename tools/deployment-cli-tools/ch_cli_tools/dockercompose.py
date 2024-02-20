@@ -29,6 +29,7 @@ KEY_DATABASE = 'database'
 KEY_DEPLOYMENT = 'deployment'
 KEY_APPS = 'apps'
 KEY_TASK_IMAGES = 'task-images'
+# KEY_TASK_IMAGES_BUILD = f"{KEY_TASK_IMAGES}-build"
 KEY_TEST_IMAGES = 'test-images'
 
 DEFAULT_IGNORE = ('/tasks', '.dockerignore', '.hypothesis', "__pycache__", '.node_modules', 'dist', 'build', '.coverage')
@@ -180,6 +181,30 @@ class CloudHarnessHelm:
 
             app_values = self.create_app_values_spec(app_name, app_path, base_image_name=base_image_name)
 
+            # dockerfile_path = next(app_path.rglob('**/Dockerfile'), None)
+            # # for dockerfile_path in app_path.rglob('**/Dockerfile'):
+            # #     parent_name = dockerfile_path.parent.name.replace("-", "_")
+            # #     if parent_name == app_key:
+            # #         app_values['build'] = {
+            # #             # 'dockerfile': f"{dockerfile_path.relative_to(app_path)}",
+            # #             'dockerfile': "Dockerfile",
+            # #             'context': os.path.relpath(dockerfile_path.parent, self.dest_deployment_path.parent),
+            # #         }
+            # #     elif "tasks/" in f"{dockerfile_path}":
+            # #         parent_name = parent_name.upper()
+            # #         values.setdefault("task-images-build", {})[parent_name] = {
+            # #             'dockerfile': "Dockerfile",
+            # #             'context': os.path.relpath(dockerfile_path.parent, self.dest_deployment_path.parent),
+            # #         }
+            # #         import ipdb; ipdb.set_trace()  # fmt: skip
+
+            # if dockerfile_path:
+            #     app_values['build'] = {
+            #         # 'dockerfile': f"{dockerfile_path.relative_to(app_path)}",
+            #         'dockerfile': "Dockerfile",
+            #         'context': os.path.relpath(dockerfile_path.parent, self.dest_deployment_path.parent),
+            #     }
+
             values[app_key] = dict_merge(
                 values[app_key], app_values) if app_key in values else app_values
 
@@ -201,10 +226,15 @@ class CloudHarnessHelm:
                 for dep in dependencies:
                     if dep in self.base_images and dep not in helm_values[KEY_TASK_IMAGES]:
                         helm_values[KEY_TASK_IMAGES][dep] = self.base_images[dep]
+                        # helm_values.setdefault(KEY_TASK_IMAGES_BUILD, {})[dep] = {
+                        #     'context': os.path.relpath(static_img_dockerfile, self.dest_deployment_path.parent),
+                        #     'dockerfile': 'Dockerfile',
+                        # }
 
         for image_name in helm_values[KEY_TASK_IMAGES].keys():
             if image_name in self.exclude:
                 del helm_values[KEY_TASK_IMAGES][image_name]
+                # del helm_values[KEY_TASK_IMAGES_BUILD][image_name]
 
     def __init_base_images(self, base_image_name):
 
@@ -501,8 +531,20 @@ class CloudHarnessHelm:
                 task_path, app_path.parent))
             img_name = image_name_from_dockerfile_path(task_name, base_image_name)
 
-            values[KEY_TASK_IMAGES][task_name] = self.image_tag(
-                img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys())
+            # import ipdb; ipdb.set_trace()  # fmt: skip
+
+            # values[KEY_TASK_IMAGES][task_name] = self.image_tag(
+            #     img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys())
+            # values.setdefault(KEY_TASK_IMAGES_BUILD, {})[task_name] = {
+            #     'context': os.path.relpath(task_path, self.dest_deployment_path.parent),
+            #     'dockerfile': 'Dockerfile',
+            # }
+
+            values[KEY_TASK_IMAGES][task_name] = {
+                'name': self.image_tag(img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys()),
+                # 'context': os.path.relpath(task_path, self.dest_deployment_path.parent),
+                # 'dockerfile': 'Dockerfile',
+            }
 
         return values
 

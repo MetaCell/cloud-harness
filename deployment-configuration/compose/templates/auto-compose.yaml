@@ -25,7 +25,7 @@ services:
 {{- range $app_name, $app_config := .Values.apps }}
   {{ $deployment :=  $app_config.harness.deployment }}
   {{- if eq $app_name "nfsserver" }}
-  {{- include "events.deployment" $.Values | indent 2 }}
+  {{- include "nfsserver.deployment" $.Values | indent 2 }}
   {{- end }}
   {{- if or (not $deployment.auto) (not $app_config.harness.service.auto) }}
   {{- continue }}
@@ -114,16 +114,16 @@ services:
     {{- end}}
     {{- end }}
   {{- if $.Values.local }}
-  # Extra /etc/hosts list
-  {{- $domain := $.Values.domain }}
-  {{- $ip := $.Values.localIp }}
-  extra_hosts:
-    - "{{ $.Values.domain }}:{{ $ip }}"
-    {{- range $app := $.Values.apps }}
-    {{- with $app.harness.subdomain}}
-    - "{{ . }}.{{ $domain }}:{{ $ip }}"
-    {{- end }}
-    {{- end }}
+    # Extra /etc/hosts list
+    {{- $domain := $.Values.domain }}
+    {{- $ip := $.Values.localIp }}
+    extra_hosts:
+      - "{{ $.Values.domain }}={{ $ip }}"
+      {{- range $app := $.Values.apps }}
+      {{- with $app.harness.subdomain}}
+      - "{{ . }}.{{ $domain }}={{ $ip }}"
+      {{- end }}
+      {{- end }}
   {{- end }}
   {{- with $app_config.harness.database }}
     {{- if not .auto }}

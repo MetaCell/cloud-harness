@@ -1,7 +1,10 @@
-{{- define "events.deployment" }}
+{{- define "nfsserver.deployment" }}
 {{- $nfs := .apps.nfsserver}}
 
 {{ $nfs.name }}:
+  build:
+    context: {{ $nfs.build.context }}
+    dockerfile: {{ $nfs.build.dockerfile }}
   image: {{ $nfs.harness.deployment.image }}
   environment:
     # NFS useDNS? {{ $nfs.nfs.useDNS }}
