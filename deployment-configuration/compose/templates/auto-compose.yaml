@@ -125,6 +125,15 @@ services:
       {{- end }}
       {{- end }}
   {{- end }}
+  labels:
+      - "traefik.enable=true"
+      {{- with $app_config.harness.service.port }}
+      - "traefik.http.services.{{ $app_name }}.loadbalancer.server.port={{ . }}"
+      {{- end }}
+      # - "traefik.http.middlewares.redirect-middleware.redirectscheme.scheme=https"
+      # - "traefik.http.routers.{{ .app_name }}.middlewares=redirect-middleware"
+      - "traefik.http.routers.{{ $app_name }}.rule=Host(`{{ $app_config.harness.subdomain }}.{{ $.Values.domain }}`)"
+      - "traefik.http.routers.{{ $app_name }}.entrypoints=web"
   {{- with $app_config.harness.database }}
     {{- if not .auto }}
     {{- continue}}

@@ -540,11 +540,13 @@ class CloudHarnessHelm:
             #     'dockerfile': 'Dockerfile',
             # }
 
-            values[KEY_TASK_IMAGES][task_name] = {
-                'name': self.image_tag(img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys()),
-                # 'context': os.path.relpath(task_path, self.dest_deployment_path.parent),
-                # 'dockerfile': 'Dockerfile',
-            }
+            # values[KEY_TASK_IMAGES][task_name] = {
+            #     'name': self.image_tag(img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys()),
+            #     # 'context': os.path.relpath(task_path, self.dest_deployment_path.parent),
+            #     # 'dockerfile': 'Dockerfile',
+            # }
+
+            values[KEY_TASK_IMAGES][task_name] = self.image_tag(img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys())
 
         return values
 
