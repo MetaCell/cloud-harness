@@ -125,7 +125,7 @@ services:
       {{- end }}
       {{- end }}
   {{- end }}
-  labels:
+    labels:
       - "traefik.enable=true"
       {{- with $app_config.harness.service.port }}
       - "traefik.http.services.{{ $app_name }}.loadbalancer.server.port={{ . }}"
