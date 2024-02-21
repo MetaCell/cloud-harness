@@ -155,6 +155,32 @@ class CloudHarnessHelm:
 
         subprocess.call(command, shell=True)
 
+        self.__post_process_multiple_document_docker_compose(dest_compose_yaml)
+
+    def __post_process_multiple_document_docker_compose(self, yaml_document):
+        if not yaml_document.exists():
+            logging.warning("Something went wrong during the docker-compose.yaml generation, cannot post-process it")
+            return
+
+        with open(yaml_document, "r") as f:
+            documents = yaml.safe_load_all(f)
+
+            for document in documents:
+                if "cloudharness-metadata" in document:
+                    document_path = self.dest_deployment_path / document["cloudharness-metadata"]["path"]
+                    logging.info("Post-process docker-compose.yaml, creating %s", document_path)
+                    document_path.write_text(document["data"])
+                else:
+                    with open(yaml_document, "w") as f:
+                        yaml.dump(document, f)
+
+            # cloudharness-metadata:
+            #     path: secrets.yaml
+
+            # data: |
+            #     sdfmsldkf
+            #     sdfmlskdfmslkdfs
+            #     sdmlksdf
 
     def __process_applications(self, helm_values, base_image_name):
         for root_path in self.root_paths:
