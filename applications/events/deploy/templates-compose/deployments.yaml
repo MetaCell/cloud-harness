@@ -1,0 +1,97 @@
+{{- define "events.deployment" }}
+events:
+  networks:
+    - ch
+  image: solsson/kafka:2.3.0@sha256:b59603a8c0645f792fb54e9571500e975206352a021d6a116b110945ca6c3a1d
+  ports:
+    - "9094:9092"
+  expose:
+    - 5555
+    - 9094
+    - 9092
+  environment:
+    - CLASSPATH=/opt/kafka/libs/extensions/*
+    - KAFKA_LOG4J_OPTS=-Dlog4j.configuration=file:/etc/kafka/log4j.properties
+    - JMX_PORT=5555
+  command:
+    - "./bin/kafka-server-start.sh"
+    - "/etc/kafka/server.properties"
+    - "--override"
+    - "default.replication.factor=1"
+    - "--override"
+    - "min.insync.replicas=1"
+    - "--override"
+    - "offsets.topic.replication.factor=1"
+    - "--override"
+    - "offsets.topic.num.partitions=1"
+  depends_on:
+    events-kafka-init:
+      condition: service_completed_successfully
+
+events-kafka-init:
+  networks:
+    - ch
+  image: solsson/kafka-initutils@sha256:f6d9850c6c3ad5ecc35e717308fddb47daffbde18eb93e98e031128fe8b899ef
+  command:
+    - "/bin/bash"
+    - "/etc/kafka-configmap/init.sh"
+  environment:
+
+pzoo:
+  networks:
+    - ch
+  expose:
+    - 2181
+    - 2888
+    - 3888
+  image: solsson/kafka:2.3.0@sha256:b59603a8c0645f792fb54e9571500e975206352a021d6a116b110945ca6c3a1d
+  command:
+    - "./bin/zookeeper-server-start.sh"
+    - "/etc/kafka/zookeeper.properties"
+  environment:
+    - KAFKA_LOG4J_OPTS=-Dlog4j.configuration=file:/etc/kafka/log4j.properties
+  depends_on:
+    events-pzoo-init:
+      condition: service_completed_successfully
+
+events-pzoo-init:
+  networks:
+    - ch
+  expose:
+  image: solsson/kafka-initutils@sha256:f6d9850c6c3ad5ecc35e717308fddb47daffbde18eb93e98e031128fe8b899ef
+  command:
+    - "/bin/bash"
+    - "/etc/kafka-configmap/init.sh"
+  environment:
+    - PZOO_REPLICAS=1
+    - ZOO_REPLICAS=0
+
+zoo:
+  networks:
+    - ch
+  expose:
+    - 2181
+    - 2888
+    - 3888
+  image: solsson/kafka:2.3.0@sha256:b59603a8c0645f792fb54e9571500e975206352a021d6a116b110945ca6c3a1d
+  command:
+    - "./bin/zookeeper-server-start.sh"
+    - "/etc/kafka/zookeeper.properties"
+  environment:
+    - KAFKA_LOG4J_OPTS=-Dlog4j.configuration=file:/etc/kafka/log4j.properties
+  depends_on:
+    events-zoo-init:
+      condition: service_completed_successfully
+
+events-zoo-init:
+  networks:
+    - ch
+  image: solsson/kafka-initutils@sha256:f6d9850c6c3ad5ecc35e717308fddb47daffbde18eb93e98e031128fe8b899ef
+  command:
+    - "/bin/bash"
+    - "/etc/kafka-configmap/init.sh"
+  environment:
+    - PZOO_REPLICAS=1
+    - ZOO_REPLICAS=0
+    - ID_OFFSET=2
+{{- end }}
