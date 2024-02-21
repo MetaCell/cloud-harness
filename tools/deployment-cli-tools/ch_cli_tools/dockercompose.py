@@ -166,21 +166,20 @@ class CloudHarnessHelm:
             documents = yaml.safe_load_all(f)
 
             for document in documents:
+                if not document:
+                    continue
                 if "cloudharness-metadata" in document:
                     document_path = self.dest_deployment_path / document["cloudharness-metadata"]["path"]
                     logging.info("Post-process docker-compose.yaml, creating %s", document_path)
-                    document_path.write_text(document["data"])
+                    data = document["data"]
+                    # if document_path.suffix == ".yaml":
+                    #     with open(document_path, "w") as f:
+                    #         yaml.dump(yaml.safe_load(data), f, default_flow_style=True)
+                    # else:
+                    document_path.write_text(data)
                 else:
                     with open(yaml_document, "w") as f:
-                        yaml.dump(document, f)
-
-            # cloudharness-metadata:
-            #     path: secrets.yaml
-
-            # data: |
-            #     sdfmsldkf
-            #     sdfmlskdfmslkdfs
-            #     sdmlksdf
+                        yaml.dump(document, f, default_flow_style=False)
 
     def __process_applications(self, helm_values, base_image_name):
         for root_path in self.root_paths:
