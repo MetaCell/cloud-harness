@@ -135,6 +135,8 @@ services:
       - "traefik.http.routers.{{ $app_name }}.rule=Host(`{{ $app_config.harness.subdomain }}.{{ $.Values.domain }}`)"
       - "traefik.http.routers.{{ $app_name }}.entrypoints=web"
   {{- with $app_config.harness.database }}
+    depends_on:
+      - {{ .name }}
     {{- if not .auto }}
     {{- continue}}
     {{- end }}
