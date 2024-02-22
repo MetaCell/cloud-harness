@@ -165,21 +165,29 @@ class CloudHarnessHelm:
         with open(yaml_document, "r") as f:
             documents = yaml.safe_load_all(f)
 
+            main_document = None
             for document in documents:
                 if not document:
                     continue
                 if "cloudharness-metadata" in document:
                     document_path = self.dest_deployment_path / document["cloudharness-metadata"]["path"]
                     logging.info("Post-process docker-compose.yaml, creating %s", document_path)
+                    document_path.parent.mkdir(parents=True, exist_ok=True)
                     data = document["data"]
                     # if document_path.suffix == ".yaml":
                     #     with open(document_path, "w") as f:
                     #         yaml.dump(yaml.safe_load(data), f, default_flow_style=True)
                     # else:
+
                     document_path.write_text(data)
                 else:
-                    with open(yaml_document, "w") as f:
-                        yaml.dump(document, f, default_flow_style=False)
+                    # We need to save the main document later
+                    # "safe_load_all" returns a generator over the file,
+                    # so if we modify it while looping on "documents"
+                    # the output will be affected (probably truncated for some outputs)
+                    main_document = document  # we need to save the main document later,
+            with open(yaml_document, "w") as f:
+                yaml.dump(main_document, f, default_flow_style=False)
 
     def __process_applications(self, helm_values, base_image_name):
         for root_path in self.root_paths:
