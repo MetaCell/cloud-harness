@@ -91,7 +91,10 @@ services:
       - {{ . }}:{{ $service_name }}.{{ $.Values.domain }}
       {{- end }}
     {{- end }}
-    {{- with $app_config.harness.dependencies.hard }}
+    {{/* Takes the hard deps, removes argo and adds the db if there is one */}}
+    {{/* To be sure to add the db properly, we "dig" the "harness" config for "database.name" and return "" if one of the keys doesn't exist */}}
+    {{/* "compact" in the beginning is to remove empty values */}}
+    {{- with compact (append (without $app_config.harness.dependencies.hard "argo") (dig "database" "name" "" $app_config.harness) ) }}
     depends_on:
       {{- range . }}
       - {{ . }}
@@ -138,8 +141,6 @@ services:
       - "traefik.http.routers.{{ $app_name }}.rule=Host(`{{ $app_config.harness.subdomain }}.{{ $.Values.domain }}`)"
       - "traefik.http.routers.{{ $app_name }}.entrypoints=web"
   {{- with $app_config.harness.database }}
-    depends_on:
-      - {{ .name }}
     {{- if not .auto }}
     {{- continue}}
     {{- end }}
