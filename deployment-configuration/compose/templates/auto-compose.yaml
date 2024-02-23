@@ -99,6 +99,9 @@ services:
     {{- end }}
     volumes:
       - ./compose/allvalues.yaml:/opt/cloudharness/resources/allvalues.yaml:ro
+    {{- range $file_name, $_ := $app_config.harness.secrets }}
+      - ./compose/resources/generated/auth/{{ $file_name }}:/opt/cloudharness/resources/auth/{{ $file_name }}
+    {{- end }}
     {{- if or $deployment.volume $app_config.harness.resources }}
     {{- with $deployment.volume }}
       - type: volume
