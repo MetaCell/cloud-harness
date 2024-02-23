@@ -168,4 +168,11 @@ volumes:  # this inclusion needs to be conditional
   dshm:
   {{- end }}
   {{- end }}
+  {{- if eq $app_name "nfsserver" }}
+  {{ $app_config.nfs.volumeName }}:
+    # driver_opts:
+    #  type: "nfs"
+    #  o: "{{ join "," $app_config.nfs.mountOptions }}"
+    #  device: ":{{ $app_config.nfs.path }}"
+  {{- end }}
 {{- end }}
