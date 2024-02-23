@@ -88,7 +88,11 @@ services:
     links:
       {{- range . }}
       {{- $service_name := (get $.Values.apps .).harness.service.name }}
+        {{- if eq . "events"}}
+#     - {{ . }}:{{ $service_name }}.{{ $.Values.domain }}
+        {{- else }}
       - {{ . }}:{{ $service_name }}.{{ $.Values.domain }}
+        {{- end }}
       {{- end }}
     {{- end }}
     {{/* Takes the hard deps, removes argo and adds the db if there is one */}}
