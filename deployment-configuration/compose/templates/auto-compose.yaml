@@ -157,7 +157,20 @@ networks:
   ch:
     name: ch_network
 
-volumes:  # this inclusion needs to be conditional
+{{- range $app_name, $app_config := .Values.apps }}
+  {{- with $app_config.harness.deployment.volume }}
+volumes:
+  {{- break }}
+  {{- end }}
+  {{- with $app_config.harness.database }}
+volumes:
+  {{- break }}
+  {{- end }}
+  {{- if eq $app_name "nfsserver" }}
+volumes:
+  {{- break }}
+  {{- end }}
+{{- end }}
 {{- range $app_name, $app_config := .Values.apps }}
   {{- with $app_config.harness.deployment.volume }}
   {{ .name }}:
