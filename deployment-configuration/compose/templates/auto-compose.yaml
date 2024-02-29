@@ -141,7 +141,7 @@ services:
     {{- with $app_config.harness.resources }}
     {{- range .}}
       - type: bind
-        source: compose/resources/generated/{{ $app_name }}/{{ .src }}
+        source: ./compose/resources/generated/{{ $app_name }}/{{ .src }}
         target: {{ .dst }}
     {{- end }}
     {{- end}}
