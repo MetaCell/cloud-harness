@@ -23,9 +23,27 @@ services:
       - "./traefik.yaml:/etc/traefik/dynamic_conf/conf.yml:ro"
 
 {{- range $app_name, $app_config := .Values.apps }}
+  {{- if eq $app_name "argo" -}}
+  {{- continue -}}
+  {{- end -}}
   {{ $deployment :=  $app_config.harness.deployment }}
   {{- if eq $app_name "nfsserver" }}
   {{- include "nfsserver.deployment" $.Values | indent 2 }}
+  {{- end }}
+  {{- if $.Values.secured_gatekeepers }}
+  {{ if and (hasKey $app_config "port") $app_config.harness.secured }}
+  # Gatekeeper for {{ $app_config.harness.service.name }}-gk
+{{- include "securedservice.deploy" (dict "root" $ "app" $app_config) | indent 2 }}
+  {{- end }}
+  {{- range $subapp := $app_config }}
+  {{- if contains "map" (typeOf $subapp)  }}
+    {{- if and (hasKey $subapp "harness.port") (hasKey $subapp "harness.secured") }}
+      {{- if $subapp.harness.secured }}
+{{ include "securedservice.deploy" (dict "root" $ "app" $subapp) | indent 2 }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  {{- end }}
   {{- end }}
   {{- if or (not $deployment.auto) (not $app_config.harness.service.auto) }}
   {{- continue }}
