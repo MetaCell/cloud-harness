@@ -22,6 +22,11 @@
     - compose/resources/generated/{{ .app.harness.service.name }}-gk/proxy.yml:/opt/proxy.yml
     - compose/resources/generated/{{ .app.harness.service.name }}-gk/cacert.crt:/etc/pki/ca-trust/source/anchors/cacert.crt
     - compose/resources/generated/{{ .app.harness.service.name }}-gk/access-denied.html.tmpl:/templates/access-denied.html.tmpl
+  labels:
+    - "traefik.enable=true"
+    - "traefik.http.services.{{ .app.harness.service.name }}-gk.loadbalancer.server.port={{ .app.harness.service.port }}"
+    - "traefik.http.routers.{{ .app.harness.service.name }}-gk.rule=Host(`{{ .app.harness.subdomain }}.{{ .root.Values.domain }}`)"
+    - "traefik.http.routers.{{ .app.harness.service.name }}-gk.entrypoints=web"
 {{- end }}
 
 {{- define "securedservice.deploy.resources" }}
