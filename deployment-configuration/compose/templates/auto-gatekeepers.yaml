@@ -36,7 +36,7 @@
     accounts:
       condition: service_healthy
   links:
-    - accounts:accounts.{{ .root.Values.domain }}
+    - traefik:accounts.{{ .root.Values.domain }}
     - {{ .app.harness.service.name }}:{{ .app.harness.service.name }}.default
 {{- end }}
 
@@ -47,7 +47,7 @@ cloudharness-metadata:
 
 data: |-
     verbose: {{ .root.Values.debug }}
-    discovery-url: {{ ternary "https" "http" $tls}}://{{ .root.Values.apps.accounts.harness.subdomain }}.{{ .root.Values.domain }}:8080/auth/realms/{{ .root.Values.namespace }}
+    discovery-url: {{ ternary "https" "http" $tls}}://{{ .root.Values.apps.accounts.harness.subdomain }}.{{ .root.Values.domain }}/auth/realms/{{ .root.Values.namespace }}
     client-id: {{ .root.Values.apps.accounts.webclient.id | quote }}
     client-secret: {{ .root.Values.apps.accounts.webclient.secret }}
     secure-cookie: {{ $tls }}

@@ -23,7 +23,7 @@ services:
       - "./traefik.yaml:/etc/traefik/dynamic_conf/conf.yml:ro"
 
 {{- range $app_name, $app_config := .Values.apps }}
-  {{- if eq $app_name "argo" -}}
+  {{- if has $app_name (list "argo" "events") -}}
   {{- continue -}}
   {{- end -}}
   {{ $deployment :=  $app_config.harness.deployment }}
