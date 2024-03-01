@@ -64,14 +64,14 @@ services:
     image: {{ . }}
     {{- end }}
     {{- if eq $.Values.mainapp $app_name }}
-    # {{- with $app_config.harness.service.port }}
-    # ports:
-    #   - "{{ . }}:{{ $app_config.harness.deployment.port }}"
-    # {{- end }}
+    {{- with $app_config.harness.service.port }}
+    ports:
+      - "{{ . }}:{{ $app_config.harness.deployment.port }}"
+    {{- end }}
     {{- end }}
     {{- with $app_config.harness.deployment.port }}
     expose:
-      - {{ . | quote }}
+      - {{ . }}
     {{- end}}
     deploy:
       mode: "replicated"

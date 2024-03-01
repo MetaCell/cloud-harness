@@ -1,7 +1,8 @@
 {{/* Secured Services/Deployments */}}
 {{- define "securedservice.deploy" }}
 {{- $tls := not (not .root.Values.tls) }}
-{{ .app.harness.service.name }}-gk:
+{{- $gk_name := printf "%s-gk" .app.harness.service.name }}
+{{ $gk_name }}:
   networks:
   - ch
   restart: always
@@ -22,19 +23,21 @@
   environment:
     - PROXY_CONFIG_FILE=/opt/proxy.yml
   volumes:
-    - ./compose/resources/generated/{{ .app.harness.service.name }}-gk/proxy.yml:/opt/proxy.yml
-    - ./compose/resources/generated/{{ .app.harness.service.name }}-gk/cacert.crt:/etc/pki/ca-trust/source/anchors/cacert.crt
-    - ./compose/resources/generated/{{ .app.harness.service.name }}-gk/access-denied.html.tmpl:/templates/access-denied.html.tmpl
+    - ./compose/resources/generated/{{ $gk_name }}/proxy.yml:/opt/proxy.yml
+    - ./compose/resources/generated/{{ $gk_name }}/cacert.crt:/etc/pki/ca-trust/source/anchors/cacert.crt
+    - ./compose/resources/generated/{{ $gk_name }}/access-denied.html.tmpl:/templates/access-denied.html.tmpl
   labels:
     - "traefik.enable=true"
-    - "traefik.http.services.{{ .app.harness.service.name }}-gk.loadbalancer.server.port={{ .app.harness.service.port }}"
-    - "traefik.http.routers.{{ .app.harness.service.name }}-gk.rule=Host(`{{ .app.harness.subdomain }}.{{ .root.Values.domain }}`)"
-    - "traefik.http.routers.{{ .app.harness.service.name }}-gk.entrypoints=web"
+    - "traefik.http.services.{{ $gk_name }}.loadbalancer.server.port={{ .app.harness.service.port }}"
+    - "traefik.http.routers.gatekeeper.middlewares=redirect-middleware"
+    - "traefik.http.routers.{{ $gk_name }}.rule=Host(`{{ .app.harness.subdomain }}.{{ .root.Values.domain }}`)"
+    - "traefik.http.routers.{{ $gk_name }}.entrypoints=web"
   depends_on:
     accounts:
       condition: service_healthy
   links:
     - accounts:accounts.{{ .root.Values.domain }}
+    - {{ .app.harness.service.name }}:{{ .app.harness.service.name }}.default
 {{- end }}
 
 {{- define "securedservice.deploy.resources" }}
