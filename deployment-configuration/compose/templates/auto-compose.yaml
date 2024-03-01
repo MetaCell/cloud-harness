@@ -86,6 +86,13 @@ services:
     {{- with $deployment.command }}
     # entrypoint: {{ cat . $deployment.args }}
     {{- end }}
+    {{- if eq $app_name "accounts" }}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/auth/realms/azathoth/account"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    {{- end }}
     environment:
       - CH_CURRENT_APP_NAME={{ $app_name }}
 
@@ -117,11 +124,9 @@ services:
     {{/* To be sure to add the db properly, we "dig" the "harness" config for "database.name" and return "" if one of the keys doesn't exist */}}
     {{/* "compact" in the beginning is to remove empty values */}}
     {{- with compact
-          (append
             (append
               (without $app_config.harness.dependencies.hard "argo")
-              (dig "database" "name" "" $app_config.harness))
-            (ternary (printf "%s-gk" $app_config.harness.service.name) "" $isSecured)) -}}
+              (dig "database" "name" "" $app_config.harness)) -}}
     depends_on:
       {{- range . }}
       - {{ . }}
@@ -146,6 +151,7 @@ services:
     {{- end }}
     {{- end}}
     {{- end }}
+  {{/*
   {{- if $.Values.local }}
     # Extra /etc/hosts list
     {{- $domain := $.Values.domain }}
@@ -158,6 +164,7 @@ services:
       {{- end }}
       {{- end }}
   {{- end }}
+  */}}
   {{- if not $isSecured }}
     labels:
       - "traefik.enable=true"
