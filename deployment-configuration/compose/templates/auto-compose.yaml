@@ -89,7 +89,7 @@ services:
     {{- end }}
     {{- if eq $app_name "accounts" }}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/auth/realms/azathoth/account"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/auth/realms/{{ $.Values.namespace }}/account"]
       interval: 1s
       timeout: 3s
       retries: 30
@@ -226,7 +226,7 @@ volumes:
   {{- with $app_config.harness.database }}
   {{ .name }}:
   {{- if eq .type "postgres" }}
-  dshm-{{ $app_name }}:
+  dshm-{{ .name }}:
   {{- end }}
   {{- end }}
   {{- if eq $app_name "nfsserver" }}
