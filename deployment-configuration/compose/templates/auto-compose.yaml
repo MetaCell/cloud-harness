@@ -138,11 +138,15 @@ services:
         {{- $service := .}}
         {{- range $name, $conf := $.Values.apps -}}
           {{- if eq $conf.harness.name $service }}
+            {{- if has $name (list "events" "nfsserver") }}
+#     - {{ $name }}
+            {{- else }}
       - {{ $name }}
+            {{- end }}
             {{- break -}}
           {{- end -}}
         {{- end -}}
-      {{- end -}}
+      {{- end }}
     {{- end }}
     volumes:
       - ./compose/allvalues.yaml:/opt/cloudharness/resources/allvalues.yaml:ro
@@ -222,7 +226,7 @@ volumes:
   {{- with $app_config.harness.database }}
   {{ .name }}:
   {{- if eq .type "postgres" }}
-  dshm:
+  dshm-{{ $app_name }}:
   {{- end }}
   {{- end }}
   {{- if eq $app_name "nfsserver" }}

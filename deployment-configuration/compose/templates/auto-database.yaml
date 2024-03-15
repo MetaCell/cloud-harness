@@ -25,7 +25,7 @@
       target: /data/db
   {{- if eq .type "postgres" }}
     - type: volume
-      source: dshm
+      source: dshm-{{ .name }}
       target: /dev/shm
   {{- include "deploy_utils.database.postgres" . }}
   {{- end }}
