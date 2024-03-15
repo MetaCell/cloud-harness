@@ -23,7 +23,7 @@ services:
       - "./traefik.yaml:/etc/traefik/dynamic_conf/conf.yml:ro"
 
 {{- range $app_name, $app_config := .Values.apps }}
-  {{- if has $app_name (list "argo" "events") -}}
+  {{- if has $app_name (list "argo" "events" "nfsserver") -}}
   {{- continue -}}
   {{- end -}}
   {{ $deployment :=  $app_config.harness.deployment }}
@@ -113,12 +113,17 @@ services:
     {{- with $app_config.harness.dependencies.soft }}
     links:
       {{- range . -}}
-      {{- $service_name := (get $.Values.apps .).harness.service.name -}}
-        {{- if eq . "events" }}
-#     - {{ . }}:{{ $service_name }}.{{ $.Values.domain }}
+        {{- $service := .}}
+        {{- range $name, $conf := $.Values.apps }}
+          {{- if eq $conf.harness.name $service }}
+            {{- if has . (list "events" "nfsserver") }}
+#     - {{ $name }}:{{ $service }}.{{ $.Values.domain }}
         {{- else }}
-      - {{ . }}:{{ $service_name }}.{{ $.Values.domain }}
-        {{- end }}
+      - {{ $name }}:{{ $service }}.{{ $.Values.domain }}
+            {{- end }}
+            {{- break -}}
+          {{- end -}}
+        {{- end -}}
       {{- end -}}
     {{- end -}}
     {{/* Takes the hard deps, removes argo and adds the db if there is one */}}
@@ -129,9 +134,15 @@ services:
               (without $app_config.harness.dependencies.hard "argo")
               (dig "database" "name" "" $app_config.harness)) -}}
     depends_on:
-      {{- range . }}
-      - {{ . }}
-      {{- end }}
+      {{- range . -}}
+        {{- $service := .}}
+        {{- range $name, $conf := $.Values.apps -}}
+          {{- if eq $conf.harness.name $service }}
+      - {{ $name }}
+            {{- break -}}
+          {{- end -}}
+        {{- end -}}
+      {{- end -}}
     {{- end }}
     volumes:
       - ./compose/allvalues.yaml:/opt/cloudharness/resources/allvalues.yaml:ro
