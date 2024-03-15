@@ -110,13 +110,13 @@ services:
       {{- range $app_config.harness.env }}
       - {{ .name }}={{ .value }}
       {{- end }}
-    {{- with $app_config.harness.dependencies.soft }}
+    {{- with (concat (without $app_config.harness.dependencies.hard "argo") $app_config.harness.dependencies.soft) }}
     links:
       {{- range . -}}
         {{- $service := .}}
         {{- range $name, $conf := $.Values.apps }}
           {{- if eq $conf.harness.name $service }}
-            {{- if has . (list "events" "nfsserver") }}
+            {{- if has $name (list "events" "nfsserver") }}
 #     - {{ $name }}:{{ $service }}.{{ $.Values.domain }}
         {{- else }}
       - {{ $name }}:{{ $service }}.{{ $.Values.domain }}
@@ -131,9 +131,11 @@ services:
     {{/* "compact" in the beginning is to remove empty values */}}
     {{- with compact
             (append
-              (without $app_config.harness.dependencies.hard "argo")
+              (without $app_config.harness.dependencies.hard "argo" )
               (dig "database" "name" "" $app_config.harness)) -}}
+    {{- with without $app_config.harness.dependencies.hard "argo" "events" }}
     depends_on:
+    {{- end }}
       {{- range . -}}
         {{- $service := .}}
         {{- range $name, $conf := $.Values.apps -}}
