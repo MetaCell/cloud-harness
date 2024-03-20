@@ -45,6 +45,7 @@ metadata:
     nginx.ingress.kubernetes.io/auth-keepalive-timeout: {{ .Values.proxy.timeout.keepalive | quote }}
     nginx.ingress.kubernetes.io/proxy-read-timeout: {{ .Values.proxy.timeout.read | quote }}
     nginx.ingress.kubernetes.io/proxy-send-timeout: {{ .Values.proxy.timeout.send | quote }}
+    nginx.ingress.kubernetes.io/use-forwarded-headers: {{ .Values.proxy.forwardedHeaders | quote }}
 spec:
   rules:
   {{- range $app := .Values.apps }}
