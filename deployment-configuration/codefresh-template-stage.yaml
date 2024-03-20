@@ -1,7 +1,9 @@
 version: '1.0'
 stages:
   - prepare
+  - build
   - deploy
+  - qa
   - publish
 steps:
   main_clone:
@@ -30,7 +32,7 @@ steps:
     working_directory: .
     commands:
       - bash cloud-harness/install.sh
-      - harness-deployment $PATHS -t ${{DEPLOYMENT_TAG}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -n ${{NAMESPACE}} -e $ENV $PARAMS
+      - harness-deployment $PATHS -t ${{DEPLOYMENT_TAG}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -n ${{NAMESPACE}} -e $ENV $PARAMS  
   prepare_deployment_view:
     commands:
       - 'helm template ./deployment/helm --debug -n ${{NAMESPACE}}'
@@ -55,29 +57,48 @@ steps:
       cmd_ps: --wait --timeout 600s --create-namespace
       custom_value_files:
       - ./deployment/helm/values.yaml
+  build_test_images:
+    title: Build test images
+    type: parallel
+    stage: qa
+    steps: []
+    when:
+      condition:
+        all:
+          whenVarExists: 'includes("${{SKIP_TESTS}}", "{{SKIP_TESTS}}") == true'
   wait_deployment:
     stage: qa
     title: Wait deployment to be ready
     image: codefresh/kubectl
     commands:
       - kubectl config use-context ${{CLUSTER_NAME}}
-      - kubectl config set-context --current --namespace=test-${{CF_REPO_NAME}}-${{CF_SHORT_REVISION}}
+      - kubectl config set-context --current --namespace=${{NAMESPACE}}
   tests_api:
     stage: qa
     title: Api tests
     working_directory: /home/test
-    image: "${{api-jest}}"
+    image: "${{test-api}}"
+    fail_fast: false
     commands:
       - echo $APP_NAME
     scale: {}
+    when:
+      condition:
+        all:
+          whenVarExists: 'includes("${{SKIP_TESTS}}", "{{SKIP_TESTS}}") == true'
   tests_e2e:
     stage: qa
     title: End to end tests
     working_directory: /home/test
-    image: "${{jest-puppeteer}}"
+    image: "${{test-e2e}}"
+    fail_fast: false
     commands:
       - yarn test
     scale: {}
+    when:
+      condition:
+        all:
+          whenVarExists: 'includes("${{SKIP_TESTS}}", "{{SKIP_TESTS}}") == true'
   manual_tests:
     type: pending-approval
     stage: publish
