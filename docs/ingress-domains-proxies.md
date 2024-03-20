@@ -53,6 +53,8 @@ To configure it, override the following values in your `deployment-configuration
 
 ```yaml
 proxy:
+  # -- Set to false to hide remote client headers. Will hide the client IPs in all logs
+  forwardedHeaders: true
   timeout:
     # -- Timeout for proxy connections in seconds.
     send: 60

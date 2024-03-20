@@ -4,13 +4,15 @@ import json
 import time
 
 from os.path import join, relpath, basename, exists, abspath
-from cloudharness_model import ApplicationTestConfig, HarnessMainConfig
+from cloudharness_model import ApplicationTestConfig, HarnessMainConfig, GitDependencyConfig
 
 from cloudharness_utils.constants import APPS_PATH, DEPLOYMENT_CONFIGURATION_PATH, \
     BASE_IMAGES_PATH, STATIC_IMAGES_PATH, HELM_ENGINE, COMPOSE_ENGINE
 from .helm import KEY_APPS, KEY_HARNESS, KEY_DEPLOYMENT, KEY_TASK_IMAGES
 from .utils import get_template, dict_merge, find_dockerfiles_paths, app_name_from_path, \
     find_file_paths, guess_build_dependencies_from_dockerfile, merge_to_yaml_file, get_json_template, get_image_name
+
+from . import HERE
 
 def relpath_if(p1, p2):
     if os.path.isabs(p1):
@@ -58,7 +60,8 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
     def process_build_dockerfile(dockerfile_path, root_path, global_context=False, requirements=None, app_name=None):
         if app_name is None:
             app_name = app_name_from_path(basename(dockerfile_path))
-        if app_name in helm_values[KEY_TASK_IMAGES] or app_name.replace("-", "_") in helm_values.apps:
+        app_key = app_name.replace("-", "_")
+        if app_name in helm_values[KEY_TASK_IMAGES] or app_key in helm_values.apps:
             context_path = relpath_if(root_path, output_path) if global_context else relpath_if(dockerfile_path, output_path)
 
             builds[app_name] = context_path
@@ -69,6 +72,10 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
                 dockerfile_path=relpath(dockerfile_path, output_path),
                 requirements=requirements or guess_build_dependencies_from_dockerfile(dockerfile_path)
             )
+            if app_key in helm_values.apps and helm_values.apps[app_key].harness.dependencies and helm_values.apps[app_key].harness.dependencies.git:
+                artifacts[app_name]['hooks'] = {
+                    'before': [git_clone_hook(conf, context_path) for conf in helm_values.apps[app_key].harness.dependencies.git]
+                }
 
     for root_path in root_paths:
         skaffold_conf = dict_merge(skaffold_conf, get_template(
@@ -198,6 +205,16 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
         output_path, 'skaffold.yaml'))
     return skaffold_conf
 
+def git_clone_hook(conf: GitDependencyConfig, context_path: str):
+    return {
+        'command': [
+            'sh',
+            join(os.path.dirname(os.path.dirname(HERE)), 'clone.sh'),
+            conf.branch_tag,
+            conf.url,
+            join(context_path, "dependencies", conf.path or os.path.basename(conf.url).split('.')[0])   
+        ]
+    }
 
 def create_vscode_debug_configuration(root_paths, helm_values):
     logging.info(

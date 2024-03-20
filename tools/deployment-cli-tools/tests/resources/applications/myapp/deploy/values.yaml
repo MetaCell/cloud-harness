@@ -6,6 +6,12 @@ harness:
       - legacy
     build:
       - cloudharness-flask
+    git:
+    - url: https://github.com/a/b.git
+      branch_tag: master
+    - url: https://github.com/c/d.git
+      branch_tag: v1.0.0
+      path: myrepo
   test:
     unit:
       commands:

@@ -102,6 +102,7 @@ The most important configuration entries are the following:
     - `hard`: hard dependencies mean that they are required for this application to work properly
     - `soft`: the application will function for most of its functionality without this dependency
     - `build`: the images declared as build dependencies can be referred as dependency in the Dockerfile 
+    - `git`: specify repos to be cloned before the container build
   - `database`: automatically generates a preconfigured database deployment for this application
     - `auto`: if true, turns on the database deployment functionality
     - `type`: one from `postgres` (default), `mongo`, `neo4j`

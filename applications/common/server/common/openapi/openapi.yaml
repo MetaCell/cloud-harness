@@ -68,8 +68,38 @@ paths:
       tags:
       - Sentry
       x-openapi-router-controller: common.controllers.sentry_controller
+  /version:
+    get:
+      operationId: get_version
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                version:
+                  value: "{\r\n  \"build\": \"63498f19146bae1a6ae7e354\"\r\n  \"tag\"\
+                    : \"v1.2.0\"\r\n}"
+              schema:
+                $ref: '#/components/schemas/AppVersion'
+          description: Deployment version GET
+      tags:
+      - config
+      x-openapi-router-controller: common.controllers.config_controller
+    summary: Get the version for this deployment
 components:
   schemas:
+    AppVersion:
+      description: ""
+      example:
+        build: 63498f19146bae1a6ae7e354
+        tag: v1.2.0
+      properties:
+        build:
+          type: string
+        tag:
+          type: string
+      title: Root Type for AppVersion
+      type: object
     get_config_200_response:
       example:
         clientId: clientId
