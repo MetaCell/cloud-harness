@@ -9,6 +9,9 @@ OUT = '/tmp/deployment'
 CLOUDHARNESS_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 BUILD_MERGE_DIR = "./build/test_deployment"
 
+myapp_path = os.path.join(HERE, "resources/applications/myapp")
+if not os.path.exists(os.path.join(myapp_path, "dependencies/a/.git")):
+    os.makedirs(os.path.join(myapp_path, "dependencies/a/.git"))
 
 def test_create_codefresh_configuration():
     values = create_helm_chart(
@@ -123,6 +126,8 @@ def test_create_codefresh_configuration():
         assert len(
             tstep['commands']) == 2, "Unit test commands are not properly loaded from the unit test configuration file"
         assert tstep['commands'][0] == "tox", "Unit test commands are not properly loaded from the unit test configuration file"
+    
+        assert len(l1_steps[CD_BUILD_STEP_DEPENDENCIES]['steps']) == 3, "3 clone steps should be included as we have 2 dependencies from myapp, plus cloudharness"
     finally:
         shutil.rmtree(BUILD_MERGE_DIR)
 
