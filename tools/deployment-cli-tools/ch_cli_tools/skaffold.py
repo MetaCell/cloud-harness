@@ -199,6 +199,11 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
                 'images': [artifact['image'] for artifact in artifacts.values() if artifact['image']]
             }
         }
+        skaffold_conf['build']['tagPolicy'] = {
+            'envTemplate': {
+                'template': "TAG"
+            }
+        }
 
     skaffold_conf['build']['artifacts'] = [v for v in artifacts.values()]
     merge_to_yaml_file(skaffold_conf, os.path.join(
@@ -212,7 +217,7 @@ def git_clone_hook(conf: GitDependencyConfig, context_path: str):
             join(os.path.dirname(os.path.dirname(HERE)), 'clone.sh'),
             conf.branch_tag,
             conf.url,
-            join(context_path, "dependencies", conf.path or os.path.basename(conf.url).split('.')[0])   
+            join(context_path, "dependencies", conf.path or os.path.basename(conf.url).split('.')[0])
         ]
     }
 
