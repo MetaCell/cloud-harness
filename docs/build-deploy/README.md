@@ -46,7 +46,7 @@ Development parameters:
 
 Optional settings
 - `--output`, `-o`: specify helm chart base path (default `./deployment)
-- `--docker-compose`: targets Docker Compose instead of Kubernetes (see details below)
+- `--docker-compose`: targets Docker Compose instead of Kubernetes (see [details below](#docker-compose-target))
 
 Build and deploy (deprecated, use Skaffold instead)
 - `--build`, `-b`: builds and pushes Docker images in the specified registry (if any)
@@ -143,7 +143,7 @@ Currently, the Docker compose target supports:
 - generation of volumes for the services
 - traefik configuration
 - databases (postgreql)
-- access gatekeepers configuration
+- access gatekeepers configuration (Keycloak)
 - secrets
 - dedicated Skaffold configuration
 
@@ -168,6 +168,18 @@ cd deployment
 docker compose up  # or "docker-compose up" depending on your installation
 ```
 
+### Unsupported features
+
+There is still some features that are not supported by the Docker compose target.
+Some are planned, others will not be, or not in a form that is compatible with the original k8s target.
+
+Here is a list of the unsupported features at the moment:
+
+- certificates
+- Argo (will not be supported as Argo is a dedicated solution for k8s)
+- events through Kafka
+- NFS server
+- DB backups
 
 ## Manual configurations
 
