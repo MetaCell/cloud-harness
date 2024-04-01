@@ -1,6 +1,7 @@
 """
 Utilities to create a helm chart from a CloudHarness directory structure
 """
+from typing import Union
 import yaml
 from ruamel.yaml import YAML
 import os
@@ -18,7 +19,7 @@ from .models import HarnessMainConfig
 from .configurationgenerator import ConfigurationGenerator, validate_helm_values, KEY_HARNESS, KEY_SERVICE, KEY_DATABASE, KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES, KEY_DEPLOYMENT, values_from_legacy, values_set_legacy, get_included_with_dependencies, create_env_variables, collect_apps_helm_templates
 
 
-def create_docker_compose_configuration(root_paths, tag: str | int | None='latest', registry='', local=True, domain=None, exclude=(), secured=True,
+def create_docker_compose_configuration(root_paths, tag: Union[str, int, None]='latest', registry='', local=True, domain=None, exclude=(), secured=True,
                       output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
                       namespace=None) -> HarnessMainConfig:
     if (type(env)) == str:

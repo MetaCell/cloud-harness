@@ -1,6 +1,7 @@
 """
 Utilities to create a helm chart from a CloudHarness directory structure
 """
+from typing import Union
 import yaml
 import os
 import logging
@@ -26,7 +27,7 @@ def deploy(namespace, output_path='./deployment'):
         f"helm upgrade {namespace} {helm_path} -n {namespace} --install --reset-values".split())
 
 
-def create_helm_chart(root_paths, tag: str | None | int ='latest', registry='', local=True, domain=None, exclude=(), secured=True,
+def create_helm_chart(root_paths, tag: Union[str, int, None]='latest', registry='', local=True, domain=None, exclude=(), secured=True,
                       output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
                       namespace=None) -> HarnessMainConfig:
     if (type(env)) == str:

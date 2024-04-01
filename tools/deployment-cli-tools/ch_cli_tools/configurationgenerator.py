@@ -1,6 +1,7 @@
 """
 Utilities to create a helm chart from a CloudHarness directory structure
 """
+from typing import Union
 import yaml
 from ruamel.yaml import YAML
 import os
@@ -38,7 +39,7 @@ DEFAULT_IGNORE = ('/tasks', '.dockerignore', '.hypothesis', "__pycache__", '.nod
 
 
 class ConfigurationGenerator(object):
-    def __init__(self, root_paths, tag: str | int | None='latest', registry='', local=True, domain=None, exclude=(), secured=True,
+    def __init__(self, root_paths, tag: Union[str, int, None]='latest', registry='', local=True, domain=None, exclude=(), secured=True,
                  output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
                  namespace=None, templates_path=HELM_PATH):
         assert domain, 'A domain must be specified'
