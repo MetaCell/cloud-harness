@@ -27,9 +27,6 @@ services:
   {{- continue -}}
   {{- end -}}
   {{ $deployment :=  $app_config.harness.deployment }}
-  {{- if eq $app_name "nfsserver" }}
-  {{- include "nfsserver.deployment" $.Values | indent 2 }}
-  {{- end }}
   {{- $isSecured := (and $.Values.secured_gatekeepers ( and (hasKey $app_config "port") $app_config.harness.secured )) -}}
   {{ if $isSecured }}
 
@@ -216,10 +213,6 @@ volumes:
 volumes:
   {{- break }}
   {{- end }}
-  {{- if eq $app_name "nfsserver" }}
-volumes:
-  {{- break }}
-  {{- end }}
 {{- end }}
 {{- range $app_name, $app_config := .Values.apps }}
   {{- with $app_config.harness.deployment.volume }}
@@ -230,12 +223,5 @@ volumes:
   {{- if eq .type "postgres" }}
   dshm-{{ .name }}:
   {{- end }}
-  {{- end }}
-  {{- if eq $app_name "nfsserver" }}
-  {{ $app_config.nfs.volumeName }}:
-    # driver_opts:
-    #  type: "nfs"
-    #  o: "{{ join "," $app_config.nfs.mountOptions }}"
-    #  device: ":{{ $app_config.nfs.path }}"
   {{- end }}
 {{- end }}
