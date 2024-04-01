@@ -1,11 +1,14 @@
 from ch_cli_tools.dockercompose import *
 from ch_cli_tools.configurationgenerator import *
 import pytest
+import shutil
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')
 CLOUDHARNESS_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 COMPOSE_PATH = COMPOSE
+
+HELM_IS_INSTALLED = shutil.which("helm") is not None
 
 
 def exists(path):
@@ -71,14 +74,15 @@ def test_collect_compose_values(tmp_path):
     assert exists(compose_path / 'resources' / 'accounts' / 'realm.json')
     assert exists(compose_path / 'resources' / 'accounts' / 'aresource.txt')
     assert exists(compose_path / 'resources' / 'myapp' / 'aresource.txt')
-    assert exists(compose_path / 'resources' / 'generated' / 'test.yaml')
-    assert exists(compose_path / 'resources' / 'generated' / 'test2.yaml')
     assert exists(compose_path / 'templates' / 'myapp' / 'mytemplate.yaml')
 
-    content = (compose_path / 'resources' / 'generated' / 'test.yaml').read_text()
-    assert content == 'mykey: myvalue'
-    content = (compose_path / 'resources' / 'generated' / 'test2.yaml').read_text()
-    assert content == 'mykey2: myvalue2'
+    if HELM_IS_INSTALLED:
+        assert exists(compose_path / 'resources' / 'generated' / 'test.yaml')
+        assert exists(compose_path / 'resources' / 'generated' / 'test2.yaml')
+        content = (compose_path / 'resources' / 'generated' / 'test.yaml').read_text()
+        assert content == 'mykey: myvalue'
+        content = (compose_path / 'resources' / 'generated' / 'test2.yaml').read_text()
+        assert content == 'mykey2: myvalue2'
 
     # Checl base and task images
     assert values[KEY_TASK_IMAGES]
@@ -139,14 +143,16 @@ def test_collect_compose_values_noreg_noinclude(tmp_path):
     assert exists(compose_path / 'resources' / 'accounts' / 'realm.json')
     assert exists(compose_path / 'resources' / 'accounts' / 'aresource.txt')
     assert exists(compose_path / 'resources' / 'myapp' / 'aresource.txt')
-    assert exists(compose_path / 'resources' / 'generated' / 'test.yaml')
-    assert exists(compose_path / 'resources' / 'generated' / 'test2.yaml')
     assert exists(compose_path / 'templates' / 'myapp' / 'mytemplate.yaml')
 
-    content = (compose_path / 'resources' / 'generated' / 'test.yaml').read_text()
-    assert content == 'mykey: myvalue'
-    content = (compose_path / 'resources' / 'generated' / 'test2.yaml').read_text()
-    assert content == 'mykey2: myvalue2'
+    if HELM_IS_INSTALLED:
+        assert exists(compose_path / 'resources' / 'generated' / 'test.yaml')
+        assert exists(compose_path / 'resources' / 'generated' / 'test2.yaml')
+        content = (compose_path / 'resources' / 'generated' / 'test.yaml').read_text()
+        assert content == 'mykey: myvalue'
+        content = (compose_path / 'resources' / 'generated' / 'test2.yaml').read_text()
+        assert content == 'mykey2: myvalue2'
+        assert False
 
     assert values[KEY_TASK_IMAGES]
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
