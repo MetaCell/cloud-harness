@@ -64,12 +64,21 @@ def test_collect_compose_values(tmp_path):
     compose_path = out_folder / COMPOSE_PATH
 
     # Check files
+    assert exists(out_folder / 'docker-compose.yaml')
     assert exists(compose_path)
     assert exists(compose_path / 'values.yaml')
+    assert exists(compose_path / 'allvalues.yaml')
     assert exists(compose_path / 'resources' / 'accounts' / 'realm.json')
     assert exists(compose_path / 'resources' / 'accounts' / 'aresource.txt')
     assert exists(compose_path / 'resources' / 'myapp' / 'aresource.txt')
+    assert exists(compose_path / 'resources' / 'generated' / 'test.yaml')
+    assert exists(compose_path / 'resources' / 'generated' / 'test2.yaml')
     assert exists(compose_path / 'templates' / 'myapp' / 'mytemplate.yaml')
+
+    content = (compose_path / 'resources' / 'generated' / 'test.yaml').read_text()
+    assert content == 'mykey: myvalue'
+    content = (compose_path / 'resources' / 'generated' / 'test2.yaml').read_text()
+    assert content == 'mykey2: myvalue2'
 
     # Checl base and task images
     assert values[KEY_TASK_IMAGES]
@@ -123,17 +132,27 @@ def test_collect_compose_values_noreg_noinclude(tmp_path):
     compose_path = out_path / COMPOSE_PATH
 
     # Check files
+    assert exists(out_path / 'docker-compose.yaml')
     assert exists(compose_path)
     assert exists(compose_path / 'values.yaml')
+    assert exists(compose_path / 'allvalues.yaml')
     assert exists(compose_path / 'resources' / 'accounts' / 'realm.json')
     assert exists(compose_path / 'resources' / 'accounts' / 'aresource.txt')
     assert exists(compose_path / 'resources' / 'myapp' / 'aresource.txt')
+    assert exists(compose_path / 'resources' / 'generated' / 'test.yaml')
+    assert exists(compose_path / 'resources' / 'generated' / 'test2.yaml')
     assert exists(compose_path / 'templates' / 'myapp' / 'mytemplate.yaml')
+
+    content = (compose_path / 'resources' / 'generated' / 'test.yaml').read_text()
+    assert content == 'mykey: myvalue'
+    content = (compose_path / 'resources' / 'generated' / 'test2.yaml').read_text()
+    assert content == 'mykey2: myvalue2'
 
     assert values[KEY_TASK_IMAGES]
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
     assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'cloudharness/cloudharness-base:1'
     assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'cloudharness/myapp-mytask:1'
+
 
 
 def test_collect_compose_values_precedence(tmp_path):
