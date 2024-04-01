@@ -2,7 +2,7 @@
 <img src="https://github.com/MetaCell/cloud-harness/blob/develop/cloudharness.png?raw=true" alt="drawing" width="200"/>
 </p>
 
-CloudHarness is a base infrastructure facilitator for microservice based applications deployed on Kubernetes and Docker Compose.
+CloudHarness is a base infrastructure facilitator for microservice based applications deployed primarily on Kubernetes.
 Can scaffold and maintain your cloud solution on top of Cloudharness without writing
 Kubernetes templates, with in place common utilities and applications already configured for you.
 
@@ -22,7 +22,7 @@ What building your cloud solution with CloudHarness gives to you:
     - traefik configuration
     - databases (postgreql)
     - access gatekeepers configuration
-    - secrets
+    - secrets and configmaps
   * Automatic build and push of images
   * REST-API scaffolding building based on OpenApi
   * Continuous deployment script generation
@@ -63,6 +63,7 @@ CloudHarness provides the following command line tools to help application scaff
 * `harness-application` - create a new CloudHarness REST application.
 * `harness-generate` - generates server and client code for all CloudHarness REST applications.
 * `harness-test` - run end to end tests
+  
 # Get started
 
 ## Prerequisites
@@ -137,13 +138,14 @@ To (re)generate the code for your applications, run `harness-generate` from the 
 The script will look for all openapi applications, and regenerate the Flask server code and documentation.
 Note: the script will eventually override any manually modified file. To avoid that, define a file openapi-generator-ignore.
 
-# Extend CloudHarness to build your solution
-CloudHarness is born to be extended. In order to extend CloudHarness you just need to mirror the folder structure:
-* **applications**: place here your custom applications, or override default ones
-* **deployment-configuration**: override the helm chart default values and templates
-* **infrastructure**: define base images to use in your application
+# Extend CloudHarness to build your project
 
-or simply copy the *blueprint* folder.
+CloudHarness is born to be extended. 
+
+The quickest way to start is to install Cloud Harness, copy the *blueprint* folder and build from that with the cli tools, such as
+`harness-application`, `harness-generate`, `harness-deployment`.
+
+See the [developers documentation](docs/dev.md#start-your-project) for more information.
 
 # Build and deploy
 
@@ -154,7 +156,7 @@ Created artifacts include:
  - Visual Studio Code debug and run configuration
  - Codefresh pipeline yaml specification (optional)
 
-With your solution folder structure looking like
+With your project folder structure looking like
 
 ```
 applications
