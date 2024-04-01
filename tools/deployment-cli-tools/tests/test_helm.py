@@ -1,16 +1,19 @@
-import shutil
-
 from ch_cli_tools.helm import *
 from ch_cli_tools.configurationgenerator import *
+import pytest
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')
-OUT = '/tmp/deployment'
 CLOUDHARNESS_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 
 
-def test_collect_helm_values():
-    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, include=['samples', 'myapp'],
+def exists(path):
+        return path.exists()
+
+
+def test_collect_helm_values(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
                                exclude=['events'], domain="my.local",
                                namespace='test', env='dev', local=False, tag=1, registry='reg')
 
@@ -51,24 +54,21 @@ def test_collect_helm_values():
     # Environment specific overriding
     assert values[KEY_APPS]['accounts']['a'] == 'dev'
     assert values['a'] == 'dev'
-    assert values['database']['auto'] == False
+    assert values['database']['auto'] is False
 
     # legacy reading
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['auto'] == True
-    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['deployment']['auto'] == False
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['auto'] is True
+    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['deployment']['auto'] is False
 
-    helm_path = os.path.join(OUT, HELM_CHART_PATH)
-
-    def exists(*args):
-        return os.path.exists(os.path.join(*args))
+    helm_path = out_folder / HELM_CHART_PATH
 
     # Check files
     assert exists(helm_path)
-    assert exists(helm_path, 'values.yaml')
-    assert exists(helm_path, 'resources/accounts/realm.json')
-    assert exists(helm_path, 'resources/accounts/aresource.txt')
-    assert exists(helm_path, 'resources/myapp/aresource.txt')
-    assert exists(helm_path, 'templates/myapp/mytemplate.yaml')
+    assert exists(helm_path / 'values.yaml')
+    assert exists(helm_path / 'resources' / 'accounts' / 'realm.json')
+    assert exists(helm_path / 'resources' / 'accounts' / 'aresource.txt')
+    assert exists(helm_path / 'resources' / 'myapp' / 'aresource.txt')
+    assert exists(helm_path / 'templates' / 'myapp' / 'mytemplate.yaml')
 
     # Checl base and task images
     assert values[KEY_TASK_IMAGES]
@@ -77,8 +77,6 @@ def test_collect_helm_values():
     assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/cloudharness/myapp-mytask:1'
     # Not indicated as a build dependency
     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES]
-
-    shutil.rmtree(OUT)
 
 
 def test_collect_helm_values_noreg_noinclude(tmp_path):
@@ -115,24 +113,21 @@ def test_collect_helm_values_noreg_noinclude(tmp_path):
     # Environment specific overriding
     assert values[KEY_APPS]['accounts']['a'] == 'dev'
     assert values['a'] == 'dev'
-    assert values['database']['auto'] == False
+    assert values['database']['auto'] is False
 
     # legacy reading
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['auto'] == True
-    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['deployment']['auto'] == False
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['auto'] is True
+    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['deployment']['auto'] is False
 
     helm_path = out_path / HELM_CHART_PATH
 
-    def exists(*args):
-        return os.path.exists(os.path.join(*args))
-
     # Check files
     assert exists(helm_path)
-    assert exists(helm_path, 'values.yaml')
-    assert exists(helm_path, 'resources/accounts/realm.json')
-    assert exists(helm_path, 'resources/accounts/aresource.txt')
-    assert exists(helm_path, 'resources/myapp/aresource.txt')
-    assert exists(helm_path, 'templates/myapp/mytemplate.yaml')
+    assert exists(helm_path / 'values.yaml')
+    assert exists(helm_path / 'resources' / 'accounts' / 'realm.json')
+    assert exists(helm_path / 'resources' / 'accounts' / 'aresource.txt')
+    assert exists(helm_path / 'resources' / 'myapp' / 'aresource.txt')
+    assert exists(helm_path / 'templates' / 'myapp' / 'mytemplate.yaml')
 
     assert values[KEY_TASK_IMAGES]
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
@@ -140,68 +135,50 @@ def test_collect_helm_values_noreg_noinclude(tmp_path):
     assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'cloudharness/myapp-mytask:1'
 
 
-def test_collect_helm_values_precedence():
-    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
+def test_collect_helm_values_precedence(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values_precedence'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
                                namespace='test', env='prod', local=False, tag=1, include=["events"])
 
     # Values.yaml from current app must override values-prod.yaml from cloudharness
     assert values[KEY_APPS]['events']['kafka']['resources']['limits']['memory'] == 'overridden'
     assert values[KEY_APPS]['events']['kafka']['resources']['limits']['cpu'] == 'overridden-prod'
 
-def test_collect_helm_values_multiple_envs():
-    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
+def test_collect_helm_values_multiple_envs(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values_multiple_envs'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
                                namespace='test', env=['dev', 'test'], local=False, tag=1, include=["myapp"])
 
 
-    assert values[KEY_APPS]['myapp']['test'] == True, 'values-test not loaded'
-    assert values[KEY_APPS]['myapp']['dev'] == True, 'values-dev not loaded'
+    assert values[KEY_APPS]['myapp']['test'] is True, 'values-test not loaded'
+    assert values[KEY_APPS]['myapp']['dev'] is True, 'values-dev not loaded'
     assert values[KEY_APPS]['myapp']['a'] == 'test', 'values-test not overriding'
 
 
 
-def test_collect_helm_values_wrong_dependencies_validate():
-    try:
-        values = create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=OUT, domain="my.local",
+def test_collect_helm_values_wrong_dependencies_validate(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values_wrong_dependencies_validate'
+    with pytest.raises(ValuesValidationException):
+        create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
                                    namespace='test', env='prod', local=False, tag=1, include=["wrong-hard"])
-
-    except ValuesValidationException as e:
-        logging.info("Exception correctly raised %s", e.args)
-        assert True
-    else:
-        assert False, "Should error because of wrong hard dependency"
-
     try:
-        values = create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=OUT, domain="my.local",
+        create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
                                    namespace='test', env='prod', local=False, tag=1, include=["wrong-soft"])
 
     except ValuesValidationException as e:
-        assert False, "Should not error because of wrong soft dependency"
-    else:
-        assert True, "No error for wrong soft dependencies"
+        pytest.fail("Should not error because of wrong soft dependency")
 
-    try:
-        values = create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=OUT, domain="my.local",
+    with pytest.raises(ValuesValidationException):
+        create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
                                    namespace='test', env='prod', local=False, tag=1, include=["wrong-build"])
-
-    except ValuesValidationException as e:
-        logging.info("Exception correctly raised %s", e.args)
-        assert True
-    else:
-        assert False, "Should error because of wrong build dependency"
-
-    try:
-        values = create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=OUT, domain="my.local",
+    with pytest.raises(ValuesValidationException):
+        create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
                                    namespace='test', env='prod', local=False, tag=1, include=["wrong-services"])
 
-    except ValuesValidationException as e:
-        logging.info("Exception correctly raised %s", e.args)
-        assert True
-    else:
-        assert False, "Should error because of wrong service dependency"
 
-
-def test_collect_helm_values_build_dependencies():
-    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
+def test_collect_helm_values_build_dependencies(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values_build_dependencies'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
                                namespace='test', env='prod', local=False, tag=1, include=["myapp"])
 
     assert 'cloudharness-flask' in values[KEY_TASK_IMAGES], "Cloudharness-flask is included in the build dependencies"
@@ -209,8 +186,9 @@ def test_collect_helm_values_build_dependencies():
     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES], "Cloudharness-base-debian is not included in any dependency"
     assert 'cloudharness-frontend-build' not in values[KEY_TASK_IMAGES], "cloudharness-frontend-build is not included in any dependency"
 
-def test_collect_helm_values_build_dependencies_nodeps():
-    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
+def test_collect_helm_values_build_dependencies_nodeps(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values_build_dependencies_nodeps'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
                                namespace='test', env='prod', local=False, tag=1, include=["events"])
 
 
@@ -219,8 +197,10 @@ def test_collect_helm_values_build_dependencies_nodeps():
     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES], "Cloudharness-base-debian is not included in any dependency"
     assert 'cloudharness-frontend-build' not in values[KEY_TASK_IMAGES], "cloudharness-frontend-build is not included in any dependency"
 
-def test_collect_helm_values_build_dependencies_exclude():
-    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
+
+def test_collect_helm_values_build_dependencies_exclude(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values_build_dependencies_exclude'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
                                namespace='test', env='prod', local=False, tag=1, include=["workflows"], exclude=["workflows-extract-download"])
 
 
@@ -229,9 +209,10 @@ def test_collect_helm_values_build_dependencies_exclude():
     assert 'workflows-extract-download' not in values[KEY_TASK_IMAGES], "workflows-extract-download has been explicitly excluded"
 
 
-def test_clear_unused_dbconfig():
+def test_clear_unused_dbconfig(tmp_path):
+    out_folder = tmp_path / 'test_clear_unused_dbconfig'
 
-    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
                                env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
 
     # There is a DB config
@@ -248,7 +229,7 @@ def test_clear_unused_dbconfig():
     assert db_config['mongo'] is None
     assert db_config['neo4j'] is None
 
-    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
                                env='withmongo', local=False, include=["myapp"], exclude=["legacy"])
 
     assert KEY_DATABASE in values[KEY_APPS]['myapp'][KEY_HARNESS]
@@ -262,9 +243,10 @@ def test_clear_unused_dbconfig():
     assert db_config['postgres'] is None
 
 
-def test_clear_all_dbconfig_if_nodb():
+def test_clear_all_dbconfig_if_nodb(tmp_path):
+    out_folder = tmp_path / 'test_clear_all_dbconfig_if_nodb'
 
-    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
                                env='withoutdb', local=False, include=["myapp"], exclude=["legacy"])
 
     # There is a DB config
@@ -273,6 +255,7 @@ def test_clear_all_dbconfig_if_nodb():
     # But it is None
     db_config = values[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DATABASE]
     assert db_config is None
+
 
 def test_tag_hash_generation():
     v1 = generate_tag_from_content(RESOURCES)
@@ -285,21 +268,22 @@ def test_tag_hash_generation():
     v5 = generate_tag_from_content(RESOURCES, ignore=['/applications/myapp/*'])
     assert v5 == v4
 
+    fname = Path(RESOURCES) / 'applications' / 'myapp' / 'afile.txt'
     try:
-        fname = os.path.join(RESOURCES, 'applications', 'myapp', 'afile.txt')
-        with open(fname, 'w') as f:
-            f.write('a')
+        fname.write_text('a')
 
         v6 = generate_tag_from_content(RESOURCES, ignore=['/applications/myapp/*'])
         assert v6 == v5
         v7 = generate_tag_from_content(RESOURCES)
         assert v7 != v1
     finally:
-        os.remove(fname)
+        fname.unlink()
 
-def test_collect_helm_values_auto_tag():
+
+def test_collect_helm_values_auto_tag(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values_auto_tag'
     def create():
-        return create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, include=['samples', 'myapp'],
+        return create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
                                exclude=['events'], domain="my.local",
                                namespace='test', env='dev', local=False, tag=None, registry='reg')
 
@@ -321,62 +305,55 @@ def test_collect_helm_values_auto_tag():
     assert values["task-images"][BASE_KEY] == b1, "Base image should not change following the root .dockerignore"
 
 
+    fname = Path(RESOURCES) / 'applications' / 'myapp' / 'afile.txt'
     try:
-        fname = os.path.join(RESOURCES, 'applications', 'myapp', 'afile.txt')
-        with open(fname, 'w') as f:
-            f.write('a')
+        fname.write_text('a')
 
         values = create()
         assert v1 != values.apps['myapp'].harness.deployment.image, "Adding the file changed the hash value"
         v2 = values.apps['myapp'].harness.deployment.image
         assert values["task-images"][BASE_KEY] == b1, "Application files should be ignored for base image following the root .dockerignore"
     finally:
-        os.remove(fname)
-
+        fname.unlink()
 
     try:
-        with open(fname, 'w') as f:
-            f.write('a')
+        fname.write_text('a')
 
         values = create()
         assert v2 == values.apps['myapp'].harness.deployment.image, "Recreated an identical file, the hash value should be the same"
     finally:
-        os.remove(fname)
+        fname.unlink()
 
 
-    fname = os.path.join(RESOURCES, 'applications', 'myapp', 'afile.ignored')
+    fname = Path(RESOURCES) / 'applications' / 'myapp' / 'afile.ignored'
     try:
-        with open(fname, 'w') as f:
-            f.write('a')
+        fname.write_text('a')
+
 
         values = create()
         assert values["task-images"][BASE_KEY] == b1, "2: Application files should be ignored for base image following the root .dockerignore"
 
         assert v1 == values.apps['myapp'].harness.deployment.image, "Nothing should change the hash value as the file is ignored in the .dockerignore"
     finally:
-        os.remove(fname)
-
-
+        fname.unlink()
 
     # Dependencies test: if a dependency is changed, the hash should change
-    fname = os.path.join(RESOURCES, 'infrastructure/common-images', 'my-common', 'afile')
+    fname = Path(RESOURCES) / 'infrastructure' / 'common-images' / 'my-common' / 'afile'
 
     try:
-        with open(fname, 'w') as f:
-            f.write('a')
+        fname.write_text('a')
 
         values = create()
 
         assert c1 != values["task-images"]["my-common"], "If content of a static image is changed, the hash should change"
         assert v1 != values.apps['myapp'].harness.deployment.image, "If a static image dependency is changed, the hash should change"
     finally:
-        os.remove(fname)
+        fname.unlink()
 
 
-    fname = os.path.join(CLOUDHARNESS_ROOT, 'atestfile')
+    fname = Path(CLOUDHARNESS_ROOT) / 'atestfile'
     try:
-        with open(fname, 'w') as f:
-            f.write('a')
+        fname.write_text('a')
 
         values = create()
 
@@ -384,4 +361,4 @@ def test_collect_helm_values_auto_tag():
         assert d1 != values["task-images"]["cloudharness-flask"], "Content for base image is changed, the static image should change"
         assert v1 != values.apps['myapp'].harness.deployment.image, "2 levels dependency: If a base image dependency is changed, the hash should change"
     finally:
-        os.remove(fname)
+        fname.unlink()
