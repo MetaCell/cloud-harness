@@ -5,7 +5,8 @@ import sys
 import os
 
 from ch_cli_tools.dockercompose import create_docker_compose_configuration
-from ch_cli_tools.helm import create_helm_chart, hosts_info, deploy
+from ch_cli_tools.helm import create_helm_chart, deploy
+from ch_cli_tools.configurationgenerator import hosts_info
 from ch_cli_tools.skaffold import create_skaffold_configuration, create_vscode_debug_configuration
 from ch_cli_tools.codefresh import create_codefresh_deployment_scripts, write_env_file
 from ch_cli_tools.preprocessing import preprocess_build_overrides
