@@ -201,7 +201,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
         }
         skaffold_conf['build']['tagPolicy'] = {
             'envTemplate': {
-                'template': "TAG"
+                'template': '"{{.TAG}}"'
             }
         }
 
