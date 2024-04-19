@@ -19,8 +19,8 @@ services:
       - "443:443"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - "./compose/traefik/certs/:/certs/:ro"
-      - "./compose/traefik/traefik.yaml:/etc/traefik/dynamic_conf/conf.yml:ro"
+      - "./traefik/certs/:/certs/:ro"
+      - "./traefik/traefik.yaml:/etc/traefik/dynamic_conf/conf.yml:ro"
 
 {{- range $app_name, $app_config := .Values.apps }}
   {{- if has $app_name (list "argo" "events" "nfsserver") -}}
