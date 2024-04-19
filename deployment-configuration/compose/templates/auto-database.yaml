@@ -13,10 +13,10 @@
   deploy:
     resources:
       limits:
-        cpus: {{ .limits.cpu | default "1000m" }}
+        cpus: {{ .limits.cpu | default "0.75" }}
         memory: {{ trimSuffix "i" .limits.memory | default "2G" }}
       reservations:
-        cpus: {{ .requests.cpu | default "100m" }}
+        cpus: {{ .requests.cpu | default "0.50" }}
         memory: {{ trimSuffix "i" .requests.memory | default "512M" }}
   {{- end }}
   volumes:

@@ -19,8 +19,8 @@ services:
       - "443:443"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - "./certs/:/certs/:ro"
-      - "./traefik.yaml:/etc/traefik/dynamic_conf/conf.yml:ro"
+      - "./compose/traefik/certs/:/certs/:ro"
+      - "./compose/traefik/traefik.yaml:/etc/traefik/dynamic_conf/conf.yml:ro"
 
 {{- range $app_name, $app_config := .Values.apps }}
   {{- if has $app_name (list "argo" "events" "nfsserver") -}}
@@ -76,10 +76,10 @@ services:
       replicas: {{ $deployment.replicas | default 1 }}
       resources:
         limits:
-          cpus: {{ $deployment.resources.limits.cpu | default "50m" }}
+          cpus: {{ $deployment.resources.limits.cpu | default "0.5" }}
           memory: {{ trimSuffix "i" $deployment.resources.limits.memory | default "64M" }}
         reservations:
-          cpus: {{ $deployment.resources.requests.cpu | default "25m" }}
+          cpus: {{ $deployment.resources.requests.cpu | default "0.25" }}
           memory: {{ trimSuffix "i" $deployment.resources.requests.memory | default "32M" }}
     {{- with $deployment.command }}
     # entrypoint: {{ cat . $deployment.args }}
