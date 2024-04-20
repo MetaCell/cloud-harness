@@ -9,6 +9,12 @@
   {{- range $port := $db_infos.ports }}
     - {{ $port.port | quote }}
   {{- end }}
+  {{- with .local_expose }}
+  ports:
+    {{- range $port := $db_infos.ports }}
+    - 127.0.0.1:{{ $port.port }}:{{ $port.port }}
+    {{- end }}
+  {{- end }}
   {{- with .resources }}
   deploy:
     resources:
