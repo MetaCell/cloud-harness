@@ -1,0 +1,18 @@
+{{- define "deploy_utils.resource"}}
+{{ $service_name := .app.harness.deployment.name }}
+---
+# {{ $service_name }}-{{ .resource.name }}
+cloudharness-metadata:
+  path: resources/generated/{{ $service_name  }}/{{ base .resource.src }}
+data: |
+{{ tpl (.root.Files.Get (print "resources/" $service_name "/" .resource.src)) .root | trim | indent 2 }}
+{{- end}}
+
+{{- range $app := .Values.apps }}
+  {{- if and (hasKey $app "port") $app.harness.deployment.auto | default false  }}
+---
+    {{- range $resource := $app.harness.resources }}
+    {{- include "deploy_utils.resource" (dict "app" $app "resource" $resource "root" $) }}
+    {{- end }}
+  {{- end }}
+ {{- end }}

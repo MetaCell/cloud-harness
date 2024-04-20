@@ -1,0 +1,13 @@
+cloudharness-metadata:
+  path: resources/generated/test.yaml
+
+data: |-
+  mykey: myvalue
+
+---
+
+cloudharness-metadata:
+  path: resources/generated/test2.yaml
+
+data: |-
+  mykey2: myvalue2
