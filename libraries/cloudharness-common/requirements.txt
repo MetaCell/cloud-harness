@@ -35,5 +35,5 @@ rsa==4.9
 sentry-sdk==1.39.2
 six==1.16.0
 urllib3==2.1.0
-Werkzeug==3.0.1
+Werkzeug==3.0.3
 zipp==3.17.0
