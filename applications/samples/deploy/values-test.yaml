@@ -1,4 +1,12 @@
 harness:
+  dependencies:
+    soft:
+      - workflows
+      - events
+      - accounts 
+      - common
+      - nfsserver
+      - jupyterhub
   accounts:
     roles:
     - role1

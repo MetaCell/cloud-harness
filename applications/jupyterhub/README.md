@@ -31,3 +31,14 @@ To support the pre pulling of task images see (https://github.com/MetaCell/cloud
 the template `templates/image-puller/_helpers-daemonset.tpl` has been changed (see line 167 and on)
 
 TODO: remember to implement/revise this code after you have updated/changed the templates of JupyterHub
+
+## How to update
+
+The helm chart is based on the [zero-to-jupyterhub](https://github.com/jupyterhub/zero-to-jupyterhub-k8s/) helm chart.
+
+1. Run update.sh [TAG] # Do not use latest!
+2. Restore from the diff files with EDIT: CLOUDHARNESS. Use update.patch as a reference
+3. 3. Update Dockerfile to use the same base image you see on values.yaml: hub/image
+
+Customize notebook image: quay.io/jupyterhub/k8s-singleuser-sample:[TAG]
+

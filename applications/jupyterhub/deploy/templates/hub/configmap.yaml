@@ -29,5 +29,6 @@ data:
   */}}
   checksum_hook-image-puller: {{ include "jupyterhub.imagePuller.daemonset.hook.checksum" . | quote }}
 
+  # EDIT: CLOUDHARNESS
   allvalues.yaml: |
     {{- .Values | toYaml | nindent 4 }}
