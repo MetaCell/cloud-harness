@@ -1,6 +1,6 @@
 # Create a new applicaton
 
-Any Dockerfile added in a subfolder below the [applications](./applications) directory is interpreted as an application part of the deployment.
+Any Dockerfile added in a subfolder below the [applications](../../applications) directory is interpreted as an application part of the deployment.
 
 ## Use harness-application
 
@@ -116,6 +116,6 @@ The most important configuration entries are the following:
   - `livenessProbe`: defines a a url to use as a liveness probe
 
 # Example code
-- [Sample application](../applications/samples) is a sample web application providing working examples of deployment configuration, backend and frontend code.
+- [Sample application](../../applications/samples) is a sample web application providing working examples of deployment configuration, backend and frontend code.
     
 
