@@ -93,7 +93,6 @@ This file is part of the CloudHarness runtime.
 Other constants are located there as shown in the following code extract.
 
 ```python
-NODE_BUILD_IMAGE = 'node:8.16.1-alpine'
 APPLICATION_TEMPLATE_PATH = 'application-templates'
 # ...
 APPS_PATH = 'applications'
