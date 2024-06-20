@@ -27,7 +27,7 @@ harness:
     - administrator
 ```
 
-See the [Gogatekeeper official documentation](https://github.com/gogatekeeper/gatekeeper/blob/master/docs/content/userguide/_index.md) for more.
+See the [Gogatekeeper official documentation](https://gogatekeeper.github.io/gatekeeper/userguide) for more.
 
 
 ## Backend development
