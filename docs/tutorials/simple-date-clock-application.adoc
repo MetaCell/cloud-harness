@@ -36,7 +36,7 @@ Before installing everything, please be sure you have the following tools instal
 == Install {ch} (if it is not yet done)
 
 {ch} is coded in Python, consequently, it's always better to create a local virtualenv dedicated to the project to avoid messing with your system dependencies.
-As shown in the snippet bellow, we will clone the repository, change directory inside the freshly clone directory and create a virtualenv inside (for this tutorial, the Python's version used is CPython 3.10.6).
+As shown in the snippet below, we will clone the repository, change directory inside the freshly clone directory and create a virtualenv inside (for this tutorial, the Python's version used is CPython 3.10.6).
 
 First step is to clone the link:{repo_url}[{ch} repository] on your system.
 
