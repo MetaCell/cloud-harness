@@ -108,7 +108,6 @@ A JRE is needed to run the code generators based on openapi-generator.
 
 For more info, see [here](https://openapi-generator.tech/docs/installation).
 
-
 ## CloudHarness command line tools
 To use the cli tools, install requirements first:
 

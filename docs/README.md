@@ -1,6 +1,6 @@
 # Index of the documentation articles
 - [Create and run a deployment](./build-deploy/README.md)
-  - [Create a codefresh continuous deployment](./build-deploy/codefresh.md)
+  - [Create a codefresh continuous deployment](./build-deploy/ci-cd/codefresh.md)
   - [Configure the Helm chart](./build-deploy/helm-configuration.md)
   - [Set up environments](./build-deploy/environments.md)
   - [Work with local deployments](./build-deploy/local-deploy/README.md)
