@@ -13,6 +13,8 @@ from ruamel.yaml import YAML
 import shutil
 import logging
 import fileinput
+from dataclasses import dataclass
+from typing import Optional
 
 from cloudharness_utils.constants import NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
     APPS_PATH, BUILD_FILENAMES, EXCLUDE_PATHS
@@ -401,3 +403,50 @@ def get_git_commit_hash(path):
             ['git', 'rev-parse', '--short', 'HEAD'], cwd=path).decode("utf-8").strip()
     except:
         return None
+
+# Docker image tag regular expression with capturing groups
+_DOCKER_IMAGE_TAG_REGEX = r'^(?:(?P<host>[a-zA-Z0-9.-]+(?::[0-9]+)?)/)?(?P<path>(?:[a-z0-9]+(?:[._-][a-z0-9]+)*/)*[a-z0-9]+(?:[._-][a-z0-9]+)*)(?::(?P<tag>(?![.-])[A-Za-z0-9._-]{1,128}))?$'
+
+@dataclass
+class DockerImageTag:
+    """
+    A label assigned to a Docker image to help identify it.
+    ref: https://docs.docker.com/reference/cli/docker/image/tag/
+    """
+    
+    # optional registry hostname specifies where the image is located
+    # if a hostname is present, it may optionally be followed by a registry port number
+    host: Optional[str] = ''
+    
+    # consists of slash-separated components. Each component may contain lowercase letters, 
+    # digits and separators
+    path: str = ''
+    
+    # a custom, human-readable manifest identifier that's typically a 
+    # specific version or variant of an image
+    tag: Optional[str] = ''
+
+    def __str__(self) -> str:
+        if not self.path:
+            raise Exception("invalid image name: not path defined")
+
+        image = ""
+        if self.host: image += self.host + "/"
+        image += self.path
+        if self.tag: image += ":" + self.tag
+
+        return image
+
+    @classmethod
+    def from_str(cls, image: str) -> 'DockerImageTag':
+        match = re.match(_DOCKER_IMAGE_TAG_REGEX, image)
+        if not match:
+            raise Exception(f"Docker image tag '{image}' is invalid")
+
+        args = {
+            "host": match.group('host'),
+            "path": match.group('path'),
+            "tag": match.group('tag')
+        }
+
+        return cls(**args)

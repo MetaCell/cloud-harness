@@ -10,7 +10,8 @@ from cloudharness_utils.constants import APPS_PATH, DEPLOYMENT_CONFIGURATION_PAT
     BASE_IMAGES_PATH, STATIC_IMAGES_PATH
 from .helm import KEY_APPS, KEY_HARNESS, KEY_DEPLOYMENT, KEY_TASK_IMAGES
 from .utils import get_template, dict_merge, find_dockerfiles_paths, app_name_from_path, \
-    find_file_paths, guess_build_dependencies_from_dockerfile, merge_to_yaml_file, get_json_template, get_image_name
+    find_file_paths, guess_build_dependencies_from_dockerfile, merge_to_yaml_file, \
+    get_json_template, get_image_name, DockerImageTag
 
 from . import HERE
 
@@ -27,7 +28,8 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
     overrides = {}
 
     def remove_tag(image_name):
-        return image_name.split(":")[0]
+        image = DockerImageTag.from_str(image_name)
+        return f"{image.host}/{image.path}"
 
     def get_image_tag(name):
         return f"{get_image_name(name, base_image_name)}"

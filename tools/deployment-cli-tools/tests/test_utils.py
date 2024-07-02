@@ -75,3 +75,45 @@ def test_find_dockerfile_paths():
     assert len(dockerfiles) == 2
     assert next(d for d in dockerfiles if d.endswith("myapp")), "Must find the Dockerfile in the root directory"
     assert next(d for d in dockerfiles if d.endswith("myapp/tasks/mytask")), "Must find the Dockerfile in the tasks directory"
+
+def test_docker_image_tag():
+    image_names = [
+        'nginx',
+        'library/nginx',
+        'myregistry.local:5000/repo/image',
+        'myrepo/myimage:latest',
+        'myrepo/myimage:1.0.0-alpha'
+    ]
+
+    for image in image_names:
+        docker_img = DockerImageTag.from_str(image)
+        docker_img_str = str(docker_img)
+        assert image == docker_img_str, f'expected {image}, got {docker_img_str}'
+
+    invalid_image_names = [
+        #'-invalid/repo',
+        #'invalid-/repo',
+        'invalid..repo',
+        'repo/invalid-.tag',
+        'repo/.invalid',
+        'repo/invalid_.tag',
+        'repo/invalid#repo',
+        'repo/invalid@repo',
+        'repo/invalid!repo',
+        'repo/invalid repo',
+        #'repo/this-is-a-repo-with-a-tag-that-is-way-too-long:and-this-tag-is-also-way-too-long-because-it-has-more-than-128-characters-which-is-not-allowed-by-docker',
+        '_invalid.hostname/repo',
+        #'invalid_hostname/repo',
+        'repo/',
+        '/repo',
+        'myregistry.local:port/repo'
+    ]
+
+    for image in invalid_image_names:
+        exception_raised = False
+        try:
+            DockerImageTag.from_str(image)
+        except Exception:
+            exception_raised = True
+        
+        assert exception_raised, f"expected exception to be raised for '{image}'"
