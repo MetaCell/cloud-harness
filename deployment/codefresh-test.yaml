@@ -19,7 +19,7 @@ steps:
     stage: prepare
     working_directory: .
     commands:
-    - bash cloud-harness/install.sh
+    - bash install.sh
     - harness-deployment . -n test-${{NAMESPACE_BASENAME}} -d ${{DOMAIN}} -r ${{REGISTRY}}
       -rs ${{REGISTRY_SECRET}} -e test --write-env -N -i samples
     - cat deployment/.env >> ${{CF_VOLUME_PATH}}/env_vars_to_export
