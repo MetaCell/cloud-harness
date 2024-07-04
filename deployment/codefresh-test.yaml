@@ -13,18 +13,6 @@ steps:
     repo: '${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}'
     revision: '${{CF_BRANCH}}'
     git: github
-  post_main_clone:
-    title: Post main clone
-    type: parallel
-    stage: prepare
-    steps:
-    - title: Cloning cloud-harness repository...
-      type: git-clone
-      stage: prepare
-      repo: https://github.com/MetaCell/cloud-harness.git
-      revision: '${{CLOUDHARNESS_BRANCH}}'
-      working_directory: .
-      git: github
   prepare_deployment:
     title: Prepare helm chart
     image: python:3.9.10
