@@ -1,9 +1,5 @@
 import os
 
-NODE_BUILD_IMAGE = 'node:8.16.1-alpine'
-
-
-
 APPLICATION_TEMPLATE_PATH = 'application-templates'
 DEFAULT_MERGE_PATH = ".overrides"
 
