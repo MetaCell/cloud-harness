@@ -13,7 +13,8 @@ A user account must be provided to access to the MNP secured applications.
 To put a gatekeeper in front of your application, set `harness/secured` to `true`
 in the application's values.yaml.
 
-To assign paths and roles, set `uri_role_mapping` as you would do in the [gatekeeper configuration file resources](https://github.com/gogatekeeper/gatekeeper/blob/master/docs/content/userguide/_index.md#configuration-options).
+To assign paths and roles, set `uri_role_mapping` as you would do in the [gatekeeper configuration file resources](https://github.com/gogatekeeper/gatekeeper/blob/master/docs/content/configuration/_index.md).
+
 
 Example:
 
@@ -26,6 +27,7 @@ harness:
     roles:
     - administrator
 ```
+
 
 See the [Gogatekeeper official documentation](https://gogatekeeper.github.io/gatekeeper/userguide) for more.
 
