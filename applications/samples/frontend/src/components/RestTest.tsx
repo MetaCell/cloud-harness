@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 
 import { TestApi } from '../rest/api'
+import { AxiosResponse } from 'axios';
 const test = new TestApi();
 
+
+
 const RestTest = () => {
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<any>(null);
   useEffect(() => {
-    test.ping().then(r => setResult(r), () => setResult({ data: "API error"}));
+    test.ping().then((r: AxiosResponse) => setResult(r), () => setResult({ data: "API error"}));
   }, []);
     
 

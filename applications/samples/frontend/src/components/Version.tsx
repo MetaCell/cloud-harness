@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 
 
 const Version = () => {
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<any>(null);
   useEffect(() => {
     fetch("/proxy/common/api/version", {
       headers: {
