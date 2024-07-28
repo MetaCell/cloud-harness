@@ -1,4 +1,4 @@
 ARG CLOUDHARNESS_BASE_DEBIAN
 FROM $CLOUDHARNESS_BASE_DEBIAN
 
-RUN apk add --no-cache bash
+RUN apt install --no-cache bash

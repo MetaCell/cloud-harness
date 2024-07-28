@@ -398,32 +398,20 @@ def filter_empty_strings(value):
 
 
 def search_word_in_file(file, word):
-    p = subprocess.Popen('grep -l %s %s'% (word, file), shell=True,
-        stdout=subprocess.PIPE)
-    output, _ = p.communicate()
-    output = output.decode("utf-8")
+    if os.path.isdir(file):
+        return []
     matches = []
-    if p.returncode == 1: # no matches found
-        pass
-    elif p.returncode == 0: # matches found
-        matches = output.split('\n')
-    else:
-        raise Exception(f'Migration Error: {file} grep failed with return code {p.returncode} and output {output}')
+    with open(file) as f:
+            if word in f.read():
+                matches.append(file)
     return list(filter(filter_empty_strings, matches))
 
 
 def search_word_in_folder(folder, word):
-    p = subprocess.Popen('grep -rl %s %s'% (word, '*'), shell=True,
-        stdout=subprocess.PIPE, cwd=folder)
-    output, _ = p.communicate()
-    output = output.decode("utf-8")
     matches = []
-    if p.returncode == 1: # no matches found
-        pass
-    elif p.returncode == 0: # matches found
-        matches = output.split('\n')
-    else:
-        raise Exception(f'Migration Error: {folder} grep failed with return code {p.returncode} and output {output}')
+    files = glob.glob(folder + '/**/*', recursive = True)
+    for file in files:
+        matches.extend(search_word_in_file(file, word))
     return list(filter(filter_empty_strings, matches))
 
 
