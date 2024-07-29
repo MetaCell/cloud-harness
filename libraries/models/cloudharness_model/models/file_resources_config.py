@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from cloudharness_model.models.base_model_ import Model
+from cloudharness_model.models.base_model import Model
 import re
 from cloudharness_model import util
 
@@ -55,7 +52,7 @@ class FileResourcesConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Gets the name of this FileResourcesConfig.
 
           # noqa: E501
@@ -66,7 +63,7 @@ class FileResourcesConfig(Model):
         return self._name
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str):
         """Sets the name of this FileResourcesConfig.
 
           # noqa: E501
@@ -82,7 +79,7 @@ class FileResourcesConfig(Model):
         self._name = name
 
     @property
-    def src(self):
+    def src(self) -> str:
         """Gets the src of this FileResourcesConfig.
 
           # noqa: E501
@@ -93,7 +90,7 @@ class FileResourcesConfig(Model):
         return self._src
 
     @src.setter
-    def src(self, src):
+    def src(self, src: str):
         """Sets the src of this FileResourcesConfig.
 
           # noqa: E501
@@ -109,7 +106,7 @@ class FileResourcesConfig(Model):
         self._src = src
 
     @property
-    def dst(self):
+    def dst(self) -> str:
         """Gets the dst of this FileResourcesConfig.
 
           # noqa: E501
@@ -120,7 +117,7 @@ class FileResourcesConfig(Model):
         return self._dst
 
     @dst.setter
-    def dst(self, dst):
+    def dst(self, dst: str):
         """Sets the dst of this FileResourcesConfig.
 
           # noqa: E501

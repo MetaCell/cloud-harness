@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from cloudharness_model.models.base_model_ import Model
+from cloudharness_model.models.base_model import Model
 from cloudharness_model.models.api_tests_config import ApiTestsConfig
 from cloudharness_model.models.e2_e_tests_config import E2ETestsConfig
 from cloudharness_model.models.unit_tests_config import UnitTestsConfig
@@ -59,7 +56,7 @@ class ApplicationTestConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def unit(self):
+    def unit(self) -> UnitTestsConfig:
         """Gets the unit of this ApplicationTestConfig.
 
 
@@ -69,7 +66,7 @@ class ApplicationTestConfig(Model):
         return self._unit
 
     @unit.setter
-    def unit(self, unit):
+    def unit(self, unit: UnitTestsConfig):
         """Sets the unit of this ApplicationTestConfig.
 
 
@@ -82,7 +79,7 @@ class ApplicationTestConfig(Model):
         self._unit = unit
 
     @property
-    def api(self):
+    def api(self) -> ApiTestsConfig:
         """Gets the api of this ApplicationTestConfig.
 
 
@@ -92,7 +89,7 @@ class ApplicationTestConfig(Model):
         return self._api
 
     @api.setter
-    def api(self, api):
+    def api(self, api: ApiTestsConfig):
         """Sets the api of this ApplicationTestConfig.
 
 
@@ -105,7 +102,7 @@ class ApplicationTestConfig(Model):
         self._api = api
 
     @property
-    def e2e(self):
+    def e2e(self) -> E2ETestsConfig:
         """Gets the e2e of this ApplicationTestConfig.
 
 
@@ -115,7 +112,7 @@ class ApplicationTestConfig(Model):
         return self._e2e
 
     @e2e.setter
-    def e2e(self, e2e):
+    def e2e(self, e2e: E2ETestsConfig):
         """Sets the e2e of this ApplicationTestConfig.
 
 

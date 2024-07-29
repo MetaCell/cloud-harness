@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from cloudharness_model.models.base_model_ import Model
+from cloudharness_model.models.base_model import Model
 from cloudharness_model import util
 
 
@@ -48,7 +45,7 @@ class AutoArtifactSpec(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def auto(self):
+    def auto(self) -> bool:
         """Gets the auto of this AutoArtifactSpec.
 
         When true, enables automatic template  # noqa: E501
@@ -59,7 +56,7 @@ class AutoArtifactSpec(Model):
         return self._auto
 
     @auto.setter
-    def auto(self, auto):
+    def auto(self, auto: bool):
         """Sets the auto of this AutoArtifactSpec.
 
         When true, enables automatic template  # noqa: E501
@@ -73,7 +70,7 @@ class AutoArtifactSpec(Model):
         self._auto = auto
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Gets the name of this AutoArtifactSpec.
 
           # noqa: E501
@@ -84,7 +81,7 @@ class AutoArtifactSpec(Model):
         return self._name
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str):
         """Sets the name of this AutoArtifactSpec.
 
           # noqa: E501

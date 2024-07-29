@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from cloudharness_model.models.base_model_ import Model
+from cloudharness_model.models.base_model import Model
 import re
 from cloudharness_model import util
 
@@ -50,7 +47,7 @@ class UriRoleMappingConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def uri(self):
+    def uri(self) -> str:
         """Gets the uri of this UriRoleMappingConfig.
 
           # noqa: E501
@@ -61,7 +58,7 @@ class UriRoleMappingConfig(Model):
         return self._uri
 
     @uri.setter
-    def uri(self, uri):
+    def uri(self, uri: str):
         """Sets the uri of this UriRoleMappingConfig.
 
           # noqa: E501
@@ -77,7 +74,7 @@ class UriRoleMappingConfig(Model):
         self._uri = uri
 
     @property
-    def roles(self):
+    def roles(self) -> List[str]:
         """Gets the roles of this UriRoleMappingConfig.
 
         Roles allowed to access the present uri  # noqa: E501
@@ -88,7 +85,7 @@ class UriRoleMappingConfig(Model):
         return self._roles
 
     @roles.setter
-    def roles(self, roles):
+    def roles(self, roles: List[str]):
         """Sets the roles of this UriRoleMappingConfig.
 
         Roles allowed to access the present uri  # noqa: E501

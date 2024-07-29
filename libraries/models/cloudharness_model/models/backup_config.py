@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from cloudharness_model.models.base_model_ import Model
+from cloudharness_model.models.base_model import Model
 from cloudharness_model.models.deployment_resources_conf import DeploymentResourcesConf
 import re
 from cloudharness_model import util
@@ -87,7 +84,7 @@ class BackupConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def active(self):
+    def active(self) -> bool:
         """Gets the active of this BackupConfig.
 
           # noqa: E501
@@ -98,7 +95,7 @@ class BackupConfig(Model):
         return self._active
 
     @active.setter
-    def active(self, active):
+    def active(self, active: bool):
         """Sets the active of this BackupConfig.
 
           # noqa: E501
@@ -110,7 +107,7 @@ class BackupConfig(Model):
         self._active = active
 
     @property
-    def keep_days(self):
+    def keep_days(self) -> int:
         """Gets the keep_days of this BackupConfig.
 
           # noqa: E501
@@ -121,7 +118,7 @@ class BackupConfig(Model):
         return self._keep_days
 
     @keep_days.setter
-    def keep_days(self, keep_days):
+    def keep_days(self, keep_days: int):
         """Sets the keep_days of this BackupConfig.
 
           # noqa: E501
@@ -133,7 +130,7 @@ class BackupConfig(Model):
         self._keep_days = keep_days
 
     @property
-    def keep_weeks(self):
+    def keep_weeks(self) -> int:
         """Gets the keep_weeks of this BackupConfig.
 
           # noqa: E501
@@ -144,7 +141,7 @@ class BackupConfig(Model):
         return self._keep_weeks
 
     @keep_weeks.setter
-    def keep_weeks(self, keep_weeks):
+    def keep_weeks(self, keep_weeks: int):
         """Sets the keep_weeks of this BackupConfig.
 
           # noqa: E501
@@ -156,7 +153,7 @@ class BackupConfig(Model):
         self._keep_weeks = keep_weeks
 
     @property
-    def keep_months(self):
+    def keep_months(self) -> int:
         """Gets the keep_months of this BackupConfig.
 
           # noqa: E501
@@ -167,7 +164,7 @@ class BackupConfig(Model):
         return self._keep_months
 
     @keep_months.setter
-    def keep_months(self, keep_months):
+    def keep_months(self, keep_months: int):
         """Sets the keep_months of this BackupConfig.
 
           # noqa: E501
@@ -179,7 +176,7 @@ class BackupConfig(Model):
         self._keep_months = keep_months
 
     @property
-    def schedule(self):
+    def schedule(self) -> str:
         """Gets the schedule of this BackupConfig.
 
         Cron expression  # noqa: E501
@@ -190,7 +187,7 @@ class BackupConfig(Model):
         return self._schedule
 
     @schedule.setter
-    def schedule(self, schedule):
+    def schedule(self, schedule: str):
         """Sets the schedule of this BackupConfig.
 
         Cron expression  # noqa: E501
@@ -204,7 +201,7 @@ class BackupConfig(Model):
         self._schedule = schedule
 
     @property
-    def suffix(self):
+    def suffix(self) -> object:
         """Gets the suffix of this BackupConfig.
 
         The file suffix added to backup files  # noqa: E501
@@ -215,7 +212,7 @@ class BackupConfig(Model):
         return self._suffix
 
     @suffix.setter
-    def suffix(self, suffix):
+    def suffix(self, suffix: object):
         """Sets the suffix of this BackupConfig.
 
         The file suffix added to backup files  # noqa: E501
@@ -227,7 +224,7 @@ class BackupConfig(Model):
         self._suffix = suffix
 
     @property
-    def volumesize(self):
+    def volumesize(self) -> str:
         """Gets the volumesize of this BackupConfig.
 
         The volume size for backups (all backups share the same volume)  # noqa: E501
@@ -238,7 +235,7 @@ class BackupConfig(Model):
         return self._volumesize
 
     @volumesize.setter
-    def volumesize(self, volumesize):
+    def volumesize(self, volumesize: str):
         """Sets the volumesize of this BackupConfig.
 
         The volume size for backups (all backups share the same volume)  # noqa: E501
@@ -250,7 +247,7 @@ class BackupConfig(Model):
         self._volumesize = volumesize
 
     @property
-    def dir(self):
+    def dir(self) -> str:
         """Gets the dir of this BackupConfig.
 
           # noqa: E501
@@ -261,7 +258,7 @@ class BackupConfig(Model):
         return self._dir
 
     @dir.setter
-    def dir(self, dir):
+    def dir(self, dir: str):
         """Sets the dir of this BackupConfig.
 
           # noqa: E501
@@ -277,7 +274,7 @@ class BackupConfig(Model):
         self._dir = dir
 
     @property
-    def resources(self):
+    def resources(self) -> DeploymentResourcesConf:
         """Gets the resources of this BackupConfig.
 
 
@@ -287,7 +284,7 @@ class BackupConfig(Model):
         return self._resources
 
     @resources.setter
-    def resources(self, resources):
+    def resources(self, resources: DeploymentResourcesConf):
         """Sets the resources of this BackupConfig.
 
 

@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from cloudharness_model.models.base_model_ import Model
+from cloudharness_model.models.base_model import Model
 from cloudharness_model.models.user import User
 from cloudharness_model import util
 
@@ -25,7 +22,7 @@ class CDCEventMeta(Model):
         :param user: The user of this CDCEventMeta.  # noqa: E501
         :type user: User
         :param args: The args of this CDCEventMeta.  # noqa: E501
-        :type args: List[Dict]
+        :type args: List[Dict[str, object]]
         :param kwargs: The kwargs of this CDCEventMeta.  # noqa: E501
         :type kwargs: object
         :param description: The description of this CDCEventMeta.  # noqa: E501
@@ -34,7 +31,7 @@ class CDCEventMeta(Model):
         self.openapi_types = {
             'app_name': str,
             'user': User,
-            'args': List[Dict],
+            'args': List[Dict[str, object]],
             'kwargs': object,
             'description': str
         }
@@ -65,7 +62,7 @@ class CDCEventMeta(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def app_name(self):
+    def app_name(self) -> str:
         """Gets the app_name of this CDCEventMeta.
 
         The name of the application/microservice sending the message  # noqa: E501
@@ -76,7 +73,7 @@ class CDCEventMeta(Model):
         return self._app_name
 
     @app_name.setter
-    def app_name(self, app_name):
+    def app_name(self, app_name: str):
         """Sets the app_name of this CDCEventMeta.
 
         The name of the application/microservice sending the message  # noqa: E501
@@ -90,7 +87,7 @@ class CDCEventMeta(Model):
         self._app_name = app_name
 
     @property
-    def user(self):
+    def user(self) -> User:
         """Gets the user of this CDCEventMeta.
 
 
@@ -100,7 +97,7 @@ class CDCEventMeta(Model):
         return self._user
 
     @user.setter
-    def user(self, user):
+    def user(self, user: User):
         """Sets the user of this CDCEventMeta.
 
 
@@ -111,30 +108,30 @@ class CDCEventMeta(Model):
         self._user = user
 
     @property
-    def args(self):
+    def args(self) -> List[Dict[str, object]]:
         """Gets the args of this CDCEventMeta.
 
         the caller function arguments  # noqa: E501
 
         :return: The args of this CDCEventMeta.
-        :rtype: List[Dict]
+        :rtype: List[Dict[str, object]]
         """
         return self._args
 
     @args.setter
-    def args(self, args):
+    def args(self, args: List[Dict[str, object]]):
         """Sets the args of this CDCEventMeta.
 
         the caller function arguments  # noqa: E501
 
         :param args: The args of this CDCEventMeta.
-        :type args: List[Dict]
+        :type args: List[Dict[str, object]]
         """
 
         self._args = args
 
     @property
-    def kwargs(self):
+    def kwargs(self) -> object:
         """Gets the kwargs of this CDCEventMeta.
 
         the caller function keyword arguments  # noqa: E501
@@ -145,7 +142,7 @@ class CDCEventMeta(Model):
         return self._kwargs
 
     @kwargs.setter
-    def kwargs(self, kwargs):
+    def kwargs(self, kwargs: object):
         """Sets the kwargs of this CDCEventMeta.
 
         the caller function keyword arguments  # noqa: E501
@@ -157,7 +154,7 @@ class CDCEventMeta(Model):
         self._kwargs = kwargs
 
     @property
-    def description(self):
+    def description(self) -> str:
         """Gets the description of this CDCEventMeta.
 
         General description -- for human consumption  # noqa: E501
@@ -168,7 +165,7 @@ class CDCEventMeta(Model):
         return self._description
 
     @description.setter
-    def description(self, description):
+    def description(self, description: str):
         """Sets the description of this CDCEventMeta.
 
         General description -- for human consumption  # noqa: E501

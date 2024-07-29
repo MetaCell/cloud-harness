@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from cloudharness_model.models.base_model_ import Model
+from cloudharness_model.models.base_model import Model
 from cloudharness_model import util
 
 
@@ -43,7 +40,7 @@ class IngressConfigAllOfLetsencrypt(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def email(self):
+    def email(self) -> str:
         """Gets the email of this IngressConfigAllOfLetsencrypt.
 
 
@@ -53,7 +50,7 @@ class IngressConfigAllOfLetsencrypt(Model):
         return self._email
 
     @email.setter
-    def email(self, email):
+    def email(self, email: str):
         """Sets the email of this IngressConfigAllOfLetsencrypt.
 
 

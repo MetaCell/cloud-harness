@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from cloudharness_model.models.base_model_ import Model
+from cloudharness_model.models.base_model import Model
 from cloudharness_model.models.ingress_config_all_of_letsencrypt import IngressConfigAllOfLetsencrypt
 from cloudharness_model import util
 
@@ -17,36 +14,36 @@ class IngressConfig(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, ssl_redirect=None, letsencrypt=None, auto=None, name=None):  # noqa: E501
+    def __init__(self, auto=None, name=None, ssl_redirect=None, letsencrypt=None):  # noqa: E501
         """IngressConfig - a model defined in OpenAPI
 
-        :param ssl_redirect: The ssl_redirect of this IngressConfig.  # noqa: E501
-        :type ssl_redirect: bool
-        :param letsencrypt: The letsencrypt of this IngressConfig.  # noqa: E501
-        :type letsencrypt: IngressConfigAllOfLetsencrypt
         :param auto: The auto of this IngressConfig.  # noqa: E501
         :type auto: bool
         :param name: The name of this IngressConfig.  # noqa: E501
         :type name: str
+        :param ssl_redirect: The ssl_redirect of this IngressConfig.  # noqa: E501
+        :type ssl_redirect: bool
+        :param letsencrypt: The letsencrypt of this IngressConfig.  # noqa: E501
+        :type letsencrypt: IngressConfigAllOfLetsencrypt
         """
         self.openapi_types = {
-            'ssl_redirect': bool,
-            'letsencrypt': IngressConfigAllOfLetsencrypt,
             'auto': bool,
-            'name': str
+            'name': str,
+            'ssl_redirect': bool,
+            'letsencrypt': IngressConfigAllOfLetsencrypt
         }
 
         self.attribute_map = {
-            'ssl_redirect': 'ssl_redirect',
-            'letsencrypt': 'letsencrypt',
             'auto': 'auto',
-            'name': 'name'
+            'name': 'name',
+            'ssl_redirect': 'ssl_redirect',
+            'letsencrypt': 'letsencrypt'
         }
 
-        self._ssl_redirect = ssl_redirect
-        self._letsencrypt = letsencrypt
         self._auto = auto
         self._name = name
+        self._ssl_redirect = ssl_redirect
+        self._letsencrypt = letsencrypt
 
     @classmethod
     def from_dict(cls, dikt) -> 'IngressConfig':
@@ -60,51 +57,7 @@ class IngressConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def ssl_redirect(self):
-        """Gets the ssl_redirect of this IngressConfig.
-
-          # noqa: E501
-
-        :return: The ssl_redirect of this IngressConfig.
-        :rtype: bool
-        """
-        return self._ssl_redirect
-
-    @ssl_redirect.setter
-    def ssl_redirect(self, ssl_redirect):
-        """Sets the ssl_redirect of this IngressConfig.
-
-          # noqa: E501
-
-        :param ssl_redirect: The ssl_redirect of this IngressConfig.
-        :type ssl_redirect: bool
-        """
-
-        self._ssl_redirect = ssl_redirect
-
-    @property
-    def letsencrypt(self):
-        """Gets the letsencrypt of this IngressConfig.
-
-
-        :return: The letsencrypt of this IngressConfig.
-        :rtype: IngressConfigAllOfLetsencrypt
-        """
-        return self._letsencrypt
-
-    @letsencrypt.setter
-    def letsencrypt(self, letsencrypt):
-        """Sets the letsencrypt of this IngressConfig.
-
-
-        :param letsencrypt: The letsencrypt of this IngressConfig.
-        :type letsencrypt: IngressConfigAllOfLetsencrypt
-        """
-
-        self._letsencrypt = letsencrypt
-
-    @property
-    def auto(self):
+    def auto(self) -> bool:
         """Gets the auto of this IngressConfig.
 
         When true, enables automatic template  # noqa: E501
@@ -115,7 +68,7 @@ class IngressConfig(Model):
         return self._auto
 
     @auto.setter
-    def auto(self, auto):
+    def auto(self, auto: bool):
         """Sets the auto of this IngressConfig.
 
         When true, enables automatic template  # noqa: E501
@@ -129,7 +82,7 @@ class IngressConfig(Model):
         self._auto = auto
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Gets the name of this IngressConfig.
 
           # noqa: E501
@@ -140,7 +93,7 @@ class IngressConfig(Model):
         return self._name
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str):
         """Sets the name of this IngressConfig.
 
           # noqa: E501
@@ -150,3 +103,47 @@ class IngressConfig(Model):
         """
 
         self._name = name
+
+    @property
+    def ssl_redirect(self) -> bool:
+        """Gets the ssl_redirect of this IngressConfig.
+
+          # noqa: E501
+
+        :return: The ssl_redirect of this IngressConfig.
+        :rtype: bool
+        """
+        return self._ssl_redirect
+
+    @ssl_redirect.setter
+    def ssl_redirect(self, ssl_redirect: bool):
+        """Sets the ssl_redirect of this IngressConfig.
+
+          # noqa: E501
+
+        :param ssl_redirect: The ssl_redirect of this IngressConfig.
+        :type ssl_redirect: bool
+        """
+
+        self._ssl_redirect = ssl_redirect
+
+    @property
+    def letsencrypt(self) -> IngressConfigAllOfLetsencrypt:
+        """Gets the letsencrypt of this IngressConfig.
+
+
+        :return: The letsencrypt of this IngressConfig.
+        :rtype: IngressConfigAllOfLetsencrypt
+        """
+        return self._letsencrypt
+
+    @letsencrypt.setter
+    def letsencrypt(self, letsencrypt: IngressConfigAllOfLetsencrypt):
+        """Sets the letsencrypt of this IngressConfig.
+
+
+        :param letsencrypt: The letsencrypt of this IngressConfig.
+        :type letsencrypt: IngressConfigAllOfLetsencrypt
+        """
+
+        self._letsencrypt = letsencrypt

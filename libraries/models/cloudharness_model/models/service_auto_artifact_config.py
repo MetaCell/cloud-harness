@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from cloudharness_model.models.base_model_ import Model
+from cloudharness_model.models.base_model import Model
 from cloudharness_model import util
 
 
@@ -15,31 +12,31 @@ class ServiceAutoArtifactConfig(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, port=None, auto=None, name=None):  # noqa: E501
+    def __init__(self, auto=None, name=None, port=None):  # noqa: E501
         """ServiceAutoArtifactConfig - a model defined in OpenAPI
 
-        :param port: The port of this ServiceAutoArtifactConfig.  # noqa: E501
-        :type port: int
         :param auto: The auto of this ServiceAutoArtifactConfig.  # noqa: E501
         :type auto: bool
         :param name: The name of this ServiceAutoArtifactConfig.  # noqa: E501
         :type name: str
+        :param port: The port of this ServiceAutoArtifactConfig.  # noqa: E501
+        :type port: int
         """
         self.openapi_types = {
-            'port': int,
             'auto': bool,
-            'name': str
+            'name': str,
+            'port': int
         }
 
         self.attribute_map = {
-            'port': 'port',
             'auto': 'auto',
-            'name': 'name'
+            'name': 'name',
+            'port': 'port'
         }
 
-        self._port = port
         self._auto = auto
         self._name = name
+        self._port = port
 
     @classmethod
     def from_dict(cls, dikt) -> 'ServiceAutoArtifactConfig':
@@ -53,30 +50,7 @@ class ServiceAutoArtifactConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def port(self):
-        """Gets the port of this ServiceAutoArtifactConfig.
-
-        Service port  # noqa: E501
-
-        :return: The port of this ServiceAutoArtifactConfig.
-        :rtype: int
-        """
-        return self._port
-
-    @port.setter
-    def port(self, port):
-        """Sets the port of this ServiceAutoArtifactConfig.
-
-        Service port  # noqa: E501
-
-        :param port: The port of this ServiceAutoArtifactConfig.
-        :type port: int
-        """
-
-        self._port = port
-
-    @property
-    def auto(self):
+    def auto(self) -> bool:
         """Gets the auto of this ServiceAutoArtifactConfig.
 
         When true, enables automatic template  # noqa: E501
@@ -87,7 +61,7 @@ class ServiceAutoArtifactConfig(Model):
         return self._auto
 
     @auto.setter
-    def auto(self, auto):
+    def auto(self, auto: bool):
         """Sets the auto of this ServiceAutoArtifactConfig.
 
         When true, enables automatic template  # noqa: E501
@@ -101,7 +75,7 @@ class ServiceAutoArtifactConfig(Model):
         self._auto = auto
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Gets the name of this ServiceAutoArtifactConfig.
 
           # noqa: E501
@@ -112,7 +86,7 @@ class ServiceAutoArtifactConfig(Model):
         return self._name
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str):
         """Sets the name of this ServiceAutoArtifactConfig.
 
           # noqa: E501
@@ -122,3 +96,26 @@ class ServiceAutoArtifactConfig(Model):
         """
 
         self._name = name
+
+    @property
+    def port(self) -> int:
+        """Gets the port of this ServiceAutoArtifactConfig.
+
+        Service port  # noqa: E501
+
+        :return: The port of this ServiceAutoArtifactConfig.
+        :rtype: int
+        """
+        return self._port
+
+    @port.setter
+    def port(self, port: int):
+        """Sets the port of this ServiceAutoArtifactConfig.
+
+        Service port  # noqa: E501
+
+        :param port: The port of this ServiceAutoArtifactConfig.
+        :type port: int
+        """
+
+        self._port = port

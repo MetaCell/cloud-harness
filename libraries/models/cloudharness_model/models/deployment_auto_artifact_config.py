@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from cloudharness_model.models.base_model_ import Model
+from cloudharness_model.models.base_model import Model
 from cloudharness_model.models.deployment_resources_conf import DeploymentResourcesConf
 from cloudharness_model.models.deployment_volume_spec import DeploymentVolumeSpec
 import re
@@ -21,9 +18,13 @@ class DeploymentAutoArtifactConfig(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, port=None, replicas=None, image=None, resources=None, volume=None, auto=None, name=None):  # noqa: E501
+    def __init__(self, auto=None, name=None, port=None, replicas=None, image=None, resources=None, volume=None):  # noqa: E501
         """DeploymentAutoArtifactConfig - a model defined in OpenAPI
 
+        :param auto: The auto of this DeploymentAutoArtifactConfig.  # noqa: E501
+        :type auto: bool
+        :param name: The name of this DeploymentAutoArtifactConfig.  # noqa: E501
+        :type name: str
         :param port: The port of this DeploymentAutoArtifactConfig.  # noqa: E501
         :type port: str
         :param replicas: The replicas of this DeploymentAutoArtifactConfig.  # noqa: E501
@@ -34,38 +35,34 @@ class DeploymentAutoArtifactConfig(Model):
         :type resources: DeploymentResourcesConf
         :param volume: The volume of this DeploymentAutoArtifactConfig.  # noqa: E501
         :type volume: DeploymentVolumeSpec
-        :param auto: The auto of this DeploymentAutoArtifactConfig.  # noqa: E501
-        :type auto: bool
-        :param name: The name of this DeploymentAutoArtifactConfig.  # noqa: E501
-        :type name: str
         """
         self.openapi_types = {
+            'auto': bool,
+            'name': str,
             'port': str,
             'replicas': int,
             'image': str,
             'resources': DeploymentResourcesConf,
-            'volume': DeploymentVolumeSpec,
-            'auto': bool,
-            'name': str
+            'volume': DeploymentVolumeSpec
         }
 
         self.attribute_map = {
+            'auto': 'auto',
+            'name': 'name',
             'port': 'port',
             'replicas': 'replicas',
             'image': 'image',
             'resources': 'resources',
-            'volume': 'volume',
-            'auto': 'auto',
-            'name': 'name'
+            'volume': 'volume'
         }
 
+        self._auto = auto
+        self._name = name
         self._port = port
         self._replicas = replicas
         self._image = image
         self._resources = resources
         self._volume = volume
-        self._auto = auto
-        self._name = name
 
     @classmethod
     def from_dict(cls, dikt) -> 'DeploymentAutoArtifactConfig':
@@ -79,120 +76,7 @@ class DeploymentAutoArtifactConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def port(self):
-        """Gets the port of this DeploymentAutoArtifactConfig.
-
-        Deployment port  # noqa: E501
-
-        :return: The port of this DeploymentAutoArtifactConfig.
-        :rtype: str
-        """
-        return self._port
-
-    @port.setter
-    def port(self, port):
-        """Sets the port of this DeploymentAutoArtifactConfig.
-
-        Deployment port  # noqa: E501
-
-        :param port: The port of this DeploymentAutoArtifactConfig.
-        :type port: str
-        """
-
-        self._port = port
-
-    @property
-    def replicas(self):
-        """Gets the replicas of this DeploymentAutoArtifactConfig.
-
-        Number of replicas  # noqa: E501
-
-        :return: The replicas of this DeploymentAutoArtifactConfig.
-        :rtype: int
-        """
-        return self._replicas
-
-    @replicas.setter
-    def replicas(self, replicas):
-        """Sets the replicas of this DeploymentAutoArtifactConfig.
-
-        Number of replicas  # noqa: E501
-
-        :param replicas: The replicas of this DeploymentAutoArtifactConfig.
-        :type replicas: int
-        """
-
-        self._replicas = replicas
-
-    @property
-    def image(self):
-        """Gets the image of this DeploymentAutoArtifactConfig.
-
-        Image name to use in the deployment. Leave it blank to set from the application's Docker file  # noqa: E501
-
-        :return: The image of this DeploymentAutoArtifactConfig.
-        :rtype: str
-        """
-        return self._image
-
-    @image.setter
-    def image(self, image):
-        """Sets the image of this DeploymentAutoArtifactConfig.
-
-        Image name to use in the deployment. Leave it blank to set from the application's Docker file  # noqa: E501
-
-        :param image: The image of this DeploymentAutoArtifactConfig.
-        :type image: str
-        """
-        if image is not None and not re.search(r'(?:[a-z]+\/)?([a-z]+)(?::[0-9]+)?', image):  # noqa: E501
-            raise ValueError("Invalid value for `image`, must be a follow pattern or equal to `/(?:[a-z]+\/)?([a-z]+)(?::[0-9]+)?/`")  # noqa: E501
-
-        self._image = image
-
-    @property
-    def resources(self):
-        """Gets the resources of this DeploymentAutoArtifactConfig.
-
-
-        :return: The resources of this DeploymentAutoArtifactConfig.
-        :rtype: DeploymentResourcesConf
-        """
-        return self._resources
-
-    @resources.setter
-    def resources(self, resources):
-        """Sets the resources of this DeploymentAutoArtifactConfig.
-
-
-        :param resources: The resources of this DeploymentAutoArtifactConfig.
-        :type resources: DeploymentResourcesConf
-        """
-
-        self._resources = resources
-
-    @property
-    def volume(self):
-        """Gets the volume of this DeploymentAutoArtifactConfig.
-
-
-        :return: The volume of this DeploymentAutoArtifactConfig.
-        :rtype: DeploymentVolumeSpec
-        """
-        return self._volume
-
-    @volume.setter
-    def volume(self, volume):
-        """Sets the volume of this DeploymentAutoArtifactConfig.
-
-
-        :param volume: The volume of this DeploymentAutoArtifactConfig.
-        :type volume: DeploymentVolumeSpec
-        """
-
-        self._volume = volume
-
-    @property
-    def auto(self):
+    def auto(self) -> bool:
         """Gets the auto of this DeploymentAutoArtifactConfig.
 
         When true, enables automatic template  # noqa: E501
@@ -203,7 +87,7 @@ class DeploymentAutoArtifactConfig(Model):
         return self._auto
 
     @auto.setter
-    def auto(self, auto):
+    def auto(self, auto: bool):
         """Sets the auto of this DeploymentAutoArtifactConfig.
 
         When true, enables automatic template  # noqa: E501
@@ -217,7 +101,7 @@ class DeploymentAutoArtifactConfig(Model):
         self._auto = auto
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Gets the name of this DeploymentAutoArtifactConfig.
 
           # noqa: E501
@@ -228,7 +112,7 @@ class DeploymentAutoArtifactConfig(Model):
         return self._name
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str):
         """Sets the name of this DeploymentAutoArtifactConfig.
 
           # noqa: E501
@@ -238,3 +122,116 @@ class DeploymentAutoArtifactConfig(Model):
         """
 
         self._name = name
+
+    @property
+    def port(self) -> str:
+        """Gets the port of this DeploymentAutoArtifactConfig.
+
+        Deployment port  # noqa: E501
+
+        :return: The port of this DeploymentAutoArtifactConfig.
+        :rtype: str
+        """
+        return self._port
+
+    @port.setter
+    def port(self, port: str):
+        """Sets the port of this DeploymentAutoArtifactConfig.
+
+        Deployment port  # noqa: E501
+
+        :param port: The port of this DeploymentAutoArtifactConfig.
+        :type port: str
+        """
+
+        self._port = port
+
+    @property
+    def replicas(self) -> int:
+        """Gets the replicas of this DeploymentAutoArtifactConfig.
+
+        Number of replicas  # noqa: E501
+
+        :return: The replicas of this DeploymentAutoArtifactConfig.
+        :rtype: int
+        """
+        return self._replicas
+
+    @replicas.setter
+    def replicas(self, replicas: int):
+        """Sets the replicas of this DeploymentAutoArtifactConfig.
+
+        Number of replicas  # noqa: E501
+
+        :param replicas: The replicas of this DeploymentAutoArtifactConfig.
+        :type replicas: int
+        """
+
+        self._replicas = replicas
+
+    @property
+    def image(self) -> str:
+        """Gets the image of this DeploymentAutoArtifactConfig.
+
+        Image name to use in the deployment. Leave it blank to set from the application's Docker file  # noqa: E501
+
+        :return: The image of this DeploymentAutoArtifactConfig.
+        :rtype: str
+        """
+        return self._image
+
+    @image.setter
+    def image(self, image: str):
+        """Sets the image of this DeploymentAutoArtifactConfig.
+
+        Image name to use in the deployment. Leave it blank to set from the application's Docker file  # noqa: E501
+
+        :param image: The image of this DeploymentAutoArtifactConfig.
+        :type image: str
+        """
+        if image is not None and not re.search(r'(?:[a-z]+\/)?([a-z]+)(?::[0-9]+)?', image):  # noqa: E501
+            raise ValueError("Invalid value for `image`, must be a follow pattern or equal to `/(?:[a-z]+\/)?([a-z]+)(?::[0-9]+)?/`")  # noqa: E501
+
+        self._image = image
+
+    @property
+    def resources(self) -> DeploymentResourcesConf:
+        """Gets the resources of this DeploymentAutoArtifactConfig.
+
+
+        :return: The resources of this DeploymentAutoArtifactConfig.
+        :rtype: DeploymentResourcesConf
+        """
+        return self._resources
+
+    @resources.setter
+    def resources(self, resources: DeploymentResourcesConf):
+        """Sets the resources of this DeploymentAutoArtifactConfig.
+
+
+        :param resources: The resources of this DeploymentAutoArtifactConfig.
+        :type resources: DeploymentResourcesConf
+        """
+
+        self._resources = resources
+
+    @property
+    def volume(self) -> DeploymentVolumeSpec:
+        """Gets the volume of this DeploymentAutoArtifactConfig.
+
+
+        :return: The volume of this DeploymentAutoArtifactConfig.
+        :rtype: DeploymentVolumeSpec
+        """
+        return self._volume
+
+    @volume.setter
+    def volume(self, volume: DeploymentVolumeSpec):
+        """Sets the volume of this DeploymentAutoArtifactConfig.
+
+
+        :param volume: The volume of this DeploymentAutoArtifactConfig.
+        :type volume: DeploymentVolumeSpec
+        """
+
+        self._volume = volume

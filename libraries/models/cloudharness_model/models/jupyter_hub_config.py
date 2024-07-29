@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from cloudharness_model.models.base_model_ import Model
+from cloudharness_model.models.base_model import Model
 from cloudharness_model import util
 
 
@@ -58,7 +55,7 @@ class JupyterHubConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def args(self):
+    def args(self) -> List[str]:
         """Gets the args of this JupyterHubConfig.
 
         arguments passed to the container  # noqa: E501
@@ -69,7 +66,7 @@ class JupyterHubConfig(Model):
         return self._args
 
     @args.setter
-    def args(self, args):
+    def args(self, args: List[str]):
         """Sets the args of this JupyterHubConfig.
 
         arguments passed to the container  # noqa: E501
@@ -81,7 +78,7 @@ class JupyterHubConfig(Model):
         self._args = args
 
     @property
-    def extra_config(self):
+    def extra_config(self) -> Dict[str, object]:
         """Gets the extra_config of this JupyterHubConfig.
 
           # noqa: E501
@@ -92,7 +89,7 @@ class JupyterHubConfig(Model):
         return self._extra_config
 
     @extra_config.setter
-    def extra_config(self, extra_config):
+    def extra_config(self, extra_config: Dict[str, object]):
         """Sets the extra_config of this JupyterHubConfig.
 
           # noqa: E501
@@ -104,7 +101,7 @@ class JupyterHubConfig(Model):
         self._extra_config = extra_config
 
     @property
-    def spawner_extra_config(self):
+    def spawner_extra_config(self) -> Dict[str, object]:
         """Gets the spawner_extra_config of this JupyterHubConfig.
 
           # noqa: E501
@@ -115,7 +112,7 @@ class JupyterHubConfig(Model):
         return self._spawner_extra_config
 
     @spawner_extra_config.setter
-    def spawner_extra_config(self, spawner_extra_config):
+    def spawner_extra_config(self, spawner_extra_config: Dict[str, object]):
         """Sets the spawner_extra_config of this JupyterHubConfig.
 
           # noqa: E501
@@ -127,7 +124,7 @@ class JupyterHubConfig(Model):
         self._spawner_extra_config = spawner_extra_config
 
     @property
-    def application_hook(self):
+    def application_hook(self) -> object:
         """Gets the application_hook of this JupyterHubConfig.
 
         change the hook function (advanced)  Specify the Python name of the function (full module path, the module must be  installed in the Docker image)  # noqa: E501
@@ -138,7 +135,7 @@ class JupyterHubConfig(Model):
         return self._application_hook
 
     @application_hook.setter
-    def application_hook(self, application_hook):
+    def application_hook(self, application_hook: object):
         """Sets the application_hook of this JupyterHubConfig.
 
         change the hook function (advanced)  Specify the Python name of the function (full module path, the module must be  installed in the Docker image)  # noqa: E501

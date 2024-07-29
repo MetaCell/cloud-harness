@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from cloudharness_model.models.base_model_ import Model
+from cloudharness_model.models.base_model import Model
 from cloudharness_model.models.git_dependency_config import GitDependencyConfig
 from cloudharness_model import util
 
@@ -60,7 +57,7 @@ class ApplicationDependenciesConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def hard(self):
+    def hard(self) -> List[str]:
         """Gets the hard of this ApplicationDependenciesConfig.
 
         Hard dependencies indicate that the application may not start without these other applications.  # noqa: E501
@@ -71,7 +68,7 @@ class ApplicationDependenciesConfig(Model):
         return self._hard
 
     @hard.setter
-    def hard(self, hard):
+    def hard(self, hard: List[str]):
         """Sets the hard of this ApplicationDependenciesConfig.
 
         Hard dependencies indicate that the application may not start without these other applications.  # noqa: E501
@@ -83,7 +80,7 @@ class ApplicationDependenciesConfig(Model):
         self._hard = hard
 
     @property
-    def soft(self):
+    def soft(self) -> List[str]:
         """Gets the soft of this ApplicationDependenciesConfig.
 
         Soft dependencies indicate that the application will work partially without these other applications.  # noqa: E501
@@ -94,7 +91,7 @@ class ApplicationDependenciesConfig(Model):
         return self._soft
 
     @soft.setter
-    def soft(self, soft):
+    def soft(self, soft: List[str]):
         """Sets the soft of this ApplicationDependenciesConfig.
 
         Soft dependencies indicate that the application will work partially without these other applications.  # noqa: E501
@@ -106,7 +103,7 @@ class ApplicationDependenciesConfig(Model):
         self._soft = soft
 
     @property
-    def build(self):
+    def build(self) -> List[str]:
         """Gets the build of this ApplicationDependenciesConfig.
 
         Hard dependencies indicate that the application Docker image build requires these base/common images  # noqa: E501
@@ -117,7 +114,7 @@ class ApplicationDependenciesConfig(Model):
         return self._build
 
     @build.setter
-    def build(self, build):
+    def build(self, build: List[str]):
         """Sets the build of this ApplicationDependenciesConfig.
 
         Hard dependencies indicate that the application Docker image build requires these base/common images  # noqa: E501
@@ -129,7 +126,7 @@ class ApplicationDependenciesConfig(Model):
         self._build = build
 
     @property
-    def git(self):
+    def git(self) -> List[GitDependencyConfig]:
         """Gets the git of this ApplicationDependenciesConfig.
 
           # noqa: E501
@@ -140,7 +137,7 @@ class ApplicationDependenciesConfig(Model):
         return self._git
 
     @git.setter
-    def git(self, git):
+    def git(self, git: List[GitDependencyConfig]):
         """Sets the git of this ApplicationDependenciesConfig.
 
           # noqa: E501

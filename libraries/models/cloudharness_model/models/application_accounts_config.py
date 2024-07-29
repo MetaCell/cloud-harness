@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from cloudharness_model.models.base_model_ import Model
+from cloudharness_model.models.base_model import Model
 from cloudharness_model.models.application_user import ApplicationUser
 from cloudharness_model import util
 
@@ -50,7 +47,7 @@ class ApplicationAccountsConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def roles(self):
+    def roles(self) -> List[str]:
         """Gets the roles of this ApplicationAccountsConfig.
 
         Specify roles to be created in this deployment specific for this application  # noqa: E501
@@ -61,7 +58,7 @@ class ApplicationAccountsConfig(Model):
         return self._roles
 
     @roles.setter
-    def roles(self, roles):
+    def roles(self, roles: List[str]):
         """Sets the roles of this ApplicationAccountsConfig.
 
         Specify roles to be created in this deployment specific for this application  # noqa: E501
@@ -73,7 +70,7 @@ class ApplicationAccountsConfig(Model):
         self._roles = roles
 
     @property
-    def users(self):
+    def users(self) -> List[ApplicationUser]:
         """Gets the users of this ApplicationAccountsConfig.
 
         Defines test users to be added to the deployment, specific for this application  # noqa: E501
@@ -84,7 +81,7 @@ class ApplicationAccountsConfig(Model):
         return self._users
 
     @users.setter
-    def users(self, users):
+    def users(self, users: List[ApplicationUser]):
         """Sets the users of this ApplicationAccountsConfig.
 
         Defines test users to be added to the deployment, specific for this application  # noqa: E501

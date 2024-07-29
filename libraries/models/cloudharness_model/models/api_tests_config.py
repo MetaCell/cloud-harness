@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from cloudharness_model.models.base_model_ import Model
+from cloudharness_model.models.base_model import Model
 from cloudharness_model import util
 
 
@@ -58,7 +55,7 @@ class ApiTestsConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         """Gets the enabled of this ApiTestsConfig.
 
         Enables api tests for this application (default: false)  # noqa: E501
@@ -69,7 +66,7 @@ class ApiTestsConfig(Model):
         return self._enabled
 
     @enabled.setter
-    def enabled(self, enabled):
+    def enabled(self, enabled: bool):
         """Sets the enabled of this ApiTestsConfig.
 
         Enables api tests for this application (default: false)  # noqa: E501
@@ -83,7 +80,7 @@ class ApiTestsConfig(Model):
         self._enabled = enabled
 
     @property
-    def autotest(self):
+    def autotest(self) -> bool:
         """Gets the autotest of this ApiTestsConfig.
 
         Specify whether to run the common smoke tests  # noqa: E501
@@ -94,7 +91,7 @@ class ApiTestsConfig(Model):
         return self._autotest
 
     @autotest.setter
-    def autotest(self, autotest):
+    def autotest(self, autotest: bool):
         """Sets the autotest of this ApiTestsConfig.
 
         Specify whether to run the common smoke tests  # noqa: E501
@@ -108,7 +105,7 @@ class ApiTestsConfig(Model):
         self._autotest = autotest
 
     @property
-    def run_params(self):
+    def run_params(self) -> List[str]:
         """Gets the run_params of this ApiTestsConfig.
 
         Additional schemathesis parameters  # noqa: E501
@@ -119,7 +116,7 @@ class ApiTestsConfig(Model):
         return self._run_params
 
     @run_params.setter
-    def run_params(self, run_params):
+    def run_params(self, run_params: List[str]):
         """Sets the run_params of this ApiTestsConfig.
 
         Additional schemathesis parameters  # noqa: E501
@@ -131,7 +128,7 @@ class ApiTestsConfig(Model):
         self._run_params = run_params
 
     @property
-    def checks(self):
+    def checks(self) -> List[str]:
         """Gets the checks of this ApiTestsConfig.
 
         One of the Schemathesis checks:  - not_a_server_error. The response has 5xx HTTP status; - status_code_conformance. The response status is not defined in the API schema; - content_type_conformance. The response content type is not defined in the API schema; - response_schema_conformance. The response content does not conform to the schema defined for this specific response; - response_headers_conformance. The response headers does not contain all defined headers.  # noqa: E501
@@ -142,7 +139,7 @@ class ApiTestsConfig(Model):
         return self._checks
 
     @checks.setter
-    def checks(self, checks):
+    def checks(self, checks: List[str]):
         """Sets the checks of this ApiTestsConfig.
 
         One of the Schemathesis checks:  - not_a_server_error. The response has 5xx HTTP status; - status_code_conformance. The response status is not defined in the API schema; - content_type_conformance. The response content type is not defined in the API schema; - response_schema_conformance. The response content does not conform to the schema defined for this specific response; - response_headers_conformance. The response headers does not contain all defined headers.  # noqa: E501

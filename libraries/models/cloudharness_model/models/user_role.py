@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from cloudharness_model.models.base_model_ import Model
+from cloudharness_model.models.base_model import Model
 from cloudharness_model import util
 
 
@@ -73,7 +70,7 @@ class UserRole(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def attributes(self):
+    def attributes(self) -> Dict[str, object]:
         """Gets the attributes of this UserRole.
 
 
@@ -83,7 +80,7 @@ class UserRole(Model):
         return self._attributes
 
     @attributes.setter
-    def attributes(self, attributes):
+    def attributes(self, attributes: Dict[str, object]):
         """Sets the attributes of this UserRole.
 
 
@@ -94,7 +91,7 @@ class UserRole(Model):
         self._attributes = attributes
 
     @property
-    def client_role(self):
+    def client_role(self) -> bool:
         """Gets the client_role of this UserRole.
 
 
@@ -104,7 +101,7 @@ class UserRole(Model):
         return self._client_role
 
     @client_role.setter
-    def client_role(self, client_role):
+    def client_role(self, client_role: bool):
         """Sets the client_role of this UserRole.
 
 
@@ -115,7 +112,7 @@ class UserRole(Model):
         self._client_role = client_role
 
     @property
-    def composite(self):
+    def composite(self) -> bool:
         """Gets the composite of this UserRole.
 
 
@@ -125,7 +122,7 @@ class UserRole(Model):
         return self._composite
 
     @composite.setter
-    def composite(self, composite):
+    def composite(self, composite: bool):
         """Sets the composite of this UserRole.
 
 
@@ -136,7 +133,7 @@ class UserRole(Model):
         self._composite = composite
 
     @property
-    def container_id(self):
+    def container_id(self) -> str:
         """Gets the container_id of this UserRole.
 
 
@@ -146,7 +143,7 @@ class UserRole(Model):
         return self._container_id
 
     @container_id.setter
-    def container_id(self, container_id):
+    def container_id(self, container_id: str):
         """Sets the container_id of this UserRole.
 
 
@@ -157,7 +154,7 @@ class UserRole(Model):
         self._container_id = container_id
 
     @property
-    def description(self):
+    def description(self) -> str:
         """Gets the description of this UserRole.
 
 
@@ -167,7 +164,7 @@ class UserRole(Model):
         return self._description
 
     @description.setter
-    def description(self, description):
+    def description(self, description: str):
         """Sets the description of this UserRole.
 
 
@@ -178,7 +175,7 @@ class UserRole(Model):
         self._description = description
 
     @property
-    def id(self):
+    def id(self) -> str:
         """Gets the id of this UserRole.
 
 
@@ -188,7 +185,7 @@ class UserRole(Model):
         return self._id
 
     @id.setter
-    def id(self, id):
+    def id(self, id: str):
         """Sets the id of this UserRole.
 
 
@@ -199,7 +196,7 @@ class UserRole(Model):
         self._id = id
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Gets the name of this UserRole.
 
 
@@ -209,7 +206,7 @@ class UserRole(Model):
         return self._name
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str):
         """Sets the name of this UserRole.
 
 

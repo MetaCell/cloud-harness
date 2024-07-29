@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from cloudharness_model.models.base_model_ import Model
+from cloudharness_model.models.base_model import Model
 from cloudharness_model import util
 
 
@@ -58,7 +55,7 @@ class ApplicationUser(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def username(self):
+    def username(self) -> str:
         """Gets the username of this ApplicationUser.
 
           # noqa: E501
@@ -69,7 +66,7 @@ class ApplicationUser(Model):
         return self._username
 
     @username.setter
-    def username(self, username):
+    def username(self, username: str):
         """Sets the username of this ApplicationUser.
 
           # noqa: E501
@@ -83,7 +80,7 @@ class ApplicationUser(Model):
         self._username = username
 
     @property
-    def password(self):
+    def password(self) -> str:
         """Gets the password of this ApplicationUser.
 
           # noqa: E501
@@ -94,7 +91,7 @@ class ApplicationUser(Model):
         return self._password
 
     @password.setter
-    def password(self, password):
+    def password(self, password: str):
         """Sets the password of this ApplicationUser.
 
           # noqa: E501
@@ -106,7 +103,7 @@ class ApplicationUser(Model):
         self._password = password
 
     @property
-    def client_roles(self):
+    def client_roles(self) -> List[str]:
         """Gets the client_roles of this ApplicationUser.
 
           # noqa: E501
@@ -117,7 +114,7 @@ class ApplicationUser(Model):
         return self._client_roles
 
     @client_roles.setter
-    def client_roles(self, client_roles):
+    def client_roles(self, client_roles: List[str]):
         """Sets the client_roles of this ApplicationUser.
 
           # noqa: E501
@@ -129,7 +126,7 @@ class ApplicationUser(Model):
         self._client_roles = client_roles
 
     @property
-    def realm_roles(self):
+    def realm_roles(self) -> List[str]:
         """Gets the realm_roles of this ApplicationUser.
 
           # noqa: E501
@@ -140,7 +137,7 @@ class ApplicationUser(Model):
         return self._realm_roles
 
     @realm_roles.setter
-    def realm_roles(self, realm_roles):
+    def realm_roles(self, realm_roles: List[str]):
         """Sets the realm_roles of this ApplicationUser.
 
           # noqa: E501
