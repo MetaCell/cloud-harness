@@ -13,13 +13,25 @@ steps:
     repo: '${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}'
     revision: '${{CF_BRANCH}}'
     git: github
+  post_main_clone:
+    title: Post main clone
+    type: parallel
+    stage: prepare
+    steps:
+    - title: Cloning cloud-harness repository...
+      type: git-clone
+      stage: prepare
+      repo: https://github.com/MetaCell/cloud-harness.git
+      revision: '${{CLOUDHARNESS_BRANCH}}'
+      working_directory: .
+      git: github
   prepare_deployment:
     title: Prepare helm chart
-    image: python:3.9.10
+    image: python:3.12
     stage: prepare
     working_directory: .
     commands:
-    - bash install.sh
+    - bash cloud-harness/install.sh
     - harness-deployment . -n test-${{NAMESPACE_BASENAME}} -d ${{DOMAIN}} -r ${{REGISTRY}}
       -rs ${{REGISTRY_SECRET}} -e test --write-env -N -i samples
     - cat deployment/.env >> ${{CF_VOLUME_PATH}}/env_vars_to_export
