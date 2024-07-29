@@ -13,13 +13,15 @@
  */
 
 
-import { Configuration } from './configuration';
-import globalAxios, { AxiosPromise, AxiosInstance, AxiosRequestConfig } from 'axios';
+import type { Configuration } from './configuration';
+import type { AxiosPromise, AxiosInstance, RawAxiosRequestConfig } from 'axios';
+import globalAxios from 'axios';
 // Some imports not used depending on template conditions
 // @ts-ignore
 import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObject, setBearerAuthToObject, setOAuthToObject, setSearchParams, serializeDataIfNeeded, toPathString, createRequestFunction } from './common';
+import type { RequestArgs } from './base';
 // @ts-ignore
-import { BASE_PATH, COLLECTION_FORMATS, RequestArgs, BaseAPI, RequiredError } from './base';
+import { BASE_PATH, COLLECTION_FORMATS, BaseAPI, RequiredError, operationServerMap } from './base';
 
 /**
  * 
@@ -91,7 +93,7 @@ export const AuthApiAxiosParamCreator = function (configuration?: Configuration)
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        validCookie: async (options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+        validCookie: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/valid-cookie`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -123,7 +125,7 @@ export const AuthApiAxiosParamCreator = function (configuration?: Configuration)
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        validToken: async (options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+        validToken: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/valid`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -167,9 +169,11 @@ export const AuthApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async validCookie(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+        async validCookie(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.validCookie(options);
-            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+            const index = configuration?.serverIndex ?? 0;
+            const operationBasePath = operationServerMap['AuthApi.validCookie']?.[index]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, operationBasePath || basePath);
         },
         /**
          * Check if the token is valid 
@@ -177,9 +181,11 @@ export const AuthApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async validToken(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+        async validToken(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.validToken(options);
-            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+            const index = configuration?.serverIndex ?? 0;
+            const operationBasePath = operationServerMap['AuthApi.validToken']?.[index]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, operationBasePath || basePath);
         },
     }
 };
@@ -226,7 +232,7 @@ export class AuthApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof AuthApi
      */
-    public validCookie(options?: AxiosRequestConfig) {
+    public validCookie(options?: RawAxiosRequestConfig) {
         return AuthApiFp(this.configuration).validCookie(options).then((request) => request(this.axios, this.basePath));
     }
 
@@ -237,10 +243,11 @@ export class AuthApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof AuthApi
      */
-    public validToken(options?: AxiosRequestConfig) {
+    public validToken(options?: RawAxiosRequestConfig) {
         return AuthApiFp(this.configuration).validToken(options).then((request) => request(this.axios, this.basePath));
     }
 }
+
 
 
 /**
@@ -256,7 +263,7 @@ export const ResourceApiAxiosParamCreator = function (configuration?: Configurat
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        createSampleResource: async (sampleResource: SampleResource, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+        createSampleResource: async (sampleResource: SampleResource, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'sampleResource' is not null or undefined
             assertParamExists('createSampleResource', 'sampleResource', sampleResource)
             const localVarPath = `/sampleresources`;
@@ -292,7 +299,7 @@ export const ResourceApiAxiosParamCreator = function (configuration?: Configurat
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        deleteSampleResource: async (sampleresourceId: string, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+        deleteSampleResource: async (sampleresourceId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'sampleresourceId' is not null or undefined
             assertParamExists('deleteSampleResource', 'sampleresourceId', sampleresourceId)
             const localVarPath = `/sampleresources/{sampleresourceId}`
@@ -326,7 +333,7 @@ export const ResourceApiAxiosParamCreator = function (configuration?: Configurat
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getSampleResource: async (sampleresourceId: string, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+        getSampleResource: async (sampleresourceId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'sampleresourceId' is not null or undefined
             assertParamExists('getSampleResource', 'sampleresourceId', sampleresourceId)
             const localVarPath = `/sampleresources/{sampleresourceId}`
@@ -359,7 +366,7 @@ export const ResourceApiAxiosParamCreator = function (configuration?: Configurat
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getSampleResources: async (options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+        getSampleResources: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/sampleresources`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -391,7 +398,7 @@ export const ResourceApiAxiosParamCreator = function (configuration?: Configurat
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        updateSampleResource: async (sampleresourceId: string, sampleResource: SampleResource, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+        updateSampleResource: async (sampleresourceId: string, sampleResource: SampleResource, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'sampleresourceId' is not null or undefined
             assertParamExists('updateSampleResource', 'sampleresourceId', sampleresourceId)
             // verify required parameter 'sampleResource' is not null or undefined
@@ -440,9 +447,11 @@ export const ResourceApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async createSampleResource(sampleResource: SampleResource, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+        async createSampleResource(sampleResource: SampleResource, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.createSampleResource(sampleResource, options);
-            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+            const index = configuration?.serverIndex ?? 0;
+            const operationBasePath = operationServerMap['ResourceApi.createSampleResource']?.[index]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, operationBasePath || basePath);
         },
         /**
          * Deletes an existing `SampleResource`.
@@ -451,9 +460,11 @@ export const ResourceApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async deleteSampleResource(sampleresourceId: string, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+        async deleteSampleResource(sampleresourceId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.deleteSampleResource(sampleresourceId, options);
-            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+            const index = configuration?.serverIndex ?? 0;
+            const operationBasePath = operationServerMap['ResourceApi.deleteSampleResource']?.[index]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, operationBasePath || basePath);
         },
         /**
          * Gets the details of a single instance of a `SampleResource`.
@@ -462,9 +473,11 @@ export const ResourceApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async getSampleResource(sampleresourceId: string, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SampleResource>> {
+        async getSampleResource(sampleresourceId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SampleResource>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.getSampleResource(sampleresourceId, options);
-            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+            const index = configuration?.serverIndex ?? 0;
+            const operationBasePath = operationServerMap['ResourceApi.getSampleResource']?.[index]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, operationBasePath || basePath);
         },
         /**
          * Gets a list of all `SampleResource` entities.
@@ -472,9 +485,11 @@ export const ResourceApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async getSampleResources(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<SampleResource>>> {
+        async getSampleResources(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<SampleResource>>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.getSampleResources(options);
-            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+            const index = configuration?.serverIndex ?? 0;
+            const operationBasePath = operationServerMap['ResourceApi.getSampleResources']?.[index]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, operationBasePath || basePath);
         },
         /**
          * Updates an existing `SampleResource`.
@@ -484,9 +499,11 @@ export const ResourceApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async updateSampleResource(sampleresourceId: string, sampleResource: SampleResource, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+        async updateSampleResource(sampleresourceId: string, sampleResource: SampleResource, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.updateSampleResource(sampleresourceId, sampleResource, options);
-            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+            const index = configuration?.serverIndex ?? 0;
+            const operationBasePath = operationServerMap['ResourceApi.updateSampleResource']?.[index]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, operationBasePath || basePath);
         },
     }
 };
@@ -566,7 +583,7 @@ export class ResourceApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof ResourceApi
      */
-    public createSampleResource(sampleResource: SampleResource, options?: AxiosRequestConfig) {
+    public createSampleResource(sampleResource: SampleResource, options?: RawAxiosRequestConfig) {
         return ResourceApiFp(this.configuration).createSampleResource(sampleResource, options).then((request) => request(this.axios, this.basePath));
     }
 
@@ -578,7 +595,7 @@ export class ResourceApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof ResourceApi
      */
-    public deleteSampleResource(sampleresourceId: string, options?: AxiosRequestConfig) {
+    public deleteSampleResource(sampleresourceId: string, options?: RawAxiosRequestConfig) {
         return ResourceApiFp(this.configuration).deleteSampleResource(sampleresourceId, options).then((request) => request(this.axios, this.basePath));
     }
 
@@ -590,7 +607,7 @@ export class ResourceApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof ResourceApi
      */
-    public getSampleResource(sampleresourceId: string, options?: AxiosRequestConfig) {
+    public getSampleResource(sampleresourceId: string, options?: RawAxiosRequestConfig) {
         return ResourceApiFp(this.configuration).getSampleResource(sampleresourceId, options).then((request) => request(this.axios, this.basePath));
     }
 
@@ -601,7 +618,7 @@ export class ResourceApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof ResourceApi
      */
-    public getSampleResources(options?: AxiosRequestConfig) {
+    public getSampleResources(options?: RawAxiosRequestConfig) {
         return ResourceApiFp(this.configuration).getSampleResources(options).then((request) => request(this.axios, this.basePath));
     }
 
@@ -614,10 +631,11 @@ export class ResourceApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof ResourceApi
      */
-    public updateSampleResource(sampleresourceId: string, sampleResource: SampleResource, options?: AxiosRequestConfig) {
+    public updateSampleResource(sampleresourceId: string, sampleResource: SampleResource, options?: RawAxiosRequestConfig) {
         return ResourceApiFp(this.configuration).updateSampleResource(sampleresourceId, sampleResource, options).then((request) => request(this.axios, this.basePath));
     }
 }
+
 
 
 /**
@@ -633,7 +651,7 @@ export const TestApiAxiosParamCreator = function (configuration?: Configuration)
          * @deprecated
          * @throws {RequiredError}
          */
-        error: async (options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+        error: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/error`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -663,7 +681,7 @@ export const TestApiAxiosParamCreator = function (configuration?: Configuration)
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        ping: async (options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+        ping: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/ping`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -704,9 +722,11 @@ export const TestApiFp = function(configuration?: Configuration) {
          * @deprecated
          * @throws {RequiredError}
          */
-        async error(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+        async error(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.error(options);
-            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+            const index = configuration?.serverIndex ?? 0;
+            const operationBasePath = operationServerMap['TestApi.error']?.[index]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, operationBasePath || basePath);
         },
         /**
          * 
@@ -714,9 +734,11 @@ export const TestApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async ping(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<number>> {
+        async ping(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<number>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.ping(options);
-            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+            const index = configuration?.serverIndex ?? 0;
+            const operationBasePath = operationServerMap['TestApi.ping']?.[index]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, operationBasePath || basePath);
         },
     }
 };
@@ -765,7 +787,7 @@ export class TestApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof TestApi
      */
-    public error(options?: AxiosRequestConfig) {
+    public error(options?: RawAxiosRequestConfig) {
         return TestApiFp(this.configuration).error(options).then((request) => request(this.axios, this.basePath));
     }
 
@@ -776,10 +798,11 @@ export class TestApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof TestApi
      */
-    public ping(options?: AxiosRequestConfig) {
+    public ping(options?: RawAxiosRequestConfig) {
         return TestApiFp(this.configuration).ping(options).then((request) => request(this.axios, this.basePath));
     }
 }
+
 
 
 /**
@@ -794,7 +817,7 @@ export const WorkflowsApiAxiosParamCreator = function (configuration?: Configura
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        submitAsync: async (options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+        submitAsync: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/operation_async`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -825,7 +848,7 @@ export const WorkflowsApiAxiosParamCreator = function (configuration?: Configura
          * @deprecated
          * @throws {RequiredError}
          */
-        submitSync: async (options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+        submitSync: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/operation_sync`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -858,7 +881,7 @@ export const WorkflowsApiAxiosParamCreator = function (configuration?: Configura
          * @deprecated
          * @throws {RequiredError}
          */
-        submitSyncWithResults: async (a: number, b: number, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+        submitSyncWithResults: async (a: number, b: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'a' is not null or undefined
             assertParamExists('submitSyncWithResults', 'a', a)
             // verify required parameter 'b' is not null or undefined
@@ -910,9 +933,11 @@ export const WorkflowsApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async submitAsync(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<InlineResponse202>> {
+        async submitAsync(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<InlineResponse202>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.submitAsync(options);
-            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+            const index = configuration?.serverIndex ?? 0;
+            const operationBasePath = operationServerMap['WorkflowsApi.submitAsync']?.[index]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, operationBasePath || basePath);
         },
         /**
          * 
@@ -921,9 +946,11 @@ export const WorkflowsApiFp = function(configuration?: Configuration) {
          * @deprecated
          * @throws {RequiredError}
          */
-        async submitSync(options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<object>> {
+        async submitSync(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<object>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.submitSync(options);
-            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+            const index = configuration?.serverIndex ?? 0;
+            const operationBasePath = operationServerMap['WorkflowsApi.submitSync']?.[index]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, operationBasePath || basePath);
         },
         /**
          * 
@@ -934,9 +961,11 @@ export const WorkflowsApiFp = function(configuration?: Configuration) {
          * @deprecated
          * @throws {RequiredError}
          */
-        async submitSyncWithResults(a: number, b: number, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+        async submitSyncWithResults(a: number, b: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.submitSyncWithResults(a, b, options);
-            return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
+            const index = configuration?.serverIndex ?? 0;
+            const operationBasePath = operationServerMap['WorkflowsApi.submitSyncWithResults']?.[index]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, operationBasePath || basePath);
         },
     }
 };
@@ -996,7 +1025,7 @@ export class WorkflowsApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof WorkflowsApi
      */
-    public submitAsync(options?: AxiosRequestConfig) {
+    public submitAsync(options?: RawAxiosRequestConfig) {
         return WorkflowsApiFp(this.configuration).submitAsync(options).then((request) => request(this.axios, this.basePath));
     }
 
@@ -1008,7 +1037,7 @@ export class WorkflowsApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof WorkflowsApi
      */
-    public submitSync(options?: AxiosRequestConfig) {
+    public submitSync(options?: RawAxiosRequestConfig) {
         return WorkflowsApiFp(this.configuration).submitSync(options).then((request) => request(this.axios, this.basePath));
     }
 
@@ -1022,9 +1051,10 @@ export class WorkflowsApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof WorkflowsApi
      */
-    public submitSyncWithResults(a: number, b: number, options?: AxiosRequestConfig) {
+    public submitSyncWithResults(a: number, b: number, options?: RawAxiosRequestConfig) {
         return WorkflowsApiFp(this.configuration).submitSyncWithResults(a, b, options).then((request) => request(this.axios, this.basePath));
     }
 }
+
 
 

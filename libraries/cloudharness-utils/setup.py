@@ -23,7 +23,7 @@ REQUIREMENTS = [
     'ruamel.yaml',
     'cloudharness_model',
     'docker',
-    'ruamel.yaml',
+    'pyaml',
     'cloudharness_model'
 ]
 

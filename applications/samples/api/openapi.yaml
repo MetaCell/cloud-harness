@@ -1,4 +1,4 @@
-openapi: 3.0.0
+openapi: "3.0.3"
 info:
   title: CloudHarness Sample API
   version: 0.1.0
@@ -27,7 +27,7 @@ paths:
       operationId: error
       summary: test sentry is working
       x-openapi-router-controller: samples.controllers.test_controller
-  
+
   /ping:
     get:
       tags:
