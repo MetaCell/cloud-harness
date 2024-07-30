@@ -50,7 +50,7 @@ def generate_model(base_path=ROOT):
     command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/models/api/openapi.yaml -g python -o {tmp_path}  --skip-validate-spec -c {base_path}/libraries/models/api/config.json"
     os.system(command)
     try:
-        source_dir = join(tmp_path, "docs/models")
+        source_dir = join(tmp_path, "docs")
         if not os.path.exists(source_dir):
             os.makedirs(source_dir)
 
