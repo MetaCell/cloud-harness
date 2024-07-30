@@ -310,8 +310,8 @@ class ExecuteAndWaitOperation(ContainerizedOperation, SyncOperation):
             time.sleep(POLLING_WAIT_SECONDS)
             log.debug(f"Polling argo workflow {self.persisted.name}")
             self.persisted = argo.get_workflow(self.persisted.name)
-            log.debug(f"Polling succeeded for {
-                      self.persisted.name}. Current phase: {self.persisted.status}")
+            log.debug(f"Polling succeeded for \
+               {self.persisted.name}. Current phase: {self.persisted.status}")
             if timeout and time.time() - start_time > timeout:
                 log.error("Timeout exceeded while polling for results")
                 return self.persisted
