@@ -1,9 +1,10 @@
 # Define and use base and common images
 
 ## Relevant files and directory structure
- - `base-images`: base Docker images. Those images can used as base images in CloudHarness apps and tasks.
- - `common-images`: Static images. Those images can derive from base images can be also used as base images in CloudHarness apps and tasks. 
- 
+
+- `base-images`: base Docker images. Those images can used as base images in CloudHarness apps and tasks.
+- `common-images`: Static images. Those images can derive from base images can be also used as base images in CloudHarness apps and tasks.
+
 ## Base images and common images
 
 The main difference between the base images and common images is that base images are built in the root context, while
@@ -25,6 +26,7 @@ harness:
 ```
 
 2. Refer to the base image with the uppercased-underscored name of the dependency as an argument
+
 ```dockerfile
 ARG CLOUDHARNESS_BASE
 FROM $CLOUDHARNESS_BASE
@@ -39,19 +41,18 @@ In workflow tasks, the build dependency must be specified in the main applicatio
 ## Default images
 
 CloudHarness defines the following base images:
+
 - `cloudharness-base`: python-alpine with cloudharness common libraries preinstalled
-- `cloudharness-base-debian`: python-debian with cloudharness common libraries preinstalled
 - `cloudharness-django`: cloudharness-base with cloudharness django fastapi libraries preinstalled
-- `cloudharness-django-debian`: cloudharness-base-debian with cloudharness django fastapi libraries preinstalled
 - `cloudharness-fastapi`: cloudharness-base with fastapi libraries preinstalled
-- `cloudharness-fastapi-debian`: cloudharness-base-debian with fastapi libraries preinstalled
 
 Also the following common images are defined:
+
 - `cloudharness-flask`: common ground image to create Flask backends
 
 ## Override base and common images from CloudHarness
 
-To override a base or common image just create the same directory path in your 
+To override a base or common image just create the same directory path in your
 solution. The overriding can be used to replace files used in the build process or the Dockerfile itself.
 
 For example, overriding `cloudharness-base` could be useful to change some behaviour in the CloudHarness
@@ -59,4 +60,3 @@ libraries or to provide new libraries to share within all applications.
 
 To override cloudharness-base, create a directory `MY_SOLUTION/infrastructure/base-images/cloudharness-base`
 then run `harness-deployment cloudharness MY_SOLUTION`
-

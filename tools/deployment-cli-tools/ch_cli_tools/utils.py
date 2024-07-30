@@ -424,6 +424,29 @@ def check_docker_manifest_exists(registry, image_name, tag, registry_secret=None
     resp = requests.get(api_url)
     return resp.status_code == 200
 
+
+def filter_empty_strings(value):
+    return value != ""
+
+
+def search_word_in_file(file, word):
+    if os.path.isdir(file):
+        return []
+    matches = []
+    with open(file) as f:
+            if word in f.read():
+                matches.append(file)
+    return list(filter(filter_empty_strings, matches))
+
+
+def search_word_in_folder(folder, word):
+    matches = []
+    files = glob.glob(folder + '/**/*', recursive = True)
+    for file in files:
+        matches.extend(search_word_in_file(file, word))
+    return list(filter(filter_empty_strings, matches))
+
+
 def get_git_commit_hash(path):
     # return the short git commit hash in that path
     # if the path is not a git repo, return None
