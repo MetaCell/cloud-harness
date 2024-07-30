@@ -38,7 +38,7 @@ def test_create_skaffold_configuration():
         output_path=OUT
     )
     assert os.path.exists(os.path.join(OUT, 'skaffold.yaml'))
-    exp_apps = ('accounts', 'samples', 'workflows', 'myapp', 'common', 'nfsserver')
+    exp_apps = ('accounts', 'samples', 'workflows', 'myapp', 'common')
     assert len(sk['build']['artifacts']) == len(
         exp_apps) + len(values[KEY_TASK_IMAGES])
     assert 'reg' in sk['build']['artifacts'][0]['image']

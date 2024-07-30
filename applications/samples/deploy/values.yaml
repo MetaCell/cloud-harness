@@ -10,11 +10,11 @@ harness:
     - name: common
   deployment:
     volume:
-        name: my-shared-volume
-        mountpath: /mnt/myvolume
-        auto: true
-        size: 10Mi
-        usenfs: false
+      name: my-shared-volume
+      mountpath: /tmp/myvolume
+      auto: true
+      size: 10Mi
+      usenfs: false
     auto: true
     port: 8080
   uri_role_mapping:
@@ -43,13 +43,12 @@ harness:
     soft:
       - workflows
       - events
-      - accounts 
+      - accounts
       - common
-      - nfsserver
     build:
       - cloudharness-flask
       - cloudharness-frontend-build
-  
+
   resources:
     - name: my-config
       src: "myConfig.json"
@@ -59,12 +58,12 @@ harness:
       dst: "/usr/src/app/important_config.yaml"
   secrets:
     asecret: "value"
-    
+
   test:
     unit:
       enabled: true
       commands:
-      - "pytest /usr/src/app/samples/test"
+        - "pytest /usr/src/app/samples/test"
     e2e:
       enabled: true
       smoketest: true
@@ -76,10 +75,9 @@ harness:
       checks:
         - all
       runParams:
-      - "--skip-deprecated-operations" 
-      - "--hypothesis-suppress-health-check=too_slow" 
-      - "--hypothesis-deadline=180000"
-      - "--request-timeout=180000"
-      - "--hypothesis-max-examples=2"
-      - "--show-errors-tracebacks"
-
+        - "--skip-deprecated-operations"
+        - "--hypothesis-suppress-health-check=too_slow"
+        - "--hypothesis-deadline=180000"
+        - "--request-timeout=180000"
+        - "--hypothesis-max-examples=2"
+        - "--show-errors-tracebacks"

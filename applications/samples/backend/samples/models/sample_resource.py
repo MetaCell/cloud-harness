@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from samples.models.base_model_ import Model
+from samples.models.base_model import Model
 from samples import util
 
 
@@ -53,7 +50,7 @@ class SampleResource(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def a(self):
+    def a(self) -> float:
         """Gets the a of this SampleResource.
 
           # noqa: E501
@@ -64,7 +61,7 @@ class SampleResource(Model):
         return self._a
 
     @a.setter
-    def a(self, a):
+    def a(self, a: float):
         """Sets the a of this SampleResource.
 
           # noqa: E501
@@ -78,7 +75,7 @@ class SampleResource(Model):
         self._a = a
 
     @property
-    def b(self):
+    def b(self) -> float:
         """Gets the b of this SampleResource.
 
           # noqa: E501
@@ -89,7 +86,7 @@ class SampleResource(Model):
         return self._b
 
     @b.setter
-    def b(self, b):
+    def b(self, b: float):
         """Sets the b of this SampleResource.
 
           # noqa: E501
@@ -101,7 +98,7 @@ class SampleResource(Model):
         self._b = b
 
     @property
-    def id(self):
+    def id(self) -> float:
         """Gets the id of this SampleResource.
 
           # noqa: E501
@@ -112,7 +109,7 @@ class SampleResource(Model):
         return self._id
 
     @id.setter
-    def id(self, id):
+    def id(self, id: float):
         """Sets the id of this SampleResource.
 
           # noqa: E501

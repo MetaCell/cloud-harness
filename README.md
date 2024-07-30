@@ -75,7 +75,7 @@ Python 3.9 must be installed.
 It is recommended to setup a virtual environment.
 With conda: 
 ```bash
-conda create --name ch python=3.9
+conda create --name ch python=3.12
 conda activate ch
 ```
 

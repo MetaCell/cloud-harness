@@ -86,7 +86,7 @@ def test_create_codefresh_configuration():
             RESOURCES, STATIC_IMAGES_PATH, "my-common"))
 
         steps = l1_steps["build_application_images"]["steps"]
-        assert len(steps) == 14
+        assert len(steps) == 13
         assert "myapp" in steps
         assert "samples" in steps
         assert "accounts" in steps
