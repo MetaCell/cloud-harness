@@ -87,7 +87,7 @@ def generate_ts_client(openapi_file):
         os.path.dirname(openapi_file))}/frontend/src/rest"
     command = f"java -jar {CODEGEN} generate " \
         f"-i {openapi_file} " \
-        f"-g typescript-axios " \
+        f"-g typescript-fetch " \
         f"-o {out_dir}"
     os.system(command)
 
