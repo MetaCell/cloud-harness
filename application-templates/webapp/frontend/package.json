@@ -1,0 +1,11 @@
+{
+  "name": "__APP_NAME__",
+  "scripts": {
+    "dev": "vite",
+    "start": "DOMAIN=http://localhost:5000 vite",
+    "start:dev": "DOMAIN=https://test.ch.metacell.us vite",
+    "start:local": "DOMAIN=http://samples.ch vite",
+    "prebuild": "eslint .",
+    "build": "vite build"
+  }
+}

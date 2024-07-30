@@ -1,6 +1,7 @@
 harness:
-  secured: true
+  secured: false
   dependencies:
     soft: []
     hard: []
+  use_services: []
 

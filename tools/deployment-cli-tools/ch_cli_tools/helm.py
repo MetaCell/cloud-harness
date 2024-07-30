@@ -410,7 +410,7 @@ class CloudHarnessHelm:
             ignore = set(DEFAULT_IGNORE)
             if os.path.exists(ignore_path):
                 with open(ignore_path) as f:
-                    ignore = ignore.union({line.strip() for line in f})
+                    ignore = ignore.union({line.strip() for line in f if line.strip() and not line.startswith('#')})
             logging.info(f"Ignoring {ignore}")
             tag = generate_tag_from_content(build_context_path, ignore)
             logging.info(f"Content hash: {tag}")
