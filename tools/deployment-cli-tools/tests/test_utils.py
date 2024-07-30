@@ -47,6 +47,17 @@ def test_merge_configuration_directories():
         assert a['b']['ba'] == 'ba1'
         assert a['b']['bb'] == 'bb'
         assert a['b']['bc'] == 'bc'
+
+        assert os.path.exists(os.path.join(res_path, "a.json"))
+        assert os.path.exists(os.path.join(res_path, "b.json"))
+        assert os.path.exists(os.path.join(res_path, "c.json"))
+
+        with open(os.path.join(res_path, "a.json")) as f:
+            a = json.load(f)
+        assert a['a'] == 'a1'
+        assert a['b']['ba'] == 'ba1'
+        assert a['b']['bb'] == 'bb'
+        assert a['b']['bc'] == 'bc'
     finally:
         if os.path.exists(res_path):
             shutil.rmtree(res_path)

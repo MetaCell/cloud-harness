@@ -71,6 +71,7 @@ if __name__ == "__main__":
         shutil.move(os.path.join(app_path, args.name), os.path.join(app_path, 'frontend'))
         generate_ts_client(openapi_file=os.path.join(app_path, 'api/openapi.yaml'))
 
+
     if 'server' in templates:
         with tempfile.TemporaryDirectory() as tmp_dirname:
             copymergedir(os.path.join(CH_ROOT, APPLICATION_TEMPLATE_PATH, template_name), tmp_dirname)
