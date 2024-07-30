@@ -42,14 +42,14 @@ def generate_model(base_path=ROOT):
     lib_path = f"{base_path}/libraries/models"
 
     # Generate model stuff: use python-flask generator
-    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/models/api/openapi.yaml -g python-flask -o {
-        lib_path}  --skip-validate-spec -c {base_path}/libraries/models/api/config.json"
+    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/models/api/openapi.yaml -g python-flask -o \
+          {lib_path}  --skip-validate-spec -c {base_path}/libraries/models/api/config.json"
     os.system(command)
 
     # Generate docs: use python generator
     tmp_path = f"{lib_path}/tmp"
-    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/models/api/openapi.yaml -g python -o {
-        tmp_path}  --skip-validate-spec -c {base_path}/libraries/models/api/config.json"
+    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/models/api/openapi.yaml -g python -o \
+        {tmp_path}  --skip-validate-spec -c {base_path}/libraries/models/api/config.json"
     os.system(command)
     try:
         source_dir = join(tmp_path, "docs/models")
