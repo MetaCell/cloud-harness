@@ -26,6 +26,7 @@ def ping():  # noqa: E501
     import os
     
     expected_environment_variables = {
+        'WORKERS': '3',
         'ENVIRONMENT_TEST_A': 'value',
         'ENVIRONMENT_TEST_B': '123',
     }
