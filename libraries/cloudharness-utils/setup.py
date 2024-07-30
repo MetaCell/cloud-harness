@@ -21,10 +21,11 @@ VERSION = "2.3.0"
 
 REQUIREMENTS = [
     'ruamel.yaml',
-    'oyaml',
+    'cloudharness_model',
+    'docker',
+    'pyaml',
     'cloudharness_model'
 ]
-
 
 
 setup(
@@ -35,7 +36,8 @@ setup(
     url="",
     keywords=["Cloud", "Kubernetes", "Helm", "Deploy"],
     install_requires=REQUIREMENTS,
-    packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
+    packages=find_packages(
+        exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,
     long_description="""\
     CloudHarness utils library

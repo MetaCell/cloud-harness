@@ -1,5 +1,4 @@
 
-from cgi import test
 import os
 from os.path import dirname as dn
 
