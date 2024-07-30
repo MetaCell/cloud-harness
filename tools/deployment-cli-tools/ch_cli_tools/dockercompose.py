@@ -3,41 +3,33 @@ Utilities to create a helm chart from a CloudHarness directory structure
 """
 from typing import Union
 import yaml
+from ruamel.yaml import YAML
 import os
 import logging
 import subprocess
+import copy
 
-from cloudharness_utils.constants import  VALUES_MANUAL_PATH, HELM_CHART_PATH
-from .utils import get_cluster_ip, get_git_commit_hash, image_name_from_dockerfile_path, \
-    get_template, merge_to_yaml_file, dict_merge, app_name_from_path, \
-    find_dockerfiles_paths
+
+from cloudharness_utils.constants import VALUES_MANUAL_PATH, COMPOSE
+from .utils import get_cluster_ip, image_name_from_dockerfile_path, get_template, \
+    merge_to_yaml_file, dict_merge, app_name_from_path, find_dockerfiles_paths, find_file_paths
 
 from .models import HarnessMainConfig
 
 from .configurationgenerator import ConfigurationGenerator, validate_helm_values, KEY_HARNESS, KEY_SERVICE, KEY_DATABASE, KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES, KEY_DEPLOYMENT, values_from_legacy, values_set_legacy, get_included_with_dependencies, create_env_variables, collect_apps_helm_templates
 
 
-
-def deploy(namespace, output_path='./deployment'):
-    helm_path = os.path.join(output_path, HELM_CHART_PATH)
-    logging.info('Deploying helm chart %s', helm_path)
-    subprocess.run("helm dependency update".split(), cwd=helm_path)
-
-    subprocess.run(
-        f"helm upgrade {namespace} {helm_path} -n {namespace} --install --reset-values".split())
-
-
-def create_helm_chart(root_paths, tag: Union[str, int, None]='latest', registry='', local=True, domain=None, exclude=(), secured=True,
+def create_docker_compose_configuration(root_paths, tag: Union[str, int, None]='latest', registry='', local=True, domain=None, exclude=(), secured=True,
                       output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
                       namespace=None) -> HarnessMainConfig:
     if (type(env)) == str:
         env = [env]
-    return CloudHarnessHelm(root_paths, tag=tag, registry=registry, local=local, domain=domain, exclude=exclude, secured=secured,
+    return CloudHarnessDockerCompose(root_paths, tag=tag, registry=registry, local=local, domain=domain, exclude=exclude, secured=secured,
                             output_path=output_path, include=include, registry_secret=registry_secret, tls=tls, env=env,
-                            namespace=namespace).process_values()
+                            namespace=namespace, templates_path=COMPOSE).process_values()
 
 
-class CloudHarnessHelm(ConfigurationGenerator):
+class CloudHarnessDockerCompose(ConfigurationGenerator):
 
     def process_values(self) -> HarnessMainConfig:
         """
@@ -61,7 +53,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
 
         self._process_applications(helm_values, base_image_name)
 
-        self.create_tls_certificate(helm_values)
+        # self.create_tls_certificate(helm_values)
 
         values, include = self.__finish_helm_values(values=helm_values)
 
@@ -70,17 +62,72 @@ class CloudHarnessHelm(ConfigurationGenerator):
 
         for root_path in self.root_paths:
             collect_apps_helm_templates(root_path, exclude=self.exclude, include=self.include,
-                                        dest_helm_chart_path=self.dest_deployment_path)
+                                        dest_helm_chart_path=self.dest_deployment_path, templates_path=self.templates_path)
 
         # Save values file for manual helm chart
-        merged_values = merge_to_yaml_file(helm_values, os.path.join(
-            self.dest_deployment_path, VALUES_MANUAL_PATH))
+        merged_values = merge_to_yaml_file(helm_values, self.dest_deployment_path / VALUES_MANUAL_PATH)
         if self.namespace:
             merge_to_yaml_file({'metadata': {'namespace': self.namespace},
                                 'name': helm_values['name']}, self.helm_chart_path)
         validate_helm_values(merged_values)
+
+        # All values save
+        all_values = self.__get_default_helm_values_with_secrets(merged_values)
+
+        merge_to_yaml_file(all_values, self.dest_deployment_path / 'allvalues.yaml')
+
+        self.generate_docker_compose_yaml()
+
         return HarnessMainConfig.from_dict(merged_values)
 
+    def generate_docker_compose_yaml(self):
+        compose_templates = self.dest_deployment_path
+        dest_compose_yaml = self.dest_deployment_path.parent / "docker-compose.yaml"
+
+        logging.info(f'Generate docker compose configuration in: {dest_compose_yaml}, using templates from {compose_templates}')
+        command = f"helm template {compose_templates} > {dest_compose_yaml}"
+
+        subprocess.call(command, shell=True)
+
+        self.__post_process_multiple_document_docker_compose(dest_compose_yaml)
+
+    def __post_process_multiple_document_docker_compose(self, yaml_document):
+        if not yaml_document.exists():
+            logging.warning("Something went wrong during the docker-compose.yaml generation, cannot post-process it")
+            return
+
+        yaml_handler = YAML()
+        documents = yaml_handler.load_all(yaml_document)
+
+        main_document = None
+        for document in documents:
+            if not document:
+                continue
+            if "cloudharness-metadata" in document:
+                document_path = self.dest_deployment_path / document["cloudharness-metadata"]["path"]
+                logging.info("Post-process docker-compose.yaml, creating %s", document_path)
+                document_path.parent.mkdir(parents=True, exist_ok=True)
+                data = document["data"]
+                document_path.write_text(data)
+            else:
+                # We need to save the main document later
+                # "load_all" returns a generator over the file,
+                # so if we modify it while looping on "documents"
+                # the output will be affected (probably truncated for some outputs)
+                main_document = document  # we need to save the main document later
+        yaml_handler.dump(main_document, yaml_document)
+
+    def __get_default_helm_values_with_secrets(self, helm_values):
+        helm_values = copy.deepcopy(helm_values)
+        # {{- $values_copy := deepCopy .Values }}
+        # {{- range $key, $val := .Values.apps }}
+        #   {{- $new_secrets := dict "apps" (dict $key (dict "harness" (dict "secrets"))) }}
+        #   {{- $tmp := mergeOverwrite $values_copy $new_secrets }}
+        # {{- end }}
+        # {{ $values_copy | toYaml | indent 4 }}
+        for key, val in helm_values['apps'].items():
+            helm_values['apps'][key]['harness']['secrets'] = {}
+        return helm_values
 
     def __finish_helm_values(self, values):
         """
@@ -88,8 +135,6 @@ class CloudHarnessHelm(ConfigurationGenerator):
         """
         if self.registry:
             logging.info(f"Registry set: {self.registry}")
-
-
         if self.local:
             values['registry']['secret'] = ''
         if self.registry_secret:
@@ -97,7 +142,6 @@ class CloudHarnessHelm(ConfigurationGenerator):
         values['registry']['name'] = self.registry
         values['registry']['secret'] = self.registry_secret
         values['tag'] = self.tag
-        values['build_hash'] = get_git_commit_hash(self.root_paths[-1])  # Fix: Call the defined function to get the git commit hash
         if self.namespace:
             values['namespace'] = self.namespace
         values['secured_gatekeepers'] = self.secured
@@ -158,20 +202,19 @@ class CloudHarnessHelm(ConfigurationGenerator):
     def create_app_values_spec(self, app_name, app_path, base_image_name=None):
         logging.info('Generating values script for ' + app_name)
 
-        specific_template_path = os.path.join(app_path, 'deploy', 'values.yaml')
-        if os.path.exists(specific_template_path):
-            logging.info("Specific values template found: " +
-                        specific_template_path)
+        deploy_path = app_path / 'deploy'
+        specific_template_path = deploy_path / 'values.yaml'
+        if specific_template_path.exists():
+            logging.info(f"Specific values template found: {specific_template_path}")
             values = get_template(specific_template_path)
         else:
             values = {}
 
         for e in self.env:
-            specific_template_path = os.path.join(
-                app_path, 'deploy', f'values-{e}.yaml')
-            if os.path.exists(specific_template_path):
+            specific_template_path = deploy_path / f'values-{e}.yaml'
+            if specific_template_path.exists():
                 logging.info(
-                    "Specific environment values template found: " + specific_template_path)
+                    f"Specific environment values template found: {specific_template_path}")
                 with open(specific_template_path) as f:
                     values_env_specific = yaml.safe_load(f)
                 values = dict_merge(values, values_env_specific)
@@ -182,6 +225,11 @@ class CloudHarnessHelm(ConfigurationGenerator):
 
         image_paths = [path for path in find_dockerfiles_paths(
             app_path) if 'tasks/' not in path and 'subapps' not in path]
+
+        # Inject entry points commands
+        for image_path in image_paths:
+            self.inject_entry_points_commands(values, image_path, app_path)
+
         if len(image_paths) > 1:
             logging.warning('Multiple Dockerfiles found in application %s. Picking the first one: %s', app_name,
                             image_paths[0])
@@ -212,10 +260,57 @@ class CloudHarnessHelm(ConfigurationGenerator):
 
         for task_path in task_images_paths:
             task_name = app_name_from_path(os.path.relpath(
-                task_path, os.path.dirname(app_path)))
+                task_path, app_path.parent))
             img_name = image_name_from_dockerfile_path(task_name, base_image_name)
 
-            values[KEY_TASK_IMAGES][task_name] = self.image_tag(
-                img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys())
+            # values[KEY_TASK_IMAGES][task_name] = self.image_tag(
+            #     img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys())
+            # values.setdefault(KEY_TASK_IMAGES_BUILD, {})[task_name] = {
+            #     'context': os.path.relpath(task_path, self.dest_deployment_path.parent),
+            #     'dockerfile': 'Dockerfile',
+            # }
+
+            # values[KEY_TASK_IMAGES][task_name] = {
+            #     'name': self.image_tag(img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys()),
+            #     # 'context': os.path.relpath(task_path, self.dest_deployment_path.parent),
+            #     # 'dockerfile': 'Dockerfile',
+            # }
+
+            values[KEY_TASK_IMAGES][task_name] = self.image_tag(img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys())
 
         return values
+
+
+    def inject_entry_points_commands(self, helm_values, image_path, app_path):
+        context_path = os.path.relpath(image_path, '.')
+
+        mains_candidates = find_file_paths(context_path, '__main__.py')
+
+        task_main_file = identify_unicorn_based_main(mains_candidates, app_path)
+
+        if task_main_file:
+            helm_values[KEY_HARNESS]['deployment']['command'] = 'python'
+            helm_values[KEY_HARNESS]['deployment']['args'] = f'/usr/src/app/{os.path.basename(task_main_file)}/__main__.py'
+
+
+def identify_unicorn_based_main(candidates, app_path):
+        import re
+        gunicorn_pattern = re.compile(r"gunicorn")
+        # sort candidates, shortest path first
+        for candidate in sorted(candidates,key=lambda x: len(x.split("/"))):
+            dockerfile_path = f"{candidate}/.."
+            while not os.path.exists(f"{dockerfile_path}/Dockerfile") and os.path.abspath(dockerfile_path) != os.path.abspath(app_path):
+                dockerfile_path += "/.."
+            dockerfile = f"{dockerfile_path}/Dockerfile"
+            if not os.path.exists(dockerfile):
+                continue
+            with open(dockerfile, 'r') as file:
+                if re.search(gunicorn_pattern, file.read()):
+                    return candidate
+            requirements = f"{candidate}/../requirements.txt"
+            if not os.path.exists(requirements):
+                continue
+            with open(requirements, 'r') as file:
+                if re.search(gunicorn_pattern, file.read()):
+                    return candidate
+        return None

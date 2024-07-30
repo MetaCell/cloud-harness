@@ -1,6 +1,7 @@
 from ch_cli_tools.preprocessing import preprocess_build_overrides
 
 from ch_cli_tools.helm import *
+from ch_cli_tools.configurationgenerator import *
 from ch_cli_tools.codefresh import *
 
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -126,7 +127,7 @@ def test_create_codefresh_configuration():
         assert len(
             tstep['commands']) == 2, "Unit test commands are not properly loaded from the unit test configuration file"
         assert tstep['commands'][0] == "tox", "Unit test commands are not properly loaded from the unit test configuration file"
-    
+
         assert len(l1_steps[CD_BUILD_STEP_DEPENDENCIES]['steps']) == 3, "3 clone steps should be included as we have 2 dependencies from myapp, plus cloudharness"
     finally:
         shutil.rmtree(BUILD_MERGE_DIR)
@@ -213,7 +214,7 @@ def test_create_codefresh_configuration_tests():
 
         assert "test-api" in st_build_test_steps["test-api"]["dockerfile"], "test-api image must be built from root context"
 
-        
+
 
         e2e_steps = l1_steps[CD_E2E_TEST_STEP]['scale']
 
@@ -251,7 +252,7 @@ def test_create_codefresh_configuration_tests():
 
     finally:
         shutil.rmtree(BUILD_MERGE_DIR)
-    
+
     values = create_helm_chart(
         [CLOUDHARNESS_ROOT, RESOURCES],
         output_path=OUT,

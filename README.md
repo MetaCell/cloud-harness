@@ -2,12 +2,12 @@
 <img src="https://github.com/MetaCell/cloud-harness/blob/develop/cloudharness.png?raw=true" alt="drawing" width="200"/>
 </p>
 
-CloudHarness is a base infrastructure facilitator for microservice based applications deployed on Kubernetes.
+CloudHarness is a base infrastructure facilitator for microservice based applications deployed primarily on Kubernetes.
 Can scaffold and maintain your cloud solution on top of Cloudharness without writing
 Kubernetes templates, with in place common utilities and applications already configured for you.
 
 What building your cloud solution with CloudHarness gives to you:
-- Common framework and utilities to develop and deploy micro-service application 
+- Common framework and utilities to develop and deploy micro-service application
   - Helm chart automatic generation
     - deployments
     - services
@@ -17,6 +17,12 @@ What building your cloud solution with CloudHarness gives to you:
     - access gatekeepers configuration
     - secrets
     - templated config maps from files
+  - Docker compose configuration generation
+    - services
+    - traefik configuration
+    - databases (postgreql)
+    - access gatekeepers configuration
+    - secrets and configmaps
   * Automatic build and push of images
   * REST-API scaffolding building based on OpenApi
   * Continuous deployment script generation
@@ -46,17 +52,18 @@ In particular, these questions may rise:
  - How to manage databases without being locked to a specific vendor solution?
  - How to perform database backups?
  - How to manage secret data?
- - What about having a precounfigured account management application? 
- - Sooner rather than later I'll need an orchestration queue. Why not have that just ready to use? 
+ - What about having a precounfigured account management application?
+ - Sooner rather than later I'll need an orchestration queue. Why not have that just ready to use?
 
 # Command line tools
 
 CloudHarness provides the following command line tools to help application scaffolding and deployment.
 
-* `harness-deployment` - generate the helm chart to deploy on Kubernetes. 
+* `harness-deployment` - generate the helm chart to deploy on Kubernetes.
 * `harness-application` - create a new CloudHarness REST application.
 * `harness-generate` - generates server and client code for all CloudHarness REST applications.
 * `harness-test` - run end to end tests
+  
 # Get started
 
 ## Prerequisites
@@ -67,13 +74,13 @@ Cloudharness can be used on all major operative systems.
 - Linux: supported and tested
 - MacOS: supported and tested
 - Windows/WSL2: supported and tested
-- Windows native: mostly working, unsupported  
+- Windows native: mostly working, unsupported
 
 ### Python
 Python 3.9 must be installed.
 
 It is recommended to setup a virtual environment.
-With conda: 
+With conda:
 ```bash
 conda create --name ch python=3.12
 conda activate ch
@@ -93,6 +100,10 @@ conda activate ch
 ### Skaffold
 
 [Skaffold](https://skaffold.dev/docs/install/) is the way to go to build and debug your application in your local development environment.
+
+### Docker compose
+
+[Docker Compose](https://docs.docker.com/compose/) is required if the docker compose system is the target (instead of Kubernetes).
 
 ### Node environment
 
@@ -126,24 +137,25 @@ To (re)generate the code for your applications, run `harness-generate` from the 
 The script will look for all openapi applications, and regenerate the Flask server code and documentation.
 Note: the script will eventually override any manually modified file. To avoid that, define a file openapi-generator-ignore.
 
-# Extend CloudHarness to build your solution
-CloudHarness is born to be extended. In order to extend CloudHarness you just need to mirror the folder structure:
-* **applications**: place here your custom applications, or override default ones
-* **deployment-configuration**: override the helm chart default values and templates
-* **infrastructure**: define base images to use in your application
+# Extend CloudHarness to build your project
 
-or simply copy the *blueprint* folder.
+CloudHarness is born to be extended. 
+
+The quickest way to start is to install Cloud Harness, copy the *blueprint* folder and build from that with the cli tools, such as
+`harness-application`, `harness-generate`, `harness-deployment`.
+
+See the [developers documentation](docs/dev.md#start-your-project) for more information.
 
 # Build and deploy
 
 The script `harness-deployment` scans your applications and configurations to create the build and deploy artifacts.
 Created artifacts include:
- - Helm chart
+ - Helm chart (or docker compose configuration file)
  - Skaffold build and run configuration
  - Visual Studio Code debug and run configuration
  - Codefresh pipeline yaml specification (optional)
 
-With your solution folder structure looking like
+With your project folder structure looking like
 
 ```
 applications
@@ -152,7 +164,7 @@ infrastructure
 cloud-harness
 ```
 
-run 
+run
 
 ```
 harness-deployment cloud-harness . [PARAMS]

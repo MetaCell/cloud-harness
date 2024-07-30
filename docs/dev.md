@@ -4,6 +4,42 @@ This documentation is meant to be read by developers that needs to make modifica
 The goal of this doc is to show how CloudHarness is internally built, the different parts of the code/files that are relative to specific features, and to provide a map to be able to modify or implement new features quickly.
 
 CloudHarness is a project that allows you to: quickly generate the code of your webapp, considering that it runs in the cloud with a micro-service architecture, and to easily connect all those micro-services together to finally build the final app.
+
+## Prerequisites and installation
+
+This information is covered in the [main readme](../../README.md#prerequisites)
+
+## Start your project
+
+A Cloud Harness project can go to a simple service deployed on Kubernetes and so taking advantage of the 
+Helm Chart and CI/CD generation, to anything more structured using a mix of custom applications and
+applications that are built-in in Cloud Harness.
+
+The quickest way to start your project is to copy the **blueprint** directory from cloudharness somewhere and
+commit that to your repository and start building from that. 
+
+What the blueprint gives us is basically a mirror the folder structure that can be recognized by Cloud Harness:
+* **applications**: place here your custom applications, or override default ones
+* **deployment-configuration**: override the helm chart default values and templates
+* **infrastructure**: define base images to use in your application
+
+An initial workflow to start the first project with Cloud Harness can look like this:
+
+1. Copy blueprint to a *my-project* folder
+2. Commit push to a (git or any other) repository
+3. Clone cloud-harness inside it. Cloud harness can be placed anywhere and shared across different projects but it's easier to start our tutorials with this structure.
+4. Use `harness-application myapp` to create one service/application from one of the available templates.
+5. Play with the `applications/myapp/deploy/values.yaml` file to configure your deployment and add a database, a volume, or other applications as dependencies
+6. Use `harness-deployment cloud-harness . -i myapp` to start generating a deployment including your application and its dependencies
+7. Run locally with `skaffold dev`
+
+The above workflow based on an application template is a great place to get started, but anything can be deployed with Cloud Harness,
+including custom templates and even helm charts.
+
+The above workflow and more is covered in our [tutorials](./tutorials/).
+
+
+## Built-in applications and features
 Currently, the tools that CloudHarness can consider to build the final app are the following:
 
 * [OpenAPI](https://www.openapis.org/) for generating the model and API of your application (based on an OpenAPI specification),
@@ -14,8 +50,8 @@ Currently, the tools that CloudHarness can consider to build the final app are t
 * [JupyterHub](https://jupyter.org/hub) to provide jupyter notebooks access to a group of users,
 * [Volume Manager](../applications/volumemanager/) to deal with external file system,
 * [NFS Server](../applications/nfsserver/) to provide storage of file on an external NFS file system,
-* [Kubernete](https://kubernetes.io/) is used to manage the auto-scaling, deployements, ... of micro-services on a cluster,
-* [Code Fresh](https://codefresh.io/) for the remote build of the application, and it is configured to initiate a deployment on a remote Kubernete cluster,
+* [Kubernetes](https://kubernetes.io/) is used to manage the auto-scaling, deployements, ... of micro-services on a cluster,
+* [Codefresh](https://codefresh.io/) for the remote build of the application, and it is configured to initiate a deployment on a remote Kubernete cluster,
 * [Helm Chart](https://helm.sh/docs/topics/charts/) for the packaging of Kubernete resources to simplify the deployment of the application,
 * [Skaffold](https://skaffold.dev/) to help deploying the packaged application in a Kubernete cluster.
 

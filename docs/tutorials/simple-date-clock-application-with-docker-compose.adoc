@@ -1,0 +1,328 @@
+:repo_url: ../../../../../
+:ch: CloudHarness
+:dc: Docker Compose
+:dc-: docker compose
+:repo_fragment: MetaCell/cloud-harness
+
+
+= A simple date-clock application: tutorial {ch} targeting {dc}
+
+In this small tutorial, we will see different aspects about the development of applications with {ch} through the development from scratch of a small webapp that fetches information from a server on a regular basis.
+This tutorial will show you how to generate the `{dc-}` configuration and how to build and deploy this simple application.
+
+{ch} generates the initial files and folders for your project depending on some templates tacking different aspects of your app depending on your requirements, __e.g.__, for a webapp project, it generates the frontend initial files for ReactJS and the initial Flask files for the backend.
+For the API part, {ch} relies on OpenAPI 3 to deal with the endpoints/model description.
+
+The different aspects that will be covered here are:
+
+* how to bootstrap a new app, build it, and deploy it on {dc};
+* how to modify/update the app, built it and run it again.
+
+== The tools you need to deploy/build your application
+
+The following tools, beside python, are not required to work with {ch}.
+Before installing everything, please be sure you have the following tools installed on your machine:
+
+* `python`
+* `yarn`
+* `{ch}` -- if not installed, please check other documentation and tutorials
+* `helm` -- to deal with the generation of the {dc}
+* `skaffold` -- to build the different images that will run on {dc}
+* `{dc-}` -- to actually run the built application
+
+
+== Creating a very simple webapp
+
+Now that we know how to configure/run/deploy apps on our local cluster, we will create a very simple webapp.
+In this first time, we will only generate the project's artifacts using the `harness-application`, then, we will build/run/deploy it.
+In a second time, we will modify the API to add new endpoints and deal with the frontend accordingly.
+
+=== Creating a new webapp and building the frontend
+
+The webapp that we will create will be a useless webapp that will fetch the current date and time when a button is pressed.
+Nothing fancy, just a way to see how to interact with the generated sources and get everything running on your local cluster.
+
+The first step is to generate the projects files.
+In our case, we want to develop a webapp, meaning that we want a frontend and a backend.
+We use `harness-application` to generate the first files with a specific templates: `webapp` and `flask-server`.
+We first place ourself in the parent directory of where you cloned the `cloud-harness` repository.
+
+[NOTE]
+We could place ourself anywhere, we would just have to remember the path towards the `cloud-harness` repository.
+
+.Generating the first project's file
+[source,bash]
+----
+harness-application clockdate -t webapp -t flask-server
+----
+
+The name of the application is `clockdate` and we use the `webapp` and `flask-server` template.
+There is various existing templates with different purpose: for DB interaction, backend, frontend, ...
+
+We observe now that a new directory had been created in an `applications` folder named `clockdate`.
+The folder is organized with many sub-folders, all playing a different role in the app.
+
+.Ensuring that the backend is considered as a webapp
+We will now make a small modification, or ensure that the code of the backend includes its activation as "webapp".
+Open the file generated in `clockdate/backend/clockdate/__main__.py` and check that the following line has the keyword parameter `webapp` set to `True`.
+
+[source,python]
+----
+app = init_flask(title="clockdate", init_app_fn=None, webapp=True)
+----
+
+This option ensures the registration of some specific endpoints by {ch}.
+In this case, it ensures that the `/` endpoint will be mapped to the `index.html` produced for the frontend.
+
+.Building the frontend
+
+In this tutorial, before generating the configuration files for {dc} by {ch}, we will build the frontend using `yarn`.
+Enter in the `clockdate/frontend` folder and just type
+
+[source, bash]
+----
+yarn install
+----
+
+This will generate a `yarn.lock` which is required later for the build of the Docker images.
+
+[NOTE]
+This step could have been done later, but it has to be done *before* the build of the different Docker images using `skaffold`.
+
+
+.Generating the `{dc-}` configuration files for our `clockdate` app
+[source,bash]
+----
+# run in the directory that contains the cloud-harness repository
+harness-deployment cloud-harness . -u -dtls -l -d azathoth.local -e local -n azathoth -i clockdate --docker-compose
+----
+
+The key here is to add the `--docker-compose` option that will trigger the generation of a set of files in the `deployment` folder,
+as well as a slightly modified version of the `skaffold.yaml` file.
+
+As a result, in the `deployment` folder, we should have something that looks like this:
+
+[source]
+----
++- CURRENT_DIRECTORY
+  [...]
+  + deployment/
+    + compose/               -> the template files and some generated files dedicated to docker compose
+    `- docker-compose.yaml   -> the main file used by {dc} to deploy everything
+  `- skaffold.yaml           -> used by skaffold to build the Docker images
+----
+
+Now you can build/deploy/run it using `skaffold`.
+
+[source,bash]
+----
+skaffold build
+----
+
+.Deploying your app on {dc}
+
+To deploy the application on {dc}, you only need to position yourself in the directory where the `docker-compose.yaml` file was generated, so in the `deployment` folder.
+
+[source,bash]
+----
+cd deployment
+docker compose up
+----
+
+This command will download the necessary images and reuses the ones built by `skaffold` to deploy everything.
+
+Now, to be sure to access properly the app, a small addition to your `/etc/hosts` file is required as such:
+
+[source]
+----
+127.0.0.1   clockdate.azathoth.local
+----
+
+Now you can open your browser to `http://clockdate.azathoth.local` and see that everything is running properly.
+You can also go to `http://clockdate.azathoth.local/api/ping` and check that you have a message.
+
+
+=== Modifying your webapp, adding behavior
+
+We are currently capable of generating/running applications, but we did not add our own behavior.
+We need to modify the generated sources to do so.
+If we take a deeper look to the folder generated by `harness-application`, we observe three folders that are the one we will modify on a normal usage/base:
+
+.Generated directory organization
+[source]
+----
++- api               -> owns the OpenAPI definition of the endpoints/resources handled by the API
++- backend
+  `- clockdate       -> the project backend files
+    |- controllers   -> the controller definition
+    `- models        -> the resources exposed by the API
++- frontend           -> the webpage files
+----
+
+In a first time, we will modify the backend to add a new endpoint that will answer in a string the current date and time.
+The process is the following:
+
+. we add the new endpoint in the `openapi` folder, modifying the `openapi.yaml` file,
+. we regenerate the code of the application using `harness-generate`
+. we code the behavior of the endpoint in the dedicated method generated in the `backend/clockdate/controllers` folder.
+. we build/deploy/run the code to see it running (this step can be changed with a pure python run of the backend for a quicker dev loop).
+
+==== Adding the new endpoint to the openapi specification
+
+We will add a new endpoint named `currentdate` that will answer a string when `GET`.
+To do so, we add a special path in the `path` section.
+
+.Modifying the `api/openapi.yaml` file
+[source,yaml]
+----
+paths:
+  /currentdate:
+    get:
+      operationId: currentdate
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Current date and time
+        "500":
+          description: System cannot give the current time
+      summary: Gets the current date and time
+      tags: [datetime]
+----
+
+[NOTE]
+The name of the controller in which the function related to the endpoint will be generated depends on the `tags` value in defined in the `api/openapi.yaml` file.
+
+We validate that our openAPI specification is correct.
+
+[source]
+----
+$ openapi-spec-validator applications/clockdate/api/openapi.yaml
+OK
+----
+
+Now we generate again the code the application using `harness-application` another time.
+
+.Regenerating the code of our modified app
+[source,bash]
+----
+harness-application clockdate -t flask-server -t webapp
+----
+
+This will add a new `datetime_controller.py` in the `backend/clockdate/controllers` package.
+
+[IMPORTANT]
+You need to notice that all the controllers files (and all the files) are overridden in the `backend` directory.
+To prevent files of being overridden, you need to edit the `.openapi-generator-ignore` file, that acts like a `.gitignore` file (in a way), by marking the files/directories that needs to be ignored by the generation.
+
+When we open this file, we get the following controller method:
+
+[source,python]
+----
+def currentdate():  # noqa: E501
+    """Gets the current date and time
+
+     # noqa: E501
+
+
+    :rtype: str
+    """
+    return 'do some magic!'
+----
+
+This is the moment to add the behavior we want:
+
+[source,python]
+----
+def currentdate():  # noqa: E501
+    """Gets the current date and time
+
+     # noqa: E501
+
+
+    :rtype: str
+    """
+    from datetime import datetime
+    return f'{datetime.now()}'
+----
+
+We simply import the `datetime` module and type, and we ask for the current date and time.
+Here a string interpolation is used only to force the result to be considered and formatted as a string.
+It's not mandatory.
+
+Now that our new endpoint is coded, we can build/deploy/run it on our local cluster using `skaffold build` then `{dc-} up`.
+Once the deployment is done, we can navigate to: http://clockdate.azathoth.local/api/currentdate to appreciate the result.
+
+
+=== A quick and dirty frontend to test our endpoint
+
+
+Now that we have the "backend" running, we will modify the frontend to get a label and a button that will fetch the information about date and time from the new endpoint we defined.
+If we look in the frontend source code generated, we see a `src/rest/api.ts` file.
+The generated code targets ReactJS as framework.
+This module provides clients for the API generated from the `api/openapi.yaml` specification.
+Exactly, it provides one client by `tag` defined in the openAPI specification.
+In our case, we defined a tag `datetime`, so we find in `api.ts` a class `DatetimeApi`.
+This is the class we will instantiate and use to deal with the call to the API and the endpoint we defined in the previous section.
+
+First, we are going to code a new React component that will provide a header with the current date and time and a button to ask for a "fetch" of the current date and time from the server.
+
+We call this component `DateTime` inside of a `DateTime.tsx` file that is placed in the `src/components` directory.
+
+.Code of the `frontend/src/component/DateTime.tsx` component
+[source,javascript]
+----
+import React, { useState, useEffect, useCallback } from 'react';
+import { DatetimeApi } from '../rest/api'
+
+const api = new DatetimeApi() <1>
+
+const DateTime = () => {
+  const [datetime, setDatetime] = useState('unavailable');
+  useEffect(() => updateDate(), []);
+
+  const updateDate = useCallback(() => {
+    api.currentdate().then(r => setDatetime(r.data)); <2>
+  }, []);
+
+  return (
+    <div>
+        <h2>{datetime}</h2>
+        <button onClick={updateDate}>Fetch</button>
+    </div>
+  )
+}
+
+export default DateTime;
+----
+
+<1> The `DatetimeApi` class is instantiated, this is now the instance we will use everytime we need to perform a request toward an API endpoint.
+<2> is where is actually perform the call. The `currentdate` method is generated by {ch}.
+
+Now that we have our dedicated component, we will integrate it in the current page.
+To do that, we need to modify the `App.tsx` component.
+This component is located in `frontend/src/App.tsx`.
+We modify the content of this file this way:
+
+.Code of the `frontend/src/App.tsx` component
+[source,javascript]
+----
+import React from 'react';
+import './styles/style.less';
+import DateTime from './components/DateTime';
+
+const Main = () => (
+    <>
+      <h1>Ask for date and time</h1>
+      <DateTime />
+      <p>See api documentation <a href="/api/ui">here</a></p>
+    </>
+);
+
+export default Main;
+----
+
+Once this is done, we can build/deploy/run again our webapp on our local cluster using `skaffold buld` then `{dc-} up`.
+That's it!
