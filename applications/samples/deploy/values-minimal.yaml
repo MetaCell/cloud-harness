@@ -3,4 +3,5 @@ harness:
   dependencies:
     soft: []
     hard: []
+  use_services: []
 
