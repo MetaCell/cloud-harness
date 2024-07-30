@@ -1,6 +1,3 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
@@ -48,7 +45,7 @@ class UnitTestsConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         """Gets the enabled of this UnitTestsConfig.
 
         Enables unit tests for this application (default: true)  # noqa: E501
@@ -59,7 +56,7 @@ class UnitTestsConfig(Model):
         return self._enabled
 
     @enabled.setter
-    def enabled(self, enabled):
+    def enabled(self, enabled: bool):
         """Sets the enabled of this UnitTestsConfig.
 
         Enables unit tests for this application (default: true)  # noqa: E501
@@ -73,7 +70,7 @@ class UnitTestsConfig(Model):
         self._enabled = enabled
 
     @property
-    def commands(self):
+    def commands(self) -> List[str]:
         """Gets the commands of this UnitTestsConfig.
 
         Commands to run unit tests  # noqa: E501
@@ -84,7 +81,7 @@ class UnitTestsConfig(Model):
         return self._commands
 
     @commands.setter
-    def commands(self, commands):
+    def commands(self, commands: List[str]):
         """Sets the commands of this UnitTestsConfig.
 
         Commands to run unit tests  # noqa: E501

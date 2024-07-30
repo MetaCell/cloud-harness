@@ -39,6 +39,9 @@ harness:
   env:
     - name: WORKERS
       value: "3"
+  envmap:
+    ENVIRONMENT_TEST_A: "value"
+    ENVIRONMENT_TEST_B: 123
   dependencies:
     soft:
       - workflows

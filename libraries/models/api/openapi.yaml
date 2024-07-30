@@ -163,49 +163,6 @@ components:
             description: ''
             type: object
             additionalProperties: true
-        DatabaseDeploymentConfig:
-            description: ''
-            type: object
-            allOf:
-                -
-                    type: object
-                    properties:
-                        type:
-                            description: |-
-                                Define the database type.
-
-                                One of (mongo, postgres, neo4j, sqlite3)
-                            pattern: ^(mongo|postgres|neo4j|sqlite3)$
-                            type: string
-                            example: '"neo4j"'
-                        size:
-                            description: Specify database disk size
-                            type: string
-                            example: 1Gi
-                        user:
-                            description: database username
-                            type: string
-                        pass:
-                            format: password
-                            description: Database password
-                            type: string
-                        image_ref:
-                            description: Used for referencing images from the build
-                            type: string
-                            example: 'image_ref: myownpgimage'
-                        mongo:
-                            $ref: '#/components/schemas/FreeObject'
-                            description: Mongo db specific configuration
-                        postgres:
-                            $ref: '#/components/schemas/FreeObject'
-                            description: Postgres database specific configuration
-                        neo4j:
-                            description: Neo4j database specific configuration
-                        resources:
-                            $ref: '#/components/schemas/DeploymentResourcesConf'
-                            description: Database deployment resources
-                -
-                    $ref: '#/components/schemas/AutoArtifactSpec'
         ApplicationsConfigsMap:
             description: ''
             type: object
@@ -823,7 +780,7 @@ components:
                     $ref: '#/components/schemas/ApplicationsConfigsMap'
                     description: ''
                 env:
-                    description: Environmental variables added to all pods
+                    description: 'Environmental variables added to all pods (deprecated, please use envmap)'
                     type: array
                     items:
                         $ref: '#/components/schemas/NameValue'
@@ -842,6 +799,9 @@ components:
                 build_hash:
                     description: ''
                     type: string
+                envmap:
+                    $ref: '#/components/schemas/SimpleMap'
+                    description: Environmental variables added to all pods
             additionalProperties: true
         SimpleMap:
             description: ''
@@ -873,3 +833,47 @@ components:
                 url: 'https://github.com/MetaCell/nwb-explorer.git'
                 branch_tag: master
                 path: /git
+        DatabaseDeploymentConfig:
+            description: ''
+            type: object
+            allOf:
+                -
+                    type: object
+                    properties:
+                        type:
+                            description: |-
+                                Define the database type.
+
+                                One of (mongo, postgres, neo4j, sqlite3)
+                            pattern: ^(mongo|postgres|neo4j|sqlite3)$
+                            type: string
+                            example: '"neo4j"'
+                        size:
+                            description: Specify database disk size
+                            type: string
+                            example: 1Gi
+                        user:
+                            description: database username
+                            type: string
+                        pass:
+                            format: password
+                            description: Database password
+                            type: string
+                        image_ref:
+                            description: Used for referencing images from the build
+                            type: string
+                            example: 'image_ref: myownpgimage'
+                        mongo:
+                            $ref: '#/components/schemas/FreeObject'
+                            description: Mongo db specific configuration
+                        postgres:
+                            $ref: '#/components/schemas/FreeObject'
+                            description: Postgres database specific configuration
+                        neo4j:
+                            description: Neo4j database specific configuration
+                        resources:
+                            $ref: '#/components/schemas/DeploymentResourcesConf'
+                            description: Database deployment resources
+                -
+                    $ref: '#/components/schemas/AutoArtifactSpec'
+            additionalAttributes: true
