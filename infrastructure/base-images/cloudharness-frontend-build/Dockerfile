@@ -1,3 +1,3 @@
-FROM node:15.5
+FROM node:20
 
 

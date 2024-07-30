@@ -95,7 +95,7 @@ To build and reploy
 
 ## Continuous deployment with Codefresh
 
-See [here](./codefresh.md).
+See [here](./ci-cd/codefresh.md).
 
 ## Relevant files and directory structure
 Deployment files are automatically generated with the script

@@ -19,13 +19,13 @@ if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
         try:
             openapi_uri = openapi_uri = app_url + "/openapi.json"
             schema = st.from_uri(openapi_uri)
-        except st.exceptions.SchemaLoadingError as e:
+        except st.exceptions.SchemaError as e:
             # Use alternative configuration
             try:
                 openapi_uri = app_url.replace("/api", "") + "/openapi.json"
                 print(requests.get(openapi_uri))
                 schema = st.from_uri(openapi_uri)
-            except st.exceptions.SchemaLoadingError as e:
+            except st.exceptions.SchemaError as e:
                 raise Exception(
                     f"Cannot setup api tests: {openapi_uri} not valid. Check your deployment is up and configuration") from e
 

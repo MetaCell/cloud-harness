@@ -4,6 +4,8 @@ import sys
 import os
 import re
 import tempfile
+import subprocess
+import logging
 
 from ch_cli_tools import CH_ROOT
 from cloudharness_utils.constants import APPLICATION_TEMPLATE_PATH
@@ -28,11 +30,11 @@ if __name__ == "__main__":
 
                         Available templates:
                         - flask-server (backend flask server based on openapi)
-                        - webapp (webapp including backend and frontend)
+                        - webapp (React webapp including backend and frontend)
                         - db-postgres
                         - db-neo4j
                         - db-mongo
-                        - djangp-app (fastapi django backend based on openapi)
+                        - django-app (fastapi django backend based on openapi)
                         """)
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
@@ -53,24 +55,37 @@ if __name__ == "__main__":
         exit(1)
 
     app_path = os.path.join(APPLICATIONS_SRC_PATH, args.name)
+    os.makedirs(app_path, exist_ok=True)
     templates = args.templates
+
     if "django-app" in args.templates and "webapp" not in templates:
         templates = ["base", "webapp"] + templates
+
+    if 'webapp' in templates:
+        if os.path.exists(os.path.join(app_path, 'frontend')):
+            shutil.rmtree(os.path.join(app_path, 'frontend'))
+        cmd = ["yarn", "create", "vite", args.name,  "--template", "react-ts"]
+        logging.info(f"Running command: {' '.join(cmd)}")
+        subprocess.run(cmd, cwd=app_path)
+        shutil.move(os.path.join(app_path, args.name), os.path.join(app_path, 'frontend'))
+        generate_ts_client(openapi_file=os.path.join(app_path, 'api/openapi.yaml'))
+
+    if 'server' in templates:
+        with tempfile.TemporaryDirectory() as tmp_dirname:
+            copymergedir(os.path.join(CH_ROOT, APPLICATION_TEMPLATE_PATH, template_name), tmp_dirname)
+            merge_configuration_directories(app_path, tmp_dirname)
+            generate_server(app_path, tmp_dirname)
+
     for template_name in templates:
-        if template_name == 'server':
-            with tempfile.TemporaryDirectory() as tmp_dirname:
-                copymergedir(os.path.join(CH_ROOT, APPLICATION_TEMPLATE_PATH, template_name), tmp_dirname)
-                merge_configuration_directories(app_path, tmp_dirname)
-                generate_server(app_path, tmp_dirname)
         for base_path in (CH_ROOT, os.getcwd()):
             template_path = os.path.join(base_path, APPLICATION_TEMPLATE_PATH, template_name)
             if os.path.exists(template_path):
                 merge_configuration_directories(template_path, app_path)
 
-        if "flask-server" in templates:
-            generate_server(app_path)
+    if "flask-server" in templates:
+        generate_server(app_path)
 
-        replace_in_file(os.path.join(app_path, 'api/config.json'), PLACEHOLDER, to_python_module(args.name))
+    replace_in_file(os.path.join(app_path, 'api/config.json'), PLACEHOLDER, to_python_module(args.name))
 
     if "django-app" in templates:
         replace_in_file(os.path.join(app_path, 'api/templates/main.jinja2'), PLACEHOLDER, to_python_module(args.name))
@@ -94,4 +109,3 @@ if __name__ == "__main__":
         except FileNotFoundError:
             # backend dockerfile not found, continue
             pass
-        generate_ts_client(openapi_file=os.path.join(app_path, 'api/openapi.yaml'))

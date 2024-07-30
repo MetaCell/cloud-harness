@@ -82,7 +82,7 @@ Python 3.9 must be installed.
 It is recommended to setup a virtual environment.
 With conda:
 ```bash
-conda create --name ch python=3.9
+conda create --name ch python=3.12
 conda activate ch
 ```
 
@@ -118,7 +118,6 @@ Recommended:
 A JRE is needed to run the code generators based on openapi-generator.
 
 For more info, see [here](https://openapi-generator.tech/docs/installation).
-
 
 ## CloudHarness command line tools
 To use the cli tools, install requirements first:

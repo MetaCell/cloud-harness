@@ -1,17 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 
-import { TestApi } from '../rest/api'
+import { TestApi } from '../rest/apis/TestApi'
 const test = new TestApi();
 
+
+
 const RestTest = () => {
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<any>(null);
   useEffect(() => {
-    test.ping().then(r => setResult(r), () => setResult({ data: "API error"}));
+    test.ping().then((r) => setResult(r), () => setResult( "API error"));
   }, []);
     
 
-  return result ? <p>Backend answered: { result.data } </p> : <p>Backend did not answer</p>
+  return result ? <p>Backend answered: { result } </p> : <p>Backend did not answer</p>
 }
 
 export default RestTest;

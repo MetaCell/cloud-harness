@@ -70,8 +70,7 @@ paths:
         delete operation by its name
       operationId: delete_operation
       parameters:
-      - example: my-workflow
-        explode: false
+      - explode: false
         in: path
         name: name
         required: true
@@ -92,10 +91,7 @@ paths:
         retrieves an operation by its name
       operationId: get_operation
       parameters:
-      - examples:
-          my-operation:
-            value: my-operation
-        explode: false
+      - explode: false
         in: path
         name: name
         required: true
