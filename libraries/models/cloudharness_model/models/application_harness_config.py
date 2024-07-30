@@ -1,6 +1,3 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
@@ -165,7 +162,7 @@ class ApplicationHarnessConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def deployment(self):
+    def deployment(self) -> DeploymentAutoArtifactConfig:
         """Gets the deployment of this ApplicationHarnessConfig.
 
 
@@ -175,7 +172,7 @@ class ApplicationHarnessConfig(Model):
         return self._deployment
 
     @deployment.setter
-    def deployment(self, deployment):
+    def deployment(self, deployment: DeploymentAutoArtifactConfig):
         """Sets the deployment of this ApplicationHarnessConfig.
 
 
@@ -186,7 +183,7 @@ class ApplicationHarnessConfig(Model):
         self._deployment = deployment
 
     @property
-    def service(self):
+    def service(self) -> ServiceAutoArtifactConfig:
         """Gets the service of this ApplicationHarnessConfig.
 
 
@@ -196,7 +193,7 @@ class ApplicationHarnessConfig(Model):
         return self._service
 
     @service.setter
-    def service(self, service):
+    def service(self, service: ServiceAutoArtifactConfig):
         """Sets the service of this ApplicationHarnessConfig.
 
 
@@ -207,7 +204,7 @@ class ApplicationHarnessConfig(Model):
         self._service = service
 
     @property
-    def subdomain(self):
+    def subdomain(self) -> str:
         """Gets the subdomain of this ApplicationHarnessConfig.
 
         If specified, an ingress will be created at [subdomain].[.Values.domain]  # noqa: E501
@@ -218,7 +215,7 @@ class ApplicationHarnessConfig(Model):
         return self._subdomain
 
     @subdomain.setter
-    def subdomain(self, subdomain):
+    def subdomain(self, subdomain: str):
         """Sets the subdomain of this ApplicationHarnessConfig.
 
         If specified, an ingress will be created at [subdomain].[.Values.domain]  # noqa: E501
@@ -230,7 +227,7 @@ class ApplicationHarnessConfig(Model):
         self._subdomain = subdomain
 
     @property
-    def aliases(self):
+    def aliases(self) -> List[str]:
         """Gets the aliases of this ApplicationHarnessConfig.
 
         If specified, an ingress will be created at [alias].[.Values.domain] for each alias  # noqa: E501
@@ -241,7 +238,7 @@ class ApplicationHarnessConfig(Model):
         return self._aliases
 
     @aliases.setter
-    def aliases(self, aliases):
+    def aliases(self, aliases: List[str]):
         """Sets the aliases of this ApplicationHarnessConfig.
 
         If specified, an ingress will be created at [alias].[.Values.domain] for each alias  # noqa: E501
@@ -253,7 +250,7 @@ class ApplicationHarnessConfig(Model):
         self._aliases = aliases
 
     @property
-    def domain(self):
+    def domain(self) -> str:
         """Gets the domain of this ApplicationHarnessConfig.
 
         If specified, an ingress will be created at [domain]  # noqa: E501
@@ -264,7 +261,7 @@ class ApplicationHarnessConfig(Model):
         return self._domain
 
     @domain.setter
-    def domain(self, domain):
+    def domain(self, domain: str):
         """Sets the domain of this ApplicationHarnessConfig.
 
         If specified, an ingress will be created at [domain]  # noqa: E501
@@ -276,7 +273,7 @@ class ApplicationHarnessConfig(Model):
         self._domain = domain
 
     @property
-    def dependencies(self):
+    def dependencies(self) -> ApplicationDependenciesConfig:
         """Gets the dependencies of this ApplicationHarnessConfig.
 
 
@@ -286,7 +283,7 @@ class ApplicationHarnessConfig(Model):
         return self._dependencies
 
     @dependencies.setter
-    def dependencies(self, dependencies):
+    def dependencies(self, dependencies: ApplicationDependenciesConfig):
         """Sets the dependencies of this ApplicationHarnessConfig.
 
 
@@ -297,7 +294,7 @@ class ApplicationHarnessConfig(Model):
         self._dependencies = dependencies
 
     @property
-    def secured(self):
+    def secured(self) -> bool:
         """Gets the secured of this ApplicationHarnessConfig.
 
         When true, the application is shielded with a getekeeper  # noqa: E501
@@ -308,7 +305,7 @@ class ApplicationHarnessConfig(Model):
         return self._secured
 
     @secured.setter
-    def secured(self, secured):
+    def secured(self, secured: bool):
         """Sets the secured of this ApplicationHarnessConfig.
 
         When true, the application is shielded with a getekeeper  # noqa: E501
@@ -320,7 +317,7 @@ class ApplicationHarnessConfig(Model):
         self._secured = secured
 
     @property
-    def uri_role_mapping(self):
+    def uri_role_mapping(self) -> List[UriRoleMappingConfig]:
         """Gets the uri_role_mapping of this ApplicationHarnessConfig.
 
         Map uri/roles to secure with the Gatekeeper (if `secured: true`)  # noqa: E501
@@ -331,7 +328,7 @@ class ApplicationHarnessConfig(Model):
         return self._uri_role_mapping
 
     @uri_role_mapping.setter
-    def uri_role_mapping(self, uri_role_mapping):
+    def uri_role_mapping(self, uri_role_mapping: List[UriRoleMappingConfig]):
         """Sets the uri_role_mapping of this ApplicationHarnessConfig.
 
         Map uri/roles to secure with the Gatekeeper (if `secured: true`)  # noqa: E501
@@ -343,7 +340,7 @@ class ApplicationHarnessConfig(Model):
         self._uri_role_mapping = uri_role_mapping
 
     @property
-    def secrets(self):
+    def secrets(self) -> Dict[str, object]:
         """Gets the secrets of this ApplicationHarnessConfig.
 
           # noqa: E501
@@ -354,7 +351,7 @@ class ApplicationHarnessConfig(Model):
         return self._secrets
 
     @secrets.setter
-    def secrets(self, secrets):
+    def secrets(self, secrets: Dict[str, object]):
         """Sets the secrets of this ApplicationHarnessConfig.
 
           # noqa: E501
@@ -366,7 +363,7 @@ class ApplicationHarnessConfig(Model):
         self._secrets = secrets
 
     @property
-    def use_services(self):
+    def use_services(self) -> List[str]:
         """Gets the use_services of this ApplicationHarnessConfig.
 
         Specify which services this application uses in the frontend to create proxy ingresses. e.g.  ``` - name: samples ```  # noqa: E501
@@ -377,7 +374,7 @@ class ApplicationHarnessConfig(Model):
         return self._use_services
 
     @use_services.setter
-    def use_services(self, use_services):
+    def use_services(self, use_services: List[str]):
         """Sets the use_services of this ApplicationHarnessConfig.
 
         Specify which services this application uses in the frontend to create proxy ingresses. e.g.  ``` - name: samples ```  # noqa: E501
@@ -389,7 +386,7 @@ class ApplicationHarnessConfig(Model):
         self._use_services = use_services
 
     @property
-    def database(self):
+    def database(self) -> DatabaseDeploymentConfig:
         """Gets the database of this ApplicationHarnessConfig.
 
 
@@ -399,7 +396,7 @@ class ApplicationHarnessConfig(Model):
         return self._database
 
     @database.setter
-    def database(self, database):
+    def database(self, database: DatabaseDeploymentConfig):
         """Sets the database of this ApplicationHarnessConfig.
 
 
@@ -410,7 +407,7 @@ class ApplicationHarnessConfig(Model):
         self._database = database
 
     @property
-    def resources(self):
+    def resources(self) -> List[FileResourcesConfig]:
         """Gets the resources of this ApplicationHarnessConfig.
 
         Application file resources. Maps from deploy/resources folder and mounts as configmaps  # noqa: E501
@@ -421,7 +418,7 @@ class ApplicationHarnessConfig(Model):
         return self._resources
 
     @resources.setter
-    def resources(self, resources):
+    def resources(self, resources: List[FileResourcesConfig]):
         """Sets the resources of this ApplicationHarnessConfig.
 
         Application file resources. Maps from deploy/resources folder and mounts as configmaps  # noqa: E501
@@ -433,7 +430,7 @@ class ApplicationHarnessConfig(Model):
         self._resources = resources
 
     @property
-    def readiness_probe(self):
+    def readiness_probe(self) -> ApplicationProbe:
         """Gets the readiness_probe of this ApplicationHarnessConfig.
 
 
@@ -443,7 +440,7 @@ class ApplicationHarnessConfig(Model):
         return self._readiness_probe
 
     @readiness_probe.setter
-    def readiness_probe(self, readiness_probe):
+    def readiness_probe(self, readiness_probe: ApplicationProbe):
         """Sets the readiness_probe of this ApplicationHarnessConfig.
 
 
@@ -454,7 +451,7 @@ class ApplicationHarnessConfig(Model):
         self._readiness_probe = readiness_probe
 
     @property
-    def startup_probe(self):
+    def startup_probe(self) -> ApplicationProbe:
         """Gets the startup_probe of this ApplicationHarnessConfig.
 
 
@@ -464,7 +461,7 @@ class ApplicationHarnessConfig(Model):
         return self._startup_probe
 
     @startup_probe.setter
-    def startup_probe(self, startup_probe):
+    def startup_probe(self, startup_probe: ApplicationProbe):
         """Sets the startup_probe of this ApplicationHarnessConfig.
 
 
@@ -475,7 +472,7 @@ class ApplicationHarnessConfig(Model):
         self._startup_probe = startup_probe
 
     @property
-    def liveness_probe(self):
+    def liveness_probe(self) -> ApplicationProbe:
         """Gets the liveness_probe of this ApplicationHarnessConfig.
 
 
@@ -485,7 +482,7 @@ class ApplicationHarnessConfig(Model):
         return self._liveness_probe
 
     @liveness_probe.setter
-    def liveness_probe(self, liveness_probe):
+    def liveness_probe(self, liveness_probe: ApplicationProbe):
         """Sets the liveness_probe of this ApplicationHarnessConfig.
 
 
@@ -496,7 +493,7 @@ class ApplicationHarnessConfig(Model):
         self._liveness_probe = liveness_probe
 
     @property
-    def source_root(self):
+    def source_root(self) -> str:
         """Gets the source_root of this ApplicationHarnessConfig.
 
           # noqa: E501
@@ -507,7 +504,7 @@ class ApplicationHarnessConfig(Model):
         return self._source_root
 
     @source_root.setter
-    def source_root(self, source_root):
+    def source_root(self, source_root: str):
         """Sets the source_root of this ApplicationHarnessConfig.
 
           # noqa: E501
@@ -521,7 +518,7 @@ class ApplicationHarnessConfig(Model):
         self._source_root = source_root
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Gets the name of this ApplicationHarnessConfig.
 
         Application's name. Do not edit, the value is automatically set from the application directory's name  # noqa: E501
@@ -532,7 +529,7 @@ class ApplicationHarnessConfig(Model):
         return self._name
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str):
         """Sets the name of this ApplicationHarnessConfig.
 
         Application's name. Do not edit, the value is automatically set from the application directory's name  # noqa: E501
@@ -544,7 +541,7 @@ class ApplicationHarnessConfig(Model):
         self._name = name
 
     @property
-    def jupyterhub(self):
+    def jupyterhub(self) -> JupyterHubConfig:
         """Gets the jupyterhub of this ApplicationHarnessConfig.
 
 
@@ -554,7 +551,7 @@ class ApplicationHarnessConfig(Model):
         return self._jupyterhub
 
     @jupyterhub.setter
-    def jupyterhub(self, jupyterhub):
+    def jupyterhub(self, jupyterhub: JupyterHubConfig):
         """Sets the jupyterhub of this ApplicationHarnessConfig.
 
 
@@ -565,7 +562,7 @@ class ApplicationHarnessConfig(Model):
         self._jupyterhub = jupyterhub
 
     @property
-    def accounts(self):
+    def accounts(self) -> ApplicationAccountsConfig:
         """Gets the accounts of this ApplicationHarnessConfig.
 
 
@@ -575,7 +572,7 @@ class ApplicationHarnessConfig(Model):
         return self._accounts
 
     @accounts.setter
-    def accounts(self, accounts):
+    def accounts(self, accounts: ApplicationAccountsConfig):
         """Sets the accounts of this ApplicationHarnessConfig.
 
 
@@ -586,7 +583,7 @@ class ApplicationHarnessConfig(Model):
         self._accounts = accounts
 
     @property
-    def test(self):
+    def test(self) -> ApplicationTestConfig:
         """Gets the test of this ApplicationHarnessConfig.
 
 
@@ -596,7 +593,7 @@ class ApplicationHarnessConfig(Model):
         return self._test
 
     @test.setter
-    def test(self, test):
+    def test(self, test: ApplicationTestConfig):
         """Sets the test of this ApplicationHarnessConfig.
 
 
@@ -607,7 +604,7 @@ class ApplicationHarnessConfig(Model):
         self._test = test
 
     @property
-    def quotas(self):
+    def quotas(self) -> Dict[str, object]:
         """Gets the quotas of this ApplicationHarnessConfig.
 
           # noqa: E501
@@ -618,7 +615,7 @@ class ApplicationHarnessConfig(Model):
         return self._quotas
 
     @quotas.setter
-    def quotas(self, quotas):
+    def quotas(self, quotas: Dict[str, object]):
         """Sets the quotas of this ApplicationHarnessConfig.
 
           # noqa: E501

@@ -1,6 +1,3 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
@@ -53,7 +50,7 @@ class GitDependencyConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def url(self):
+    def url(self) -> str:
         """Gets the url of this GitDependencyConfig.
 
 
@@ -63,7 +60,7 @@ class GitDependencyConfig(Model):
         return self._url
 
     @url.setter
-    def url(self, url):
+    def url(self, url: str):
         """Sets the url of this GitDependencyConfig.
 
 
@@ -76,7 +73,7 @@ class GitDependencyConfig(Model):
         self._url = url
 
     @property
-    def branch_tag(self):
+    def branch_tag(self) -> str:
         """Gets the branch_tag of this GitDependencyConfig.
 
 
@@ -86,7 +83,7 @@ class GitDependencyConfig(Model):
         return self._branch_tag
 
     @branch_tag.setter
-    def branch_tag(self, branch_tag):
+    def branch_tag(self, branch_tag: str):
         """Sets the branch_tag of this GitDependencyConfig.
 
 
@@ -99,7 +96,7 @@ class GitDependencyConfig(Model):
         self._branch_tag = branch_tag
 
     @property
-    def path(self):
+    def path(self) -> str:
         """Gets the path of this GitDependencyConfig.
 
         Defines the path where the repo is cloned. default: /git  # noqa: E501
@@ -110,7 +107,7 @@ class GitDependencyConfig(Model):
         return self._path
 
     @path.setter
-    def path(self, path):
+    def path(self, path: str):
         """Sets the path of this GitDependencyConfig.
 
         Defines the path where the repo is cloned. default: /git  # noqa: E501

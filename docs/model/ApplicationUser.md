@@ -1,44 +1,33 @@
-# cloudharness_model.model.application_user.ApplicationUser
+# ApplicationUser
 
 Defines a user
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  | Defines a user | 
+**username** | **str** |  | 
+**password** | **str** |  | [optional] 
+**client_roles** | **List[str]** |  | [optional] 
+**realm_roles** | **List[str]** |  | [optional] 
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**username** | str,  | str,  |  | 
-**password** | str,  | str,  |  | [optional] 
-**[clientRoles](#clientRoles)** | list, tuple,  | tuple,  |  | [optional] 
-**[realmRoles](#realmRoles)** | list, tuple,  | tuple,  |  | [optional] 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+## Example
 
-# clientRoles
+```python
+from cloudharness_model.models.application_user import ApplicationUser
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | -------------
-list, tuple,  | tuple,  |  | 
+# TODO update the JSON string below
+json = "{}"
+# create an instance of ApplicationUser from a JSON string
+application_user_instance = ApplicationUser.from_json(json)
+# print the JSON string representation of the object
+print ApplicationUser.to_json()
 
-### Tuple Items
-Class Name | Input Type | Accessed Type | Description | Notes
-------------- | ------------- | ------------- | ------------- | -------------
-items | str,  | str,  |  | 
+# convert the object into a dict
+application_user_dict = application_user_instance.to_dict()
+# create an instance of ApplicationUser from a dict
+application_user_form_dict = application_user.from_dict(application_user_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
-# realmRoles
-
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | -------------
-list, tuple,  | tuple,  |  | 
-
-### Tuple Items
-Class Name | Input Type | Accessed Type | Description | Notes
-------------- | ------------- | ------------- | ------------- | -------------
-items | str,  | str,  |  | 
-
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
 

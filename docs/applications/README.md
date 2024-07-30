@@ -1,6 +1,6 @@
 # Create a new applicaton
 
-Any Dockerfile added in a subfolder below the [applications](./applications) directory is interpreted as an application part of the deployment.
+Any Dockerfile added in a subfolder below the [applications](../../applications) directory is interpreted as an application part of the deployment.
 
 ## Use harness-application
 
@@ -109,13 +109,16 @@ The most important configuration entries are the following:
     - `postgres`: postgres specific configurations
     - `mongo`: mongo specific configurations
     - `neo4j`: neo4j specific configurations
-  - `env` (`{name, value}[]`): add custom environment variables 
+  - `envmap`: add custom environment variables
+    - `<environment_variable_name>`: `<environment_variable_value>`
+    - ...
+  - `env` (`{name, value}[]`): add custom environment variables (deprecated, please use `envmap`)
   - `resources`: mount files from  
   - `use_services` (`{name, src, dst}[]`): create reverse proxy endpoints in the ingress for the listed applications on [subdomain].[Values.domain]/proxy/[name]. Useful to avoid CORS requests from frontend clients
   - `readinessProbe`: defines a a url to use as a readiness probe
   - `livenessProbe`: defines a a url to use as a liveness probe
 
 # Example code
-- [Sample application](../applications/samples) is a sample web application providing working examples of deployment configuration, backend and frontend code.
+- [Sample application](../../applications/samples) is a sample web application providing working examples of deployment configuration, backend and frontend code.
     
 

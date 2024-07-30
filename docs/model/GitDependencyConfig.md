@@ -1,19 +1,32 @@
-# cloudharness_model.model.git_dependency_config.GitDependencyConfig
+# GitDependencyConfig
 
 Defines a git repo to be cloned inside the application path
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  | Defines a git repo to be cloned inside the application path | 
+**url** | **str** |  | 
+**branch_tag** | **str** |  | 
+**path** | **str** | Defines the path where the repo is cloned. default: /git | [optional] 
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**branch_tag** | str,  | str,  |  | 
-**url** | str,  | str,  |  | 
-**path** | str,  | str,  | Defines the path where the repo is cloned. default: /git | [optional] 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+## Example
 
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
+```python
+from cloudharness_model.models.git_dependency_config import GitDependencyConfig
+
+# TODO update the JSON string below
+json = "{}"
+# create an instance of GitDependencyConfig from a JSON string
+git_dependency_config_instance = GitDependencyConfig.from_json(json)
+# print the JSON string representation of the object
+print GitDependencyConfig.to_json()
+
+# convert the object into a dict
+git_dependency_config_dict = git_dependency_config_instance.to_dict()
+# create an instance of GitDependencyConfig from a dict
+git_dependency_config_form_dict = git_dependency_config.from_dict(git_dependency_config_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
 

@@ -6,7 +6,7 @@ respect to the production build.
 
 ## How to set the environment
 
-The environment of the current deployment can ve set with the parameter `--env` (`-e`)
+The environment of the current deployment can be set with the parameter `--env` (`-e`)
 of `harness-deployment`.
 
 When the environment is set, specific environment configuration files are included, potentially overriding any value in the system.

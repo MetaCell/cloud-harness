@@ -1,16 +1,31 @@
-# cloudharness_model.model.auto_artifact_spec.AutoArtifactSpec
+# AutoArtifactSpec
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+
+
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+**auto** | **bool** | When true, enables automatic template | 
+**name** | **str** |  | [optional] 
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**auto** | bool,  | BoolClass,  | When true, enables automatic template | 
-**name** | str,  | str,  |  | [optional] 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+## Example
 
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
+```python
+from cloudharness_model.models.auto_artifact_spec import AutoArtifactSpec
+
+# TODO update the JSON string below
+json = "{}"
+# create an instance of AutoArtifactSpec from a JSON string
+auto_artifact_spec_instance = AutoArtifactSpec.from_json(json)
+# print the JSON string representation of the object
+print AutoArtifactSpec.to_json()
+
+# convert the object into a dict
+auto_artifact_spec_dict = auto_artifact_spec_instance.to_dict()
+# create an instance of AutoArtifactSpec from a dict
+auto_artifact_spec_form_dict = auto_artifact_spec.from_dict(auto_artifact_spec_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
 

@@ -68,6 +68,8 @@ backup:
       # -- K8s cpu resource definition.
       cpu: "50m"
 proxy:
+  # -- Set to false to hide remote client headers. Will hide the client IPs in all logs
+  forwardedHeaders: true
   timeout:
     # -- Timeout for proxy connections in seconds.
     send: 60

@@ -1,6 +1,5 @@
 certifi
 frozendict
 python-dateutil
-setuptools
 typing_extensions
 urllib3
