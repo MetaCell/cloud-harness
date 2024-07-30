@@ -2,7 +2,7 @@ from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from cloudharness_model.models.base_model import Model
+from cloudharness_model.models.base_model_ import Model
 from cloudharness_model import util
 
 
@@ -224,7 +224,7 @@ class UserGroup(Model):
         self._realm_roles = realm_roles
 
     @property
-    def sub_groups(self) -> List[UserGroup]:
+    def sub_groups(self) -> List['UserGroup']:
         """Gets the sub_groups of this UserGroup.
 
 
@@ -234,7 +234,7 @@ class UserGroup(Model):
         return self._sub_groups
 
     @sub_groups.setter
-    def sub_groups(self, sub_groups: List[UserGroup]):
+    def sub_groups(self, sub_groups: List['UserGroup']):
         """Sets the sub_groups of this UserGroup.
 
 

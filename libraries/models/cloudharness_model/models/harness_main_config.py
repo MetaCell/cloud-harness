@@ -2,7 +2,7 @@ from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from cloudharness_model.models.base_model import Model
+from cloudharness_model.models.base_model_ import Model
 from cloudharness_model.models.application_config import ApplicationConfig
 from cloudharness_model.models.backup_config import BackupConfig
 from cloudharness_model.models.name_value import NameValue
