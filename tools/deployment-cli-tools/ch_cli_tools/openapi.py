@@ -83,8 +83,7 @@ def generate_python_client(module, openapi_file, client_src_path, lib_name=LIB_N
 
 def generate_ts_client(openapi_file):
     get_dependencies()
-    out_dir = f"{os.path.dirname(
-        os.path.dirname(openapi_file))}/frontend/src/rest"
+    out_dir = f"{os.path.dirname(os.path.dirname(openapi_file))}/frontend/src/rest"
     command = f"java -jar {CODEGEN} generate " \
         f"-i {openapi_file} " \
         f"-g typescript-fetch " \
