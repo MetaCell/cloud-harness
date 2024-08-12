@@ -4,4 +4,6 @@ harness:
     soft: []
     hard: []
   use_services: []
-
+  dockerfile:
+    buildArgs:
+      TEST_ARGUMENT: 'minimal value'

@@ -84,3 +84,7 @@ harness:
         - "--request-timeout=180000"
         - "--hypothesis-max-examples=2"
         - "--show-errors-tracebacks"
+
+  dockerfile:
+    buildArgs:
+      TEST_ARGUMENT: example value
