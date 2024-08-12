@@ -14,14 +14,12 @@ Name | Type | Description | Notes
 **registry** | [**RegistryConfig**](RegistryConfig.md) |  | [optional] 
 **tag** | **str** | Docker tag used to push/pull the built images. | [optional] 
 **apps** | [**Dict[str, ApplicationConfig]**](ApplicationConfig.md) |  | 
-**env** | [**List[NameValue]**](NameValue.md) | Environmental variables added to all pods (deprecated, please use envmap) | [optional] 
+**env** | [**List[NameValue]**](NameValue.md) | Environmental variables added to all pods | [optional] 
 **privenv** | [**NameValue**](NameValue.md) |  | [optional] 
 **backup** | [**BackupConfig**](BackupConfig.md) |  | [optional] 
 **name** | **str** | Base name | [optional] 
 **task_images** | **Dict[str, object]** |  | [optional] 
 **build_hash** | **str** |  | [optional] 
-**envmap** | **Dict[str, object]** |  | [optional] 
-**dockerfile** | **object** | Configuration for the dockerfile used to build the app | [optional] 
 
 ## Example
 

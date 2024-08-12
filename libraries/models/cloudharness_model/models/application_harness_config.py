@@ -9,8 +9,10 @@ from cloudharness_model.models.application_probe import ApplicationProbe
 from cloudharness_model.models.application_test_config import ApplicationTestConfig
 from cloudharness_model.models.database_deployment_config import DatabaseDeploymentConfig
 from cloudharness_model.models.deployment_auto_artifact_config import DeploymentAutoArtifactConfig
+from cloudharness_model.models.dockerfile_config import DockerfileConfig
 from cloudharness_model.models.file_resources_config import FileResourcesConfig
 from cloudharness_model.models.jupyter_hub_config import JupyterHubConfig
+from cloudharness_model.models.name_value import NameValue
 from cloudharness_model.models.service_auto_artifact_config import ServiceAutoArtifactConfig
 from cloudharness_model.models.uri_role_mapping_config import UriRoleMappingConfig
 import re
@@ -22,8 +24,10 @@ from cloudharness_model.models.application_probe import ApplicationProbe  # noqa
 from cloudharness_model.models.application_test_config import ApplicationTestConfig  # noqa: E501
 from cloudharness_model.models.database_deployment_config import DatabaseDeploymentConfig  # noqa: E501
 from cloudharness_model.models.deployment_auto_artifact_config import DeploymentAutoArtifactConfig  # noqa: E501
+from cloudharness_model.models.dockerfile_config import DockerfileConfig  # noqa: E501
 from cloudharness_model.models.file_resources_config import FileResourcesConfig  # noqa: E501
 from cloudharness_model.models.jupyter_hub_config import JupyterHubConfig  # noqa: E501
+from cloudharness_model.models.name_value import NameValue  # noqa: E501
 from cloudharness_model.models.service_auto_artifact_config import ServiceAutoArtifactConfig  # noqa: E501
 from cloudharness_model.models.uri_role_mapping_config import UriRoleMappingConfig  # noqa: E501
 import re  # noqa: E501
@@ -34,7 +38,7 @@ class ApplicationHarnessConfig(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, deployment=None, service=None, subdomain=None, aliases=None, domain=None, dependencies=None, secured=None, uri_role_mapping=None, secrets=None, use_services=None, database=None, resources=None, readiness_probe=None, startup_probe=None, liveness_probe=None, source_root=None, name=None, jupyterhub=None, accounts=None, test=None, quotas=None):  # noqa: E501
+    def __init__(self, deployment=None, service=None, subdomain=None, aliases=None, domain=None, dependencies=None, secured=None, uri_role_mapping=None, secrets=None, use_services=None, database=None, resources=None, readiness_probe=None, startup_probe=None, liveness_probe=None, source_root=None, name=None, jupyterhub=None, accounts=None, test=None, quotas=None, env=None, envmap=None, dockerfile=None):  # noqa: E501
         """ApplicationHarnessConfig - a model defined in OpenAPI
 
         :param deployment: The deployment of this ApplicationHarnessConfig.  # noqa: E501
@@ -79,6 +83,12 @@ class ApplicationHarnessConfig(Model):
         :type test: ApplicationTestConfig
         :param quotas: The quotas of this ApplicationHarnessConfig.  # noqa: E501
         :type quotas: Dict[str, object]
+        :param env: The env of this ApplicationHarnessConfig.  # noqa: E501
+        :type env: List[NameValue]
+        :param envmap: The envmap of this ApplicationHarnessConfig.  # noqa: E501
+        :type envmap: Dict[str, object]
+        :param dockerfile: The dockerfile of this ApplicationHarnessConfig.  # noqa: E501
+        :type dockerfile: DockerfileConfig
         """
         self.openapi_types = {
             'deployment': DeploymentAutoArtifactConfig,
@@ -101,7 +111,10 @@ class ApplicationHarnessConfig(Model):
             'jupyterhub': JupyterHubConfig,
             'accounts': ApplicationAccountsConfig,
             'test': ApplicationTestConfig,
-            'quotas': Dict[str, object]
+            'quotas': Dict[str, object],
+            'env': List[NameValue],
+            'envmap': Dict[str, object],
+            'dockerfile': DockerfileConfig
         }
 
         self.attribute_map = {
@@ -125,7 +138,10 @@ class ApplicationHarnessConfig(Model):
             'jupyterhub': 'jupyterhub',
             'accounts': 'accounts',
             'test': 'test',
-            'quotas': 'quotas'
+            'quotas': 'quotas',
+            'env': 'env',
+            'envmap': 'envmap',
+            'dockerfile': 'dockerfile'
         }
 
         self._deployment = deployment
@@ -149,6 +165,9 @@ class ApplicationHarnessConfig(Model):
         self._accounts = accounts
         self._test = test
         self._quotas = quotas
+        self._env = env
+        self._envmap = envmap
+        self._dockerfile = dockerfile
 
     @classmethod
     def from_dict(cls, dikt) -> 'ApplicationHarnessConfig':
@@ -625,3 +644,70 @@ class ApplicationHarnessConfig(Model):
         """
 
         self._quotas = quotas
+
+    @property
+    def env(self) -> List[NameValue]:
+        """Gets the env of this ApplicationHarnessConfig.
+
+        Environmental variables added to all containers (deprecated, please use envmap)  # noqa: E501
+
+        :return: The env of this ApplicationHarnessConfig.
+        :rtype: List[NameValue]
+        """
+        return self._env
+
+    @env.setter
+    def env(self, env: List[NameValue]):
+        """Sets the env of this ApplicationHarnessConfig.
+
+        Environmental variables added to all containers (deprecated, please use envmap)  # noqa: E501
+
+        :param env: The env of this ApplicationHarnessConfig.
+        :type env: List[NameValue]
+        """
+
+        self._env = env
+
+    @property
+    def envmap(self) -> Dict[str, object]:
+        """Gets the envmap of this ApplicationHarnessConfig.
+
+          # noqa: E501
+
+        :return: The envmap of this ApplicationHarnessConfig.
+        :rtype: Dict[str, object]
+        """
+        return self._envmap
+
+    @envmap.setter
+    def envmap(self, envmap: Dict[str, object]):
+        """Sets the envmap of this ApplicationHarnessConfig.
+
+          # noqa: E501
+
+        :param envmap: The envmap of this ApplicationHarnessConfig.
+        :type envmap: Dict[str, object]
+        """
+
+        self._envmap = envmap
+
+    @property
+    def dockerfile(self) -> DockerfileConfig:
+        """Gets the dockerfile of this ApplicationHarnessConfig.
+
+
+        :return: The dockerfile of this ApplicationHarnessConfig.
+        :rtype: DockerfileConfig
+        """
+        return self._dockerfile
+
+    @dockerfile.setter
+    def dockerfile(self, dockerfile: DockerfileConfig):
+        """Sets the dockerfile of this ApplicationHarnessConfig.
+
+
+        :param dockerfile: The dockerfile of this ApplicationHarnessConfig.
+        :type dockerfile: DockerfileConfig
+        """
+
+        self._dockerfile = dockerfile
