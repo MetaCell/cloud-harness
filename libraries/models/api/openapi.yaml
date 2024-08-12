@@ -802,6 +802,8 @@ components:
                 envmap:
                     $ref: '#/components/schemas/SimpleMap'
                     description: Environmental variables added to all pods
+                dockerfile:
+                    description: Configuration for the dockerfile used to build the app
             additionalProperties: true
         SimpleMap:
             description: ''
@@ -877,3 +879,10 @@ components:
                 -
                     $ref: '#/components/schemas/AutoArtifactSpec'
             additionalAttributes: true
+        DockerfileConfig:
+            description: Configuration for a dockerfile
+            type: object
+            properties:
+                buildArgs:
+                    $ref: '#/components/schemas/SimpleMap'
+                    description: Map of build arguments to provide to the dockerfile at build time

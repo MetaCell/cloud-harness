@@ -20,7 +20,7 @@ class HarnessMainConfig(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, local=None, secured_gatekeepers=None, domain=None, namespace=None, mainapp=None, registry=None, tag=None, apps=None, env=None, privenv=None, backup=None, name=None, task_images=None, build_hash=None, envmap=None):  # noqa: E501
+    def __init__(self, local=None, secured_gatekeepers=None, domain=None, namespace=None, mainapp=None, registry=None, tag=None, apps=None, env=None, privenv=None, backup=None, name=None, task_images=None, build_hash=None, envmap=None, dockerfile=None):  # noqa: E501
         """HarnessMainConfig - a model defined in OpenAPI
 
         :param local: The local of this HarnessMainConfig.  # noqa: E501
@@ -53,6 +53,8 @@ class HarnessMainConfig(Model):
         :type build_hash: str
         :param envmap: The envmap of this HarnessMainConfig.  # noqa: E501
         :type envmap: Dict[str, object]
+        :param dockerfile: The dockerfile of this HarnessMainConfig.  # noqa: E501
+        :type dockerfile: object
         """
         self.openapi_types = {
             'local': bool,
@@ -69,7 +71,8 @@ class HarnessMainConfig(Model):
             'name': str,
             'task_images': Dict[str, object],
             'build_hash': str,
-            'envmap': Dict[str, object]
+            'envmap': Dict[str, object],
+            'dockerfile': object
         }
 
         self.attribute_map = {
@@ -87,7 +90,8 @@ class HarnessMainConfig(Model):
             'name': 'name',
             'task_images': 'task-images',
             'build_hash': 'build_hash',
-            'envmap': 'envmap'
+            'envmap': 'envmap',
+            'dockerfile': 'dockerfile'
         }
 
         self._local = local
@@ -105,6 +109,7 @@ class HarnessMainConfig(Model):
         self._task_images = task_images
         self._build_hash = build_hash
         self._envmap = envmap
+        self._dockerfile = dockerfile
 
     @classmethod
     def from_dict(cls, dikt) -> 'HarnessMainConfig':
@@ -467,3 +472,26 @@ class HarnessMainConfig(Model):
         """
 
         self._envmap = envmap
+
+    @property
+    def dockerfile(self) -> object:
+        """Gets the dockerfile of this HarnessMainConfig.
+
+        Configuration for the dockerfile used to build the app  # noqa: E501
+
+        :return: The dockerfile of this HarnessMainConfig.
+        :rtype: object
+        """
+        return self._dockerfile
+
+    @dockerfile.setter
+    def dockerfile(self, dockerfile: object):
+        """Sets the dockerfile of this HarnessMainConfig.
+
+        Configuration for the dockerfile used to build the app  # noqa: E501
+
+        :param dockerfile: The dockerfile of this HarnessMainConfig.
+        :type dockerfile: object
+        """
+
+        self._dockerfile = dockerfile

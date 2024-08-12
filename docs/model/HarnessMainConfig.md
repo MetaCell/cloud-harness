@@ -21,6 +21,7 @@ Name | Type | Description | Notes
 **task_images** | **Dict[str, object]** |  | [optional] 
 **build_hash** | **str** |  | [optional] 
 **envmap** | **Dict[str, object]** |  | [optional] 
+**dockerfile** | **object** | Configuration for the dockerfile used to build the app | [optional] 
 
 ## Example
 
