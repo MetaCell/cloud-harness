@@ -37,9 +37,9 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
     def build_artifact(
         image_name: str,
         context_path: str,
-        requirements: list[str] | None = None,
+        requirements: list[str] = None,
         dockerfile_path: str = '',
-        additional_build_args: dict[str, str] | None = None,
+        additional_build_args: dict[str, str] = None,
     ) -> dict:
         build_args = {
             'REGISTRY': helm_values.registry.name,
@@ -71,8 +71,8 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
         dockerfile_path: str,
         root_path: str,
         global_context: bool = False,
-        requirements: list[str] | None = None,
-        app_name: str | None = None
+        requirements: list[str] = None,
+        app_name: str = None
     ) -> None:
         if app_name is None:
             app_name = app_name_from_path(basename(dockerfile_path))
@@ -278,7 +278,7 @@ def create_vscode_debug_configuration(root_paths, helm_values):
         json.dump(vs_conf, f, indent=2, sort_keys=True)
 
 
-def get_additional_build_args(helm_values: dict, app_key: str) -> dict[str, str] | None:
+def get_additional_build_args(helm_values: dict, app_key: str) -> dict[str, str]:
     if app_key not in helm_values.apps:
         return None
 
