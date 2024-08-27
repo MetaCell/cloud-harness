@@ -278,7 +278,7 @@ def create_vscode_debug_configuration(root_paths, helm_values):
         json.dump(vs_conf, f, indent=2, sort_keys=True)
 
 
-def get_additional_build_args(helm_values: dict, app_key: str) -> dict[str, str]:
+def get_additional_build_args(helm_values: HarnessMainConfig, app_key: str) -> dict[str, str]:
     if app_key not in helm_values.apps:
         return None
 
