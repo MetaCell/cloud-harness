@@ -715,7 +715,14 @@ components:
             properties:
                 buildArgs:
                     $ref: '#/components/schemas/SimpleMap'
-                    description: Map of build arguments to provide to the dockerfile at build time
+                    description: >-
+                        Map of build arguments to provide to the dockerfile at build time.
+
+
+                        The use of this feature is to aid in development (e.g. not running tests on every
+                        local build) and not for setting environment variables in different environments;
+                        caution should be taken when using this feature as it can lead to inconsistent
+                        behaviour across environments. 
         HarnessMainConfig:
             description: ''
             required:
