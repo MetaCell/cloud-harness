@@ -27,6 +27,9 @@ Name | Type | Description | Notes
 **accounts** | [**ApplicationAccountsConfig**](ApplicationAccountsConfig.md) |  | [optional] 
 **test** | [**ApplicationTestConfig**](ApplicationTestConfig.md) |  | [optional] 
 **quotas** | **Dict[str, object]** |  | [optional] 
+**env** | [**List[NameValue]**](NameValue.md) | Environmental variables added to all containers (deprecated, please use envmap) | [optional] 
+**envmap** | **Dict[str, object]** |  | [optional] 
+**dockerfile** | [**DockerfileConfig**](DockerfileConfig.md) |  | [optional] 
 
 ## Example
 

@@ -81,6 +81,8 @@ def test_create_skaffold_configuration():
         a for a in sk['build']['artifacts'] if a['image'] == 'reg/cloudharness/samples'
     )
     assert os.path.samefile(samples_artifact['context'], join(CLOUDHARNESS_ROOT, 'applications/samples'))
+    assert 'TEST_ARGUMENT' in samples_artifact['docker']['buildArgs']
+    assert samples_artifact['docker']['buildArgs']['TEST_ARGUMENT'] == 'example value'
 
     myapp_artifact = next(
         a for a in sk['build']['artifacts'] if a['image'] == 'reg/cloudharness/myapp')

@@ -117,6 +117,8 @@ The most important configuration entries are the following:
   - `use_services` (`{name, src, dst}[]`): create reverse proxy endpoints in the ingress for the listed applications on [subdomain].[Values.domain]/proxy/[name]. Useful to avoid CORS requests from frontend clients
   - `readinessProbe`: defines a a url to use as a readiness probe
   - `livenessProbe`: defines a a url to use as a liveness probe
+  - `dockerfile`: configuration for the dockerfile, currently only implemented in Skaffold
+    - `buildArgs`: a map of build arguments to provide to the dockerfile when building with Skaffold
 
 # Example code
 - [Sample application](../../applications/samples) is a sample web application providing working examples of deployment configuration, backend and frontend code.
