@@ -16,7 +16,7 @@ APPLICATIONS_SRC_PATH = os.path.join('applications')
 LIB_NAME = 'cloudharness_cli'
 ROOT = dn(dn(dn(HERE)))
 
-OPENAPI_GEN_URL = 'https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/7.2.0/openapi-generator-cli-7.2.0.jar'
+OPENAPI_GEN_URL = 'https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/7.7.0/openapi-generator-cli-7.7.0.jar'
 
 
 def generate_server(app_path, overrides_folder=""):
@@ -27,7 +27,7 @@ def generate_server(app_path, overrides_folder=""):
         f"{app_path}/server") else f"server"
     out_path = f"{app_path}/{out_name}"
     command = f"java -jar {CODEGEN} generate -i {openapi_file} -g python-flask -o {out_path} " \
-              f"-c {openapi_dir}/config.json " + \
+        f"-c {openapi_dir}/config.json " + \
         (f"-t {overrides_folder}" if overrides_folder else "")
     os.system(command)
 
@@ -42,15 +42,17 @@ def generate_model(base_path=ROOT):
     lib_path = f"{base_path}/libraries/models"
 
     # Generate model stuff: use python-flask generator
-    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/models/api/openapi.yaml -g python-flask -o {lib_path}  --skip-validate-spec -c {base_path}/libraries/models/api/config.json"
+    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/models/api/openapi.yaml -g python-flask -o \
+          {lib_path}  --skip-validate-spec -c {base_path}/libraries/models/api/config.json"
     os.system(command)
 
     # Generate docs: use python generator
     tmp_path = f"{lib_path}/tmp"
-    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/models/api/openapi.yaml -g python -o {tmp_path}  --skip-validate-spec -c {base_path}/libraries/models/api/config.json"
+    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/models/api/openapi.yaml -g python -o \
+        {tmp_path}  --skip-validate-spec -c {base_path}/libraries/models/api/config.json"
     os.system(command)
     try:
-        source_dir = join(tmp_path, "docs/models")
+        source_dir = join(tmp_path, "docs")
         if not os.path.exists(source_dir):
             os.makedirs(source_dir)
 
@@ -72,10 +74,10 @@ def generate_python_client(module, openapi_file, client_src_path, lib_name=LIB_N
 
     module = to_python_module(module)
     command = f"java -jar {CODEGEN} generate " \
-              f"-i {openapi_file} " \
-              f"-g python " \
-              f"-o {client_src_path}/tmp-{module} " \
-              f"packageName={lib_name}.{module}"
+        f"-i {openapi_file} " \
+        f"-g python " \
+        f"-o {client_src_path}/tmp-{module} " \
+        f"packageName={lib_name}.{module}"
     os.system(command)
 
 
@@ -83,9 +85,9 @@ def generate_ts_client(openapi_file):
     get_dependencies()
     out_dir = f"{os.path.dirname(os.path.dirname(openapi_file))}/frontend/src/rest"
     command = f"java -jar {CODEGEN} generate " \
-              f"-i {openapi_file} " \
-              f"-g typescript-axios " \
-              f"-o {out_dir}"
+        f"-i {openapi_file} " \
+        f"-g typescript-fetch " \
+        f"-o {out_dir}"
     os.system(command)
 
     replaceindir(out_dir, "http://localhost", '')

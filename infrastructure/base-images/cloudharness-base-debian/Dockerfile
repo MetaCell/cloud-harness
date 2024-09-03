@@ -1,4 +1,4 @@
-ARG PARENT=python:3.9.10
+ARG PARENT=python:3.12
 FROM ${PARENT}
 
 RUN apt-get update && apt-get install -y nfs-common && rm -rf /var/lib/apt/lists/*

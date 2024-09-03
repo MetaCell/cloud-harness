@@ -1,6 +1,9 @@
 harness:
-  secured: true
+  secured: false
   dependencies:
     soft: []
     hard: []
-
+  use_services: []
+  dockerfile:
+    buildArgs:
+      TEST_ARGUMENT: 'minimal value'

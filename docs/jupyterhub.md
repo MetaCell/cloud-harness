@@ -141,7 +141,7 @@ def change_pod_manifest(self: KubeSpawner):
 ```
 
 The hook function should be part of a library installable as a pip package.
-To see a real example, refer to the main [hook implementation](../applications/jupyterhub/src/harness_jupyter/jupyterhub.py).
+To see a real example, refer to the main [hook implementation](../applications/jupyterhub/src/harness_jupyter/harness_jupyter/jupyterhub.py).
 
 ### Add the hook
 

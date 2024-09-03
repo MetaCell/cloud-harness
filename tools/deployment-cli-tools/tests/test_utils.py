@@ -47,6 +47,17 @@ def test_merge_configuration_directories():
         assert a['b']['ba'] == 'ba1'
         assert a['b']['bb'] == 'bb'
         assert a['b']['bc'] == 'bc'
+
+        assert os.path.exists(os.path.join(res_path, "a.json"))
+        assert os.path.exists(os.path.join(res_path, "b.json"))
+        assert os.path.exists(os.path.join(res_path, "c.json"))
+
+        with open(os.path.join(res_path, "a.json")) as f:
+            a = json.load(f)
+        assert a['a'] == 'a1'
+        assert a['b']['ba'] == 'ba1'
+        assert a['b']['bb'] == 'bb'
+        assert a['b']['bc'] == 'bc'
     finally:
         if os.path.exists(res_path):
             shutil.rmtree(res_path)
@@ -64,4 +75,14 @@ def test_guess_build_dependencies_from_dockerfile():
 def test_check_docker_manifest_exists():
     assert check_docker_manifest_exists("gcr.io/metacellllc", "cloudharness/cloudharness-base", "latest")
     assert not check_docker_manifest_exists("gcr.io/metacellllc", "cloudharness/cloudharness-base", "RANDOM_TAG")
+
+def test_find_dockerfile_paths():
     
+    myapp_path = os.path.join(HERE, "resources/applications/myapp")
+    if not os.path.exists(os.path.join(myapp_path, "dependencies/a/.git")):
+        os.makedirs(os.path.join(myapp_path, "dependencies/a/.git"))
+        
+    dockerfiles = find_dockerfiles_paths(myapp_path)
+    assert len(dockerfiles) == 2
+    assert next(d for d in dockerfiles if d.endswith("myapp")), "Must find the Dockerfile in the root directory"
+    assert next(d for d in dockerfiles if d.endswith("myapp/tasks/mytask")), "Must find the Dockerfile in the tasks directory"

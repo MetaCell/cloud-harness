@@ -4,7 +4,7 @@ import sys
 from setuptools import setup, find_packages
 
 NAME = "samples"
-VERSION = "1.0.0"
+VERSION = "2.3.0"
 
 # To install the library, run the following
 #
@@ -15,7 +15,6 @@ VERSION = "1.0.0"
 
 REQUIRES = [
     "connexion>=2.0.2",
-    "swagger-ui-bundle>=0.0.2",
     "python_dateutil>=2.6.0",
     "pyjwt>=2.6.0",
     "cloudharness"

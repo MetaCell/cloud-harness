@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from samples.models.base_model_ import Model
+from samples.models.base_model import Model
 from samples.models.inline_response202_task import InlineResponse202Task
 from samples import util
 
@@ -45,7 +42,7 @@ class InlineResponse202(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def task(self):
+    def task(self) -> InlineResponse202Task:
         """Gets the task of this InlineResponse202.
 
 
@@ -55,7 +52,7 @@ class InlineResponse202(Model):
         return self._task
 
     @task.setter
-    def task(self, task):
+    def task(self, task: InlineResponse202Task):
         """Sets the task of this InlineResponse202.
 
 

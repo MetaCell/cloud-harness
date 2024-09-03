@@ -1,6 +1,3 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
@@ -65,7 +62,7 @@ class CDCEvent(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def operation(self):
+    def operation(self) -> str:
         """Gets the operation of this CDCEvent.
 
         the operation on the object e.g. create / update / delete  # noqa: E501
@@ -76,7 +73,7 @@ class CDCEvent(Model):
         return self._operation
 
     @operation.setter
-    def operation(self, operation):
+    def operation(self, operation: str):
         """Sets the operation of this CDCEvent.
 
         the operation on the object e.g. create / update / delete  # noqa: E501
@@ -94,7 +91,7 @@ class CDCEvent(Model):
         self._operation = operation
 
     @property
-    def uid(self):
+    def uid(self) -> str:
         """Gets the uid of this CDCEvent.
 
         the unique identifier attribute of the object  # noqa: E501
@@ -105,7 +102,7 @@ class CDCEvent(Model):
         return self._uid
 
     @uid.setter
-    def uid(self, uid):
+    def uid(self, uid: str):
         """Sets the uid of this CDCEvent.
 
         the unique identifier attribute of the object  # noqa: E501
@@ -119,7 +116,7 @@ class CDCEvent(Model):
         self._uid = uid
 
     @property
-    def message_type(self):
+    def message_type(self) -> str:
         """Gets the message_type of this CDCEvent.
 
         the type of the message (relates to the object type) e.g. jobs  # noqa: E501
@@ -130,7 +127,7 @@ class CDCEvent(Model):
         return self._message_type
 
     @message_type.setter
-    def message_type(self, message_type):
+    def message_type(self, message_type: str):
         """Sets the message_type of this CDCEvent.
 
         the type of the message (relates to the object type) e.g. jobs  # noqa: E501
@@ -144,7 +141,7 @@ class CDCEvent(Model):
         self._message_type = message_type
 
     @property
-    def resource(self):
+    def resource(self) -> Dict[str, object]:
         """Gets the resource of this CDCEvent.
 
           # noqa: E501
@@ -155,7 +152,7 @@ class CDCEvent(Model):
         return self._resource
 
     @resource.setter
-    def resource(self, resource):
+    def resource(self, resource: Dict[str, object]):
         """Sets the resource of this CDCEvent.
 
           # noqa: E501
@@ -167,7 +164,7 @@ class CDCEvent(Model):
         self._resource = resource
 
     @property
-    def meta(self):
+    def meta(self) -> CDCEventMeta:
         """Gets the meta of this CDCEvent.
 
 
@@ -177,7 +174,7 @@ class CDCEvent(Model):
         return self._meta
 
     @meta.setter
-    def meta(self, meta):
+    def meta(self, meta: CDCEventMeta):
         """Sets the meta of this CDCEvent.
 
 

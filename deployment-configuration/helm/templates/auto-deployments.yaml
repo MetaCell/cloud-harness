@@ -66,6 +66,10 @@ spec:
           {{- if .app.harness.env }}
             {{- .app.harness.env | toYaml | nindent 8 }}
           {{- end }}
+          {{- range $name, $value := .app.harness.envmap }}
+        - name: {{ $name | quote }}
+          value: {{ $value | quote }}
+          {{- end }}
 {{ if .app.harness.livenessProbe }}
         livenessProbe:
           httpGet:

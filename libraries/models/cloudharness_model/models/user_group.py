@@ -1,6 +1,3 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
@@ -78,7 +75,7 @@ class UserGroup(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def access(self):
+    def access(self) -> Dict[str, object]:
         """Gets the access of this UserGroup.
 
 
@@ -88,7 +85,7 @@ class UserGroup(Model):
         return self._access
 
     @access.setter
-    def access(self, access):
+    def access(self, access: Dict[str, object]):
         """Sets the access of this UserGroup.
 
 
@@ -99,7 +96,7 @@ class UserGroup(Model):
         self._access = access
 
     @property
-    def attributes(self):
+    def attributes(self) -> Dict[str, object]:
         """Gets the attributes of this UserGroup.
 
           # noqa: E501
@@ -110,7 +107,7 @@ class UserGroup(Model):
         return self._attributes
 
     @attributes.setter
-    def attributes(self, attributes):
+    def attributes(self, attributes: Dict[str, object]):
         """Sets the attributes of this UserGroup.
 
           # noqa: E501
@@ -122,7 +119,7 @@ class UserGroup(Model):
         self._attributes = attributes
 
     @property
-    def client_roles(self):
+    def client_roles(self) -> Dict[str, object]:
         """Gets the client_roles of this UserGroup.
 
 
@@ -132,7 +129,7 @@ class UserGroup(Model):
         return self._client_roles
 
     @client_roles.setter
-    def client_roles(self, client_roles):
+    def client_roles(self, client_roles: Dict[str, object]):
         """Sets the client_roles of this UserGroup.
 
 
@@ -143,7 +140,7 @@ class UserGroup(Model):
         self._client_roles = client_roles
 
     @property
-    def id(self):
+    def id(self) -> str:
         """Gets the id of this UserGroup.
 
 
@@ -153,7 +150,7 @@ class UserGroup(Model):
         return self._id
 
     @id.setter
-    def id(self, id):
+    def id(self, id: str):
         """Sets the id of this UserGroup.
 
 
@@ -164,7 +161,7 @@ class UserGroup(Model):
         self._id = id
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Gets the name of this UserGroup.
 
 
@@ -174,7 +171,7 @@ class UserGroup(Model):
         return self._name
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str):
         """Sets the name of this UserGroup.
 
 
@@ -185,7 +182,7 @@ class UserGroup(Model):
         self._name = name
 
     @property
-    def path(self):
+    def path(self) -> str:
         """Gets the path of this UserGroup.
 
 
@@ -195,7 +192,7 @@ class UserGroup(Model):
         return self._path
 
     @path.setter
-    def path(self, path):
+    def path(self, path: str):
         """Sets the path of this UserGroup.
 
 
@@ -206,7 +203,7 @@ class UserGroup(Model):
         self._path = path
 
     @property
-    def realm_roles(self):
+    def realm_roles(self) -> List[str]:
         """Gets the realm_roles of this UserGroup.
 
 
@@ -216,7 +213,7 @@ class UserGroup(Model):
         return self._realm_roles
 
     @realm_roles.setter
-    def realm_roles(self, realm_roles):
+    def realm_roles(self, realm_roles: List[str]):
         """Sets the realm_roles of this UserGroup.
 
 
@@ -227,7 +224,7 @@ class UserGroup(Model):
         self._realm_roles = realm_roles
 
     @property
-    def sub_groups(self):
+    def sub_groups(self) -> List['UserGroup']:
         """Gets the sub_groups of this UserGroup.
 
 
@@ -237,7 +234,7 @@ class UserGroup(Model):
         return self._sub_groups
 
     @sub_groups.setter
-    def sub_groups(self, sub_groups):
+    def sub_groups(self, sub_groups: List['UserGroup']):
         """Sets the sub_groups of this UserGroup.
 
 
