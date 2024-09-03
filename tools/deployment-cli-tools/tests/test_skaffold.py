@@ -104,6 +104,10 @@ def test_create_skaffold_configuration():
 
     assert len(sk['test'][1]['custom']) == 2
 
+    flags = sk['deploy']['helm']['flags']
+    assert '--timeout=10m' in flags['install']
+    assert '--install' in flags['upgrade']
+
     shutil.rmtree(OUT)
     shutil.rmtree(BUILD_DIR)
 
