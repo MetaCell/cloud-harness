@@ -54,11 +54,6 @@ spec:
                     operator: In
                     values:
                       - {{ .app.harness.database.name }}-{{ .root.Values.namespace }}
-            - labelSelector:
-                matchExpressions:
-                  - key: usesvolume
-                    operator: In
-                    values:
                       - {{ .app.harness.database.name }} # Obsolete, kept for backwards compatability, to be removed at a later date
               topologyKey: "kubernetes.io/hostname"
       containers:

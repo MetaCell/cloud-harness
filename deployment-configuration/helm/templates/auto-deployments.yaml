@@ -45,12 +45,7 @@ spec:
                     operator: In
                     values:
                       - {{ .app.harness.deployment.volume.name }}-{{ .root.Values.namespace }}
-            - labelSelector:
-                matchExpressions:
-                  - key: usesvolume
-                    operator: In
-                    values:
-                      - {{ .app.harness.database.name }} # Obsolete, kept for backwards compatability, to be removed at a later date
+                      - {{ .app.harness.deployment.volume.name }} # Obsolete, kept for backwards compatability, to be removed at a later date
               topologyKey: "kubernetes.io/hostname"
       {{- end }}
       {{- end }}
