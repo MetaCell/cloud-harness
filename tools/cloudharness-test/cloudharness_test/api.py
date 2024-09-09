@@ -6,7 +6,7 @@ import subprocess
 from ch_cli_tools.preprocessing import get_build_paths
 
 
-from cloudharness_model.models import  HarnessMainConfig, ApiTestsConfig, ApplicationHarnessConfig
+from cloudharness_model.models import HarnessMainConfig, ApiTestsConfig, ApplicationHarnessConfig
 from cloudharness_utils.testing.util import get_app_environment
 from cloudharness_utils.testing.api import get_api_filename, get_urls_from_api_file, get_schemathesis_command
 
@@ -90,4 +90,3 @@ def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, inclu
         logging.error(
             "Some api test failed. Check output for more information.")
         exit(1)
-

@@ -28,6 +28,7 @@ logging.getLogger('kafka').setLevel(logging.ERROR)
 AUTH_CLIENT = None
 CURRENT_APP_NAME = config.get_current_app_name()
 
+
 def get_authclient():
     global AUTH_CLIENT
     if not AUTH_CLIENT:
@@ -55,13 +56,12 @@ class EventClient:
                              group_id=group_id,
                              value_deserializer=lambda x: json.loads(x.decode('utf-8')))
 
-
     def create_topic(self):
         """ Connects to cloudharness Events and creates a new topic
         Return:
             True if topic was created correctly, False otherwise.
         """
-        ## Connect to kafka
+        # Connect to kafka
         admin_client = KafkaAdminClient(bootstrap_servers=self._get_bootstrap_servers(),
                                         client_id=self._get_client_id())
         # ## Create topic
@@ -184,7 +184,6 @@ class EventClient:
         except Exception as e:
             log.error('send_event error.', exc_info=True)
 
-
     def consume_all_cdc(self, group_id='default') -> Generator[CDCEvent, None, None]:
         """
         Return a list of object modification messages published in the topic
@@ -222,10 +221,10 @@ class EventClient:
     def delete_topic(self) -> bool:
 
         log.debug("Deleting topic " + self.topic_id)
-        ## Connect to kafka
+        # Connect to kafka
         admin_client = KafkaAdminClient(bootstrap_servers=self._get_bootstrap_servers(),
                                         client_id=self._get_client_id())
-        ## Delete topic
+        # Delete topic
         try:
             admin_client.delete_topics([self.topic_id])
             return True
@@ -254,8 +253,8 @@ class EventClient:
                         log.error(f"Error during execution of the consumer Topic {self.topic_id} --> {e}", exc_info=True)
                 self.consumer.close()
             except Exception as e:
-                    log.error(f"Error during execution of the consumer Topic {self.topic_id} --> {e}", exc_info=True)
-                    time.sleep(15)
+                log.error(f"Error during execution of the consumer Topic {self.topic_id} --> {e}", exc_info=True)
+                time.sleep(15)
 
     def async_consume(self, app=None, handler=None, group_id='default'):
         log.debug('creating thread')
@@ -263,13 +262,14 @@ class EventClient:
             log.debug('get current object from app')
             app = app._get_current_object()
         self._consumer_thread = threading.Thread(
-            target=self._consume_task, 
+            target=self._consume_task,
             kwargs={'app': app,
                     'group_id': group_id,
                     'handler': handler})
         self._consumer_thread.daemon = True
         self._consumer_thread.start()
         log.debug('thread started')
+
 
 if __name__ == "__main__":
     # creat the required os env variables

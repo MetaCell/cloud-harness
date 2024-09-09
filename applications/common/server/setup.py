@@ -38,4 +38,3 @@ setup(
     Cloud Harness Platform - Reference CH service API
     """
 )
-

@@ -24,7 +24,7 @@ from __APP_NAME__.views import index
 
 urlpatterns = [path("admin/", admin.site.urls)]
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + \
-               static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns += [re_path(r"^(?P<path>.*)$", index, name="index")]
 
 admin.site.site_header = "__APP_NAME__ Admin"

@@ -1,4 +1,11 @@
 # load the config object (satisfies linters)
+from z2jh import (
+    get_config,
+    get_name,
+    get_name_env,
+    get_secret_value,
+    set_config_if_not_none,
+)
 c = get_config()  # noqa
 
 import glob
@@ -10,12 +17,12 @@ from jupyterhub.utils import url_path_join
 from kubernetes_asyncio import client
 from tornado.httpclient import AsyncHTTPClient
 
-#CLOUDHARNESS: EDIT START
+# CLOUDHARNESS: EDIT START
 import logging
 
 try:
     from harness_jupyter.jupyterhub import harness_hub
-    harness_hub() # activates harness hooks on jupyterhub
+    harness_hub()  # activates harness hooks on jupyterhub
 except Exception as e:
     logging.error("could not import harness_jupyter", exc_info=True)
 # CLOUDHARNESS: EDIT END
@@ -23,14 +30,6 @@ except Exception as e:
 # Make sure that modules placed in the same directory as the jupyterhub config are added to the pythonpath
 configuration_directory = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, configuration_directory)
-
-from z2jh import (
-    get_config,
-    get_name,
-    get_name_env,
-    get_secret_value,
-    set_config_if_not_none,
-)
 
 
 def camelCaseify(s):
@@ -513,9 +512,9 @@ auth_type = get_config('hub.config.JupyterHub.authenticator_class')
 email_domain = 'local'
 
 common_oauth_traits = (
-        ('client_id', None),
-        ('client_secret', None),
-        ('oauth_callback_url', 'callbackUrl'),
+    ('client_id', None),
+    ('client_secret', None),
+    ('oauth_callback_url', 'callbackUrl'),
 )
 print("Auth type", auth_type)
 if auth_type == 'ch':
@@ -560,4 +559,3 @@ c.registry = get_config('registry')
 c.domain = get_config('root.domain')
 c.namespace = get_config('root.namespace')
 # CLOUDHARNESS: EDIT END
-    

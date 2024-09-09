@@ -133,11 +133,11 @@ def get_workflows(status=None, limit=10, continue_token=None, timeout_seconds=3,
     service = WorkflowServiceApi(api_client=get_api_client())
 
     try:
-        api_response = service.list_workflows(namespace, list_options_limit=limit, list_options_continue=continue_token, 
-        list_options_label_selector=f"workflows.argoproj.io/phase={status}" if status else None,
-         _request_timeout=timeout_seconds, 
-         list_options_field_selector=field_selector, fields=fields, **kwargs)
-    
+        api_response = service.list_workflows(namespace, list_options_limit=limit, list_options_continue=continue_token,
+                                              list_options_label_selector=f"workflows.argoproj.io/phase={status}" if status else None,
+                                              _request_timeout=timeout_seconds,
+                                              list_options_field_selector=field_selector, fields=fields, **kwargs)
+
     except ValueError:
         # Exception is raised when no results are found
         return SearchResult(V1alpha1WorkflowList(items=[], metadata={}))

@@ -38,4 +38,3 @@ setup(
     __APP_NAME__
     """
 )
-

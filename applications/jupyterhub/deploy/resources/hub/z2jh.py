@@ -121,12 +121,12 @@ def get_config(key, default=None):
     # EDIT: CLOUDHARNESS START
     import re
     if value and isinstance(value, str):
-        replace_var = re.search("{{.*?}}",  value)
+        replace_var = re.search("{{.*?}}", value)
         if replace_var:
             variable = replace_var.group(0)[2:-2].strip()
 
             repl = get_config(variable)
-            
+
             if repl:
                 print("replace", variable, "in", value, ":", repl)
                 value = re.sub("{{.*?}}", repl, value)

@@ -17,7 +17,7 @@ class TestSentryController(BaseTestCase):
 
         Gets the Sentry DSN for a given application
         """
-        headers = { 
+        headers = {
             'Accept': 'application/json',
         }
         response = self.client.open(

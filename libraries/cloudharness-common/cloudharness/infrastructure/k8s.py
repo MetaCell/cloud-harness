@@ -5,23 +5,21 @@ TODO: stubs for configuration and running queries are working, but not much func
 """
 import kubernetes
 
-import yaml
-import os
-from pathlib import Path
-
 from cloudharness import log
 
 # TODO handle group
 
-version = 'v1alpha1'
+from cloudharness.utils.config import CloudharnessConfig as conf
+
 
 # determine the namespace of the current app and run the workflow in that namespace
-from cloudharness.utils.config import CloudharnessConfig as conf
 
 namespace = conf.get_namespace()
 
+version = 'v1alpha1'
 
 # --- Api functions ---    `
+
 
 def get_api_client():
     configuration = get_configuration()
@@ -51,7 +49,7 @@ def create_namespace():
 
     try:
         api_response = api_instance.create_namespace(body)
-    except Exception  as e:
+    except Exception as e:
         raise Exception(f"Error creating namespace: {namespace}") from e
 
 
