@@ -3,7 +3,7 @@
 Enable this application to deploy a Neo4j server with the neo4j browser enabled.
 
 ## How to use
-The browser will be enabled at neo4j.[DOMAIN].
+The neo4j browser will be enabled at neo4j.[DOMAIN].
 
 ![Neo4j browser login](docs/browser-login.png)
 
