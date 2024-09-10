@@ -101,7 +101,7 @@ metadata:
     app: {{ .app.harness.deployment.name | quote }}
 {{ include "deploy_utils.labels" .root | indent 4 }}
 spec:
-  type: {{-if .app.harness.database.expose }}LoadBalancer{{- else }}ClusterIP{{- end }}
+  type: {{ if .app.harness.database.expose }}LoadBalancer{{ else }}ClusterIP{{ end }}
   selector:
     app: {{ .app.harness.database.name | quote }}
   ports:
