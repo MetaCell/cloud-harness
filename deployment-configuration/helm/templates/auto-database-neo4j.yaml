@@ -21,4 +21,6 @@
             value: {{ .app.harness.database.neo4j.memory.heap.max }}
           - name: NEO4J_dbms_security_auth__enabled
             value: {{ .app.harness.database.neo4j.dbms_security_auth_enabled | quote }}
+          - name: NEO4J_auth
+            value: {{ .app.harness.database.user }}/{{ .app.harness.database.pass }}
 {{- end }}
