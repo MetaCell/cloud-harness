@@ -6,6 +6,7 @@
     "start:dev": "DOMAIN=https://test.ch.metacell.us vite",
     "start:local": "DOMAIN=http://samples.ch vite",
     "prebuild": "eslint .",
-    "build": "vite build"
+    "build": "vite build",
+    "lint": "eslint src --report-unused-disable-directives --fix"
   }
 }
