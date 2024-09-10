@@ -75,6 +75,8 @@ harness:
     pass: metacell
     # -- image ref for referencing images from the build, e.g. image_ref: myownpgimage
     image_ref:
+    # -- expose database to the public with ingress
+    expose: false
     # -- settings for mongo database (for type==mongo)
     mongo:
       image: mongo:5
