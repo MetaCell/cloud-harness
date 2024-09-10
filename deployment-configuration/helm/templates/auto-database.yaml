@@ -32,7 +32,7 @@ metadata:
   name: {{ .app.harness.database.name | quote }}
   namespace: {{ .root.Values.namespace }}
   labels:
-    usesvolume: {{ .app.harness.database.name }}
+    usesvolume: {{ .app.harness.database.name }}-{{ .root.Values.namespace }}
 spec:
   replicas: 1
   selector:
@@ -43,7 +43,7 @@ spec:
       labels:
         app: {{ .app.harness.database.name | quote }}
         service: db
-        usesvolume: {{ .app.harness.database.name }}
+        usesvolume: {{ .app.harness.database.name }}-{{ .root.Values.namespace }}
     spec:
       affinity:
         podAffinity:
@@ -53,7 +53,8 @@ spec:
                   - key: usesvolume
                     operator: In
                     values:
-                      - {{ .app.harness.database.name }}
+                      - {{ .app.harness.database.name }}-{{ .root.Values.namespace }}
+                      - {{ .app.harness.database.name }} # Obsolete, kept for backwards compatability, to be removed at a later date
               topologyKey: "kubernetes.io/hostname"
       containers:
       - name: {{ .app.harness.database.name | quote }}
