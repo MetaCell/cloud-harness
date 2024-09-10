@@ -92,7 +92,7 @@ harness:
           port: 5432
     # -- settings for neo4j database (for type==neo4j)
     neo4j:
-      image: neo4j:4.1.9
+      image: neo4j:5
       memory:
         size: 256M
         pagecache:
