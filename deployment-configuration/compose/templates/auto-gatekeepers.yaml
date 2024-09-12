@@ -15,10 +15,10 @@
     replicas: 1
     resources:
       limits:
-        cpus: 100m
+        cpus: 0.1
         memory: 64M
       reservations:
-        cpus: 50m
+        cpus: 0.001
         memory: 32M
   environment:
     - PROXY_CONFIG_FILE=/opt/proxy.yml

@@ -19,14 +19,14 @@ from .models import HarnessMainConfig
 from .configurationgenerator import ConfigurationGenerator, validate_helm_values, KEY_HARNESS, KEY_SERVICE, KEY_DATABASE, KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES, KEY_DEPLOYMENT, values_from_legacy, values_set_legacy, get_included_with_dependencies, create_env_variables, collect_apps_helm_templates
 
 
-def create_docker_compose_configuration(root_paths, tag: Union[str, int, None]='latest', registry='', local=True, domain=None, exclude=(), secured=True,
-                      output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
-                      namespace=None) -> HarnessMainConfig:
+def create_docker_compose_configuration(root_paths, tag: Union[str, int, None] = 'latest', registry='', local=True, domain=None, exclude=(), secured=True,
+                                        output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
+                                        namespace=None) -> HarnessMainConfig:
     if (type(env)) == str:
         env = [env]
     return CloudHarnessDockerCompose(root_paths, tag=tag, registry=registry, local=local, domain=domain, exclude=exclude, secured=secured,
-                            output_path=output_path, include=include, registry_secret=registry_secret, tls=tls, env=env,
-                            namespace=namespace, templates_path=COMPOSE).process_values()
+                                     output_path=output_path, include=include, registry_secret=registry_secret, tls=tls, env=env,
+                                     namespace=namespace, templates_path=COMPOSE).process_values()
 
 
 class CloudHarnessDockerCompose(ConfigurationGenerator):
@@ -87,7 +87,9 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
         logging.info(f'Generate docker compose configuration in: {dest_compose_yaml}, using templates from {compose_templates}')
         command = f"helm template {compose_templates} > {dest_compose_yaml}"
 
-        subprocess.call(command, shell=True)
+        res = subprocess.call(command, shell=True)
+        if res != 0:
+            raise Exception(f"Error generating docker-compose.yaml. See above output for details or try run\n\n{command} --debug")
 
         self.__post_process_multiple_document_docker_compose(dest_compose_yaml)
 
@@ -280,7 +282,6 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
 
         return values
 
-
     def inject_entry_points_commands(self, helm_values, image_path, app_path):
         context_path = os.path.relpath(image_path, '.')
 
@@ -294,23 +295,23 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
 
 
 def identify_unicorn_based_main(candidates, app_path):
-        import re
-        gunicorn_pattern = re.compile(r"gunicorn")
-        # sort candidates, shortest path first
-        for candidate in sorted(candidates,key=lambda x: len(x.split("/"))):
-            dockerfile_path = f"{candidate}/.."
-            while not os.path.exists(f"{dockerfile_path}/Dockerfile") and os.path.abspath(dockerfile_path) != os.path.abspath(app_path):
-                dockerfile_path += "/.."
-            dockerfile = f"{dockerfile_path}/Dockerfile"
-            if not os.path.exists(dockerfile):
-                continue
-            with open(dockerfile, 'r') as file:
-                if re.search(gunicorn_pattern, file.read()):
-                    return candidate
-            requirements = f"{candidate}/../requirements.txt"
-            if not os.path.exists(requirements):
-                continue
-            with open(requirements, 'r') as file:
-                if re.search(gunicorn_pattern, file.read()):
-                    return candidate
-        return None
+    import re
+    gunicorn_pattern = re.compile(r"gunicorn")
+    # sort candidates, shortest path first
+    for candidate in sorted(candidates, key=lambda x: len(x.split("/"))):
+        dockerfile_path = f"{candidate}/.."
+        while not os.path.exists(f"{dockerfile_path}/Dockerfile") and os.path.abspath(dockerfile_path) != os.path.abspath(app_path):
+            dockerfile_path += "/.."
+        dockerfile = f"{dockerfile_path}/Dockerfile"
+        if not os.path.exists(dockerfile):
+            continue
+        with open(dockerfile, 'r') as file:
+            if re.search(gunicorn_pattern, file.read()):
+                return candidate
+        requirements = f"{candidate}/../requirements.txt"
+        if not os.path.exists(requirements):
+            continue
+        with open(requirements, 'r') as file:
+            if re.search(gunicorn_pattern, file.read()):
+                return candidate
+    return None

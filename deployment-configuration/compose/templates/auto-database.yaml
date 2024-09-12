@@ -19,10 +19,10 @@
   deploy:
     resources:
       limits:
-        cpus: {{ .limits.cpu | default "0.75" }}
+        cpus: {{ include "convertToDecimal" (.limits.cpu | default "0.75") }}
         memory: {{ trimSuffix "i" .limits.memory | default "2G" }}
       reservations:
-        cpus: {{ .requests.cpu | default "0.50" }}
+        cpus: {{ include "convertToDecimal" (.requests.cpu | default "0.75") }}
         memory: {{ trimSuffix "i" .requests.memory | default "512M" }}
   {{- end }}
   volumes:

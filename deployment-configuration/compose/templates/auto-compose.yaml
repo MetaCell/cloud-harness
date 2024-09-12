@@ -76,10 +76,10 @@ services:
       replicas: {{ $deployment.replicas | default 1 }}
       resources:
         limits:
-          cpus: {{ $deployment.resources.limits.cpu | default "0.5" }}
+          cpus: {{ include "convertToDecimal" ( $deployment.resources.limits.cpu | default 0.5) }}
           memory: {{ trimSuffix "i" $deployment.resources.limits.memory | default "64M" }}
         reservations:
-          cpus: {{ $deployment.resources.requests.cpu | default "0.25" }}
+          cpus: {{ include "convertToDecimal" ( $deployment.resources.requests.cpu | default 0.01) }}
           memory: {{ trimSuffix "i" $deployment.resources.requests.memory | default "32M" }}
     {{- with $deployment.command }}
     # entrypoint: {{ cat . $deployment.args }}
@@ -107,10 +107,13 @@ services:
       {{- range $app_config.harness.env }}
       - {{ .name }}={{ .value }}
       {{- end }}
+    {{- if or $app_config.harness.dependencies.hard $app_config.harness.dependencies.soft }}
     {{- with compact
           (append (concat (without $app_config.harness.dependencies.hard "argo")
                   $app_config.harness.dependencies.soft)
                   (dig "database" "name" "" $app_config.harness)) }}
+    
+
     links:
       {{- range . -}}
         {{- $service := .}}
@@ -120,7 +123,7 @@ services:
             {{- break -}}
           {{- end -}}
           {{- if eq $conf.harness.name $service }}
-            {{- if has $name (list "events" "nfsserver") }}
+            {{- if has $name (list "events" "nfsserver" "jupyterhub") }}
 #     - {{ $name }}:{{ $service }}.{{ $.Values.domain }}
         {{- else }}
       - {{ $name }}:{{ $service }}.{{ $.Values.domain }}
@@ -137,6 +140,7 @@ services:
             (append
               (without $app_config.harness.dependencies.hard "argo" "events")
               (dig "database" "name" "" $app_config.harness)) -}}
+
     depends_on:
       {{- range . -}}
         {{- $service := .}}
@@ -157,6 +161,7 @@ services:
         {{- end -}}
       {{- end }}
     {{- end }}
+    {{- end }}
     volumes:
       - ./compose/allvalues.yaml:/opt/cloudharness/resources/allvalues.yaml:ro
     {{- range $file_name, $_ := $app_config.harness.secrets }}
@@ -176,20 +181,6 @@ services:
     {{- end }}
     {{- end}}
     {{- end }}
-  {{/*
-  {{- if $.Values.local }}
-    # Extra /etc/hosts list
-    {{- $domain := $.Values.domain }}
-    {{- $ip := $.Values.localIp }}
-    extra_hosts:
-      - "{{ $.Values.domain }}={{ $ip }}"
-      {{- range $app := $.Values.apps }}
-      {{- with $app.harness.subdomain}}
-      - "{{ . }}.{{ $domain }}={{ $ip }}"
-      {{- end }}
-      {{- end }}
-  {{- end }}
-  */}}
   {{- if not $isSecured }}
     labels:
       - "traefik.enable=true"
