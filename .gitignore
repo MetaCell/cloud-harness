@@ -19,3 +19,4 @@ skaffold.yaml
 .hypothesis
 __pycache__
 .env
+/.venv

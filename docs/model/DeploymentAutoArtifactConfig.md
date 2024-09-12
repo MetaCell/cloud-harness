@@ -1,33 +1,36 @@
-# cloudharness_model.model.deployment_auto_artifact_config.DeploymentAutoArtifactConfig
+# DeploymentAutoArtifactConfig
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+
+
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+**auto** | **bool** | When true, enables automatic template | 
+**name** | **str** |  | [optional] 
+**port** | **str** | Deployment port | [optional] 
+**replicas** | **int** | Number of replicas | [optional] 
+**image** | **str** | Image name to use in the deployment. Leave it blank to set from the application&#39;s Docker file | [optional] 
+**resources** | [**DeploymentResourcesConf**](DeploymentResourcesConf.md) |  | [optional] 
+**volume** | [**DeploymentVolumeSpec**](DeploymentVolumeSpec.md) |  | [optional] 
 
-### Composed Schemas (allOf/anyOf/oneOf/not)
-#### allOf
-Class Name | Input Type | Accessed Type | Description | Notes
-------------- | ------------- | ------------- | ------------- | -------------
-[all_of_0](#all_of_0) | dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
-[AutoArtifactSpec](AutoArtifactSpec.md) | [**AutoArtifactSpec**](AutoArtifactSpec.md) | [**AutoArtifactSpec**](AutoArtifactSpec.md) |  | 
+## Example
 
-# all_of_0
+```python
+from cloudharness_model.models.deployment_auto_artifact_config import DeploymentAutoArtifactConfig
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+# TODO update the JSON string below
+json = "{}"
+# create an instance of DeploymentAutoArtifactConfig from a JSON string
+deployment_auto_artifact_config_instance = DeploymentAutoArtifactConfig.from_json(json)
+# print the JSON string representation of the object
+print DeploymentAutoArtifactConfig.to_json()
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**port** | str,  | str,  | Deployment port | [optional] 
-**replicas** | decimal.Decimal, int,  | decimal.Decimal,  | Number of replicas | [optional] 
-**image** | str,  | str,  | Image name to use in the deployment. Leave it blank to set from the application&#x27;s Docker file | [optional] 
-**resources** | [**DeploymentResourcesConf**](DeploymentResourcesConf.md) | [**DeploymentResourcesConf**](DeploymentResourcesConf.md) |  | [optional] 
-**volume** | [**DeploymentVolumeSpec**](DeploymentVolumeSpec.md) | [**DeploymentVolumeSpec**](DeploymentVolumeSpec.md) |  | [optional] 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+# convert the object into a dict
+deployment_auto_artifact_config_dict = deployment_auto_artifact_config_instance.to_dict()
+# create an instance of DeploymentAutoArtifactConfig from a dict
+deployment_auto_artifact_config_form_dict = deployment_auto_artifact_config.from_dict(deployment_auto_artifact_config_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
 

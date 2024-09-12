@@ -39,6 +39,9 @@ harness:
   env:
     - name: WORKERS
       value: "3"
+  envmap:
+    ENVIRONMENT_TEST_A: "value"
+    ENVIRONMENT_TEST_B: 123
   dependencies:
     soft:
       - workflows
@@ -81,3 +84,7 @@ harness:
         - "--request-timeout=180000"
         - "--hypothesis-max-examples=2"
         - "--show-errors-tracebacks"
+
+  dockerfile:
+    buildArgs:
+      TEST_ARGUMENT: example value

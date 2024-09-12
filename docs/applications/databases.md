@@ -35,6 +35,9 @@ harness:
 
 `image_ref`: Optional setting, used for referencing a base/static image from the build. The complete image name with tag will automagically being generated from the values.yaml file. This setting overrides the `image` setting specific for the database type (e.g. postgres/image). Note: the referenced image must be included as a build dependency in order to be built by the pipelines.
 
+`expose`: This option allows you to expose the database port through a load balancer.
+Do not use on production!
+
 
 ### Specific database settings
 
@@ -91,7 +94,24 @@ harness
 
 #### Neo4j
 
-Not yet supported!
+Defaults:
+```yaml
+harness
+  database:
+    neo4j:
+      dbms_security_auth_enabled: "false"
+      image: neo4j:5
+      memory:
+        heap: { initial: 64M, max: 128M }
+        pagecache: { size: 64M }
+        size: 256M
+        ports:
+          - { name: http, port: 7474 }
+          - { name: bolt, port: 7687 }
+```
+
+Not that the default resource values are not optimized and increasing the default memory is recommended for production.
+Mapping memory configuration with Kubernetes resource requests is also recommended.
 
 ## Programmatic API
 

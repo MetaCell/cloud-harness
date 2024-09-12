@@ -1,6 +1,3 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
@@ -50,7 +47,7 @@ class DeploymentResourcesConf(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def requests(self):
+    def requests(self) -> CpuMemoryConfig:
         """Gets the requests of this DeploymentResourcesConf.
 
 
@@ -60,7 +57,7 @@ class DeploymentResourcesConf(Model):
         return self._requests
 
     @requests.setter
-    def requests(self, requests):
+    def requests(self, requests: CpuMemoryConfig):
         """Sets the requests of this DeploymentResourcesConf.
 
 
@@ -71,7 +68,7 @@ class DeploymentResourcesConf(Model):
         self._requests = requests
 
     @property
-    def limits(self):
+    def limits(self) -> CpuMemoryConfig:
         """Gets the limits of this DeploymentResourcesConf.
 
 
@@ -81,7 +78,7 @@ class DeploymentResourcesConf(Model):
         return self._limits
 
     @limits.setter
-    def limits(self, limits):
+    def limits(self, limits: CpuMemoryConfig):
         """Sets the limits of this DeploymentResourcesConf.
 
 

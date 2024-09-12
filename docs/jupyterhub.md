@@ -35,6 +35,7 @@ Edit the `deploy/values.yaml` file `harness.jupyterhub` section  to edit configu
 - `applicationHook`: change the hook function (advances, see below)
 - `extraConfig`: allows you to add Python snippets to the jupyterhub_config.py file
 - `spawnerExtraConfig`: allows you to add values to the spawner object without the need of creating a new hook
+- `prepull`: indicate images that will be prepulled from the current build
 
 Example:
 ```yaml
@@ -46,6 +47,8 @@ harness:
     name: proxy-public
   jupyterhub:
     args: ["--debug", "--NotebookApp.default_url=/lab"]
+    prepull:
+    - cloudharness-base
     extraConfig:
       timing: |
         c.Spawner.port = 8000
@@ -178,3 +181,31 @@ to the [values.yaml](../applications/jupyterhub/deploy/values.yaml) file.
 Cloudharness JupyterHub is integrated with the accounts service so enabling a shared single-sign-on with other applications in the solution.
 
 The spawner is also adapted providing a hook to allow other applications to be based on the hub spawner to run with their own configurations.
+
+Available
+
+## Prepull configuration
+Image prepull can be configured in two ways.
+
+For static images (tag known), can set `prepuller.extraImages` on `applications/jupyterhub/deploy/values.yaml`, like:
+
+```yaml
+prePuller:
+  extraImages:
+    nginx-image:
+      name: nginx
+      tag: latest
+```
+
+For images which build is managed by CloudHarness the tag is unknown during the configuration;
+for this case, can rely on the dynamic configuration through `harness.jupyterhub.prepull` variable, like:
+
+```yaml
+harness:
+  jupyterhub:
+    prepull: 
+    - cloudharness-base
+```
+
+> Note that only built images defined as tasks, base or common can be used here. 
+> If an image is not included, it might be required to include it also as a build dependency or, better, define task images directly inside your jupyterhub application override.

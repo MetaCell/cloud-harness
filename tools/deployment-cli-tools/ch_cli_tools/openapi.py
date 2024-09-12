@@ -52,7 +52,7 @@ def generate_model(base_path=ROOT):
         {tmp_path}  --skip-validate-spec -c {base_path}/libraries/models/api/config.json"
     os.system(command)
     try:
-        source_dir = join(tmp_path, "docs/models")
+        source_dir = join(tmp_path, "docs")
         if not os.path.exists(source_dir):
             os.makedirs(source_dir)
 

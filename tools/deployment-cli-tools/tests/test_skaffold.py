@@ -81,6 +81,8 @@ def test_create_skaffold_configuration():
         a for a in sk['build']['artifacts'] if a['image'] == 'reg/cloudharness/samples'
     )
     assert os.path.samefile(samples_artifact['context'], join(CLOUDHARNESS_ROOT, 'applications/samples'))
+    assert 'TEST_ARGUMENT' in samples_artifact['docker']['buildArgs']
+    assert samples_artifact['docker']['buildArgs']['TEST_ARGUMENT'] == 'example value'
 
     myapp_artifact = next(
         a for a in sk['build']['artifacts'] if a['image'] == 'reg/cloudharness/myapp')
@@ -101,6 +103,10 @@ def test_create_skaffold_configuration():
     assert "samples/test" in samples_test['custom'][0]['command'], "The test command must come from values.yaml test/unit/commands"
 
     assert len(sk['test'][1]['custom']) == 2
+
+    flags = sk['deploy']['helm']['flags']
+    assert '--timeout=10m' in flags['install']
+    assert '--install' in flags['upgrade']
 
     shutil.rmtree(OUT)
     shutil.rmtree(BUILD_DIR)
