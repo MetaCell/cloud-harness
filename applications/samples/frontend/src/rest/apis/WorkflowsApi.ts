@@ -91,22 +91,28 @@ export class WorkflowsApi extends runtime.BaseAPI {
      * @deprecated
      */
     async submitSyncWithResultsRaw(requestParameters: SubmitSyncWithResultsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<string>> {
-        if (requestParameters.a === null || requestParameters.a === undefined) {
-            throw new runtime.RequiredError('a','Required parameter requestParameters.a was null or undefined when calling submitSyncWithResults.');
+        if (requestParameters['a'] == null) {
+            throw new runtime.RequiredError(
+                'a',
+                'Required parameter "a" was null or undefined when calling submitSyncWithResults().'
+            );
         }
 
-        if (requestParameters.b === null || requestParameters.b === undefined) {
-            throw new runtime.RequiredError('b','Required parameter requestParameters.b was null or undefined when calling submitSyncWithResults.');
+        if (requestParameters['b'] == null) {
+            throw new runtime.RequiredError(
+                'b',
+                'Required parameter "b" was null or undefined when calling submitSyncWithResults().'
+            );
         }
 
         const queryParameters: any = {};
 
-        if (requestParameters.a !== undefined) {
-            queryParameters['a'] = requestParameters.a;
+        if (requestParameters['a'] != null) {
+            queryParameters['a'] = requestParameters['a'];
         }
 
-        if (requestParameters.b !== undefined) {
-            queryParameters['b'] = requestParameters.b;
+        if (requestParameters['b'] != null) {
+            queryParameters['b'] = requestParameters['b'];
         }
 
         const headerParameters: runtime.HTTPHeaders = {};

@@ -47,9 +47,9 @@ def aggregate_packages(client_src_path, lib_name=LIB_NAME):
     TEST_REQUIREMENTS = os.path.join(client_src_path, 'test-requirements.txt')
 
     if not os.path.exists(DOCS_PATH):
-        os.mkdir(DOCS_PATH)
+        os.makedirs(DOCS_PATH)
     if not os.path.exists(TEST_PATH):
-        os.mkdir(TEST_PATH)
+        os.makedirs(TEST_PATH)
     if os.path.exists(README):
         os.remove(README)
     if os.path.exists(REQUIREMENTS):
@@ -159,9 +159,9 @@ if __name__ == "__main__":
         args.path) else args.path
 
     get_dependencies()
-    if os.path.exists(os.path.join(root_path, "libraries/models")) and (not args.interactive or input("Do you want to generate the main model? [Y/n]").upper() != 'N'):
-        generate_model()
+    # if os.path.exists(os.path.join(root_path, "libraries/models")) and (not args.interactive or input("Do you want to generate the main model? [Y/n]").upper() != 'N'):
+    #     generate_model()
 
-    generate_servers(root_path, interactive=args.interactive)
+    # generate_servers(root_path, interactive=args.interactive)
 
     generate_clients(root_path, args.client_name, interactive=args.interactive)

@@ -12,7 +12,7 @@
  * Do not edit the class manually.
  */
 
-import { exists, mapValues } from '../runtime';
+import { mapValues } from '../runtime';
 import type { InlineResponse202Task } from './InlineResponse202Task';
 import {
     InlineResponse202TaskFromJSON,
@@ -37,10 +37,8 @@ export interface InlineResponse202 {
 /**
  * Check if a given object implements the InlineResponse202 interface.
  */
-export function instanceOfInlineResponse202(value: object): boolean {
-    let isInstance = true;
-
-    return isInstance;
+export function instanceOfInlineResponse202(value: object): value is InlineResponse202 {
+    return true;
 }
 
 export function InlineResponse202FromJSON(json: any): InlineResponse202 {
@@ -48,25 +46,22 @@ export function InlineResponse202FromJSON(json: any): InlineResponse202 {
 }
 
 export function InlineResponse202FromJSONTyped(json: any, ignoreDiscriminator: boolean): InlineResponse202 {
-    if ((json === undefined) || (json === null)) {
+    if (json == null) {
         return json;
     }
     return {
         
-        'task': !exists(json, 'task') ? undefined : InlineResponse202TaskFromJSON(json['task']),
+        'task': json['task'] == null ? undefined : InlineResponse202TaskFromJSON(json['task']),
     };
 }
 
 export function InlineResponse202ToJSON(value?: InlineResponse202 | null): any {
-    if (value === undefined) {
-        return undefined;
-    }
-    if (value === null) {
-        return null;
+    if (value == null) {
+        return value;
     }
     return {
         
-        'task': InlineResponse202TaskToJSON(value.task),
+        'task': InlineResponse202TaskToJSON(value['task']),
     };
 }
 
