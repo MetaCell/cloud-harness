@@ -13,6 +13,7 @@ myapp_path = os.path.join(HERE, "resources/applications/myapp")
 if not os.path.exists(os.path.join(myapp_path, "dependencies/a/.git")):
     os.makedirs(os.path.join(myapp_path, "dependencies/a/.git"))
 
+
 def test_create_codefresh_configuration():
     values = create_helm_chart(
         [CLOUDHARNESS_ROOT, RESOURCES],
@@ -126,7 +127,7 @@ def test_create_codefresh_configuration():
         assert len(
             tstep['commands']) == 2, "Unit test commands are not properly loaded from the unit test configuration file"
         assert tstep['commands'][0] == "tox", "Unit test commands are not properly loaded from the unit test configuration file"
-    
+
         assert len(l1_steps[CD_BUILD_STEP_DEPENDENCIES]['steps']) == 3, "3 clone steps should be included as we have 2 dependencies from myapp, plus cloudharness"
     finally:
         shutil.rmtree(BUILD_MERGE_DIR)
@@ -153,12 +154,12 @@ def test_create_codefresh_configuration_multienv():
         )
 
         build_included = [app['harness']['name']
-                        for app in values['apps'].values() if 'harness' in app]
+                          for app in values['apps'].values() if 'harness' in app]
 
         cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
-                                                envs=['dev', 'test'],
-                                                base_image_name=values['name'],
-                                                helm_values=values, save=False)
+                                                 envs=['dev', 'test'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
 
         assert cf['test_step'] == 'test'
         assert cf['test'] == True
@@ -171,7 +172,6 @@ def test_create_codefresh_configuration_multienv():
 
     finally:
         shutil.rmtree(BUILD_MERGE_DIR)
-
 
 
 def test_create_codefresh_configuration_tests():
@@ -213,8 +213,6 @@ def test_create_codefresh_configuration_tests():
 
         assert "test-api" in st_build_test_steps["test-api"]["dockerfile"], "test-api image must be built from root context"
 
-        
-
         e2e_steps = l1_steps[CD_E2E_TEST_STEP]['scale']
 
         assert "samples_e2e_test" in e2e_steps, "samples e2e test step must be included"
@@ -245,13 +243,12 @@ def test_create_codefresh_configuration_tests():
         for volume in test_step["volumes"]:
             assert "server" not in volume
 
-
         assert any("CLOUDHARNESS_BASE" in arg for arg in st_build_test_steps["test-api"]
                    ["build_arguments"]), "Missing build dependency on api test image"
 
     finally:
         shutil.rmtree(BUILD_MERGE_DIR)
-    
+
     values = create_helm_chart(
         [CLOUDHARNESS_ROOT, RESOURCES],
         output_path=OUT,

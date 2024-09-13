@@ -60,8 +60,7 @@ if __name__ == "__main__":
     parser.add_argument('-N', '--no-cd', dest='no_cd_gen', action="store_const", default=None, const=True,
                         help=f'Do not generate ci/cd files')
     parser.add_argument('-we', '--write-env', dest='write_env', action="store_const", default=None, const=True,
-                            help=f'Write build env to .env file in {DEPLOYMENT_PATH}')
-
+                        help=f'Write build env to .env file in {DEPLOYMENT_PATH}')
 
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
@@ -108,7 +107,7 @@ if __name__ == "__main__":
                 envs=envs,
                 base_image_name=helm_values['name'],
                 helm_values=helm_values)
-            
+
         if args.write_env:
             write_env_file(helm_values, os.path.join(root_paths[-1], DEPLOYMENT_PATH, ".env"))
 

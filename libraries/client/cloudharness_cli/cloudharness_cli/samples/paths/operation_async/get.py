@@ -25,7 +25,7 @@ import frozendict  # noqa: F401
 
 from cloudharness_cli.samples import schemas  # noqa: F401
 
-from cloudharness_cli/samples.model.inline_response202 import InlineResponse202
+from cloudharness_cli.samples.model.inline_response202 import InlineResponse202
 
 from . import path
 
@@ -231,5 +231,3 @@ class ApiForget(BaseApi):
             timeout=timeout,
             skip_deserialization=skip_deserialization
         )
-
-

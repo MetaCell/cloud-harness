@@ -65,7 +65,7 @@ class NotificationBaseAdapter(metaclass=abc.ABCMeta):
             os.path.join(
                 self.channel["templateFolder"],
                 self.notification["template"]
-        ))
+            ))
 
     @abc.abstractmethod
     def send(self, context):

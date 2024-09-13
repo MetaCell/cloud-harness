@@ -212,7 +212,7 @@ class CloudHarnessHelm:
             self.static_images.update(find_dockerfiles_paths(
                 os.path.join(root_path, STATIC_IMAGES_PATH)))
         return self.base_images
-    
+
     def __init_test_images(self, base_image_name):
         test_images = {}
         for root_path in self.root_paths:
@@ -224,7 +224,6 @@ class CloudHarnessHelm:
 
         return test_images
 
-    
     def __find_static_dockerfile_paths(self, root_path):
         return find_dockerfiles_paths(os.path.join(root_path, BASE_IMAGES_PATH)) + find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH))
 
@@ -324,7 +323,6 @@ class CloudHarnessHelm:
         if self.registry:
             logging.info(f"Registry set: {self.registry}")
 
-
         if self.local:
             values['registry']['secret'] = ''
         if self.registry_secret:
@@ -415,19 +413,19 @@ class CloudHarnessHelm:
             tag = generate_tag_from_content(build_context_path, ignore)
             logging.info(f"Content hash: {tag}")
             dependencies = dependencies or guess_build_dependencies_from_dockerfile(build_context_path)
-            tag = sha1((tag + "".join(self.all_images.get(n , '') for n in dependencies)).encode("utf-8")).hexdigest()
+            tag = sha1((tag + "".join(self.all_images.get(n, '') for n in dependencies)).encode("utf-8")).hexdigest()
             logging.info(f"Generated tag: {tag}")
-            app_name = image_name.split("/")[-1] # the image name can have a prefix
+            app_name = image_name.split("/")[-1]  # the image name can have a prefix
             self.all_images[app_name] = tag
         return self.registry + image_name + (f':{tag}' if tag else '')
-    
+
     def create_app_values_spec(self, app_name, app_path, base_image_name=None):
         logging.info('Generating values script for ' + app_name)
 
         specific_template_path = os.path.join(app_path, 'deploy', 'values.yaml')
         if os.path.exists(specific_template_path):
             logging.info("Specific values template found: " +
-                        specific_template_path)
+                         specific_template_path)
             values = get_template(specific_template_path)
         else:
             values = {}
@@ -459,7 +457,7 @@ class CloudHarnessHelm:
         if len(image_paths) > 0:
             image_name = image_name_from_dockerfile_path(os.path.relpath(
                 image_paths[0], os.path.dirname(app_path)), base_image_name)
-            
+
             values['image'] = self.image_tag(
                 image_name, build_context_path=app_path, dependencies=build_dependencies)
         elif KEY_HARNESS in values and not values[KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('image', None) and values[

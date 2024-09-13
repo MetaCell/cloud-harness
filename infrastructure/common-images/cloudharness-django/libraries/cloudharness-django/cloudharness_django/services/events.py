@@ -23,7 +23,7 @@ class KeycloakMessageService:
         resource_path = message["resource-path"].split("/")
 
         log.info(f"{event_client} {message}")
-        if resource in ["CLIENT_ROLE_MAPPING","GROUP","USER","GROUP_MEMBERSHIP"]:
+        if resource in ["CLIENT_ROLE_MAPPING", "GROUP", "USER", "GROUP_MEMBERSHIP"]:
             try:
                 init_services()
                 user_service = get_user_service()
@@ -71,7 +71,7 @@ class KeycloakMessageService:
             from cloudharness.applications import get_current_configuration
             current_app = get_current_configuration()
 
-            self.test_kafka_running() # if the test fails (raises an exception) then k8s will restart the application
+            self.test_kafka_running()  # if the test fails (raises an exception) then k8s will restart the application
             # init the topics
             self.init_topics()
         except ConfigurationCallException as e:

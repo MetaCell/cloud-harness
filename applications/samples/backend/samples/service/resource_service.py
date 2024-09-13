@@ -8,6 +8,7 @@ from samples.models import SampleResource
 counter = 0
 resources = {}
 
+
 class ResourceNotFound(Exception):
     pass
 
@@ -34,7 +35,7 @@ def get_sample_resource(sampleresource_id: int):  # noqa: E501
 
 
 def get_sample_resources() -> List[SampleResource]:
-    return [v for v in resources.values()] 
+    return [v for v in resources.values()]
 
 
 def update_sample_resource(sampleresource_id: int, sample_resource: SampleResource) -> List[SampleResource]:

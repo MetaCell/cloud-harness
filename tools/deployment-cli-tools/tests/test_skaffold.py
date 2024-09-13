@@ -70,10 +70,9 @@ def test_create_skaffold_configuration():
     cloudharness_flask_artifact = next(
         a for a in sk['build']['artifacts'] if a['image'] == 'reg/cloudharness/cloudharness-flask')
 
-
     assert os.path.samefile(cloudharness_flask_artifact['context'],
-       join(CLOUDHARNESS_ROOT, 'infrastructure/common-images/cloudharness-flask')
-    )
+                            join(CLOUDHARNESS_ROOT, 'infrastructure/common-images/cloudharness-flask')
+                            )
 
     assert len(cloudharness_flask_artifact['requires']) == 1
 
@@ -93,7 +92,6 @@ def test_create_skaffold_configuration():
     accounts_artifact = next(
         a for a in sk['build']['artifacts'] if a['image'] == 'reg/cloudharness/accounts')
     assert os.path.samefile(accounts_artifact['context'], '/tmp/build/applications/accounts')
-
 
     # Custom unit tests
     assert len(sk['test']) == 2, 'Unit tests should be included'

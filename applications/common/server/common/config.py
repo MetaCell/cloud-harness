@@ -22,7 +22,6 @@ class Config(object):
         log.error("Cannot configure SENTRY")
 
 
-
 class ProductionConfig(Config):
     DEBUG = False
 

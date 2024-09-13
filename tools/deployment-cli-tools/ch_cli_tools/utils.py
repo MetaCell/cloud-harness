@@ -145,8 +145,10 @@ def get_template(yaml_path, base_default=False):
 def file_is_yaml(fname):
     return fname[-4:] == 'yaml' or fname[-3:] == 'yml'
 
+
 def file_is_json(fname):
     return fname[-4:] == 'json'
+
 
 def replaceindir(root_src_dir, source, replace):
     """
@@ -290,10 +292,12 @@ def merge_yaml_files(fname, fdest):
         content_src = yaml.load(f)
     merge_to_yaml_file(content_src, fdest)
 
+
 def merge_json_files(fname, fdest):
     with open(fname) as f:
         content_src = json.load(f)
     merge_to_json_file(content_src, fdest)
+
 
 def merge_to_json_file(content_src, fdest):
     if not content_src:
@@ -312,6 +316,7 @@ def merge_to_json_file(content_src, fdest):
     with open(fdest, "w") as f:
         json.dump(merged, f, indent=2)
     return merged
+
 
 def merge_to_yaml_file(content_src, fdest):
     if not content_src:
@@ -364,8 +369,8 @@ def dict_merge(dct, merge_dct, add_keys=True):
         }
 
     for k, v in merge_dct.items():
-        if (k in dct and isinstance(dct[k], dict)
-                and isinstance(merge_dct[k], collections.abc.Mapping)):
+        if (k in dct and isinstance(dct[k], dict) and
+                isinstance(merge_dct[k], collections.abc.Mapping)):
             dct[k] = dict_merge(dct[k], merge_dct[k], add_keys=add_keys)
         else:
             dct[k] = merge_dct[k]
@@ -423,6 +428,7 @@ def check_docker_manifest_exists(registry, image_name, tag, registry_secret=None
     api_url = f"https://{registry}/v2/{image_name}/manifests/{tag}"
     resp = requests.get(api_url)
     return resp.status_code == 200
+
 
 def get_git_commit_hash(path):
     # return the short git commit hash in that path

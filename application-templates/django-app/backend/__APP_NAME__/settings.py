@@ -120,13 +120,13 @@ PERSISTENT_ROOT = os.path.join(BASE_DIR, "persistent")
 # ***********************************************************************
 # * __APP_NAME__ settings
 # ***********************************************************************
-from cloudharness.applications import get_configuration
-from cloudharness.utils.config import ALLVALUES_PATH, CloudharnessConfig
+from cloudharness.applications import get_configuration  # noqa E402
+from cloudharness.utils.config import ALLVALUES_PATH, CloudharnessConfig  # noqa E402
 
 # ***********************************************************************
 # * import base CloudHarness Django settings
 # ***********************************************************************
-from cloudharness_django.settings import *
+from cloudharness_django.settings import *  # noqa E402
 
 # add the local apps
 INSTALLED_APPS += [
