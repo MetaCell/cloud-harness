@@ -155,37 +155,6 @@ class CloudHarnessHelm(ConfigurationGenerator):
         create_env_variables(values)
         return values, self.include
 
-    def __clear_unused_db_configuration(self, harness_config):
-        database_config = harness_config[KEY_DATABASE]
-        database_type = database_config.get('type', None)
-        if database_type is None:
-            del harness_config[KEY_DATABASE]
-            return
-        db_specific_keys = [k for k, v in database_config.items()
-                            if isinstance(v, dict) and 'image' in v and 'ports' in v]
-        for db in db_specific_keys:
-            if database_type != db:
-                del database_config[db]
-
-    def image_tag(self, image_name, build_context_path=None, dependencies=()):
-        tag = self.tag
-        if tag is None and not self.local:
-            logging.info(f"Generating tag for {image_name} from {build_context_path} and {dependencies}")
-            ignore_path = os.path.join(build_context_path, '.dockerignore')
-            ignore = set(DEFAULT_IGNORE)
-            if os.path.exists(ignore_path):
-                with open(ignore_path) as f:
-                    ignore = ignore.union({line.strip() for line in f if line.strip() and not line.startswith('#')})
-            logging.info(f"Ignoring {ignore}")
-            tag = generate_tag_from_content(build_context_path, ignore)
-            logging.info(f"Content hash: {tag}")
-            dependencies = dependencies or guess_build_dependencies_from_dockerfile(build_context_path)
-            tag = sha1((tag + "".join(self.all_images.get(n, '') for n in dependencies)).encode("utf-8")).hexdigest()
-            logging.info(f"Generated tag: {tag}")
-            app_name = image_name.split("/")[-1]  # the image name can have a prefix
-            self.all_images[app_name] = tag
-        return self.registry + image_name + (f':{tag}' if tag else '')
-
     def create_app_values_spec(self, app_name, app_path, base_image_name=None):
         logging.info('Generating values script for ' + app_name)
 

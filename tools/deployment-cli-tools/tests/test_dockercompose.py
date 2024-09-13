@@ -12,14 +12,14 @@ HELM_IS_INSTALLED = shutil.which("helm") is not None
 
 
 def exists(path):
-        return path.exists()
+    return path.exists()
 
 
 def test_collect_compose_values(tmp_path):
     out_folder = tmp_path / 'test_collect_compose_values'
     values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
-                               exclude=['events'], domain="my.local",
-                               namespace='test', env='dev', local=False, tag=1, registry='reg')
+                                                 exclude=['events'], domain="my.local",
+                                                 namespace='test', env='dev', local=False, tag=1, registry='reg')
 
     # Auto values
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/cloudharness/myapp:1'
@@ -96,7 +96,7 @@ def test_collect_compose_values(tmp_path):
 def test_collect_compose_values_noreg_noinclude(tmp_path):
     out_path = tmp_path / 'test_collect_compose_values_noreg_noinclude'
     values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, domain="my.local",
-                               namespace='test', env='dev', local=False, tag=1)
+                                                 namespace='test', env='dev', local=False, tag=1)
 
     # Auto values
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'cloudharness/myapp:1'
@@ -152,6 +152,7 @@ def test_collect_compose_values_noreg_noinclude(tmp_path):
         assert content == 'mykey: myvalue'
         content = (compose_path / 'resources' / 'generated' / 'test2.yaml').read_text()
         assert content == 'mykey2: myvalue2'
+    else:
         assert False
 
     assert values[KEY_TASK_IMAGES]
@@ -160,63 +161,61 @@ def test_collect_compose_values_noreg_noinclude(tmp_path):
     assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'cloudharness/myapp-mytask:1'
 
 
-
 def test_collect_compose_values_precedence(tmp_path):
     out_folder = tmp_path / 'test_collect_compose_values_precedence'
     values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                               namespace='test', env='prod', local=False, tag=1, include=["events"])
+                                                 namespace='test', env='prod', local=False, tag=1, include=["events"])
 
     # Values.yaml from current app must override values-prod.yaml from cloudharness
     assert values[KEY_APPS]['events']['kafka']['resources']['limits']['memory'] == 'overridden'
     assert values[KEY_APPS]['events']['kafka']['resources']['limits']['cpu'] == 'overridden-prod'
 
+
 def test_collect_compose_values_multiple_envs(tmp_path):
     out_folder = tmp_path / 'test_collect_compose_values_multiple_envs'
     values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                               namespace='test', env=['dev', 'test'], local=False, tag=1, include=["myapp"])
-
+                                                 namespace='test', env=['dev', 'test'], local=False, tag=1, include=["myapp"])
 
     assert values[KEY_APPS]['myapp']['test'] is True, 'values-test not loaded'
     assert values[KEY_APPS]['myapp']['dev'] is True, 'values-dev not loaded'
     assert values[KEY_APPS]['myapp']['a'] == 'test', 'values-test not overriding'
 
 
-
 def test_collect_compose_values_wrong_dependencies_validate(tmp_path):
     out_folder = tmp_path / 'test_collect_compose_values_wrong_dependencies_validate'
     with pytest.raises(ValuesValidationException):
         create_docker_compose_configuration([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-                                   namespace='test', env='prod', local=False, tag=1, include=["wrong-hard"])
+                                            namespace='test', env='prod', local=False, tag=1, include=["wrong-hard"])
     try:
         create_docker_compose_configuration([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-                                   namespace='test', env='prod', local=False, tag=1, include=["wrong-soft"])
+                                            namespace='test', env='prod', local=False, tag=1, include=["wrong-soft"])
 
     except ValuesValidationException as e:
         pytest.fail("Should not error because of wrong soft dependency")
 
     with pytest.raises(ValuesValidationException):
         create_docker_compose_configuration([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-                                   namespace='test', env='prod', local=False, tag=1, include=["wrong-build"])
+                                            namespace='test', env='prod', local=False, tag=1, include=["wrong-build"])
     with pytest.raises(ValuesValidationException):
         create_docker_compose_configuration([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-                                   namespace='test', env='prod', local=False, tag=1, include=["wrong-services"])
+                                            namespace='test', env='prod', local=False, tag=1, include=["wrong-services"])
 
 
 def test_collect_compose_values_build_dependencies(tmp_path):
     out_folder = tmp_path / 'test_collect_compose_values_build_dependencies'
     values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                               namespace='test', env='prod', local=False, tag=1, include=["myapp"])
+                                                 namespace='test', env='prod', local=False, tag=1, include=["myapp"])
 
     assert 'cloudharness-flask' in values[KEY_TASK_IMAGES], "Cloudharness-flask is included in the build dependencies"
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES], "Cloudharness-base is included in cloudharness-flask Dockerfile and it should be guessed"
     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES], "Cloudharness-base-debian is not included in any dependency"
     assert 'cloudharness-frontend-build' not in values[KEY_TASK_IMAGES], "cloudharness-frontend-build is not included in any dependency"
 
+
 def test_collect_compose_values_build_dependencies_nodeps(tmp_path):
     out_folder = tmp_path / 'test_collect_compose_values_build_dependencies_nodeps'
     values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                               namespace='test', env='prod', local=False, tag=1, include=["events"])
-
+                                                 namespace='test', env='prod', local=False, tag=1, include=["events"])
 
     assert 'cloudharness-flask' not in values[KEY_TASK_IMAGES], "Cloudharness-flask is not included in the build dependencies"
     assert 'cloudharness-base' not in values[KEY_TASK_IMAGES], "Cloudharness-base is not included in the build dependencies"
@@ -227,8 +226,7 @@ def test_collect_compose_values_build_dependencies_nodeps(tmp_path):
 def test_collect_compose_values_build_dependencies_exclude(tmp_path):
     out_folder = tmp_path / 'test_collect_compose_values_build_dependencies_exclude'
     values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                               namespace='test', env='prod', local=False, tag=1, include=["workflows"], exclude=["workflows-extract-download"])
-
+                                                 namespace='test', env='prod', local=False, tag=1, include=["workflows"], exclude=["workflows-extract-download"])
 
     assert 'cloudharness-flask' in values[KEY_TASK_IMAGES], "Cloudharness-flask is included in the build dependencies"
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES], "Cloudharness-base is included in cloudharness-flask Dockerfile and it should be guessed"
@@ -239,7 +237,7 @@ def test_clear_unused_dbconfig(tmp_path):
     out_folder = tmp_path / 'test_clear_unused_dbconfig'
 
     values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                               env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
+                                                 env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
 
     # There is a DB config
     assert KEY_DATABASE in values[KEY_APPS]['myapp'][KEY_HARNESS]
@@ -256,7 +254,7 @@ def test_clear_unused_dbconfig(tmp_path):
     assert db_config['neo4j'] is None
 
     values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                               env='withmongo', local=False, include=["myapp"], exclude=["legacy"])
+                                                 env='withmongo', local=False, include=["myapp"], exclude=["legacy"])
 
     assert KEY_DATABASE in values[KEY_APPS]['myapp'][KEY_HARNESS]
     db_config = values[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DATABASE]
@@ -273,7 +271,7 @@ def test_clear_all_dbconfig_if_nodb(tmp_path):
     out_folder = tmp_path / 'test_clear_all_dbconfig_if_nodb'
 
     values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                               env='withoutdb', local=False, include=["myapp"], exclude=["legacy"])
+                                                 env='withoutdb', local=False, include=["myapp"], exclude=["legacy"])
 
     # There is a DB config
     assert KEY_DATABASE in values[KEY_APPS]['myapp'][KEY_HARNESS]
@@ -308,10 +306,11 @@ def test_tag_hash_generation():
 
 def test_collect_compose_values_auto_tag(tmp_path):
     out_folder = tmp_path / 'test_collect_compose_values_auto_tag'
+
     def create():
         return create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
-                               exclude=['events'], domain="my.local",
-                               namespace='test', env='dev', local=False, tag=None, registry='reg')
+                                                   exclude=['events'], domain="my.local",
+                                                   namespace='test', env='dev', local=False, tag=None, registry='reg')
 
     BASE_KEY = "cloudharness-base"
     values = create()
@@ -329,7 +328,6 @@ def test_collect_compose_values_auto_tag(tmp_path):
     values = create()
     assert v1 == values.apps['myapp'].harness.deployment.image, "Nothing changed the hash value"
     assert values["task-images"][BASE_KEY] == b1, "Base image should not change following the root .dockerignore"
-
 
     fname = Path(RESOURCES) / 'applications' / 'myapp' / 'afile.txt'
     try:
@@ -350,11 +348,9 @@ def test_collect_compose_values_auto_tag(tmp_path):
     finally:
         fname.unlink()
 
-
     fname = Path(RESOURCES) / 'applications' / 'myapp' / 'afile.ignored'
     try:
         fname.write_text('a')
-
 
         values = create()
         assert values["task-images"][BASE_KEY] == b1, "2: Application files should be ignored for base image following the root .dockerignore"
@@ -375,7 +371,6 @@ def test_collect_compose_values_auto_tag(tmp_path):
         assert v1 != values.apps['myapp'].harness.deployment.image, "If a static image dependency is changed, the hash should change"
     finally:
         fname.unlink()
-
 
     fname = Path(CLOUDHARNESS_ROOT) / 'atestfile'
     try:

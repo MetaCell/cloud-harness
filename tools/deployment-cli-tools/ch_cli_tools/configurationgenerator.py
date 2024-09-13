@@ -3,27 +3,21 @@ Utilities to create a helm chart from a CloudHarness directory structure
 """
 from typing import Union
 import yaml
-from ruamel.yaml import YAML
 import os
 import shutil
 import logging
 from hashlib import sha1
-import subprocess
-from functools import cache
 import tarfile
 from docker import from_env as DockerClient
 from pathlib import Path
-import copy
 
 
 from . import HERE, CH_ROOT
-from cloudharness_utils.constants import TEST_IMAGES_PATH, VALUES_MANUAL_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, \
-    DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, COMPOSE
-from .utils import get_cluster_ip, get_image_name, env_variable, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
-    get_template, merge_configuration_directories, merge_to_yaml_file, dict_merge, app_name_from_path, \
-    find_dockerfiles_paths, find_file_paths
-
-from .models import HarnessMainConfig
+from cloudharness_utils.constants import TEST_IMAGES_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, \
+    DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH
+from .utils import get_cluster_ip, env_variable, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
+    get_template, merge_configuration_directories, dict_merge, app_name_from_path, \
+    find_dockerfiles_paths
 
 
 KEY_HARNESS = 'harness'
@@ -39,7 +33,7 @@ DEFAULT_IGNORE = ('/tasks', '.dockerignore', '.hypothesis', "__pycache__", '.nod
 
 
 class ConfigurationGenerator(object):
-    def __init__(self, root_paths, tag: Union[str, int, None]='latest', registry='', local=True, domain=None, exclude=(), secured=True,
+    def __init__(self, root_paths, tag: Union[str, int, None] = 'latest', registry='', local=True, domain=None, exclude=(), secured=True,
                  output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
                  namespace=None, templates_path=HELM_PATH):
         assert domain, 'A domain must be specified'
@@ -81,7 +75,7 @@ class ConfigurationGenerator(object):
         # Override for every cloudharness scaffolding
         for root_path in self.root_paths:
             copy_merge_base_deployment(dest_helm_chart_path=self.dest_deployment_path,
-                                       base_helm_chart=root_path / DEPLOYMENT_CONFIGURATION_PATH /self.templates_path)
+                                       base_helm_chart=root_path / DEPLOYMENT_CONFIGURATION_PATH / self.templates_path)
             collect_apps_helm_templates(root_path, exclude=self.exclude, include=self.include,
                                         dest_helm_chart_path=self.dest_deployment_path, templates_path=self.templates_path)
 
@@ -150,7 +144,9 @@ class ConfigurationGenerator(object):
             img_name = image_name_from_dockerfile_path(os.path.basename(
                 static_img_dockerfile), base_name=base_image_name)
             self.base_images[os.path.basename(static_img_dockerfile)] = self.image_tag(
-                img_name, build_context_path=static_img_dockerfile)
+                img_name, build_context_path=static_img_dockerfile,
+                dependencies=guess_build_dependencies_from_dockerfile(static_img_dockerfile)
+            )
 
     def _assign_static_build_dependencies(self, helm_values):
         for static_img_dockerfile in self.static_images:
@@ -178,7 +174,9 @@ class ConfigurationGenerator(object):
                 img_name = image_name_from_dockerfile_path(
                     os.path.basename(base_img_dockerfile), base_name=base_image_name)
                 self.base_images[os.path.basename(base_img_dockerfile)] = self.image_tag(
-                    img_name, build_context_path=root_path)
+                    img_name, build_context_path=root_path,
+                    dependencies=guess_build_dependencies_from_dockerfile(base_img_dockerfile)
+                )
 
             self.static_images.update(find_dockerfiles_paths(
                 os.path.join(root_path, STATIC_IMAGES_PATH)))
@@ -312,10 +310,9 @@ class ConfigurationGenerator(object):
             logging.info(f"Ignoring {ignore}")
             tag = generate_tag_from_content(build_context_path, ignore)
             logging.info(f"Content hash: {tag}")
-            dependencies = dependencies or guess_build_dependencies_from_dockerfile(f"{build_context_path}")
-            tag = sha1((tag + "".join(self.all_images.get(n , '') for n in dependencies)).encode("utf-8")).hexdigest()
+            tag = sha1((tag + "".join(self.all_images.get(n, '') for n in dependencies)).encode("utf-8")).hexdigest()
             logging.info(f"Generated tag: {tag}")
-            app_name = image_name.split("/")[-1] # the image name can have a prefix
+            app_name = image_name.split("/")[-1]  # the image name can have a prefix
             self.all_images[app_name] = tag
         return self.registry + image_name + (f':{tag}' if tag else '')
 
@@ -347,11 +344,11 @@ def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart):
         return
     if dest_helm_chart_path.exists():
         logging.info("Merging/overriding all files in directory %s",
-                    dest_helm_chart_path)
+                     dest_helm_chart_path)
         merge_configuration_directories(f"{base_helm_chart}", f"{dest_helm_chart_path}")
     else:
         logging.info("Copying base deployment chart from %s to %s",
-                    base_helm_chart, dest_helm_chart_path)
+                     base_helm_chart, dest_helm_chart_path)
         shutil.copytree(base_helm_chart, dest_helm_chart_path)
 
 
@@ -365,7 +362,7 @@ def collect_helm_values(deployment_root, env=()):
 
     for e in env:
         specific_template_path = os.path.join(deployment_root, DEPLOYMENT_CONFIGURATION_PATH,
-                                            f'values-template-{e}.yaml')
+                                              f'values-template-{e}.yaml')
         if os.path.exists(specific_template_path):
             logging.info(
                 "Specific environment values template found: " + specific_template_path)
