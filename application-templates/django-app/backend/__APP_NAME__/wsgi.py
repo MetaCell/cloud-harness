@@ -16,9 +16,9 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "__APP_NAME__.settings")
 application = get_wsgi_application()
 
 # init the auth service
-from cloudharness_django.services import init_services
+from cloudharness_django.services import init_services  # noqa E402
 
 init_services()
 
 # start the kafka event listener
-import cloudharness_django.services.events
+import cloudharness_django.services.events  # noqa E402

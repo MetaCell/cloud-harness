@@ -64,12 +64,11 @@ if __name__ == "__main__":
     if 'webapp' in templates:
         if os.path.exists(os.path.join(app_path, 'frontend')):
             shutil.rmtree(os.path.join(app_path, 'frontend'))
-        cmd = ["yarn", "create", "vite", args.name,  "--template", "react-ts"]
+        cmd = ["yarn", "create", "vite", args.name, "--template", "react-ts"]
         logging.info(f"Running command: {' '.join(cmd)}")
         subprocess.run(cmd, cwd=app_path)
         shutil.move(os.path.join(app_path, args.name), os.path.join(app_path, 'frontend'))
         generate_ts_client(openapi_file=os.path.join(app_path, 'api/openapi.yaml'))
-
 
     if 'server' in templates:
         with tempfile.TemporaryDirectory() as tmp_dirname:

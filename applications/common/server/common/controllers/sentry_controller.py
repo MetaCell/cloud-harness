@@ -13,6 +13,7 @@ try:
 except:
     global_dsn = None
 
+
 def getdsn(appname):  # noqa: E501
     """
     Gets the Sentry DSN for a given application or returns the global dsn when set

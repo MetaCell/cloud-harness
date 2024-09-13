@@ -28,7 +28,6 @@ REQUIREMENTS = [
 ]
 
 
-
 setup(
     name=NAME,
     version=VERSION,

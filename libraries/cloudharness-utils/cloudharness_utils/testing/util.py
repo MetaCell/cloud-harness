@@ -4,13 +4,14 @@ import os
 
 from cloudharness_model.models import ApplicationUser, ApplicationTestConfig, ApplicationHarnessConfig, E2ETestsConfig
 
+
 def get_user_password(main_user: ApplicationUser):
     return main_user.password or "test"
+
 
 def get_app_environment(app_config: ApplicationHarnessConfig, app_domain, use_local_env=True):
     my_env = os.environ.copy() if use_local_env else {}
     my_env["APP_URL"] = app_domain
-
 
     if app_config.accounts and app_config.accounts.users:
         main_user: ApplicationUser = app_config.accounts.users[0]

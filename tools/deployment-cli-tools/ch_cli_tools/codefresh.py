@@ -34,6 +34,7 @@ def literal_presenter(dumper, data):
 
 yaml.add_representer(str, literal_presenter)
 
+
 def get_main_domain(url):
     try:
         url = url.split("//")[1].split("/")[0]
@@ -45,6 +46,7 @@ def get_main_domain(url):
     except:
         return "${{ DEFAULT_REPO }}"
 
+
 def clone_step_spec(conf: GitDependencyConfig, context_path: str):
     return {
         "title": f"Cloning {os.path.basename(conf.url)} repository...",
@@ -52,8 +54,9 @@ def clone_step_spec(conf: GitDependencyConfig, context_path: str):
         "repo": conf.url,
         "revision": conf.branch_tag,
         "working_directory": join(context_path, "dependencies", conf.path or ""),
-        "git": get_main_domain(conf.url) # Cannot really tell what's the git config name, usually the name of the repo
+        "git": get_main_domain(conf.url)  # Cannot really tell what's the git config name, usually the name of the repo
     }
+
 
 def write_env_file(helm_values: HarnessMainConfig, filename, registry_secret=None):
     env = {}
@@ -74,8 +77,6 @@ def write_env_file(helm_values: HarnessMainConfig, filename, registry_secret=Non
         else:
             env[app_specific_tag_variable(name) + "_NEW"] = 1
 
-
-
     for app in helm_values.apps.values():
         if app.harness and app.harness.deployment.image:
             env[app_specific_tag_variable(app.name)] = extract_tag(app.harness.deployment.image)
@@ -93,8 +94,6 @@ def write_env_file(helm_values: HarnessMainConfig, filename, registry_secret=Non
     with open(filename, 'w') as f:
         for k, v in env.items():
             f.write(f"{k}={v}\n")
-
-
 
 
 def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude=(),
@@ -144,7 +143,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
             steps = codefresh['steps']
 
             def get_app_domain(app_config: ApplicationHarnessConfig):
-                base_domain=[c for c in codefresh['steps']['prepare_deployment']['commands'] if 'harness-deployment' in c][0].split("-d ")[1].split(" ")[0]
+                base_domain = [c for c in codefresh['steps']['prepare_deployment']['commands'] if 'harness-deployment' in c][0].split("-d ")[1].split(" ")[0]
                 return f"https://{app_config.subdomain}.{base_domain}"
 
             def e2e_test_environment(app_config: ApplicationHarnessConfig, app_domain: str = None):
@@ -247,25 +246,31 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                             )
 
 
-            def add_unit_test_step(app_config: ApplicationHarnessConfig):
-                # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step
+<< << << < HEAD
 
-                test_config: ApplicationTestConfig = app_config.test
-                app_name = app_config.name
+== == == =
+>>>>>> > 2dc0b2c9fc6924771b81a82f3d089d9ecaff49a5
 
-                if test_config.unit.enabled and test_config.unit.commands:
-                    tag = app_specific_tag_variable(app_name)
-                    steps[CD_UNIT_TEST_STEP]['steps'][f"{app_name}_ut"] = dict(
-                        title=f"Unit tests for {app_name}",
-                        commands=test_config.unit.commands,
-                        image=image_tag_with_variables(app_name, tag, base_image_name),
-                    )
 
-            if helm_values[KEY_TASK_IMAGES]:
-                codefresh_steps_from_base_path(join(root_path, BASE_IMAGES_PATH), CD_BUILD_STEP_BASE,
-                                               fixed_context=relpath(root_path, os.getcwd()), include=helm_values[KEY_TASK_IMAGES].keys())
-                codefresh_steps_from_base_path(join(root_path, STATIC_IMAGES_PATH), CD_BUILD_STEP_STATIC,
-                                                include=helm_values[KEY_TASK_IMAGES].keys())
+def add_unit_test_step(app_config: ApplicationHarnessConfig):
+    # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step
+
+    test_config: ApplicationTestConfig = app_config.test
+    app_name = app_config.name
+
+    if test_config.unit.enabled and test_config.unit.commands:
+        tag = app_specific_tag_variable(app_name)
+        steps[CD_UNIT_TEST_STEP]['steps'][f"{app_name}_ut"] = dict(
+            title=f"Unit tests for {app_name}",
+            commands=test_config.unit.commands,
+            image=image_tag_with_variables(app_name, tag, base_image_name),
+        )
+
+        if helm_values[KEY_TASK_IMAGES]:
+            codefresh_steps_from_base_path(join(root_path, BASE_IMAGES_PATH), CD_BUILD_STEP_BASE,
+                                           fixed_context=relpath(root_path, os.getcwd()), include=helm_values[KEY_TASK_IMAGES].keys())
+            codefresh_steps_from_base_path(join(root_path, STATIC_IMAGES_PATH), CD_BUILD_STEP_STATIC,
+                                           include=helm_values[KEY_TASK_IMAGES].keys())
 
             codefresh_steps_from_base_path(join(
                 root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
@@ -402,9 +407,10 @@ def codefresh_app_publish_spec(app_name, build_tag, base_name=None):
         step_spec['tags'].append('latest')
     return step_spec
 
+
 def image_tag_with_variables(app_name, build_tag, base_name=""):
     return "${{REGISTRY}}/%s:${{%s}}" % (get_image_name(
-            app_name, base_name), build_tag or '${{DEPLOYMENT_TAG}}')
+        app_name, base_name), build_tag or '${{DEPLOYMENT_TAG}}')
 
 
 def app_specific_tag_variable(app_name):
@@ -455,6 +461,7 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
     when_condition = existing_build_when_condition(tag)
     build["when"] = when_condition
     return build
+
 
 def existing_build_when_condition(tag):
     """

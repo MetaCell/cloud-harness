@@ -64,6 +64,7 @@ def _get_default_storage_class() -> str:
             break
     return selected_sc
 
+
 def create_persistent_volume_claim(name, size, logger, storage_class=None, useNFS=False, template=None, access_mode=None, **kwargs):
     """
     Create a Persistent Volume Claim in the Kubernetes cluster.
@@ -87,7 +88,7 @@ def create_persistent_volume_claim(name, size, logger, storage_class=None, useNF
 
     if not size:
         raise Exception(f"Size must be set. Got {size!r}.")
-    
+
     if not storage_class:
         if not useNFS:
             storage_class = _get_default_storage_class()
@@ -102,18 +103,18 @@ def create_persistent_volume_claim(name, size, logger, storage_class=None, useNF
         path = os.path.join(os.path.dirname(__file__), 'templates', 'pvc.yaml')
         template = open(path, 'rt').read()
     text = template.format(
-            name=name,
-            size=size,
-            storageClass=storage_class)
+        name=name,
+        size=size,
+        storageClass=storage_class)
     data = dict_merge(yaml.safe_load(text), kwargs)
 
     if access_mode:
         data["spec"]["accessModes"] = [access_mode]
 
     obj = _get_corev1_api().create_namespaced_persistent_volume_claim(
-            namespace=conf.get_configuration()['namespace'],
-            body=data,
-        )
+        namespace=conf.get_configuration()['namespace'],
+        body=data,
+    )
     logger.info(f"PVC child is created: %s", obj)
 
 
@@ -123,7 +124,7 @@ def persistent_volume_claim_exists(name):
 
     Args:
         name (string): the name of the PVC
-      
+
     Returns:
         boolean: True if the PVC exists, False is the PVC doesn't exist
     """

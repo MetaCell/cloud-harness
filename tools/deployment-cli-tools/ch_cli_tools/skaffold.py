@@ -14,10 +14,12 @@ from .utils import get_template, dict_merge, find_dockerfiles_paths, app_name_fr
 
 from . import HERE
 
+
 def relpath_if(p1, p2):
     if os.path.isabs(p1):
         return p1
     return relpath(p1, p2)
+
 
 def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, output_path='.', manage_task_images=True, backend_deploy=HELM_ENGINE):
     skaffold_conf = get_template('skaffold-template.yaml', True)
@@ -65,7 +67,6 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
                                          in requirements]
         return artifact_spec
 
-
     base_images = set()
 
     def process_build_dockerfile(
@@ -107,7 +108,6 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
         for dockerfile_path in base_dockerfiles:
             process_build_dockerfile(dockerfile_path, root_path, global_context=True)
 
-
     release_config = skaffold_conf['deploy']['helm']['releases'][0]
     release_config['name'] = helm_values.namespace
     release_config['namespace'] = helm_values.namespace
@@ -120,7 +120,6 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
         for dockerfile_path in static_dockerfiles:
             process_build_dockerfile(dockerfile_path, root_path)
-
 
     for root_path in root_paths:
         apps_path = join(root_path, APPS_PATH)
@@ -172,7 +171,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
                 import re
                 gunicorn_pattern = re.compile(r"gunicorn")
                 # sort candidates, shortest path first
-                for candidate in sorted(candidates,key=lambda x: len(x.split("/"))):
+                for candidate in sorted(candidates, key=lambda x: len(x.split("/"))):
                     dockerfile_path = f"{candidate}/.."
                     while not exists(f"{dockerfile_path}/Dockerfile") and abspath(dockerfile_path) != abspath(root_path):
                         dockerfile_path += "/.."
@@ -206,10 +205,10 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
             test_config: ApplicationTestConfig = helm_values.apps[app_key].harness.test
             if test_config.unit.enabled and test_config.unit.commands:
 
-                    skaffold_conf['test'].append(dict(
-                        image=get_image_tag(app_name),
-                        custom=[dict(command="docker run $IMAGE " + cmd) for cmd in test_config.unit.commands]
-                    ))
+                skaffold_conf['test'].append(dict(
+                    image=get_image_tag(app_name),
+                    custom=[dict(command="docker run $IMAGE " + cmd) for cmd in test_config.unit.commands]
+                ))
 
     if backend == COMPOSE_ENGINE:
         del skaffold_conf['deploy']
@@ -230,6 +229,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
         output_path, 'skaffold.yaml'))
     return skaffold_conf
 
+
 def git_clone_hook(conf: GitDependencyConfig, context_path: str):
     return {
         'command': [
@@ -240,6 +240,7 @@ def git_clone_hook(conf: GitDependencyConfig, context_path: str):
             join(context_path, "dependencies", conf.path or os.path.basename(conf.url).split('.')[0])
         ]
     }
+
 
 def create_vscode_debug_configuration(root_paths, helm_values):
     logging.info(
@@ -281,10 +282,9 @@ def create_vscode_debug_configuration(root_paths, helm_values):
                     "sourceFileMap": {
                         "justMyCode": False,
                         f"${{workspaceFolder}}/{app_relative_to_root}": apps[app_key].harness.get('sourceRoot',
-                                                                                                       "/usr/src/app"),
+                                                                                                  "/usr/src/app"),
                     }
                 })
-
 
     if not os.path.exists(os.path.dirname(vscode_launch_path)):
         os.makedirs(os.path.dirname(vscode_launch_path))
