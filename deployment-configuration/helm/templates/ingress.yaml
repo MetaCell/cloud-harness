@@ -32,7 +32,7 @@ kind: Ingress
 metadata:
   name: {{ .Values.ingress.name | quote }}
   annotations:
-    kubernetes.io/ingress.class: nginx
+    kubernetes.io/ingress.class: nginx # Deprecated by Kubernetes, however still required for GKE
     {{- if and (not .Values.local) $tls }}
     kubernetes.io/tls-acme: 'true'
     cert-manager.io/issuer: {{ printf "%s-%s" "letsencrypt" .Values.namespace }}
@@ -47,6 +47,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-send-timeout: {{ .Values.proxy.timeout.send | quote }}
     nginx.ingress.kubernetes.io/use-forwarded-headers: {{ .Values.proxy.forwardedHeaders | quote }}
 spec:
+  ingressClassName: nginx
   rules:
   {{- range $app := .Values.apps }}
     {{- if (and $mainapp (and $app.harness.name (eq $app.harness.name $mainapp))) }}
