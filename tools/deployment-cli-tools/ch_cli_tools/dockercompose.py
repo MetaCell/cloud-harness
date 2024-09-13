@@ -89,7 +89,8 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
 
         res = subprocess.call(command, shell=True)
         if res != 0:
-            raise Exception(f"Error generating docker-compose.yaml. See above output for details or try run\n\n{command} --debug")
+            out = subprocess.check_output(["ntpq", "-p"])
+            raise Exception(f"Error generating docker-compose.yaml.\n{out}\n\nSee above output for details or try run\n\n{command} --debug")
 
         self.__post_process_multiple_document_docker_compose(dest_compose_yaml)
 
