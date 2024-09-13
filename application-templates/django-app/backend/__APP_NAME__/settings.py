@@ -130,8 +130,8 @@ from cloudharness_django.settings import *
 
 # add the local apps
 INSTALLED_APPS += [
-    "api",
-    "__APP_NAME__"
+    "__APP_NAME__",
+    "ch_django"
 ]
 
 # override django admin base template with a local template

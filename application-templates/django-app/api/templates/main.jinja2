@@ -20,7 +20,7 @@ apps.populate(settings.INSTALLED_APPS)
 # migrate the Django models
 os.system("python manage.py migrate")
 
-from api.controllers import *
+from __APP_NAME__.controllers import *
 
 app = FastAPI(
     {% if info %}
