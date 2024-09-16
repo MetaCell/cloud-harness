@@ -10,6 +10,7 @@ from cloudharness.auth.exceptions import InvalidToken
 from cloudharness_django.services import get_user_service, get_auth_service
 from cloudharness import log
 
+
 def _get_user():
     bearer = get_authentication_token()
     if bearer:
@@ -31,12 +32,12 @@ def _get_user():
         except Exception as e:
             log.exception("User mapping error, %s", payload["email"])
             return None
-        
+
     return None
 
 
 class BearerTokenMiddleware:
-    def __init__(self, get_response = None):
+    def __init__(self, get_response=None):
         # One-time configuration and initialization.
         self.get_response = get_response
 

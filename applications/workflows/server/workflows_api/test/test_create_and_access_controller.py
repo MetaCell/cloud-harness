@@ -20,7 +20,7 @@ class TestCreateAndAccessController(BaseTestCase):
 
         deletes operation by name
         """
-        headers = { 
+        headers = {
         }
         response = self.client.open(
             '/operations/{name}'.format(name='name_example'),
@@ -34,7 +34,7 @@ class TestCreateAndAccessController(BaseTestCase):
 
         get operation by name
         """
-        headers = { 
+        headers = {
             'Accept': 'application/json',
         }
         response = self.client.open(
@@ -52,7 +52,7 @@ class TestCreateAndAccessController(BaseTestCase):
         query_string = [('status', QUEUED),
                         ('previous_search_token', 'previous_search_token_example'),
                         ('limit', 10)]
-        headers = { 
+        headers = {
             'Accept': 'application/json',
         }
         response = self.client.open(
@@ -68,7 +68,7 @@ class TestCreateAndAccessController(BaseTestCase):
 
         get operation by name
         """
-        headers = { 
+        headers = {
             'Accept': 'text/plain',
         }
         response = self.client.open(

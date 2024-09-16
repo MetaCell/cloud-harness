@@ -34,4 +34,3 @@ setup(
     notifications
     """
 )
-

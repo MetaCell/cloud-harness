@@ -43,6 +43,7 @@ class NotificationHandler:
                         }
                     )
 
+
 class NotificationsController:
     _notification_handlers = []
 
@@ -52,7 +53,7 @@ class NotificationsController:
 
     @staticmethod
     def handler(app, event_client, message):
-        log.debug("Handler received message: %s",message)
+        log.debug("Handler received message: %s", message)
         for nh in [nh for nh in NotificationsController._notification_handlers if nh.message_type == message.get("message_type")]:
             nh.handle_event(CDCEvent.from_dict(message))
 
@@ -64,8 +65,8 @@ class NotificationsController:
                     log.info(f"Init handler for event {notification_app['app']}.{notification_type['name']} type {event_type}")
                     nss = NotificationHandler(
                         event_type,
-                        notification_app["app"], 
-                        notification_type["name"], 
+                        notification_app["app"],
+                        notification_type["name"],
                         notification_type["events"])
                     if not nss.topic_id in (handler.topic_id for handler in NotificationsController._notification_handlers):
                         self._consume_topic(nss.topic_id)

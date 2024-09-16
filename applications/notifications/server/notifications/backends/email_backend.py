@@ -22,7 +22,6 @@ class NotificationEmailBackend(NotificationBaseBackend):
         self.subject = subject
         self.message = message
 
-
     def send(self):
         logger.info(f"Sending notification email to {self.email_to}")
         msg = EmailMessage()
@@ -35,7 +34,7 @@ class NotificationEmailBackend(NotificationBaseBackend):
         email_pass = get_secret_or_empty('email-password')
         email_host = conf.get_configuration()["smtp"]["host"]
         email_port = conf.get_configuration()["smtp"]["port"]
-        email_tls  = conf.get_configuration()["smtp"].get("use_tls")
+        email_tls = conf.get_configuration()["smtp"].get("use_tls")
 
         smtp = smtplib.SMTP(email_host, email_port)
         if email_user or email_pass:

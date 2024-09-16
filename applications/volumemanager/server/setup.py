@@ -36,4 +36,3 @@ setup(
     CloudHarness Volumes manager API
     """
 )
-

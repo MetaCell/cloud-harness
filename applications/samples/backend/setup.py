@@ -37,4 +37,3 @@ setup(
     CloudHarness Sample api
     """
 )
-

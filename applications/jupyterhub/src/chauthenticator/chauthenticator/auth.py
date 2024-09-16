@@ -13,11 +13,13 @@ handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.DEBUG)
 logging.getLogger().addHandler(handler)
 
+
 class CloudHarnessAuthenticateHandler(BaseHandler):
     """
     Handler for /chkclogin
     Creates a new user based on the keycloak user, and auto starts their server
     """
+
     def initialize(self, force_new_server, process_user):
         super().initialize()
         self.force_new_server = force_new_server
@@ -28,23 +30,23 @@ class CloudHarnessAuthenticateHandler(BaseHandler):
         self.clear_login_cookie()
 
         try:
-                
-                accessToken = self.request.cookies.get(
-                    'kc-access', None) or self.request.cookies.get('accessToken', None)
-                print("Token", accessToken)
-                if accessToken == '-1' or not accessToken:
-                    self.redirect('/hub/logout')
 
-                accessToken = accessToken.value
-                user_data = AuthClient.decode_token(accessToken)
-                username = user_data['sub']
-                print("Username", username, "-",user_data['preferred_username'])
-                raw_user = self.user_from_username(username)
-                print("JH user: ", raw_user.__dict__)
-                self.set_login_cookie(raw_user)
+            accessToken = self.request.cookies.get(
+                'kc-access', None) or self.request.cookies.get('accessToken', None)
+            print("Token", accessToken)
+            if accessToken == '-1' or not accessToken:
+                self.redirect('/hub/logout')
+
+            accessToken = accessToken.value
+            user_data = AuthClient.decode_token(accessToken)
+            username = user_data['sub']
+            print("Username", username, "-", user_data['preferred_username'])
+            raw_user = self.user_from_username(username)
+            print("JH user: ", raw_user.__dict__)
+            self.set_login_cookie(raw_user)
         except Exception as e:
-                logging.error("Error getting user from session", exc_info=True)
-                raise
+            logging.error("Error getting user from session", exc_info=True)
+            raise
 
         user = yield gen.maybe_future(self.process_user(raw_user, self))
         self.redirect(self.get_next_url(user))

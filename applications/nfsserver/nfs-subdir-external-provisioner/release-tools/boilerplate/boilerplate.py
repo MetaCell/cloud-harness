@@ -50,6 +50,7 @@ args = parser.parse_args()
 
 verbose_out = sys.stderr if args.verbose else open("/dev/null", "w")
 
+
 def get_refs():
     refs = {}
 
@@ -62,6 +63,7 @@ def get_refs():
         refs[extension] = ref
 
     return refs
+
 
 def file_passes(filename, refs, regexs):
     try:
@@ -127,12 +129,15 @@ def file_passes(filename, refs, regexs):
 
     return True
 
+
 def file_extension(filename):
     return os.path.splitext(filename)[1].split(".")[-1].lower()
+
 
 skipped_dirs = ['Godeps', 'third_party', '_gopath', '_output', '.git',
                 'cluster/env.sh', 'vendor', 'test/e2e/generated/bindata.go',
                 'repo-infra/verify/boilerplate/test', '.glide']
+
 
 def normalize_files(files):
     newfiles = []
@@ -141,6 +146,7 @@ def normalize_files(files):
             continue
         newfiles.append(pathname)
     return newfiles
+
 
 def get_files(extensions):
     files = []
@@ -170,19 +176,19 @@ def get_files(extensions):
             outfiles.append(pathname)
     return outfiles
 
+
 def get_regexs():
     regexs = {}
     # Search for "YEAR" which exists in the boilerplate, but shouldn't in the real thing
-    regexs["year"] = re.compile( 'YEAR' )
+    regexs["year"] = re.compile('YEAR')
     # dates can be 2014, 2015, 2016, ..., CURRENT_YEAR, company holder names can be anything
     years = range(2014, date.today().year + 1)
-    regexs["date"] = re.compile( '(%s)' % "|".join(map(lambda l: str(l), years)) )
+    regexs["date"] = re.compile('(%s)' % "|".join(map(lambda l: str(l), years)))
     # strip // +build \n\n build constraints
     regexs["go_build_constraints"] = re.compile(r"^(// \+build.*\n)+\n", re.MULTILINE)
     # strip #!.* from shell scripts
     regexs["shebang"] = re.compile(r"^(#!.*\n)\n*", re.MULTILINE)
     return regexs
-
 
 
 def main():
@@ -195,6 +201,7 @@ def main():
             print(filename, file=sys.stdout)
 
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

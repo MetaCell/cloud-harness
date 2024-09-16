@@ -148,15 +148,14 @@ def test_collect_helm_values_precedence():
     assert values[KEY_APPS]['events']['kafka']['resources']['limits']['memory'] == 'overridden'
     assert values[KEY_APPS]['events']['kafka']['resources']['limits']['cpu'] == 'overridden-prod'
 
+
 def test_collect_helm_values_multiple_envs():
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
                                namespace='test', env=['dev', 'test'], local=False, tag=1, include=["myapp"])
 
-
     assert values[KEY_APPS]['myapp']['test'] == True, 'values-test not loaded'
     assert values[KEY_APPS]['myapp']['dev'] == True, 'values-dev not loaded'
     assert values[KEY_APPS]['myapp']['a'] == 'test', 'values-test not overriding'
-
 
 
 def test_collect_helm_values_wrong_dependencies_validate():
@@ -209,20 +208,20 @@ def test_collect_helm_values_build_dependencies():
     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES], "Cloudharness-base-debian is not included in any dependency"
     assert 'cloudharness-frontend-build' not in values[KEY_TASK_IMAGES], "cloudharness-frontend-build is not included in any dependency"
 
+
 def test_collect_helm_values_build_dependencies_nodeps():
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
                                namespace='test', env='prod', local=False, tag=1, include=["events"])
-
 
     assert 'cloudharness-flask' not in values[KEY_TASK_IMAGES], "Cloudharness-flask is not included in the build dependencies"
     assert 'cloudharness-base' not in values[KEY_TASK_IMAGES], "Cloudharness-base is not included in the build dependencies"
     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES], "Cloudharness-base-debian is not included in any dependency"
     assert 'cloudharness-frontend-build' not in values[KEY_TASK_IMAGES], "cloudharness-frontend-build is not included in any dependency"
 
+
 def test_collect_helm_values_build_dependencies_exclude():
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, domain="my.local",
                                namespace='test', env='prod', local=False, tag=1, include=["workflows"], exclude=["workflows-extract-download"])
-
 
     assert 'cloudharness-flask' in values[KEY_TASK_IMAGES], "Cloudharness-flask is included in the build dependencies"
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES], "Cloudharness-base is included in cloudharness-flask Dockerfile and it should be guessed"
@@ -274,6 +273,7 @@ def test_clear_all_dbconfig_if_nodb():
     db_config = values[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DATABASE]
     assert db_config is None
 
+
 def test_tag_hash_generation():
     v1 = generate_tag_from_content(RESOURCES)
     v2 = generate_tag_from_content(RESOURCES, ignore=['myapp'])
@@ -297,18 +297,19 @@ def test_tag_hash_generation():
     finally:
         os.remove(fname)
 
+
 def test_collect_helm_values_auto_tag():
     def create():
         return create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=OUT, include=['samples', 'myapp'],
-                               exclude=['events'], domain="my.local",
-                               namespace='test', env='dev', local=False, tag=None, registry='reg')
-    
+                                 exclude=['events'], domain="my.local",
+                                 namespace='test', env='dev', local=False, tag=None, registry='reg')
+
     BASE_KEY = "cloudharness-base"
     values = create()
 
     # Auto values are set by using the directory hash
     assert 'reg/cloudharness/myapp:' in values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image']
-    assert 'reg/cloudharness/myapp:' in values.apps['myapp'].harness.deployment.image 
+    assert 'reg/cloudharness/myapp:' in values.apps['myapp'].harness.deployment.image
     assert 'cloudharness/myapp-mytask' in values[KEY_TASK_IMAGES]['myapp-mytask']
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == values.apps['myapp'].harness.deployment.image
     v1 = values.apps['myapp'].harness.deployment.image
@@ -320,7 +321,6 @@ def test_collect_helm_values_auto_tag():
     assert v1 == values.apps['myapp'].harness.deployment.image, "Nothing changed the hash value"
     assert values["task-images"][BASE_KEY] == b1, "Base image should not change following the root .dockerignore"
 
-        
     try:
         fname = os.path.join(RESOURCES, 'applications', 'myapp', 'afile.txt')
         with open(fname, 'w') as f:
@@ -333,7 +333,6 @@ def test_collect_helm_values_auto_tag():
     finally:
         os.remove(fname)
 
-
     try:
         with open(fname, 'w') as f:
             f.write('a')
@@ -342,7 +341,6 @@ def test_collect_helm_values_auto_tag():
         assert v2 == values.apps['myapp'].harness.deployment.image, "Recreated an identical file, the hash value should be the same"
     finally:
         os.remove(fname)
-
 
     fname = os.path.join(RESOURCES, 'applications', 'myapp', 'afile.ignored')
     try:
@@ -355,8 +353,6 @@ def test_collect_helm_values_auto_tag():
         assert v1 == values.apps['myapp'].harness.deployment.image, "Nothing should change the hash value as the file is ignored in the .dockerignore"
     finally:
         os.remove(fname)
-    
-
 
     # Dependencies test: if a dependency is changed, the hash should change
     fname = os.path.join(RESOURCES, 'infrastructure/common-images', 'my-common', 'afile')
@@ -366,12 +362,11 @@ def test_collect_helm_values_auto_tag():
             f.write('a')
 
         values = create()
-        
+
         assert c1 != values["task-images"]["my-common"], "If content of a static image is changed, the hash should change"
         assert v1 != values.apps['myapp'].harness.deployment.image, "If a static image dependency is changed, the hash should change"
     finally:
         os.remove(fname)
-
 
     fname = os.path.join(CLOUDHARNESS_ROOT, 'atestfile')
     try:
@@ -379,12 +374,9 @@ def test_collect_helm_values_auto_tag():
             f.write('a')
 
         values = create()
-        
+
         assert b1 != values["task-images"][BASE_KEY], "Content for base image is changed, the hash should change"
         assert d1 != values["task-images"]["cloudharness-flask"], "Content for base image is changed, the static image should change"
         assert v1 != values.apps['myapp'].harness.deployment.image, "2 levels dependency: If a base image dependency is changed, the hash should change"
     finally:
         os.remove(fname)
-
-
-

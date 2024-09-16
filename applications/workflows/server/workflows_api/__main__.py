@@ -6,5 +6,3 @@ app = init_flask()
 
 if __name__ == '__main__':
     main()
-
-

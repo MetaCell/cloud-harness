@@ -116,7 +116,7 @@ def change_pod_manifest(self: KubeSpawner):
     quota_ws_open = user_quotas.get("quota-ws-open")
 
     # Default value, might be overwritten by the app config
-    self.storage_pvc_ensure =  bool(self.pvc_name) 
+    self.storage_pvc_ensure = bool(self.pvc_name)
 
     if quota_ws_open:
         # get user number of pods running
@@ -124,11 +124,11 @@ def change_pod_manifest(self: KubeSpawner):
         num_of_pods = len([s for s in servers if s.active])
         if num_of_pods > int(quota_ws_open):
             raise PodSpawnException(
-                                "You reached your quota of {} concurrent servers."
-                                "  One must be deleted before a new server can be started".format(
-                                    quota_ws_open
-                                ),
-                            )
+                "You reached your quota of {} concurrent servers."
+                "  One must be deleted before a new server can be started".format(
+                    quota_ws_open
+                ),
+            )
     try:
         subdomain = self.handler.request.host.split(
             str(self.config['domain']))[0][0:-1]
@@ -263,13 +263,12 @@ def change_pod_manifest(self: KubeSpawner):
         from pprint import pprint
         pprint(self.storage_class)
 
-
         # If there's a timeout, just let it propagate
         asyncio.ensure_future(exponential_backoff(
-                partial(
-                    self._make_create_pvc_request, pvc, self.k8s_api_request_timeout
-                ),
-                f'Could not create PVC {self.pvc_name}',
-                # Each req should be given k8s_api_request_timeout seconds.
-                timeout=self.k8s_api_request_retry_timeout,
-            ))
+            partial(
+                self._make_create_pvc_request, pvc, self.k8s_api_request_timeout
+            ),
+            f'Could not create PVC {self.pvc_name}',
+            # Each req should be given k8s_api_request_timeout seconds.
+            timeout=self.k8s_api_request_retry_timeout,
+        ))
