@@ -33,4 +33,7 @@ COPY libraries/client/cloudharness_cli /libraries/client/cloudharness_cli
 RUN pip install -e /libraries/cloudharness-common
 RUN pip install -e /libraries/client/cloudharness_cli
 
+ARG $DEBUG
+RUN if [[ -z "$DEBUG" ]] ; pip install debugpy --prefer-binary ; else echo "Debug not supported" ; fi
+
 WORKDIR /
