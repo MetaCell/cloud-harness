@@ -131,7 +131,7 @@ from cloudharness_django.settings import *  # noqa E402
 # add the local apps
 INSTALLED_APPS += [
     "__APP_NAME__",
-    "ch_django"
+    "django_baseapp"
 ]
 
 # override django admin base template with a local template
