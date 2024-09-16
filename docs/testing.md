@@ -83,11 +83,11 @@ harness:
       - "--hypothesis-deadline=60000"
       - "--request-timeout=60000"
       - "--hypothesis-max-examples=2"
-      - "--show-errors-tracebacks"
+      - "--show-trace"
 ```
 
-See [the model documentation](model/ApiTestsConfig.md) for more insights about parameters.
-
+See [the model documentation](model/ApiTestsConfig.md) for more insights about test parameters.
+See the [Schemathesis documentation](https://schemathesis.readthedocs.io/en/stable/cli.html#basic-usage) for more information about command line parameters (runParams).
 
 ### Write API tests
 
