@@ -1,8 +1,8 @@
-from cloudharness.infrastructure import k8s
 from .test_env import set_test_environment
 
 set_test_environment()
 
+from cloudharness.infrastructure import k8s  # noqa: E402
 
 kubectl_enabled = False
 

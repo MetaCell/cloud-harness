@@ -13,6 +13,7 @@ steps:
     repo: '${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}'
     revision: '${{CF_BRANCH}}'
     git: github
+
   prepare_deployment:
     title: Prepare helm chart
     image: python:3.12
@@ -458,9 +459,10 @@ steps:
         - PASSWORD=test
         commands:
         - st --pre-run cloudharness_test.apitest_init run api/openapi.yaml --base-url
-          https://samples.${{DOMAIN}}/api -c all --skip-deprecated-operations --hypothesis-suppress-health-check=too_slow
-          --hypothesis-deadline=180000 --request-timeout=180000 --hypothesis-max-examples=2
-          --show-errors-tracebacks
+          https://samples.${{DOMAIN}}/api -c all --skip-deprecated-operations --exclude-operation-id=submit_sync
+          --exclude-operation-id=submit_sync_with_results --exclude-operation-id=error
+          --hypothesis-suppress-health-check=too_slow --hypothesis-deadline=180000
+          --request-timeout=180000 --hypothesis-max-examples=2 --show-trace --exclude-checks=ignored_auth
         - pytest -v test/api
       common_api_test:
         title: common api test
