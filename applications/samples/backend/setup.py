@@ -14,10 +14,13 @@ VERSION = "2.3.0"
 # http://pypi.python.org/pypi/setuptools
 
 REQUIRES = [
-    "connexion>=2.0.2",
+    "connexion[swagger-ui]==2.14.2",
+    "Flask >= 2.2.5",
     "python_dateutil>=2.6.0",
     "pyjwt>=2.6.0",
-    "cloudharness"
+    "swagger-ui-bundle>=0.0.2",
+    "cloudharness",
+
 ]
 
 setup(
