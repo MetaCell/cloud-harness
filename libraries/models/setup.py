@@ -16,8 +16,7 @@ REQUIREMENTS = [
     "pyhumps >= 3.8.0",
     "python-dateutil >= 2.8.2",
     "PyYAML >= 6.0.1",
-    "six >= 1.16.0",
-    "swagger_ui_bundle >= 1.1.0",
+    "six >= 1.16.0"
 ]
 print(REQUIREMENTS)
 setup(name=NAME, version=VERSION,
