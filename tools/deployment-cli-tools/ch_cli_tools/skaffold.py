@@ -231,7 +231,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
     skaffold_conf['build']['artifacts'] = [v for v in artifacts.values()]
 
-    with open('skaffold.yaml', "w") as f:
+    with open(os.path.join(output_path, 'skaffold.yaml'), "w") as f:
         yaml.dump(skaffold_conf, f)
     return skaffold_conf
 

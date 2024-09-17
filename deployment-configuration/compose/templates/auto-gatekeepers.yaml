@@ -23,9 +23,9 @@
   environment:
     - PROXY_CONFIG_FILE=/opt/proxy.yml
   volumes:
-    - ./compose/resources/generated/{{ $gk_name }}/proxy.yml:/opt/proxy.yml
-    - ./compose/resources/generated/{{ $gk_name }}/cacert.crt:/etc/pki/ca-trust/source/anchors/cacert.crt
-    - ./compose/resources/generated/{{ $gk_name }}/access-denied.html.tmpl:/templates/access-denied.html.tmpl
+    - ./deployment/compose/resources/generated/{{ $gk_name }}/proxy.yml:/opt/proxy.yml
+    - ./deployment/compose/resources/generated/{{ $gk_name }}/cacert.crt:/etc/pki/ca-trust/source/anchors/cacert.crt
+    - ./deployment/compose/resources/generated/{{ $gk_name }}/access-denied.html.tmpl:/templates/access-denied.html.tmpl
   labels:
     - "traefik.enable=true"
     - "traefik.http.services.{{ $gk_name }}.loadbalancer.server.port={{ .app.harness.service.port }}"

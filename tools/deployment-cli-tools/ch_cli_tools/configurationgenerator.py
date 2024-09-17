@@ -1,7 +1,7 @@
 """
 Utilities to create a helm chart from a CloudHarness directory structure
 """
-from typing import Union
+from typing import List, Union
 import yaml
 import os
 import shutil
@@ -10,7 +10,7 @@ from hashlib import sha1
 import tarfile
 from docker import from_env as DockerClient
 from pathlib import Path
-
+import abc
 
 from . import HERE, CH_ROOT
 from cloudharness_utils.constants import TEST_IMAGES_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, \
@@ -32,10 +32,11 @@ KEY_TEST_IMAGES = 'test-images'
 DEFAULT_IGNORE = ('/tasks', '.dockerignore', '.hypothesis', "__pycache__", '.node_modules', 'dist', 'build', '.coverage')
 
 
-class ConfigurationGenerator(object):
-    def __init__(self, root_paths, tag: Union[str, int, None] = 'latest', registry='', local=True, domain=None, exclude=(), secured=True,
-                 output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
-                 namespace=None, templates_path=HELM_PATH):
+class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
+
+    def __init__(self, root_paths: List[str], tag: Union[str, int, None] = 'latest', registry='', local=True, domain=None, exclude=(), secured=True,
+                 output_path='./deployment', include: List[str] = None, registry_secret: str = None, tls: str = True, env: str = None,
+                 namespace: str = None, templates_path: str = HELM_PATH):
         assert domain, 'A domain must be specified'
         self.root_paths = [Path(r) for r in root_paths]
         self.tag = tag
@@ -62,6 +63,10 @@ class ConfigurationGenerator(object):
         self.static_images = set()
         self.base_images = {}
         self.all_images = {}
+
+    @abc.abstractmethod
+    def create_app_values_spec(self, app_name, app_path, base_image_name=None, helm_values={}):
+        ...
 
     def __init_deployment(self):
         """
@@ -94,11 +99,11 @@ class ConfigurationGenerator(object):
 
             app_base_path = root_path / APPS_PATH
             app_values = self.collect_app_values(
-                app_base_path, base_image_name=base_image_name)
+                app_base_path, base_image_name=base_image_name, helm_values=helm_values)
             helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
                                                app_values)
 
-    def collect_app_values(self, app_base_path, base_image_name=None):
+    def collect_app_values(self, app_base_path, base_image_name=None, helm_values=None):
         values = {}
 
         for app_path in app_base_path.glob("*/"):  # We get the sub-files that are directories
@@ -108,7 +113,7 @@ class ConfigurationGenerator(object):
                 continue
             app_key = app_name.replace('-', '_')
 
-            app_values = self.create_app_values_spec(app_name, app_path, base_image_name=base_image_name)
+            app_values = self.create_app_values_spec(app_name, app_path, base_image_name=base_image_name, helm_values=helm_values)
 
             # dockerfile_path = next(app_path.rglob('**/Dockerfile'), None)
             # # for dockerfile_path in app_path.rglob('**/Dockerfile'):

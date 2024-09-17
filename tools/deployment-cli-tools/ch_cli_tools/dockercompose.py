@@ -84,7 +84,7 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
 
     def generate_docker_compose_yaml(self):
         compose_templates = self.dest_deployment_path
-        dest_compose_yaml = self.dest_deployment_path.parent / "docker-compose.yaml"
+        dest_compose_yaml = self.dest_deployment_path.parent.parent / "docker-compose.yaml"
 
         logging.info(f'Generate docker compose configuration in: {dest_compose_yaml}, using templates from {compose_templates}')
         command = f"helm template {compose_templates} > {dest_compose_yaml}"
@@ -204,7 +204,7 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
         create_env_variables(values)
         return values, self.include
 
-    def create_app_values_spec(self, app_name, app_path, base_image_name=None):
+    def create_app_values_spec(self, app_name, app_path, base_image_name=None, helm_values={}):
         logging.info('Generating values script for ' + app_name)
 
         deploy_path = app_path / 'deploy'
@@ -231,9 +231,10 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
         image_paths = [path for path in find_dockerfiles_paths(
             app_path) if 'tasks/' not in path and 'subapps' not in path]
 
-        # Inject entry points commands
-        for image_path in image_paths:
-            self.inject_entry_points_commands(values, image_path, app_path)
+        # Inject entry points commands to enable debug
+        if helm_values.get("debug", False):
+            for image_path in image_paths:
+                self.inject_entry_points_commands(values, image_path, app_path)
 
         if len(image_paths) > 1:
             logging.warning('Multiple Dockerfiles found in application %s. Picking the first one: %s', app_name,

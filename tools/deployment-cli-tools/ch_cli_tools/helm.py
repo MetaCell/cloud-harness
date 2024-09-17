@@ -155,7 +155,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
         create_env_variables(values)
         return values, self.include
 
-    def create_app_values_spec(self, app_name, app_path, base_image_name=None):
+    def create_app_values_spec(self, app_name, app_path, base_image_name=None, helm_values={}):
         logging.info('Generating values script for ' + app_name)
 
         specific_template_path = os.path.join(app_path, 'deploy', 'values.yaml')

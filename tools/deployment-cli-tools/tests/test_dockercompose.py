@@ -67,7 +67,7 @@ def test_collect_compose_values(tmp_path):
     compose_path = out_folder / COMPOSE_PATH
 
     # Check files
-    assert exists(out_folder / 'docker-compose.yaml')
+    assert exists(out_folder.parent / 'docker-compose.yaml')
     assert exists(compose_path)
     assert exists(compose_path / 'values.yaml')
     assert exists(compose_path / 'allvalues.yaml')
@@ -136,7 +136,7 @@ def test_collect_compose_values_noreg_noinclude(tmp_path):
     compose_path = out_path / COMPOSE_PATH
 
     # Check files
-    assert exists(out_path / 'docker-compose.yaml')
+    assert exists(out_path.parent / 'docker-compose.yaml')
     assert exists(compose_path)
     assert exists(compose_path / 'values.yaml')
     assert exists(compose_path / 'allvalues.yaml')
