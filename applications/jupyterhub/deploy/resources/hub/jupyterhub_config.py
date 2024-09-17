@@ -25,13 +25,14 @@ except Exception as e:
 configuration_directory = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, configuration_directory)
 
-from z2jh import ( # noqa
+from z2jh import (  # noqa
     get_config,
     get_name,
     get_name_env,
     get_secret_value,
     set_config_if_not_none,
 )
+
 
 def camelCaseify(s):
     """convert snake_case to camelCase
