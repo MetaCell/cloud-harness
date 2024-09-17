@@ -11,7 +11,7 @@ import yaml.representer
 from cloudharness_utils.testing.util import get_app_environment
 from .models import HarnessMainConfig, ApplicationTestConfig, ApplicationHarnessConfig
 from cloudharness_utils.constants import *
-from .helm import KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES, generate_tag_from_content
+from .configurationgenerator import KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES
 from .utils import check_docker_manifest_exists, find_dockerfiles_paths, get_app_relative_to_base_path, guess_build_dependencies_from_dockerfile, \
     get_image_name, get_template, dict_merge, app_name_from_path, clean_path
 from cloudharness_utils.testing.api import get_api_filename, get_schemathesis_command, get_urls_from_api_file
@@ -265,8 +265,8 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 codefresh_steps_from_base_path(join(root_path, STATIC_IMAGES_PATH), CD_BUILD_STEP_STATIC,
                                                include=helm_values[KEY_TASK_IMAGES].keys())
 
-            codefresh_steps_from_base_path(join(
-                root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
+                codefresh_steps_from_base_path(join(
+                    root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
 
             if CD_E2E_TEST_STEP in steps:
                 name = "test-e2e"

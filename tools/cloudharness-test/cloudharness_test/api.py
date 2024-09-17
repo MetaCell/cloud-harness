@@ -42,7 +42,7 @@ def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, inclu
         api_filename = get_api_filename(app_dir)
 
         if not app_config.domain and not app_config.subdomain:
-            logging.warn(
+            logging.warning(
                 "Application %s has a api specification but no subdomain/domain is specified", appname)
             continue
 
@@ -65,7 +65,7 @@ def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, inclu
             for path in root_paths:
                 # use local schema if available to simplify test development
                 if os.path.exists(os.path.join(path, schema_file)):
-                    app_env["APP_SCHEMA_FILE"] = schema_file
+                    app_env["APP_SCHEMA_FILE"] = os.path.abspath(schema_file)
 
             if api_config.autotest:
                 logging.info("Running auto api tests")

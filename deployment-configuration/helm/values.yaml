@@ -21,10 +21,7 @@ apps: {}
 env:
   # -- Cloud Harness version
   - name: CH_VERSION
-    value: 0.0.1
-  # -- Cloud harness chart version
-  - name: CH_CHART_VERSION
-    value: 0.0.1
+    value: 2.4.0
 privenv:
   # -- Defines a secret as private environment variable that is injected in containers.
   - name: CH_SECRET
@@ -38,7 +35,7 @@ ingress:
   ssl_redirect: true
   letsencrypt:
     # -- Email for letsencrypt.
-    email: filippo@metacell.us
+    email: cloudharness@metacell.us
 backup:
   # -- Flag to enable/disable backups.
   active: false

@@ -12,7 +12,7 @@
  * Do not edit the class manually.
  */
 
-import { exists, mapValues } from '../runtime';
+import { mapValues } from '../runtime';
 /**
  * 
  * @export
@@ -42,11 +42,9 @@ export interface SampleResource {
 /**
  * Check if a given object implements the SampleResource interface.
  */
-export function instanceOfSampleResource(value: object): boolean {
-    let isInstance = true;
-    isInstance = isInstance && "a" in value;
-
-    return isInstance;
+export function instanceOfSampleResource(value: object): value is SampleResource {
+    if (!('a' in value) || value['a'] === undefined) return false;
+    return true;
 }
 
 export function SampleResourceFromJSON(json: any): SampleResource {
@@ -54,29 +52,26 @@ export function SampleResourceFromJSON(json: any): SampleResource {
 }
 
 export function SampleResourceFromJSONTyped(json: any, ignoreDiscriminator: boolean): SampleResource {
-    if ((json === undefined) || (json === null)) {
+    if (json == null) {
         return json;
     }
     return {
         
         'a': json['a'],
-        'b': !exists(json, 'b') ? undefined : json['b'],
-        'id': !exists(json, 'id') ? undefined : json['id'],
+        'b': json['b'] == null ? undefined : json['b'],
+        'id': json['id'] == null ? undefined : json['id'],
     };
 }
 
 export function SampleResourceToJSON(value?: SampleResource | null): any {
-    if (value === undefined) {
-        return undefined;
-    }
-    if (value === null) {
-        return null;
+    if (value == null) {
+        return value;
     }
     return {
         
-        'a': value.a,
-        'b': value.b,
-        'id': value.id,
+        'a': value['a'],
+        'b': value['b'],
+        'id': value['id'],
     };
 }
 

@@ -73,11 +73,9 @@ def generate_python_client(module, openapi_file, client_src_path, lib_name=LIB_N
     get_dependencies()
 
     module = to_python_module(module)
-    command = f"java -jar {CODEGEN} generate " \
-        f"-i {openapi_file} " \
-        f"-g python " \
-        f"-o {client_src_path}/tmp-{module} " \
-        f"packageName={lib_name}.{module}"
+    command = f"java -jar {CODEGEN} generate -i {openapi_file} -g python" \
+        f" -o {client_src_path}/tmp-{module} " \
+        f"--additional-properties packageName={lib_name}.{module}"
     os.system(command)
 
 

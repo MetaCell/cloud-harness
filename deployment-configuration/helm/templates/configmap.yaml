@@ -1,13 +1,5 @@
 {{- /*
-to replace the secrets values we create a dict with the structure:
-  app:
-    <app>:
-      harness:
-        secrets:
-
-thus with an empty secrets node
-and then it's mergeOverwrite the copy of the .Values we created
-resulting in a copy of the .Values with all secrets being ""
+We replace the secrets with empty values in the configmap
 */ -}}
 kind: ConfigMap
 apiVersion: v1
@@ -19,7 +11,7 @@ data:
   allvalues.yaml: |
 {{- $values_copy := deepCopy .Values }}
 {{- range $key, $val := .Values.apps }}
-  {{- $new_secrets := dict "apps" (dict $key (dict "harness" (dict "secrets"))) }}
-  {{- $tmp := mergeOverwrite $values_copy $new_secrets }}
+  {{- $app := get $values_copy.apps $key }}
+  {{- $tmp := set $app.harness "secrets" dict }}
 {{- end }}
 {{ $values_copy | toYaml | indent 4 }}

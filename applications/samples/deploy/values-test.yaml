@@ -3,9 +3,7 @@ harness:
     soft:
       - workflows
       - events
-      - accounts 
       - common
-      - nfsserver
       - jupyterhub
   accounts:
     roles:

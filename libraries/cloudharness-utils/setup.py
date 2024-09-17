@@ -22,9 +22,7 @@ VERSION = "2.3.0"
 REQUIREMENTS = [
     'ruamel.yaml',
     'cloudharness_model',
-    'docker',
-    'pyaml',
-    'cloudharness_model'
+    'docker'
 ]
 
 

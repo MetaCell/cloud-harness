@@ -49,8 +49,11 @@ export class ResourceApi extends runtime.BaseAPI {
      * Create a SampleResource
      */
     async createSampleResourceRaw(requestParameters: CreateSampleResourceRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
-        if (requestParameters.sampleResource === null || requestParameters.sampleResource === undefined) {
-            throw new runtime.RequiredError('sampleResource','Required parameter requestParameters.sampleResource was null or undefined when calling createSampleResource.');
+        if (requestParameters['sampleResource'] == null) {
+            throw new runtime.RequiredError(
+                'sampleResource',
+                'Required parameter "sampleResource" was null or undefined when calling createSampleResource().'
+            );
         }
 
         const queryParameters: any = {};
@@ -64,7 +67,7 @@ export class ResourceApi extends runtime.BaseAPI {
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
-            body: SampleResourceToJSON(requestParameters.sampleResource),
+            body: SampleResourceToJSON(requestParameters['sampleResource']),
         }, initOverrides);
 
         return new runtime.VoidApiResponse(response);
@@ -83,8 +86,11 @@ export class ResourceApi extends runtime.BaseAPI {
      * Delete a SampleResource
      */
     async deleteSampleResourceRaw(requestParameters: DeleteSampleResourceRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
-        if (requestParameters.sampleresourceId === null || requestParameters.sampleresourceId === undefined) {
-            throw new runtime.RequiredError('sampleresourceId','Required parameter requestParameters.sampleresourceId was null or undefined when calling deleteSampleResource.');
+        if (requestParameters['sampleresourceId'] == null) {
+            throw new runtime.RequiredError(
+                'sampleresourceId',
+                'Required parameter "sampleresourceId" was null or undefined when calling deleteSampleResource().'
+            );
         }
 
         const queryParameters: any = {};
@@ -92,7 +98,7 @@ export class ResourceApi extends runtime.BaseAPI {
         const headerParameters: runtime.HTTPHeaders = {};
 
         const response = await this.request({
-            path: `/sampleresources/{sampleresourceId}`.replace(`{${"sampleresourceId"}}`, encodeURIComponent(String(requestParameters.sampleresourceId))),
+            path: `/sampleresources/{sampleresourceId}`.replace(`{${"sampleresourceId"}}`, encodeURIComponent(String(requestParameters['sampleresourceId']))),
             method: 'DELETE',
             headers: headerParameters,
             query: queryParameters,
@@ -114,8 +120,11 @@ export class ResourceApi extends runtime.BaseAPI {
      * Get a SampleResource
      */
     async getSampleResourceRaw(requestParameters: GetSampleResourceRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<SampleResource>> {
-        if (requestParameters.sampleresourceId === null || requestParameters.sampleresourceId === undefined) {
-            throw new runtime.RequiredError('sampleresourceId','Required parameter requestParameters.sampleresourceId was null or undefined when calling getSampleResource.');
+        if (requestParameters['sampleresourceId'] == null) {
+            throw new runtime.RequiredError(
+                'sampleresourceId',
+                'Required parameter "sampleresourceId" was null or undefined when calling getSampleResource().'
+            );
         }
 
         const queryParameters: any = {};
@@ -123,7 +132,7 @@ export class ResourceApi extends runtime.BaseAPI {
         const headerParameters: runtime.HTTPHeaders = {};
 
         const response = await this.request({
-            path: `/sampleresources/{sampleresourceId}`.replace(`{${"sampleresourceId"}}`, encodeURIComponent(String(requestParameters.sampleresourceId))),
+            path: `/sampleresources/{sampleresourceId}`.replace(`{${"sampleresourceId"}}`, encodeURIComponent(String(requestParameters['sampleresourceId']))),
             method: 'GET',
             headers: headerParameters,
             query: queryParameters,
@@ -174,12 +183,18 @@ export class ResourceApi extends runtime.BaseAPI {
      * Update a SampleResource
      */
     async updateSampleResourceRaw(requestParameters: UpdateSampleResourceRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
-        if (requestParameters.sampleresourceId === null || requestParameters.sampleresourceId === undefined) {
-            throw new runtime.RequiredError('sampleresourceId','Required parameter requestParameters.sampleresourceId was null or undefined when calling updateSampleResource.');
+        if (requestParameters['sampleresourceId'] == null) {
+            throw new runtime.RequiredError(
+                'sampleresourceId',
+                'Required parameter "sampleresourceId" was null or undefined when calling updateSampleResource().'
+            );
         }
 
-        if (requestParameters.sampleResource === null || requestParameters.sampleResource === undefined) {
-            throw new runtime.RequiredError('sampleResource','Required parameter requestParameters.sampleResource was null or undefined when calling updateSampleResource.');
+        if (requestParameters['sampleResource'] == null) {
+            throw new runtime.RequiredError(
+                'sampleResource',
+                'Required parameter "sampleResource" was null or undefined when calling updateSampleResource().'
+            );
         }
 
         const queryParameters: any = {};
@@ -189,11 +204,11 @@ export class ResourceApi extends runtime.BaseAPI {
         headerParameters['Content-Type'] = 'application/json';
 
         const response = await this.request({
-            path: `/sampleresources/{sampleresourceId}`.replace(`{${"sampleresourceId"}}`, encodeURIComponent(String(requestParameters.sampleresourceId))),
+            path: `/sampleresources/{sampleresourceId}`.replace(`{${"sampleresourceId"}}`, encodeURIComponent(String(requestParameters['sampleresourceId']))),
             method: 'PUT',
             headers: headerParameters,
             query: queryParameters,
-            body: SampleResourceToJSON(requestParameters.sampleResource),
+            body: SampleResourceToJSON(requestParameters['sampleResource']),
         }, initOverrides);
 
         return new runtime.VoidApiResponse(response);

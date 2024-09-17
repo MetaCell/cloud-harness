@@ -2,7 +2,6 @@
 
 import sys
 import os
-import shutil
 import re
 import tempfile
 import subprocess
@@ -27,8 +26,8 @@ if __name__ == "__main__":
     parser.add_argument('name', metavar='name', type=str,
                         help='Application name')
     parser.add_argument('-t', '--template', dest='templates', action="append", default=['base', ],
-                        help="""Add a template name. 
-                        
+                        help="""Add a template name.
+
                         Available templates:
                         - flask-server (backend flask server based on openapi)
                         - webapp (React webapp including backend and frontend)

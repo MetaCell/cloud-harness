@@ -12,7 +12,7 @@
  * Do not edit the class manually.
  */
 
-import { exists, mapValues } from '../runtime';
+import { mapValues } from '../runtime';
 /**
  * 
  * @export
@@ -36,10 +36,8 @@ export interface InlineResponse202Task {
 /**
  * Check if a given object implements the InlineResponse202Task interface.
  */
-export function instanceOfInlineResponse202Task(value: object): boolean {
-    let isInstance = true;
-
-    return isInstance;
+export function instanceOfInlineResponse202Task(value: object): value is InlineResponse202Task {
+    return true;
 }
 
 export function InlineResponse202TaskFromJSON(json: any): InlineResponse202Task {
@@ -47,27 +45,24 @@ export function InlineResponse202TaskFromJSON(json: any): InlineResponse202Task 
 }
 
 export function InlineResponse202TaskFromJSONTyped(json: any, ignoreDiscriminator: boolean): InlineResponse202Task {
-    if ((json === undefined) || (json === null)) {
+    if (json == null) {
         return json;
     }
     return {
         
-        'href': !exists(json, 'href') ? undefined : json['href'],
-        'name': !exists(json, 'name') ? undefined : json['name'],
+        'href': json['href'] == null ? undefined : json['href'],
+        'name': json['name'] == null ? undefined : json['name'],
     };
 }
 
 export function InlineResponse202TaskToJSON(value?: InlineResponse202Task | null): any {
-    if (value === undefined) {
-        return undefined;
-    }
-    if (value === null) {
-        return null;
+    if (value == null) {
+        return value;
     }
     return {
         
-        'href': value.href,
-        'name': value.name,
+        'href': value['href'],
+        'name': value['name'],
     };
 }
 

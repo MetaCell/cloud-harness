@@ -23,7 +23,6 @@ paths:
           description: This won't happen
         "500":
           description: Sentry entry should come!
-      deprecated: true
       operationId: error
       summary: test sentry is working
       x-openapi-router-controller: samples.controllers.test_controller
@@ -231,13 +230,11 @@ paths:
               schema:
                 type: object
           description: Operation result
-      deprecated: true
       operationId: submit_sync
       summary: Send a synchronous operation
       x-openapi-router-controller: samples.controllers.workflows_controller
   /operation_sync_results:
     get:
-      deprecated: true
       tags:
         - workflows
       parameters:
