@@ -161,7 +161,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
         specific_template_path = os.path.join(app_path, 'deploy', 'values.yaml')
         if os.path.exists(specific_template_path):
             logging.info("Specific values template found: " +
-                        specific_template_path)
+                         specific_template_path)
             values = get_template(specific_template_path)
         else:
             values = {}

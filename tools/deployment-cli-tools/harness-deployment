@@ -62,10 +62,9 @@ if __name__ == "__main__":
     parser.add_argument('-N', '--no-cd', dest='no_cd_gen', action="store_const", default=None, const=True,
                         help=f'Do not generate ci/cd files')
     parser.add_argument('-we', '--write-env', dest='write_env', action="store_const", default=None, const=True,
-                            help=f'Write build env to .env file in {DEPLOYMENT_PATH}')
+                        help=f'Write build env to .env file in {DEPLOYMENT_PATH}')
     parser.add_argument('--docker-compose', dest='docker_compose', action="store_true",
                         help='Generate docker-compose.yaml and dedicated Skaffold configuration')
-
 
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
@@ -87,36 +86,36 @@ if __name__ == "__main__":
 
         if not args.docker_compose:
             helm_values = create_helm_chart(
-            root_paths,
-            tag=args.tag,
-            registry=args.registry,
-            domain=args.domain,
-            local=args.local,
-            secured=not args.unsecured,
-            output_path=args.output_path,
-            exclude=args.exclude,
-            include=args.include,
-            registry_secret=args.registry_secret,
-            tls=not args.no_tls,
-            env=envs,
-            namespace=args.namespace
-        )
+                root_paths,
+                tag=args.tag,
+                registry=args.registry,
+                domain=args.domain,
+                local=args.local,
+                secured=not args.unsecured,
+                output_path=args.output_path,
+                exclude=args.exclude,
+                include=args.include,
+                registry_secret=args.registry_secret,
+                tls=not args.no_tls,
+                env=envs,
+                namespace=args.namespace
+            )
         else:
             helm_values = create_docker_compose_configuration(
-            root_paths,
-            tag=args.tag,
-            registry=args.registry,
-            domain=args.domain,
-            local=args.local,
-            secured=not args.unsecured,
-            output_path=args.output_path,
-            exclude=args.exclude,
-            include=args.include,
-            registry_secret=args.registry_secret,
-            tls=not args.no_tls,
-            env=envs,
-            namespace=args.namespace,
-        )
+                root_paths,
+                tag=args.tag,
+                registry=args.registry,
+                domain=args.domain,
+                local=args.local,
+                secured=not args.unsecured,
+                output_path=args.output_path,
+                exclude=args.exclude,
+                include=args.include,
+                registry_secret=args.registry_secret,
+                tls=not args.no_tls,
+                env=envs,
+                namespace=args.namespace,
+            )
 
         merged_root_paths = preprocess_build_overrides(
             root_paths=root_paths, helm_values=helm_values)

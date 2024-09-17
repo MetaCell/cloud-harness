@@ -25,7 +25,7 @@ if __name__ == "__main__":
         description='Creates a new Application.')
     parser.add_argument('name', metavar='name', type=str,
                         help='Application name')
-    parser.add_argument('-t', '--template', dest='templates', action="append", default=['base',],
+    parser.add_argument('-t', '--template', dest='templates', action="append", default=['base', ],
                         help="""Add a template name.
 
                         Available templates:

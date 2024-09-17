@@ -245,9 +245,6 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                 environment=e2e_test_environment(app_config)
                             )
 
-
-
-
             def add_unit_test_step(app_config: ApplicationHarnessConfig):
                 # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step
 
@@ -264,24 +261,24 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
             if helm_values[KEY_TASK_IMAGES]:
                 codefresh_steps_from_base_path(join(root_path, BASE_IMAGES_PATH), CD_BUILD_STEP_BASE,
-                                            fixed_context=relpath(root_path, os.getcwd()), include=helm_values[KEY_TASK_IMAGES].keys())
+                                               fixed_context=relpath(root_path, os.getcwd()), include=helm_values[KEY_TASK_IMAGES].keys())
                 codefresh_steps_from_base_path(join(root_path, STATIC_IMAGES_PATH), CD_BUILD_STEP_STATIC,
-                                            include=helm_values[KEY_TASK_IMAGES].keys())
+                                               include=helm_values[KEY_TASK_IMAGES].keys())
 
                 codefresh_steps_from_base_path(join(
                     root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
 
             if CD_E2E_TEST_STEP in steps:
-                    name = "test-e2e"
-                    codefresh_steps_from_base_path(join(
-                        root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=(name,), publish=False)
-                    steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_image_name)
+                name = "test-e2e"
+                codefresh_steps_from_base_path(join(
+                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=(name,), publish=False)
+                steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_image_name)
 
             if CD_API_TEST_STEP in steps:
-                    name = "test-api"
-                    codefresh_steps_from_base_path(join(
-                        root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=(name,), fixed_context=relpath(root_path, os.getcwd()), publish=False)
-                    steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_image_name)
+                name = "test-api"
+                codefresh_steps_from_base_path(join(
+                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=(name,), fixed_context=relpath(root_path, os.getcwd()), publish=False)
+                steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_image_name)
 
     if not codefresh:
         logging.warning(
