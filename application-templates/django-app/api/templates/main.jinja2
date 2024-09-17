@@ -49,13 +49,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from cloudharness.middleware import set_authentication_token
+from cloudharness.middleware import set_authentication_token, get_authentication_token
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     # retrieve the bearer token from the header
     # and save it for use in the AuthClient
-    authorization = request.headers.get('Authorization')
+    authorization = request.headers.get('Authorization') or request.cookies.get('kc-access')
+
     if authorization:
+        if 'Bearer ' in authorization:
+            authorization = authorization.split('Bearer ')[1]
+
         set_authentication_token(authorization)
 
     return await call_next(request)
@@ -67,16 +71,17 @@ if os.environ.get('KUBERNETES_SERVICE_HOST', None):
     # start the kafka event listener when running in/for k8s
     import cloudharness_django.services.events
 
-# enable the Bearer Authentication
-security = HTTPBearer()
-
-async def has_access(credentials: HTTPBasicCredentials = Depends(security)):
+async def has_access():
     """
     Function that is used to validate the token in the case that it requires it
     """
     if not os.environ.get('KUBERNETES_SERVICE_HOST', None):
         return {}
-    token = credentials.credentials
+
+    token = get_authentication_token()
+
+    if not token:
+        raise HTTPException(status_code=401)
 
     try:
         payload = get_auth_service().get_auth_client().decode_token(token)
