@@ -1,1 +1,6 @@
 *.ignored
+# Comment: this should be ignored by the 
+
+ 
+# The spaces above should be ignored too
+!*.notignored 
