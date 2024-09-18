@@ -411,7 +411,7 @@ def to_python_module(name):
 @cache
 def guess_build_dependencies_from_dockerfile(filename):
     dependencies = []
-    if not "Dockerfile" in filename:
+    if "Dockerfile" not in str(filename):
         filename = join(filename, "Dockerfile")
     if not os.path.exists(filename):
         return dependencies
