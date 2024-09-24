@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 {{imports | replace(".","openapi.")}}
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "__APP_NAME__.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "django_baseapp.settings")
 apps.populate(settings.INSTALLED_APPS)
 
 # migrate the Django models
