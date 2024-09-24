@@ -70,6 +70,7 @@ harness:
       branch_tag: v1.0.0
       path: myrepo
 ```
+> Note that the path parameter is optional and its use should be restricted to necessity (e.g. name clashes)
 
 The directory structure will be as following:
 ```
@@ -84,8 +85,11 @@ Hence, inside the Dockerfile we expect to see something like
 
 ```dockerfile
 COPY dependencies .
-COPY dependencies/b.git/src .
-COPY dependencies/myrepo .
+```
+or
+```dockerfile
+COPY dependencies/b/src .
+COPY dependencies/myrepo/b .
 ```
 
 > Note that Cloud Harness does not add the COPY/ADD statements to the Dockerfile

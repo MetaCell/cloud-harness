@@ -163,49 +163,6 @@ components:
             description: ''
             type: object
             additionalProperties: true
-        DatabaseDeploymentConfig:
-            description: ''
-            type: object
-            allOf:
-                -
-                    type: object
-                    properties:
-                        type:
-                            description: |-
-                                Define the database type.
-
-                                One of (mongo, postgres, neo4j, sqlite3)
-                            pattern: ^(mongo|postgres|neo4j|sqlite3)$
-                            type: string
-                            example: '"neo4j"'
-                        size:
-                            description: Specify database disk size
-                            type: string
-                            example: 1Gi
-                        user:
-                            description: database username
-                            type: string
-                        pass:
-                            format: password
-                            description: Database password
-                            type: string
-                        image_ref:
-                            description: Used for referencing images from the build
-                            type: string
-                            example: 'image_ref: myownpgimage'
-                        mongo:
-                            $ref: '#/components/schemas/FreeObject'
-                            description: Mongo db specific configuration
-                        postgres:
-                            $ref: '#/components/schemas/FreeObject'
-                            description: Postgres database specific configuration
-                        neo4j:
-                            description: Neo4j database specific configuration
-                        resources:
-                            $ref: '#/components/schemas/DeploymentResourcesConf'
-                            description: Database deployment resources
-                -
-                    $ref: '#/components/schemas/AutoArtifactSpec'
         ApplicationsConfigsMap:
             description: ''
             type: object
@@ -442,112 +399,6 @@ components:
                 description:
                     description: General description -- for human consumption
                     type: string
-        ApplicationHarnessConfig:
-            description: |-
-                Define helm variables that allow CloudHarness to enable and configure your 
-                application's deployment
-            required: []
-            type: object
-            properties:
-                deployment:
-                    $ref: '#/components/schemas/DeploymentAutoArtifactConfig'
-                    description: Defines reference deployment parameters. Values maps to k8s spec
-                service:
-                    $ref: '#/components/schemas/ServiceAutoArtifactConfig'
-                    description: Defines automatic service parameters.
-                subdomain:
-                    description: 'If specified, an ingress will be created at [subdomain].[.Values.domain]'
-                    type: string
-                aliases:
-                    description: 'If specified, an ingress will be created at [alias].[.Values.domain] for each alias'
-                    type: array
-                    items:
-                        type: string
-                domain:
-                    description: 'If specified, an ingress will be created at [domain]'
-                    type: string
-                dependencies:
-                    $ref: '#/components/schemas/ApplicationDependenciesConfig'
-                    description: >-
-                        Application dependencies are used to define what is required in the deployment when
-                        --include (-i) is used. Specify application names in the list.
-                secured:
-                    description: 'When true, the application is shielded with a getekeeper'
-                    type: boolean
-                uri_role_mapping:
-                    description: 'Map uri/roles to secure with the Gatekeeper (if `secured: true`)'
-                    type: array
-                    items:
-                        $ref: '#/components/schemas/UriRoleMappingConfig'
-                secrets:
-                    $ref: '#/components/schemas/SimpleMap'
-                    description: |-
-                        Define secrets will be mounted in the deployment
-
-                        Define as
-
-                        ```yaml
-                        secrets:
-                            secret_name: 'value'
-
-                        ```
-
-                        Values if left empty are randomly generated
-                use_services:
-                    description: >-
-                        Specify which services this application uses in the frontend to create proxy
-                        ingresses. e.g. 
-
-                        ```
-
-                        - name: samples
-
-                        ```
-                    type: array
-                    items:
-                        type: string
-                database:
-                    $ref: '#/components/schemas/DatabaseDeploymentConfig'
-                    description: ''
-                resources:
-                    description: |-
-                        Application file resources. Maps from deploy/resources folder and mounts as
-                        configmaps
-                    type: array
-                    items:
-                        $ref: '#/components/schemas/FileResourcesConfig'
-                readinessProbe:
-                    $ref: '#/components/schemas/ApplicationProbe'
-                    description: Kubernetes readiness probe configuration
-                startupProbe:
-                    $ref: '#/components/schemas/ApplicationProbe'
-                    description: ''
-                livenessProbe:
-                    $ref: '#/components/schemas/ApplicationProbe'
-                    description: Kubernetes liveness probe configuration
-                sourceRoot:
-                    $ref: '#/components/schemas/Filename'
-                    description: ''
-                name:
-                    description: |-
-                        Application's name. Do not edit, the value is automatically set from the
-                        application directory's name
-                    type: string
-                jupyterhub:
-                    $ref: '#/components/schemas/JupyterHubConfig'
-                    description: |
-                        Configurations specific to jupyterhub. Edit only if your application is
-                        configured as a jupyterhub deployment
-                accounts:
-                    $ref: '#/components/schemas/ApplicationAccountsConfig'
-                    description: Define specific test users and roles for this application
-                test:
-                    $ref: '#/components/schemas/ApplicationTestConfig'
-                    description: Enable and configure automated testing for this application.
-                quotas:
-                    $ref: '#/components/schemas/Quota'
-                    description: ''
-            additionalProperties: true
         JupyterHubConfig:
             description: ''
             type: object
@@ -784,6 +635,94 @@ components:
                 name: my-files
                 size: 5Gi
                 usenfs: true
+        SimpleMap:
+            description: ''
+            type: object
+            additionalProperties: true
+        Quota:
+            description: ''
+            type: object
+            additionalProperties: true
+            example:
+                quota-ws-max: 5
+                quota-storage-max: 1G
+        GitDependencyConfig:
+            title: Root Type for GitDependencyConfig
+            description: Defines a git repo to be cloned inside the application path
+            required:
+                - branch_tag
+                - url
+            type: object
+            properties:
+                url:
+                    type: string
+                branch_tag:
+                    type: string
+                path:
+                    description: 'Defines the path where the repo is cloned. default: /git'
+                    type: string
+            example:
+                url: 'https://github.com/MetaCell/nwb-explorer.git'
+                branch_tag: master
+                path: /git
+        DatabaseDeploymentConfig:
+            description: ''
+            type: object
+            allOf:
+                -
+                    type: object
+                    properties:
+                        type:
+                            description: |-
+                                Define the database type.
+
+                                One of (mongo, postgres, neo4j, sqlite3)
+                            pattern: ^(mongo|postgres|neo4j|sqlite3)$
+                            type: string
+                            example: '"neo4j"'
+                        size:
+                            description: Specify database disk size
+                            type: string
+                            example: 1Gi
+                        user:
+                            description: database username
+                            type: string
+                        pass:
+                            format: password
+                            description: Database password
+                            type: string
+                        image_ref:
+                            description: Used for referencing images from the build
+                            type: string
+                            example: 'image_ref: myownpgimage'
+                        mongo:
+                            $ref: '#/components/schemas/FreeObject'
+                            description: Mongo db specific configuration
+                        postgres:
+                            $ref: '#/components/schemas/FreeObject'
+                            description: Postgres database specific configuration
+                        neo4j:
+                            description: Neo4j database specific configuration
+                        resources:
+                            $ref: '#/components/schemas/DeploymentResourcesConf'
+                            description: Database deployment resources
+                -
+                    $ref: '#/components/schemas/AutoArtifactSpec'
+            additionalAttributes: true
+        DockerfileConfig:
+            description: Configuration for a dockerfile
+            type: object
+            properties:
+                buildArgs:
+                    $ref: '#/components/schemas/SimpleMap'
+                    description: >-
+                        Map of build arguments to provide to the dockerfile at build time.
+
+
+                        The use of this feature is to aid in development (e.g. not running tests on every
+                        local build) and not for setting environment variables in different environments;
+                        caution should be taken when using this feature as it can lead to inconsistent
+                        behaviour across environments. 
         HarnessMainConfig:
             description: ''
             required:
@@ -843,33 +782,120 @@ components:
                     description: ''
                     type: string
             additionalProperties: true
-        SimpleMap:
-            description: ''
-            type: object
-            additionalProperties: true
-        Quota:
-            description: ''
-            type: object
-            additionalProperties: true
-            example:
-                quota-ws-max: 5
-                quota-storage-max: 1G
-        GitDependencyConfig:
-            title: Root Type for GitDependencyConfig
-            description: Defines a git repo to be cloned inside the application path
-            required:
-                - branch_tag
-                - url
+        ApplicationHarnessConfig:
+            description: |-
+                Define helm variables that allow CloudHarness to enable and configure your 
+                application's deployment
+            required: []
             type: object
             properties:
-                url:
+                deployment:
+                    $ref: '#/components/schemas/DeploymentAutoArtifactConfig'
+                    description: Defines reference deployment parameters. Values maps to k8s spec
+                service:
+                    $ref: '#/components/schemas/ServiceAutoArtifactConfig'
+                    description: Defines automatic service parameters.
+                subdomain:
+                    description: 'If specified, an ingress will be created at [subdomain].[.Values.domain]'
                     type: string
-                branch_tag:
+                aliases:
+                    description: 'If specified, an ingress will be created at [alias].[.Values.domain] for each alias'
+                    type: array
+                    items:
+                        type: string
+                domain:
+                    description: 'If specified, an ingress will be created at [domain]'
                     type: string
-                path:
-                    description: 'Defines the path where the repo is cloned. default: /git'
+                dependencies:
+                    $ref: '#/components/schemas/ApplicationDependenciesConfig'
+                    description: >-
+                        Application dependencies are used to define what is required in the deployment when
+                        --include (-i) is used. Specify application names in the list.
+                secured:
+                    description: 'When true, the application is shielded with a getekeeper'
+                    type: boolean
+                uri_role_mapping:
+                    description: 'Map uri/roles to secure with the Gatekeeper (if `secured: true`)'
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/UriRoleMappingConfig'
+                secrets:
+                    $ref: '#/components/schemas/SimpleMap'
+                    description: |-
+                        Define secrets will be mounted in the deployment
+
+                        Define as
+
+                        ```yaml
+                        secrets:
+                            secret_name: 'value'
+
+                        ```
+
+                        Values if left empty are randomly generated
+                use_services:
+                    description: >-
+                        Specify which services this application uses in the frontend to create proxy
+                        ingresses. e.g. 
+
+                        ```
+
+                        - name: samples
+
+                        ```
+                    type: array
+                    items:
+                        type: string
+                database:
+                    $ref: '#/components/schemas/DatabaseDeploymentConfig'
+                    description: ''
+                resources:
+                    description: |-
+                        Application file resources. Maps from deploy/resources folder and mounts as
+                        configmaps
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FileResourcesConfig'
+                readinessProbe:
+                    $ref: '#/components/schemas/ApplicationProbe'
+                    description: Kubernetes readiness probe configuration
+                startupProbe:
+                    $ref: '#/components/schemas/ApplicationProbe'
+                    description: ''
+                livenessProbe:
+                    $ref: '#/components/schemas/ApplicationProbe'
+                    description: Kubernetes liveness probe configuration
+                sourceRoot:
+                    $ref: '#/components/schemas/Filename'
+                    description: ''
+                name:
+                    description: |-
+                        Application's name. Do not edit, the value is automatically set from the
+                        application directory's name
                     type: string
-            example:
-                url: 'https://github.com/MetaCell/nwb-explorer.git'
-                branch_tag: master
-                path: /git
+                jupyterhub:
+                    $ref: '#/components/schemas/JupyterHubConfig'
+                    description: |
+                        Configurations specific to jupyterhub. Edit only if your application is
+                        configured as a jupyterhub deployment
+                accounts:
+                    $ref: '#/components/schemas/ApplicationAccountsConfig'
+                    description: Define specific test users and roles for this application
+                test:
+                    $ref: '#/components/schemas/ApplicationTestConfig'
+                    description: Enable and configure automated testing for this application.
+                quotas:
+                    $ref: '#/components/schemas/Quota'
+                    description: ''
+                env:
+                    description: 'Environmental variables added to all containers (deprecated, please use envmap)'
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/NameValue'
+                envmap:
+                    $ref: '#/components/schemas/SimpleMap'
+                    description: Environmental variables added to all containers
+                dockerfile:
+                    $ref: '#/components/schemas/DockerfileConfig'
+                    description: Configuration for the dockerfile used to build the app
+            additionalProperties: true

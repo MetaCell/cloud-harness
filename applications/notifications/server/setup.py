@@ -4,7 +4,7 @@ import sys
 from setuptools import setup, find_packages
 
 NAME = "notifications"
-VERSION = "1.0.0"
+VERSION = "2.3.0"
 
 # To install the library, run the following
 #
@@ -14,7 +14,7 @@ VERSION = "1.0.0"
 # http://pypi.python.org/pypi/setuptools
 
 REQUIRES = [
-    "jinja2>=3"
+    "jinja2>=3",
     "python_dateutil>=2.6.0"
 ]
 
@@ -34,4 +34,3 @@ setup(
     notifications
     """
 )
-

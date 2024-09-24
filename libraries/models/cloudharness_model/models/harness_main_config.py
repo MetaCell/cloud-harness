@@ -1,6 +1,3 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
@@ -116,7 +113,7 @@ class HarnessMainConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def local(self):
+    def local(self) -> bool:
         """Gets the local of this HarnessMainConfig.
 
         If set to true, local DNS mapping is added to pods.  # noqa: E501
@@ -127,7 +124,7 @@ class HarnessMainConfig(Model):
         return self._local
 
     @local.setter
-    def local(self, local):
+    def local(self, local: bool):
         """Sets the local of this HarnessMainConfig.
 
         If set to true, local DNS mapping is added to pods.  # noqa: E501
@@ -141,7 +138,7 @@ class HarnessMainConfig(Model):
         self._local = local
 
     @property
-    def secured_gatekeepers(self):
+    def secured_gatekeepers(self) -> bool:
         """Gets the secured_gatekeepers of this HarnessMainConfig.
 
         Enables/disables Gatekeepers on secured applications. Set to false for testing/development  # noqa: E501
@@ -152,7 +149,7 @@ class HarnessMainConfig(Model):
         return self._secured_gatekeepers
 
     @secured_gatekeepers.setter
-    def secured_gatekeepers(self, secured_gatekeepers):
+    def secured_gatekeepers(self, secured_gatekeepers: bool):
         """Sets the secured_gatekeepers of this HarnessMainConfig.
 
         Enables/disables Gatekeepers on secured applications. Set to false for testing/development  # noqa: E501
@@ -166,7 +163,7 @@ class HarnessMainConfig(Model):
         self._secured_gatekeepers = secured_gatekeepers
 
     @property
-    def domain(self):
+    def domain(self) -> str:
         """Gets the domain of this HarnessMainConfig.
 
         The root domain  # noqa: E501
@@ -177,7 +174,7 @@ class HarnessMainConfig(Model):
         return self._domain
 
     @domain.setter
-    def domain(self, domain):
+    def domain(self, domain: str):
         """Sets the domain of this HarnessMainConfig.
 
         The root domain  # noqa: E501
@@ -191,7 +188,7 @@ class HarnessMainConfig(Model):
         self._domain = domain
 
     @property
-    def namespace(self):
+    def namespace(self) -> str:
         """Gets the namespace of this HarnessMainConfig.
 
         The K8s namespace.  # noqa: E501
@@ -202,7 +199,7 @@ class HarnessMainConfig(Model):
         return self._namespace
 
     @namespace.setter
-    def namespace(self, namespace):
+    def namespace(self, namespace: str):
         """Sets the namespace of this HarnessMainConfig.
 
         The K8s namespace.  # noqa: E501
@@ -216,7 +213,7 @@ class HarnessMainConfig(Model):
         self._namespace = namespace
 
     @property
-    def mainapp(self):
+    def mainapp(self) -> str:
         """Gets the mainapp of this HarnessMainConfig.
 
         Defines the app to map to the root domain  # noqa: E501
@@ -227,7 +224,7 @@ class HarnessMainConfig(Model):
         return self._mainapp
 
     @mainapp.setter
-    def mainapp(self, mainapp):
+    def mainapp(self, mainapp: str):
         """Sets the mainapp of this HarnessMainConfig.
 
         Defines the app to map to the root domain  # noqa: E501
@@ -241,7 +238,7 @@ class HarnessMainConfig(Model):
         self._mainapp = mainapp
 
     @property
-    def registry(self):
+    def registry(self) -> RegistryConfig:
         """Gets the registry of this HarnessMainConfig.
 
 
@@ -251,7 +248,7 @@ class HarnessMainConfig(Model):
         return self._registry
 
     @registry.setter
-    def registry(self, registry):
+    def registry(self, registry: RegistryConfig):
         """Sets the registry of this HarnessMainConfig.
 
 
@@ -262,7 +259,7 @@ class HarnessMainConfig(Model):
         self._registry = registry
 
     @property
-    def tag(self):
+    def tag(self) -> str:
         """Gets the tag of this HarnessMainConfig.
 
         Docker tag used to push/pull the built images.  # noqa: E501
@@ -273,7 +270,7 @@ class HarnessMainConfig(Model):
         return self._tag
 
     @tag.setter
-    def tag(self, tag):
+    def tag(self, tag: str):
         """Sets the tag of this HarnessMainConfig.
 
         Docker tag used to push/pull the built images.  # noqa: E501
@@ -285,7 +282,7 @@ class HarnessMainConfig(Model):
         self._tag = tag
 
     @property
-    def apps(self):
+    def apps(self) -> Dict[str, ApplicationConfig]:
         """Gets the apps of this HarnessMainConfig.
 
           # noqa: E501
@@ -296,7 +293,7 @@ class HarnessMainConfig(Model):
         return self._apps
 
     @apps.setter
-    def apps(self, apps):
+    def apps(self, apps: Dict[str, ApplicationConfig]):
         """Sets the apps of this HarnessMainConfig.
 
           # noqa: E501
@@ -310,7 +307,7 @@ class HarnessMainConfig(Model):
         self._apps = apps
 
     @property
-    def env(self):
+    def env(self) -> List[NameValue]:
         """Gets the env of this HarnessMainConfig.
 
         Environmental variables added to all pods  # noqa: E501
@@ -321,7 +318,7 @@ class HarnessMainConfig(Model):
         return self._env
 
     @env.setter
-    def env(self, env):
+    def env(self, env: List[NameValue]):
         """Sets the env of this HarnessMainConfig.
 
         Environmental variables added to all pods  # noqa: E501
@@ -333,7 +330,7 @@ class HarnessMainConfig(Model):
         self._env = env
 
     @property
-    def privenv(self):
+    def privenv(self) -> NameValue:
         """Gets the privenv of this HarnessMainConfig.
 
 
@@ -343,7 +340,7 @@ class HarnessMainConfig(Model):
         return self._privenv
 
     @privenv.setter
-    def privenv(self, privenv):
+    def privenv(self, privenv: NameValue):
         """Sets the privenv of this HarnessMainConfig.
 
 
@@ -354,7 +351,7 @@ class HarnessMainConfig(Model):
         self._privenv = privenv
 
     @property
-    def backup(self):
+    def backup(self) -> BackupConfig:
         """Gets the backup of this HarnessMainConfig.
 
 
@@ -364,7 +361,7 @@ class HarnessMainConfig(Model):
         return self._backup
 
     @backup.setter
-    def backup(self, backup):
+    def backup(self, backup: BackupConfig):
         """Sets the backup of this HarnessMainConfig.
 
 
@@ -375,7 +372,7 @@ class HarnessMainConfig(Model):
         self._backup = backup
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Gets the name of this HarnessMainConfig.
 
         Base name  # noqa: E501
@@ -386,7 +383,7 @@ class HarnessMainConfig(Model):
         return self._name
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str):
         """Sets the name of this HarnessMainConfig.
 
         Base name  # noqa: E501
@@ -398,7 +395,7 @@ class HarnessMainConfig(Model):
         self._name = name
 
     @property
-    def task_images(self):
+    def task_images(self) -> Dict[str, object]:
         """Gets the task_images of this HarnessMainConfig.
 
           # noqa: E501
@@ -409,7 +406,7 @@ class HarnessMainConfig(Model):
         return self._task_images
 
     @task_images.setter
-    def task_images(self, task_images):
+    def task_images(self, task_images: Dict[str, object]):
         """Sets the task_images of this HarnessMainConfig.
 
           # noqa: E501
@@ -421,7 +418,7 @@ class HarnessMainConfig(Model):
         self._task_images = task_images
 
     @property
-    def build_hash(self):
+    def build_hash(self) -> str:
         """Gets the build_hash of this HarnessMainConfig.
 
           # noqa: E501
@@ -432,7 +429,7 @@ class HarnessMainConfig(Model):
         return self._build_hash
 
     @build_hash.setter
-    def build_hash(self, build_hash):
+    def build_hash(self, build_hash: str):
         """Sets the build_hash of this HarnessMainConfig.
 
           # noqa: E501

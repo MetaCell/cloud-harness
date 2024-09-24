@@ -7,6 +7,8 @@ node_modules
 .coverage
 *.DS_Store
 deployment/helm
+deployment/compose
+docker-compose.yaml
 *.egg-info
 *.idea
 /build
@@ -20,3 +22,4 @@ __pycache__
 .env
 tools/deployment-cli-tools/tests/resources/migration
 tools/deployment-cli-tools/tests/resources/migration.bak
+/.venv

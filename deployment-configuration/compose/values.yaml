@@ -1,0 +1,34 @@
+# -- If set to true, local DNS mapping is added to pods.
+local: false
+# -- Enables/disables Gatekeeper.
+secured_gatekeepers: true
+# -- The root domain.
+domain: ${{DOMAIN}}
+# -- The K8s namespace.
+namespace: ch
+# -- Name of mainapp, routes incoming traffic of root `domaim` to this app.
+mainapp: accounts
+registry:
+  # -- The docker registry.
+  name: "localhost:5000"
+  # -- Optional secret used for pulling from docker registry.
+  secret:
+# -- Docker tag used to pull images.
+tag: latest
+# -- List of applications.
+# @default -- Will be filled automatically.
+apps: {}
+env:
+  # -- Cloud Harness version
+  - name: CH_VERSION
+    value: 2.4.0
+proxy:
+  timeout:
+    # -- Timeout for proxy connections in seconds.
+    send: 60
+    # -- Timeout for proxy responses in seconds.
+    read: 60
+    keepalive: 60
+  payload:
+    # -- Maximum size of payload in MB
+    max: 250

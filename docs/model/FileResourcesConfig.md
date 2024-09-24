@@ -1,17 +1,32 @@
-# cloudharness_model.model.file_resources_config.FileResourcesConfig
+# FileResourcesConfig
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+
+
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+**name** | **str** |  | 
+**src** | **str** |  | 
+**dst** | **str** |  | 
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**dst** | str,  | str,  |  | 
-**src** | [**Filename**](Filename.md) | [**Filename**](Filename.md) |  | 
-**name** | [**Filename**](Filename.md) | [**Filename**](Filename.md) |  | 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+## Example
 
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
+```python
+from cloudharness_model.models.file_resources_config import FileResourcesConfig
+
+# TODO update the JSON string below
+json = "{}"
+# create an instance of FileResourcesConfig from a JSON string
+file_resources_config_instance = FileResourcesConfig.from_json(json)
+# print the JSON string representation of the object
+print FileResourcesConfig.to_json()
+
+# convert the object into a dict
+file_resources_config_dict = file_resources_config_instance.to_dict()
+# create an instance of FileResourcesConfig from a dict
+file_resources_config_form_dict = file_resources_config.from_dict(file_resources_config_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
 

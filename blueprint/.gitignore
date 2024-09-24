@@ -2,7 +2,6 @@
 .idea
 *.iml
 node_modules
-mnp-custom
 .openapi-generator
 *.pyc
 .vscode
@@ -12,6 +11,7 @@ cloud-harness
 build
 skaffold.yaml
 /deployment.yaml
+/deployment/compose
 /.run/
 *.egg-info
 .overrides

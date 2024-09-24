@@ -1,23 +1,37 @@
-# cloudharness_model.model.user_credential.UserCredential
+# UserCredential
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+**created_date** | **int** |  | [optional] 
+**credential_data** | **str** |  | [optional] 
+**id** | **str** |  | [optional] 
+**priority** | **int** |  | [optional] 
+**secret_data** | **str** |  | [optional] 
+**temporary** | **bool** |  | [optional] 
+**type** | **str** |  | [optional] 
+**user_label** | **str** |  | [optional] 
+**value** | **str** |  | [optional] 
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**createdDate** | decimal.Decimal, int,  | decimal.Decimal,  |  | [optional] value must be a 64 bit integer
-**credentialData** | str,  | str,  |  | [optional] 
-**id** | str,  | str,  |  | [optional] 
-**priority** | decimal.Decimal, int,  | decimal.Decimal,  |  | [optional] value must be a 32 bit integer
-**secretData** | str,  | str,  |  | [optional] 
-**temporary** | bool,  | BoolClass,  |  | [optional] 
-**type** | str,  | str,  |  | [optional] 
-**userLabel** | str,  | str,  |  | [optional] 
-**value** | str,  | str,  |  | [optional] 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+## Example
 
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
+```python
+from cloudharness_model.models.user_credential import UserCredential
+
+# TODO update the JSON string below
+json = "{}"
+# create an instance of UserCredential from a JSON string
+user_credential_instance = UserCredential.from_json(json)
+# print the JSON string representation of the object
+print UserCredential.to_json()
+
+# convert the object into a dict
+user_credential_dict = user_credential_instance.to_dict()
+# create an instance of UserCredential from a dict
+user_credential_form_dict = user_credential.from_dict(user_credential_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
 

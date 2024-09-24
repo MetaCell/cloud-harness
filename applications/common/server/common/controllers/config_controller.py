@@ -11,6 +11,7 @@ from common import util
 from cloudharness.utils.config import CloudharnessConfig
 from cloudharness_model.models import HarnessMainConfig
 
+
 def get_version():  # noqa: E501
     """get_version
 

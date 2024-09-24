@@ -2,7 +2,7 @@
 
 ## What secrets are
 
-Kubernetes Secrets let you store and manage sensitive information, such as passwords, OAuth tokens, and ssh keys. Storing confidential information in a Secret is safer and more flexible than putting it verbatim in a Pod definition or in a container image. See [Secrets design document](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/auth/secrets.md) for more information.
+Kubernetes Secrets let you store and manage sensitive information, such as passwords, OAuth tokens, and ssh keys. Storing confidential information in a Secret is safer and more flexible than putting it verbatim in a Pod definition or in a container image. See [Secrets design document](https://github.com/kubernetes/design-proposals-archive/blob/main/auth/secrets.md) for more information.
 
 **CloudHarness has build-in support for application specific kubernetes secrets.**
 

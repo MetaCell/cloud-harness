@@ -12,7 +12,7 @@ from setuptools import setup, find_packages
 
 
 NAME = "cloudharness-cli-tools"
-VERSION = "2.0.0"
+VERSION = "2.3.0"
 # To install the library, run the following
 #
 # python setup.py install
@@ -30,7 +30,6 @@ REQUIREMENTS = [
     'fastapi-code-generator',
     'dirhash'
 ]
-
 
 
 setup(

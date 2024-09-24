@@ -7,7 +7,7 @@ metadata:
   labels:
     app: {{ .app.harness.deployment.name| quote }}
     {{- if .app.harness.deployment.volume }}
-    usesvolume: {{ .app.harness.deployment.volume.name }}
+    usesvolume: {{ .app.harness.deployment.volume.name }}-{{ .root.Values.namespace }}
     {{- end }}
 {{- include "deploy_utils.labels" .root | indent 4 }}
 spec:
@@ -26,7 +26,7 @@ spec:
       labels:
         app: {{ .app.harness.deployment.name| quote }}
         {{- if .app.harness.deployment.volume }}
-        usesvolume: {{ .app.harness.deployment.volume.name }}
+        usesvolume: {{ .app.harness.deployment.volume.name }}-{{ .root.Values.namespace }}
         {{- end }}
 {{- include "deploy_utils.labels" .root | indent 8 }}
     spec:
@@ -44,7 +44,8 @@ spec:
                   - key: usesvolume
                     operator: In
                     values:
-                      - {{ .app.harness.deployment.volume.name }}
+                      - {{ .app.harness.deployment.volume.name }}-{{ .root.Values.namespace }}
+                      - {{ .app.harness.deployment.volume.name }} # Obsolete, kept for backwards compatability, to be removed at a later date
               topologyKey: "kubernetes.io/hostname"
       {{- end }}
       {{- end }}
@@ -65,6 +66,10 @@ spec:
           {{- include "deploy_utils.privenv" .root | nindent 8 }}
           {{- if .app.harness.env }}
             {{- .app.harness.env | toYaml | nindent 8 }}
+          {{- end }}
+          {{- range $name, $value := .app.harness.envmap }}
+        - name: {{ $name | quote }}
+          value: {{ $value | quote }}
           {{- end }}
 {{ if .app.harness.livenessProbe }}
         livenessProbe:

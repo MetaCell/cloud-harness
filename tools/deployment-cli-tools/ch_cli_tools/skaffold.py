@@ -7,18 +7,24 @@ from os.path import join, relpath, basename, exists, abspath
 from cloudharness_model import ApplicationTestConfig, HarnessMainConfig, GitDependencyConfig
 
 from cloudharness_utils.constants import APPS_PATH, DEPLOYMENT_CONFIGURATION_PATH, \
-    BASE_IMAGES_PATH, STATIC_IMAGES_PATH
+    BASE_IMAGES_PATH, STATIC_IMAGES_PATH, HELM_ENGINE, COMPOSE_ENGINE
 from .helm import KEY_APPS, KEY_HARNESS, KEY_DEPLOYMENT, KEY_TASK_IMAGES
-from .utils import get_template, dict_merge, find_dockerfiles_paths, app_name_from_path, \
-    find_file_paths, guess_build_dependencies_from_dockerfile, merge_to_yaml_file, get_json_template, get_image_name
+from .utils import get_template, dict_merge, find_dockerfiles_paths, app_name_from_path, yaml, \
+    find_file_paths, guess_build_dependencies_from_dockerfile, get_json_template, get_image_name
+
+from . import HERE
+
 
 def relpath_if(p1, p2):
     if os.path.isabs(p1):
         return p1
     return relpath(p1, p2)
 
-def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, output_path='.', manage_task_images=True):
-    skaffold_conf = get_template('skaffold-template.yaml', True)
+
+def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, output_path='.', manage_task_images=True, backend_deploy=HELM_ENGINE):
+    backend = backend_deploy or HELM_ENGINE
+    template_name = 'skaffold-template.yaml'
+    skaffold_conf = get_template(template_name, True)
     apps = helm_values.apps
     base_image_name = (helm_values.registry.name or "") + helm_values.name
     artifacts = {}
@@ -32,17 +38,29 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
     builds = {}
 
-    def build_artifact(image_name, context_path, requirements=None, dockerfile_path=''):
+    def build_artifact(
+        image_name: str,
+        context_path: str,
+        requirements: list[str] = None,
+        dockerfile_path: str = '',
+        additional_build_args: dict[str, str] = None,
+    ) -> dict:
+        build_args = {
+            'REGISTRY': helm_values.registry.name,
+            'TAG': helm_values.tag,
+            'NOCACHE': str(time.time()),
+            'DEBUG': 'true' if helm_values.local or helm_values.debug else ''
+        }
+
+        if additional_build_args:
+            build_args.update(additional_build_args)
+
         artifact_spec = {
             'image': image_name,
             'context': context_path,
             'docker': {
                 'dockerfile': join(dockerfile_path, 'Dockerfile'),
-                'buildArgs': {
-                    'REGISTRY': helm_values.registry.name,
-                    'TAG': helm_values.tag,
-                    'NOCACHE': str(time.time())
-                },
+                'buildArgs': build_args,
                 'ssh': 'default'
             }
         }
@@ -51,10 +69,15 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
                                          in requirements]
         return artifact_spec
 
-
     base_images = set()
 
-    def process_build_dockerfile(dockerfile_path, root_path, global_context=False, requirements=None, app_name=None):
+    def process_build_dockerfile(
+        dockerfile_path: str,
+        root_path: str,
+        global_context: bool = False,
+        requirements: list[str] = None,
+        app_name: str = None
+    ) -> None:
         if app_name is None:
             app_name = app_name_from_path(basename(dockerfile_path))
         app_key = app_name.replace("-", "_")
@@ -63,12 +86,15 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
             builds[app_name] = context_path
             base_images.add(get_image_name(app_name))
+
             artifacts[app_name] = build_artifact(
                 get_image_tag(app_name),
                 context_path,
                 dockerfile_path=relpath(dockerfile_path, output_path),
-                requirements=requirements or guess_build_dependencies_from_dockerfile(dockerfile_path)
+                requirements=requirements or guess_build_dependencies_from_dockerfile(dockerfile_path),
+                additional_build_args=get_additional_build_args(helm_values, app_key),
             )
+
             if app_key in helm_values.apps and helm_values.apps[app_key].harness.dependencies and helm_values.apps[app_key].harness.dependencies.git:
                 artifacts[app_name]['hooks'] = {
                     'before': [git_clone_hook(conf, context_path) for conf in helm_values.apps[app_key].harness.dependencies.git]
@@ -76,14 +102,13 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
     for root_path in root_paths:
         skaffold_conf = dict_merge(skaffold_conf, get_template(
-            join(root_path, DEPLOYMENT_CONFIGURATION_PATH, 'skaffold-template.yaml')))
+            join(root_path, DEPLOYMENT_CONFIGURATION_PATH, template_name)))
 
         base_dockerfiles = find_dockerfiles_paths(
             join(root_path, BASE_IMAGES_PATH))
 
         for dockerfile_path in base_dockerfiles:
             process_build_dockerfile(dockerfile_path, root_path, global_context=True)
-
 
     release_config = skaffold_conf['deploy']['helm']['releases'][0]
     release_config['name'] = helm_values.namespace
@@ -97,7 +122,6 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
         for dockerfile_path in static_dockerfiles:
             process_build_dockerfile(dockerfile_path, root_path)
-
 
     for root_path in root_paths:
         apps_path = join(root_path, APPS_PATH)
@@ -149,7 +173,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
                 import re
                 gunicorn_pattern = re.compile(r"gunicorn")
                 # sort candidates, shortest path first
-                for candidate in sorted(candidates,key=lambda x: len(x.split("/"))):
+                for candidate in sorted(candidates, key=lambda x: len(x.split("/"))):
                     dockerfile_path = f"{candidate}/.."
                     while not exists(f"{dockerfile_path}/Dockerfile") and abspath(dockerfile_path) != abspath(root_path):
                         dockerfile_path += "/.."
@@ -183,31 +207,49 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
             test_config: ApplicationTestConfig = helm_values.apps[app_key].harness.test
             if test_config.unit.enabled and test_config.unit.commands:
 
-                    skaffold_conf['test'].append(dict(
-                        image=get_image_tag(app_name),
-                        custom=[dict(command="docker run $IMAGE " + cmd) for cmd in test_config.unit.commands]
-                    ))
+                skaffold_conf['test'].append(dict(
+                    image=get_image_tag(app_name),
+                    custom=[dict(command="docker run $IMAGE " + cmd) for cmd in test_config.unit.commands]
+                ))
 
+    if backend == COMPOSE_ENGINE:
+        del skaffold_conf['deploy']
+        skaffold_conf['deploy'] = {
+            'docker': {
+                'useCompose': True,
+                'images': [artifact['image'] for artifact in artifacts.values() if artifact['image']]
+            }
+        }
+    if backend == COMPOSE_ENGINE or not helm_values.tag:
+        skaffold_conf['build']['tagPolicy'] = {
+            'envTemplate': {
+                'template': '"{{.TAG}}"'
+            }
+        }
+    else:
+        skaffold_conf['build']['tagPolicy'] = {"sha256": {}}
 
-        skaffold_conf['build']['artifacts'] = [v for v in artifacts.values()]
-        merge_to_yaml_file(skaffold_conf, os.path.join(
-            output_path, 'skaffold.yaml'))
+    skaffold_conf['build']['artifacts'] = [v for v in artifacts.values()]
+
+    with open(os.path.join(output_path, 'skaffold.yaml'), "w") as f:
+        yaml.dump(skaffold_conf, f)
     return skaffold_conf
+
 
 def git_clone_hook(conf: GitDependencyConfig, context_path: str):
     return {
         'command': [
             'sh',
-            'tools/clone.sh',
+            join(os.path.dirname(os.path.dirname(HERE)), 'clone.sh'),
             conf.branch_tag,
             conf.url,
-            join(context_path, "dependencies", conf.path or os.path.basename(conf.url))   
+            join(context_path, "dependencies", conf.path or os.path.basename(conf.url).split('.')[0])
         ]
     }
 
+
 def create_vscode_debug_configuration(root_paths, helm_values):
-    logging.info(
-        "Creating VS code cloud build configuration.\nCloud build extension is needed to debug.")
+    logging.info("Creating VS code cloud build configuration.\nCloud build extension is needed to debug.")
 
     vscode_launch_path = '.vscode/launch.json'
 
@@ -245,12 +287,21 @@ def create_vscode_debug_configuration(root_paths, helm_values):
                     "sourceFileMap": {
                         "justMyCode": False,
                         f"${{workspaceFolder}}/{app_relative_to_root}": apps[app_key].harness.get('sourceRoot',
-                                                                                                       "/usr/src/app"),
+                                                                                                  "/usr/src/app"),
                     }
                 })
-
 
     if not os.path.exists(os.path.dirname(vscode_launch_path)):
         os.makedirs(os.path.dirname(vscode_launch_path))
     with open(vscode_launch_path, 'w') as f:
         json.dump(vs_conf, f, indent=2, sort_keys=True)
+
+
+def get_additional_build_args(helm_values: HarnessMainConfig, app_key: str) -> dict[str, str]:
+    if app_key not in helm_values.apps:
+        return None
+
+    if not (helm_values.apps[app_key].harness.dockerfile and helm_values.apps[app_key].harness.dockerfile.buildArgs):
+        return None
+
+    return helm_values.apps[app_key].harness.dockerfile.buildArgs

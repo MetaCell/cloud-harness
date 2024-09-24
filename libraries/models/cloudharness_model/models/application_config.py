@@ -1,6 +1,3 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
@@ -45,7 +42,7 @@ class ApplicationConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def harness(self):
+    def harness(self) -> ApplicationHarnessConfig:
         """Gets the harness of this ApplicationConfig.
 
 
@@ -55,7 +52,7 @@ class ApplicationConfig(Model):
         return self._harness
 
     @harness.setter
-    def harness(self, harness):
+    def harness(self, harness: ApplicationHarnessConfig):
         """Sets the harness of this ApplicationConfig.
 
 
