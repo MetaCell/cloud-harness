@@ -53,7 +53,7 @@ MIDDLEWARE = [
 ]
 
 
-ROOT_URLCONF = "__APP_NAME__.urls"
+ROOT_URLCONF = "django_baseapp.urls"
 
 TEMPLATES = [
     {
@@ -71,7 +71,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "__APP_NAME__.wsgi.application"
+WSGI_APPLICATION = "django_baseapp.wsgi.application"
 
 
 # Password validation
