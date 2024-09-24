@@ -311,10 +311,11 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
             ignore = set(DEFAULT_IGNORE)
             if os.path.exists(ignore_path):
                 with open(ignore_path) as f:
-                    ignore = ignore.union({line.strip() for line in f})
+                    ignore = ignore.union({line.strip() for line in f if line.strip() and not line.startswith('#')})
             logging.info(f"Ignoring {ignore}")
             tag = generate_tag_from_content(build_context_path, ignore)
             logging.info(f"Content hash: {tag}")
+            dependencies = dependencies or guess_build_dependencies_from_dockerfile(build_context_path)
             tag = sha1((tag + "".join(self.all_images.get(n, '') for n in dependencies)).encode("utf-8")).hexdigest()
             logging.info(f"Generated tag: {tag}")
             app_name = image_name.split("/")[-1]  # the image name can have a prefix

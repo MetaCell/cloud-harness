@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
   const theDomain = env && env.DOMAIN ? env.DOMAIN : 'localhost:5000';
-  
+
   console.log('Dev server address: ', theDomain);
 
   const proxyTarget = theDomain;
@@ -22,21 +22,23 @@ export default defineConfig(({ mode }) => {
 
 
   return {
-  plugins: [react()],
-  server: {
-    port: 9000,
-    proxy: {
-      '/api/': {
-        target: replaceHost( proxyTarget, 'samples'),
-        secure: false,
-        changeOrigin: true,
-      },
-      '/proxy/common/api': {
-        target: replaceHost( proxyTarget, 'common'),
-        secure: false,
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/proxy\/common\/api/, '/api')
+    plugins: [react()],
+    server: {
+      port: 9000,
+      proxy: {
+        '/api/': {
+          target: replaceHost(proxyTarget, 'samples'),
+          secure: false,
+          changeOrigin: true,
+        },
+        '/proxy/common/api': {
+          target: replaceHost(proxyTarget, 'common'),
+          secure: false,
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/proxy\/common\/api/, '/api')
+        }
       }
+    }
   }
-}}}
+}
 )
