@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y nfs-common && rm -rf /var/lib/apt/lists
 
 RUN --mount=type=cache,target=/root/.cache python -m pip install --upgrade pip &&\
     pip install pytest  --prefer-binary
+
 COPY libraries/models/requirements.txt /libraries/models/requirements.txt
 RUN --mount=type=cache,target=/root/.cache python -m pip install --upgrade pip &&\
     pip install -r /libraries/models/requirements.txt  --prefer-binary
