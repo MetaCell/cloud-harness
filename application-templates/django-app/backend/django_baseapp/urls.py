@@ -19,7 +19,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, re_path
 
-from __APP_NAME__.views import index
+from django_baseapp.views import index
 
 
 urlpatterns = [path("admin/", admin.site.urls)]
