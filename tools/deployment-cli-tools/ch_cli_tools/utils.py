@@ -2,6 +2,7 @@
 import socket
 import glob
 import subprocess
+from typing import Any
 import requests
 import os
 from functools import cache
@@ -186,6 +187,22 @@ def replace_in_file(src_file, source, replace):
                 print(line.replace(source, replace), end='')
         except UnicodeDecodeError:
             pass
+
+
+def replace_in_dict(src_dict: dict, source: str, replacement: str) -> dict:
+    def replace_value(value: Any) -> Any:
+        if isinstance(value, str):
+            return value.replace(source, replacement)
+        if isinstance(value, list):
+            return [replace_value(item) for item in value]
+        if isinstance(value, dict):
+            return replace_in_dict(value, source, replacement)
+        return value
+    
+    return {
+        key: replace_value(value)
+        for key, value in src_dict.items()
+    }
 
 
 def copymergedir(root_src_dir, root_dst_dir):

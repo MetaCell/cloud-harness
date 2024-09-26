@@ -1,0 +1,24 @@
+{
+    "args": [
+      "--host",
+      "0.0.0.0",
+      "--port",
+      "8000",
+      "main:app"
+    ],
+    "console": "integratedTerminal",
+    "cwd": "${workspaceFolder}/applications/__APP_NAME__/backend",
+    "env": {
+      "ACCOUNTS_ADMIN_PASSWORD": "metacell",
+      "ACCOUNTS_ADMIN_USERNAME": "admin",
+      "CH_CURRENT_APP_NAME": "__APP_NAME__",
+      "CH_VALUES_PATH": "${workspaceFolder}/deployment/helm/values.yaml",
+      "DJANGO_SETTINGS_MODULE": "django_baseapp.settings",
+      "KUBERNETES_SERVICE_HOST": "ssdds"
+    },
+    "justMyCode": false,
+    "module": "uvicorn",
+    "name": "__APP_NAME__ backend",
+    "request": "launch",
+    "type": "debugpy"
+  }

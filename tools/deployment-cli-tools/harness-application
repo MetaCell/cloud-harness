@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import json
+import pathlib
 import sys
 import os
 import re
@@ -13,7 +15,7 @@ from ch_cli_tools import CH_ROOT
 from cloudharness_utils.constants import APPLICATION_TEMPLATE_PATH
 from ch_cli_tools.openapi import generate_server, generate_fastapi_server, APPLICATIONS_SRC_PATH, generate_ts_client
 from ch_cli_tools.utils import merge_configuration_directories, replaceindir, replace_in_file, \
-    to_python_module, copymergedir
+    to_python_module, copymergedir, get_json_template, replace_in_dict
 
 try:
     from enum import StrEnum
@@ -148,12 +150,34 @@ def handle_django_app_template(app_name: str, app_path: str) -> None:
         f"{to_python_module(app_name)}:{to_python_module(app_name)}"
     )
     replace_in_file(os.path.join(app_path, "dev-setup.sh"), PLACEHOLDER, app_name)
+    create_django_app_vscode_debug_configuration(app_name)
     try:
         os.remove(os.path.join(app_path, 'backend', "__APP_NAME__", "__main__.py"))
     except FileNotFoundError:
         # backend dockerfile not found, continue
         pass
 
+
+def create_django_app_vscode_debug_configuration(app_name: str):
+    vscode_launch_path = pathlib.Path('.vscode/launch.json')
+    configuration_name = f'{app_name} backend'
+
+    launch_config = get_json_template(vscode_launch_path, True)
+
+    launch_config['configurations'] = [
+        configuration for configuration in launch_config['configurations']
+        if configuration['name'] != configuration_name
+    ]
+
+    debug_config = get_json_template('vscode-django-app-debug-template.json', True)
+    debug_config = replace_in_dict(debug_config, PLACEHOLDER, app_name)
+
+    launch_config['configurations'].append(debug_config)
+
+    vscode_launch_path.parent.mkdir(parents=True, exist_ok=True)
+    with vscode_launch_path.open('w') as f:
+        json.dump(launch_config, f, indent=2, sort_keys=True)
+    
 
 def merge_template_directories(template_name: str, app_path: str) -> None:
     for base_path in (CH_ROOT, os.getcwd()):
