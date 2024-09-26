@@ -31,7 +31,8 @@
                     "old": "apk upgrade --no-cache",
                     "new": "apt-get upgrade --no-cache"
                 }
-            ]
+            ],
+            "patterns": ["**/Dockerfile", "**/*yaml"]
         },
         {
             "keyword": "cloudharness-base-debian",

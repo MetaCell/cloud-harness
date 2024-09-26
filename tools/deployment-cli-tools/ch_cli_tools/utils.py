@@ -434,19 +434,27 @@ def filter_empty_strings(value):
     return value != ""
 
 
-def search_word_in_file(file, word):
-    if os.path.isdir(file):
+def search_word_in_file(filename, word):
+    if os.path.isdir(filename):
         return []
     matches = []
-    with open(file) as f:
+    with open(filename) as f:
             if word in f.read():
-                matches.append(file)
+                matches.append(filename)
     return list(filter(filter_empty_strings, matches))
 
 
 def search_word_in_folder(folder, word):
     matches = []
     files = glob.glob(folder + '/**/*', recursive = True)
+    for file in files:
+        matches.extend(search_word_in_file(file, word))
+    return list(filter(filter_empty_strings, matches))
+
+
+def search_word_by_pattern(folder, pattern, word):
+    matches = []
+    files = glob.glob(folder + pattern, recursive = True)
     for file in files:
         matches.extend(search_word_in_file(file, word))
     return list(filter(filter_empty_strings, matches))
