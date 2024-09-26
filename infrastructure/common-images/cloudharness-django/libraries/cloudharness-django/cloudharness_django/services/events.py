@@ -96,3 +96,23 @@ def init_listener():
         _message_service_singleton = KeycloakMessageService(settings.PROJECT_NAME).setup_event_service()
 
     _message_service_singleton.setup_event_service()
+
+
+def init_listener_in_background():
+    import threading
+    import time
+    from cloudharness import log
+
+    def background_operation():
+        listener_initialized = False
+
+        while not listener_initialized:
+            try:
+                init_listener()
+                log.info('User sync events listener started')
+                listener_initialized = True
+            except:
+                log.exception('Error initializing event queue. Retrying in 5 seconds...')
+                time.sleep(5)
+
+    threading.Thread(target=background_operation).start()
