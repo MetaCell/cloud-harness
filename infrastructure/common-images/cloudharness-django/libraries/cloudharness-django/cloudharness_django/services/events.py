@@ -79,8 +79,8 @@ class KeycloakMessageService:
             pass
 
 
-# start services
-if not hasattr(settings, "PROJECT_NAME"):
-    raise KeycloakOIDCNoProjectError("Project name not found, please set PROJECT_NAME in your settings module")
+def init_listener():
+    if not hasattr(settings, "PROJECT_NAME"):
+        raise KeycloakOIDCNoProjectError("Project name not found, please set PROJECT_NAME in your settings module")
 
-KeycloakMessageService(settings.PROJECT_NAME).setup_event_service()
+    KeycloakMessageService(settings.PROJECT_NAME).setup_event_service()
