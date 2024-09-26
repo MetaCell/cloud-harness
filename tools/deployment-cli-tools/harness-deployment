@@ -63,7 +63,7 @@ if __name__ == "__main__":
     parser.add_argument('-N', '--no-cd', dest='no_cd_gen', action="store_const", default=None, const=True,
                         help=f'Do not generate ci/cd files')
     parser.add_argument('-we', '--write-env', dest='write_env', action="store_const", default=None, const=True,
-                            help=f'Write build env to .env file in {DEPLOYMENT_PATH}')
+                        help=f'Write build env to .env file in {DEPLOYMENT_PATH}')
     parser.add_argument('--migrate', dest='migration', action="store_true",
                         help='Perform a migration of the deployment to the latest supported version.')
     parser.add_argument('--migrate-accept-all', dest='migration_accept_all', action="store_true",

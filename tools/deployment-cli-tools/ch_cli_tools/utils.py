@@ -439,14 +439,14 @@ def search_word_in_file(filename, word):
         return []
     matches = []
     with open(filename) as f:
-            if word in f.read():
-                matches.append(filename)
+        if word in f.read():
+            matches.append(filename)
     return list(filter(filter_empty_strings, matches))
 
 
 def search_word_in_folder(folder, word):
     matches = []
-    files = glob.glob(folder + '/**/*', recursive = True)
+    files = glob.glob(folder + '/**/*', recursive=True)
     for file in files:
         matches.extend(search_word_in_file(file, word))
     return list(filter(filter_empty_strings, matches))
@@ -454,7 +454,7 @@ def search_word_in_folder(folder, word):
 
 def search_word_by_pattern(folder, pattern, word):
     matches = []
-    files = glob.glob(folder + pattern, recursive = True)
+    files = glob.glob(folder + pattern, recursive=True)
     for file in files:
         matches.extend(search_word_in_file(file, word))
     return list(filter(filter_empty_strings, matches))
