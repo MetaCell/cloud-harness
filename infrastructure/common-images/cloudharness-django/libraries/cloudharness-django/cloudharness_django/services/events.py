@@ -93,7 +93,7 @@ def init_listener():
 
     global _message_service_singleton
     if _message_service_singleton is None:
-        _message_service_singleton = KeycloakMessageService(settings.PROJECT_NAME).setup_event_service()
+        _message_service_singleton = KeycloakMessageService(settings.PROJECT_NAME)
 
     _message_service_singleton.setup_event_service()
 
