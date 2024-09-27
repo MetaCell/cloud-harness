@@ -198,7 +198,7 @@ def replace_in_dict(src_dict: dict, source: str, replacement: str) -> dict:
         if isinstance(value, dict):
             return replace_in_dict(value, source, replacement)
         return value
-    
+
     return {
         key: replace_value(value)
         for key, value in src_dict.items()

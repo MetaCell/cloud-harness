@@ -101,7 +101,7 @@ class TestReplaceInDict:
         new_dict = replace_in_dict(src_dict, 'foo', 'xxx')
 
         assert new_dict.keys() == src_dict.keys()
-    
+
     def test_replaces_in_values(_):
         src_dict = {
             'a': 'foo',
@@ -130,7 +130,6 @@ class TestReplaceInDict:
 
         assert new_dict['a'] == ['xxx', 'bar', 'baz', 3, 'xxxbar']
 
-    
     def test_replaces_in_values_within_nested_dict(_):
         src_dict = {
             'a': {

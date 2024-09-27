@@ -1,6 +1,7 @@
 from cloudharness.middleware import set_authentication_token
 from django.http.request import HttpRequest
 
+
 class CloudharnessMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response

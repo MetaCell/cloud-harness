@@ -138,7 +138,7 @@ def handle_server_template(app_path: str) -> None:
 
 
 def handle_flask_server_template(app_path: str) -> None:
-        generate_server(app_path)
+    generate_server(app_path)
 
 
 def handle_django_app_template(app_name: str, app_path: str) -> None:
@@ -177,7 +177,7 @@ def create_django_app_vscode_debug_configuration(app_name: str):
     vscode_launch_path.parent.mkdir(parents=True, exist_ok=True)
     with vscode_launch_path.open('w') as f:
         json.dump(launch_config, f, indent=2, sort_keys=True)
-    
+
 
 def merge_template_directories(template_name: str, app_path: str) -> None:
     for base_path in (CH_ROOT, os.getcwd()):
