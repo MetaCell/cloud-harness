@@ -43,3 +43,28 @@ def init_services(
         admin_role=admin_role)
     _user_service = UserService(_auth_service)
     return _auth_service
+
+
+def init_services_in_background(
+        client_name: str = settings.KC_CLIENT_NAME,
+        client_roles: List[str] = settings.KC_ALL_ROLES,
+        privileged_roles: List[str] = settings.KC_PRIVILEGED_ROLES,
+        admin_role: str = settings.KC_ADMIN_ROLE,
+        default_user_role: str = settings.KC_DEFAULT_USER_ROLE
+):
+    import threading
+    import time
+    from cloudharness import log
+
+    def background_operation():
+        services_initialized = False
+
+        while not services_initialized:
+            try:
+                init_services(client_name, client_roles, privileged_roles, admin_role, default_user_role)
+                services_initialized = True
+            except:
+                log.exception("Error initializing services. Retrying in 5 seconds...")
+                time.sleep(5)
+
+    threading.Thread(target=background_operation).start()

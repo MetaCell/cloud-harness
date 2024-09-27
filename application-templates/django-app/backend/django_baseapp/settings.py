@@ -53,7 +53,7 @@ MIDDLEWARE = [
 ]
 
 
-ROOT_URLCONF = "__APP_NAME__.urls"
+ROOT_URLCONF = "django_baseapp.urls"
 
 TEMPLATES = [
     {
@@ -71,7 +71,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "__APP_NAME__.wsgi.application"
+WSGI_APPLICATION = "django_baseapp.wsgi.application"
 
 
 # Password validation
@@ -130,8 +130,8 @@ from cloudharness_django.settings import *  # noqa E402
 
 # add the local apps
 INSTALLED_APPS += [
-    "api",
-    "__APP_NAME__"
+    "__APP_NAME__",
+    "django_baseapp"
 ]
 
 # override django admin base template with a local template

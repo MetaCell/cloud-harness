@@ -33,7 +33,7 @@ def generate_server(app_path, overrides_folder=""):
 
 
 def generate_fastapi_server(app_path):
-    command = f"cd {app_path}/api && bash -c ./genapi.sh"
+    command = f"cd {app_path}/api && bash genapi.sh"
     os.system(command)
 
 

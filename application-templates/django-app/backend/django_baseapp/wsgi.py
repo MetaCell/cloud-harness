@@ -11,7 +11,7 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "__APP_NAME__.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "django_baseapp.settings")
 
 application = get_wsgi_application()
 
@@ -21,4 +21,6 @@ from cloudharness_django.services import init_services  # noqa E402
 init_services()
 
 # start the kafka event listener
-import cloudharness_django.services.events  # noqa E402
+from cloudharness_django.services.events import init_listner  # noqa E402
+
+init_listner()
