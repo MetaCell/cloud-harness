@@ -1,4 +1,5 @@
 
+import contextlib
 import socket
 import glob
 import subprocess
@@ -256,52 +257,63 @@ def movedircontent(root_src_dir, root_dst_dir):
     shutil.rmtree(root_src_dir)
 
 
-def merge_configuration_directories(source, dest):
-    if source == dest:
+def merge_configuration_directories(source, destination):
+    if source == destination:
         return
+    
     if not exists(source):
-        logging.warning(
-            "Trying to merge the not existing directory: %s", source)
+        logging.warning("Trying to merge the not existing directory: %s", source)
         return
-    if not exists(dest):
-        shutil.copytree(
-            source, dest, ignore=shutil.ignore_patterns(*EXCLUDE_PATHS))
+    
+    if not exists(destination):
+        shutil.copytree(source, destination, ignore=shutil.ignore_patterns(*EXCLUDE_PATHS))
         return
 
-    for src_dir, dirs, files in os.walk(source):
-        if any(path in src_dir for path in EXCLUDE_PATHS):
+    for source_directory, _, files in os.walk(source):
+        _merge_configuration_directory(source, destination, source_directory, files)
+
+
+def _merge_configuration_directory(source: str, destination: str, source_directory: str, files: list[str]) -> None:
+    if any(path in source_directory for path in EXCLUDE_PATHS):
+        return
+    
+    destination_directory = source_directory.replace(source, destination, 1)
+    if not exists(destination_directory):
+        os.makedirs(destination_directory)
+
+    non_build_files = (file for file in files if file not in BUILD_FILENAMES)
+
+    for file_name in non_build_files:
+        source_file_path = join(source_directory, file_name)
+        destination_file_path = join(destination_directory, file_name)
+        
+        _merge_configuration_file(source_file_path, destination_file_path)
+
+
+def _merge_configuration_file(source_file_path: str, destination_file_path: str) -> None:
+    if not exists(destination_file_path):
+        shutil.copy2(source_file_path, destination_file_path)
+        return
+    
+    merge_operations = [
+        (file_is_yaml, merge_yaml_files),
+        (file_is_json, merge_json_files),
+    ]
+
+    for file_is_expected_type, merge_files in merge_operations:
+        if not file_is_expected_type(source_file_path):
             continue
-        dst_dir = src_dir.replace(source, dest, 1)
-        if not exists(dst_dir):
-            os.makedirs(dst_dir)
-        for fname in files:
-            if fname in BUILD_FILENAMES:
-                continue
-            fpath = join(src_dir, fname)
-            frel = relpath(fpath, start=source)
-            fdest = join(dest, frel)
-            if not exists(fdest):
-                shutil.copy2(fpath, fdest)
-            elif file_is_yaml(fpath):
 
-                try:
-                    merge_yaml_files(fpath, fdest)
-                    logging.info(
-                        f"Merged/overridden file content of {fdest} with {fpath}")
-                except Exception as e:
-                    logging.warning(f"Overwriting file {fdest} with {fpath}")
-                    shutil.copy2(fpath, fdest)
-            elif file_is_json(fpath):
-                try:
-                    merge_json_files(fpath, fdest)
-                    logging.info(
-                        f"Merged/overridden file content of {fdest} with {fpath}")
-                except Exception as e:
-                    logging.warning(f"Overwriting file {fdest} with {fpath}")
-                    shutil.copy2(fpath, fdest)
-            else:
-                logging.warning(f"Overwriting file {fdest} with {fpath}")
-                shutil.copy2(fpath, fdest)
+        try:
+            merge_files(source_file_path, destination_file_path)
+            logging.info(f'Merged/overridden file content of {destination_file_path} with {source_file_path}')
+        except:
+            break
+
+        return
+    
+    logging.warning(f'Overwriting file {destination_file_path} with {source_file_path}')
+    shutil.copy2(source_file_path, destination_file_path)
 
 
 def merge_yaml_files(fname, fdest):
