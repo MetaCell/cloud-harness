@@ -46,7 +46,7 @@ def main():
     os.makedirs(app_path, exist_ok=True)
 
     if TemplateType.DJANGO_APP in templates and TemplateType.WEBAPP not in templates:
-        templates = [TemplateType.BASE, TemplateType.WEBAPP] + templates
+        templates = [TemplateType.BASE, TemplateType.WEBAPP, TemplateType.DB_POSTGRES] + templates
 
     if TemplateType.WEBAPP in templates:
         handle_webapp_template(app_name, app_path)
