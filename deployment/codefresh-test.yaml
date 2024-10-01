@@ -540,3 +540,7 @@ steps:
     commands:
     - kubectl config use-context ${{CLUSTER_NAME}}
     - kubectl delete ns test-${{NAMESPACE_BASENAME}}
+    when:
+      condition:
+        all:
+          delete: '${{DELETE_ON_SUCCESS}} == "true"'
