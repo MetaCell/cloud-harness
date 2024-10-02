@@ -9,19 +9,15 @@ from .user_attributes import UserNotFound, _filter_attrs, _construct_attribute_t
 # quota tree node to hold the tree quota attributes
 
 
-
-
-
 def get_group_quotas(group, application_config: ApplicationConfig):
     base_quotas = application_config.get("harness", {}).get("quotas", {})
     valid_keys_map = {key for key in base_quotas}
     return _compute_attributes_from_tree(_construct_attribute_tree([group], valid_keys_map))
 
 
-
-
 def attribute_to_quota(attr_value: str):
     return float(re.sub("[^0-9.]", "", attr_value) if type(attr_value) is str else attr_value)
+
 
 def get_user_quotas(application_config: ApplicationConfig = None, user_id: str = None) -> dict:
     """Get the user quota from Keycloak and application
@@ -39,8 +35,7 @@ def get_user_quotas(application_config: ApplicationConfig = None, user_id: str =
     if not application_config:
         application_config = get_current_configuration()
     base_quotas = application_config.get("harness", {}).get("quotas", {})
-    
-    
+
     valid_keys_map = {key for key in base_quotas}
 
     try:

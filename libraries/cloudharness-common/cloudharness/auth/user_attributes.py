@@ -5,6 +5,7 @@ from cloudharness.applications import get_current_configuration
 from cloudharness_model.models import ApplicationConfig
 from cloudharness import log
 
+
 class KCAttributeNode:
     def __init__(self, name, attrs):
         self.attrs = attrs
@@ -25,6 +26,7 @@ def _filter_attrs(attrs, valid_keys_map):
             # map to value
             valid_attrs.update({key: attrs[key][0]})
     return valid_attrs
+
 
 def _construct_attribute_tree(groups, valid_keys_map) -> KCAttributeNode:
     """Construct a tree of attributes from the user groups"""
@@ -55,6 +57,7 @@ def _construct_attribute_tree(groups, valid_keys_map) -> KCAttributeNode:
 
 class UserNotFound(Exception):
     pass
+
 
 def _compute_attributes_from_tree(node: KCAttributeNode, transform_value_fn=lambda x: x):
     """Recursively traverse the tree and find the attributes per level
@@ -100,7 +103,6 @@ def _compute_attributes_from_tree(node: KCAttributeNode, transform_value_fn=lamb
     return node.attrs
 
 
-
 def get_user_attributes(user_id: str = None, valid_keys_map={}, default_attributes={}, transform_value_fn=lambda x: x) -> dict:
     """Get the user attributes from Keycloak recursively from the user attributes and groups
 
@@ -115,7 +117,7 @@ def get_user_attributes(user_id: str = None, valid_keys_map={}, default_attribut
     Example:
         {'quota-ws-maxcpu': 1000, 'quota-ws-open': 10, 'quota-ws-max': 8}
     """
-    
+
     try:
         auth_client = AuthClient()
         if not user_id:
@@ -124,7 +126,6 @@ def get_user_attributes(user_id: str = None, valid_keys_map={}, default_attribut
     except KeycloakError as e:
         log.warning("Quotas not available: error retrieving user: %s", user_id)
         raise UserNotFound("User not found") from e
-
 
     group_quotas = _compute_attributes_from_tree(
         _construct_attribute_tree(
