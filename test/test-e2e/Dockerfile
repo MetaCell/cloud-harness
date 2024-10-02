@@ -23,7 +23,7 @@ RUN yarn install --timeout 99999999
 
 # Run everything after as non-privileged user.
 
-
+RUN npx puppeteer browsers install chrome
 COPY --chown=test . . 
 USER test
 CMD ["yarn", "test"]
