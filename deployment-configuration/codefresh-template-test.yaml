@@ -133,15 +133,3 @@ steps:
       condition:
         all:
           error: '"${{FAILED}}" == "failed"'
-  delete_deployment:
-    title: "Delete deployment"
-    description: The deployment is deleted at the end of the pipeline
-    image: codefresh/kubectl
-    stage: qa
-    commands:
-      - kubectl config use-context ${{CLUSTER_NAME}}
-      - kubectl delete ns test-${{NAMESPACE_BASENAME}}
-    when:
-      condition:
-        all:
-          delete: ${{DELETE_ON_SUCCESS}} == "true"
