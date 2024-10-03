@@ -4,7 +4,7 @@ import Version from './components/Version';
 
 const Main = () => (
   <>
-    <img src="/logo.png" width="800" />
+    <img src="/assets/logo.png" width="800" />
     <h1>Sample React application is working!</h1>
     <Version />
     <RestTest />
