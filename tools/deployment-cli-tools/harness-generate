@@ -8,7 +8,7 @@ import pathlib
 import shutil
 import sys
 import logging
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from ch_cli_tools.openapi import LIB_NAME, generate_python_client, generate_server, generate_fastapi_server, \
     get_dependencies, generate_ts_client, generate_model
@@ -30,17 +30,22 @@ class CommandLineArguments:
 
 def main():
     args = get_command_line_arguments()
-
-    root_path = os.path.join(os.getcwd(), args.path) if not os.path.isabs(
-        args.path) else args.path
-
     get_dependencies()
-    if args.generate_models and os.path.exists(os.path.join(root_path, "libraries/models")) and (not args.is_interactive or input("Do you want to generate the main model? [Y/n]").upper() != 'N'):
+
+    path_arg = pathlib.Path(args.path)
+    root_path = path_arg if path_arg.is_absolute else path_arg.absolute
+    library_models_path = root_path / 'libraries' / 'models'
+
+    should_generate = should_generate_interactive if args.is_interactive else lambda _: True
+
+    if args.generate_models and library_models_path.exists and should_generate('the main model'):
         generate_model()
-    if not (args.generate_clients or args.generate_models) or args.server_name:
-        generate_servers(root_path, interactive=args.is_interactive, server=args.server_name)
-    if not (args.server_name or args.generate_models) or args.generate_clients:
-        generate_clients(root_path, args.client_name, interactive=args.is_interactive)
+
+    if args.server_name or not (args.generate_clients or args.generate_models):
+        generate_servers(root_path, should_generate, args.server_name)
+
+    if args.generate_clients or not (args.server_name or args.generate_models):
+        generate_clients(root_path, should_generate, args.client_name)
 
 
 def get_command_line_arguments() -> CommandLineArguments:
@@ -71,32 +76,61 @@ def get_command_line_arguments() -> CommandLineArguments:
     )
 
 
-def get_openapi_file_paths(root_path):
-    return [path for path in glob.glob(root_path + '/applications/*/api/*.yaml')]
+def should_generate_interactive(resource: str) -> bool:
+    user_input = input(f'Do you want to generate {resource}? [Y/n]').casefold()
+
+    return user_input == 'y'
 
 
-def get_application_paths(openapi_files):
-    return [os.path.basename(os.path.dirname(os.path.dirname(path))) for path in openapi_files]
-
-
-def generate_servers(root_path, interactive=False, server=None):
+def generate_servers(root_path: pathlib.Path, should_generate: Callable[[str], bool], server: Optional[str]):
     """
     Generates server stubs
     """
     openapi_files = get_openapi_file_paths(root_path)
-    modules = get_application_paths(openapi_files)
-    for i in range(len(modules)):
-        if not interactive or input("Do you want to generate " + openapi_files[i] + "? [Y/n]").upper() != 'N':
-            openapi_file = openapi_files[i]
-            application_root = os.path.dirname(os.path.dirname(openapi_file))
-            appname = os.path.basename(application_root)
-            if server and server != appname:
-                continue
-            if os.path.exists(os.path.join(application_root, "api", "genapi.sh")):
-                # fastapi server --> use the genapi.sh script
-                generate_fastapi_server(application_root)
-            else:
-                generate_server(application_root)
+
+    for openapi_file in openapi_files:
+        if not should_generate(openapi_file):
+            continue
+
+        application_root = openapi_file.parent.parent
+        app_name = application_root.name
+
+        if server and server != app_name:
+            continue
+
+        genapi_path = application_root / 'api' / 'genapi.sh'
+        if genapi_path.exists:
+            # fastapi server --> use the genapi.sh script
+            generate_fastapi_server(application_root)
+        else:
+            generate_server(application_root)
+
+
+def generate_clients(root_path: pathlib.Path, should_generate: Callable[[str], bool], client_lib_name: str):
+    """
+    Generates client stubs
+    """
+    if not should_generate('client libraries'):
+        return
+
+    openapi_files = get_openapi_file_paths(root_path)
+    client_src_path = root_path / 'libraries' / 'client' / client_lib_name
+
+    for openapi_file in openapi_files:
+        app_name = openapi_file.parent.parent.name
+
+        generate_python_client(app_name, openapi_file, client_src_path, lib_name=client_lib_name)
+
+        frontend_path = openapi_file.parent.parent / 'frontend'
+        if frontend_path.exists:
+            generate_ts_client(openapi_file)
+
+    aggregate_packages(str(client_src_path), client_lib_name)
+
+
+def get_openapi_file_paths(root_path) -> list[pathlib.Path]:
+    search_path = root_path / 'applications' / '*' / 'api' / '*.yaml'
+    return [pathlib.Path(path) for path in glob.glob(str(search_path))]
 
 
 def aggregate_packages(client_src_path, lib_name=LIB_NAME):
@@ -176,30 +210,6 @@ def aggregate_packages(client_src_path, lib_name=LIB_NAME):
 
         # Removes Tmp Files
         shutil.rmtree(MODULE_TMP_PATH)
-
-
-def generate_clients(root_path, client_lib_name=LIB_NAME, interactive=False):
-    """
-    Generates client stubs
-    """
-    if interactive and input("Do you want to generate client libraries? [Y/n]").upper() == 'N':
-        return
-
-    openapi_files = get_openapi_file_paths(root_path)
-    applications = get_application_paths(openapi_files)
-
-    client_src_path = os.path.join(
-        root_path, 'libraries/client', client_lib_name)
-    for i in range(len(applications)):
-        app_name = applications[i]
-        openapi_file = openapi_files[i]
-        app_dir = os.path.dirname(os.path.dirname(openapi_file))
-        generate_python_client(app_name, openapi_file,
-                               client_src_path, lib_name=client_lib_name)
-        if os.path.exists(os.path.join(app_dir, 'frontend')):
-            generate_ts_client(openapi_file)
-
-    aggregate_packages(client_src_path, client_lib_name)
 
 
 if __name__ == "__main__":
