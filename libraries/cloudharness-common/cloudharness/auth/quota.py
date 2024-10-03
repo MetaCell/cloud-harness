@@ -39,7 +39,7 @@ def get_user_quotas(application_config: ApplicationConfig = None, user_id: str =
     valid_keys_map = {key for key in base_quotas}
 
     try:
-        return get_user_attributes(user_id, valid_keys_map=valid_keys_map, default_attributes=base_quotas)
+        return get_user_attributes(user_id, valid_keys=valid_keys_map, default_attributes=base_quotas)
 
     except UserNotFound as e:
         log.warning("Quotas not available: error retrieving user: %s", user_id)

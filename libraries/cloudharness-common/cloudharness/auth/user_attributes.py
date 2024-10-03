@@ -16,19 +16,19 @@ class KCAttributeNode:
         self.children.append(child)
 
 
-def _filter_attrs(attrs, valid_keys_map):
+def _filter_attrs(attrs, valid_keys):
     # only use the attributes defined by the valid keys map
     valid_attrs = {}
     if attrs is None:
         return valid_attrs
     for key in attrs:
-        if key in valid_keys_map:
+        if key in valid_keys:
             # map to value
             valid_attrs.update({key: attrs[key][0]})
     return valid_attrs
 
 
-def _construct_attribute_tree(groups, valid_keys_map) -> KCAttributeNode:
+def _construct_attribute_tree(groups, valid_keys) -> KCAttributeNode:
     """Construct a tree of attributes from the user groups"""
     root = KCAttributeNode("root", {})
     for group in groups:
@@ -49,7 +49,7 @@ def _construct_attribute_tree(groups, valid_keys_map) -> KCAttributeNode:
         # add the child with it's attributes and last segment name
         n = KCAttributeNode(
             paths[len(paths) - 1],
-            _filter_attrs(group["attributes"], valid_keys_map)
+            _filter_attrs(group["attributes"], valid_keys)
         )
         r.addChild(n)
     return root
@@ -103,12 +103,12 @@ def _compute_attributes_from_tree(node: KCAttributeNode, transform_value_fn=lamb
     return node.attrs
 
 
-def get_user_attributes(user_id: str = None, valid_keys_map={}, default_attributes={}, transform_value_fn=lambda x: x) -> dict:
+def get_user_attributes(user_id: str = None, valid_keys={}, default_attributes={}, transform_value_fn=lambda x: x) -> dict:
     """Get the user attributes from Keycloak recursively from the user attributes and groups
 
     Args:
         user_id (str): the Keycloak user id or username to get the quotas for
-        valid_keys_map (dict): the valid keys to use for the attributes
+        valid_keys (iterable): the valid keys to use for the attributes
         default_attributes (dict): the default attributes to use if the user does not have the attribute
 
     Returns:
@@ -130,8 +130,8 @@ def get_user_attributes(user_id: str = None, valid_keys_map={}, default_attribut
     group_quotas = _compute_attributes_from_tree(
         _construct_attribute_tree(
             user["userGroups"],
-            valid_keys_map), transform_value_fn)
-    user_attrs = _filter_attrs(user["attributes"], valid_keys_map)
+            valid_keys), transform_value_fn)
+    user_attrs = _filter_attrs(user["attributes"], valid_keys)
     for key in group_quotas:
         if key not in user_attrs:
             user_attrs.update({key: group_quotas[key]})
