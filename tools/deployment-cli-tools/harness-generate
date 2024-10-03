@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 
+import argparse
+from dataclasses import dataclass
 import glob
 import os
+import pathlib
 import shutil
 import sys
 import logging
+from typing import Any, Optional
 
 from ch_cli_tools.openapi import LIB_NAME, generate_python_client, generate_server, generate_fastapi_server, \
     get_dependencies, generate_ts_client, generate_model
@@ -12,6 +16,59 @@ from ch_cli_tools.utils import copymergedir
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 ROOT = os.path.dirname(HERE)
+
+
+@dataclass(frozen=True)
+class CommandLineArguments:
+    path: pathlib.Path
+    client_name: str
+    server_name: Optional[str]
+    generate_clients: bool
+    generate_models: bool
+    is_interactive: bool
+
+
+def main():
+    args = get_command_line_arguments()
+
+    root_path = os.path.join(os.getcwd(), args.path) if not os.path.isabs(
+        args.path) else args.path
+
+    get_dependencies()
+    if args.generate_models and os.path.exists(os.path.join(root_path, "libraries/models")) and (not args.is_interactive or input("Do you want to generate the main model? [Y/n]").upper() != 'N'):
+        generate_model()
+    if not (args.generate_clients or args.generate_models) or args.server_name:
+        generate_servers(root_path, interactive=args.is_interactive, server=args.server_name)
+    if not (args.server_name or args.generate_models) or args.generate_clients:
+        generate_clients(root_path, args.client_name, interactive=args.is_interactive)
+
+
+def get_command_line_arguments() -> CommandLineArguments:
+    parser = argparse.ArgumentParser(description='Walk filesystem inside ./applications create application scaffolding.')
+
+    parser.add_argument('path', metavar='path', default=ROOT, type=str,
+                        help='Base path of the application.')
+    parser.add_argument('-cn', '--client-name', dest='client_name', action="store", default=LIB_NAME,
+                        help='Specify image registry prefix')
+    parser.add_argument('-i', '--interactive', dest='interactive', action="store_true",
+                        help='Asks before generate')
+    parser.add_argument('-s', '--server', dest='server', action="store", default=None,
+                        help='Generate only a specific server (provide application name) stubs')
+    parser.add_argument('-c', '--clients', dest='clients', action="store_true",
+                        help='Generate only client libraries')
+    parser.add_argument('-m', '--models', dest='models', action="store_true",
+                        help='Generate only model library')
+
+    args, _ = parser.parse_known_args(sys.argv[1:])
+
+    return CommandLineArguments(
+        path=args.path,
+        client_name=args.client_name,
+        server_name=args.server,
+        generate_clients=args.clients,
+        generate_models=args.models,
+        is_interactive=args.interactive,
+    )
 
 
 def get_openapi_file_paths(root_path):
@@ -146,31 +203,4 @@ def generate_clients(root_path, client_lib_name=LIB_NAME, interactive=False):
 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description='Walk filesystem inside ./applications create application scaffolding.')
-    parser.add_argument('path', metavar='path', default=ROOT, type=str,
-                        help='Base path of the application.')
-    parser.add_argument('-cn', '--client-name', dest='client_name', action="store", default=LIB_NAME,
-                        help='Specify image registry prefix')
-    parser.add_argument('-i', '--interactive', dest='interactive', action="store_true",
-                        help='Asks before generate')
-    parser.add_argument('-s', '--server', dest='server', action="store",
-                        help='Generate only a specific server (provide application name) stubs', default=())
-    parser.add_argument('-c', '--clients', dest='clients', action="store_true",
-                        help='Generate only client libraries')
-    parser.add_argument('-m', '--models', dest='models', action="store_true",
-                        help='Generate only model library')
-    args, unknown = parser.parse_known_args(sys.argv[1:])
-
-    root_path = os.path.join(os.getcwd(), args.path) if not os.path.isabs(
-        args.path) else args.path
-
-    get_dependencies()
-    if args.models and os.path.exists(os.path.join(root_path, "libraries/models")) and (not args.interactive or input("Do you want to generate the main model? [Y/n]").upper() != 'N'):
-        generate_model()
-    if not (args.clients or args.models) or args.server:
-        generate_servers(root_path, interactive=args.interactive, server=args.server)
-    if not (args.server or args.models) or args.clients:
-        generate_clients(root_path, args.client_name, interactive=args.interactive)
+    main()
