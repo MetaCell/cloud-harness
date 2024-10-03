@@ -8,7 +8,7 @@ import pathlib
 import shutil
 import sys
 import logging
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 from ch_cli_tools.openapi import LIB_NAME, generate_python_client, generate_server, generate_fastapi_server, \
     get_dependencies, generate_ts_client, generate_model
@@ -128,9 +128,8 @@ def generate_clients(root_path: pathlib.Path, should_generate: Callable[[str], b
     aggregate_packages(str(client_src_path), client_lib_name)
 
 
-def get_openapi_file_paths(root_path) -> list[pathlib.Path]:
-    search_path = root_path / 'applications' / '*' / 'api' / '*.yaml'
-    return [pathlib.Path(path) for path in glob.glob(str(search_path))]
+def get_openapi_file_paths(root_path: pathlib.Path) -> list[pathlib.Path]:
+    return [path for path in root_path.glob('applications/*/api/*.yaml')]
 
 
 def aggregate_packages(client_src_path, lib_name=LIB_NAME):
