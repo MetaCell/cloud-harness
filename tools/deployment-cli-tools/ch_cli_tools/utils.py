@@ -1,5 +1,6 @@
 
 import contextlib
+import pathlib
 import socket
 import glob
 import subprocess
@@ -257,40 +258,46 @@ def movedircontent(root_src_dir, root_dst_dir):
     shutil.rmtree(root_src_dir)
 
 
-def merge_configuration_directories(source, destination):
+def merge_configuration_directories(source: str, destination: str) -> None:
     if source == destination:
         return
     
-    if not exists(source):
+    source_path, destination_path = pathlib.Path(source), pathlib.Path(destination)
+    
+    if not source_path.exists():
         logging.warning("Trying to merge the not existing directory: %s", source)
         return
     
-    if not exists(destination):
-        shutil.copytree(source, destination, ignore=shutil.ignore_patterns(*EXCLUDE_PATHS))
+    if not destination_path.exists():
+        shutil.copytree(source_path, destination_path, ignore=shutil.ignore_patterns(*EXCLUDE_PATHS))
         return
 
-    for source_directory, _, files in os.walk(source):
-        _merge_configuration_directory(source, destination, source_directory, files)
+    for source_directory, _, files in source_path.walk():
+        _merge_configuration_directory(source_path, destination_path, source_directory, files)
 
 
-def _merge_configuration_directory(source: str, destination: str, source_directory: str, files: list[str]) -> None:
-    if any(path in source_directory for path in EXCLUDE_PATHS):
+def _merge_configuration_directory(
+        source: pathlib.Path,
+        destination: pathlib.Path,
+        source_directory: pathlib.Path,
+        files: list[str]
+) -> None:
+    if any(path in str(source_directory) for path in EXCLUDE_PATHS):
         return
     
-    destination_directory = source_directory.replace(source, destination, 1)
-    if not exists(destination_directory):
-        os.makedirs(destination_directory)
+    destination_directory = destination / source_directory.relative_to(source)
+    destination_directory.mkdir(exist_ok=True)
 
     non_build_files = (file for file in files if file not in BUILD_FILENAMES)
 
     for file_name in non_build_files:
-        source_file_path = join(source_directory, file_name)
-        destination_file_path = join(destination_directory, file_name)
+        source_file_path = source_directory / file_name
+        destination_file_path = destination_directory / file_name
         
         _merge_configuration_file(source_file_path, destination_file_path)
 
 
-def _merge_configuration_file(source_file_path: str, destination_file_path: str) -> None:
+def _merge_configuration_file(source_file_path: pathlib.Path, destination_file_path: pathlib.Path) -> None:
     if not exists(destination_file_path):
         shutil.copy2(source_file_path, destination_file_path)
         return
@@ -300,8 +307,8 @@ def _merge_configuration_file(source_file_path: str, destination_file_path: str)
         (file_is_json, merge_json_files),
     ]
 
-    for file_is_expected_type, merge_files in merge_operations:
-        if not file_is_expected_type(source_file_path):
+    for can_merge_file, merge_files in merge_operations:
+        if not can_merge_file(source_file_path.name):
             continue
 
         try:
