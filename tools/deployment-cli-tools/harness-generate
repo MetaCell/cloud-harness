@@ -38,7 +38,7 @@ def main():
 
     should_generate = should_generate_interactive if args.is_interactive else lambda _: True
 
-    if args.generate_models and library_models_path.exists and should_generate('the main model'):
+    if args.generate_models and library_models_path.exists() and should_generate('the main model'):
         generate_model()
 
     if args.server_name or not (args.generate_clients or args.generate_models):
@@ -99,7 +99,7 @@ def generate_servers(root_path: pathlib.Path, should_generate: Callable[[str], b
             continue
 
         genapi_path = application_root / 'api' / 'genapi.sh'
-        if genapi_path.exists:
+        if genapi_path.exists():
             # fastapi server --> use the genapi.sh script
             generate_fastapi_server(application_root)
         else:
@@ -122,7 +122,7 @@ def generate_clients(root_path: pathlib.Path, should_generate: Callable[[str], b
         generate_python_client(app_name, openapi_file, client_src_path, lib_name=client_lib_name)
 
         frontend_path = openapi_file.parent.parent / 'frontend'
-        if frontend_path.exists:
+        if frontend_path.exists():
             generate_ts_client(openapi_file)
 
     aggregate_packages(str(client_src_path), client_lib_name)
