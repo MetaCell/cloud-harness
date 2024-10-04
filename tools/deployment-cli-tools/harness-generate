@@ -34,12 +34,11 @@ def main():
 
     path_arg = pathlib.Path(args.path)
     root_path = path_arg if path_arg.is_absolute else path_arg.absolute
-    library_models_path = root_path/'libraries'/'models'
 
     should_generate = should_generate_interactive if args.is_interactive else lambda _: True
 
-    if args.generate_models and library_models_path.exists() and should_generate('the main model'):
-        generate_model()
+    if args.generate_models:
+        generate_model(root_path, should_generate)
 
     if args.app_name or not (args.generate_clients or args.generate_models):
         generate_servers(root_path, should_generate, args.app_name)
@@ -82,7 +81,22 @@ def should_generate_interactive(resource: str) -> bool:
     return user_input == 'y'
 
 
-def generate_servers(root_path: pathlib.Path, should_generate: Callable[[str], bool], app_name: Optional[str]):
+def generate_models(root_path: pathlib.Path, should_generate: Callable[[str], bool]) -> None:
+    """
+    Generates the main model
+    """
+    library_models_path = root_path/'libraries'/'models'
+
+    if not library_models_path.exists():
+        return
+
+    if not should_generate('the main model'):
+        return
+
+    generate_model()
+
+
+def generate_servers(root_path: pathlib.Path, should_generate: Callable[[str], bool], app_name: Optional[str]) -> None:
     """
     Generates server stubs
     """
@@ -106,7 +120,7 @@ def generate_servers(root_path: pathlib.Path, should_generate: Callable[[str], b
             generate_server(application_root)
 
 
-def generate_clients(root_path: pathlib.Path, should_generate: Callable[[str], bool], client_lib_name: str):
+def generate_clients(root_path: pathlib.Path, should_generate: Callable[[str], bool], client_lib_name: str) -> None:
     """
     Generates client stubs
     """
