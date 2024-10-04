@@ -22,7 +22,7 @@ ROOT = os.path.dirname(HERE)
 class CommandLineArguments:
     path: pathlib.Path
     client_name: str
-    server_name: Optional[str]
+    app_name: Optional[str]
     generate_clients: bool
     generate_models: bool
     is_interactive: bool
@@ -34,17 +34,17 @@ def main():
 
     path_arg = pathlib.Path(args.path)
     root_path = path_arg if path_arg.is_absolute else path_arg.absolute
-    library_models_path = root_path / 'libraries' / 'models'
+    library_models_path = root_path/'libraries'/'models'
 
     should_generate = should_generate_interactive if args.is_interactive else lambda _: True
 
     if args.generate_models and library_models_path.exists() and should_generate('the main model'):
         generate_model()
 
-    if args.server_name or not (args.generate_clients or args.generate_models):
-        generate_servers(root_path, should_generate, args.server_name)
+    if args.app_name or not (args.generate_clients or args.generate_models):
+        generate_servers(root_path, should_generate, args.app_name)
 
-    if args.generate_clients or not (args.server_name or args.generate_models):
+    if args.generate_clients or not (args.app_name or args.generate_models):
         generate_clients(root_path, should_generate, args.client_name)
 
 
@@ -57,8 +57,8 @@ def get_command_line_arguments() -> CommandLineArguments:
                         help='Specify image registry prefix')
     parser.add_argument('-i', '--interactive', dest='interactive', action="store_true",
                         help='Asks before generate')
-    parser.add_argument('-s', '--server', dest='server', action="store", default=None,
-                        help='Generate only a specific server (provide application name) stubs')
+    parser.add_argument('-a', '--app_name', dest='app_name', action="store", default=None,
+                        help='Generate only for a specific application')
     parser.add_argument('-c', '--clients', dest='clients', action="store_true",
                         help='Generate only client libraries')
     parser.add_argument('-m', '--models', dest='models', action="store_true",
@@ -69,7 +69,7 @@ def get_command_line_arguments() -> CommandLineArguments:
     return CommandLineArguments(
         path=args.path,
         client_name=args.client_name,
-        server_name=args.server,
+        app_name=args.app_name,
         generate_clients=args.clients,
         generate_models=args.models,
         is_interactive=args.interactive,
@@ -82,7 +82,7 @@ def should_generate_interactive(resource: str) -> bool:
     return user_input == 'y'
 
 
-def generate_servers(root_path: pathlib.Path, should_generate: Callable[[str], bool], server: Optional[str]):
+def generate_servers(root_path: pathlib.Path, should_generate: Callable[[str], bool], app_name: Optional[str]):
     """
     Generates server stubs
     """
@@ -93,12 +93,12 @@ def generate_servers(root_path: pathlib.Path, should_generate: Callable[[str], b
             continue
 
         application_root = openapi_file.parent.parent
-        app_name = application_root.name
+        current_app_name = application_root.name
 
-        if server and server != app_name:
+        if app_name and current_app_name != app_name:
             continue
 
-        genapi_path = application_root / 'api' / 'genapi.sh'
+        genapi_path = application_root/'api'/'genapi.sh'
         if genapi_path.exists():
             # fastapi server --> use the genapi.sh script
             generate_fastapi_server(application_root)
@@ -114,14 +114,14 @@ def generate_clients(root_path: pathlib.Path, should_generate: Callable[[str], b
         return
 
     openapi_files = get_openapi_file_paths(root_path)
-    client_src_path = root_path / 'libraries' / 'client' / client_lib_name
+    client_src_path = root_path/'libraries'/'client'/client_lib_name
 
     for openapi_file in openapi_files:
         app_name = openapi_file.parent.parent.name
 
         generate_python_client(app_name, openapi_file, client_src_path, lib_name=client_lib_name)
 
-        frontend_path = openapi_file.parent.parent / 'frontend'
+        frontend_path = openapi_file.parent.parent/'frontend'
         if frontend_path.exists():
             generate_ts_client(openapi_file)
 
