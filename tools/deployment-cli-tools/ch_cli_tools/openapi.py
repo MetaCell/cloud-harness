@@ -2,9 +2,11 @@ import glob
 import json
 import logging
 import os
+import pathlib
 import shutil
 import subprocess
 import sys
+from typing import Optional
 import urllib.request
 from os.path import dirname as dn, join
 
@@ -19,22 +21,48 @@ ROOT = dn(dn(dn(HERE)))
 OPENAPI_GEN_URL = 'https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/7.7.0/openapi-generator-cli-7.7.0.jar'
 
 
-def generate_server(app_path, overrides_folder=""):
+def generate_server(app_path: pathlib.Path, overrides_folder: Optional[str]=None) -> None:
     get_dependencies()
-    openapi_dir = os.path.join(app_path, 'api')
-    openapi_file = glob.glob(os.path.join(openapi_dir, '*.yaml'))[0]
-    out_name = f"backend" if not os.path.exists(
-        f"{app_path}/server") else f"server"
-    out_path = f"{app_path}/{out_name}"
-    command = f"java -jar {CODEGEN} generate -i {openapi_file} -g python-flask -o {out_path} " \
-        f"-c {openapi_dir}/config.json " + \
-        (f"-t {overrides_folder}" if overrides_folder else "")
-    os.system(command)
+
+    openapi_directory = app_path/'api'
+    openapi_file = next(openapi_directory.glob('*.yaml'))
+
+    server_path = app_path/'server'
+    backend_path = app_path/'backend'
+    out_path = server_path if server_path.exists() else backend_path
+
+    command = [
+        'java', '-jar', CODEGEN, 'generate',
+        '-i', openapi_file,
+        '-g', 'python-flask',
+        '-o', out_path,
+        '-c', openapi_directory/'config.json',
+    ]
+    if overrides_folder:
+        command += ['-t', overrides_folder]
+
+    subprocess.run(command)
 
 
-def generate_fastapi_server(app_path):
-    command = f"cd {app_path}/api && bash genapi.sh"
-    os.system(command)
+def generate_fastapi_server(app_path: pathlib.Path) -> None:
+    api_path = app_path/'api'
+    tmp_app_path = api_path/'app'
+
+    command = [
+        'fastapi-codegen',
+        '--input', api_path/'openapi.yaml',
+        '--output', tmp_app_path,
+        '-t', api_path/'templates',
+    ]
+    subprocess.run(command)
+
+    backend_path = app_path/'backend'
+    shutil.move(tmp_app_path/'main.py', backend_path)
+    shutil.move(tmp_app_path/'models.py', backend_path/'openapi')
+
+    tmp_app_path.rmdir()
+
+    logging.info('Generated new models and main.py')
 
 
 def generate_model(base_path=ROOT):
