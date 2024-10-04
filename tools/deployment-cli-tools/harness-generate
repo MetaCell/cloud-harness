@@ -21,11 +21,13 @@ ROOT = os.path.dirname(HERE)
 @dataclass(frozen=True)
 class CommandLineArguments:
     path: pathlib.Path
-    client_name: str
     app_name: Optional[str]
-    generate_clients: bool
-    generate_models: bool
     is_interactive: bool
+    generate_clients: bool = False
+    generate_models: bool = False
+    generate_servers: bool = False
+    client_name: Optional[str] = None
+    client_types: ClientType = ClientType.all()
 
 
 def main():
@@ -33,50 +35,61 @@ def main():
     get_dependencies()
 
     path_arg = pathlib.Path(args.path)
-    root_path = path_arg if path_arg.is_absolute else path_arg.absolute
+    root_path = path_arg if path_arg.is_absolute() else path_arg.absolute()
 
     should_generate = should_generate_interactive if args.is_interactive else lambda _: True
 
     if args.generate_models:
-        generate_model(root_path, should_generate)
+        generate_models(root_path, should_generate)
 
-    if args.app_name or not (args.generate_clients or args.generate_models):
+    if args.generate_servers:
         generate_servers(root_path, should_generate, args.app_name)
 
-    if args.generate_clients or not (args.app_name or args.generate_models):
+    if args.generate_clients:
+        assert args.client_name is not None
         generate_clients(root_path, should_generate, args.client_name)
 
 
 def get_command_line_arguments() -> CommandLineArguments:
     parser = argparse.ArgumentParser(description='Walk filesystem inside ./applications create application scaffolding.')
 
-    parser.add_argument('path', metavar='path', default=ROOT, type=str,
-                        help='Base path of the application.')
-    parser.add_argument('-cn', '--client-name', dest='client_name', action="store", default=LIB_NAME,
-                        help='Specify image registry prefix')
-    parser.add_argument('-i', '--interactive', dest='interactive', action="store_true",
+    common_arguments = argparse.ArgumentParser(add_help=False)
+    common_arguments.add_argument('path', metavar='path', default=ROOT, type=str,
+                                  help='Base path of the application.')
+    common_arguments.add_argument('-i', '--interactive', dest='is_interactive', action="store_true",
                         help='Asks before generate')
-    parser.add_argument('-a', '--app_name', dest='app_name', action="store", default=None,
+    common_arguments.add_argument('-a', '--app_name', dest='app_name', action="store", default=None,
                         help='Generate only for a specific application')
-    parser.add_argument('-c', '--clients', dest='clients', action="store_true",
-                        help='Generate only client libraries')
-    parser.add_argument('-m', '--models', dest='models', action="store_true",
-                        help='Generate only model library')
 
-    args, _ = parser.parse_known_args(sys.argv[1:])
+    clients_arguments = argparse.ArgumentParser(add_help=False)
+    clients_arguments.add_argument('-cn', '--client-name', dest='client_name', action='store', default=LIB_NAME,
+                                   help='specify image registry prefix')
 
-    return CommandLineArguments(
-        path=args.path,
-        client_name=args.client_name,
-        app_name=args.app_name,
-        generate_clients=args.clients,
-        generate_models=args.models,
-        is_interactive=args.interactive,
-    )
+    subparsers = parser.add_subparsers(title='generation modes', required=True)
+
+    all_parser = subparsers.add_parser('all', parents=[common_arguments, clients_arguments],
+                                       help='Generate models, server stubs and client libraries')
+    all_parser.set_defaults(generate_models=True, generate_servers=True, generate_clients=True)
+
+    models_parser = subparsers.add_parser('models', parents=[common_arguments],
+                                          help='Generate only model library')
+    models_parser.set_defaults(generate_models=True)
+
+    servers_parser = subparsers.add_parser('servers', parents=[common_arguments],
+                                           help='Generate only server stubs')
+    servers_parser.set_defaults(generate_servers=True)
+
+    clients_parser = subparsers.add_parser('clients', parents=[common_arguments, clients_arguments],
+                                           help='Generate only client libraries')
+    clients_parser.set_defaults(generate_clients=True)
+
+    args = parser.parse_args()
+
+    return CommandLineArguments(**args.__dict__)
 
 
 def should_generate_interactive(resource: str) -> bool:
-    user_input = input(f'Do you want to generate {resource}? [Y/n]').casefold()
+    user_input = input(f'Do you want to generate {resource}? [Y/n] ').casefold()
 
     return user_input == 'y'
 

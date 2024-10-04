@@ -45,22 +45,27 @@ def generate_server(app_path: pathlib.Path, overrides_folder: Optional[str]=None
 
 
 def generate_fastapi_server(app_path: pathlib.Path) -> None:
-    api_path = app_path/'api'
-    tmp_app_path = api_path/'app'
+    api_directory = app_path/'api'
+    backend_directory = app_path/'backend'
+    temp_directory = api_directory/'app'
 
     command = [
         'fastapi-codegen',
-        '--input', api_path/'openapi.yaml',
-        '--output', tmp_app_path,
-        '-t', api_path/'templates',
+        '--input', api_directory/'openapi.yaml',
+        '--output', temp_directory,
+        '-t', api_directory/'templates',
     ]
     subprocess.run(command)
 
-    backend_path = app_path/'backend'
-    shutil.move(tmp_app_path/'main.py', backend_path)
-    shutil.move(tmp_app_path/'models.py', backend_path/'openapi')
+    source_main = temp_directory/'main.py'
+    destination_main = backend_directory/'main.py'
+    source_main.replace(destination_main)
 
-    tmp_app_path.rmdir()
+    source_models = temp_directory/'models.py'
+    destination_models = backend_directory/'openapi'/'models.py'
+    source_models.replace(destination_models)
+
+    temp_directory.rmdir()
 
     logging.info('Generated new models and main.py')
 
