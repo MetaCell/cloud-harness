@@ -176,17 +176,18 @@ def replaceindir(root_src_dir, source, replace):
             if not any(file_.endswith(ext) for ext in REPLACE_TEXT_FILES_EXTENSIONS):
                 continue
 
-            src_file = join(src_dir, file_)
+            src_file = pathlib.Path(src_dir)/file_
             replace_in_file(src_file, source, replace)
 
 
-def replace_in_file(src_file, source, replace):
-    if src_file.endswith('.py') or basename(src_file) == 'Dockerfile':
-        replace = to_python_module(replace)
-    with fileinput.FileInput(src_file, inplace=True) as file:
+def replace_in_file(src_file: pathlib.Path, source: str, replacement: str) -> None:
+    if src_file.name.endswith('.py') or src_file.name == 'Dockerfile':
+        replacement = to_python_module(replacement)
+
+    with fileinput.input(src_file, inplace=True) as file:
         try:
             for line in file:
-                print(line.replace(source, replace), end='')
+                print(line.replace(source, replacement), end='')
         except UnicodeDecodeError:
             pass
 
