@@ -21,7 +21,7 @@ ROOT = dn(dn(dn(HERE)))
 OPENAPI_GEN_URL = 'https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/7.7.0/openapi-generator-cli-7.7.0.jar'
 
 
-def generate_server(app_path: pathlib.Path, overrides_folder: Optional[str]=None) -> None:
+def generate_server(app_path: pathlib.Path, overrides_folder: Optional[pathlib.Path]=None) -> None:
     get_dependencies()
 
     openapi_directory = app_path/'api'

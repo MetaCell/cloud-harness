@@ -4,7 +4,7 @@ import pathlib
 import socket
 import glob
 import subprocess
-from typing import Any
+from typing import Any, Union
 import requests
 import os
 from functools import cache
@@ -208,29 +208,28 @@ def replace_in_dict(src_dict: dict, source: str, replacement: str) -> dict:
     }
 
 
-def copymergedir(root_src_dir, root_dst_dir):
+def copymergedir(source_root_directory: pathlib.Path, destination_root_directory: pathlib.Path) -> None:
     """
     Does copy and merge (shutil.copytree requires that the destination does not exist)
-    :param root_src_dir:
-    :param root_dst_dir:
+    :param source_root_directory:
+    :param destination_root_directory:
     :return:
     """
-    logging.info('Copying directory %s to %s', root_src_dir, root_dst_dir)
-    for src_dir, dirs, files in os.walk(root_src_dir):
+    logging.info(f'Copying directory {source_root_directory} to {destination_root_directory}')
 
-        dst_dir = src_dir.replace(root_src_dir, root_dst_dir, 1)
-        if not exists(dst_dir):
-            os.makedirs(dst_dir)
-        for file_ in files:
-            src_file = join(src_dir, file_)
-            dst_file = join(dst_dir, file_)
-            if exists(dst_file):
-                os.remove(dst_file)
+    for source_directory, _, files in source_root_directory.walk():
+
+        destination_directory = destination_root_directory/source_directory.relative_to(source_root_directory)
+        destination_directory.mkdir(parents=True, exist_ok=True)
+
+        for file in files:
+            source_file = source_directory/file
+            destination_file = destination_directory/file
+
             try:
-                shutil.copy(src_file, dst_dir)
+                source_file.replace(destination_file)
             except:
-                logging.warning("Error copying file %s to %s.",
-                                src_file, dst_dir)
+                logging.warning(f'Error copying file {source_file} to {destination_file}.')
 
 
 def movedircontent(root_src_dir, root_dst_dir):
@@ -259,11 +258,11 @@ def movedircontent(root_src_dir, root_dst_dir):
     shutil.rmtree(root_src_dir)
 
 
-def merge_configuration_directories(source: str, destination: str) -> None:
-    if source == destination:
-        return
-    
+def merge_configuration_directories(source: Union[str, pathlib.Path], destination: Union[str, pathlib.Path]) -> None:
     source_path, destination_path = pathlib.Path(source), pathlib.Path(destination)
+
+    if source_path == destination_path:
+        return
     
     if not source_path.exists():
         logging.warning("Trying to merge the not existing directory: %s", source)
@@ -286,14 +285,14 @@ def _merge_configuration_directory(
     if any(path in str(source_directory) for path in EXCLUDE_PATHS):
         return
     
-    destination_directory = destination / source_directory.relative_to(source)
+    destination_directory = destination/source_directory.relative_to(source)
     destination_directory.mkdir(exist_ok=True)
 
     non_build_files = (file for file in files if file not in BUILD_FILENAMES)
 
     for file_name in non_build_files:
-        source_file_path = source_directory / file_name
-        destination_file_path = destination_directory / file_name
+        source_file_path = source_directory/file_name
+        destination_file_path = destination_directory/file_name
         
         _merge_configuration_file(source_file_path, destination_file_path)
 

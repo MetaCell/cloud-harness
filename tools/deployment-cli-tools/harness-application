@@ -41,7 +41,7 @@ class TemplateType(StrEnum):
 def main():
     app_name, templates = get_command_line_arguments()
 
-    app_path = pathlib.Path(APPLICATIONS_SRC_PATH) / app_name
+    app_path = pathlib.Path(APPLICATIONS_SRC_PATH)/app_name
     app_path.mkdir(exist_ok=True)
 
     if TemplateType.DJANGO_APP in templates and TemplateType.WEBAPP not in templates:
@@ -143,10 +143,12 @@ def handle_webapp_template_cleanup(app_path: pathlib.Path) -> None:
 
 def handle_server_template(app_path: pathlib.Path) -> None:
     with tempfile.TemporaryDirectory() as tmp_dirname:
+        tmp_path = pathlib.Path(tmp_dirname)
         server_template_path = pathlib.Path(CH_ROOT)/APPLICATION_TEMPLATE_PATH/TemplateType.SERVER
-        copymergedir(str(server_template_path), tmp_dirname)
-        merge_configuration_directories(app_path, tmp_dirname)
-        generate_server(app_path, tmp_dirname)
+
+        copymergedir(server_template_path, tmp_path)
+        merge_configuration_directories(app_path, tmp_path)
+        generate_server(app_path, tmp_path)
 
 
 def handle_flask_server_template(app_path: pathlib.Path) -> None:
