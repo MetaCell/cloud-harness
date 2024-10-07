@@ -475,3 +475,13 @@ def get_git_commit_hash(path):
             ['git', 'rev-parse', '--short', 'HEAD'], cwd=path).decode("utf-8").strip()
     except:
         return None
+
+
+def load_yaml(yaml_file: pathlib.Path) -> dict:
+    with yaml_file.open('r') as file:
+        return yaml.load(file)
+
+
+def save_yaml(yaml_file: pathlib.Path, data: dict) -> None:
+    with yaml_file.open('w') as file:
+        yaml.dump(data, file)

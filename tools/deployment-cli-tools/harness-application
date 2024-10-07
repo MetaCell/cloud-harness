@@ -9,11 +9,12 @@ import tempfile
 import subprocess
 import logging
 import argparse
+from typing import Union
 
 from ch_cli_tools import CH_ROOT
 from cloudharness_utils.constants import APPLICATION_TEMPLATE_PATH
 from ch_cli_tools.openapi import generate_server, generate_fastapi_server, APPLICATIONS_SRC_PATH, generate_ts_client
-from ch_cli_tools.utils import merge_configuration_directories, replaceindir, replace_in_file, \
+from ch_cli_tools.utils import merge_configuration_directories, replaceindir, replace_in_file, save_yaml, \
     to_python_module, copymergedir, get_json_template, replace_in_dict
 
 try:
@@ -68,6 +69,8 @@ def main():
 
     if TemplateType.WEBAPP in templates:
         handle_webapp_template_cleanup(app_path)
+
+    create_manifest_file(app_path, app_name, templates)
 
 
 def get_command_line_arguments() -> tuple[str, list[str]]:
@@ -187,6 +190,18 @@ def create_django_app_vscode_debug_configuration(app_name: str):
     vscode_launch_path.parent.mkdir(parents=True, exist_ok=True)
     with vscode_launch_path.open('w') as f:
         json.dump(launch_config, f, indent=2, sort_keys=True)
+
+
+def create_manifest_file(app_path: pathlib.Path, app_name: str, templates: list[Union[str, TemplateType]]) -> None:
+    manifest_file = app_path/'.ch-manifest'
+    manifest_data = {
+        'app-name': app_name,
+        'templates': [str(template) for template in templates],
+        'version': '1',
+    }
+
+    logging.info('Creating manifest file')
+    save_yaml(manifest_file, manifest_data)
 
 
 def merge_template_directories(template_name: str, app_path: pathlib.Path) -> None:
