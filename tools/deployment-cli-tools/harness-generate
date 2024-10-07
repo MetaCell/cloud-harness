@@ -2,7 +2,10 @@
 
 import argparse
 from dataclasses import dataclass
+import enum
+import functools
 import glob
+import operator
 import os
 import pathlib
 import shutil
@@ -16,6 +19,15 @@ from ch_cli_tools.utils import copymergedir
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 ROOT = os.path.dirname(HERE)
+
+
+class ClientType(enum.Flag):
+    TS_CLIENT = enum.auto()
+    PYTHON_CLIENT = enum.auto()
+
+    @classmethod
+    def all(cls):
+        return functools.reduce(operator.or_, cls)
 
 
 @dataclass(frozen=True)
@@ -47,7 +59,7 @@ def main():
 
     if args.generate_clients:
         assert args.client_name is not None
-        generate_clients(root_path, should_generate, args.client_name)
+        generate_clients(root_path, should_generate, args.client_name, args.client_types)
 
 
 def get_command_line_arguments() -> CommandLineArguments:
@@ -64,6 +76,12 @@ def get_command_line_arguments() -> CommandLineArguments:
     clients_arguments = argparse.ArgumentParser(add_help=False)
     clients_arguments.add_argument('-cn', '--client-name', dest='client_name', action='store', default=LIB_NAME,
                                    help='specify image registry prefix')
+    client_type_group = clients_arguments.add_mutually_exclusive_group(required=False)
+    client_type_group.add_argument('-t', '--ts-only', dest='client_types', action='store_const', const=ClientType.TS_CLIENT,
+                                   help='Generate only typescript clients')
+    client_type_group.add_argument('-p', '--python-only', dest='client_types', action='store_const', const=ClientType.PYTHON_CLIENT,
+                                   help='Generate only python clients')
+    clients_arguments.set_defaults(client_types=ClientType.all())
 
     subparsers = parser.add_subparsers(title='generation modes', required=True)
 
@@ -133,7 +151,7 @@ def generate_servers(root_path: pathlib.Path, should_generate: Callable[[str], b
             generate_server(application_root)
 
 
-def generate_clients(root_path: pathlib.Path, should_generate: Callable[[str], bool], client_lib_name: str) -> None:
+def generate_clients(root_path: pathlib.Path, should_generate: Callable[[str], bool], client_lib_name: str, client_types: ClientType) -> None:
     """
     Generates client stubs
     """
@@ -146,10 +164,11 @@ def generate_clients(root_path: pathlib.Path, should_generate: Callable[[str], b
     for openapi_file in openapi_files:
         app_name = openapi_file.parent.parent.name
 
-        generate_python_client(app_name, openapi_file, client_src_path, lib_name=client_lib_name)
+        if ClientType.PYTHON_CLIENT in client_types:
+            generate_python_client(app_name, openapi_file, client_src_path, lib_name=client_lib_name)
 
         frontend_path = openapi_file.parent.parent/'frontend'
-        if frontend_path.exists():
+        if frontend_path.exists() and ClientType.TS_CLIENT in client_types:
             generate_ts_client(openapi_file)
 
     aggregate_packages(str(client_src_path), client_lib_name)
