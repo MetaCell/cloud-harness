@@ -16,28 +16,12 @@ from cloudharness_utils.constants import APPLICATION_TEMPLATE_PATH
 from ch_cli_tools.openapi import generate_server, generate_fastapi_server, APPLICATIONS_SRC_PATH, generate_ts_client
 from ch_cli_tools.utils import merge_configuration_directories, replaceindir, replace_in_file, save_yaml, \
     to_python_module, copymergedir, get_json_template, replace_in_dict
-
-try:
-    from enum import StrEnum
-except ImportError:
-    from strenum import StrEnum
+from ch_cli_tools.common_types import CloudHarnessManifest, TemplateType
 
 # Only allow lowercased alphabetical characters separated by "-".
 name_pattern = re.compile("[a-z]+((-)?[a-z])?")
 
 PLACEHOLDER = '__APP_NAME__'
-
-
-class TemplateType(StrEnum):
-    BASE = 'base'
-    FLASK_SERVER = 'flask-server'
-    WEBAPP = 'webapp'
-    DB_POSTGRES = 'db-postgres'
-    DB_NEO4J = 'db-neo4j'
-    DB_MONGO = 'db-mongo'
-    DJANGO_APP = 'django-app'
-    SERVER = 'server'
-
 
 def main():
     app_name, templates = get_command_line_arguments()
@@ -194,14 +178,15 @@ def create_django_app_vscode_debug_configuration(app_name: str):
 
 def create_manifest_file(app_path: pathlib.Path, app_name: str, templates: list[Union[str, TemplateType]]) -> None:
     manifest_file = app_path/'.ch-manifest'
-    manifest_data = {
-        'app-name': app_name,
-        'templates': [str(template) for template in templates],
-        'version': '1',
-    }
+    manifest = CloudHarnessManifest(
+        app_name=app_name,
+        version='1',
+        inferred=False,
+        templates=[str(template) for template in templates],
+    )
 
     logging.info('Creating manifest file')
-    save_yaml(manifest_file, manifest_data)
+    save_yaml(manifest_file, manifest.to_dict())
 
 
 def merge_template_directories(template_name: str, app_path: pathlib.Path) -> None:
