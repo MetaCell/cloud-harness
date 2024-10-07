@@ -22,6 +22,16 @@ class ClientType(enum.Flag):
     @classmethod
     def all(cls):
         return functools.reduce(operator.or_, cls)
+    
+
+class GenerationMode(enum.Flag):
+    CLIENTS = enum.auto()
+    MODELS = enum.auto()
+    SERVERS = enum.auto()
+
+    @classmethod
+    def all(cls):
+        return functools.reduce(operator.or_, cls)
 
 
 @dataclass(frozen=True)
@@ -29,11 +39,21 @@ class CommandLineArguments:
     path: pathlib.Path
     app_name: Optional[str]
     is_interactive: bool
-    generate_clients: bool = False
-    generate_models: bool = False
-    generate_servers: bool = False
+    generation_mode: GenerationMode
     client_name: Optional[str] = None
     client_types: ClientType = ClientType.all()
+
+    @property
+    def generate_models(self):
+        return GenerationMode.MODELS in self.generation_mode
+
+    @property
+    def generate_servers(self):
+        return GenerationMode.SERVERS in self.generation_mode
+
+    @property
+    def generate_clients(self):
+        return GenerationMode.CLIENTS in self.generation_mode
 
 
 def main():
@@ -80,19 +100,19 @@ def get_command_line_arguments() -> CommandLineArguments:
 
     all_parser = subparsers.add_parser('all', parents=[common_arguments, clients_arguments],
                                        help='Generate models, server stubs and client libraries')
-    all_parser.set_defaults(generate_models=True, generate_servers=True, generate_clients=True)
+    all_parser.set_defaults(generation_mode=GenerationMode.all())
 
     models_parser = subparsers.add_parser('models', parents=[common_arguments],
                                           help='Generate only model library')
-    models_parser.set_defaults(generate_models=True)
+    models_parser.set_defaults(generation_mode=GenerationMode.MODELS)
 
     servers_parser = subparsers.add_parser('servers', parents=[common_arguments],
                                            help='Generate only server stubs')
-    servers_parser.set_defaults(generate_servers=True)
+    servers_parser.set_defaults(generation_mode=GenerationMode.SERVERS)
 
     clients_parser = subparsers.add_parser('clients', parents=[common_arguments, clients_arguments],
                                            help='Generate only client libraries')
-    clients_parser.set_defaults(generate_clients=True)
+    clients_parser.set_defaults(generation_mode=GenerationMode.CLIENTS)
 
     args = parser.parse_args()
 
