@@ -18,6 +18,9 @@ class TemplateType(StrEnum):
     DJANGO_APP = 'django-app'
     SERVER = 'server'
 
+    def database_templates(self):
+        return [self.DB_POSTGRES, self.DB_NEO4J, self.DB_MONGO]
+
 
 @dataclass
 class CloudHarnessManifest():

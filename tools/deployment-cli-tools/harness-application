@@ -23,14 +23,13 @@ name_pattern = re.compile("[a-z]+((-)?[a-z])?")
 
 PLACEHOLDER = '__APP_NAME__'
 
-def main():
+def main() -> None:
     app_name, templates = get_command_line_arguments()
 
     app_path = pathlib.Path(APPLICATIONS_SRC_PATH)/app_name
     app_path.mkdir(exist_ok=True)
 
-    if TemplateType.DJANGO_APP in templates and TemplateType.WEBAPP not in templates:
-        templates = [TemplateType.BASE, TemplateType.WEBAPP, TemplateType.DB_POSTGRES] + templates
+    templates = normalize_templates(templates)
 
     if TemplateType.WEBAPP in templates:
         handle_webapp_template(app_name, app_path)
@@ -97,6 +96,21 @@ def get_command_line_arguments() -> tuple[str, list[str]]:
         exit(1)
 
     return args.name, args.templates
+
+
+def normalize_templates(templates: list[str]) -> list[str]:
+    normalized_templates = list(templates)
+
+    if TemplateType.DJANGO_APP in normalized_templates and TemplateType.WEBAPP not in normalized_templates:
+        django_app_index = normalized_templates.index(TemplateType.DJANGO_APP)
+        normalized_templates.insert(django_app_index, TemplateType.WEBAPP)
+
+    has_database_template = any(template in TemplateType.database_templates() for template in normalized_templates)
+    if TemplateType.DJANGO_APP in normalize_templates and not has_database_template:
+        django_app_index = normalized_templates.index(TemplateType.DJANGO_APP)
+        normalized_templates.insert(django_app_index, TemplateType.DB_POSTGRES)
+
+    return normalized_templates
 
 
 def handle_webapp_template(app_name: str, app_path: pathlib.Path) -> None:

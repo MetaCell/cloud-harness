@@ -17,6 +17,24 @@ from ch_cli_tools.utils import copymergedir, load_yaml, save_yaml
 from ch_cli_tools.common_types import CloudHarnessManifest, TemplateType
 
 
+def main():
+    args = get_command_line_arguments()
+    get_dependencies()
+
+    root_path = args.path.absolute()
+    should_generate = should_generate_interactive if args.is_interactive else lambda _: True
+
+    if args.generate_models:
+        generate_models(root_path, should_generate)
+
+    if args.generate_servers:
+        generate_servers(root_path, should_generate, args.app_name)
+
+    if args.generate_clients:
+        assert args.client_name is not None
+        generate_clients(root_path, should_generate, args.app_name, args.client_name, args.client_types)
+
+
 class ClientType(enum.Flag):
     TS_CLIENT = enum.auto()
     PYTHON_CLIENT = enum.auto()
@@ -56,25 +74,6 @@ class CommandLineArguments:
     @property
     def generate_clients(self):
         return GenerationMode.CLIENTS in self.generation_mode
-
-
-def main():
-    args = get_command_line_arguments()
-    get_dependencies()
-
-    root_path = args.path if args.path.is_absolute() else args.path.absolute()
-
-    should_generate = should_generate_interactive if args.is_interactive else lambda _: True
-
-    if args.generate_models:
-        generate_models(root_path, should_generate)
-
-    if args.generate_servers:
-        generate_servers(root_path, should_generate, args.app_name)
-
-    if args.generate_clients:
-        assert args.client_name is not None
-        generate_clients(root_path, should_generate, args.app_name, args.client_name, args.client_types)
 
 
 def get_command_line_arguments() -> CommandLineArguments:
