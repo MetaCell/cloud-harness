@@ -28,10 +28,9 @@ REQUIREMENTS = [
     'cloudharness_model',
     'cloudharness_utils',
     'fastapi-code-generator',
-    'dirhash'
+    'dirhash',
+    "StrEnum ; python_version < '3.11'",
 ]
-
-
 
 setup(
     name=NAME,

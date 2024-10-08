@@ -13,7 +13,8 @@ A user account must be provided to access to the MNP secured applications.
 To put a gatekeeper in front of your application, set `harness/secured` to `true`
 in the application's values.yaml.
 
-To assign paths and roles, set `uri_role_mapping` as you would do in the [gatekeeper configuration file resources](https://github.com/gogatekeeper/gatekeeper/blob/master/docs/user-guide.md#configuration-options).
+To assign paths and roles, set `uri_role_mapping` as you would do in the [gatekeeper configuration file resources](https://github.com/gogatekeeper/gatekeeper/blob/master/docs/content/configuration/_index.md).
+
 
 Example:
 
@@ -27,7 +28,8 @@ harness:
     - administrator
 ```
 
-See the [Gogatekeeper official documentation](https://github.com/gogatekeeper/gatekeeper/blob/master/docs/user-guide.md) for more.
+
+See the [Gogatekeeper official documentation](https://gogatekeeper.github.io/gatekeeper/userguide) for more.
 
 
 ## Backend development
@@ -176,8 +178,35 @@ harness:
 
 The above configuration will create 3 client roles under the "myapp" client and 2 users.
 
----
+
 **NOTE**
-Users and client roles are defined as a one-off initialization: they
+> Users and client roles are defined as a one-off initialization: they
 can be configured only on a new deployment and cannot be updated.
----
+
+
+### Retrieve user attributes Python API
+
+The auth API provides a way to get user attributes merged with groups attributes recursively.
+This allows us to define an attribute that is common for different users per group.
+A common use case is the definition of usage quotas, for which cloudharness provides a
+high level API.
+
+Example retrieve attributes:
+
+```Python
+from clouharness.auth.user_attributes import get_user_attributes
+
+attributes = get_user_attributes(kc_user_id_or_name)
+```
+
+The API provides parameters for filtering and provide a set of default values.
+
+The user quotas API also assumes that a set of default values can be specified at application level
+on `harness/quotas` and all quotas attributes begin with the `quota-` prefix.
+
+Example:
+
+```Python
+from clouharness.auth.quotas import get_user_quotas
+quotas = get_user_quotas(kc_user_id_or_name) # retrieves default quotas values from the current application
+```

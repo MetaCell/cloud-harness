@@ -13,9 +13,10 @@ steps:
     repo: '${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}'
     revision: '${{CF_BRANCH}}'
     git: github
+
   prepare_deployment:
     title: Prepare helm chart
-    image: python:3.9.10
+    image: python:3.12
     stage: prepare
     working_directory: .
     commands:
@@ -111,27 +112,6 @@ steps:
     type: parallel
     stage: build
     steps:
-      nfsserver:
-        type: build
-        stage: build
-        dockerfile: Dockerfile
-        registry: '${{CODEFRESH_REGISTRY}}'
-        buildkit: true
-        build_arguments:
-        - DOMAIN=${{DOMAIN}}
-        - NOCACHE=${{CF_BUILD_ID}}
-        - REGISTRY=${{REGISTRY}}/cloudharness/
-        image_name: cloudharness/nfsserver
-        title: Nfsserver
-        working_directory: ./applications/nfsserver
-        tag: '${{NFSSERVER_TAG}}'
-        when:
-          condition:
-            any:
-              buildDoesNotExist: includes('${{NFSSERVER_TAG_EXISTS}}', '{{NFSSERVER_TAG_EXISTS}}')
-                == true
-              forceNoCache: includes('${{NFSSERVER_TAG_FORCE_BUILD}}', '{{NFSSERVER_TAG_FORCE_BUILD}}')
-                == false
       accounts:
         type: build
         stage: build
@@ -152,6 +132,28 @@ steps:
               buildDoesNotExist: includes('${{ACCOUNTS_TAG_EXISTS}}', '{{ACCOUNTS_TAG_EXISTS}}')
                 == true
               forceNoCache: includes('${{ACCOUNTS_TAG_FORCE_BUILD}}', '{{ACCOUNTS_TAG_FORCE_BUILD}}')
+                == false
+      jupyterhub:
+        type: build
+        stage: build
+        dockerfile: Dockerfile
+        registry: '${{CODEFRESH_REGISTRY}}'
+        buildkit: true
+        build_arguments:
+        - DOMAIN=${{DOMAIN}}
+        - NOCACHE=${{CF_BUILD_ID}}
+        - REGISTRY=${{REGISTRY}}/cloudharness/
+        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloudharness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
+        image_name: cloudharness/jupyterhub
+        title: Jupyterhub
+        working_directory: ./applications/jupyterhub
+        tag: '${{JUPYTERHUB_TAG}}'
+        when:
+          condition:
+            any:
+              buildDoesNotExist: includes('${{JUPYTERHUB_TAG_EXISTS}}', '{{JUPYTERHUB_TAG_EXISTS}}')
+                == true
+              forceNoCache: includes('${{JUPYTERHUB_TAG_FORCE_BUILD}}', '{{JUPYTERHUB_TAG_FORCE_BUILD}}')
                 == false
       samples:
         type: build
@@ -457,9 +459,10 @@ steps:
         - PASSWORD=test
         commands:
         - st --pre-run cloudharness_test.apitest_init run api/openapi.yaml --base-url
-          https://samples.${{DOMAIN}}/api -c all --skip-deprecated-operations --hypothesis-suppress-health-check=too_slow
-          --hypothesis-deadline=180000 --request-timeout=180000 --hypothesis-max-examples=2
-          --show-errors-tracebacks
+          https://samples.${{DOMAIN}}/api -c all --skip-deprecated-operations --exclude-operation-id=submit_sync
+          --exclude-operation-id=submit_sync_with_results --exclude-operation-id=error
+          --hypothesis-suppress-health-check=too_slow --hypothesis-deadline=180000
+          --request-timeout=180000 --hypothesis-max-examples=2 --show-trace --exclude-checks=ignored_auth
         - pytest -v test/api
       common_api_test:
         title: common api test
@@ -496,6 +499,12 @@ steps:
     commands:
     - yarn test
     scale:
+      jupyterhub_e2e_test:
+        title: jupyterhub e2e test
+        volumes:
+        - '${{CF_REPO_NAME}}/applications/jupyterhub/test/e2e:/home/test/__tests__/jupyterhub'
+        environment:
+        - APP_URL=https://hub.${{DOMAIN}}
       samples_e2e_test:
         title: samples e2e test
         volumes:
@@ -513,7 +522,7 @@ steps:
   approval:
     type: pending-approval
     stage: qa
-    title: Approve anyway and delete deployment
+    title: Approve anyway
     description: The pipeline will fail after ${{WAIT_ON_FAIL}} minutes
     timeout:
       timeUnit: minutes
@@ -523,11 +532,3 @@ steps:
       condition:
         all:
           error: '"${{FAILED}}" == "failed"'
-  delete_deployment:
-    title: Delete deployment
-    description: The deployment is deleted at the end of the pipeline
-    image: codefresh/kubectl
-    stage: qa
-    commands:
-    - kubectl config use-context ${{CLUSTER_NAME}}
-    - kubectl delete ns test-${{NAMESPACE_BASENAME}}

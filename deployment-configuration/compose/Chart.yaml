@@ -1,0 +1,8 @@
+apiVersion: v1
+appVersion: 2.4.0-compose
+description: CloudHarness Docker compose Helm Chart
+maintainers:
+- {email: filippo@metacell.us, name: Filippo Ledda}
+- {email: vincent@metacell.us, name: Vincent Aranega}
+name: cloudharness
+version: 0.0.1

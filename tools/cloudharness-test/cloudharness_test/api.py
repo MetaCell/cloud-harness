@@ -6,7 +6,7 @@ import subprocess
 from ch_cli_tools.preprocessing import get_build_paths
 
 
-from cloudharness_model.models import  HarnessMainConfig, ApiTestsConfig, ApplicationHarnessConfig
+from cloudharness_model.models import HarnessMainConfig, ApiTestsConfig, ApplicationHarnessConfig
 from cloudharness_utils.testing.util import get_app_environment
 from cloudharness_utils.testing.api import get_api_filename, get_urls_from_api_file, get_schemathesis_command
 
@@ -42,7 +42,7 @@ def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, inclu
         api_filename = get_api_filename(app_dir)
 
         if not app_config.domain and not app_config.subdomain:
-            logging.warn(
+            logging.warning(
                 "Application %s has a api specification but no subdomain/domain is specified", appname)
             continue
 
@@ -65,7 +65,7 @@ def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, inclu
             for path in root_paths:
                 # use local schema if available to simplify test development
                 if os.path.exists(os.path.join(path, schema_file)):
-                    app_env["APP_SCHEMA_FILE"] = schema_file
+                    app_env["APP_SCHEMA_FILE"] = os.path.abspath(schema_file)
 
             if api_config.autotest:
                 logging.info("Running auto api tests")
@@ -90,4 +90,3 @@ def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, inclu
         logging.error(
             "Some api test failed. Check output for more information.")
         exit(1)
-

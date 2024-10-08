@@ -7,6 +7,8 @@ node_modules
 .coverage
 *.DS_Store
 deployment/helm
+deployment/compose
+docker-compose.yaml
 *.egg-info
 *.idea
 /build
@@ -18,3 +20,4 @@ skaffold.yaml
 .hypothesis
 __pycache__
 .env
+/.venv

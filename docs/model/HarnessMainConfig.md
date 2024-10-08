@@ -1,42 +1,43 @@
-# cloudharness_model.model.harness_main_config.HarnessMainConfig
+# HarnessMainConfig
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+
+
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+**local** | **bool** | If set to true, local DNS mapping is added to pods. | 
+**secured_gatekeepers** | **bool** | Enables/disables Gatekeepers on secured applications. Set to false for testing/development | 
+**domain** | **str** | The root domain | 
+**namespace** | **str** | The K8s namespace. | 
+**mainapp** | **str** | Defines the app to map to the root domain | 
+**registry** | [**RegistryConfig**](RegistryConfig.md) |  | [optional] 
+**tag** | **str** | Docker tag used to push/pull the built images. | [optional] 
+**apps** | [**Dict[str, ApplicationConfig]**](ApplicationConfig.md) |  | 
+**env** | [**List[NameValue]**](NameValue.md) | Environmental variables added to all pods | [optional] 
+**privenv** | [**NameValue**](NameValue.md) |  | [optional] 
+**backup** | [**BackupConfig**](BackupConfig.md) |  | [optional] 
+**name** | **str** | Base name | [optional] 
+**task_images** | **Dict[str, object]** |  | [optional] 
+**build_hash** | **str** |  | [optional] 
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**mainapp** | str,  | str,  | Defines the app to map to the root domain | 
-**domain** | str,  | str,  | The root domain | 
-**namespace** | str,  | str,  | The K8s namespace. | 
-**secured_gatekeepers** | bool,  | BoolClass,  | Enables/disables Gatekeepers on secured applications. Set to false for testing/development | 
-**local** | bool,  | BoolClass,  | If set to true, local DNS mapping is added to pods. | 
-**apps** | [**ApplicationsConfigsMap**](ApplicationsConfigsMap.md) | [**ApplicationsConfigsMap**](ApplicationsConfigsMap.md) |  | 
-**registry** | [**RegistryConfig**](RegistryConfig.md) | [**RegistryConfig**](RegistryConfig.md) |  | [optional] 
-**tag** | str,  | str,  | Docker tag used to push/pull the built images. | [optional] 
-**[env](#env)** | list, tuple,  | tuple,  | Environmental variables added to all pods | [optional] 
-**privenv** | [**NameValue**](NameValue.md) | [**NameValue**](NameValue.md) |  | [optional] 
-**backup** | [**BackupConfig**](BackupConfig.md) | [**BackupConfig**](BackupConfig.md) |  | [optional] 
-**name** | str,  | str,  | Base name | [optional] 
-**task-images** | [**SimpleMap**](SimpleMap.md) | [**SimpleMap**](SimpleMap.md) |  | [optional] 
-**build_hash** | str,  | str,  |  | [optional] 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, uuid.UUID, int, float, decimal.Decimal, bool, None, list, tuple, bytes, io.FileIO, io.BufferedReader,  | frozendict.frozendict, str, decimal.Decimal, BoolClass, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+## Example
 
-# env
+```python
+from cloudharness_model.models.harness_main_config import HarnessMainConfig
 
-Environmental variables added to all pods
+# TODO update the JSON string below
+json = "{}"
+# create an instance of HarnessMainConfig from a JSON string
+harness_main_config_instance = HarnessMainConfig.from_json(json)
+# print the JSON string representation of the object
+print HarnessMainConfig.to_json()
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | -------------
-list, tuple,  | tuple,  | Environmental variables added to all pods | 
+# convert the object into a dict
+harness_main_config_dict = harness_main_config_instance.to_dict()
+# create an instance of HarnessMainConfig from a dict
+harness_main_config_form_dict = harness_main_config.from_dict(harness_main_config_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
-### Tuple Items
-Class Name | Input Type | Accessed Type | Description | Notes
-------------- | ------------- | ------------- | ------------- | -------------
-[**NameValue**](NameValue.md) | [**NameValue**](NameValue.md) | [**NameValue**](NameValue.md) |  | 
-
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
 

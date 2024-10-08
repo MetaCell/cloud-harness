@@ -1,0 +1,11 @@
+{{- define "convertToDecimal" -}}
+    {{- $value := . -}}
+    {{- if hasSuffix "m" $value  -}}
+        {{- $number := replace "m" "" $value | float64 -}}
+        {{- $result := divf $number 1000.0 -}}
+        {{- printf "%.3f" $result -}}
+    {{- else -}}
+        {{- $value -}}
+    {{- end -}}
+    
+{{- end -}}

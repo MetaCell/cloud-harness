@@ -27,7 +27,7 @@ steps:
         git: github
   prepare_deployment:
     title: "Prepare helm chart"
-    image: python:3.9.10
+    image: python:3.12
     stage: prepare
     working_directory: .
     commands:
@@ -133,11 +133,3 @@ steps:
       condition:
         all:
           error: '"${{FAILED}}" == "failed"'
-  delete_deployment:
-    title: "Delete deployment"
-    description: The deployment is deleted at the end of the pipeline
-    image: codefresh/kubectl
-    stage: qa
-    commands:
-      - kubectl config use-context ${{CLUSTER_NAME}}
-      - kubectl delete ns test-${{NAMESPACE_BASENAME}}

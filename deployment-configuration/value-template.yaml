@@ -55,7 +55,7 @@ harness:
     # -- Service port.
     port: 80
   # -- Auto generated secrets key-value pairs. If no value is provided, a random hash is generated
-  secrets:
+  secrets: {}
   # -- Specify which services this application uses in the frontend to create proxy ingresses. e.g. - name: mnp-checkout
   use_services: []
   # -- enabled sentry for automated error report
@@ -75,6 +75,8 @@ harness:
     pass: metacell
     # -- image ref for referencing images from the build, e.g. image_ref: myownpgimage
     image_ref:
+    # -- expose database to the public with ingress
+    expose: false
     # -- settings for mongo database (for type==mongo)
     mongo:
       image: mongo:5
@@ -90,7 +92,7 @@ harness:
           port: 5432
     # -- settings for neo4j database (for type==neo4j)
     neo4j:
-      image: neo4j:4.1.9
+      image: neo4j:5
       memory:
         size: 256M
         pagecache:
@@ -98,7 +100,7 @@ harness:
         heap:
           initial: 64M
           max: 128M
-      dbms_security_auth_enabled: "false"
+      dbms_security_auth_enabled: "true"
       ports:
         - name: http
           port: 7474
@@ -136,4 +138,4 @@ harness:
       keepalive:
     payload:
       # -- Maximum size of payload in MB
-      max: 
+      max:

@@ -11,7 +11,7 @@ import yaml.representer
 from cloudharness_utils.testing.util import get_app_environment
 from .models import HarnessMainConfig, ApplicationTestConfig, ApplicationHarnessConfig
 from cloudharness_utils.constants import *
-from .helm import KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES, generate_tag_from_content
+from .configurationgenerator import KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES
 from .utils import check_docker_manifest_exists, find_dockerfiles_paths, get_app_relative_to_base_path, guess_build_dependencies_from_dockerfile, \
     get_image_name, get_template, dict_merge, app_name_from_path, clean_path
 from cloudharness_utils.testing.api import get_api_filename, get_schemathesis_command, get_urls_from_api_file
@@ -34,6 +34,7 @@ def literal_presenter(dumper, data):
 
 yaml.add_representer(str, literal_presenter)
 
+
 def get_main_domain(url):
     try:
         url = url.split("//")[1].split("/")[0]
@@ -45,6 +46,7 @@ def get_main_domain(url):
     except:
         return "${{ DEFAULT_REPO }}"
 
+
 def clone_step_spec(conf: GitDependencyConfig, context_path: str):
     return {
         "title": f"Cloning {os.path.basename(conf.url)} repository...",
@@ -52,8 +54,9 @@ def clone_step_spec(conf: GitDependencyConfig, context_path: str):
         "repo": conf.url,
         "revision": conf.branch_tag,
         "working_directory": join(context_path, "dependencies", conf.path or ""),
-        "git": get_main_domain(conf.url) # Cannot really tell what's the git config name, usually the name of the repo
+        "git": get_main_domain(conf.url)  # Cannot really tell what's the git config name, usually the name of the repo
     }
+
 
 def write_env_file(helm_values: HarnessMainConfig, filename, registry_secret=None):
     env = {}
@@ -74,8 +77,6 @@ def write_env_file(helm_values: HarnessMainConfig, filename, registry_secret=Non
         else:
             env[app_specific_tag_variable(name) + "_NEW"] = 1
 
-    
-
     for app in helm_values.apps.values():
         if app.harness and app.harness.deployment.image:
             env[app_specific_tag_variable(app.name)] = extract_tag(app.harness.deployment.image)
@@ -93,8 +94,6 @@ def write_env_file(helm_values: HarnessMainConfig, filename, registry_secret=Non
     with open(filename, 'w') as f:
         for k, v in env.items():
             f.write(f"{k}={v}\n")
-
-
 
 
 def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude=(),
@@ -128,7 +127,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
     for root_path in root_paths:
         for e in envs:
-            
+
             template_name = f"codefresh-template-{e}.yaml"
             template_path = join(
                 root_path, DEPLOYMENT_CONFIGURATION_PATH, template_name)
@@ -144,7 +143,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
             steps = codefresh['steps']
 
             def get_app_domain(app_config: ApplicationHarnessConfig):
-                base_domain=[c for c in codefresh['steps']['prepare_deployment']['commands'] if 'harness-deployment' in c][0].split("-d ")[1].split(" ")[0]
+                base_domain = [c for c in codefresh['steps']['prepare_deployment']['commands'] if 'harness-deployment' in c][0].split("-d ")[1].split(" ")[0]
                 return f"https://{app_config.subdomain}.{base_domain}"
 
             def e2e_test_environment(app_config: ApplicationHarnessConfig, app_domain: str = None):
@@ -245,7 +244,6 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                     clean_path(dockerfile_relative_to_root), app_name),
                                 environment=e2e_test_environment(app_config)
                             )
-            
 
             def add_unit_test_step(app_config: ApplicationHarnessConfig):
                 # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step
@@ -265,10 +263,10 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 codefresh_steps_from_base_path(join(root_path, BASE_IMAGES_PATH), CD_BUILD_STEP_BASE,
                                                fixed_context=relpath(root_path, os.getcwd()), include=helm_values[KEY_TASK_IMAGES].keys())
                 codefresh_steps_from_base_path(join(root_path, STATIC_IMAGES_PATH), CD_BUILD_STEP_STATIC,
-                                                include=helm_values[KEY_TASK_IMAGES].keys())
+                                               include=helm_values[KEY_TASK_IMAGES].keys())
 
-            codefresh_steps_from_base_path(join(
-                root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
+                codefresh_steps_from_base_path(join(
+                    root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
 
             if CD_E2E_TEST_STEP in steps:
                 name = "test-e2e"
@@ -281,7 +279,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 codefresh_steps_from_base_path(join(
                     root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=(name,), fixed_context=relpath(root_path, os.getcwd()), publish=False)
                 steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_image_name)
-   
+
     if not codefresh:
         logging.warning(
             "No template file found. Codefresh script not created.")
@@ -402,9 +400,10 @@ def codefresh_app_publish_spec(app_name, build_tag, base_name=None):
         step_spec['tags'].append('latest')
     return step_spec
 
+
 def image_tag_with_variables(app_name, build_tag, base_name=""):
     return "${{REGISTRY}}/%s:${{%s}}" % (get_image_name(
-            app_name, base_name), build_tag or '${{DEPLOYMENT_TAG}}')
+        app_name, base_name), build_tag or '${{DEPLOYMENT_TAG}}')
 
 
 def app_specific_tag_variable(app_name):
@@ -421,7 +420,7 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
         title=title,
         working_directory='./' + app_context_path,
         dockerfile=dockerfile_path)
-    
+
     tag = app_specific_tag_variable(app_name)
     build["tag"] = "${{%s}}" % tag
 
@@ -451,10 +450,11 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
                 helm_values.apps[values_key].harness.dependencies.build)
         except (KeyError, AttributeError):
             add_arg_dependencies(helm_values['task-images'])
-    
+
     when_condition = existing_build_when_condition(tag)
     build["when"] = when_condition
     return build
+
 
 def existing_build_when_condition(tag):
     """
@@ -472,5 +472,5 @@ def existing_build_when_condition(tag):
             }
         }
     }
-    
+
     return when_condition

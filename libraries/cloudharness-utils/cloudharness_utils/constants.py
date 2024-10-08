@@ -1,14 +1,15 @@
 import os
 
-NODE_BUILD_IMAGE = 'node:8.16.1-alpine'
-
-
-
 APPLICATION_TEMPLATE_PATH = 'application-templates'
 DEFAULT_MERGE_PATH = ".overrides"
 
 HELM_PATH = "helm"
 HELM_CHART_PATH = HELM_PATH
+HELM_ENGINE = HELM_PATH
+
+COMPOSE = 'compose'
+COMPOSE_PATH = COMPOSE
+COMPOSE_ENGINE = 'docker-compose'
 
 INFRASTRUCTURE_PATH = 'infrastructure'
 STATIC_IMAGES_PATH = os.path.join(INFRASTRUCTURE_PATH, 'common-images')

@@ -1,4 +1,10 @@
 harness:
+  dependencies:
+    soft:
+      - workflows
+      - events
+      - common
+      - jupyterhub
   accounts:
     roles:
     - role1

@@ -1,6 +1,3 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
@@ -58,7 +55,7 @@ class E2ETestsConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         """Gets the enabled of this E2ETestsConfig.
 
         Enables end to end testing for this application (default: false)  # noqa: E501
@@ -69,7 +66,7 @@ class E2ETestsConfig(Model):
         return self._enabled
 
     @enabled.setter
-    def enabled(self, enabled):
+    def enabled(self, enabled: bool):
         """Sets the enabled of this E2ETestsConfig.
 
         Enables end to end testing for this application (default: false)  # noqa: E501
@@ -83,7 +80,7 @@ class E2ETestsConfig(Model):
         self._enabled = enabled
 
     @property
-    def smoketest(self):
+    def smoketest(self) -> bool:
         """Gets the smoketest of this E2ETestsConfig.
 
         Specify whether to run the common smoke tests  # noqa: E501
@@ -94,7 +91,7 @@ class E2ETestsConfig(Model):
         return self._smoketest
 
     @smoketest.setter
-    def smoketest(self, smoketest):
+    def smoketest(self, smoketest: bool):
         """Sets the smoketest of this E2ETestsConfig.
 
         Specify whether to run the common smoke tests  # noqa: E501
@@ -108,7 +105,7 @@ class E2ETestsConfig(Model):
         self._smoketest = smoketest
 
     @property
-    def ignore_console_errors(self):
+    def ignore_console_errors(self) -> bool:
         """Gets the ignore_console_errors of this E2ETestsConfig.
 
           # noqa: E501
@@ -119,7 +116,7 @@ class E2ETestsConfig(Model):
         return self._ignore_console_errors
 
     @ignore_console_errors.setter
-    def ignore_console_errors(self, ignore_console_errors):
+    def ignore_console_errors(self, ignore_console_errors: bool):
         """Sets the ignore_console_errors of this E2ETestsConfig.
 
           # noqa: E501
@@ -131,7 +128,7 @@ class E2ETestsConfig(Model):
         self._ignore_console_errors = ignore_console_errors
 
     @property
-    def ignore_request_errors(self):
+    def ignore_request_errors(self) -> bool:
         """Gets the ignore_request_errors of this E2ETestsConfig.
 
           # noqa: E501
@@ -142,7 +139,7 @@ class E2ETestsConfig(Model):
         return self._ignore_request_errors
 
     @ignore_request_errors.setter
-    def ignore_request_errors(self, ignore_request_errors):
+    def ignore_request_errors(self, ignore_request_errors: bool):
         """Sets the ignore_request_errors of this E2ETestsConfig.
 
           # noqa: E501

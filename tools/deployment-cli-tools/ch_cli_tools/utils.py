@@ -2,6 +2,7 @@
 import socket
 import glob
 import subprocess
+from typing import Any
 import requests
 import os
 from functools import cache
@@ -146,6 +147,10 @@ def file_is_yaml(fname):
     return fname[-4:] == 'yaml' or fname[-3:] == 'yml'
 
 
+def file_is_json(fname):
+    return fname[-4:] == 'json'
+
+
 def replaceindir(root_src_dir, source, replace):
     """
     Does copy and merge (shutil.copytree requires that the destination does not exist)
@@ -182,6 +187,22 @@ def replace_in_file(src_file, source, replace):
                 print(line.replace(source, replace), end='')
         except UnicodeDecodeError:
             pass
+
+
+def replace_in_dict(src_dict: dict, source: str, replacement: str) -> dict:
+    def replace_value(value: Any) -> Any:
+        if isinstance(value, str):
+            return value.replace(source, replacement)
+        if isinstance(value, list):
+            return [replace_value(item) for item in value]
+        if isinstance(value, dict):
+            return replace_in_dict(value, source, replacement)
+        return value
+
+    return {
+        key: replace_value(value)
+        for key, value in src_dict.items()
+    }
 
 
 def copymergedir(root_src_dir, root_dst_dir):
@@ -270,6 +291,14 @@ def merge_configuration_directories(source, dest):
                 except Exception as e:
                     logging.warning(f"Overwriting file {fdest} with {fpath}")
                     shutil.copy2(fpath, fdest)
+            elif file_is_json(fpath):
+                try:
+                    merge_json_files(fpath, fdest)
+                    logging.info(
+                        f"Merged/overridden file content of {fdest} with {fpath}")
+                except Exception as e:
+                    logging.warning(f"Overwriting file {fdest} with {fpath}")
+                    shutil.copy2(fpath, fdest)
             else:
                 logging.warning(f"Overwriting file {fdest} with {fpath}")
                 shutil.copy2(fpath, fdest)
@@ -279,6 +308,31 @@ def merge_yaml_files(fname, fdest):
     with open(fname) as f:
         content_src = yaml.load(f)
     merge_to_yaml_file(content_src, fdest)
+
+
+def merge_json_files(fname, fdest):
+    with open(fname) as f:
+        content_src = json.load(f)
+    merge_to_json_file(content_src, fdest)
+
+
+def merge_to_json_file(content_src, fdest):
+    if not content_src:
+        return
+    if not exists(fdest):
+        merged = content_src
+    else:
+        with open(fdest) as f:
+            content_dest = json.load(f)
+
+        merged = dict_merge(
+            content_dest, content_src) if content_dest else content_src
+
+    if not exists(dirname(fdest)):
+        os.makedirs(dirname(fdest))
+    with open(fdest, "w") as f:
+        json.dump(merged, f, indent=2)
+    return merged
 
 
 def merge_to_yaml_file(content_src, fdest):
@@ -332,8 +386,8 @@ def dict_merge(dct, merge_dct, add_keys=True):
         }
 
     for k, v in merge_dct.items():
-        if (k in dct and isinstance(dct[k], dict)
-                and isinstance(merge_dct[k], collections.abc.Mapping)):
+        if (k in dct and isinstance(dct[k], dict) and
+                isinstance(merge_dct[k], collections.abc.Mapping)):
             dct[k] = dict_merge(dct[k], merge_dct[k], add_keys=add_keys)
         else:
             dct[k] = merge_dct[k]
@@ -374,7 +428,7 @@ def to_python_module(name):
 @cache
 def guess_build_dependencies_from_dockerfile(filename):
     dependencies = []
-    if not "Dockerfile" in filename:
+    if "Dockerfile" not in str(filename):
         filename = join(filename, "Dockerfile")
     if not os.path.exists(filename):
         return dependencies
@@ -391,6 +445,7 @@ def check_docker_manifest_exists(registry, image_name, tag, registry_secret=None
     api_url = f"https://{registry}/v2/{image_name}/manifests/{tag}"
     resp = requests.get(api_url)
     return resp.status_code == 200
+
 
 def get_git_commit_hash(path):
     # return the short git commit hash in that path

@@ -6,6 +6,7 @@ from cloudharness.applications import get_current_configuration
 
 sentry_environment = os.environ.get("DOMAIN", "Production")
 
+
 def get_dsn(appname):
     """
     Helper function for getting the Sentry DSN of the project of the application
@@ -21,14 +22,15 @@ def get_dsn(appname):
     Usage examples: 
         from cloudharness.sentry import get_dsn
         dsn = get_dsn('notifications')
-    """ 
+    """
     url = get_common_service_cluster_address() + f'/api/sentry/getdsn/{appname}'
     response = requests.get(url, verify=False).json()
     dsn = response['dsn']
-    if dsn and len(dsn)>0:
+    if dsn and len(dsn) > 0:
         return dsn
     else:
         return None
+
 
 def init(appname=None, traces_sample_rate=0, integrations=None, **kwargs):
     """
@@ -64,5 +66,6 @@ def init(appname=None, traces_sample_rate=0, integrations=None, **kwargs):
             traces_sample_rate=traces_sample_rate,
             **kwargs
         )
+
 
 __all__ = ['get_dsn', 'init']

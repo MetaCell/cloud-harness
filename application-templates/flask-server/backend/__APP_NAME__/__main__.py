@@ -7,4 +7,3 @@ app = init_flask(title="__APP_NAME__", init_app_fn=None, webapp=False)
 
 if __name__ == '__main__':
     main()
-

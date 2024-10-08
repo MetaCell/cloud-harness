@@ -18,4 +18,4 @@ class NotificationConsoleBackend(NotificationBaseBackend):
     def send(self):
         log.info("Send notification")
         log.info(f"args:{self.args}")
-        log.info("kwargs:\n"+"\n".join("{0}: {1!r}".format(k,v) for k,v in self.kwargs.items()))
+        log.info("kwargs:\n" + "\n".join("{0}: {1!r}".format(k, v) for k, v in self.kwargs.items()))

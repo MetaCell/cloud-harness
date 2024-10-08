@@ -15,6 +15,7 @@ class middleware():
 
         # retrieve the bearer token from the header
         # and save it for use in the AuthClient
-        set_authentication_token(request.headers.get('Authorization'))
+        #
+        set_authentication_token(request.headers.get('Authorization', '').split(' ')[-1] or request.cookies.get('kc-access', None))
 
         return self.app(environ, start_response)
