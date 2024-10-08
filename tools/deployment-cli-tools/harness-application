@@ -55,6 +55,7 @@ def main():
         handle_webapp_template_post_merge(app_path)
 
     create_manifest_file(app_path, app_name, templates)
+    call_harness_generate(app_path, app_name)
 
 
 def get_command_line_arguments() -> tuple[str, list[str]]:
@@ -189,6 +190,13 @@ def create_manifest_file(app_path: pathlib.Path, app_name: str, templates: list[
 
     logging.info('Creating manifest file')
     save_yaml(manifest_file, manifest.to_dict())
+
+
+def call_harness_generate(app_path: pathlib.Path, app_name: str):
+    logging.info('Running initial harness generate...')
+    root_path = app_path.parent.parent
+    command = ['harness-generate', 'all', '--ts-only', '--app-name', app_name, root_path]
+    subprocess.run(command)
 
 
 def merge_template_directories(template_name: str, app_path: pathlib.Path) -> None:
