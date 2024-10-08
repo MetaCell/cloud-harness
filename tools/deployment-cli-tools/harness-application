@@ -52,7 +52,7 @@ def main():
     replaceindir(app_path, PLACEHOLDER, app_name)
 
     if TemplateType.WEBAPP in templates:
-        handle_webapp_template_cleanup(app_path)
+        handle_webapp_template_post_merge(app_path)
 
     create_manifest_file(app_path, app_name, templates)
 
@@ -99,33 +99,33 @@ def get_command_line_arguments() -> tuple[str, list[str]]:
 
 
 def handle_webapp_template(app_name: str, app_path: pathlib.Path) -> None:
-    frontend_app_path = app_path/'frontend'
+    frontend_path = app_path/'frontend'
 
-    if frontend_app_path.exists():
-        shutil.rmtree(frontend_app_path)
+    if frontend_path.exists():
+        shutil.rmtree(frontend_path)
 
-    create_vite_skaffold(app_name, app_path)
-    install_frontend_dependencies(app_path)
-
-    shutil.move(app_path/app_name, frontend_app_path)
-    generate_ts_client(openapi_file=app_path/'api'/'openapi.yaml')
+    create_vite_skaffold(app_name, app_path, frontend_path)
 
 
-def create_vite_skaffold(app_name: str, app_path: pathlib.Path) -> None:
+def create_vite_skaffold(app_name: str, app_path: pathlib.Path, frontend_path: pathlib.Path) -> None:
     command = ['yarn', 'create', 'vite', app_name, '--template', 'react-ts']
     logging.info(f'Running command: {" ".join(command)}')
     subprocess.run(command, cwd=app_path)
+    shutil.move(app_path/app_name, frontend_path)
 
 
-def install_frontend_dependencies(app_path: pathlib.Path) -> None:
+def install_frontend_dependencies(frontend_path: pathlib.Path) -> None:
     command = ['yarn', 'install']
     logging.info(f'Running command: {" ".join(command)}')
-    subprocess.run(command, cwd=app_path)
+    subprocess.run(command, cwd=frontend_path)
 
 
-def handle_webapp_template_cleanup(app_path: pathlib.Path) -> None:
+def handle_webapp_template_post_merge(app_path: pathlib.Path) -> None:
     backend_dockerfile_path = app_path/'backend'/'Dockerfile'
     backend_dockerfile_path.unlink(missing_ok=True)
+
+    install_frontend_dependencies(app_path/'frontend')
+    generate_ts_client(openapi_file=app_path/'api'/'openapi.yaml')
 
 
 def handle_server_template(app_path: pathlib.Path) -> None:
