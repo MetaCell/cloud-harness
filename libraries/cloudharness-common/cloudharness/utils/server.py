@@ -71,7 +71,8 @@ def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_enco
     global app
 
     # Some magic inspection to get the caller's absolute path
-    import inspect, os
+    import inspect
+    import os
     frm = inspect.stack()[1]
     mod = inspect.getmodule(frm[0])
     caller_path = os.path.dirname(os.path.realpath(mod.__file__))
@@ -92,7 +93,8 @@ def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_enco
         app.logger.setLevel(gunicorn_logger.level)
 
         if webapp:
-            init_webapp_routes(app, www_path=os.path.join(os.path.dirname(caller_path), 'www'))
+            init_webapp_routes(app, www_path=os.path.join(
+                os.path.dirname(caller_path), 'www'))
         connexion_app.add_api(os.path.join(caller_path, 'openapi/openapi.yaml'),
                               arguments={'title': title},
                               pythonic_params=True, resolver=resolver)
@@ -108,10 +110,11 @@ def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_enco
             }
 
             try:
-               if not get_current_configuration().is_sentry_enabled():
+                if not get_current_configuration().is_sentry_enabled():
                     data['trace'] = traceback.format_exc()
             except:
-                logging.error("Error checking sentry configuration", exc_info=True)
+                logging.error(
+                    "Error checking sentry configuration", exc_info=True)
                 data['trace'] = traceback.format_exc()
             logging.error(str(e), exc_info=True)
             return json.dumps(data), 500

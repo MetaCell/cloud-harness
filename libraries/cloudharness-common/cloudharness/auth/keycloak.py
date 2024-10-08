@@ -21,9 +21,6 @@ except:
               ALLVALUES_PATH, exc_info=True)
 
 
-
-
-
 def get_api_password() -> str:
     name = "api_user_password"
     AUTH_SECRET_PATH = os.environ.get(
@@ -76,15 +73,17 @@ def get_server_url():
 def get_auth_realm():
     return conf.get_namespace()
 
+
 def get_token(username, password):
     conf = get_configuration("accounts")
 
     keycloak_openid = KeycloakOpenID(
-        server_url=get_server_url(), 
-        realm_name=get_auth_realm(), 
-        client_id=conf["webclient"]["id"], 
+        server_url=get_server_url(),
+        realm_name=get_auth_realm(),
+        client_id=conf["webclient"]["id"],
         client_secret_key=conf["webclient"]["secret"])
     return keycloak_openid.token(username, password)['access_token']
+
 
 def is_uuid(s):
     import uuid
@@ -116,7 +115,7 @@ class AuthClient():
             keycloak_user_id = "-1"  # No authorization --> no user
         else:
             token = authentication_token.split(' ')[-1]
-            
+
             keycloak_user_id = AuthClient.decode_token(token)['sub']
 
         return keycloak_user_id
@@ -127,10 +126,9 @@ class AuthClient():
         """
 
         self.user = username or os.getenv('ACCOUNTS_ADMIN_USERNAME', None) or "admin_api"
-        self.passwd = password or os.getenv('ACCOUNTS_ADMIN_PASSWORD', None) or  get_api_password()
+        self.passwd = password or os.getenv('ACCOUNTS_ADMIN_PASSWORD', None) or get_api_password()
         # test if we can connect to the Keycloak server
         dummy_client = self.get_admin_client()
-        
 
     def get_admin_client(self):
         """
@@ -142,8 +140,6 @@ class AuthClient():
 
         :return: KeycloakAdmin
         """
-
-        
 
         if not getattr(self, "_admin_client", None):
             self._admin_client = KeycloakAdmin(
@@ -189,7 +185,7 @@ class AuthClient():
         """
         try:
             decoded = jwt.decode(token, cls.get_public_key(),
-                                algorithms='RS256', audience=audience)
+                                 algorithms='RS256', audience=audience)
         except jwt.exceptions.InvalidTokenError as e:
             raise InvalidToken(e) from e
         return decoded
@@ -270,7 +266,7 @@ class AuthClient():
     def get_group(self, group_id, with_members=False, with_details=False) -> UserGroup:
         """
         Return the group in the application realm
-        
+
         :param group_id: the group id to get
         :param with_members: Default False, when set to True all members of the group are also retrieved
         :param with_details: Default False, when set to True all attributes of the group are also retrieved
@@ -307,7 +303,7 @@ class AuthClient():
         """
         admin_client = self.get_admin_client()
         return [
-            UserGroup.from_dict(self.get_group(group['id'], with_members)) 
+            UserGroup.from_dict(self.get_group(group['id'], with_members))
             for group in admin_client.get_groups()
         ]
 
@@ -394,7 +390,7 @@ class AuthClient():
     def get_users(self, query=None, with_details=False) -> List[User]:
         """
         Return a list of all users in the application realm
-        
+
         :param query: Default None, the query filter for getting the users
         :param with_details: Default False, when set to True all attributes of the group are also retrieved
 
@@ -413,7 +409,7 @@ class AuthClient():
             user.update({
                 "userGroups": admin_client.get_user_groups(user['id'], brief_representation=not with_details),
                 'realmRoles': admin_client.get_realm_roles_of_user(user['id'])
-                })
+            })
             users.append(User.from_dict(user))
         return users
 
@@ -442,23 +438,22 @@ class AuthClient():
                 raise UserNotFound(user_id)
             except InvalidToken as e:
                 raise UserNotFound(user_id)
-           
-                
+
         else:
             found_users = admin_client.get_users({"username": user_id, "exact": True})
             if len(found_users) == 0:
                 raise UserNotFound(user_id)
             try:
-                user = admin_client.get_user(found_users[0]['id']) # Load full data
+                user = admin_client.get_user(found_users[0]['id'])  # Load full data
             except KeycloakGetError as e:
                 raise UserNotFound(user_id)
             except InvalidToken as e:
                 raise UserNotFound(user_id)
-            
+
         user.update({
-                "userGroups": admin_client.get_user_groups(user_id=user['id'], brief_representation=not with_details),
-                'realmRoles': admin_client.get_realm_roles_of_user(user['id'])
-                })
+            "userGroups": admin_client.get_user_groups(user_id=user['id'], brief_representation=not with_details),
+            'realmRoles': admin_client.get_realm_roles_of_user(user['id'])
+        })
         return User.from_dict(user)
 
     def get_current_user(self) -> User:
@@ -474,7 +469,7 @@ class AuthClient():
         :return: UserRepresentation + GroupRepresentation
         """
         return self.get_user(self._get_keycloak_user_id())
-    
+
     @with_refreshtoken
     def get_user_realm_roles(self, user_id) -> List[str]:
         """
@@ -487,7 +482,7 @@ class AuthClient():
 
         :return: (array RoleRepresentation)
         """
-        admin_client=self.get_admin_client()
+        admin_client = self.get_admin_client()
         return admin_client.get_realm_roles_of_user(user_id)
 
     def get_current_user_realm_roles(self) -> List[str]:
@@ -510,8 +505,8 @@ class AuthClient():
         :param client_name: Client name
         :return: (array RoleRepresentation)
         """
-        admin_client=self.get_admin_client()
-        client_id=admin_client.get_client_id(client_name)
+        admin_client = self.get_admin_client()
+        client_id = admin_client.get_client_id(client_name)
         return admin_client.get_client_roles_of_user(user_id, client_id)
 
     def get_current_user_client_roles(self, client_name) -> List[str]:
@@ -521,7 +516,7 @@ class AuthClient():
         :param client_name: Client name
         :return: UserRepresentation + GroupRepresentation
         """
-        cur_user_id=self._get_keycloak_user_id()
+        cur_user_id = self._get_keycloak_user_id()
         return self.get_user_client_roles(cur_user_id, client_name)
 
     def user_has_client_role(self, user_id, client_name, role) -> bool:
@@ -532,7 +527,7 @@ class AuthClient():
         :param client_name: Name of the client
         :param role: Name of the role
         """
-        roles=[user_client_role for user_client_role in self.get_user_client_roles(
+        roles = [user_client_role for user_client_role in self.get_user_client_roles(
             user_id, client_name) if user_client_role['name'] == role]
         return roles != []
 
@@ -543,7 +538,7 @@ class AuthClient():
         :param user_id: User id
         :param role: Name of the role
         """
-        roles=[user_realm_role for user_realm_role in self.get_user_realm_roles(
+        roles = [user_realm_role for user_realm_role in self.get_user_realm_roles(
             user_id) if user_realm_role['name'] == role]
         return roles != []
 
@@ -577,8 +572,8 @@ class AuthClient():
         :param client_name: Client name
         :param role: Role name
         """
-        admin_client=self.get_admin_client()
-        client_id=admin_client.get_client_id(client_name)
+        admin_client = self.get_admin_client()
+        client_id = admin_client.get_client_id(client_name)
         return [User.from_dict(u) for u in admin_client.get_client_role_members(client_id, role)]
 
     @with_refreshtoken
@@ -591,10 +586,10 @@ class AuthClient():
         param attribute_value: value of the attribute
 
         """
-        admin_client=self.get_admin_client()
-        user=self.get_user(user_id)
-        attributes=user.get('attributes', {}) or {}
-        attributes[attribute_name]=attribute_value
+        admin_client = self.get_admin_client()
+        user = self.get_user(user_id)
+        attributes = user.get('attributes', {}) or {}
+        attributes[attribute_name] = attribute_value
         admin_client.update_user(
             user_id,
             {
@@ -610,9 +605,9 @@ class AuthClient():
         param attribute_name: name of the attribute to delete
         :return: boolean True on success, False is attribute not in user attributes
         """
-        admin_client=self.get_admin_client()
-        user=self.get_user(user_id)
-        attributes=user.get('attributes', None)
+        admin_client = self.get_admin_client()
+        user = self.get_user(user_id)
+        attributes = user.get('attributes', None)
         if attributes and attribute_name in attributes:
             del attributes[attribute_name]
             admin_client.update_user(

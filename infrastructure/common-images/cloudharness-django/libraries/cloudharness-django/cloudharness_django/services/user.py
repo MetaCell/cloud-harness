@@ -3,11 +3,13 @@ from django.contrib.auth.models import User, Group
 from cloudharness_django.models import Team, Member
 from cloudharness_django.services.auth import AuthorizationLevel
 
+
 def get_user_by_kc_id(kc_id) -> User:
     try:
         return Member.objects.get(kc_id=kc_id).user
     except Member.DoesNotExist:
         return None
+
 
 class UserService:
     def __init__(self, auth_service):
@@ -35,7 +37,7 @@ class UserService:
         user.first_name = kc_user.get("firstName", "")
         user.last_name = kc_user.get("lastName", "")
         user.email = kc_user.get("email", "")
-        
+
         user.is_active = kc_user.get("enabled", delete)
         return user
 
@@ -80,7 +82,7 @@ class UserService:
                 superusers = User.objects.filter(is_superuser=True)
                 if superusers and len(superusers) > 0:
                     team = Team.objects.create(
-                        owner=superusers[0], # one of the superusers will be the default team owner
+                        owner=superusers[0],  # one of the superusers will be the default team owner
                         kc_id=kc_group["id"],
                         group=group)
                     team.save()
@@ -95,14 +97,14 @@ class UserService:
 
     def sync_kc_user(self, kc_user, is_superuser=False, delete=False):
         # sync the kc user with the django user
-        
+
         user, created = User.objects.get_or_create(username=kc_user["username"])
-        
+
         Member.objects.get_or_create(user=user, kc_id=kc_user["id"])
         user = self._map_kc_user(user, kc_user, is_superuser, delete)
         user.save()
         return user
-    
+
     def sync_kc_user_groups(self, kc_user):
         # Sync the user usergroups and memberships
         user = User.objects.get(username=kc_user["email"])

@@ -12,19 +12,19 @@ from cloudharness.utils.config import CloudharnessConfig as conf
 INSTALLED_APPS = getattr(
     settings,
     'INSTALLED_APPS',
-    []) + [ 'admin_extra_buttons',]
+    []) + ['admin_extra_buttons', ]
 
 # add the local apps
-INSTALLED_APPS += ['cloudharness_django',]
+INSTALLED_APPS += ['cloudharness_django', ]
 
 # add the CloudHarness Django auto login middleware
 MIDDLEWARE = getattr(
-            settings,
-            'MIDDLEWARE',
-            []
-    ) + [
-        'cloudharness_django.middleware.BearerTokenMiddleware',
-    ]
+    settings,
+    'MIDDLEWARE',
+    []
+) + [
+    'cloudharness_django.middleware.BearerTokenMiddleware',
+]
 
 # test if the kubernetes CH all values exists, if so then set up specific k8s stuff
 # IMPROTANT NOTE:
@@ -35,10 +35,10 @@ MIDDLEWARE = getattr(
 app_name = settings.PROJECT_NAME.lower()
 try:
     current_app = applications.get_current_configuration()
-    
+
     # if secured then set USE_X_FORWARDED_HOST because we are behind the GK proxy
     USE_X_FORWARDED_HOST = current_app.harness.secured
-    
+
     # CSRF, set CSRF_TRUSTED_ORIGINS
     CH_DOMAIN = conf.get_domain()
     CSRF_TRUSTED_ORIGINS = getattr(
@@ -65,14 +65,14 @@ except:
 
 if current_app.harness.database.type == "sqlite3":
     DATABASE_ENGINE = "django.db.backends.sqlite3"
-    DATABASE_NAME = os.path.join(getattr(settings,"PERSISTENT_ROOT","."), f"{app_name}.sqlite3")
+    DATABASE_NAME = os.path.join(getattr(settings, "PERSISTENT_ROOT", "."), f"{app_name}.sqlite3")
     DATABSE_HOST = None
     DATABASE_PORT = None
 elif current_app.harness.database.type == "postgres":
-        DATABASE_ENGINE = "django.db.backends.postgresql"
-        DATABASE_NAME = current_app.harness.database.postgres.initialdb
-        DATABSE_HOST = current_app.harness.database.name
-        DATABASE_PORT = current_app.harness.database.postgres.ports[0].port
+    DATABASE_ENGINE = "django.db.backends.postgresql"
+    DATABASE_NAME = current_app.harness.database.postgres.initialdb
+    DATABSE_HOST = current_app.harness.database.name
+    DATABASE_PORT = current_app.harness.database.postgres.ports[0].port
 
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
@@ -86,7 +86,7 @@ DATABASES = {
         "PORT": DATABASE_PORT,
         "TEST": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": os.path.join(getattr(settings,"PERSISTENT_ROOT","."), "testdb.sqlite3"),
+            "NAME": os.path.join(getattr(settings, "PERSISTENT_ROOT", "."), "testdb.sqlite3"),
         },
     },
 }

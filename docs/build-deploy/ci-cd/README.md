@@ -15,6 +15,10 @@ All you need to to is:
 - Run `skaffold build`
 - Run `skaffold run`
 
+### Dockerfile configuration with Skaffold
+
+When defining an applications values you can provide details on dockerfile configuration such as build arguments. This feature is intended to support useful development use cases (e.g. conditionally running unit tests via build arguments) and should be used with caution as it can lead to different images in different deployment environments.
+
 ## CI/CD with Codefresh
 
 [Codefresh](https://codefresh.io/) is a nice platform for CI/CD see details in the [dedicated document](./codefresh.md).

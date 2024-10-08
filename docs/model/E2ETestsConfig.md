@@ -1,18 +1,33 @@
-# cloudharness_model.model.e2_e_tests_config.E2ETestsConfig
+# E2ETestsConfig
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+
+
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+**enabled** | **bool** | Enables end to end testing for this application (default: false) | 
+**smoketest** | **bool** | Specify whether to run the common smoke tests | 
+**ignore_console_errors** | **bool** |  | [optional] 
+**ignore_request_errors** | **bool** |  | [optional] 
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**smoketest** | bool,  | BoolClass,  | Specify whether to run the common smoke tests | 
-**enabled** | bool,  | BoolClass,  | Enables end to end testing for this application (default: false) | 
-**ignoreConsoleErrors** | bool,  | BoolClass,  |  | [optional] 
-**ignoreRequestErrors** | bool,  | BoolClass,  |  | [optional] 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+## Example
 
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
+```python
+from cloudharness_model.models.e2_e_tests_config import E2ETestsConfig
+
+# TODO update the JSON string below
+json = "{}"
+# create an instance of E2ETestsConfig from a JSON string
+e2_e_tests_config_instance = E2ETestsConfig.from_json(json)
+# print the JSON string representation of the object
+print E2ETestsConfig.to_json()
+
+# convert the object into a dict
+e2_e_tests_config_dict = e2_e_tests_config_instance.to_dict()
+# create an instance of E2ETestsConfig from a dict
+e2_e_tests_config_form_dict = e2_e_tests_config.from_dict(e2_e_tests_config_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
 

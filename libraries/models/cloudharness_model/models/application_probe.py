@@ -1,6 +1,3 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
@@ -58,7 +55,7 @@ class ApplicationProbe(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def path(self):
+    def path(self) -> str:
         """Gets the path of this ApplicationProbe.
 
           # noqa: E501
@@ -69,7 +66,7 @@ class ApplicationProbe(Model):
         return self._path
 
     @path.setter
-    def path(self, path):
+    def path(self, path: str):
         """Sets the path of this ApplicationProbe.
 
           # noqa: E501
@@ -83,7 +80,7 @@ class ApplicationProbe(Model):
         self._path = path
 
     @property
-    def period_seconds(self):
+    def period_seconds(self) -> float:
         """Gets the period_seconds of this ApplicationProbe.
 
           # noqa: E501
@@ -94,7 +91,7 @@ class ApplicationProbe(Model):
         return self._period_seconds
 
     @period_seconds.setter
-    def period_seconds(self, period_seconds):
+    def period_seconds(self, period_seconds: float):
         """Sets the period_seconds of this ApplicationProbe.
 
           # noqa: E501
@@ -106,7 +103,7 @@ class ApplicationProbe(Model):
         self._period_seconds = period_seconds
 
     @property
-    def failure_threshold(self):
+    def failure_threshold(self) -> float:
         """Gets the failure_threshold of this ApplicationProbe.
 
           # noqa: E501
@@ -117,7 +114,7 @@ class ApplicationProbe(Model):
         return self._failure_threshold
 
     @failure_threshold.setter
-    def failure_threshold(self, failure_threshold):
+    def failure_threshold(self, failure_threshold: float):
         """Sets the failure_threshold of this ApplicationProbe.
 
           # noqa: E501
@@ -129,7 +126,7 @@ class ApplicationProbe(Model):
         self._failure_threshold = failure_threshold
 
     @property
-    def initial_delay_seconds(self):
+    def initial_delay_seconds(self) -> float:
         """Gets the initial_delay_seconds of this ApplicationProbe.
 
           # noqa: E501
@@ -140,7 +137,7 @@ class ApplicationProbe(Model):
         return self._initial_delay_seconds
 
     @initial_delay_seconds.setter
-    def initial_delay_seconds(self, initial_delay_seconds):
+    def initial_delay_seconds(self, initial_delay_seconds: float):
         """Sets the initial_delay_seconds of this ApplicationProbe.
 
           # noqa: E501

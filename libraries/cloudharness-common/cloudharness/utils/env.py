@@ -25,21 +25,22 @@ def set_default_environment():
     values = conf.get_configuration()
 
     if values and 'env' in values:
-         os.environ.update({v['name']: str(v["value"]) for v in values['env'] if v['name'] not in os.environ})
-
-
+        os.environ.update({v['name']: str(v["value"]) for v in values['env'] if v['name'] not in os.environ})
 
 
 set_default_environment()
 
+
 def get_namespace():
     try:
-        namespace=conf.get_configuration()['namespace']
+        namespace = conf.get_configuration()['namespace']
     except:
-        namespace=''
+        namespace = ''
     return namespace
 
-namespace=get_namespace()
+
+namespace = get_namespace()
+
 
 class VariableNotFound(Exception):
     def __init__(self, variable_name):
@@ -71,6 +72,7 @@ def get_image_registry():
 
         return DEFAULT_IMAGE_REGISTRY
 
+
 def name_to_variable(application_name):
     return application_name.upper().replace('-', '_')
 
@@ -92,7 +94,7 @@ def get_service_cluster_address(cloudharness_app_name):
 
 
 def cluster_service_address(service_name):
-    return  f'{service_name}.{namespace}.svc.cluster.local'
+    return f'{service_name}.{namespace}.svc.cluster.local'
 
 
 def use_public_services():
@@ -100,6 +102,7 @@ def use_public_services():
         return get_variable('CH_USE_PUBLIC').lower() == 'true'
     except VariableNotFound:
         return False
+
 
 def get_sub_variable(*vars):
     return get_variable(name_to_variable('_'.join(vars)))
@@ -116,18 +119,23 @@ def get_public_domain():
 def get_cloudharness_workflows_service_url():
     return get_service_public_address('workflows')
 
+
 def get_cloudharness_sentry_service_url():
     return get_configuration('sentry').get_public_address()
+
 
 def get_sentry_service_cluster_address():
     return get_configuration('sentry').get_service_address()
 
+
 def get_cloudharness_common_service_url():
     return get_configuration('common').get_public_address()
+
 
 def get_common_service_cluster_address():
     common_app = get_configuration('common')
     return common_app.get_service_address()
+
 
 def get_auth_service_cluster_address():
     return get_configuration('accounts').get_service_address()

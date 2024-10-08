@@ -23,9 +23,9 @@ def create_sample_resource(sample_resource=None):  # noqa: E501
             return "Payload is not of type SampleResource", 400
 
     # Create a file inside the nfs
-    with open("/mnt/myvolume/myfile", "w") as f:
+    with open("/tmp/myvolume/myfile", "w") as f:
         print("test", file=f)
-            
+
     return resource_service.create_sample_resource(sample_resource), 201
 
 

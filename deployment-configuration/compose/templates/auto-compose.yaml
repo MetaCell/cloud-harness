@@ -1,0 +1,228 @@
+version: '3.7'
+
+services:
+  traefik:
+    image: "traefik:v2.10"
+    container_name: "traefik"
+    networks:
+    - ch
+    command:
+      - "--log.level=INFO"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--providers.file.directory=/etc/traefik/dynamic_conf"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./traefik/certs/:/certs/:ro"
+      - "./traefik/traefik.yaml:/etc/traefik/dynamic_conf/conf.yml:ro"
+
+{{- range $app_name, $app_config := .Values.apps }}
+  {{- if has $app_name (list "argo" "events" "nfsserver") -}}
+  {{- continue -}}
+  {{- end -}}
+  {{ $deployment :=  $app_config.harness.deployment }}
+  {{- $isSecured := (and $.Values.secured_gatekeepers ( and (hasKey $app_config "port") $app_config.harness.secured )) -}}
+  {{ if $isSecured }}
+
+  # Gatekeeper for {{ $app_config.harness.service.name }}-gk
+{{- include "securedservice.deploy" (dict "root" $ "app" $app_config) | indent 2 }}
+  {{- end }}
+  {{- range $subapp := $app_config }}
+  {{- if contains "map" (typeOf $subapp)  }}
+    {{- if and (hasKey $subapp "harness.port") (hasKey $subapp "harness.secured") }}
+      {{- if $subapp.harness.secured }}
+{{ include "securedservice.deploy" (dict "root" $ "app" $subapp) | indent 2 }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- if or (not $deployment.auto) (not $app_config.harness.service.auto) }}
+  {{- continue }}
+  {{- end}}
+  {{ $app_name }}:
+    {{- with $app_config.domain }}
+    domainname: {{ . }}
+    {{- end }}
+    networks:
+      {{- if ne $app_config.harness.service.name $app_name}}
+      ch:
+        aliases:
+          - {{ $app_config.harness.service.name }}
+      {{- else }}
+      - ch
+      {{- end}}
+    {{- with $app_config.image }}
+    image: {{ . }}
+    {{- end }}
+    {{/*
+    {{- if eq $.Values.mainapp $app_name }}
+    {{- with $app_config.harness.service.port }}
+    ports:
+      - "{{ . }}:{{ $app_config.harness.deployment.port }}"
+    {{- end }}
+    {{- end }}*/}}
+    {{- with $app_config.harness.deployment.port }}
+    expose:
+      - {{ . }}
+    {{- end}}
+    deploy:
+      mode: "replicated"
+      replicas: {{ $deployment.replicas | default 1 }}
+      resources:
+        limits:
+          cpus: {{ include "convertToDecimal" ( $deployment.resources.limits.cpu | default 0.5) }}
+          memory: {{ trimSuffix "i" $deployment.resources.limits.memory | default "64M" }}
+        reservations:
+          cpus: {{ include "convertToDecimal" ( $deployment.resources.requests.cpu | default 0.01) }}
+          memory: {{ trimSuffix "i" $deployment.resources.requests.memory | default "32M" }}
+    {{- with $deployment.command }}
+    # entrypoint: {{ cat . $deployment.args }}
+    {{- end }}
+    {{- if eq $app_name "accounts" }}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/auth/realms/{{ $.Values.namespace }}/account"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    {{- end }}
+    environment:
+      - CH_CURRENT_APP_NAME={{ $app_name }}
+
+      {{- range $.Values.env }}
+      - {{ .name }}={{ .value }}
+      {{- end }}
+      {{- with $.Values.apps.accounts }}
+      - CH_ACCOUNTS_CLIENT_SECRET={{ .client.secret }}
+      - CH_ACCOUNTS_REALM={{ $.Values.namespace }}
+      - CH_ACCOUNTS_AUTH_DOMAIN={{ printf "%s.%s" .harness.subdomain $.Values.domain }}
+      - CH_ACCOUNTS_CLIENT_ID={{ .client.id }}
+      - DOMAIN={{ $.Values.domain }}
+      {{- end}}
+      {{- range $app_config.harness.env }}
+      - {{ .name }}={{ .value }}
+      {{- end }}
+    {{- if or $app_config.harness.dependencies.hard $app_config.harness.dependencies.soft }}
+    {{- with compact
+          (append (concat (without $app_config.harness.dependencies.hard "argo")
+                  $app_config.harness.dependencies.soft)
+                  (dig "database" "name" "" $app_config.harness)) }}
+    
+
+    links:
+      {{- range . -}}
+        {{- $service := .}}
+        {{- range $name, $conf := $.Values.apps }}
+          {{- if hasSuffix "-db" $service }}
+      - {{ $service }}:{{ $service }}.{{ $.Values.domain }}
+            {{- break -}}
+          {{- end -}}
+          {{- if eq $conf.harness.name $service }}
+            {{- if has $name (list "events" "nfsserver" "jupyterhub") }}
+#     - {{ $name }}:{{ $service }}.{{ $.Values.domain }}
+        {{- else }}
+      - {{ $name }}:{{ $service }}.{{ $.Values.domain }}
+            {{- end }}
+            {{- break -}}
+          {{- end -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+    {{/* Takes the hard deps, removes argo and adds the db if there is one */}}
+    {{/* To be sure to add the db properly, we "dig" the "harness" config for "database.name" and return "" if one of the keys doesn't exist */}}
+    {{/* "compact" in the beginning is to remove empty values */}}
+    {{- with compact
+            (append
+              (without $app_config.harness.dependencies.hard "argo" "events")
+              (dig "database" "name" "" $app_config.harness)) -}}
+
+    depends_on:
+      {{- range . -}}
+        {{- $service := .}}
+        {{- range $name, $conf := $.Values.apps -}}
+          {{- if hasSuffix "-db" $service }}
+      - {{ $service }}
+            {{- break -}}
+          {{- end -}}
+          {{- if eq $conf.harness.name $service }}
+            {{- if has $name (list "events" "nfsserver") }}
+#     - {{ $name }}
+            {{- else }}
+      - {{ $name }}
+            {{- end }}
+            {{- break -}}
+          {{- end -}}
+
+        {{- end -}}
+      {{- end }}
+    {{- end }}
+    {{- end }}
+    volumes:
+      - ./deployment/compose/allvalues.yaml:/opt/cloudharness/resources/allvalues.yaml:ro
+    {{- range $file_name, $_ := $app_config.harness.secrets }}
+      - ./deployment/compose/resources/generated/auth/{{ $file_name }}:/opt/cloudharness/resources/auth/{{ $file_name }}
+    {{- end }}
+    {{- if or $deployment.volume $app_config.harness.resources }}
+    {{- with $deployment.volume }}
+      - type: volume
+        source: {{ .name }}
+        target: {{ .mountpath }}
+    {{- end}}
+    {{- with $app_config.harness.resources }}
+    {{- range .}}
+      - type: bind
+        source: ./deployment/compose/resources/generated/{{ $app_name }}/{{ .src }}
+        target: {{ .dst }}
+    {{- end }}
+    {{- end}}
+    {{- end }}
+  {{- if not $isSecured }}
+    labels:
+      - "traefik.enable=true"
+      {{- with $app_config.harness.service.port }}
+      - "traefik.http.services.{{ $app_name }}.loadbalancer.server.port={{ . }}"
+      {{- end }}
+      # - "traefik.http.middlewares.redirect-middleware.redirectscheme.scheme=https"
+      # - "traefik.http.routers.{{ .app_name }}.middlewares=redirect-middleware"
+      - "traefik.http.routers.{{ $app_name }}.rule=Host(`{{ $app_config.harness.subdomain }}.{{ $.Values.domain }}`)"
+      - "traefik.http.routers.{{ $app_name }}.entrypoints=web"
+  {{- end }}
+  {{- with $app_config.harness.database }}
+    {{- if not .auto }}
+    {{- continue}}
+    {{- end }}
+  {{- include "db.deployment" . | indent 2}}
+  {{- end}}
+{{- end }}
+
+# Network definition
+networks:
+  ch:
+    name: ch_network
+
+{{- range $app_name, $app_config := .Values.apps }}
+  {{- with $app_config.harness.deployment.volume }}
+volumes:
+  {{- break }}
+  {{- end }}
+  {{- with $app_config.harness.database }}
+volumes:
+  {{- break }}
+  {{- end }}
+{{- end }}
+{{- range $app_name, $app_config := .Values.apps }}
+  {{- with $app_config.harness.deployment.volume }}
+  {{ .name }}:
+  {{- end }}
+  {{- with $app_config.harness.database }}
+  {{ .name }}:
+  {{- if eq .type "postgres" }}
+  dshm-{{ .name }}:
+  {{- end }}
+  {{- end }}
+{{- end }}

@@ -1,13 +1,15 @@
 
-import sqlalchemy 
+import sqlalchemy
 from sqlalchemy.sql import text
 
 from cloudharness.utils.env import get_service_public_address
 
 from .db import get_db
 
+
 class SentryProjectNotFound(Exception):
     pass
+
 
 def _get_api_token():
     # ToDo: may be we can use here a dynamic token, but for now let's use a hard coded one
@@ -16,30 +18,32 @@ def _get_api_token():
     select token from sentry_apitoken 
     where token=:api_token
     ''')
-    token = get_db().engine.execute(s, 
-        api_token=api_token
-        ).fetchall()
+    token = get_db().engine.execute(s,
+                                    api_token=api_token
+                                    ).fetchall()
     if len(token) == 0:
         # token is not present in the Sentry database, let's create it
         s = text('''
         insert into sentry_apitoken(user_id, token, scopes, date_added, scope_list)
         values (1, :api_token, 0, now(), :scope_list)
         ''')
-        get_db().engine.execute(s, 
-            api_token=api_token,
-            scope_list='{event:admin,event:read,'
-                        'member:read,member:admin,'
-                        'project:read,project:releases,project:admin,project:write,'
-                        'team:read,team:write,team:admin,'
-                        'org:read,org:write,org:admin}'
-            )
+        get_db().engine.execute(s,
+                                api_token=api_token,
+                                scope_list='{event:admin,event:read,'
+                                'member:read,member:admin,'
+                                'project:read,project:releases,project:admin,project:write,'
+                                'team:read,team:write,team:admin,'
+                                'org:read,org:write,org:admin}'
+                                )
         return _get_api_token()
     else:
         # return the first column from the first row of the query result
         return token[0][0]
 
+
 def get_token():
     return _get_api_token()
+
 
 def get_dsn(appname):
     s = text('''
@@ -49,9 +53,9 @@ def get_dsn(appname):
     where p.slug=:project_slug
     ''')
     try:
-        public_key = get_db().engine.execute(s, 
-            project_slug=appname
-            ).fetchall()
+        public_key = get_db().engine.execute(s,
+                                             project_slug=appname
+                                             ).fetchall()
     except sqlalchemy.exc.OperationalError:
         raise SentryProjectNotFound('Sentry is not initialized.')
 

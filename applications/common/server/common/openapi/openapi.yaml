@@ -21,7 +21,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200'
+                $ref: '#/components/schemas/get_config_200_response'
           description: Config for accounts log in
       summary: Gets the config for logging in into accounts
       tags:
@@ -68,9 +68,39 @@ paths:
       tags:
       - Sentry
       x-openapi-router-controller: common.controllers.sentry_controller
+  /version:
+    get:
+      operationId: get_version
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                version:
+                  value: "{\r\n  \"build\": \"63498f19146bae1a6ae7e354\"\r\n  \"tag\"\
+                    : \"v1.2.0\"\r\n}"
+              schema:
+                $ref: '#/components/schemas/AppVersion'
+          description: Deployment version GET
+      tags:
+      - config
+      x-openapi-router-controller: common.controllers.config_controller
+    summary: Get the version for this deployment
 components:
   schemas:
-    inline_response_200:
+    AppVersion:
+      description: ""
+      example:
+        build: 63498f19146bae1a6ae7e354
+        tag: v1.2.0
+      properties:
+        build:
+          type: string
+        tag:
+          type: string
+      title: Root Type for AppVersion
+      type: object
+    get_config_200_response:
       example:
         clientId: clientId
         realm: realm
@@ -88,5 +118,5 @@ components:
           description: The clientID.
           title: clientId
           type: string
-      title: inline_response_200
+      title: get_config_200_response
       type: object

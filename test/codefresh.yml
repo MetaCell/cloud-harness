@@ -19,13 +19,14 @@ steps:
     git: "github"
     stage: "clone"
 
-
   test:
     title: "Running test"
     type: "freestyle" # Run any command
-    image: "python:3.9" # The image in which command will be executed
+    image: "python:3.12" # The image in which command will be executed
     working_directory: "${{clone}}" # Running command where code cloned
     commands:
+      - curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+      - bash get_helm.sh
       - pip install tox
       - rm -rf libraries/models/.tox
       - rm -rf libraries/cloudharness-common/.tox
@@ -34,4 +35,3 @@ steps:
       - tox -c libraries/cloudharness-common/
       - tox -c tools/deployment-cli-tools
     stage: "test"
-

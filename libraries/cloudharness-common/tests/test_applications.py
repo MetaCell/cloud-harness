@@ -1,15 +1,13 @@
+from cloudharness.utils.config import CloudharnessConfig, ConfigObject
+from cloudharness.applications import ApplicationConfiguration, get_configuration
 from .test_env import set_default_environment
 
 set_default_environment()
 
-from cloudharness.applications import ApplicationConfiguration, get_configuration
-from cloudharness.utils.config import CloudharnessConfig, ConfigObject
-
-
 
 conf_1 = {
     'name': 'app1',
-    
+
     'harness': {
         'name': 'app1',
         'subdomain': 'myapp',
@@ -72,6 +70,7 @@ def test_application_conf():
     assert uut.conf.admin.role == 'administrator'
     assert uut.conf["admin.role"] == 'administrator'
 
+
 def test_get_configuration():
     CloudharnessConfig.apps = {
         'a': conf_1,
@@ -89,8 +88,7 @@ def test_get_configuration():
     assert uut["freefield"]["a"] == 1
     assert uut["freefield"].a == 1
     assert uut["freefield.a"] == 1
-    
-    
+
     assert uut.freefield.a == 1
 
     uut = get_configuration('app2')
@@ -99,9 +97,6 @@ def test_get_configuration():
     assert not uut.is_auto_service()
     assert not uut.is_auto_deployment()
     assert uut.is_sentry_enabled()
-
-
-    
 
     # TODO subapp support
     # uut = get_configuration('app2sub')

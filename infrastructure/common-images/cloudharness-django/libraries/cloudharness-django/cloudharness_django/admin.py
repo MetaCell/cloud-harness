@@ -12,6 +12,7 @@ from cloudharness_django.services import get_user_service
 admin.site.unregister(User)
 admin.site.unregister(Group)
 
+
 class CHUserAdmin(ExtraButtonsMixin, UserAdmin):
 
     def has_add_permission(self, request):
@@ -44,6 +45,7 @@ class CHGroupAdmin(ExtraButtonsMixin, GroupAdmin):
     def sync_keycloak(self, request):
         get_user_service().sync_kc_users_groups()
         self.message_user(request, 'Keycloak users & groups synced.')
+
 
 admin.site.register(User, CHUserAdmin)
 admin.site.register(Group, CHGroupAdmin)

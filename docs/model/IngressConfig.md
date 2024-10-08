@@ -1,43 +1,33 @@
-# cloudharness_model.model.ingress_config.IngressConfig
+# IngressConfig
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+
+
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+**auto** | **bool** | When true, enables automatic template | 
+**name** | **str** |  | [optional] 
+**ssl_redirect** | **bool** |  | [optional] 
+**letsencrypt** | [**IngressConfigAllOfLetsencrypt**](IngressConfigAllOfLetsencrypt.md) |  | [optional] 
 
-### Composed Schemas (allOf/anyOf/oneOf/not)
-#### allOf
-Class Name | Input Type | Accessed Type | Description | Notes
-------------- | ------------- | ------------- | ------------- | -------------
-[all_of_0](#all_of_0) | dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
-[AutoArtifactSpec](AutoArtifactSpec.md) | [**AutoArtifactSpec**](AutoArtifactSpec.md) | [**AutoArtifactSpec**](AutoArtifactSpec.md) |  | 
+## Example
 
-# all_of_0
+```python
+from cloudharness_model.models.ingress_config import IngressConfig
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+# TODO update the JSON string below
+json = "{}"
+# create an instance of IngressConfig from a JSON string
+ingress_config_instance = IngressConfig.from_json(json)
+# print the JSON string representation of the object
+print IngressConfig.to_json()
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**ssl_redirect** | bool,  | BoolClass,  |  | [optional] 
-**[letsencrypt](#letsencrypt)** | dict, frozendict.frozendict,  | frozendict.frozendict,  |  | [optional] 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+# convert the object into a dict
+ingress_config_dict = ingress_config_instance.to_dict()
+# create an instance of IngressConfig from a dict
+ingress_config_form_dict = ingress_config.from_dict(ingress_config_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
-# letsencrypt
-
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
-
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**email** | str,  | str,  |  | [optional] 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
-
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
 

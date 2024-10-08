@@ -1,0 +1,20 @@
+{{- /*
+to replace the secrets values we create a dict with the structure:
+  app:
+    <app>:
+      harness:
+        secrets:
+
+thus with an empty secrets node
+and then it's mergeOverwrite the copy of the .Values we created
+resulting in a copy of the .Values with all secrets being ""
+cloudharness-metadata:
+  path: allvalues2.yaml
+data: |
+{{- $values_copy := deepCopy .Values }}
+{{- range $key, $val := .Values.apps }}
+  {{- $new_secrets := dict "apps" (dict $key (dict "harness" (dict "secrets"))) }}
+  {{- $tmp := mergeOverwrite $values_copy $new_secrets }}
+{{- end }}
+{{ $values_copy | toYaml | indent 4 }}
+*/ -}}

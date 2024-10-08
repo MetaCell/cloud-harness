@@ -19,7 +19,7 @@ class TestRestController(BaseTestCase):
 
         Used to retrieve a Persistent Volume Claim from the Kubernetes repository.
         """
-        headers = { 
+        headers = {
             'Accept': 'application/json',
             'Authorization': 'Bearer special-key',
         }
@@ -36,10 +36,10 @@ class TestRestController(BaseTestCase):
         Used to create a Persistent Volume Claim in Kubernetes
         """
         persistent_volume_claim_create = {
-  "size" : "2Gi (see also https://github.com/kubernetes/community/blob/master/contributors/design-proposals/scheduling/resources.md#resource-quantities)",
-  "name" : "pvc-1"
-}
-        headers = { 
+            "size": "2Gi (see also https://github.com/kubernetes/community/blob/master/contributors/design-proposals/scheduling/resources.md#resource-quantities)",
+            "name": "pvc-1"
+        }
+        headers = {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
             'Authorization': 'Bearer special-key',

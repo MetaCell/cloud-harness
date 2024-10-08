@@ -15,9 +15,9 @@ a specific purpose (e.g. enable widely used application stacks to inherit from).
 
 After generating the codeChange the Dockerfile in order to inherit from the main Docker image need to:
 
-1. Add the image as a build dependency to the values.yaml file of your application. The name of the image corresponds to the directory name where the Dockerfile is located 
+1. Add the image as a [build dependency](applications/dependencies.md) to the values.yaml file of your application. The name of the image corresponds to the directory name where the Dockerfile is located 
 
-```
+```yaml
 harness:
   dependencies:
     build:

@@ -22,7 +22,7 @@ def get_application_paths(openapi_files):
     return [os.path.basename(os.path.dirname(os.path.dirname(path))) for path in openapi_files]
 
 
-def generate_servers(root_path, interactive=False):
+def generate_servers(root_path, interactive=False, server=None):
     """
     Generates server stubs
     """
@@ -32,6 +32,9 @@ def generate_servers(root_path, interactive=False):
         if not interactive or input("Do you want to generate " + openapi_files[i] + "? [Y/n]").upper() != 'N':
             openapi_file = openapi_files[i]
             application_root = os.path.dirname(os.path.dirname(openapi_file))
+            appname = os.path.basename(application_root)
+            if server and server != appname:
+                continue
             if os.path.exists(os.path.join(application_root, "api", "genapi.sh")):
                 # fastapi server --> use the genapi.sh script
                 generate_fastapi_server(application_root)
@@ -47,9 +50,9 @@ def aggregate_packages(client_src_path, lib_name=LIB_NAME):
     TEST_REQUIREMENTS = os.path.join(client_src_path, 'test-requirements.txt')
 
     if not os.path.exists(DOCS_PATH):
-        os.mkdir(DOCS_PATH)
+        os.makedirs(DOCS_PATH)
     if not os.path.exists(TEST_PATH):
-        os.mkdir(TEST_PATH)
+        os.makedirs(TEST_PATH)
     if os.path.exists(README):
         os.remove(README)
     if os.path.exists(REQUIREMENTS):
@@ -153,15 +156,21 @@ if __name__ == "__main__":
                         help='Specify image registry prefix')
     parser.add_argument('-i', '--interactive', dest='interactive', action="store_true",
                         help='Asks before generate')
+    parser.add_argument('-s', '--server', dest='server', action="store",
+                        help='Generate only a specific server (provide application name) stubs', default=())
+    parser.add_argument('-c', '--clients', dest='clients', action="store_true",
+                        help='Generate only client libraries')
+    parser.add_argument('-m', '--models', dest='models', action="store_true",
+                        help='Generate only model library')
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
     root_path = os.path.join(os.getcwd(), args.path) if not os.path.isabs(
         args.path) else args.path
 
     get_dependencies()
-    if os.path.exists(os.path.join(root_path, "libraries/models")) and (not args.interactive or input("Do you want to generate the main model? [Y/n]").upper() != 'N'):
+    if args.models and os.path.exists(os.path.join(root_path, "libraries/models")) and (not args.interactive or input("Do you want to generate the main model? [Y/n]").upper() != 'N'):
         generate_model()
-
-    generate_servers(root_path, interactive=args.interactive)
-
-    generate_clients(root_path, args.client_name, interactive=args.interactive)
+    if not (args.clients or args.models) or args.server:
+        generate_servers(root_path, interactive=args.interactive, server=args.server)
+    if not (args.server or args.models) or args.clients:
+        generate_clients(root_path, args.client_name, interactive=args.interactive)

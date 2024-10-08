@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.apps.neo4j.harness.deployment.name }}
+  labels:
+    app: {{ .Values.apps.neo4j.harness.deployment.name }}
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.apps.neo4j.harness.deployment.name }}
+  template:
+    metadata:
+      name: {{ .Values.apps.neo4j.harness.deployment.name }}
+      labels:
+        name: {{ .Values.apps.neo4j.harness.deployment.name }}
+        app: {{ .Values.apps.neo4j.harness.deployment.name }}
+    spec:
+      securityContext: {{ toYaml .Values.apps.neo4j.reverseProxy.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Values.apps.neo4j.harness.deployment.name }}
+          image: {{ .Values.apps.neo4j.reverseProxy.image }}
+          imagePullPolicy: Always
+          securityContext: {{ toYaml .Values.apps.neo4j.reverseProxy.containerSecurityContext | nindent 12 }}
+          ports:
+            - containerPort: {{ .Values.apps.neo4j.harness.deployment.port }}
+          env:
+            - name: SERVICE_NAME
+              value: {{ .Values.apps.neo4j.harness.database.name }}
+            - name: PORT
+              value: {{ .Values.apps.neo4j.harness.deployment.port  | quote }}
+            - name: DOMAIN
+              value: {{ .Values.apps.neo4j.reverseProxy.domain | default "cluster.local" }}
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+---

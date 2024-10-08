@@ -1,33 +1,35 @@
-# cloudharness_model.model.user_role.UserRole
+# UserRole
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+**attributes** | **Dict[str, object]** |  | [optional] 
+**client_role** | **bool** |  | [optional] 
+**composite** | **bool** |  | [optional] 
+**container_id** | **str** |  | [optional] 
+**description** | **str** |  | [optional] 
+**id** | **str** |  | [optional] 
+**name** | **str** |  | [optional] 
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**[attributes](#attributes)** | dict, frozendict.frozendict,  | frozendict.frozendict,  |  | [optional] 
-**clientRole** | bool,  | BoolClass,  |  | [optional] 
-**composite** | bool,  | BoolClass,  |  | [optional] 
-**containerId** | str,  | str,  |  | [optional] 
-**description** | str,  | str,  |  | [optional] 
-**id** | str,  | str,  |  | [optional] 
-**name** | str,  | str,  |  | [optional] 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, uuid.UUID, int, float, decimal.Decimal, bool, None, list, tuple, bytes, io.FileIO, io.BufferedReader,  | frozendict.frozendict, str, decimal.Decimal, BoolClass, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+## Example
 
-# attributes
+```python
+from cloudharness_model.models.user_role import UserRole
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+# TODO update the JSON string below
+json = "{}"
+# create an instance of UserRole from a JSON string
+user_role_instance = UserRole.from_json(json)
+# print the JSON string representation of the object
+print UserRole.to_json()
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, uuid.UUID, int, float, decimal.Decimal, bool, None, list, tuple, bytes, io.FileIO, io.BufferedReader,  | frozendict.frozendict, str, decimal.Decimal, BoolClass, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+# convert the object into a dict
+user_role_dict = user_role_instance.to_dict()
+# create an instance of UserRole from a dict
+user_role_form_dict = user_role.from_dict(user_role_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
 

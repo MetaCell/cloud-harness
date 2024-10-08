@@ -1,4 +1,4 @@
-ARG PARENT=python:3.9.10
+ARG PARENT=python:3.12
 FROM ${PARENT}
 
 RUN apt-get update && apt-get install -y nfs-common && rm -rf /var/lib/apt/lists/*
@@ -25,5 +25,8 @@ COPY libraries/client/cloudharness_cli /libraries/client/cloudharness_cli
 RUN pip install -e /libraries/models --no-cache-dir
 RUN pip install -e /libraries/cloudharness-common --no-cache-dir
 RUN pip install -e /libraries/client/cloudharness_cli --no-cache-dir
+
+ARG $DEBUG
+RUN if [[ -z "$DEBUG" ]] ; then pip install debugpy --prefer-binary ; else echo "Debug not supported" ; fi
 
 WORKDIR /

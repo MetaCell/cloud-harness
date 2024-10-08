@@ -1,0 +1,10 @@
+version: "3"
+services:
+  tests:
+    image: test-e2e
+    environment:
+    - APP_URL=https://samples.test-ch.dev.metacell.us
+    - USERNAME=sample@testuser.com
+    - PASSWORD=test
+    volumes:
+      - ../../applications/samples/test/e2e:/home/test/__tests__/samples'

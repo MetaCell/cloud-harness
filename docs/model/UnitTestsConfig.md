@@ -1,30 +1,31 @@
-# cloudharness_model.model.unit_tests_config.UnitTestsConfig
+# UnitTestsConfig
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+
+
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+**enabled** | **bool** | Enables unit tests for this application (default: true) | 
+**commands** | **List[str]** | Commands to run unit tests | 
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**[commands](#commands)** | list, tuple,  | tuple,  | Commands to run unit tests | 
-**enabled** | bool,  | BoolClass,  | Enables unit tests for this application (default: true) | 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+## Example
 
-# commands
+```python
+from cloudharness_model.models.unit_tests_config import UnitTestsConfig
 
-Commands to run unit tests
+# TODO update the JSON string below
+json = "{}"
+# create an instance of UnitTestsConfig from a JSON string
+unit_tests_config_instance = UnitTestsConfig.from_json(json)
+# print the JSON string representation of the object
+print UnitTestsConfig.to_json()
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | -------------
-list, tuple,  | tuple,  | Commands to run unit tests | 
+# convert the object into a dict
+unit_tests_config_dict = unit_tests_config_instance.to_dict()
+# create an instance of UnitTestsConfig from a dict
+unit_tests_config_form_dict = unit_tests_config.from_dict(unit_tests_config_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
-### Tuple Items
-Class Name | Input Type | Accessed Type | Description | Notes
-------------- | ------------- | ------------- | ------------- | -------------
-items | str,  | str,  |  | 
-
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
 

@@ -28,7 +28,7 @@ describe("Sandbox", () => {
       return el.textContent;
     });
 
-    expect(await page.title()).toEqual("Samples");
+    expect(await page.title()).toEqual("CloudHarness sample application");
     expect(title).toEqual("Sample React application is working!");
   });
 });

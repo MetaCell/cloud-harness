@@ -1,23 +1,38 @@
-# cloudharness_model.model.backup_config.BackupConfig
+# BackupConfig
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+
+
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+**active** | **bool** |  | [optional] 
+**keep_days** | **int** |  | [optional] 
+**keep_weeks** | **int** |  | [optional] 
+**keep_months** | **int** |  | [optional] 
+**schedule** | **str** | Cron expression | [optional] 
+**suffix** | **object** | The file suffix added to backup files | [optional] 
+**volumesize** | **str** | The volume size for backups (all backups share the same volume) | [optional] 
+**dir** | **str** |  | 
+**resources** | [**DeploymentResourcesConf**](DeploymentResourcesConf.md) |  | 
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**resources** | [**DeploymentResourcesConf**](DeploymentResourcesConf.md) | [**DeploymentResourcesConf**](DeploymentResourcesConf.md) |  | 
-**dir** | [**Filename**](Filename.md) | [**Filename**](Filename.md) |  | 
-**active** | bool,  | BoolClass,  |  | [optional] 
-**keep_days** | decimal.Decimal, int,  | decimal.Decimal,  |  | [optional] 
-**keep_weeks** | decimal.Decimal, int,  | decimal.Decimal,  |  | [optional] 
-**keep_months** | decimal.Decimal, int,  | decimal.Decimal,  |  | [optional] 
-**schedule** | str,  | str,  | Cron expression | [optional] 
-**suffix** | dict, frozendict.frozendict, str, date, datetime, uuid.UUID, int, float, decimal.Decimal, bool, None, list, tuple, bytes, io.FileIO, io.BufferedReader,  | frozendict.frozendict, str, decimal.Decimal, BoolClass, NoneClass, tuple, bytes, FileIO | The file suffix added to backup files | [optional] 
-**volumesize** | str,  | str,  | The volume size for backups (all backups share the same volume) | [optional] 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+## Example
 
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
+```python
+from cloudharness_model.models.backup_config import BackupConfig
+
+# TODO update the JSON string below
+json = "{}"
+# create an instance of BackupConfig from a JSON string
+backup_config_instance = BackupConfig.from_json(json)
+# print the JSON string representation of the object
+print BackupConfig.to_json()
+
+# convert the object into a dict
+backup_config_dict = backup_config_instance.to_dict()
+# create an instance of BackupConfig from a dict
+backup_config_form_dict = backup_config.from_dict(backup_config_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
 

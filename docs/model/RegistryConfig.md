@@ -1,16 +1,31 @@
-# cloudharness_model.model.registry_config.RegistryConfig
+# RegistryConfig
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+
+
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+**name** | **str** |  | 
+**secret** | **str** | Optional secret used for pulling from docker registry. | [optional] 
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**name** | str,  | str,  |  | 
-**secret** | str,  | str,  | Optional secret used for pulling from docker registry. | [optional] 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+## Example
 
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
+```python
+from cloudharness_model.models.registry_config import RegistryConfig
+
+# TODO update the JSON string below
+json = "{}"
+# create an instance of RegistryConfig from a JSON string
+registry_config_instance = RegistryConfig.from_json(json)
+# print the JSON string representation of the object
+print RegistryConfig.to_json()
+
+# convert the object into a dict
+registry_config_dict = registry_config_instance.to_dict()
+# create an instance of RegistryConfig from a dict
+registry_config_form_dict = registry_config.from_dict(registry_config_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
 

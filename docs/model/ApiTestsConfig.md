@@ -1,46 +1,33 @@
-# cloudharness_model.model.api_tests_config.ApiTestsConfig
+# ApiTestsConfig
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+
+
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+**enabled** | **bool** | Enables api tests for this application (default: false) | 
+**autotest** | **bool** | Specify whether to run the common smoke tests | 
+**run_params** | **List[str]** | Additional schemathesis parameters | [optional] 
+**checks** | **List[str]** | One of the Schemathesis checks:  - not_a_server_error. The response has 5xx HTTP status; - status_code_conformance. The response status is not defined in the API schema; - content_type_conformance. The response content type is not defined in the API schema; - response_schema_conformance. The response content does not conform to the schema defined for this specific response; - response_headers_conformance. The response headers does not contain all defined headers. | 
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**[checks](#checks)** | list, tuple,  | tuple,  | One of the Schemathesis checks:  - not_a_server_error. The response has 5xx HTTP status; - status_code_conformance. The response status is not defined in the API schema; - content_type_conformance. The response content type is not defined in the API schema; - response_schema_conformance. The response content does not conform to the schema defined for this specific response; - response_headers_conformance. The response headers does not contain all defined headers. | 
-**autotest** | bool,  | BoolClass,  | Specify whether to run the common smoke tests | 
-**enabled** | bool,  | BoolClass,  | Enables api tests for this application (default: false) | 
-**[runParams](#runParams)** | list, tuple,  | tuple,  | Additional schemathesis parameters | [optional] 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+## Example
 
-# checks
+```python
+from cloudharness_model.models.api_tests_config import ApiTestsConfig
 
-One of the Schemathesis checks:  - not_a_server_error. The response has 5xx HTTP status; - status_code_conformance. The response status is not defined in the API schema; - content_type_conformance. The response content type is not defined in the API schema; - response_schema_conformance. The response content does not conform to the schema defined for this specific response; - response_headers_conformance. The response headers does not contain all defined headers.
+# TODO update the JSON string below
+json = "{}"
+# create an instance of ApiTestsConfig from a JSON string
+api_tests_config_instance = ApiTestsConfig.from_json(json)
+# print the JSON string representation of the object
+print ApiTestsConfig.to_json()
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | -------------
-list, tuple,  | tuple,  | One of the Schemathesis checks:  - not_a_server_error. The response has 5xx HTTP status; - status_code_conformance. The response status is not defined in the API schema; - content_type_conformance. The response content type is not defined in the API schema; - response_schema_conformance. The response content does not conform to the schema defined for this specific response; - response_headers_conformance. The response headers does not contain all defined headers. | 
+# convert the object into a dict
+api_tests_config_dict = api_tests_config_instance.to_dict()
+# create an instance of ApiTestsConfig from a dict
+api_tests_config_form_dict = api_tests_config.from_dict(api_tests_config_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
-### Tuple Items
-Class Name | Input Type | Accessed Type | Description | Notes
-------------- | ------------- | ------------- | ------------- | -------------
-items | str,  | str,  |  | 
-
-# runParams
-
-Additional schemathesis parameters
-
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | -------------
-list, tuple,  | tuple,  | Additional schemathesis parameters | 
-
-### Tuple Items
-Class Name | Input Type | Accessed Type | Description | Notes
-------------- | ------------- | ------------- | ------------- | -------------
-items | str,  | str,  |  | 
-
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
 

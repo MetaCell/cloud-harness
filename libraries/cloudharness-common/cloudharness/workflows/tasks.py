@@ -11,7 +11,7 @@ class Task(argo.ArgoObject):
     Abstract interface for a task.
     """
 
-    def __init__(self, name, resources={}, volume_mounts=[],  **env_args):
+    def __init__(self, name, resources={}, volume_mounts=[], **env_args):
         self.name = name.replace(' ', '-').lower()
         self.resources = resources
         self.__envs = get_cloudharness_variables()
@@ -33,7 +33,7 @@ class Task(argo.ArgoObject):
         return affinity_spec(([PodExecutionContext('usesvolume', self.external_volumes[0], True)] if self.external_volumes else []) + [
             PodExecutionContext(f'usesvolume-{v}', 'true', True)
             for v in self.external_volumes
-        ] )
+        ])
 
     @property
     def image_name(self):
