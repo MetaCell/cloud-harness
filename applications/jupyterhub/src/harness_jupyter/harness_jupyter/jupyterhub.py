@@ -225,10 +225,10 @@ def change_pod_manifest(self: KubeSpawner):
 
                         # set user quota cpu/mem usage if value has a "value" else don't change the value
                         logging.info("Setting user quota cpu/mem usage")
-                        set_key_value(self, key="cpu_guarantee", value=user_quotas.get(
-                            "quota-ws-guaranteecpu"))
+                        set_key_value(self, key="cpu_guarantee", value=float(user_quotas.get(
+                            "quota-ws-guaranteecpu")))
                         set_key_value(self, key="cpu_limit",
-                                      value=user_quotas.get("quota-ws-maxcpu"))
+                                      value=float(user_quotas.get("quota-ws-maxcpu")))
                         set_key_value(self, key="mem_guarantee", value=user_quotas.get(
                             "quota-ws-guaranteemem"), unit="G")
                         set_key_value(self, key="mem_limit", value=user_quotas.get(
