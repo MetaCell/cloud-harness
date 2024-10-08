@@ -42,7 +42,7 @@ class ClientType(enum.Flag):
     @classmethod
     def all(cls):
         return functools.reduce(operator.or_, cls)
-    
+
 
 class GenerationMode(enum.Flag):
     CLIENTS = enum.auto()
@@ -83,9 +83,9 @@ def get_command_line_arguments() -> CommandLineArguments:
     common_arguments.add_argument('path', metavar='path', nargs='?', default=pathlib.Path.cwd(), type=pathlib.Path,
                                   help='Base path of the application.')
     common_arguments.add_argument('-i', '--interactive', dest='is_interactive', action="store_true",
-                        help='Asks before generate')
+                                  help='Asks before generate')
     common_arguments.add_argument('-a', '--app-name', dest='app_name', action="store", default=None,
-                        help='Generate only for a specific application')
+                                  help='Generate only for a specific application')
 
     clients_arguments = argparse.ArgumentParser(add_help=False)
     clients_arguments.add_argument('-cn', '--client-name', dest='client_name', action='store', default=LIB_NAME,
@@ -133,7 +133,7 @@ def generate_models(
     """
     Generates the main model
     """
-    library_models_path = root_path/'libraries'/'models'
+    library_models_path = root_path / 'libraries' / 'models'
 
     if not library_models_path.exists():
         return
@@ -185,7 +185,7 @@ def generate_clients(
         return
 
     openapi_files = get_openapi_file_paths(root_path)
-    client_src_path = root_path/'libraries'/'client'/client_lib_name
+    client_src_path = root_path / 'libraries' / 'client' / client_lib_name
 
     for openapi_file in openapi_files:
         app_path = openapi_file.parent.parent
@@ -210,19 +210,19 @@ def get_openapi_file_paths(root_path: pathlib.Path) -> list[pathlib.Path]:
 def aggregate_packages(client_source_path: pathlib.Path, lib_name=LIB_NAME):
     client_source_path.mkdir(parents=True, exist_ok=True)
 
-    client_docs_path = client_source_path/'docs'
+    client_docs_path = client_source_path / 'docs'
     client_docs_path.mkdir(exist_ok=True)
 
-    client_test_path = client_source_path/'test'
+    client_test_path = client_source_path / 'test'
     client_test_path.mkdir(exist_ok=True)
 
-    client_readme_file = client_source_path/'README.md'
+    client_readme_file = client_source_path / 'README.md'
     client_readme_file.unlink(missing_ok=True)
 
-    client_requirements_file = client_source_path/'requirements.txt'
+    client_requirements_file = client_source_path / 'requirements.txt'
     client_requirements_file.unlink(missing_ok=True)
 
-    client_test_requirements_file = client_source_path/'test-requirements.txt'
+    client_test_requirements_file = client_source_path / 'test-requirements.txt'
     client_test_requirements_file.unlink(missing_ok=True)
 
     requirements_lines_seen = set()
@@ -236,18 +236,18 @@ def aggregate_packages(client_source_path: pathlib.Path, lib_name=LIB_NAME):
             .replace('-', '_')
         )
 
-        code_destination_directory = client_source_path/lib_name/module
-        copymergedir(temp_module_path/lib_name/module, code_destination_directory)
-        copymergedir(temp_module_path/f'{lib_name}.{module}', code_destination_directory) # Fixes a bug with nested packages
+        code_destination_directory = client_source_path / lib_name / module
+        copymergedir(temp_module_path / lib_name / module, code_destination_directory)
+        copymergedir(temp_module_path / f'{lib_name}.{module}', code_destination_directory)  # Fixes a bug with nested packages
 
-        module_docs_path = client_docs_path/module
+        module_docs_path = client_docs_path / module
         module_docs_path.mkdir(parents=True, exist_ok=True)
-        copymergedir(client_source_path/temp_module_path.name/'docs', module_docs_path)
+        copymergedir(client_source_path / temp_module_path.name / 'docs', module_docs_path)
 
-        module_tests_path = client_source_path/'test'/module
-        copymergedir(temp_module_path/'test', module_tests_path)
+        module_tests_path = client_source_path / 'test' / module
+        copymergedir(temp_module_path / 'test', module_tests_path)
 
-        readme_file = temp_module_path/'README.md'
+        readme_file = temp_module_path / 'README.md'
         if not readme_file.exists():
             logging.warning(f'Readme file not found: {readme_file}.')
             continue
@@ -258,14 +258,14 @@ def aggregate_packages(client_source_path: pathlib.Path, lib_name=LIB_NAME):
             out_file.write(updated_file_data)
 
         # FIXME: Different package versions will remain in the output file
-        requirements_file = temp_module_path/'requirements.txt'
+        requirements_file = temp_module_path / 'requirements.txt'
         with requirements_file.open('r') as in_file, client_requirements_file.open('+a') as out_file:
             unseen_lines = [line for line in in_file if line not in requirements_lines_seen]
             requirements_lines_seen.update(unseen_lines)
             out_file.writelines(unseen_lines)
 
         # FIXME: Different package versions will remain in the output file
-        test_requirements_file = temp_module_path/'test-requirements.txt'
+        test_requirements_file = temp_module_path / 'test-requirements.txt'
         with test_requirements_file.open('r') as in_file, client_test_requirements_file.open('+a') as out_file:
             unseen_lines = [line for line in in_file if line not in test_requirements_lines_seen]
             test_requirements_lines_seen.update(unseen_lines)
@@ -275,7 +275,7 @@ def aggregate_packages(client_source_path: pathlib.Path, lib_name=LIB_NAME):
 
 
 def get_manifest(app_path: pathlib.Path) -> CloudHarnessManifest:
-    manifest_file = app_path/'.ch-manifest'
+    manifest_file = app_path / '.ch-manifest'
 
     try:
         manifest_data = load_yaml(manifest_file)
@@ -304,26 +304,26 @@ def infer_templates(app_path: pathlib.Path) -> list[str]:
 
 
 def infer_webapp_template(app_path: pathlib.Path, templates: list[str]) -> None:
-    frontend_path = app_path/'frontend'
+    frontend_path = app_path / 'frontend'
     if frontend_path.exists():
         templates.append(TemplateType.WEBAPP)
 
 
 def infer_server_template(app_path: pathlib.Path, templates: list[str]) -> None:
-    genapi_path = app_path/'api'/'genapi.sh'
+    genapi_path = app_path / 'api' / 'genapi.sh'
 
     if genapi_path.exists():
         templates.append(TemplateType.DJANGO_APP)
         return
 
-    server_path = app_path/'server'
-    backend_path = app_path/'backend'
+    server_path = app_path / 'server'
+    backend_path = app_path / 'backend'
     if server_path.exists() or backend_path.exists():
         templates.append(TemplateType.FLASK_SERVER)
 
 
 def infer_database_template(app_path: pathlib.Path, templates: list[str]) -> None:
-    values_file = app_path/'deploy'/'values.yaml'
+    values_file = app_path / 'deploy' / 'values.yaml'
 
     try:
         values_data = load_yaml(values_file)

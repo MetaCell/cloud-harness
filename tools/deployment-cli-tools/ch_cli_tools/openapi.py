@@ -21,14 +21,14 @@ ROOT = dn(dn(dn(HERE)))
 OPENAPI_GEN_URL = 'https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/7.7.0/openapi-generator-cli-7.7.0.jar'
 
 
-def generate_server(app_path: pathlib.Path, overrides_folder: Optional[pathlib.Path]=None) -> None:
+def generate_server(app_path: pathlib.Path, overrides_folder: Optional[pathlib.Path] = None) -> None:
     get_dependencies()
 
-    openapi_directory = app_path/'api'
+    openapi_directory = app_path / 'api'
     openapi_file = next(openapi_directory.glob('*.yaml'))
 
-    server_path = app_path/'server'
-    backend_path = app_path/'backend'
+    server_path = app_path / 'server'
+    backend_path = app_path / 'backend'
     out_path = server_path if server_path.exists() else backend_path
 
     command = [
@@ -36,7 +36,7 @@ def generate_server(app_path: pathlib.Path, overrides_folder: Optional[pathlib.P
         '-i', openapi_file,
         '-g', 'python-flask',
         '-o', out_path,
-        '-c', openapi_directory/'config.json',
+        '-c', openapi_directory / 'config.json',
     ]
     if overrides_folder:
         command += ['-t', overrides_folder]
@@ -45,24 +45,24 @@ def generate_server(app_path: pathlib.Path, overrides_folder: Optional[pathlib.P
 
 
 def generate_fastapi_server(app_path: pathlib.Path) -> None:
-    api_directory = app_path/'api'
-    backend_directory = app_path/'backend'
-    temp_directory = api_directory/'app'
+    api_directory = app_path / 'api'
+    backend_directory = app_path / 'backend'
+    temp_directory = api_directory / 'app'
 
     command = [
         'fastapi-codegen',
-        '--input', api_directory/'openapi.yaml',
+        '--input', api_directory / 'openapi.yaml',
         '--output', temp_directory,
-        '-t', api_directory/'templates',
+        '-t', api_directory / 'templates',
     ]
     subprocess.run(command)
 
-    source_main = temp_directory/'main.py'
-    destination_main = backend_directory/'main.py'
+    source_main = temp_directory / 'main.py'
+    destination_main = backend_directory / 'main.py'
     source_main.replace(destination_main)
 
-    source_models = temp_directory/'models.py'
-    destination_models = backend_directory/'openapi'/'models.py'
+    source_models = temp_directory / 'models.py'
+    destination_models = backend_directory / 'openapi' / 'models.py'
     source_models.replace(destination_models)
 
     temp_directory.rmdir()

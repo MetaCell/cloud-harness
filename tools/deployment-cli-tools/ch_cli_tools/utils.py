@@ -176,7 +176,7 @@ def replaceindir(root_src_dir, source, replace):
             if not any(file_.endswith(ext) for ext in REPLACE_TEXT_FILES_EXTENSIONS):
                 continue
 
-            src_file = pathlib.Path(src_dir)/file_
+            src_file = pathlib.Path(src_dir) / file_
             replace_in_file(src_file, source, replace)
 
 
@@ -219,12 +219,12 @@ def copymergedir(source_root_directory: pathlib.Path, destination_root_directory
 
     for source_directory, _, files in source_root_directory.walk():
 
-        destination_directory = destination_root_directory/source_directory.relative_to(source_root_directory)
+        destination_directory = destination_root_directory / source_directory.relative_to(source_root_directory)
         destination_directory.mkdir(parents=True, exist_ok=True)
 
         for file in files:
-            source_file = source_directory/file
-            destination_file = destination_directory/file
+            source_file = source_directory / file
+            destination_file = destination_directory / file
 
             try:
                 source_file.replace(destination_file)
@@ -263,11 +263,11 @@ def merge_configuration_directories(source: Union[str, pathlib.Path], destinatio
 
     if source_path == destination_path:
         return
-    
+
     if not source_path.exists():
         logging.warning("Trying to merge the not existing directory: %s", source)
         return
-    
+
     if not destination_path.exists():
         shutil.copytree(source_path, destination_path, ignore=shutil.ignore_patterns(*EXCLUDE_PATHS))
         return
@@ -284,16 +284,16 @@ def _merge_configuration_directory(
 ) -> None:
     if any(path in str(source_directory) for path in EXCLUDE_PATHS):
         return
-    
-    destination_directory = destination/source_directory.relative_to(source)
+
+    destination_directory = destination / source_directory.relative_to(source)
     destination_directory.mkdir(exist_ok=True)
 
     non_build_files = (file for file in files if file not in BUILD_FILENAMES)
 
     for file_name in non_build_files:
-        source_file_path = source_directory/file_name
-        destination_file_path = destination_directory/file_name
-        
+        source_file_path = source_directory / file_name
+        destination_file_path = destination_directory / file_name
+
         _merge_configuration_file(source_file_path, destination_file_path)
 
 
@@ -301,7 +301,7 @@ def _merge_configuration_file(source_file_path: pathlib.Path, destination_file_p
     if not exists(destination_file_path):
         shutil.copy2(source_file_path, destination_file_path)
         return
-    
+
     merge_operations = [
         (file_is_yaml, merge_yaml_files),
         (file_is_json, merge_json_files),
@@ -318,7 +318,7 @@ def _merge_configuration_file(source_file_path: pathlib.Path, destination_file_p
             break
 
         return
-    
+
     logging.warning(f'Overwriting file {destination_file_path} with {source_file_path}')
     shutil.copy2(source_file_path, destination_file_path)
 
