@@ -145,7 +145,9 @@ def handle_flask_server_template(app_path: pathlib.Path) -> None:
 def handle_django_app_template(app_name: str, app_path: pathlib.Path) -> None:
     python_app_name = to_python_module(app_name)
 
-    replace_in_file(app_path/'api'/'templates'/'main.jinja2', PLACEHOLDER, python_app_name)
+    api_path = app_path/'api'
+    replace_in_file(api_path/'templates'/'main.jinja2', PLACEHOLDER, python_app_name)
+    replace_in_file(api_path/'genapi.sh', PLACEHOLDER, app_name)
     generate_fastapi_server(app_path)
     
     replace_in_file(app_path/'deploy'/'values.yaml', f'{PLACEHOLDER}:{PLACEHOLDER}', f'{python_app_name}:{python_app_name}')

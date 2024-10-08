@@ -85,7 +85,7 @@ def get_command_line_arguments() -> CommandLineArguments:
                                   help='Base path of the application.')
     common_arguments.add_argument('-i', '--interactive', dest='is_interactive', action="store_true",
                         help='Asks before generate')
-    common_arguments.add_argument('-a', '--app_name', dest='app_name', action="store", default=None,
+    common_arguments.add_argument('-a', '--app-name', dest='app_name', action="store", default=None,
                         help='Generate only for a specific application')
 
     clients_arguments = argparse.ArgumentParser(add_help=False)
