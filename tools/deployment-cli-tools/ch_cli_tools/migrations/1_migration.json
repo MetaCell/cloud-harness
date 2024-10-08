@@ -1,0 +1,47 @@
+{
+    "deprecated": [
+        {
+            "keyword": "CLOUDHARNESS_BASE_DEBIAN",
+            "to_be_replaced": [
+                {
+                    "old": "CLOUDHARNESS_BASE_DEBIAN",
+                    "new": "CLOUDHARNESS_BASE"
+                },
+                {
+                    "old": "apk add",
+                    "new": "apt-get install"
+                },
+                {
+                    "old": "apk update",
+                    "new": "apt-get update"
+                },
+                {
+                    "old": "apk upgrade",
+                    "new": "apt-get upgrade"
+                },
+                {
+                    "old": "apk add --no-cache",
+                    "new": "apt-get install --no-cache"
+                },
+                {
+                    "old": "apk update --no-cache",
+                    "new": "apt-get update --no-cache"
+                },
+                {
+                    "old": "apk upgrade --no-cache",
+                    "new": "apt-get upgrade --no-cache"
+                }
+            ],
+            "patterns": ["**/Dockerfile", "**/*yaml"]
+        },
+        {
+            "keyword": "cloudharness-base-debian",
+            "to_be_replaced": [
+                {
+                    "old": "cloudharness-base-debian",
+                    "new": "cloudharness-base"
+                }
+            ]
+        }
+    ]
+}

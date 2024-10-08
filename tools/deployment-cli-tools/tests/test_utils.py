@@ -77,6 +77,14 @@ def test_check_docker_manifest_exists():
     assert not check_docker_manifest_exists("gcr.io/metacellllc", "cloudharness/cloudharness-base", "RANDOM_TAG")
 
 
+def test_search_word_in_file():
+    assert len(search_word_in_file(os.path.join(HERE, './resources/applications/migration_app/Dockerfile'), "CLOUDHARNESS_BASE_DEBIAN")) == 1
+
+
+def test_search_word_in_folder():
+    assert len(search_word_in_folder(os.path.join(HERE, './resources/applications/migration_app/'), "CLOUDHARNESS_BASE_DEBIAN")) == 2
+
+
 def test_find_dockerfile_paths():
 
     myapp_path = os.path.join(HERE, "resources/applications/myapp")
