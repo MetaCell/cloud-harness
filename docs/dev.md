@@ -80,6 +80,7 @@ The code is organized around the idea that there is a module by artifact that ca
 deployment-cli-tools
 ├── ch_cli_tools
 │   ├── codefresh.py          # Code Fresh configuration generation
+│   ├── common_types.py       # Commmon classes needed across multiple scripts/modules
 │   ├── helm.py               # Helm chart files generation
 │   ├── __init__.py           # Defines logging level and some global constants
 │   ├── models.py             # Currently empty file
@@ -106,23 +107,59 @@ First the skeleton of the application is generated (the directories, basic files
 The following code fragment from the `harness-application` script shows how the skeleton is produced:
 
 ```python
-if "django-app" in args.templates and "webapp" not in templates:
-        templates = ["base", "webapp"] + templates
+def main():
+    # ...
+
+    templates = normalize_templates(templates)
+
+    if TemplateType.WEBAPP in templates:
+        handle_webapp_template(app_name, app_path)
+
+    if TemplateType.SERVER in templates:
+        handle_server_template(app_path)
+
     for template_name in templates:
-        if template_name == 'server':
-            with tempfile.TemporaryDirectory() as tmp_dirname:
-                copymergedir(os.path.join(CH_ROOT, APPLICATION_TEMPLATE_PATH, template_name), tmp_dirname)  # <1>
-                merge_configuration_directories(app_path, tmp_dirname)
-                generate_server(app_path, tmp_dirname)
-        for base_path in (CH_ROOT, os.getcwd()):
-            template_path = os.path.join(base_path, APPLICATION_TEMPLATE_PATH, template_name)
-            if os.path.exists(template_path):
-                merge_configuration_directories(template_path, app_path)  # <1>
+        merge_template_directories(template_name, app_path)
+
+# ...
+
+def normalize_templates(templates):
+    normalized_templates = list(templates)
+
+    if TemplateType.DJANGO_APP in normalized_templates and TemplateType.WEBAPP not in normalized_templates:
+        django_app_index = normalized_templates.index(TemplateType.DJANGO_APP)
+        normalized_templates.insert(django_app_index, TemplateType.WEBAPP)
+    
+    has_database_template = any(template in TemplateType.database_templates() for template in normalized_templates)
+    if TemplateType.DJANGO_APP in normalize_templates and not has_database_template:
+        django_app_index = normalized_templates.index(TemplateType.DJANGO_APP)
+        normalized_templates.insert(django_app_index, TemplateType.DB_POSTGRES)
+
+    return normalized_templates
+
+# ...
+
+def handle_server_template(app_path):
+    with tempfile.TemporaryDirectory() as tmp_dirname:
+        tmp_path = pathlib.Path(tmp_dirname)
+        server_template_path = pathlib.Path(CH_ROOT)/APPLICATION_TEMPLATE_PATH/TemplateType.SERVER
+
+        copymergedir(server_template_path, tmp_path)
+        merge_configuration_directories(app_path, tmp_path)
+        generate_server(app_path, tmp_path)
+
+#...
+
+def merge_template_directories(template_name, app_path):
+    for base_path in (pathlib.Path(CH_ROOT), pathlib.Path.cwd()):
+        template_path = base_path/APPLICATION_TEMPLATE_PATH/template_name
+        if template_path.exists():
+            merge_configuration_directories(template_path, app_path)
 ```
 
-First, if `django-app` is defined as a template for the application, and the `webapp` template is not set, then `base` and `webapp` are added to the list of templates.
-Then, depending on the template name, a template directory is merged with the code of the application that will be developed (if it exists), as seen in `<1>`.
-The templates for each type of application is described by the constant `APPLICATION_TEPLATE_PATH` and points to [`application-templates`](../application-templates/).
+First, if `django-app` is defined as a template for the application, and the `webapp` template is not set and/or there is no database template, then `webapp` and/or `db-postgres` are added to the list of templates (using the `TemplateType` string enum).
+Then, depending on the template name, a template directory is merged with the code of the application that will be developed (if it exists).
+The templates for each type of application is described by the constant `APPLICATION_TEMPLATE_PATH` and points to [`application-templates`](../application-templates/).
 Based on the name of the template used for the application generation, the actual template with the same name is searched in this path, and copied/merged in the application target folder.
 The constant, as well as many other constants, are located in [`cloudharness_utils.constants`](../libraries/cloudharness-utils/cloudharness_utils/constants.py).
 This file is part of the CloudHarness runtime.
@@ -143,11 +180,13 @@ Those constants defines several aspects of CloudHarness.
 For example, we can see there what base Docker image will be considered depending on what's configured for your application, where will be located the deployment files, from where the applications to generate/pick should be generated, where are located the templates for each kind of generation target, as well as where the configuration for codefresh should be looked for.
 
 Once the skeleton of the application is generated considering some templates, the code of the REST API is generated from the OpenAPI specification.
-The generation relies on two functions: `generate_server` and `generate_fastapi_server` and `generate_ts_client`.
+The generation relies on the functions: `generate_server` and `generate_fastapi_server` and `generate_ts_client`.
 Those functions are defined in the [`openapi.py`](../tools/deployment-cli-tools/ch_cli_tools/openapi.py) module.
-This module and those functions use `openapi-generator-cli` to generate the code for the backend and/or the frontend.
+This module and those functions use `openapi-generator-cli` and `fastapi-codegen` to generate the code for the backend and/or the frontend.
 With this generation, and depending on the templates used, some fine tuning or performed in the code/files generated.
 For example, some placeholders are replaced depending on the name of the application, or depending on the module in which the application is generated.
+
+As final steps a `.ch-manifest` file is created in the root of the application which contains details about the app name and templates used in generation for use by [`harness-generate`](../tools/deployment-cli-tools/harness-generate) and `harness-generate` is run to ensure all server stubs and client code is in place.
 
 #### How to extend it?
 
@@ -165,35 +204,41 @@ Here is some scenarios that would need to modify or impact this part of CloudHar
 ### Generation of the base application skeleton
 
 The (re-)generation REST API is obtain through the [`harness-generate`](../tools/deployment-cli-tools/harness-generate) command.
-The command parses the name of the application, gets the necessary dependencies (the java OpenAPI generator cli), and generates the REST model, the servers stubs and well as the clients code from the OpenAPI specifications.
+The command parses the `.ch-manifest` file (inferring and creating one if needed), gets the necessary dependencies (the java OpenAPI generator cli), and generates the REST model, the servers stubs and well as the clients code from the OpenAPI specifications.
 
-The generation of the REST model is done by the `generate_model(...)` function, the generation of the server stub is done by the `generate_servers(...)` function, while the clients generation is done by the `generate_clients(...)` function.
+The generation of the REST model is done by the `generate_model(...)` function, the generation of the server stub is done by either the `generate_servers(...)` function, while the clients generation is done by the `generate_clients(...)` function.
 All of these functions are located in the `harness-generate` script.
 
 Under the hood, the `generate_servers(...)` function uses the `generate_fastapi_server(...)` and the `generate_server(...)` function that are defined in the [`openapi.py`](../tools/deployment-cli-tools/ch_cli_tools/openapi.py) module.
-The generation of one type of servers over another one is bound to the existence of a `genapi.sh` file:
+The generation of one type of servers over another one is based on the template used for generation (if the manifest does not exist, the template is inferred by the existance/non-existance of the `genapi.sh` file):
 
 ```python
-def generate_servers(root_path, interactive=False):
+def generate_servers(root_path, should_generate, app_name):
     # ...
-    if os.path.exists(os.path.join(application_root, "api", "genapi.sh")):
-        # fastapi server --> use the genapi.sh script
-        generate_fastapi_server(application_root)
-    else:
-        generate_server(application_root)
+    for openapi_file in openapi_files:
+        #...
+
+        if TemplateType.DJANGO_APP in manifest.templates:
+            generate_fastapi_server(app_path)
+
+        if TemplateType.FLASK_SERVER in manifest.templates:
+            generate_server(app_path)
 ```
 
 The `generate_clients(...)` function also uses `generate_python_client(...)` and `generate_ts_client(...)` from the [`openapi.py`](../tools/deployment-cli-tools/ch_cli_tools/openapi.py) module.
-The `generate_ts_client(...)` function is called only if there is folder named `frontend` in the application directory structure:
+The `generate_ts_client(...)` function is called only if the manifest templates contains `webapp` (if the manifest does not exist then the use of `webapp` is inferred by the existance/non-existance of a `frontend` directory in the application directory structure), and flags can be used to limit generation to just python or typescript clients:
 
 ```python
 def generate_clients(root_path, client_lib_name=LIB_NAME, interactive=False):
     # ...
-    app_dir = os.path.dirname(os.path.dirname(openapi_file))
-    generate_python_client(app_name, openapi_file,
-                           client_src_path, lib_name=client_lib_name)
-    if os.path.exists(os.path.join(app_dir, 'frontend')):
-        generate_ts_client(openapi_file)
+    for openapi_file in openapi_files:
+        #...
+        
+        if ClientType.PYTHON_CLIENT in client_types:
+            generate_python_client(manifest.app_name, openapi_file, client_src_path, lib_name=client_lib_name)
+
+        if TemplateType.WEBAPP in manifest.templates and ClientType.TS_CLIENT in client_types:
+            generate_ts_client(openapi_file)
 ```
 
 ### Generation of the application deployment files
