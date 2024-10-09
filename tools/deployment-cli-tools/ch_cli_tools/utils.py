@@ -1,8 +1,10 @@
 
+import contextlib
+import pathlib
 import socket
 import glob
 import subprocess
-from typing import Any
+from typing import Any, Union
 import requests
 import os
 from functools import cache
@@ -174,17 +176,18 @@ def replaceindir(root_src_dir, source, replace):
             if not any(file_.endswith(ext) for ext in REPLACE_TEXT_FILES_EXTENSIONS):
                 continue
 
-            src_file = join(src_dir, file_)
+            src_file = pathlib.Path(src_dir) / file_
             replace_in_file(src_file, source, replace)
 
 
-def replace_in_file(src_file, source, replace):
-    if src_file.endswith('.py') or basename(src_file) == 'Dockerfile':
-        replace = to_python_module(replace)
-    with fileinput.FileInput(src_file, inplace=True) as file:
+def replace_in_file(src_file: pathlib.Path, source: str, replacement: str) -> None:
+    if src_file.name.endswith('.py') or src_file.name == 'Dockerfile':
+        replacement = to_python_module(replacement)
+
+    with fileinput.input(src_file, inplace=True) as file:
         try:
             for line in file:
-                print(line.replace(source, replace), end='')
+                print(line.replace(source, replacement), end='')
         except UnicodeDecodeError:
             pass
 
@@ -205,29 +208,28 @@ def replace_in_dict(src_dict: dict, source: str, replacement: str) -> dict:
     }
 
 
-def copymergedir(root_src_dir, root_dst_dir):
+def copymergedir(source_root_directory: pathlib.Path, destination_root_directory: pathlib.Path) -> None:
     """
     Does copy and merge (shutil.copytree requires that the destination does not exist)
-    :param root_src_dir:
-    :param root_dst_dir:
+    :param source_root_directory:
+    :param destination_root_directory:
     :return:
     """
-    logging.info('Copying directory %s to %s', root_src_dir, root_dst_dir)
-    for src_dir, dirs, files in os.walk(root_src_dir):
+    logging.info(f'Copying directory {source_root_directory} to {destination_root_directory}')
 
-        dst_dir = src_dir.replace(root_src_dir, root_dst_dir, 1)
-        if not exists(dst_dir):
-            os.makedirs(dst_dir)
-        for file_ in files:
-            src_file = join(src_dir, file_)
-            dst_file = join(dst_dir, file_)
-            if exists(dst_file):
-                os.remove(dst_file)
+    for source_directory, _, files in source_root_directory.walk():
+
+        destination_directory = destination_root_directory / source_directory.relative_to(source_root_directory)
+        destination_directory.mkdir(parents=True, exist_ok=True)
+
+        for file in files:
+            source_file = source_directory / file
+            destination_file = destination_directory / file
+
             try:
-                shutil.copy(src_file, dst_dir)
+                source_file.replace(destination_file)
             except:
-                logging.warning("Error copying file %s to %s.",
-                                src_file, dst_dir)
+                logging.warning(f'Error copying file {source_file} to {destination_file}.')
 
 
 def movedircontent(root_src_dir, root_dst_dir):
@@ -256,52 +258,69 @@ def movedircontent(root_src_dir, root_dst_dir):
     shutil.rmtree(root_src_dir)
 
 
-def merge_configuration_directories(source, dest):
-    if source == dest:
-        return
-    if not exists(source):
-        logging.warning(
-            "Trying to merge the not existing directory: %s", source)
-        return
-    if not exists(dest):
-        shutil.copytree(
-            source, dest, ignore=shutil.ignore_patterns(*EXCLUDE_PATHS))
+def merge_configuration_directories(source: Union[str, pathlib.Path], destination: Union[str, pathlib.Path]) -> None:
+    source_path, destination_path = pathlib.Path(source), pathlib.Path(destination)
+
+    if source_path == destination_path:
         return
 
-    for src_dir, dirs, files in os.walk(source):
-        if any(path in src_dir for path in EXCLUDE_PATHS):
+    if not source_path.exists():
+        logging.warning("Trying to merge the not existing directory: %s", source)
+        return
+
+    if not destination_path.exists():
+        shutil.copytree(source_path, destination_path, ignore=shutil.ignore_patterns(*EXCLUDE_PATHS))
+        return
+
+    for source_directory, _, files in source_path.walk():
+        _merge_configuration_directory(source_path, destination_path, source_directory, files)
+
+
+def _merge_configuration_directory(
+        source: pathlib.Path,
+        destination: pathlib.Path,
+        source_directory: pathlib.Path,
+        files: list[str]
+) -> None:
+    if any(path in str(source_directory) for path in EXCLUDE_PATHS):
+        return
+
+    destination_directory = destination / source_directory.relative_to(source)
+    destination_directory.mkdir(exist_ok=True)
+
+    non_build_files = (file for file in files if file not in BUILD_FILENAMES)
+
+    for file_name in non_build_files:
+        source_file_path = source_directory / file_name
+        destination_file_path = destination_directory / file_name
+
+        _merge_configuration_file(source_file_path, destination_file_path)
+
+
+def _merge_configuration_file(source_file_path: pathlib.Path, destination_file_path: pathlib.Path) -> None:
+    if not exists(destination_file_path):
+        shutil.copy2(source_file_path, destination_file_path)
+        return
+
+    merge_operations = [
+        (file_is_yaml, merge_yaml_files),
+        (file_is_json, merge_json_files),
+    ]
+
+    for can_merge_file, merge_files in merge_operations:
+        if not can_merge_file(source_file_path.name):
             continue
-        dst_dir = src_dir.replace(source, dest, 1)
-        if not exists(dst_dir):
-            os.makedirs(dst_dir)
-        for fname in files:
-            if fname in BUILD_FILENAMES:
-                continue
-            fpath = join(src_dir, fname)
-            frel = relpath(fpath, start=source)
-            fdest = join(dest, frel)
-            if not exists(fdest):
-                shutil.copy2(fpath, fdest)
-            elif file_is_yaml(fpath):
 
-                try:
-                    merge_yaml_files(fpath, fdest)
-                    logging.info(
-                        f"Merged/overridden file content of {fdest} with {fpath}")
-                except Exception as e:
-                    logging.warning(f"Overwriting file {fdest} with {fpath}")
-                    shutil.copy2(fpath, fdest)
-            elif file_is_json(fpath):
-                try:
-                    merge_json_files(fpath, fdest)
-                    logging.info(
-                        f"Merged/overridden file content of {fdest} with {fpath}")
-                except Exception as e:
-                    logging.warning(f"Overwriting file {fdest} with {fpath}")
-                    shutil.copy2(fpath, fdest)
-            else:
-                logging.warning(f"Overwriting file {fdest} with {fpath}")
-                shutil.copy2(fpath, fdest)
+        try:
+            merge_files(source_file_path, destination_file_path)
+            logging.info(f'Merged/overridden file content of {destination_file_path} with {source_file_path}')
+        except:
+            break
+
+        return
+
+    logging.warning(f'Overwriting file {destination_file_path} with {source_file_path}')
+    shutil.copy2(source_file_path, destination_file_path)
 
 
 def merge_yaml_files(fname, fdest):
@@ -456,3 +475,13 @@ def get_git_commit_hash(path):
             ['git', 'rev-parse', '--short', 'HEAD'], cwd=path).decode("utf-8").strip()
     except:
         return None
+
+
+def load_yaml(yaml_file: pathlib.Path) -> dict:
+    with yaml_file.open('r') as file:
+        return yaml.load(file)
+
+
+def save_yaml(yaml_file: pathlib.Path, data: dict) -> None:
+    with yaml_file.open('w') as file:
+        yaml.dump(data, file)

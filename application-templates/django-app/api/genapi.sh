@@ -1,6 +1,4 @@
 #!/bin/bash
 
-fastapi-codegen --input openapi.yaml --output app -t templates && mv app/main.py ../backend/ && mv app/models.py ../backend/openapi/
-rm -rf app
-
-echo Generated new models and main.py
+ROOT_PATH=$(realpath "$(dirname "$BASH_SOURCE")/../../..")
+harness-generate servers --app-name "__APP_NAME__" "$ROOT_PATH"
