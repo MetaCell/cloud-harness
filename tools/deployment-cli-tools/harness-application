@@ -107,7 +107,7 @@ def normalize_templates(templates: list[str]) -> list[str]:
         normalized_templates.insert(django_app_index, TemplateType.WEBAPP)
 
     has_database_template = any(template in TemplateType.database_templates() for template in normalized_templates)
-    if TemplateType.DJANGO_APP in normalize_templates and not has_database_template:
+    if TemplateType.DJANGO_APP in normalized_templates and not has_database_template:
         django_app_index = normalized_templates.index(TemplateType.DJANGO_APP)
         normalized_templates.insert(django_app_index, TemplateType.DB_POSTGRES)
 

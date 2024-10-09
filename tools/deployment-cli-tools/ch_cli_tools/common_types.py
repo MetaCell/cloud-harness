@@ -18,8 +18,9 @@ class TemplateType(StrEnum):
     DJANGO_APP = 'django-app'
     SERVER = 'server'
 
-    def database_templates(self):
-        return [self.DB_POSTGRES, self.DB_NEO4J, self.DB_MONGO]
+    @classmethod
+    def database_templates(cls):
+        return [cls.DB_POSTGRES, cls.DB_NEO4J, cls.DB_MONGO]
 
 
 @dataclass
