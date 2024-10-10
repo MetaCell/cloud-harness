@@ -1,176 +1,346 @@
 #!/usr/bin/env python
 
-import glob
-import os
+import argparse
+from dataclasses import dataclass
+import enum
+import functools
+import operator
+import pathlib
 import shutil
-import sys
 import logging
+from typing import Callable, Optional
+from ruamel.yaml.error import YAMLError
 
 from ch_cli_tools.openapi import LIB_NAME, generate_python_client, generate_server, generate_fastapi_server, \
     get_dependencies, generate_ts_client, generate_model
-from ch_cli_tools.utils import copymergedir
-
-HERE = os.path.dirname(os.path.realpath(__file__))
-ROOT = os.path.dirname(HERE)
+from ch_cli_tools.utils import copymergedir, load_yaml, save_yaml
+from ch_cli_tools.common_types import CloudHarnessManifest, TemplateType
 
 
-def get_openapi_file_paths(root_path):
-    return [path for path in glob.glob(root_path + '/applications/*/api/*.yaml')]
+def main():
+    args = get_command_line_arguments()
+    get_dependencies()
+
+    root_path = args.path.absolute()
+    should_generate = should_generate_interactive if args.is_interactive else lambda _: True
+
+    if args.generate_models:
+        generate_models(root_path, should_generate)
+
+    if args.generate_servers:
+        generate_servers(root_path, should_generate, args.app_name)
+
+    if args.generate_clients:
+        assert args.client_name is not None
+        generate_clients(root_path, should_generate, args.app_name, args.client_name, args.client_types)
 
 
-def get_application_paths(openapi_files):
-    return [os.path.basename(os.path.dirname(os.path.dirname(path))) for path in openapi_files]
+class ClientType(enum.Flag):
+    TS_CLIENT = enum.auto()
+    PYTHON_CLIENT = enum.auto()
+
+    @classmethod
+    def all(cls):
+        return functools.reduce(operator.or_, cls)
 
 
-def generate_servers(root_path, interactive=False, server=None):
+class GenerationMode(enum.Flag):
+    CLIENTS = enum.auto()
+    MODELS = enum.auto()
+    SERVERS = enum.auto()
+
+    @classmethod
+    def all(cls):
+        return functools.reduce(operator.or_, cls)
+
+
+@dataclass(frozen=True)
+class CommandLineArguments:
+    path: pathlib.Path
+    app_name: Optional[str]
+    is_interactive: bool
+    generation_mode: GenerationMode
+    client_name: Optional[str] = None
+    client_types: ClientType = ClientType.all()
+
+    @property
+    def generate_models(self):
+        return GenerationMode.MODELS in self.generation_mode
+
+    @property
+    def generate_servers(self):
+        return GenerationMode.SERVERS in self.generation_mode
+
+    @property
+    def generate_clients(self):
+        return GenerationMode.CLIENTS in self.generation_mode
+
+
+def get_command_line_arguments() -> CommandLineArguments:
+    parser = argparse.ArgumentParser(description='Walk filesystem inside ./applications create application scaffolding.')
+
+    common_arguments = argparse.ArgumentParser(add_help=False)
+    common_arguments.add_argument('path', metavar='path', nargs='?', default=pathlib.Path.cwd(), type=pathlib.Path,
+                                  help='Base path of the application.')
+    common_arguments.add_argument('-i', '--interactive', dest='is_interactive', action="store_true",
+                                  help='Asks before generate')
+    common_arguments.add_argument('-a', '--app-name', dest='app_name', action="store", default=None,
+                                  help='Generate only for a specific application')
+
+    clients_arguments = argparse.ArgumentParser(add_help=False)
+    clients_arguments.add_argument('-cn', '--client-name', dest='client_name', action='store', default=LIB_NAME,
+                                   help='specify image registry prefix')
+    client_type_group = clients_arguments.add_mutually_exclusive_group(required=False)
+    client_type_group.add_argument('-t', '--ts-only', dest='client_types', action='store_const', const=ClientType.TS_CLIENT,
+                                   help='Generate only typescript clients')
+    client_type_group.add_argument('-p', '--python-only', dest='client_types', action='store_const', const=ClientType.PYTHON_CLIENT,
+                                   help='Generate only python clients')
+    clients_arguments.set_defaults(client_types=ClientType.all())
+
+    subparsers = parser.add_subparsers(title='generation modes', required=True)
+
+    all_parser = subparsers.add_parser('all', parents=[common_arguments, clients_arguments],
+                                       help='Generate models, server stubs and client libraries')
+    all_parser.set_defaults(generation_mode=GenerationMode.all())
+
+    models_parser = subparsers.add_parser('models', parents=[common_arguments],
+                                          help='Generate only model library')
+    models_parser.set_defaults(generation_mode=GenerationMode.MODELS)
+
+    servers_parser = subparsers.add_parser('servers', parents=[common_arguments],
+                                           help='Generate only server stubs')
+    servers_parser.set_defaults(generation_mode=GenerationMode.SERVERS)
+
+    clients_parser = subparsers.add_parser('clients', parents=[common_arguments, clients_arguments],
+                                           help='Generate only client libraries')
+    clients_parser.set_defaults(generation_mode=GenerationMode.CLIENTS)
+
+    args = parser.parse_args()
+
+    return CommandLineArguments(**args.__dict__)
+
+
+def should_generate_interactive(resource: str) -> bool:
+    user_input = input(f'Do you want to generate {resource}? [Y/n] ').casefold()
+
+    return user_input == 'y'
+
+
+def generate_models(
+        root_path: pathlib.Path,
+        should_generate: Callable[[str], bool],
+) -> None:
+    """
+    Generates the main model
+    """
+    library_models_path = root_path / 'libraries' / 'models'
+
+    if not library_models_path.exists():
+        return
+
+    if not should_generate('the main model'):
+        return
+
+    generate_model()
+
+
+def generate_servers(
+        root_path: pathlib.Path,
+        should_generate: Callable[[str], bool],
+        app_name: Optional[str],
+) -> None:
     """
     Generates server stubs
     """
     openapi_files = get_openapi_file_paths(root_path)
-    modules = get_application_paths(openapi_files)
-    for i in range(len(modules)):
-        if not interactive or input("Do you want to generate " + openapi_files[i] + "? [Y/n]").upper() != 'N':
-            openapi_file = openapi_files[i]
-            application_root = os.path.dirname(os.path.dirname(openapi_file))
-            appname = os.path.basename(application_root)
-            if server and server != appname:
-                continue
-            if os.path.exists(os.path.join(application_root, "api", "genapi.sh")):
-                # fastapi server --> use the genapi.sh script
-                generate_fastapi_server(application_root)
-            else:
-                generate_server(application_root)
 
+    for openapi_file in openapi_files:
+        app_path = openapi_file.parent.parent
+        manifest = get_manifest(app_path)
 
-def aggregate_packages(client_src_path, lib_name=LIB_NAME):
-    DOCS_PATH = os.path.join(client_src_path, 'docs')
-    TEST_PATH = os.path.join(client_src_path, 'test')
-    README = os.path.join(client_src_path, 'README.md')
-    REQUIREMENTS = os.path.join(client_src_path, 'requirements.txt')
-    TEST_REQUIREMENTS = os.path.join(client_src_path, 'test-requirements.txt')
-
-    if not os.path.exists(DOCS_PATH):
-        os.makedirs(DOCS_PATH)
-    if not os.path.exists(TEST_PATH):
-        os.makedirs(TEST_PATH)
-    if os.path.exists(README):
-        os.remove(README)
-    if os.path.exists(REQUIREMENTS):
-        os.remove(REQUIREMENTS)
-    if os.path.exists(TEST_REQUIREMENTS):
-        os.remove(TEST_REQUIREMENTS)
-
-    req_lines_seen = set()
-    test_req_lines_seen = set()
-
-    for MODULE_TMP_PATH in glob.glob(client_src_path + '/tmp-*'):
-        module = MODULE_TMP_PATH.split(
-            f'{lib_name}/tmp-')[-1].replace('-', '_')
-
-        # Moves package
-
-        code_dest_dir = os.path.join(client_src_path, lib_name, module)
-        copymergedir(os.path.join(MODULE_TMP_PATH,
-                     lib_name, module), code_dest_dir)
-        copymergedir(f"{MODULE_TMP_PATH}/{lib_name}.{module}",
-                     code_dest_dir)  # Fixes a a bug with nested packages
-
-        # Adds Docs
-        module_doc_path = os.path.join(DOCS_PATH, module)
-        if not os.path.exists(module_doc_path):
-            os.mkdir(module_doc_path)
-        copymergedir(f"{client_src_path}/tmp-{module}/docs", module_doc_path)
-
-        # Adds Tests
-        module_test_path = os.path.join(client_src_path, 'test', module)
-        copymergedir(os.path.join(MODULE_TMP_PATH, 'test'), module_test_path)
-
-        # Merges Readme
-        readme_file = f"{MODULE_TMP_PATH}/README.md"
-        if not os.path.exists(readme_file):
-            logging.warning("Readme file not found: %s.", readme_file)
+        if app_name and manifest.app_name != app_name:
             continue
-        with open(README, 'a+') as outfile:
-            with open(readme_file) as infile:
-                filedata = infile.read()
-                fd = filedata.replace('docs/', f'docs/{module}/')
-                outfile.write(fd)
 
-        # Merges Requirements
-        # FIXME: Different package versions will remain in the output file
+        if not should_generate(f'server stubs for {openapi_file}'):
+            continue
 
-        requirements_file = f"{MODULE_TMP_PATH}/requirements.txt"
-        outfile = open(REQUIREMENTS, "a+")
-        for line in open(requirements_file, "r"):
-            if line not in req_lines_seen:
-                outfile.write(line)
-                req_lines_seen.add(line)
-        outfile.close()
+        if TemplateType.DJANGO_APP in manifest.templates:
+            generate_fastapi_server(app_path)
 
-        # Merges Test Requirements
-        # FIXME: Different package versions will remain in the output file
-        test_requirements_file = f"{MODULE_TMP_PATH}/test-requirements.txt"
-        outfile = open(TEST_REQUIREMENTS, "a+")
-        for line in open(test_requirements_file, "r"):
-            if line not in test_req_lines_seen:
-                outfile.write(line)
-                test_req_lines_seen.add(line)
-        outfile.close()
-
-        # Removes Tmp Files
-        shutil.rmtree(MODULE_TMP_PATH)
+        if TemplateType.FLASK_SERVER in manifest.templates:
+            generate_server(app_path)
 
 
-def generate_clients(root_path, client_lib_name=LIB_NAME, interactive=False):
+def generate_clients(
+        root_path: pathlib.Path,
+        should_generate: Callable[[str], bool],
+        app_name: Optional[str],
+        client_lib_name: str,
+        client_types: ClientType,
+) -> None:
     """
     Generates client stubs
     """
-    if interactive and input("Do you want to generate client libraries? [Y/n]").upper() == 'N':
+    if not should_generate('client libraries'):
         return
 
     openapi_files = get_openapi_file_paths(root_path)
-    applications = get_application_paths(openapi_files)
+    client_src_path = root_path / 'libraries' / 'client' / client_lib_name
 
-    client_src_path = os.path.join(
-        root_path, 'libraries/client', client_lib_name)
-    for i in range(len(applications)):
-        app_name = applications[i]
-        openapi_file = openapi_files[i]
-        app_dir = os.path.dirname(os.path.dirname(openapi_file))
-        generate_python_client(app_name, openapi_file,
-                               client_src_path, lib_name=client_lib_name)
-        if os.path.exists(os.path.join(app_dir, 'frontend')):
+    for openapi_file in openapi_files:
+        app_path = openapi_file.parent.parent
+        manifest = get_manifest(app_path)
+
+        if app_name and manifest.app_name != app_name:
+            continue
+
+        if ClientType.PYTHON_CLIENT in client_types:
+            generate_python_client(manifest.app_name, openapi_file, client_src_path, lib_name=client_lib_name)
+
+        if TemplateType.WEBAPP in manifest.templates and ClientType.TS_CLIENT in client_types:
             generate_ts_client(openapi_file)
 
     aggregate_packages(client_src_path, client_lib_name)
 
 
+def get_openapi_file_paths(root_path: pathlib.Path) -> list[pathlib.Path]:
+    return [path for path in root_path.glob('applications/*/api/*.yaml')]
+
+
+def aggregate_packages(client_source_path: pathlib.Path, lib_name=LIB_NAME):
+    client_source_path.mkdir(parents=True, exist_ok=True)
+
+    client_docs_path = client_source_path / 'docs'
+    client_docs_path.mkdir(exist_ok=True)
+
+    client_test_path = client_source_path / 'test'
+    client_test_path.mkdir(exist_ok=True)
+
+    client_readme_file = client_source_path / 'README.md'
+    client_readme_file.unlink(missing_ok=True)
+
+    client_requirements_file = client_source_path / 'requirements.txt'
+    client_requirements_file.unlink(missing_ok=True)
+
+    client_test_requirements_file = client_source_path / 'test-requirements.txt'
+    client_test_requirements_file.unlink(missing_ok=True)
+
+    requirements_lines_seen = set()
+    test_requirements_lines_seen = set()
+
+    for temp_module_path in client_source_path.glob('tmp-*/'):
+        module = (
+            temp_module_path
+            .name
+            .removeprefix('tmp-')
+            .replace('-', '_')
+        )
+
+        code_destination_directory = client_source_path / lib_name / module
+        copymergedir(temp_module_path / lib_name / module, code_destination_directory)
+        copymergedir(temp_module_path / f'{lib_name}.{module}', code_destination_directory)  # Fixes a bug with nested packages
+
+        module_docs_path = client_docs_path / module
+        module_docs_path.mkdir(parents=True, exist_ok=True)
+        copymergedir(client_source_path / temp_module_path.name / 'docs', module_docs_path)
+
+        module_tests_path = client_source_path / 'test' / module
+        copymergedir(temp_module_path / 'test', module_tests_path)
+
+        readme_file = temp_module_path / 'README.md'
+        if not readme_file.exists():
+            logging.warning(f'Readme file not found: {readme_file}.')
+            continue
+
+        with client_readme_file.open('+a') as out_file, readme_file.open('r') as in_file:
+            file_data = in_file.read()
+            updated_file_data = file_data.replace('docs/', f'docs/{module}/')
+            out_file.write(updated_file_data)
+
+        # FIXME: Different package versions will remain in the output file
+        requirements_file = temp_module_path / 'requirements.txt'
+        with requirements_file.open('r') as in_file, client_requirements_file.open('+a') as out_file:
+            unseen_lines = [line for line in in_file if line not in requirements_lines_seen]
+            requirements_lines_seen.update(unseen_lines)
+            out_file.writelines(unseen_lines)
+
+        # FIXME: Different package versions will remain in the output file
+        test_requirements_file = temp_module_path / 'test-requirements.txt'
+        with test_requirements_file.open('r') as in_file, client_test_requirements_file.open('+a') as out_file:
+            unseen_lines = [line for line in in_file if line not in test_requirements_lines_seen]
+            test_requirements_lines_seen.update(unseen_lines)
+            out_file.writelines(unseen_lines)
+
+        shutil.rmtree(temp_module_path)
+
+
+def get_manifest(app_path: pathlib.Path) -> CloudHarnessManifest:
+    manifest_file = app_path / '.ch-manifest'
+
+    try:
+        manifest_data = load_yaml(manifest_file)
+        manifest = CloudHarnessManifest.from_dict(manifest_data)
+    except (FileNotFoundError, YAMLError):
+        logging.info(f'Could not find manifest file {manifest_file}, inferring manifest from app structure...')
+        manifest = CloudHarnessManifest(
+            app_name=app_path.name,
+            version='1',
+            inferred=True,
+            templates=infer_templates(app_path),
+        )
+        save_yaml(manifest_file, manifest.to_dict())
+
+    return manifest
+
+
+def infer_templates(app_path: pathlib.Path) -> list[str]:
+    templates = [TemplateType.BASE]
+
+    infer_webapp_template(app_path, templates)
+    infer_server_template(app_path, templates)
+    infer_database_template(app_path, templates)
+
+    return templates
+
+
+def infer_webapp_template(app_path: pathlib.Path, templates: list[str]) -> None:
+    frontend_path = app_path / 'frontend'
+    if frontend_path.exists():
+        templates.append(TemplateType.WEBAPP)
+
+
+def infer_server_template(app_path: pathlib.Path, templates: list[str]) -> None:
+    genapi_path = app_path / 'api' / 'genapi.sh'
+
+    if genapi_path.exists():
+        templates.append(TemplateType.DJANGO_APP)
+        return
+
+    server_path = app_path / 'server'
+    backend_path = app_path / 'backend'
+    if server_path.exists() or backend_path.exists():
+        templates.append(TemplateType.FLASK_SERVER)
+
+
+def infer_database_template(app_path: pathlib.Path, templates: list[str]) -> None:
+    values_file = app_path / 'deploy' / 'values.yaml'
+
+    try:
+        values_data = load_yaml(values_file)
+        database_config = values_data['harness']['database']
+        if not database_config['auto']:
+            return
+
+        database_type = database_config['type']
+        if database_type == 'mongo':
+            templates.append(TemplateType.DB_MONGO)
+        if database_type == 'neo4j':
+            templates.append(TemplateType.DB_NEO4J)
+        if database_type == 'postgres':
+            templates.append(TemplateType.DB_POSTGRES)
+    except (FileNotFoundError, YAMLError, KeyError):
+        pass
+
+
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description='Walk filesystem inside ./applications create application scaffolding.')
-    parser.add_argument('path', metavar='path', default=ROOT, type=str,
-                        help='Base path of the application.')
-    parser.add_argument('-cn', '--client-name', dest='client_name', action="store", default=LIB_NAME,
-                        help='Specify image registry prefix')
-    parser.add_argument('-i', '--interactive', dest='interactive', action="store_true",
-                        help='Asks before generate')
-    parser.add_argument('-s', '--server', dest='server', action="store",
-                        help='Generate only a specific server (provide application name) stubs', default=())
-    parser.add_argument('-c', '--clients', dest='clients', action="store_true",
-                        help='Generate only client libraries')
-    parser.add_argument('-m', '--models', dest='models', action="store_true",
-                        help='Generate only model library')
-    args, unknown = parser.parse_known_args(sys.argv[1:])
-
-    root_path = os.path.join(os.getcwd(), args.path) if not os.path.isabs(
-        args.path) else args.path
-
-    get_dependencies()
-    if args.models and os.path.exists(os.path.join(root_path, "libraries/models")) and (not args.interactive or input("Do you want to generate the main model? [Y/n]").upper() != 'N'):
-        generate_model()
-    if not (args.clients or args.models) or args.server:
-        generate_servers(root_path, interactive=args.interactive, server=args.server)
-    if not (args.server or args.models) or args.clients:
-        generate_clients(root_path, args.client_name, interactive=args.interactive)
+    main()
