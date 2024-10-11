@@ -217,8 +217,8 @@ def copymergedir(source_root_directory: pathlib.Path, destination_root_directory
     """
     logging.info(f'Copying directory {source_root_directory} to {destination_root_directory}')
 
-    for source_directory, _, files in source_root_directory.walk():
-
+    for source_directory, _, files in os.walk(source_root_directory):  # source_root_directory.walk() from Python 3.12
+        source_directory = pathlib.Path(source_directory)
         destination_directory = destination_root_directory / source_directory.relative_to(source_root_directory)
         destination_directory.mkdir(parents=True, exist_ok=True)
 
@@ -272,8 +272,8 @@ def merge_configuration_directories(source: Union[str, pathlib.Path], destinatio
         shutil.copytree(source_path, destination_path, ignore=shutil.ignore_patterns(*EXCLUDE_PATHS))
         return
 
-    for source_directory, _, files in source_path.walk():
-        _merge_configuration_directory(source_path, destination_path, source_directory, files)
+    for source_directory, _, files in os.walk(source_path):  # source_path.walk() from Python 3.12
+        _merge_configuration_directory(source_path, destination_path, pathlib.Path(source_directory), files)
 
 
 def _merge_configuration_directory(
