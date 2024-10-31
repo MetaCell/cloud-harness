@@ -17,6 +17,7 @@ from ch_cli_tools.openapi import generate_server, generate_fastapi_server, APPLI
 from ch_cli_tools.utils import merge_configuration_directories, replaceindir, replace_in_file, save_yaml, \
     to_python_module, copymergedir, get_json_template, replace_in_dict
 from ch_cli_tools.common_types import CloudHarnessManifest, TemplateType
+from ch_cli_tools.application_builders import AppBuilderPipeline
 
 # Only allow lowercased alphabetical characters separated by "-".
 name_pattern = re.compile("[a-z]+((-)?[a-z])?")
@@ -32,27 +33,15 @@ def main() -> None:
 
     templates = normalize_templates(templates)
 
-    if TemplateType.WEBAPP in templates:
-        handle_webapp_template(app_name, app_path)
+    pipeline = AppBuilderPipeline(app_name, app_path, templates)
 
-    if TemplateType.SERVER in templates:
-        handle_server_template(app_path)
+    pipeline.handle_pre_merge()
 
-    for template_name in templates:
-        merge_template_directories(template_name, app_path)
-
-    if TemplateType.FLASK_SERVER in templates:
-        handle_flask_server_template(app_path)
-
+    pipeline.handle_merge()
     replace_in_file(app_path / 'api' / 'config.json', PLACEHOLDER, to_python_module(app_name))
-
-    if TemplateType.DJANGO_APP in templates:
-        handle_django_app_template(app_name, app_path)
-
     replaceindir(app_path, PLACEHOLDER, app_name)
 
-    if TemplateType.WEBAPP in templates:
-        handle_webapp_template_post_merge(app_path)
+    pipeline.handle_post_merge()
 
     create_manifest_file(app_path, app_name, templates)
     call_harness_generate(app_path, app_name)
@@ -114,86 +103,6 @@ def normalize_templates(templates: list[str]) -> list[str]:
     return normalized_templates
 
 
-def handle_webapp_template(app_name: str, app_path: pathlib.Path) -> None:
-    frontend_path = app_path / 'frontend'
-
-    if frontend_path.exists():
-        shutil.rmtree(frontend_path)
-
-    create_vite_skaffold(app_name, app_path, frontend_path)
-
-
-def create_vite_skaffold(app_name: str, app_path: pathlib.Path, frontend_path: pathlib.Path) -> None:
-    command = ['yarn', 'create', 'vite', app_name, '--template', 'react-ts']
-    logging.info(f'Running command: {" ".join(command)}')
-    subprocess.run(command, cwd=app_path)
-    shutil.move(app_path / app_name, frontend_path)
-
-
-def install_frontend_dependencies(frontend_path: pathlib.Path) -> None:
-    command = ['yarn', 'install']
-    logging.info(f'Running command: {" ".join(command)}')
-    subprocess.run(command, cwd=frontend_path)
-
-
-def handle_webapp_template_post_merge(app_path: pathlib.Path) -> None:
-    backend_dockerfile_path = app_path / 'backend' / 'Dockerfile'
-    backend_dockerfile_path.unlink(missing_ok=True)
-
-    install_frontend_dependencies(app_path / 'frontend')
-    generate_ts_client(openapi_file=app_path / 'api' / 'openapi.yaml')
-
-
-def handle_server_template(app_path: pathlib.Path) -> None:
-    with tempfile.TemporaryDirectory() as tmp_dirname:
-        tmp_path = pathlib.Path(tmp_dirname)
-        server_template_path = pathlib.Path(CH_ROOT) / APPLICATION_TEMPLATE_PATH / TemplateType.SERVER
-
-        copymergedir(server_template_path, tmp_path)
-        merge_configuration_directories(app_path, tmp_path)
-        generate_server(app_path, tmp_path)
-
-
-def handle_flask_server_template(app_path: pathlib.Path) -> None:
-    generate_server(app_path)
-
-
-def handle_django_app_template(app_name: str, app_path: pathlib.Path) -> None:
-    python_app_name = to_python_module(app_name)
-
-    api_path = app_path / 'api'
-    replace_in_file(api_path / 'templates' / 'main.jinja2', PLACEHOLDER, python_app_name)
-    replace_in_file(api_path / 'genapi.sh', PLACEHOLDER, app_name)
-    generate_fastapi_server(app_path)
-
-    replace_in_file(app_path / 'deploy' / 'values.yaml', f'{PLACEHOLDER}:{PLACEHOLDER}', f'{python_app_name}:{python_app_name}')
-    replace_in_file(app_path / 'dev-setup.sh', PLACEHOLDER, app_name)
-    create_django_app_vscode_debug_configuration(app_name)
-
-    (app_path / 'backend' / '__APP_NAME__' / '__main__.py').unlink(missing_ok=True)
-
-
-def create_django_app_vscode_debug_configuration(app_name: str):
-    vscode_launch_path = pathlib.Path('.vscode/launch.json')
-    configuration_name = f'{app_name} backend'
-
-    launch_config = get_json_template(vscode_launch_path, True)
-
-    launch_config['configurations'] = [
-        configuration for configuration in launch_config['configurations']
-        if configuration['name'] != configuration_name
-    ]
-
-    debug_config = get_json_template('vscode-django-app-debug-template.json', True)
-    debug_config = replace_in_dict(debug_config, PLACEHOLDER, app_name)
-
-    launch_config['configurations'].append(debug_config)
-
-    vscode_launch_path.parent.mkdir(parents=True, exist_ok=True)
-    with vscode_launch_path.open('w') as f:
-        json.dump(launch_config, f, indent=2, sort_keys=True)
-
-
 def create_manifest_file(app_path: pathlib.Path, app_name: str, templates: list[Union[str, TemplateType]]) -> None:
     manifest_file = app_path / '.ch-manifest'
     manifest = CloudHarnessManifest(
@@ -212,13 +121,6 @@ def call_harness_generate(app_path: pathlib.Path, app_name: str):
     root_path = app_path.parent.parent
     command = ['harness-generate', 'all', '--ts-only', '--app-name', app_name, root_path]
     subprocess.run(command)
-
-
-def merge_template_directories(template_name: str, app_path: pathlib.Path) -> None:
-    for base_path in (pathlib.Path(CH_ROOT), pathlib.Path.cwd()):
-        template_path = base_path / APPLICATION_TEMPLATE_PATH / template_name
-        if template_path.exists():
-            merge_configuration_directories(template_path, app_path)
 
 
 if __name__ == "__main__":
