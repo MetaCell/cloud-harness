@@ -181,7 +181,7 @@ class BaseDjangoAppBuilder(ApplicationBuilder):
 
 
 class DjangoFastApiBuilder(BaseDjangoAppBuilder):
-    debug_template_name = 'vscode-django-fastapi-debug-template.json'
+    debug_template_file = 'vscode-django-fastapi-debug-template.json'
 
     def handles(self, templates):
         return TemplateType.DJANGO_FASTAPI in templates
@@ -208,7 +208,7 @@ class DjangoFastApiBuilder(BaseDjangoAppBuilder):
 
 
 class DjangoNinjaBuilder(BaseDjangoAppBuilder):
-    debug_template_name = 'vscode-django-ninja-debug-template.json'
+    debug_template_file = 'vscode-django-ninja-debug-template.json'
 
     def handles(self, templates):
         return TemplateType.DJANGO_NINJA in templates
