@@ -11,7 +11,7 @@ import logging
 from typing import Callable, Optional
 from ruamel.yaml.error import YAMLError
 
-from ch_cli_tools.openapi import LIB_NAME, generate_python_client, generate_server, generate_fastapi_server, \
+from ch_cli_tools.openapi import LIB_NAME, generate_openapi_from_ninja_schema, generate_python_client, generate_server, generate_fastapi_server, \
     get_dependencies, generate_ts_client, generate_model
 from ch_cli_tools.utils import copymergedir, load_yaml, save_yaml
 from ch_cli_tools.common_types import CloudHarnessManifest, TemplateType
@@ -184,21 +184,25 @@ def generate_clients(
     if not should_generate('client libraries'):
         return
 
-    openapi_files = get_openapi_file_paths(root_path)
     client_src_path = root_path / 'libraries' / 'client' / client_lib_name
+    apps_path = root_path / 'applications'
+    apps = (app for app in apps_path.iterdir() if app.is_dir())
 
-    for openapi_file in openapi_files:
-        app_path = openapi_file.parent.parent
+    for app_path in apps:
         manifest = get_manifest(app_path)
 
         if app_name and manifest.app_name != app_name:
             continue
 
-        if ClientType.PYTHON_CLIENT in client_types:
-            generate_python_client(manifest.app_name, openapi_file, client_src_path, lib_name=client_lib_name)
+        if TemplateType.DJANGO_NINJA in manifest.templates:
+            generate_openapi_from_ninja_schema(manifest.app_name, app_path)
 
-        if TemplateType.WEBAPP in manifest.templates and ClientType.TS_CLIENT in client_types:
-            generate_ts_client(openapi_file)
+        for openapi_file in app_path.glob('api/*.yaml'):
+            if ClientType.PYTHON_CLIENT in client_types:
+                generate_python_client(manifest.app_name, openapi_file, client_src_path, lib_name=client_lib_name)
+
+            if TemplateType.WEBAPP in manifest.templates and ClientType.TS_CLIENT in client_types:
+                generate_ts_client(openapi_file)
 
     aggregate_packages(client_src_path, client_lib_name)
 
