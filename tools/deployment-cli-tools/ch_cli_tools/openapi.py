@@ -124,6 +124,20 @@ def generate_ts_client(openapi_file):
     replaceindir(out_dir, "http://localhost", '')
 
 
+def generate_openapi_from_ninja_schema(app_name: str, app_path: pathlib.Path) -> None:
+    out_path = app_path / 'api' / 'openapi.yaml'
+    manage_path = app_path / 'backend' / 'manage.py'
+    command = [
+        'python', manage_path, 'export_openapi_schema',
+        '--settings', 'django_baseapp.settings',
+        '--api', f'{to_python_module(app_name)}.api.api',
+        '--output', out_path,
+        '--indent', '2',
+    ]
+
+    subprocess.run(command)
+
+
 def get_dependencies():
     """
     Checks if java is installed
