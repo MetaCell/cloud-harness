@@ -164,7 +164,7 @@ def generate_servers(
         if not should_generate(f'server stubs for {openapi_file}'):
             continue
 
-        if TemplateType.DJANGO_APP in manifest.templates:
+        if TemplateType.DJANGO_FASTAPI in manifest.templates:
             generate_fastapi_server(app_path)
 
         if TemplateType.FLASK_SERVER in manifest.templates:
@@ -279,12 +279,14 @@ def get_manifest(app_path: pathlib.Path) -> CloudHarnessManifest:
 
     try:
         manifest_data = load_yaml(manifest_file)
+        manifest_data, update_manifest = CloudHarnessManifest.migrate(manifest_data)
+        if update_manifest:
+            save_yaml(manifest_file, manifest_data)
         manifest = CloudHarnessManifest.from_dict(manifest_data)
     except (FileNotFoundError, YAMLError):
         logging.info(f'Could not find manifest file {manifest_file}, inferring manifest from app structure...')
         manifest = CloudHarnessManifest(
             app_name=app_path.name,
-            version='1',
             inferred=True,
             templates=infer_templates(app_path),
         )
@@ -313,7 +315,7 @@ def infer_server_template(app_path: pathlib.Path, templates: list[str]) -> None:
     genapi_path = app_path / 'api' / 'genapi.sh'
 
     if genapi_path.exists():
-        templates.append(TemplateType.DJANGO_APP)
+        templates.append(TemplateType.DJANGO_FASTAPI)
         return
 
     server_path = app_path / 'server'

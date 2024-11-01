@@ -134,15 +134,15 @@ class FlaskServerAppBuilder(ApplicationBuilder):
         generate_server(self.app_path)
 
 
-class DjangoAppBuilder(ApplicationBuilder):
+class DjangoFastApiBuilder(ApplicationBuilder):
     def handles(self, templates):
-        return TemplateType.DJANGO_APP in templates
-    
+        return TemplateType.DJANGO_FASTAPI in templates
+
     def handle_pre_merge(self):
         pass
 
     def handle_merge(self):
-        self.merge_template_directories(TemplateType.DJANGO_APP)
+        self.merge_template_directories(TemplateType.DJANGO_FASTAPI)
 
     def handle_post_merge(self):
         replace_in_file(
@@ -197,7 +197,7 @@ class AppBuilderPipeline(ApplicationBuilder):
             TemplateType.WEBAPP: WebAppBuilder(app_name, app_path),
             TemplateType.SERVER: ServerAppBuilder(app_name, app_path),
             TemplateType.FLASK_SERVER: FlaskServerAppBuilder(app_name, app_path),
-            TemplateType.DJANGO_APP: DjangoAppBuilder(app_name, app_path),
+            TemplateType.DJANGO_FASTAPI: DjangoFastApiBuilder(app_name, app_path),
         }
 
     def handles(self, templates):
@@ -206,7 +206,7 @@ class AppBuilderPipeline(ApplicationBuilder):
     def handle_pre_merge(self):
         pre_merge_template_order = [
             TemplateType.FLASK_SERVER,
-            TemplateType.DJANGO_APP,
+            TemplateType.DJANGO_FASTAPI,
             TemplateType.WEBAPP,
             TemplateType.SERVER,
         ]
@@ -231,7 +231,7 @@ class AppBuilderPipeline(ApplicationBuilder):
     def handle_post_merge(self):
         post_merge_template_order = [
             TemplateType.FLASK_SERVER,
-            TemplateType.DJANGO_APP,
+            TemplateType.DJANGO_FASTAPI,
             TemplateType.WEBAPP,
             TemplateType.SERVER,
         ]

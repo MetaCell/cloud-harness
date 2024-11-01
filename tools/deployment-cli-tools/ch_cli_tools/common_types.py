@@ -1,3 +1,4 @@
+import copy
 from dataclasses import dataclass
 from typing import Union
 
@@ -15,7 +16,7 @@ class TemplateType(StrEnum):
     DB_POSTGRES = 'db-postgres'
     DB_NEO4J = 'db-neo4j'
     DB_MONGO = 'db-mongo'
-    DJANGO_APP = 'django-app'
+    DJANGO_FASTAPI = 'django-fastapi'
     SERVER = 'server'
 
     @classmethod
@@ -26,9 +27,9 @@ class TemplateType(StrEnum):
 @dataclass
 class CloudHarnessManifest():
     app_name: str
-    version: str
     inferred: bool
     templates: list[str]
+    version: str = '2'
 
     @classmethod
     def from_dict(cls, data: dict) -> 'CloudHarnessManifest':
@@ -46,3 +47,17 @@ class CloudHarnessManifest():
             'inferred': self.inferred,
             'templates': [str(template) for template in self.templates],
         }
+
+    @classmethod
+    def migrate(cls, data: dict) -> tuple[dict, bool]:
+        data_copy = copy.deepcopy(data)
+        update_manifest = False
+
+        if data_copy['version'] < '2':
+            update_manifest = True
+            data_copy['templates'] = [
+                template if template != 'django-app' else 'django-fastapi'
+                for template in data_copy['templates']
+            ]
+
+        return data_copy, update_manifest
