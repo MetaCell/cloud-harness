@@ -312,14 +312,19 @@ def infer_webapp_template(app_path: pathlib.Path, templates: list[str]) -> None:
 
 
 def infer_server_template(app_path: pathlib.Path, templates: list[str]) -> None:
-    genapi_path = app_path / 'api' / 'genapi.sh'
+    backend_path = app_path / 'backend'
+    manage_path = backend_path / 'manage.py'
 
-    if genapi_path.exists():
-        templates.append(TemplateType.DJANGO_FASTAPI)
+    if manage_path.exists():
+        requirements_path = backend_path / 'requirements.txt'
+        requirements = requirements_path.read_text()
+        if 'ninja' in requirements:
+            templates.append(TemplateType.DJANGO_NINJA)
+        else:
+            templates.append(TemplateType.DJANGO_FASTAPI)
         return
 
     server_path = app_path / 'server'
-    backend_path = app_path / 'backend'
     if server_path.exists() or backend_path.exists():
         templates.append(TemplateType.FLASK_SERVER)
 

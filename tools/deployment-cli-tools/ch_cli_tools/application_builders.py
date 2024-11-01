@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 from .common_types import TemplateType
 from .openapi import generate_fastapi_server, generate_server, generate_ts_client
-from .utils import copymergedir, get_json_template, merge_configuration_directories, replace_in_dict, replace_in_file, to_python_module
+from .utils import copymergedir, get_json_template, merge_configuration_directories, replace_in_dict, replace_in_file, replaceindir, to_python_module
 from . import CH_ROOT
 from cloudharness_utils.constants import APPLICATION_TEMPLATE_PATH
 
@@ -134,25 +134,13 @@ class FlaskServerAppBuilder(ApplicationBuilder):
         generate_server(self.app_path)
 
 
-class DjangoFastApiBuilder(ApplicationBuilder):
-    def handles(self, templates):
-        return TemplateType.DJANGO_FASTAPI in templates
-
-    def handle_pre_merge(self):
-        pass
-
+class BaseDjangoAppBuilder(ApplicationBuilder):
+    @abc.abstractmethod
     def handle_merge(self):
-        self.merge_template_directories(TemplateType.DJANGO_FASTAPI)
+        self.merge_template_directories('django-base')
 
+    @abc.abstractmethod
     def handle_post_merge(self):
-        replace_in_file(
-            self.api_path / 'templates' / 'main.jinja2',
-            self.APP_NAME_PLACEHOLDER,
-            self.python_app_name,
-        )
-        replace_in_file(self.api_path / 'genapi.sh', self.APP_NAME_PLACEHOLDER, self.app_name)
-        generate_fastapi_server(self.app_path)
-
         replace_in_file(
             self.app_path / 'deploy' / 'values.yaml',
             f'{self.APP_NAME_PLACEHOLDER}:{self.APP_NAME_PLACEHOLDER}',
@@ -161,12 +149,6 @@ class DjangoFastApiBuilder(ApplicationBuilder):
         replace_in_file(self.app_path / 'dev-setup.sh', self.APP_NAME_PLACEHOLDER, self.app_name)
 
         self.create_django_app_vscode_debug_configuration()
-
-        (self.backend_path / self.APP_NAME_PLACEHOLDER / '__main__.py').unlink(missing_ok=True)
-
-    @property
-    def python_app_name(self):
-        return to_python_module(self.app_name)
     
     def create_django_app_vscode_debug_configuration(self):
         vscode_launch_path = pathlib.Path('.vscode/launch.json')
@@ -188,6 +170,50 @@ class DjangoFastApiBuilder(ApplicationBuilder):
         with vscode_launch_path.open('w') as f:
             json.dump(launch_config, f, indent=2, sort_keys=True)
 
+    @property
+    def python_app_name(self):
+        return to_python_module(self.app_name)
+
+
+class DjangoFastApiBuilder(BaseDjangoAppBuilder):
+    def handles(self, templates):
+        return TemplateType.DJANGO_FASTAPI in templates
+
+    def handle_pre_merge(self):
+        pass
+
+    def handle_merge(self):
+        super().handle_merge()
+        self.merge_template_directories(TemplateType.DJANGO_FASTAPI)
+
+    def handle_post_merge(self):
+        super().handle_post_merge()
+
+        replace_in_file(
+            self.api_path / 'templates' / 'main.jinja2',
+            self.APP_NAME_PLACEHOLDER,
+            self.python_app_name,
+        )
+        replace_in_file(self.api_path / 'genapi.sh', self.APP_NAME_PLACEHOLDER, self.app_name)
+        generate_fastapi_server(self.app_path)
+
+        (self.backend_path / self.APP_NAME_PLACEHOLDER / '__main__.py').unlink(missing_ok=True)
+
+
+class DjangoNinjaBuilder(BaseDjangoAppBuilder):
+    def handles(self, templates):
+        return TemplateType.DJANGO_NINJA in templates
+
+    def handle_pre_merge(self):
+        pass
+
+    def handle_merge(self):
+        super().handle_merge()
+        self.merge_template_directories(TemplateType.DJANGO_NINJA)
+
+    def handle_post_merge(self):
+        super().handle_post_merge()
+
 
 class AppBuilderPipeline(ApplicationBuilder):
     def __init__(self, app_name: str, app_path: pathlib.Path, templates: list[str]):
@@ -198,6 +224,7 @@ class AppBuilderPipeline(ApplicationBuilder):
             TemplateType.SERVER: ServerAppBuilder(app_name, app_path),
             TemplateType.FLASK_SERVER: FlaskServerAppBuilder(app_name, app_path),
             TemplateType.DJANGO_FASTAPI: DjangoFastApiBuilder(app_name, app_path),
+            TemplateType.DJANGO_NINJA: DjangoNinjaBuilder(app_name, app_path),
         }
 
     def handles(self, templates):
@@ -207,6 +234,7 @@ class AppBuilderPipeline(ApplicationBuilder):
         pre_merge_template_order = [
             TemplateType.FLASK_SERVER,
             TemplateType.DJANGO_FASTAPI,
+            TemplateType.DJANGO_NINJA,
             TemplateType.WEBAPP,
             TemplateType.SERVER,
         ]
@@ -232,6 +260,7 @@ class AppBuilderPipeline(ApplicationBuilder):
         post_merge_template_order = [
             TemplateType.FLASK_SERVER,
             TemplateType.DJANGO_FASTAPI,
+            TemplateType.DJANGO_NINJA,
             TemplateType.WEBAPP,
             TemplateType.SERVER,
         ]

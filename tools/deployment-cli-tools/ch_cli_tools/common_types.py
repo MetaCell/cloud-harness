@@ -17,11 +17,16 @@ class TemplateType(StrEnum):
     DB_NEO4J = 'db-neo4j'
     DB_MONGO = 'db-mongo'
     DJANGO_FASTAPI = 'django-fastapi'
+    DJANGO_NINJA = 'django-ninja'
     SERVER = 'server'
 
     @classmethod
     def database_templates(cls):
         return [cls.DB_POSTGRES, cls.DB_NEO4J, cls.DB_MONGO]
+
+    @classmethod
+    def django_templates(cls) -> list[str]:
+        return [cls.DJANGO_FASTAPI, cls.DJANGO_FASTAPI]
 
 
 @dataclass
