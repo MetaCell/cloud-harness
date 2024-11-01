@@ -26,7 +26,7 @@ class TemplateType(StrEnum):
 
     @classmethod
     def django_templates(cls) -> list[str]:
-        return [cls.DJANGO_FASTAPI, cls.DJANGO_FASTAPI]
+        return [cls.DJANGO_FASTAPI, cls.DJANGO_NINJA]
 
 
 @dataclass
