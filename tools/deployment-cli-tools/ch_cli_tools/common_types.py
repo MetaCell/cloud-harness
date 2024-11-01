@@ -52,17 +52,3 @@ class CloudHarnessManifest():
             'inferred': self.inferred,
             'templates': [str(template) for template in self.templates],
         }
-
-    @classmethod
-    def migrate(cls, data: dict) -> tuple[dict, bool]:
-        data_copy = copy.deepcopy(data)
-        update_manifest = False
-
-        if data_copy['version'] < '2':
-            update_manifest = True
-            data_copy['templates'] = [
-                template if template != 'django-app' else 'django-fastapi'
-                for template in data_copy['templates']
-            ]
-
-        return data_copy, update_manifest
