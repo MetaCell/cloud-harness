@@ -161,7 +161,7 @@ class BaseDjangoAppBuilder(ApplicationBuilder):
             if configuration['name'] != configuration_name
         ]
 
-        debug_config = get_json_template('vscode-django-app-debug-template.json', True)
+        debug_config = get_json_template(self.debug_template_file, True)
         debug_config = replace_in_dict(debug_config, self.APP_NAME_PLACEHOLDER, self.app_name)
 
         launch_config['configurations'].append(debug_config)
@@ -173,9 +173,16 @@ class BaseDjangoAppBuilder(ApplicationBuilder):
     @property
     def python_app_name(self):
         return to_python_module(self.app_name)
+    
+    @property
+    @abc.abstractmethod
+    def debug_template_file(self) -> str:
+        raise NotImplementedError()
 
 
 class DjangoFastApiBuilder(BaseDjangoAppBuilder):
+    debug_template_name = 'vscode-django-fastapi-debug-template.json'
+
     def handles(self, templates):
         return TemplateType.DJANGO_FASTAPI in templates
 
@@ -201,6 +208,8 @@ class DjangoFastApiBuilder(BaseDjangoAppBuilder):
 
 
 class DjangoNinjaBuilder(BaseDjangoAppBuilder):
+    debug_template_name = 'vscode-django-ninja-debug-template.json'
+
     def handles(self, templates):
         return TemplateType.DJANGO_NINJA in templates
 
