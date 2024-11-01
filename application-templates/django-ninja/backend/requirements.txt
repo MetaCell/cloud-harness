@@ -1,2 +1,2 @@
 pydantic==2.9.2
-ninja
+django-ninja

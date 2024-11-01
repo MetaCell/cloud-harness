@@ -25,16 +25,16 @@ def forbidden(request, exc):
     )
 
 
-@api.get('/ping', response={200: float})
+@api.get('/ping', response={200: float}, tags=['test'])
 def ping(request: HttpRequest):
     return time.time()
 
 
-@api.get('/live', response={200: str})
+@api.get('/live', response={200: str}, tags=['test'])
 def live(request: HttpRequest):
     return 'OK'
 
 
-@api.get('/ready', response={200: str})
+@api.get('/ready', response={200: str}, tags=['test'])
 def ready(request: HttpRequest):
     return 'OK'
