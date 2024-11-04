@@ -18,7 +18,7 @@ class ApplicationBuilder(abc.ABC):
     def __init__(self, app_name: str, app_path: pathlib.Path):
         self.app_name = app_name
         self.app_path = app_path
-    
+
     @abc.abstractmethod
     def handles(self, templates: list[str]) -> bool:
         pass
@@ -51,19 +51,19 @@ class ApplicationBuilder(abc.ABC):
     @property
     def frontend_path(self):
         return self.app_path / 'frontend'
-    
+
     @property
     def backend_path(self):
         return self.app_path / 'backend'
-    
+
     @property
     def api_path(self):
         return self.app_path / 'api'
-    
+
     @property
     def ch_root(self):
         return pathlib.Path(CH_ROOT)
-    
+
     @property
     def app_template_path(self):
         return self.ch_root / APPLICATION_TEMPLATE_PATH
@@ -103,7 +103,7 @@ class WebAppBuilder(ApplicationBuilder):
 class ServerAppBuilder(ApplicationBuilder):
     def handles(self, templates):
         return TemplateType.SERVER in templates
-    
+
     def handle_pre_merge(self):
         with tempfile.TemporaryDirectory() as tmp_dirname:
             tmp_path = pathlib.Path(tmp_dirname)
@@ -123,7 +123,7 @@ class ServerAppBuilder(ApplicationBuilder):
 class FlaskServerAppBuilder(ApplicationBuilder):
     def handles(self, templates):
         return TemplateType.FLASK_SERVER in templates
-    
+
     def handle_pre_merge(self):
         pass
 
@@ -149,7 +149,7 @@ class BaseDjangoAppBuilder(ApplicationBuilder):
         replace_in_file(self.app_path / 'dev-setup.sh', self.APP_NAME_PLACEHOLDER, self.app_name)
 
         self.create_django_app_vscode_debug_configuration()
-    
+
     def create_django_app_vscode_debug_configuration(self):
         vscode_launch_path = pathlib.Path('.vscode/launch.json')
         configuration_name = f'{self.app_name} backend'
@@ -173,7 +173,7 @@ class BaseDjangoAppBuilder(ApplicationBuilder):
     @property
     def python_app_name(self):
         return to_python_module(self.app_name)
-    
+
     @property
     @abc.abstractmethod
     def debug_template_file(self) -> str:

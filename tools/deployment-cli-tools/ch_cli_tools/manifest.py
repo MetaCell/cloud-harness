@@ -24,14 +24,14 @@ def get_manifest(app_path: pathlib.Path) -> CloudHarnessManifest:
         save_yaml(manifest_file, manifest.to_dict())
         return manifest
 
-    
+
 def load_manifest(manifest_file: pathlib.Path) -> dict:
     manifest_data = load_yaml(manifest_file)
     migrated_data = migrate_manifest_data(manifest_data)
 
     if manifest_data != migrated_data:
         save_yaml(manifest_file, migrated_data)
-    
+
     return migrated_data
 
 
@@ -95,7 +95,7 @@ def infer_database_template(app_path: pathlib.Path) -> Iterable[str]:
         database_config = values_data['harness']['database']
         if not database_config['auto']:
             return
-        
+
         database_type = database_config['type']
         database_type_to_template_map = {
             'mongo': TemplateType.DB_MONGO,
@@ -106,7 +106,7 @@ def infer_database_template(app_path: pathlib.Path) -> Iterable[str]:
         if database_type in database_type_to_template_map:
             yield database_type_to_template_map[database_type]
 
-    except(FileNotFoundError, YAMLError, KeyError):
+    except (FileNotFoundError, YAMLError, KeyError):
         pass
 
 
@@ -129,6 +129,7 @@ class NameChangeFromDjangoAppToDjangoFastapi(ManifestMigration):
             template if template != 'django-app' else 'django-fastapi'
             for template in data['templates']
         ]
+
 
 _MIGRATIONS_LIST: list[ManifestMigration] = [
     NameChangeFromDjangoAppToDjangoFastapi(),
