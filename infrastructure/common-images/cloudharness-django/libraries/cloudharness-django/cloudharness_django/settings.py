@@ -26,6 +26,8 @@ MIDDLEWARE = getattr(
     'cloudharness_django.middleware.BearerTokenMiddleware',
 ]
 
+USER_CHANGE_ENABLED = False
+
 # test if the kubernetes CH all values exists, if so then set up specific k8s stuff
 # IMPROTANT NOTE:
 #   when testing/debugging with Kafka then copy the deployment/helm/values.yaml to the ALLVALUES_PATH
