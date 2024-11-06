@@ -100,7 +100,7 @@ class UserService:
 
         user, created = User.objects.get_or_create(username=kc_user["username"])
 
-        member = Member.objects.get_or_create(user=user)
+        member, created = Member.objects.get_or_create(user=user)
         member.kc_id = kc_user["id"]
         member.save()
         user = self._map_kc_user(user, kc_user, is_superuser, delete)
