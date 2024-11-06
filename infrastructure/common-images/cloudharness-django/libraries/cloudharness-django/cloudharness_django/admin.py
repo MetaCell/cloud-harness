@@ -4,7 +4,7 @@ from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from django.contrib.auth.models import User, Group
 
 from admin_extra_buttons.api import ExtraButtonsMixin, button
-
+from .models import Member
 from cloudharness_django.services import get_user_service
 
 # Register your models here.
@@ -13,7 +13,13 @@ admin.site.unregister(User)
 admin.site.unregister(Group)
 
 
+class MemberAdmin(admin.StackedInline):
+    model = Member
+
+
 class CHUserAdmin(ExtraButtonsMixin, UserAdmin):
+
+    inlines = [MemberAdmin]
 
     def has_add_permission(self, request):
         return settings.DEBUG or settings.USER_CHANGE_ENABLED
