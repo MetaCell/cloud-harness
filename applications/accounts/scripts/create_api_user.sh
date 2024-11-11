@@ -8,4 +8,5 @@ set -e
 echo Creating API user
 
 # create the user and reload keycloak
-/opt/jboss/keycloak/bin/add-user-keycloak.sh -u ${USERNAME} -p ${PASSWORD}
+/opt/keycloak/bin/kcadm.sh create users -s "username=$USERNAME" -s enabled=True
+/opt/keycloak/bin/kcadm.sh set-password --username "$USERNAME" --new-password "$PASSWORD"
