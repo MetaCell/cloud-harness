@@ -66,8 +66,8 @@ def get_server_url():
 
     if not os.environ.get('KUBERNETES_SERVICE_HOST', None):
         # running outside kubernetes
-        return accounts_app.get_public_address() + '/auth/'
-    return accounts_app.get_service_address() + '/auth/'
+        return accounts_app.get_public_address()
+    return accounts_app.get_service_address()
 
 
 def get_auth_realm():
