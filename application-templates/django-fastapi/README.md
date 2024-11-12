@@ -31,7 +31,7 @@ See [backend/README.md#Develop]
 
 ### Frontend
 
-Backend code is inside the *frontend* directory.
+Frontend code is inside the *frontend* directory.
 
 Frontend is by default generated as a React web application, but no constraint about this specific technology.
 
