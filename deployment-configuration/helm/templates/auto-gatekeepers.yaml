@@ -1,6 +1,18 @@
 {{/* Secured Services/Deployments */}}
+
+{{- define "check_no_wildcard_uri" -}}
+{{- $check := true -}}
+{{- range .uri_role_mapping -}}
+  {{- if eq .uri "/*" -}}
+    {{- $check = false -}}
+  {{- end -}}
+{{- end -}}
+{{- $check -}}
+{{- end -}}
+
 {{- define "deploy_utils.securedservice" }}
 {{- $tls := not (not .root.Values.tls) }}
+{{- $noWildcards := include "check_no_wildcard_uri" (dict "uri_role_mapping" .app.harness.uri_role_mapping) -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -15,7 +27,7 @@ data:
     client-secret: {{ .root.Values.apps.accounts.webclient.secret }}
     secure-cookie: {{ $tls }}
     forbidden-page: /templates/access-denied.html.tmpl
-    enable-default-deny:  {{ eq (.app.harness.secured | toString) "true" }}
+    enable-default-deny: {{ $noWildcards }}
     listen: 0.0.0.0:8080
     enable-refresh-tokens: true
     server-write-timeout: {{ .app.harness.proxy.timeout.send | default .root.Values.proxy.timeout.send | default 180 }}s
@@ -115,7 +127,7 @@ spec:
 {{ include "deploy_utils.etcHosts" .root | indent 6 }}
       containers:
       - name: {{ .app.harness.service.name | quote }}
-        image: "quay.io/gogatekeeper/gatekeeper:1.3.8"
+        image: "quay.io/gogatekeeper/gatekeeper:2.14.3"
         imagePullPolicy: IfNotPresent
         {{ if .root.Values.local }}
         securityContext:
