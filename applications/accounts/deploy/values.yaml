@@ -50,8 +50,15 @@ harness:
     - name: realm-config
       src: realm.json
       dst: /opt/keycloak/data/import/realm.json
+  startupProbe:
+    path: /health/started
+    port: 9000
   readinessProbe:
-    path: /realms/master
+    path: /health/ready
+    port: 9000
+  livenessProbe:
+    path: /health/live
+    port: 9000
 
 # Keycloak realm configuration
 client:
