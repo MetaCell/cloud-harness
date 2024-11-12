@@ -10,6 +10,7 @@ Name | Type | Description | Notes
 **period_seconds** | **float** |  | [optional] 
 **failure_threshold** | **float** |  | [optional] 
 **initial_delay_seconds** | **float** |  | [optional] 
+**port** | **float** |  | [optional] 
 
 ## Example
 
