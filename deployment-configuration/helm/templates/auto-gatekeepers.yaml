@@ -1,18 +1,16 @@
 {{/* Secured Services/Deployments */}}
-
-{{- define "check_no_wildcard_uri" -}}
-{{- $check := true -}}
-{{- range .uri_role_mapping -}}
-  {{- if eq .uri "/*" -}}
-    {{- $check = false -}}
-  {{- end -}}
-{{- end -}}
-{{- $check -}}
-{{- end -}}
-
+{{- define "check_no_wildcard_uri" }}
+{{- $check := true }}
+{{- range .uri_role_mapping }}
+  {{- if eq .uri "/*" }}
+    {{- $check = false }}
+  {{- end }}
+{{- end }}
+{{- $check }}
+{{- end }}
 {{- define "deploy_utils.securedservice" }}
 {{- $tls := not (not .root.Values.tls) }}
-{{- $noWildcards := include "check_no_wildcard_uri" (dict "uri_role_mapping" .app.harness.uri_role_mapping) -}}
+{{- $noWildcards := include "check_no_wildcard_uri" (dict "uri_role_mapping" .app.harness.uri_role_mapping) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -111,7 +109,6 @@ metadata:
   name: "{{ .app.harness.service.name }}-gk"
   labels:
     app: "{{ .app.harness.service.name }}-gk"
-  
 spec:
   replicas: 1
   selector:
