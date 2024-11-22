@@ -368,7 +368,7 @@ steps:
     working_directory: ./${{CF_REPO_NAME}}
     title: Installing chart
     arguments:
-      helm_version: 3.6.2
+      helm_version: 3.11.0
       chart_name: deployment/helm
       release_name: test-${{NAMESPACE_BASENAME}}
       kube_context: '${{CLUSTER_NAME}}'
