@@ -13,16 +13,28 @@ steps:
     repo: '${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}'
     revision: '${{CF_BRANCH}}'
     git: github
-
+  post_main_clone:
+    title: Post main clone
+    type: parallel
+    stage: prepare
+    steps:
+      clone_cloud_harness:
+        title: Cloning cloud-harness repository...
+        type: git-clone
+        stage: prepare
+        repo: https://github.com/MetaCell/cloud-harness.git
+        revision: '${{CLOUDHARNESS_BRANCH}}'
+        working_directory: .
+        git: github
   prepare_deployment:
     title: Prepare helm chart
     image: python:3.12
     stage: prepare
     working_directory: .
     commands:
-    - bash install.sh
-    - harness-deployment . -n test-${{NAMESPACE_BASENAME}} -d ${{DOMAIN}} -r ${{REGISTRY}}
-      -rs ${{REGISTRY_SECRET}} -e test --write-env -N -i samples
+    - bash cloud-harness/install.sh
+    - 'harness-deployment . -n test-${{NAMESPACE_BASENAME}} -d ${{DOMAIN}} -r ${{REGISTRY}}
+      -rs ${{REGISTRY_SECRET}} -e test --write-env -N '
     - cat deployment/.env >> ${{CF_VOLUME_PATH}}/env_vars_to_export
     - cat ${{CF_VOLUME_PATH}}/env_vars_to_export
   prepare_deployment_view:
@@ -112,6 +124,49 @@ steps:
     type: parallel
     stage: build
     steps:
+      nfsserver:
+        type: build
+        stage: build
+        dockerfile: Dockerfile
+        registry: '${{CODEFRESH_REGISTRY}}'
+        buildkit: true
+        build_arguments:
+        - DOMAIN=${{DOMAIN}}
+        - NOCACHE=${{CF_BUILD_ID}}
+        - REGISTRY=${{REGISTRY}}/cloudharness/
+        image_name: cloudharness/nfsserver
+        title: Nfsserver
+        working_directory: ./applications/nfsserver
+        tag: '${{NFSSERVER_TAG}}'
+        when:
+          condition:
+            any:
+              buildDoesNotExist: includes('${{NFSSERVER_TAG_EXISTS}}', '{{NFSSERVER_TAG_EXISTS}}')
+                == true
+              forceNoCache: includes('${{NFSSERVER_TAG_FORCE_BUILD}}', '{{NFSSERVER_TAG_FORCE_BUILD}}')
+                == false
+      notifications:
+        type: build
+        stage: build
+        dockerfile: Dockerfile
+        registry: '${{CODEFRESH_REGISTRY}}'
+        buildkit: true
+        build_arguments:
+        - DOMAIN=${{DOMAIN}}
+        - NOCACHE=${{CF_BUILD_ID}}
+        - REGISTRY=${{REGISTRY}}/cloudharness/
+        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloudharness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
+        image_name: cloudharness/notifications
+        title: Notifications
+        working_directory: ./applications/notifications/server
+        tag: '${{NOTIFICATIONS_TAG}}'
+        when:
+          condition:
+            any:
+              buildDoesNotExist: includes('${{NOTIFICATIONS_TAG_EXISTS}}', '{{NOTIFICATIONS_TAG_EXISTS}}')
+                == true
+              forceNoCache: includes('${{NOTIFICATIONS_TAG_FORCE_BUILD}}', '{{NOTIFICATIONS_TAG_FORCE_BUILD}}')
+                == false
       accounts:
         type: build
         stage: build
@@ -132,6 +187,49 @@ steps:
               buildDoesNotExist: includes('${{ACCOUNTS_TAG_EXISTS}}', '{{ACCOUNTS_TAG_EXISTS}}')
                 == true
               forceNoCache: includes('${{ACCOUNTS_TAG_FORCE_BUILD}}', '{{ACCOUNTS_TAG_FORCE_BUILD}}')
+                == false
+      volumemanager:
+        type: build
+        stage: build
+        dockerfile: Dockerfile
+        registry: '${{CODEFRESH_REGISTRY}}'
+        buildkit: true
+        build_arguments:
+        - DOMAIN=${{DOMAIN}}
+        - NOCACHE=${{CF_BUILD_ID}}
+        - REGISTRY=${{REGISTRY}}/cloudharness/
+        - CLOUDHARNESS_FLASK=${{REGISTRY}}/cloudharness/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}
+        image_name: cloudharness/volumemanager
+        title: Volumemanager
+        working_directory: ./applications/volumemanager/server
+        tag: '${{VOLUMEMANAGER_TAG}}'
+        when:
+          condition:
+            any:
+              buildDoesNotExist: includes('${{VOLUMEMANAGER_TAG_EXISTS}}', '{{VOLUMEMANAGER_TAG_EXISTS}}')
+                == true
+              forceNoCache: includes('${{VOLUMEMANAGER_TAG_FORCE_BUILD}}', '{{VOLUMEMANAGER_TAG_FORCE_BUILD}}')
+                == false
+      sentry:
+        type: build
+        stage: build
+        dockerfile: Dockerfile
+        registry: '${{CODEFRESH_REGISTRY}}'
+        buildkit: true
+        build_arguments:
+        - DOMAIN=${{DOMAIN}}
+        - NOCACHE=${{CF_BUILD_ID}}
+        - REGISTRY=${{REGISTRY}}/cloudharness/
+        image_name: cloudharness/sentry
+        title: Sentry
+        working_directory: ./applications/sentry
+        tag: '${{SENTRY_TAG}}'
+        when:
+          condition:
+            any:
+              buildDoesNotExist: includes('${{SENTRY_TAG_EXISTS}}', '{{SENTRY_TAG_EXISTS}}')
+                == true
+              forceNoCache: includes('${{SENTRY_TAG_FORCE_BUILD}}', '{{SENTRY_TAG_FORCE_BUILD}}')
                 == false
       jupyterhub:
         type: build
@@ -378,6 +476,11 @@ steps:
       custom_value_files:
       - ./deployment/helm/values.yaml
       custom_values:
+      - apps_notifications_harness_secrets_email-user=${{EMAIL-USER}}
+      - apps_notifications_harness_secrets_email-password=${{EMAIL-PASSWORD}}
+      - apps_sentry_harness_secrets_email-server=${{EMAIL-SERVER}}
+      - apps_sentry_harness_secrets_email-user=${{EMAIL-USER}}
+      - apps_sentry_harness_secrets_email-password=${{EMAIL-PASSWORD}}
       - apps_samples_harness_secrets_asecret=${{ASECRET}}
   build_test_images:
     title: Build test images
@@ -434,8 +537,13 @@ steps:
     commands:
     - kubectl config use-context ${{CLUSTER_NAME}}
     - kubectl config set-context --current --namespace=test-${{NAMESPACE_BASENAME}}
+    - kubectl rollout status deployment/notifications
     - kubectl rollout status deployment/accounts
+    - kubectl rollout status deployment/volumemanager
+    - kubectl rollout status deployment/sentry
+    - kubectl rollout status deployment/argo-server-gk
     - kubectl rollout status deployment/samples
+    - kubectl rollout status deployment/samples-gk
     - kubectl rollout status deployment/common
     - kubectl rollout status deployment/workflows
     - sleep 60
@@ -448,6 +556,18 @@ steps:
     commands:
     - echo $APP_NAME
     scale:
+      volumemanager_api_test:
+        title: volumemanager api test
+        volumes:
+        - '${{CF_REPO_NAME}}/applications/volumemanager:/home/test'
+        - '${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml'
+        environment:
+        - APP_URL=https://volumemanager.${{DOMAIN}}/api
+        - USERNAME=volumes@testuser.com
+        - PASSWORD=test
+        commands:
+        - st --pre-run cloudharness_test.apitest_init run api/openapi.yaml --base-url
+          https://volumemanager.${{DOMAIN}}/api -c all
       samples_api_test:
         title: samples api test
         volumes:
@@ -522,7 +642,7 @@ steps:
   approval:
     type: pending-approval
     stage: qa
-    title: Approve anyway
+    title: Approve anyway and delete deployment
     description: The pipeline will fail after ${{WAIT_ON_FAIL}} minutes
     timeout:
       timeUnit: minutes
