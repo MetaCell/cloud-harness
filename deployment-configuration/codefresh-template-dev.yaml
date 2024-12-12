@@ -19,7 +19,8 @@ steps:
     type: parallel
     stage: prepare
     steps:
-      - title: Cloning cloud-harness repository...
+      clone_cloud_harness:
+        title: Cloning cloud-harness repository...
         type: git-clone
         stage: prepare
         repo: "https://github.com/MetaCell/cloud-harness.git"
