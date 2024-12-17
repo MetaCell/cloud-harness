@@ -4,6 +4,7 @@ import jwt
 from django.contrib.auth.models import User
 from asgiref.sync import iscoroutinefunction
 from django.utils.decorators import sync_and_async_middleware
+from asgiref.sync import async_to_sync, iscoroutinefunction
 
 from keycloak.exceptions import KeycloakGetError
 
@@ -13,32 +14,7 @@ from cloudharness_django.services import get_user_service, get_auth_service
 from cloudharness import log
 
 
-def _get_user():
-    bearer = get_authentication_token()
-    if bearer:
-        # found bearer token get the Django user
-        try:
-            token = bearer.split(" ")[-1]
-            payload = jwt.decode(token, algorithms=["RS256"], options={"verify_signature": False}, audience="web-client")
-            kc_id = payload["sub"]
-            try:
-                user = User.objects.get(member__kc_id=kc_id)
-            except User.DoesNotExist:
-                user = get_user_service().sync_kc_user(get_auth_service().get_auth_client().get_current_user())
-            return user
-        except KeycloakGetError:
-            # KC user not found
-            return None
-        except InvalidToken:
-            return None
-        except Exception as e:
-            log.exception("User mapping error, %s", payload["email"])
-            return None
-
-    return None
-
-
-async def _aget_user():
+async def _get_user():
     bearer = get_authentication_token()
     if bearer:
         # found bearer token get the Django user
@@ -49,7 +25,7 @@ async def _aget_user():
             try:
                 user = await User.objects.aget(member__kc_id=kc_id)
             except User.DoesNotExist:
-                user = await get_user_service().async_kc_user(get_auth_service().get_auth_client().get_current_user())
+                user = await get_user_service().sync_kc_user(get_auth_service().get_auth_client().get_current_user())
             return user
         except KeycloakGetError:
             # KC user not found
@@ -69,7 +45,7 @@ def BearerTokenMiddleware(get_response=None):
     if iscoroutinefunction(get_response):
         async def middleware(request):
             if (not request.path.startswith("/static")) and getattr(getattr(request, "user", {}), "is_anonymous", True):
-                user = await _aget_user()
+                user = await _get_user()
                 if user:
                     # auto login, set the user
                     request.user = user
@@ -80,7 +56,7 @@ def BearerTokenMiddleware(get_response=None):
     else:
         def middleware(request):
             if (not request.path.startswith("/static")) and getattr(getattr(request, "user", {}), "is_anonymous", True):
-                user = _get_user()
+                user = async_to_sync(_get_user)()
                 if user:
                     # auto login, set the user
                     request.user = user

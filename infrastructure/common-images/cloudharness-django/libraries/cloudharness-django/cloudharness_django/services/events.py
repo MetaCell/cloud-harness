@@ -1,5 +1,5 @@
 from cloudharness.applications import ConfigurationCallException
-
+import asyncio
 from django.conf import settings
 from kafka.errors import TopicAlreadyExistsError
 
@@ -18,7 +18,7 @@ class KeycloakMessageService:
         self.topics_initialized = False
 
     @staticmethod
-    def event_handler(app, event_client, message):
+    async def event_handler(app, event_client, message):
         resource = message["resource-type"]
         operation = message["operation-type"]
         resource_path = message["resource-path"].split("/")
@@ -32,20 +32,20 @@ class KeycloakMessageService:
 
                 if resource == "GROUP":
                     kc_group = auth_client.get_group(resource_path[1])
-                    user_service.sync_kc_group(kc_group)
+                    await user_service.sync_kc_group(kc_group)
                 if resource == "USER":
                     kc_user = auth_client.get_user(resource_path[1])
-                    user_service.sync_kc_user(kc_user, delete=operation == "DELETE")
+                    await user_service.sync_kc_user(kc_user, delete=operation == "DELETE")
                 if resource == "CLIENT_ROLE_MAPPING":
                     # adding/deleting user client roles
                     # set/user user is_superuser
                     kc_user = auth_client.get_user(resource_path[1])
-                    user_service.sync_kc_user(kc_user)
+                    await user_service.sync_kc_user(kc_user)
                 if resource == "GROUP_MEMBERSHIP":
                     # adding / deleting users from groups, update the user
                     # updating the user will also update the user groups
                     kc_user = auth_client.get_user(resource_path[1])
-                    user_service.sync_kc_user(kc_user)
+                    await user_service.sync_kc_user(kc_user)
             except Exception as e:
                 log.error(e)
                 raise e
