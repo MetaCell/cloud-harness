@@ -175,7 +175,8 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
                     if app_config and app_config.dependencies and app_config.dependencies.git:
                         for dep in app_config.dependencies.git:
-                            steps[CD_BUILD_STEP_DEPENDENCIES]['steps'][f"clone_{basename(dep.url).replace(".", "_")}_{basename(dockerfile_relative_to_root).replace(".", "_")}"] = clone_step_spec(dep, dockerfile_relative_to_root)
+                            step_name = f"clone_{basename(dep.url).replace('.', '_')}_{basename(dockerfile_relative_to_root).replace('.', '_')}"
+                            steps[CD_BUILD_STEP_DEPENDENCIES]['steps'][step_name] = clone_step_spec(dep, dockerfile_relative_to_root)
 
                     build = None
                     if build_step in steps:
