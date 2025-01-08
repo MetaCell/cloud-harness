@@ -1,5 +1,5 @@
 import os
-from os.path import join, relpath, exists, dirname
+from os.path import join, relpath, exists, dirname, basename
 from cloudharness_model.models.git_dependency_config import GitDependencyConfig
 import requests
 import logging
@@ -175,7 +175,8 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
                     if app_config and app_config.dependencies and app_config.dependencies.git:
                         for dep in app_config.dependencies.git:
-                            steps[CD_BUILD_STEP_DEPENDENCIES]['steps'][f"clone_{os.path.basename(dep.url)}_{os.path.basename(dockerfile_relative_to_root)}"] = clone_step_spec(dep, dockerfile_relative_to_root)
+                            step_name = f"clone_{basename(dep.url).replace('.', '_')}_{basename(dockerfile_relative_to_root).replace('.', '_')}"
+                            steps[CD_BUILD_STEP_DEPENDENCIES]['steps'][step_name] = clone_step_spec(dep, dockerfile_relative_to_root)
 
                     build = None
                     if build_step in steps:
