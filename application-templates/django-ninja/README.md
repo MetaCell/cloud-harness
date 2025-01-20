@@ -1,11 +1,10 @@
 # __APP_NAME__
 
-FastAPI/Django/React-based web application.
+Django-Ninja/React-based web application.
 This application is constructed to be deployed inside a cloud-harness Kubernetes.
 It can be also run locally for development and test purpose.
 
-The code is generated with the script `harness-application` and is in part automatically generated 
-from [openapi definition](./api/openapi.yaml).
+The code is generated with the script `harness-application`.
 
 ## Configuration
 
@@ -22,7 +21,7 @@ An other option is to enable the "metacell-admin-event-listener" through customi
 
 ## Develop
 
-This application is composed of a FastAPI Django backend and a React frontend.
+This application is composed of a Django-Ninja backend and a React frontend.
 
 ### Backend
 
@@ -31,7 +30,7 @@ See [backend/README.md#Develop]
 
 ### Frontend
 
-Backend code is inside the *frontend* directory.
+Frontend code is inside the *frontend* directory.
 
 Frontend is by default generated as a React web application, but no constraint about this specific technology.
 
@@ -39,36 +38,15 @@ Frontend is by default generated as a React web application, but no constraint a
 All the api stubs are automatically generated in the [frontend/rest](frontend/rest) directory by `harness-application`
 and `harness-generate`.
 
-#### Update the backend apis from openapi.yaml
-THe backend openapi models and main.py can be updated using the `genapi.sh` from the api folder.
-
 ## Local build & run
 
 ### Install dependencies 
 1 - Clone cloud-harness into your project root folder 
 
-2 - Install cloud-harness requirements
+2 - Run the dev setup script
 ```
-cd cloud-harness
-bash install.sh
-```
-
-3 - Install cloud-harness common library
-```
-cd libraries/cloudharness-common
-pip install -e .
-```
-
-4 - Install cloud-harness django library
-```
-cd ../../infrastructure/common-images/cloudharness-django/libraries/cloudharness-django
-pip install -e .
-```
-
-5 - Install cloud-harness fastapi requirements
-```
-cd ../fastapi
-pip install -r requirements.txt
+cd applications/__APP_NAME__
+bash dev-setup.sh
 ```
 
 ### Prepare backend
@@ -95,9 +73,9 @@ npm run build
 
 ### Run backend application
 
-start the FastAPI server
+start the Django server
 ```bash
-uvicorn --workers 2 --host 0.0.0.0 --port 8000 main:app
+uvicorn --workers 2 --host 0.0.0.0 --port 8000 django_baseapp.asgi:application
 ```
 
 
