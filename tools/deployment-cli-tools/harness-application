@@ -1,21 +1,15 @@
 #!/usr/bin/env python
 
-import json
 import pathlib
 import sys
 import re
-import shutil
-import tempfile
-import subprocess
 import logging
 import argparse
 from typing import Union
 
-from ch_cli_tools import CH_ROOT
-from cloudharness_utils.constants import APPLICATION_TEMPLATE_PATH
-from ch_cli_tools.openapi import generate_flask_server, generate_fastapi_server, APPLICATIONS_SRC_PATH, generate_openapi_from_ninja_schema, generate_ts_client
-from ch_cli_tools.utils import merge_configuration_directories, replaceindir, replace_in_file, save_yaml, \
-    to_python_module, copymergedir, get_json_template, replace_in_dict
+from ch_cli_tools.openapi import APPLICATIONS_SRC_PATH
+from ch_cli_tools.utils import confirm, replaceindir, replace_in_file, save_yaml, \
+    to_python_module
 from ch_cli_tools.common_types import CloudHarnessManifest, TemplateType
 from ch_cli_tools.application_builders import AppBuilderPipeline
 
@@ -96,12 +90,12 @@ def normalize_templates(templates: list[str]) -> list[str]:
 
     has_django_template = any(template in TemplateType.django_templates() for template in templates)
     if TemplateType.WEBAPP not in templates:
-        if (input(f'Do you want to generate Vite frontend application? [Y/n] ').casefold() == 'y'):
+        if (confirm(f'Do you want to generate Vite frontend application?')):
             templates.insert(django_template_index(), TemplateType.WEBAPP)
 
     has_database_template = any(template in TemplateType.database_templates() for template in templates)
     if has_django_template and not has_database_template:
-        if (input(f'Do you want to use a postgres database? [Y/n] ').casefold() == 'y'):
+        if (confirm(f'Do you want to use a postgres database?')):
             templates.insert(django_template_index(), TemplateType.DB_POSTGRES)
 
     return templates

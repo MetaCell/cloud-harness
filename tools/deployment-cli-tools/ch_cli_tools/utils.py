@@ -180,6 +180,11 @@ def replaceindir(root_src_dir, source, replace):
             replace_in_file(src_file, source, replace)
 
 
+def confirm(question, default_true=True):
+    answer = input(f"{question} (Y/n): ").casefold()
+    return (default_true and not answer) or answer == "y"
+
+
 def replace_in_file(src_file: pathlib.Path, source: str, replacement) -> None:
     if src_file.name.endswith('.py') or src_file.name == 'Dockerfile':
         replacement = to_python_module(str(replacement))

@@ -89,7 +89,7 @@ class WebAppBuilder(ApplicationBuilder):
         logging.info('Installing frontend dependencies')
         self.install_frontend_dependencies()
         logging.info('Generating ts client')
-        generate_ts_client(self.api_path / 'openapi.yaml')
+        generate_ts_client(self.api_path / 'openapi.yaml', self.app_name)
 
     def create_vite_skaffold(self, frontend_path: pathlib.Path) -> None:
         self.run_command(

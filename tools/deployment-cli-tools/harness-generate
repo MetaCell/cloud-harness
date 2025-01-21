@@ -6,21 +6,30 @@ import enum
 import functools
 import operator
 import pathlib
-import shutil
 import logging
-from typing import Callable, Optional
+from typing import Optional
 
 from ch_cli_tools.openapi import LIB_NAME, ClientType, generate_clients, generate_models, generate_servers, get_dependencies
-from ch_cli_tools.utils import copymergedir
-from ch_cli_tools.common_types import TemplateType
-from ch_cli_tools.manifest import get_manifest
+from ch_cli_tools.utils import confirm
 
 
 def main():
     args = get_command_line_arguments()
     get_dependencies()
 
-    root_path = args.path.absolute()
+    if args.path:
+        root_path = args.path.absolute()
+
+    else:
+        root_path = pathlib.Path.cwd()
+
+       # Check if applications folder exists, if not, go up until it's found
+    while not (root_path / 'applications').exists():
+        if root_path == root_path.parent:
+            logging.error('Could not find applications folder')
+            return
+        root_path = root_path.parent
+
     should_generate = should_generate_interactive if args.is_interactive else lambda _: True
 
     if args.generate_models:
@@ -67,7 +76,7 @@ class CommandLineArguments:
 
 
 def get_command_line_arguments() -> CommandLineArguments:
-    parser = argparse.ArgumentParser(description='Walk filesystem inside ./applications create application scaffolding.')
+    parser = argparse.ArgumentParser(description='Walks filesystem inside ./applications to create and update application scaffolding based on API specifications.')
 
     common_arguments = argparse.ArgumentParser(add_help=False)
     common_arguments.add_argument('path', metavar='path', nargs='?', default=pathlib.Path.cwd(), type=pathlib.Path,
@@ -79,7 +88,7 @@ def get_command_line_arguments() -> CommandLineArguments:
 
     clients_arguments = argparse.ArgumentParser(add_help=False)
     clients_arguments.add_argument('-cn', '--client-name', dest='client_name', action='store', default=LIB_NAME,
-                                   help='specify image registry prefix')
+                                   help='specify client prefix name')
     client_type_group = clients_arguments.add_mutually_exclusive_group(required=False)
     client_type_group.add_argument('-t', '--ts-only', dest='client_types', action='store_const', const=ClientType.TS_CLIENT,
                                    help='Generate only typescript clients')
@@ -111,9 +120,7 @@ def get_command_line_arguments() -> CommandLineArguments:
 
 
 def should_generate_interactive(resource: str) -> bool:
-    user_input = input(f'Do you want to generate {resource}? [Y/n] ').casefold()
-
-    return user_input == 'y'
+    return confirm(f'Do you want to generate {resource}?')
 
 
 if __name__ == "__main__":

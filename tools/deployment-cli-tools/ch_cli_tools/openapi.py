@@ -17,7 +17,7 @@ from ch_cli_tools.common_types import TemplateType
 from ch_cli_tools.manifest import get_manifest
 
 from . import HERE
-from .utils import copymergedir, replaceindir, to_python_module
+from .utils import confirm, copymergedir, replace_in_file, replaceindir, to_python_module
 
 CODEGEN = os.path.join(HERE, 'bin', 'openapi-generator-cli.jar')
 APPLICATIONS_SRC_PATH = os.path.join('applications')
@@ -129,32 +129,59 @@ def generate_python_client(module, openapi_file, client_src_path, lib_name=LIB_N
     os.system(command)
 
 
-def generate_ts_client(openapi_file):
+def generate_ts_client(openapi_file, app_name=""):
     get_dependencies()
-    out_dir = f"{os.path.dirname(os.path.dirname(openapi_file))}/frontend/src/rest"
+    out_dir = f"{os.path.dirname(os.path.dirname(openapi_file))}/frontend/src/rest/{app_name}"
     command = f"java -jar {CODEGEN} generate " \
         f"-i {openapi_file} " \
         f"-g typescript-fetch " \
-        f"-o {out_dir}"
+        f"-o {out_dir} "\
+        f"--additional-properties=prefixParameterInterfaces=false"
     os.system(command)
 
     replaceindir(out_dir, "http://localhost", '')
 
 
+def json2yaml(json_filename, yaml_file=None):
+    import yaml
+    if yaml_file is None:
+        yaml_file = str(json_filename).replace('.json', '.yaml')
+    with open(json_filename, 'r') as json_filename:
+        data = json.load(json_filename)
+        with open(yaml_file, 'w') as yaml_file:
+            yaml.dump(data, yaml_file)
+
+
 def generate_openapi_from_ninja_schema(app_name: str, app_path: pathlib.Path) -> None:
-    subprocess.check_call(["sh", "dev-setup.sh"], cwd=app_path)
-    out_path = app_path / 'api' / 'openapi.yaml'
+    # check if cloudharness_django python library is installed
+    python_module = to_python_module(app_name)
+    try:
+        import cloudharness_django
+        # dynamicall import python_module
+        __import__(f'{python_module}')
+    except ImportError:
+        if confirm('Runtime env is not installed. Do you want to install it? [Y/n]'):
+            subprocess.check_call(["sh", "dev-setup.sh"], cwd=app_path)
+        else:
+            logging.error('Runtime env is not installed. Cound not generate openapi files for Django Ninja.')
+            return
+    logging.info(f"Generating openapi files for Django Ninja for application {app_name}")
+    out_path = app_path / 'api' / 'openapi.json'
 
     manage_path = app_path / 'backend' / 'manage.py'
     command = [
         'python', manage_path, 'export_openapi_schema',
         '--settings', 'django_baseapp.settings',
-        '--api', f'{to_python_module(app_name)}.api.api',
+        '--api', f'{python_module}.api.api',
         '--output', out_path,
         '--indent', '2',
     ]
 
     subprocess.run(command)
+
+    replace_in_file(out_path, f'{app_name}_api_', '')
+
+    json2yaml(out_path)
 
 
 def get_dependencies():
@@ -235,6 +262,8 @@ def generate_clients(
     if not should_generate('client libraries'):
         return
 
+    logging.info('Generating client libraries for %s', str(client_types))
+
     client_src_path = root_path / 'libraries' / 'client' / client_lib_name
     apps_path = root_path / 'applications'
     apps = (app for app in apps_path.iterdir() if app.is_dir())
@@ -253,7 +282,7 @@ def generate_clients(
                 generate_python_client(manifest.app_name, openapi_file, client_src_path, lib_name=client_lib_name)
 
             if TemplateType.WEBAPP in manifest.templates and ClientType.TS_CLIENT in client_types:
-                generate_ts_client(openapi_file)
+                generate_ts_client(openapi_file, app_name)
 
     aggregate_packages(client_src_path, client_lib_name)
 
