@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 CURRENT_PATH=$(pwd)
-CH_DIRECTORY="../../cloud-harness"
+CH_DIRECTORY="__CLOUDHARNESS_PATH__"
 INSTALL_PYTEST=false
 CURRENT_DIRECTORY="$(pwd)"
 APP_NAME="__APP_NAME__"

@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import tempfile
 from .common_types import TemplateType
-from .openapi import generate_fastapi_server, generate_server, generate_ts_client
+from .openapi import generate_fastapi_server, generate_flask_server, generate_openapi_from_ninja_schema, generate_ts_client
 from .utils import copymergedir, get_json_template, merge_configuration_directories, replace_in_dict, replace_in_file, replaceindir, to_python_module
 from . import CH_ROOT
 from cloudharness_utils.constants import APPLICATION_TEMPLATE_PATH
@@ -14,6 +14,7 @@ from cloudharness_utils.constants import APPLICATION_TEMPLATE_PATH
 
 class ApplicationBuilder(abc.ABC):
     APP_NAME_PLACEHOLDER = '__APP_NAME__'
+    CLOUDHARNESS_PATH_PLACEHOLDER = '__CLOUDHARNESS_PATH__'
 
     def __init__(self, app_name: str, app_path: pathlib.Path):
         self.app_name = app_name
@@ -76,7 +77,7 @@ class WebAppBuilder(ApplicationBuilder):
     def handle_pre_merge(self):
         if self.frontend_path.exists():
             shutil.rmtree(self.frontend_path)
-
+        logging.info('Creating vite app')
         self.create_vite_skaffold(self.frontend_path)
 
     def handle_merge(self):
@@ -85,8 +86,9 @@ class WebAppBuilder(ApplicationBuilder):
     def handle_post_merge(self):
         backend_dockerfile_path = self.backend_path / 'Dockerfile'
         backend_dockerfile_path.unlink(missing_ok=True)
-
+        logging.info('Installing frontend dependencies')
         self.install_frontend_dependencies()
+        logging.info('Generating ts client')
         generate_ts_client(self.api_path / 'openapi.yaml')
 
     def create_vite_skaffold(self, frontend_path: pathlib.Path) -> None:
@@ -111,7 +113,7 @@ class ServerAppBuilder(ApplicationBuilder):
 
             copymergedir(server_template_path, tmp_path)
             merge_configuration_directories(self.app_path, tmp_path)
-            generate_server(self.app_name, tmp_path)
+            generate_flask_server(self.app_name, tmp_path)
 
     def handle_merge(self):
         self.merge_template_directories(TemplateType.SERVER)
@@ -131,7 +133,7 @@ class FlaskServerAppBuilder(ApplicationBuilder):
         self.merge_template_directories(TemplateType.FLASK_SERVER)
 
     def handle_post_merge(self):
-        generate_server(self.app_path)
+        generate_flask_server(self.app_path)
 
 
 class BaseDjangoAppBuilder(ApplicationBuilder):
@@ -147,10 +149,12 @@ class BaseDjangoAppBuilder(ApplicationBuilder):
             f'{self.python_app_name}:{self.python_app_name}',
         )
         replace_in_file(self.app_path / 'dev-setup.sh', self.APP_NAME_PLACEHOLDER, self.app_name)
+        replace_in_file(self.app_path / 'dev-setup.sh', self.CLOUDHARNESS_PATH_PLACEHOLDER, self.ch_root)
 
         self.create_django_app_vscode_debug_configuration()
 
     def create_django_app_vscode_debug_configuration(self):
+
         vscode_launch_path = pathlib.Path('.vscode/launch.json')
         configuration_name = f'{self.app_name} backend'
 
@@ -222,6 +226,8 @@ class DjangoNinjaBuilder(BaseDjangoAppBuilder):
 
     def handle_post_merge(self):
         super().handle_post_merge()
+        logging.info('Generating openapi from ninja schema')
+        generate_openapi_from_ninja_schema(self.app_name, self.app_path)
 
 
 class AppBuilderPipeline(ApplicationBuilder):
