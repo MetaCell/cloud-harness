@@ -1,0 +1,4 @@
+app-name: common
+inferred: true
+templates: [base, flask-server]
+version: '2'

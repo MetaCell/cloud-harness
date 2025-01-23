@@ -1,0 +1,4 @@
+app-name: accounts
+inferred: true
+templates: [base, db-postgres]
+version: '2'

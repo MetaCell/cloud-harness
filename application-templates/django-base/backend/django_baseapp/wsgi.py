@@ -21,6 +21,6 @@ from cloudharness_django.services import init_services  # noqa E402
 init_services()
 
 # start the kafka event listener
-from cloudharness_django.services.events import init_listner  # noqa E402
+from cloudharness_django.services.events import init_listener  # noqa E402
 
-init_listner()
+init_listener()

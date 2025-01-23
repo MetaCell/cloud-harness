@@ -617,6 +617,7 @@ steps:
     image: '${{REGISTRY}}/cloudharness/test-e2e:${{TEST_E2E_TAG}}'
     fail_fast: false
     commands:
+    - npx puppeteer browsers install chrome 
     - yarn test
     scale:
       jupyterhub_e2e_test:
