@@ -173,6 +173,9 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         # Skip excluded apps
                         continue
 
+                    if app_config and not helm_values.apps[app_key].get('build', True):
+                        continue
+
                     if app_config and app_config.dependencies and app_config.dependencies.git:
                         for dep in app_config.dependencies.git:
                             step_name = f"clone_{basename(dep.url).replace('.', '_')}_{basename(dockerfile_relative_to_root).replace('.', '_')}"
