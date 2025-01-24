@@ -17,13 +17,9 @@ def main():
     args = get_command_line_arguments()
     get_dependencies()
 
-    if args.path:
-        root_path = args.path.absolute()
+    root_path = args.path.absolute()
 
-    else:
-        root_path = pathlib.Path.cwd()
-
-       # Check if applications folder exists, if not, go up until it's found
+    # Check if applications folder exists, if not, go up until it's found
     while not (root_path / 'applications').exists():
         if root_path == root_path.parent:
             logging.error('Could not find applications folder')
