@@ -14,14 +14,14 @@ _user_service = None
 def get_auth_service():
     global _auth_service
     if not _auth_service:
-        raise KeycloakOIDCAuthServiceNotInitError("Auth Service not initialized")
+        init_services()
     return _auth_service
 
 
 def get_user_service():
     global _user_service
     if not _user_service:
-        raise KeycloakOIDUserServiceNotInitError("User Service not initialized")
+        init_services()
     return _user_service
 
 

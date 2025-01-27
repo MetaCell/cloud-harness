@@ -4,7 +4,8 @@ import threading
 import time
 from typing import List, Generator
 import logging
-
+import asyncio
+from asgiref.sync import iscoroutinefunction
 from time import sleep
 from cloudharness import json, dumps
 
@@ -241,14 +242,18 @@ class EventClient:
             # for now no cleanup tasks to do
             pass
 
-    def _consume_task(self, app=None, group_id=None, handler=None):
+    async def _consume_task(self, app=None, group_id=None, handler=None):
+
         log.info(f'Kafka consumer thread started, listening for messages in queue: {self.topic_id}')
         while True:
             try:
                 self.consumer = self._get_consumer(group_id)
                 for message in self.consumer:
                     try:
-                        handler(event_client=self, app=app, message=message.value)
+                        if iscoroutinefunction(handler):
+                            await handler(event_client=self, app=app, message=message.value)
+                        else:
+                            handler(event_client=self, app=app, message=message.value)
                     except Exception as e:
                         log.error(f"Error during execution of the consumer Topic {self.topic_id} --> {e}", exc_info=True)
                 self.consumer.close()
@@ -262,28 +267,25 @@ class EventClient:
             log.debug('get current object from app')
             app = app._get_current_object()
         self._consumer_thread = threading.Thread(
-            target=self._consume_task,
-            kwargs={'app': app,
-                    'group_id': group_id,
-                    'handler': handler})
+            target=asyncio.run(self._consume_task(app, group_id, handler))
+        )
         self._consumer_thread.daemon = True
         self._consumer_thread.start()
         log.debug('thread started')
 
+        if __name__ == "__main__":
+            # creat the required os env variables
+            os.environ['CLOUDHARNESS_EVENTS_CLIENT_ID'] = env.get_cloudharness_events_client_id()
+            os.environ['CLOUDHARNESS_EVENTS_SERVICE'] = env.get_cloudharness_events_service()
 
-if __name__ == "__main__":
-    # creat the required os env variables
-    os.environ['CLOUDHARNESS_EVENTS_CLIENT_ID'] = env.get_cloudharness_events_client_id()
-    os.environ['CLOUDHARNESS_EVENTS_SERVICE'] = env.get_cloudharness_events_service()
+            # instantiate the client
+            client = EventClient('test-sync-op-results-qcwbc')
 
-    # instantiate the client
-    client = EventClient('test-sync-op-results-qcwbc')
-
-    # create a topic from env variables
-    # print(client.create_topic())
-    # publish to the prev created topic
-    # print(client.produce({"message": "In God we trust, all others bring data..."}))
-    # read from the topic
-    print(client.consume_all('my-group'))
-    # delete the topic
-    # print(client.delete_topic())
+            # create a topic from env variables
+            # print(client.create_topic())
+            # publish to the prev created topic
+            # print(client.produce({"message": "In God we trust, all others bring data..."}))
+            # read from the topic
+            print(client.consume_all('my-group'))
+            # delete the topic
+            # print(client.delete_topic())
