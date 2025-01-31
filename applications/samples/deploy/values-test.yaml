@@ -5,6 +5,8 @@ harness:
       - events
       - common
       - jupyterhub
+      - volumemanager
+      - notifications
   accounts:
     roles:
     - role1
