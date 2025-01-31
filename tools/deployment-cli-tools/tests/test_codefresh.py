@@ -282,3 +282,39 @@ def test_create_codefresh_configuration_tests():
 
     finally:
         shutil.rmtree(BUILD_MERGE_DIR)
+
+
+def test_create_codefresh_configuration_nobuild():
+    values = create_helm_chart(
+        [RESOURCES],
+        output_path=OUT,
+        include=['myapp'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env=['dev', 'nobuild'],
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+
+    root_paths = preprocess_build_overrides(
+        root_paths=[CLOUD_HARNESS_PATH, RESOURCES],
+        helm_values=values,
+        merge_build_path=BUILD_MERGE_DIR
+    )
+
+    build_included = [app['harness']['name']
+                      for app in values['apps'].values() if 'harness' in app]
+
+    cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                             envs=['dev', 'nobuild'],
+                                             base_image_name=values['name'],
+                                             helm_values=values, save=False)
+    l1_steps = cf['steps']
+    steps = l1_steps["build_application_images"]["steps"]
+    assert len(steps) == 1
+    assert "myapp" not in steps
+    assert "myapp-mytask" in steps
+    assert "publish_myapp" not in l1_steps["publish"]["steps"]
+    assert "publish_myapp-mytask" in l1_steps["publish"]["steps"]

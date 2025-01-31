@@ -190,13 +190,15 @@ class CloudHarnessHelm(ConfigurationGenerator):
         else:
             build_dependencies = []
 
-        if len(image_paths) > 0:
+        deployment_values = values.get(KEY_HARNESS, {}).get(KEY_DEPLOYMENT, {})
+        deployment_image = deployment_values.get('image', None) or values.get('image', None)
+        values['build'] = not bool(deployment_image)  # Used by skaffold and ci/cd to determine if the image should be built
+        if len(image_paths) > 0 and not deployment_image:
             image_name = image_name_from_dockerfile_path(os.path.relpath(
                 image_paths[0], os.path.dirname(app_path)), base_image_name)
-
             values['image'] = self.image_tag(
                 image_name, build_context_path=app_path, dependencies=build_dependencies)
-        elif KEY_HARNESS in values and not values[KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('image', None) and values[
+        elif KEY_HARNESS in values and not deployment_image and values[
                 KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('auto', False):
             raise Exception(f"At least one Dockerfile must be specified on application {app_name}. "
                             f"Specify harness.deployment.image value if you intend to use a prebuilt image.")

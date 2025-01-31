@@ -4,6 +4,7 @@ harness:
     auto: false
   deployment:
     auto: false
+    image: gcr.io/metacellllc/cloudharness/nfsserver:1.0
 
 
 # nfs server pvc disk size (/exports)

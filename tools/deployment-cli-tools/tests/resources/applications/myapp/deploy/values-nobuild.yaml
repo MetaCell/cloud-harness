@@ -1,0 +1,5 @@
+harness:
+  dependencies:
+    build: []
+  deployment:
+    image: "custom-image"

@@ -180,3 +180,37 @@ def test_create_skaffold_configuration_with_conflicting_dependencies_requirement
 
     myapp_config = release['overrides']['apps']['myapp2']
     assert myapp_config['harness']['deployment']['args'][0] == '/usr/src/app/myapp_code/__main__.py'
+
+
+def test_create_skaffold_configuration_nobuild():
+    values = create_helm_chart(
+        [RESOURCES],
+        output_path=OUT,
+        include=['myapp'],
+        domain="my.local",
+        namespace='test',
+        env='nobuild',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+
+    BUILD_DIR = "/tmp/build"
+    root_paths = preprocess_build_overrides(
+        root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+        helm_values=values,
+        merge_build_path=BUILD_DIR
+    )
+
+    sk = create_skaffold_configuration(
+        root_paths=root_paths,
+        helm_values=values,
+        output_path=OUT
+    )
+    releases = sk['deploy']['helm']['releases']
+
+    assert len(sk['build']['artifacts']) == 1
+    assert len(releases) == 1  # Ensure we only found 1 deployment (for myapp)
+
+    release = releases[0]
+    assert 'myapp' not in release['overrides']['apps']
