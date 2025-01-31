@@ -601,7 +601,7 @@ steps:
     description: The pipeline will fail after ${{WAIT_ON_FAIL}} minutes
     timeout:
       timeUnit: minutes
-      duration: '${{WAIT_ON_FAIL}}'
+      duration: ${{WAIT_ON_FAIL}}
       finalState: denied
     when:
       condition:
