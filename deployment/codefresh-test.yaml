@@ -124,28 +124,6 @@ steps:
     type: parallel
     stage: build
     steps:
-      notifications:
-        type: build
-        stage: build
-        dockerfile: Dockerfile
-        registry: '${{CODEFRESH_REGISTRY}}'
-        buildkit: true
-        build_arguments:
-        - DOMAIN=${{DOMAIN}}
-        - NOCACHE=${{CF_BUILD_ID}}
-        - REGISTRY=${{REGISTRY}}/cloudharness/
-        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloudharness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        image_name: cloudharness/notifications
-        title: Notifications
-        working_directory: ./applications/notifications/server
-        tag: '${{NOTIFICATIONS_TAG}}'
-        when:
-          condition:
-            any:
-              buildDoesNotExist: includes('${{NOTIFICATIONS_TAG_EXISTS}}', '{{NOTIFICATIONS_TAG_EXISTS}}')
-                == true
-              forceNoCache: includes('${{NOTIFICATIONS_TAG_FORCE_BUILD}}', '{{NOTIFICATIONS_TAG_FORCE_BUILD}}')
-                == false
       accounts:
         type: build
         stage: build
@@ -434,8 +412,6 @@ steps:
       custom_value_files:
       - ./deployment/helm/values.yaml
       custom_values:
-      - apps_notifications_harness_secrets_email-user=${{EMAIL-USER}}
-      - apps_notifications_harness_secrets_email-password=${{EMAIL-PASSWORD}}
       - apps_samples_harness_secrets_asecret=${{ASECRET}}
   build_test_images:
     title: Build test images
@@ -492,7 +468,6 @@ steps:
     commands:
     - kubectl config use-context ${{CLUSTER_NAME}}
     - kubectl config set-context --current --namespace=test-${{NAMESPACE_BASENAME}}
-    - kubectl rollout status deployment/notifications
     - kubectl rollout status deployment/accounts
     - kubectl rollout status deployment/volumemanager
     - kubectl rollout status deployment/argo-server-gk
@@ -601,7 +576,7 @@ steps:
     description: The pipeline will fail after ${{WAIT_ON_FAIL}} minutes
     timeout:
       timeUnit: minutes
-      duration: ${{WAIT_ON_FAIL}}
+      duration: '${{WAIT_ON_FAIL}}'
       finalState: denied
     when:
       condition:
