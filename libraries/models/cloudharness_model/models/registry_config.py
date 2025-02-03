@@ -1,6 +1,3 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
@@ -48,7 +45,7 @@ class RegistryConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Gets the name of this RegistryConfig.
 
           # noqa: E501
@@ -59,7 +56,7 @@ class RegistryConfig(Model):
         return self._name
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str):
         """Sets the name of this RegistryConfig.
 
           # noqa: E501
@@ -73,7 +70,7 @@ class RegistryConfig(Model):
         self._name = name
 
     @property
-    def secret(self):
+    def secret(self) -> str:
         """Gets the secret of this RegistryConfig.
 
         Optional secret used for pulling from docker registry.  # noqa: E501
@@ -84,7 +81,7 @@ class RegistryConfig(Model):
         return self._secret
 
     @secret.setter
-    def secret(self, secret):
+    def secret(self, secret: str):
         """Sets the secret of this RegistryConfig.
 
         Optional secret used for pulling from docker registry.  # noqa: E501

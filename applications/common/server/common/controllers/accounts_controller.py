@@ -3,6 +3,7 @@ from urllib.parse import urljoin
 from cloudharness import applications
 from cloudharness.utils.config import CloudharnessConfig
 
+
 def get_config():  # noqa: E501
     """
     Gets the config for logging in into accounts

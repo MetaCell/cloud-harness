@@ -8,6 +8,7 @@ from volumemanager.models.persistent_volume_claim import PersistentVolumeClaim  
 from volumemanager.models.persistent_volume_claim_create import PersistentVolumeClaimCreate  # noqa: E501
 from volumemanager import util
 
+
 def pvc_name_get(name):  # noqa: E501
     """Used to retrieve a Persistent Volume Claim from the Kubernetes repository.
 
@@ -26,7 +27,7 @@ def pvc_name_get(name):  # noqa: E501
         name=pvc.metadata.name,
         namespace=pvc.metadata.namespace,
         accessmode=pvc.status.access_modes[0],
-        size=pvc.status.capacity.get('storage','')
+        size=pvc.status.capacity.get('storage', '')
     )
     return pvc
 
@@ -44,7 +45,7 @@ def pvc_post():  # noqa: E501
     if connexion.request.is_json:
         persistent_volume_claim_create = PersistentVolumeClaimCreate.from_dict(connexion.request.get_json())  # noqa: E501
         create_persistent_volume_claim(
-            name=persistent_volume_claim_create.name, 
+            name=persistent_volume_claim_create.name,
             size=persistent_volume_claim_create.size,
             logger=flask.current_app.logger)
     return 'Saved!'

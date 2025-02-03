@@ -1,33 +1,34 @@
-# cloudharness_model.model.deployment_volume_spec.DeploymentVolumeSpec
+# DeploymentVolumeSpec
 
 Defines a volume attached to the deployment. Automatically created the volume claim and mounts.
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  | Defines a volume attached to the deployment. Automatically created the volume claim and mounts. | 
+**auto** | **bool** | When true, enables automatic template | 
+**name** | **str** |  | [optional] 
+**mountpath** | **str** | The mount path for the volume | 
+**size** | **object** | The volume size.   E.g. 5Gi | [optional] 
+**usenfs** | **bool** | Set to &#x60;true&#x60; to use the nfs on the created volume and mount as ReadWriteMany. | [optional] 
 
-### Composed Schemas (allOf/anyOf/oneOf/not)
-#### allOf
-Class Name | Input Type | Accessed Type | Description | Notes
-------------- | ------------- | ------------- | ------------- | -------------
-[all_of_0](#all_of_0) | dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
-[AutoArtifactSpec](AutoArtifactSpec.md) | [**AutoArtifactSpec**](AutoArtifactSpec.md) | [**AutoArtifactSpec**](AutoArtifactSpec.md) |  | 
+## Example
 
-# all_of_0
+```python
+from cloudharness_model.models.deployment_volume_spec import DeploymentVolumeSpec
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+# TODO update the JSON string below
+json = "{}"
+# create an instance of DeploymentVolumeSpec from a JSON string
+deployment_volume_spec_instance = DeploymentVolumeSpec.from_json(json)
+# print the JSON string representation of the object
+print DeploymentVolumeSpec.to_json()
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**mountpath** | str,  | str,  | The mount path for the volume | 
-**size** | dict, frozendict.frozendict, str, date, datetime, uuid.UUID, int, float, decimal.Decimal, bool, None, list, tuple, bytes, io.FileIO, io.BufferedReader,  | frozendict.frozendict, str, decimal.Decimal, BoolClass, NoneClass, tuple, bytes, FileIO | The volume size.   E.g. 5Gi | [optional] 
-**usenfs** | bool,  | BoolClass,  | Set to &#x60;true&#x60; to use the nfs on the created volume and mount as ReadWriteMany. | [optional] 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+# convert the object into a dict
+deployment_volume_spec_dict = deployment_volume_spec_instance.to_dict()
+# create an instance of DeploymentVolumeSpec from a dict
+deployment_volume_spec_form_dict = deployment_volume_spec.from_dict(deployment_volume_spec_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
 

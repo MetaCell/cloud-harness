@@ -1,11 +1,13 @@
+import json as js
+from cloudharness_model.encoder import CloudHarnessJSONEncoder
 import logging
 import sys
 
 log = logging
 
-from cloudharness_model.encoder import CloudHarnessJSONEncoder
 FORMAT = "%(asctime)s [%(levelname)s] %(module)s.%(funcName)s: %(message)s"
 logging.basicConfig(stream=sys.stdout, format=FORMAT, level=logging.INFO)
+
 
 def set_debug():
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
@@ -13,24 +15,27 @@ def set_debug():
 
 # TODO log will write through a rest service
 
-import json as js
 
 json_dumps = js.dumps
 
+
 def dumps(o, *args, **kwargs):
     try:
-        if  "cls" not in kwargs:
+        if "cls" not in kwargs:
             return json_dumps(o, cls=CloudHarnessJSONEncoder, *args, **kwargs)
         return json_dumps(o, *args, **kwargs)
     except:
         logging.error(repr(o))
         raise
 
+
 json = js
 json.dumps = dumps
 
+
 class NotCorrectlyInitialized(Exception):
     pass
+
 
 def init(appname: str):
     """
@@ -52,5 +57,5 @@ def init(appname: str):
     except Exception as e:
         log.warning(f'Error enabling Sentry for {appname}', exc_info=True)
 
-__all__ = ['log', 'init']
 
+__all__ = ['log', 'init']

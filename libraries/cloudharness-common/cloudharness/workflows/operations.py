@@ -2,7 +2,7 @@ import time
 from collections.abc import Iterable
 from typing import List, Union
 
-import pyaml
+import yaml
 
 from cloudharness import log
 from cloudharness.events.client import EventClient
@@ -14,6 +14,7 @@ from .utils import PodExecutionContext, affinity_spec, is_accounts_present, name
 POLLING_WAIT_SECONDS = 1
 SERVICE_ACCOUNT = 'argo-workflows'
 
+
 class OperationStatus(object):
     PENDING = "Pending"
     RUNNING = "Running"
@@ -21,11 +22,10 @@ class OperationStatus(object):
     SUCCEEDED = "Succeeded"
     SKIPPED = "Skipped"
     FAILED = "Failed"
+
+
 class BadOperationConfiguration(RuntimeError):
     pass
-
-
-
 
 
 class ManagedOperation:
@@ -49,7 +49,6 @@ class ManagedOperation:
 
     def execute(self, **parameters):
         raise NotImplementedError(f"{self.__class__.__name__} is abstract")
-
 
 
 class ContainerizedOperation(ManagedOperation):
@@ -83,10 +82,10 @@ class ContainerizedOperation(ManagedOperation):
                 shared_path = shared_directory
             else:
                 self.volumes = shared_directory
-                assert len(set(shared_directory)) == len(shared_directory), "Shared directories are not unique"
+                assert len(set(shared_directory)) == len(
+                    shared_directory), "Shared directories are not unique"
                 assert len(set(s.split(":")[0] for s in shared_directory)) == len(
                     shared_directory), "Shared directories volumes are not unique"
-            
 
             if shared_path:
                 for task in self.task_list():
@@ -148,16 +147,17 @@ class ContainerizedOperation(ManagedOperation):
 
         volumes_mounts = list(self.volumes) or []
         # Tasks volumes must be declared at workflow level
-        volumes_mounts += list({v for task in self.task_list() for v in task.volume_mounts if task.volume_mounts})
-        
+        volumes_mounts += list({v for task in self.task_list()
+                               for v in task.volume_mounts if task.volume_mounts})
+
         spec['volumeClaimTemplates'] = [self.spec_volumeclaim(volume) for volume in volumes_mounts if
-                                            ':' not in volume]  # without PVC prefix (e.g. /location)
+                                        # without PVC prefix (e.g. /location)
+                                        ':' not in volume]
         spec['volumes'] += [self.spec_volume(volume) for volume in volumes_mounts if
-                                ':' in volume]  # with PVC prefix (e.g. pvc-001:/location)
+                            # with PVC prefix (e.g. pvc-001:/location)
+                            ':' in volume]
 
         return spec
-
-
 
     def add_on_exit_notify_handler(self, spec):
         queue = self.on_exit_notify['queue']
@@ -182,7 +182,8 @@ class ContainerizedOperation(ManagedOperation):
             template['metadata'] = dict()
         if 'labels' not in template["metadata"]:
             template["metadata"]["labels"] = dict()
-        template["metadata"]["labels"] = template["metadata"]["labels"] | {c.key: c.value for c in self.pod_contexts}
+        template["metadata"]["labels"] = template["metadata"]["labels"] | {
+            c.key: c.value for c in self.pod_contexts}
 
         if self.volumes:
             if 'container' in template:
@@ -198,7 +199,7 @@ class ContainerizedOperation(ManagedOperation):
         """Created and submits the Argo workflow"""
         op = self.to_workflow()
 
-        log.debug("Submitting workflow\n" + pyaml.dump(op))
+        log.debug("Submitting workflow\n" + yaml.dump(op))
 
         # TODO use rest api for that? Include this into cloudharness.workflows?
         self.persisted = argo.submit_workflow(op)
@@ -218,10 +219,6 @@ class ContainerizedOperation(ManagedOperation):
             self.refresh()
             return self.persisted.status in (OperationStatus.ERROR, OperationStatus.FAILED)
         return False
-
-    
-
-    
 
     def spec_volumeclaim(self, volume):
         # when the volume is NOT prefixed by a PVC (e.g. /location) then create a temporary PVC for the workflow
@@ -313,7 +310,8 @@ class ExecuteAndWaitOperation(ContainerizedOperation, SyncOperation):
             time.sleep(POLLING_WAIT_SECONDS)
             log.debug(f"Polling argo workflow {self.persisted.name}")
             self.persisted = argo.get_workflow(self.persisted.name)
-            log.debug(f"Polling succeeded for {self.persisted.name}. Current phase: {self.persisted.status}")
+            log.debug(f"Polling succeeded for \
+               {self.persisted.name}. Current phase: {self.persisted.status}")
             if timeout and time.time() - start_time > timeout:
                 log.error("Timeout exceeded while polling for results")
                 return self.persisted
@@ -356,12 +354,15 @@ class CompositeOperation(AsyncOperation):
         :param pod_context: PodExecutionContext - represents affinity with other pods in the system
         """
         self.tasks = tasks
-        AsyncOperation.__init__(self, basename, pod_context, shared_directory=shared_directory, *args, **kwargs)
+        AsyncOperation.__init__(self, basename, pod_context,
+                                shared_directory=shared_directory, *args, **kwargs)
 
         self.shared_volume_size = shared_volume_size
         if len(self.task_list()) != len(set(self.task_list())):
-            raise BadOperationConfiguration('Tasks in the same operation must have different names')
-        self.entrypoint_template = {'name': self.entrypoint, 'steps': self.steps_spec()}
+            raise BadOperationConfiguration(
+                'Tasks in the same operation must have different names')
+        self.entrypoint_template = {
+            'name': self.entrypoint, 'steps': self.steps_spec()}
 
     def steps_spec(self):
         raise NotImplementedError()

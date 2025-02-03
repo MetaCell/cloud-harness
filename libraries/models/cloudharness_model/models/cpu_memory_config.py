@@ -1,6 +1,3 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
@@ -48,7 +45,7 @@ class CpuMemoryConfig(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def cpu(self):
+    def cpu(self) -> str:
         """Gets the cpu of this CpuMemoryConfig.
 
           # noqa: E501
@@ -59,7 +56,7 @@ class CpuMemoryConfig(Model):
         return self._cpu
 
     @cpu.setter
-    def cpu(self, cpu):
+    def cpu(self, cpu: str):
         """Sets the cpu of this CpuMemoryConfig.
 
           # noqa: E501
@@ -71,7 +68,7 @@ class CpuMemoryConfig(Model):
         self._cpu = cpu
 
     @property
-    def memory(self):
+    def memory(self) -> str:
         """Gets the memory of this CpuMemoryConfig.
 
           # noqa: E501
@@ -82,7 +79,7 @@ class CpuMemoryConfig(Model):
         return self._memory
 
     @memory.setter
-    def memory(self, memory):
+    def memory(self, memory: str):
         """Sets the memory of this CpuMemoryConfig.
 
           # noqa: E501

@@ -135,13 +135,13 @@ def deserialize_model(data, klass):
                 if attr in instance.attribute_map:
                     try:
                         setattr(instance, attr, _deserialize(value, instance.openapi_types[attr]))
-                    except:
+                    except Exception as e:
                         logging.warning(
-                            "Deserialization error: could not set attribute `%s` to value `%s` in class `%s`.", attr, value, klass.__name__)
+                            "Deserialization error: could not set attribute `%s` to value `%s` in class `%s`.", attr, value, klass.__name__, exc_info=True)
                         from .models.base_model_ import Model
                         setattr(instance, attr, Model.from_dict(value))
                         logging.debug("Instance is %s", instance, exc_info=True)
-        
+
     except Exception as e:
         logging.error("Deserialize error", exc_info=True)
         raise DeserializationException(
@@ -172,4 +172,4 @@ def _deserialize_dict(data, boxed_type):
     """
     from cloudharness_model.models.base_model_ import Model
     return Model.from_dict({k: _deserialize(v, boxed_type)
-            for k, v in six.iteritems(data)})
+                            for k, v in six.iteritems(data)})

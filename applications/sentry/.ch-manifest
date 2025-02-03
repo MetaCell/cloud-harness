@@ -1,0 +1,4 @@
+app-name: sentry
+inferred: true
+templates: [base, db-postgres]
+version: '2'

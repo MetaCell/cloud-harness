@@ -55,7 +55,9 @@ harness:
 Every image defined as a base image or a common image can be used as a
 build dependency.
 
-For more details about how to define your custom image and the available images, see [here](../../base-common-images.md)
+For more details about how to define your custom image and the available images, see [here](../../base-common-images.md).
+
+For more info about dependencies, see [here](../dependencies.md)
 
 ## Use the CloudHarness runtime Python library
 

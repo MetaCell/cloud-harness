@@ -1,6 +1,3 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
@@ -135,7 +132,7 @@ class User(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def access(self):
+    def access(self) -> Dict[str, object]:
         """Gets the access of this User.
 
 
@@ -145,7 +142,7 @@ class User(Model):
         return self._access
 
     @access.setter
-    def access(self, access):
+    def access(self, access: Dict[str, object]):
         """Sets the access of this User.
 
 
@@ -156,7 +153,7 @@ class User(Model):
         self._access = access
 
     @property
-    def attributes(self):
+    def attributes(self) -> Dict[str, object]:
         """Gets the attributes of this User.
 
 
@@ -166,7 +163,7 @@ class User(Model):
         return self._attributes
 
     @attributes.setter
-    def attributes(self, attributes):
+    def attributes(self, attributes: Dict[str, object]):
         """Sets the attributes of this User.
 
 
@@ -177,7 +174,7 @@ class User(Model):
         self._attributes = attributes
 
     @property
-    def client_roles(self):
+    def client_roles(self) -> Dict[str, object]:
         """Gets the client_roles of this User.
 
 
@@ -187,7 +184,7 @@ class User(Model):
         return self._client_roles
 
     @client_roles.setter
-    def client_roles(self, client_roles):
+    def client_roles(self, client_roles: Dict[str, object]):
         """Sets the client_roles of this User.
 
 
@@ -198,7 +195,7 @@ class User(Model):
         self._client_roles = client_roles
 
     @property
-    def created_timestamp(self):
+    def created_timestamp(self) -> int:
         """Gets the created_timestamp of this User.
 
 
@@ -208,7 +205,7 @@ class User(Model):
         return self._created_timestamp
 
     @created_timestamp.setter
-    def created_timestamp(self, created_timestamp):
+    def created_timestamp(self, created_timestamp: int):
         """Sets the created_timestamp of this User.
 
 
@@ -219,7 +216,7 @@ class User(Model):
         self._created_timestamp = created_timestamp
 
     @property
-    def credentials(self):
+    def credentials(self) -> List[UserCredential]:
         """Gets the credentials of this User.
 
 
@@ -229,7 +226,7 @@ class User(Model):
         return self._credentials
 
     @credentials.setter
-    def credentials(self, credentials):
+    def credentials(self, credentials: List[UserCredential]):
         """Sets the credentials of this User.
 
 
@@ -240,7 +237,7 @@ class User(Model):
         self._credentials = credentials
 
     @property
-    def disableable_credential_types(self):
+    def disableable_credential_types(self) -> List[str]:
         """Gets the disableable_credential_types of this User.
 
 
@@ -250,7 +247,7 @@ class User(Model):
         return self._disableable_credential_types
 
     @disableable_credential_types.setter
-    def disableable_credential_types(self, disableable_credential_types):
+    def disableable_credential_types(self, disableable_credential_types: List[str]):
         """Sets the disableable_credential_types of this User.
 
 
@@ -261,7 +258,7 @@ class User(Model):
         self._disableable_credential_types = disableable_credential_types
 
     @property
-    def email(self):
+    def email(self) -> str:
         """Gets the email of this User.
 
 
@@ -271,7 +268,7 @@ class User(Model):
         return self._email
 
     @email.setter
-    def email(self, email):
+    def email(self, email: str):
         """Sets the email of this User.
 
 
@@ -282,7 +279,7 @@ class User(Model):
         self._email = email
 
     @property
-    def email_verified(self):
+    def email_verified(self) -> bool:
         """Gets the email_verified of this User.
 
 
@@ -292,7 +289,7 @@ class User(Model):
         return self._email_verified
 
     @email_verified.setter
-    def email_verified(self, email_verified):
+    def email_verified(self, email_verified: bool):
         """Sets the email_verified of this User.
 
 
@@ -303,7 +300,7 @@ class User(Model):
         self._email_verified = email_verified
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         """Gets the enabled of this User.
 
 
@@ -313,7 +310,7 @@ class User(Model):
         return self._enabled
 
     @enabled.setter
-    def enabled(self, enabled):
+    def enabled(self, enabled: bool):
         """Sets the enabled of this User.
 
 
@@ -324,7 +321,7 @@ class User(Model):
         self._enabled = enabled
 
     @property
-    def federation_link(self):
+    def federation_link(self) -> str:
         """Gets the federation_link of this User.
 
 
@@ -334,7 +331,7 @@ class User(Model):
         return self._federation_link
 
     @federation_link.setter
-    def federation_link(self, federation_link):
+    def federation_link(self, federation_link: str):
         """Sets the federation_link of this User.
 
 
@@ -345,7 +342,7 @@ class User(Model):
         self._federation_link = federation_link
 
     @property
-    def first_name(self):
+    def first_name(self) -> str:
         """Gets the first_name of this User.
 
 
@@ -355,7 +352,7 @@ class User(Model):
         return self._first_name
 
     @first_name.setter
-    def first_name(self, first_name):
+    def first_name(self, first_name: str):
         """Sets the first_name of this User.
 
 
@@ -366,7 +363,7 @@ class User(Model):
         self._first_name = first_name
 
     @property
-    def groups(self):
+    def groups(self) -> List[str]:
         """Gets the groups of this User.
 
 
@@ -376,7 +373,7 @@ class User(Model):
         return self._groups
 
     @groups.setter
-    def groups(self, groups):
+    def groups(self, groups: List[str]):
         """Sets the groups of this User.
 
 
@@ -387,7 +384,7 @@ class User(Model):
         self._groups = groups
 
     @property
-    def id(self):
+    def id(self) -> str:
         """Gets the id of this User.
 
 
@@ -397,7 +394,7 @@ class User(Model):
         return self._id
 
     @id.setter
-    def id(self, id):
+    def id(self, id: str):
         """Sets the id of this User.
 
 
@@ -408,7 +405,7 @@ class User(Model):
         self._id = id
 
     @property
-    def last_name(self):
+    def last_name(self) -> str:
         """Gets the last_name of this User.
 
 
@@ -418,7 +415,7 @@ class User(Model):
         return self._last_name
 
     @last_name.setter
-    def last_name(self, last_name):
+    def last_name(self, last_name: str):
         """Sets the last_name of this User.
 
 
@@ -429,7 +426,7 @@ class User(Model):
         self._last_name = last_name
 
     @property
-    def realm_roles(self):
+    def realm_roles(self) -> List[str]:
         """Gets the realm_roles of this User.
 
 
@@ -439,7 +436,7 @@ class User(Model):
         return self._realm_roles
 
     @realm_roles.setter
-    def realm_roles(self, realm_roles):
+    def realm_roles(self, realm_roles: List[str]):
         """Sets the realm_roles of this User.
 
 
@@ -450,7 +447,7 @@ class User(Model):
         self._realm_roles = realm_roles
 
     @property
-    def required_actions(self):
+    def required_actions(self) -> List[str]:
         """Gets the required_actions of this User.
 
 
@@ -460,7 +457,7 @@ class User(Model):
         return self._required_actions
 
     @required_actions.setter
-    def required_actions(self, required_actions):
+    def required_actions(self, required_actions: List[str]):
         """Sets the required_actions of this User.
 
 
@@ -471,7 +468,7 @@ class User(Model):
         self._required_actions = required_actions
 
     @property
-    def service_account_client_id(self):
+    def service_account_client_id(self) -> str:
         """Gets the service_account_client_id of this User.
 
 
@@ -481,7 +478,7 @@ class User(Model):
         return self._service_account_client_id
 
     @service_account_client_id.setter
-    def service_account_client_id(self, service_account_client_id):
+    def service_account_client_id(self, service_account_client_id: str):
         """Sets the service_account_client_id of this User.
 
 
@@ -492,7 +489,7 @@ class User(Model):
         self._service_account_client_id = service_account_client_id
 
     @property
-    def username(self):
+    def username(self) -> str:
         """Gets the username of this User.
 
 
@@ -502,7 +499,7 @@ class User(Model):
         return self._username
 
     @username.setter
-    def username(self, username):
+    def username(self, username: str):
         """Sets the username of this User.
 
 
@@ -513,7 +510,7 @@ class User(Model):
         self._username = username
 
     @property
-    def additional_properties(self):
+    def additional_properties(self) -> object:
         """Gets the additional_properties of this User.
 
 
@@ -523,7 +520,7 @@ class User(Model):
         return self._additional_properties
 
     @additional_properties.setter
-    def additional_properties(self, additional_properties):
+    def additional_properties(self, additional_properties: object):
         """Sets the additional_properties of this User.
 
 

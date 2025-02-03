@@ -1,44 +1,31 @@
-# cloudharness_model.model.application_accounts_config.ApplicationAccountsConfig
+# ApplicationAccountsConfig
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+
+
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+**roles** | **List[str]** | Specify roles to be created in this deployment specific for this application | [optional] 
+**users** | [**List[ApplicationUser]**](ApplicationUser.md) | Defines test users to be added to the deployment, specific for this application | [optional] 
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**[roles](#roles)** | list, tuple,  | tuple,  | Specify roles to be created in this deployment specific for this application | [optional] 
-**[users](#users)** | list, tuple,  | tuple,  | Defines test users to be added to the deployment, specific for this application | [optional] 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+## Example
 
-# roles
+```python
+from cloudharness_model.models.application_accounts_config import ApplicationAccountsConfig
 
-Specify roles to be created in this deployment specific for this application
+# TODO update the JSON string below
+json = "{}"
+# create an instance of ApplicationAccountsConfig from a JSON string
+application_accounts_config_instance = ApplicationAccountsConfig.from_json(json)
+# print the JSON string representation of the object
+print ApplicationAccountsConfig.to_json()
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | -------------
-list, tuple,  | tuple,  | Specify roles to be created in this deployment specific for this application | 
+# convert the object into a dict
+application_accounts_config_dict = application_accounts_config_instance.to_dict()
+# create an instance of ApplicationAccountsConfig from a dict
+application_accounts_config_form_dict = application_accounts_config.from_dict(application_accounts_config_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
-### Tuple Items
-Class Name | Input Type | Accessed Type | Description | Notes
-------------- | ------------- | ------------- | ------------- | -------------
-items | str,  | str,  |  | 
-
-# users
-
-Defines test users to be added to the deployment, specific for this application
-
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | -------------
-list, tuple,  | tuple,  | Defines test users to be added to the deployment, specific for this application | 
-
-### Tuple Items
-Class Name | Input Type | Accessed Type | Description | Notes
-------------- | ------------- | ------------- | ------------- | -------------
-[**ApplicationUser**](ApplicationUser.md) | [**ApplicationUser**](ApplicationUser.md) | [**ApplicationUser**](ApplicationUser.md) |  | 
-
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
 

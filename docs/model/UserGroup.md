@@ -1,82 +1,36 @@
-# cloudharness_model.model.user_group.UserGroup
+# UserGroup
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+**access** | **Dict[str, object]** |  | [optional] 
+**attributes** | **Dict[str, object]** |  | [optional] 
+**client_roles** | **Dict[str, object]** |  | [optional] 
+**id** | **str** |  | [optional] 
+**name** | **str** |  | [optional] 
+**path** | **str** |  | [optional] 
+**realm_roles** | **List[str]** |  | [optional] 
+**sub_groups** | [**List[UserGroup]**](UserGroup.md) |  | [optional] 
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**[access](#access)** | dict, frozendict.frozendict,  | frozendict.frozendict,  |  | [optional] 
-**[attributes](#attributes)** | dict, frozendict.frozendict,  | frozendict.frozendict,  |  | [optional] 
-**[clientRoles](#clientRoles)** | dict, frozendict.frozendict,  | frozendict.frozendict,  |  | [optional] 
-**id** | str,  | str,  |  | [optional] 
-**name** | str,  | str,  |  | [optional] 
-**path** | str,  | str,  |  | [optional] 
-**[realmRoles](#realmRoles)** | list, tuple,  | tuple,  |  | [optional] 
-**[subGroups](#subGroups)** | list, tuple,  | tuple,  |  | [optional] 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+## Example
 
-# access
+```python
+from cloudharness_model.models.user_group import UserGroup
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+# TODO update the JSON string below
+json = "{}"
+# create an instance of UserGroup from a JSON string
+user_group_instance = UserGroup.from_json(json)
+# print the JSON string representation of the object
+print UserGroup.to_json()
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, uuid.UUID, int, float, decimal.Decimal, bool, None, list, tuple, bytes, io.FileIO, io.BufferedReader,  | frozendict.frozendict, str, decimal.Decimal, BoolClass, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+# convert the object into a dict
+user_group_dict = user_group_instance.to_dict()
+# create an instance of UserGroup from a dict
+user_group_form_dict = user_group.from_dict(user_group_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
-# attributes
-
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
-
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, uuid.UUID, int, float, decimal.Decimal, bool, None, list, tuple, bytes, io.FileIO, io.BufferedReader,  | frozendict.frozendict, str, decimal.Decimal, BoolClass, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
-
-# clientRoles
-
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
-
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, uuid.UUID, int, float, decimal.Decimal, bool, None, list, tuple, bytes, io.FileIO, io.BufferedReader,  | frozendict.frozendict, str, decimal.Decimal, BoolClass, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
-
-# realmRoles
-
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | -------------
-list, tuple,  | tuple,  |  | 
-
-### Tuple Items
-Class Name | Input Type | Accessed Type | Description | Notes
-------------- | ------------- | ------------- | ------------- | -------------
-items | str,  | str,  |  | 
-
-# subGroups
-
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | -------------
-list, tuple,  | tuple,  |  | 
-
-### Tuple Items
-Class Name | Input Type | Accessed Type | Description | Notes
-------------- | ------------- | ------------- | ------------- | -------------
-[**UserGroup**](UserGroup.md) | [**UserGroup**](UserGroup.md) | [**UserGroup**](UserGroup.md) |  | 
-
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
 

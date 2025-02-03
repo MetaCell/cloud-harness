@@ -14,9 +14,9 @@ def send(operation, context):
 
         if not channel:
             continue
-        
+
         for b in channel["backends"]:
-            if   b == "email":
+            if b == "email":
                 channel_backend = NotificationEmailBackend
             elif b == "console":
                 channel_backend = NotificationConsoleBackend

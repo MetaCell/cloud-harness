@@ -3,8 +3,8 @@
     parent charts to reference these dynamic resource names.
 
     To avoid duplicating documentation, for more information, please see the the
-    fullnameOverride entry in schema.yaml or the configuration reference that
-    schema.yaml renders to.
+    fullnameOverride entry in values.schema.yaml or the configuration reference
+    that values.schema.yaml renders to.
 
     https://z2jh.jupyter.org/en/latest/resources/reference.html#fullnameOverride
 */}}
@@ -38,8 +38,8 @@
     {{- $name_override := .Values.apps.jupyterhub.nameOverride }}
     {{- if ne .Chart.Name "jupyterhub" }}
         {{- if .Values.apps.jupyterhub.jupyterhub }}
-            {{- $fullname_override = .Values.apps.jupyterhub.fullnameOverride }}
-            {{- $name_override = .Values.apps.jupyterhub.nameOverride }}
+            {{- $fullname_override = .Values.apps.jupyterhub.jupyterhub.fullnameOverride }}
+            {{- $name_override = .Values.apps.jupyterhub.jupyterhub.nameOverride }}
         {{- end }}
     {{- end }}
 
@@ -76,12 +76,23 @@
     {{- include "jupyterhub.fullname.dash" . }}hub
 {{- end }}
 
+{{- /* hub-serviceaccount ServiceAccount */}}
+{{- define "jupyterhub.hub-serviceaccount.fullname" -}}
+    {{- if .Values.apps.jupyterhub.hub.serviceAccount.create }}
+        {{- .Values.apps.jupyterhub.hub.serviceAccount.name | default (include "jupyterhub.hub.fullname" .) }}
+    {{- else }}
+        {{- .Values.apps.jupyterhub.hub.serviceAccount.name | default "default" }}
+    {{- end }}
+{{- end }}
+
 {{- /* hub-existing-secret Secret */}}
 {{- define "jupyterhub.hub-existing-secret.fullname" -}}
     {{- /* A hack to avoid issues from invoking this from a parent Helm chart. */}}
     {{- $existing_secret := .Values.apps.jupyterhub.hub.existingSecret }}
     {{- if ne .Chart.Name "jupyterhub" }}
-        {{- $existing_secret = .Values.apps.jupyterhub.hub.existingSecret }}
+        {{- if .Values.apps.jupyterhub.jupyterhub }}
+            {{- $existing_secret = .Values.apps.jupyterhub.jupyterhub.hub.existingSecret }}
+        {{- end }}
     {{- end }}
     {{- if $existing_secret }}
         {{- $existing_secret }}
@@ -133,9 +144,27 @@
     {{- include "jupyterhub.fullname.dash" . }}autohttps
 {{- end }}
 
+{{- /* autohttps-serviceaccount ServiceAccount */}}
+{{- define "jupyterhub.autohttps-serviceaccount.fullname" -}}
+    {{- if .Values.apps.jupyterhub.proxy.traefik.serviceAccount.create }}
+        {{- .Values.apps.jupyterhub.proxy.traefik.serviceAccount.name | default (include "jupyterhub.autohttps.fullname" .) }}
+    {{- else }}
+        {{- .Values.apps.jupyterhub.proxy.traefik.serviceAccount.name | default "default" }}
+    {{- end }}
+{{- end }}
+
 {{- /* user-scheduler Deployment */}}
 {{- define "jupyterhub.user-scheduler-deploy.fullname" -}}
     {{- include "jupyterhub.fullname.dash" . }}user-scheduler
+{{- end }}
+
+{{- /* user-scheduler-serviceaccount ServiceAccount */}}
+{{- define "jupyterhub.user-scheduler-serviceaccount.fullname" -}}
+    {{- if .Values.apps.jupyterhub.scheduling.userScheduler.serviceAccount.create }}
+        {{- .Values.apps.jupyterhub.scheduling.userScheduler.serviceAccount.name | default (include "jupyterhub.user-scheduler-deploy.fullname" .) }}
+    {{- else }}
+        {{- .Values.apps.jupyterhub.scheduling.userScheduler.serviceAccount.name | default "default" }}
+    {{- end }}
 {{- end }}
 
 {{- /* user-scheduler leader election lock resource */}}
@@ -151,6 +180,15 @@
 {{- /* image-awaiter Job */}}
 {{- define "jupyterhub.hook-image-awaiter.fullname" -}}
     {{- include "jupyterhub.fullname.dash" . }}hook-image-awaiter
+{{- end }}
+
+{{- /* image-awaiter-serviceaccount ServiceAccount */}}
+{{- define "jupyterhub.hook-image-awaiter-serviceaccount.fullname" -}}
+    {{- if .Values.apps.jupyterhub.prePuller.hook.serviceAccount.create }}
+        {{- .Values.apps.jupyterhub.prePuller.hook.serviceAccount.name | default (include "jupyterhub.hook-image-awaiter.fullname" .) }}
+    {{- else }}
+        {{- .Values.apps.jupyterhub.prePuller.hook.serviceAccount.name | default "default" }}
+    {{- end }}
 {{- end }}
 
 {{- /* hook-image-puller DaemonSet */}}
@@ -210,6 +248,15 @@
     {{- end }}
 {{- end }}
 
+{{- /* image-puller Priority */}}
+{{- define "jupyterhub.image-puller-priority.fullname" -}}
+    {{- if (include "jupyterhub.fullname" .) }}
+        {{- include "jupyterhub.fullname.dash" . }}image-puller
+    {{- else }}
+        {{- .Release.Name }}-image-puller-priority
+    {{- end }}
+{{- end }}
+
 {{- /* user-scheduler's registered name */}}
 {{- define "jupyterhub.user-scheduler.fullname" -}}
     {{- if (include "jupyterhub.fullname" .) }}
@@ -231,6 +278,7 @@
 fullname: {{ include "jupyterhub.fullname" . | quote }}
 fullname-dash: {{ include "jupyterhub.fullname.dash" . | quote }}
 hub: {{ include "jupyterhub.hub.fullname" . | quote }}
+hub-serviceaccount: {{ include "jupyterhub.hub-serviceaccount.fullname" . | quote }}
 hub-existing-secret: {{ include "jupyterhub.hub-existing-secret.fullname" . | quote }}
 hub-existing-secret-or-default: {{ include "jupyterhub.hub-existing-secret-or-default.fullname" . | quote }}
 hub-pvc: {{ include "jupyterhub.hub-pvc.fullname" . | quote }}
@@ -241,10 +289,14 @@ proxy-public: {{ include "jupyterhub.proxy-public.fullname" . | quote }}
 proxy-public-tls: {{ include "jupyterhub.proxy-public-tls.fullname" . | quote }}
 proxy-public-manual-tls: {{ include "jupyterhub.proxy-public-manual-tls.fullname" . | quote }}
 autohttps: {{ include "jupyterhub.autohttps.fullname" . | quote }}
+autohttps-serviceaccount: {{ include "jupyterhub.autohttps-serviceaccount.fullname" . | quote }}
 user-scheduler-deploy: {{ include "jupyterhub.user-scheduler-deploy.fullname" . | quote }}
+user-scheduler-serviceaccount: {{ include "jupyterhub.user-scheduler-serviceaccount.fullname" . | quote }}
 user-scheduler-lock: {{ include "jupyterhub.user-scheduler-lock.fullname" . | quote }}
 user-placeholder: {{ include "jupyterhub.user-placeholder.fullname" . | quote }}
+image-puller-priority: {{ include "jupyterhub.image-puller-priority.fullname" . | quote }}
 hook-image-awaiter: {{ include "jupyterhub.hook-image-awaiter.fullname" . | quote }}
+hook-image-awaiter-serviceaccount: {{ include "jupyterhub.hook-image-awaiter-serviceaccount.fullname" . | quote }}
 hook-image-puller: {{ include "jupyterhub.hook-image-puller.fullname" . | quote }}
 continuous-image-puller: {{ include "jupyterhub.continuous-image-puller.fullname" . | quote }}
 singleuser: {{ include "jupyterhub.singleuser.fullname" . | quote }}

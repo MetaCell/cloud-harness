@@ -20,3 +20,4 @@ __pycache__
 /deployment-configuration
 /cloud-harness
 .openapi-generator
+docker-compose.yaml

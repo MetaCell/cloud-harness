@@ -1,16 +1,31 @@
-# cloudharness_model.model.cpu_memory_config.CpuMemoryConfig
+# CpuMemoryConfig
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+
+
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+**cpu** | **str** |  | [optional] 
+**memory** | **str** |  | [optional] 
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**cpu** | str,  | str,  |  | [optional] 
-**memory** | str,  | str,  |  | [optional] 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+## Example
 
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
+```python
+from cloudharness_model.models.cpu_memory_config import CpuMemoryConfig
+
+# TODO update the JSON string below
+json = "{}"
+# create an instance of CpuMemoryConfig from a JSON string
+cpu_memory_config_instance = CpuMemoryConfig.from_json(json)
+# print the JSON string representation of the object
+print CpuMemoryConfig.to_json()
+
+# convert the object into a dict
+cpu_memory_config_dict = cpu_memory_config_instance.to_dict()
+# create an instance of CpuMemoryConfig from a dict
+cpu_memory_config_form_dict = cpu_memory_config.from_dict(cpu_memory_config_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
 

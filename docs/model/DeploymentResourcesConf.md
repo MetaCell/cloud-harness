@@ -1,16 +1,31 @@
-# cloudharness_model.model.deployment_resources_conf.DeploymentResourcesConf
+# DeploymentResourcesConf
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+
+
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+**requests** | [**CpuMemoryConfig**](CpuMemoryConfig.md) |  | [optional] 
+**limits** | [**CpuMemoryConfig**](CpuMemoryConfig.md) |  | [optional] 
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**requests** | [**CpuMemoryConfig**](CpuMemoryConfig.md) | [**CpuMemoryConfig**](CpuMemoryConfig.md) |  | [optional] 
-**limits** | [**CpuMemoryConfig**](CpuMemoryConfig.md) | [**CpuMemoryConfig**](CpuMemoryConfig.md) |  | [optional] 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+## Example
 
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
+```python
+from cloudharness_model.models.deployment_resources_conf import DeploymentResourcesConf
+
+# TODO update the JSON string below
+json = "{}"
+# create an instance of DeploymentResourcesConf from a JSON string
+deployment_resources_conf_instance = DeploymentResourcesConf.from_json(json)
+# print the JSON string representation of the object
+print DeploymentResourcesConf.to_json()
+
+# convert the object into a dict
+deployment_resources_conf_dict = deployment_resources_conf_instance.to_dict()
+# create an instance of DeploymentResourcesConf from a dict
+deployment_resources_conf_form_dict = deployment_resources_conf.from_dict(deployment_resources_conf_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
 

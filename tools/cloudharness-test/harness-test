@@ -41,7 +41,7 @@ if __name__ == "__main__":
                         help=f'Run only end to end tests (default: run both api and end to end tests')
     parser.add_argument('-a', '--api', dest='run_api', action="store_const", default=None, const=True,
                         help=f'Run only end to end tests (default: run both api and end to end tests')
-                        
+
     parser.add_argument('-hl', '--headless', dest='headless', action="store_true", default=False,
                         help=f'Run headless end to end tests')
     args, unknown = parser.parse_known_args(sys.argv[1:])
@@ -61,24 +61,22 @@ if __name__ == "__main__":
 
         with open(helm_values_path) as f:
             helm_values_raw = yaml.load(f)
-        
-        
 
         if args.domain:
-            helm_values_raw["domain"]  = args.domain
+            helm_values_raw["domain"] = args.domain
             with open(helm_values_path, 'w') as f:
                 yaml.dump(helm_values_raw, f)
 
         helm_values = HarnessMainConfig.from_dict(helm_values_raw)
         base_domain = args.domain or helm_values.domain
-        
+
         logging.info("Base domain is %s", base_domain)
         from cloudharness.utils.config import CloudharnessConfig
         CloudharnessConfig.allvalues["domain"] = base_domain
         if not url_check(f"http{'s' if helm_values.tls else ''}://{base_domain}"):
             logging.error(
                 "Base domain unreachable. Is your deployment up and running? If yes, check your DNS/hosts settings.")
-        
+
         included_applications = args.include
         if args.run_api == True or args.run_e2e is None:
             run_api_tests(root_paths, helm_values, base_domain, included_applications)

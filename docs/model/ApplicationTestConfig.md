@@ -1,17 +1,32 @@
-# cloudharness_model.model.application_test_config.ApplicationTestConfig
+# ApplicationTestConfig
 
-## Model Type Info
-Input Type | Accessed Type | Description | Notes
+
+
+## Properties
+
+Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-dict, frozendict.frozendict,  | frozendict.frozendict,  |  | 
+**unit** | [**UnitTestsConfig**](UnitTestsConfig.md) |  | 
+**api** | [**ApiTestsConfig**](ApiTestsConfig.md) |  | 
+**e2e** | [**E2ETestsConfig**](E2ETestsConfig.md) |  | 
 
-### Dictionary Keys
-Key | Input Type | Accessed Type | Description | Notes
------------- | ------------- | ------------- | ------------- | -------------
-**unit** | [**UnitTestsConfig**](UnitTestsConfig.md) | [**UnitTestsConfig**](UnitTestsConfig.md) |  | 
-**e2e** | [**E2ETestsConfig**](E2ETestsConfig.md) | [**E2ETestsConfig**](E2ETestsConfig.md) |  | 
-**api** | [**ApiTestsConfig**](ApiTestsConfig.md) | [**ApiTestsConfig**](ApiTestsConfig.md) |  | 
-**any_string_name** | dict, frozendict.frozendict, str, date, datetime, int, float, bool, decimal.Decimal, None, list, tuple, bytes, io.FileIO, io.BufferedReader | frozendict.frozendict, str, BoolClass, decimal.Decimal, NoneClass, tuple, bytes, FileIO | any string name can be used but the value must be the correct type | [optional]
+## Example
 
-[[Back to Model list]](../../README.md#documentation-for-models) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to README]](../../README.md)
+```python
+from cloudharness_model.models.application_test_config import ApplicationTestConfig
+
+# TODO update the JSON string below
+json = "{}"
+# create an instance of ApplicationTestConfig from a JSON string
+application_test_config_instance = ApplicationTestConfig.from_json(json)
+# print the JSON string representation of the object
+print ApplicationTestConfig.to_json()
+
+# convert the object into a dict
+application_test_config_dict = application_test_config_instance.to_dict()
+# create an instance of ApplicationTestConfig from a dict
+application_test_config_form_dict = application_test_config.from_dict(application_test_config_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
 

@@ -1,6 +1,3 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
@@ -83,7 +80,7 @@ class UserCredential(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def created_date(self):
+    def created_date(self) -> int:
         """Gets the created_date of this UserCredential.
 
 
@@ -93,7 +90,7 @@ class UserCredential(Model):
         return self._created_date
 
     @created_date.setter
-    def created_date(self, created_date):
+    def created_date(self, created_date: int):
         """Sets the created_date of this UserCredential.
 
 
@@ -104,7 +101,7 @@ class UserCredential(Model):
         self._created_date = created_date
 
     @property
-    def credential_data(self):
+    def credential_data(self) -> str:
         """Gets the credential_data of this UserCredential.
 
 
@@ -114,7 +111,7 @@ class UserCredential(Model):
         return self._credential_data
 
     @credential_data.setter
-    def credential_data(self, credential_data):
+    def credential_data(self, credential_data: str):
         """Sets the credential_data of this UserCredential.
 
 
@@ -125,7 +122,7 @@ class UserCredential(Model):
         self._credential_data = credential_data
 
     @property
-    def id(self):
+    def id(self) -> str:
         """Gets the id of this UserCredential.
 
 
@@ -135,7 +132,7 @@ class UserCredential(Model):
         return self._id
 
     @id.setter
-    def id(self, id):
+    def id(self, id: str):
         """Sets the id of this UserCredential.
 
 
@@ -146,7 +143,7 @@ class UserCredential(Model):
         self._id = id
 
     @property
-    def priority(self):
+    def priority(self) -> int:
         """Gets the priority of this UserCredential.
 
 
@@ -156,7 +153,7 @@ class UserCredential(Model):
         return self._priority
 
     @priority.setter
-    def priority(self, priority):
+    def priority(self, priority: int):
         """Sets the priority of this UserCredential.
 
 
@@ -167,7 +164,7 @@ class UserCredential(Model):
         self._priority = priority
 
     @property
-    def secret_data(self):
+    def secret_data(self) -> str:
         """Gets the secret_data of this UserCredential.
 
 
@@ -177,7 +174,7 @@ class UserCredential(Model):
         return self._secret_data
 
     @secret_data.setter
-    def secret_data(self, secret_data):
+    def secret_data(self, secret_data: str):
         """Sets the secret_data of this UserCredential.
 
 
@@ -188,7 +185,7 @@ class UserCredential(Model):
         self._secret_data = secret_data
 
     @property
-    def temporary(self):
+    def temporary(self) -> bool:
         """Gets the temporary of this UserCredential.
 
 
@@ -198,7 +195,7 @@ class UserCredential(Model):
         return self._temporary
 
     @temporary.setter
-    def temporary(self, temporary):
+    def temporary(self, temporary: bool):
         """Sets the temporary of this UserCredential.
 
 
@@ -209,7 +206,7 @@ class UserCredential(Model):
         self._temporary = temporary
 
     @property
-    def type(self):
+    def type(self) -> str:
         """Gets the type of this UserCredential.
 
 
@@ -219,7 +216,7 @@ class UserCredential(Model):
         return self._type
 
     @type.setter
-    def type(self, type):
+    def type(self, type: str):
         """Sets the type of this UserCredential.
 
 
@@ -230,7 +227,7 @@ class UserCredential(Model):
         self._type = type
 
     @property
-    def user_label(self):
+    def user_label(self) -> str:
         """Gets the user_label of this UserCredential.
 
 
@@ -240,7 +237,7 @@ class UserCredential(Model):
         return self._user_label
 
     @user_label.setter
-    def user_label(self, user_label):
+    def user_label(self, user_label: str):
         """Sets the user_label of this UserCredential.
 
 
@@ -251,7 +248,7 @@ class UserCredential(Model):
         self._user_label = user_label
 
     @property
-    def value(self):
+    def value(self) -> str:
         """Gets the value of this UserCredential.
 
 
@@ -261,7 +258,7 @@ class UserCredential(Model):
         return self._value
 
     @value.setter
-    def value(self, value):
+    def value(self, value: str):
         """Sets the value of this UserCredential.
 
 

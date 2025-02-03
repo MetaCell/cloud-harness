@@ -11,7 +11,7 @@ servers:
 - description: Metacell host
   url: /api
 tags:
-- description: standard creation, listing and retrieve
+- description: "standard creation, listing and retrieve"
   name: Create and Access
 paths:
   /operations:
@@ -70,8 +70,7 @@ paths:
         delete operation by its name
       operationId: delete_operation
       parameters:
-      - example: my-workflow
-        explode: false
+      - explode: false
         in: path
         name: name
         required: true
@@ -92,15 +91,12 @@ paths:
         retrieves an operation by its name
       operationId: get_operation
       parameters:
-      - examples:
-          my-operation:
-            value: my-operation
-        explode: false
+      - explode: false
         in: path
         name: name
         required: true
         schema:
-          pattern: ^[0-9A-Za-z\s\-]+$
+          pattern: "^[0-9A-Za-z\\s\\-]+$"
           type: string
         style: simple
       responses:
@@ -136,7 +132,7 @@ paths:
         name: name
         required: true
         schema:
-          pattern: ^[0-9A-Za-z\s\-]+$
+          pattern: "^[0-9A-Za-z\\s\\-]+$"
           type: string
         style: simple
       responses:
@@ -167,10 +163,12 @@ components:
           createTime: 2016-08-29T09:12:33.001Z
           name: name
           message: ""
+          status: null
         - workflow: workflow
           createTime: 2016-08-29T09:12:33.001Z
           name: name
           message: ""
+          status: null
       properties:
         meta:
           $ref: '#/components/schemas/SearchResultData'
@@ -197,6 +195,7 @@ components:
         createTime: 2016-08-29T09:12:33.001Z
         name: name
         message: ""
+        status: null
       properties:
         message:
           description: usually set when an error occurred

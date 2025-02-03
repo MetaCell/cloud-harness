@@ -8,8 +8,7 @@ from os.path import join, basename, isabs, relpath
 from .helm import KEY_APPS, KEY_TASK_IMAGES
 
 from .utils import app_name_from_path, merge_app_directories, merge_configuration_directories, find_subdirs
-from cloudharness_utils.constants import APPS_PATH,BASE_IMAGES_PATH, STATIC_IMAGES_PATH, DEFAULT_MERGE_PATH
-
+from cloudharness_utils.constants import APPS_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, DEFAULT_MERGE_PATH
 
 
 def preprocess_build_overrides(root_paths, helm_values, merge_build_path=DEFAULT_MERGE_PATH):
@@ -27,14 +26,11 @@ def preprocess_build_overrides(root_paths, helm_values, merge_build_path=DEFAULT
     def merge_appdir(root_path, base_path):
         app_name = app_name_from_path(basename(base_path))
         dest_path = join(
-                        merge_build_path,
-                        relpath( base_path, root_path)
-                    )
+            merge_build_path,
+            relpath(base_path, root_path)
+        )
         merge_configuration_directories(artifacts[app_name], dest_path)
         merge_configuration_directories(base_path, dest_path)
-
-
-
 
     for root_path in root_paths:
 
@@ -70,17 +66,18 @@ def preprocess_build_overrides(root_paths, helm_values, merge_build_path=DEFAULT
             elif app_name.replace("-", "_") in helm_values[KEY_APPS]:
                 merge_appdir(root_path, base_path)
                 merged = True
-                
+
     if exists(merge_build_path):
         with open(join(merge_build_path, ".dockerignore"), "a") as dst:
-            
+
             for root_path in root_paths:
                 ignore_file = join(root_path, ".dockerignore")
                 if os.path.exists(ignore_file):
                     with open(ignore_file) as src:
                         dst.write(src.read())
-                
+
     return (root_paths + [merge_build_path]) if merged else root_paths
+
 
 def get_build_paths(root_paths, helm_values, merge_build_path=DEFAULT_MERGE_PATH):
     """
@@ -101,12 +98,12 @@ def get_build_paths(root_paths, helm_values, merge_build_path=DEFAULT_MERGE_PATH
                 artifacts[app_name] = base_path
             else:
                 artifacts[app_name] = join(
-                        merge_build_path,
-                        relpath( base_path, root_path)
-                    )
+                    merge_build_path,
+                    relpath(base_path, root_path)
+                )
     for root_path in root_paths:
         for base_path in find_subdirs(join(root_path, STATIC_IMAGES_PATH)):
-            
+
             app_name = app_name_from_path(basename(base_path))
             if app_name not in helm_values[KEY_TASK_IMAGES]:
                 continue
@@ -114,9 +111,9 @@ def get_build_paths(root_paths, helm_values, merge_build_path=DEFAULT_MERGE_PATH
                 artifacts[app_name] = base_path
             else:
                 artifacts[app_name] = join(
-                        merge_build_path,
-                        relpath( base_path, root_path)
-                    )
+                    merge_build_path,
+                    relpath(base_path, root_path)
+                )
 
     for root_path in root_paths:
         for base_path in find_subdirs(join(root_path, APPS_PATH)):
@@ -127,8 +124,8 @@ def get_build_paths(root_paths, helm_values, merge_build_path=DEFAULT_MERGE_PATH
                 artifacts[app_name] = base_path
             else:
                 artifacts[app_name] = join(
-                        merge_build_path,
-                        relpath( base_path, root_path)
-                    )
+                    merge_build_path,
+                    relpath(base_path, root_path)
+                )
 
     return artifacts

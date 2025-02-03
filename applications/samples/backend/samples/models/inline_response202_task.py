@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from samples.models.base_model_ import Model
+from samples.models.base_model import Model
 from samples import util
 
 
@@ -48,7 +45,7 @@ class InlineResponse202Task(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def href(self):
+    def href(self) -> str:
         """Gets the href of this InlineResponse202Task.
 
         the url where to check the operation status  # noqa: E501
@@ -59,7 +56,7 @@ class InlineResponse202Task(Model):
         return self._href
 
     @href.setter
-    def href(self, href):
+    def href(self, href: str):
         """Sets the href of this InlineResponse202Task.
 
         the url where to check the operation status  # noqa: E501
@@ -71,7 +68,7 @@ class InlineResponse202Task(Model):
         self._href = href
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Gets the name of this InlineResponse202Task.
 
 
@@ -81,7 +78,7 @@ class InlineResponse202Task(Model):
         return self._name
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str):
         """Sets the name of this InlineResponse202Task.
 
 

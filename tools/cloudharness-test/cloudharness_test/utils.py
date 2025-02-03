@@ -1,5 +1,6 @@
 import requests
 
+
 def url_check(url):
     try:
         # Get Url
