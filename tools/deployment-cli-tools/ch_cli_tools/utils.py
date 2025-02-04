@@ -180,9 +180,9 @@ def replaceindir(root_src_dir, source, replace):
             replace_in_file(src_file, source, replace)
 
 
-def confirm(question, default_true=True):
+def confirm(question):
     answer = input(f"{question} (Y/n): ").casefold()
-    return (default_true and not answer) or answer == "y"
+    return answer == "y" if answer else True
 
 
 def replace_in_file(src_file: pathlib.Path, source: str, replacement) -> None:

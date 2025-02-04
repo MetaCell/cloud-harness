@@ -156,11 +156,11 @@ def generate_openapi_from_ninja_schema(app_name: str, app_path: pathlib.Path) ->
     # check if cloudharness_django python library is installed
     python_module = to_python_module(app_name)
     try:
-        import cloudharness_django
-        # dynamicall import python_module
-        __import__(f'{python_module}')
+        import cloudharness_django  # noqa
+        # dynamically import python_module
+        __import__(python_module)
     except ImportError:
-        if confirm('Runtime env is not installed. Do you want to install it? [Y/n]'):
+        if confirm('Runtime env is not installed. Do you want to install it?'):
             subprocess.check_call(["sh", "dev-setup.sh"], cwd=app_path)
         else:
             logging.error('Runtime env is not installed. Cound not generate openapi files for Django Ninja.')
