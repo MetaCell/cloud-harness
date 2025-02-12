@@ -1,0 +1,4 @@
+app-name: samples
+inferred: true
+templates: [base, webapp, flask-server]
+version: '2'

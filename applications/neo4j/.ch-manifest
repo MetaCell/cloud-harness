@@ -1,0 +1,4 @@
+app-name: neo4j
+inferred: true
+templates: [base, db-neo4j]
+version: '2'

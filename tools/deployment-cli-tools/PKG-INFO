@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: cloudharness-cli-tools
+Version: 2.5.0
+Summary: CloudHarness deploy and code generation tools
+Home-page: 
+Author-email: cloudharness@metacell.us
+Keywords: Cloud,Kubernetes,Helm,Deploy
+Requires-Dist: ruamel.yaml
+Requires-Dist: oyaml
+Requires-Dist: docker
+Requires-Dist: six
+Requires-Dist: cloudharness_model
+Requires-Dist: cloudharness_utils
+Requires-Dist: dirhash
+Requires-Dist: StrEnum; python_version < "3.11"
+
+    CloudHarness deploy library
+    

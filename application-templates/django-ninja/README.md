@@ -1,11 +1,10 @@
 # __APP_NAME__
 
-FastAPI/Django/React-based web application.
+Django-Ninja/React-based web application.
 This application is constructed to be deployed inside a cloud-harness Kubernetes.
 It can be also run locally for development and test purpose.
 
-The code is generated with the script `harness-application` and is in part automatically generated 
-from [openapi definition](./api/openapi.yaml).
+The code is generated with the script `harness-application`.
 
 ## Configuration
 
@@ -22,7 +21,7 @@ An other option is to enable the "metacell-admin-event-listener" through customi
 
 ## Develop
 
-This application is composed of a FastAPI Django backend and a React frontend.
+This application is composed of a Django-Ninja backend and a React frontend.
 
 ### Backend
 
@@ -31,44 +30,33 @@ See [backend/README.md#Develop]
 
 ### Frontend
 
-Backend code is inside the *frontend* directory.
+Frontend code is inside the *frontend* directory.
 
 Frontend is by default generated as a React web application, but no constraint about this specific technology.
 
-#### Call the backend apis
+See also [frontend/README.md]
+
+#### Generate API client stubs
 All the api stubs are automatically generated in the [frontend/rest](frontend/rest) directory by `harness-application`
 and `harness-generate`.
 
-#### Update the backend apis from openapi.yaml
-THe backend openapi models and main.py can be updated using the `genapi.sh` from the api folder.
+To update frontend client stubs, run
+
+```
+harness-generate clients __APP_NAME__ -t
+```
+
+Stubs can also be updated using the `genapi.sh` from the api folder.
 
 ## Local build & run
 
-### Install dependencies 
+### Install Python dependencies 
 1 - Clone cloud-harness into your project root folder 
 
-2 - Install cloud-harness requirements
+2 - Run the dev setup script
 ```
-cd cloud-harness
-bash install.sh
-```
-
-3 - Install cloud-harness common library
-```
-cd libraries/cloudharness-common
-pip install -e .
-```
-
-4 - Install cloud-harness django library
-```
-cd ../../infrastructure/common-images/cloudharness-django/libraries/cloudharness-django
-pip install -e .
-```
-
-5 - Install cloud-harness fastapi requirements
-```
-cd ../fastapi
-pip install -r requirements.txt
+cd applications/__APP_NAME__
+source dev-setup.sh
 ```
 
 ### Prepare backend
@@ -84,25 +72,43 @@ cd static/www
 ln -s ../../../frontend/dist dist
 ```
 
-### Build frontend
+### Run frontend
 
-Compile the frontend
-```bash
-cd frontend
-npm install
-npm run build
-```
+- `yarn dev` Local dev with no backend (no or mock data, cookie required)
+- `yarn start` Local dev with backend on localhost:8000 -- see next paragraph (cookie required)
+- `yarn start:dev` Local dev with backend on the remote dev deployment  (cookie required)
+- `yarn start:local` Local dev with backend on the local dev deployment on mnp.local (cookie required)
+
+To obtain the login cookie, login in the application with the forwarded backend, copy the `kc-access` cookie and set it into localhost:9000
 
 ### Run backend application
 
-start the FastAPI server
+start the Django server
+
 ```bash
-uvicorn --workers 2 --host 0.0.0.0 --port 8000 main:app
+ACCOUNTS_ADMIN_PASSWORD=metacell ACCOUNTS_ADMIN_USERNAME=admin CH_CURRENT_APP_NAME=__APP_NAME__ CH_VALUES_PATH=../../../deployment/helm/values.yaml DJANGO_SETTINGS_MODULE=django_baseapp.settings KUBERNETES_SERVICE_HOST=a uvicorn --host 0.0.0.0 --port 8000 django_baseapp.asgi:application
 ```
 
+Before running this backend, have to:
+- Run `harness-deployment ... -n [NAMESPACE] -i __APP_NAME__` with the setup 
+- port-forward keycloak and the database (see below)
 
 ### Running local with port forwardings to a kubernetes cluster
 When you create port forwards to microservices in your k8s cluster you want to forced your local backend server to initialize
 the AuthService and EventService services.
 This can be done by setting the `KUBERNETES_SERVICE_HOST` environment variable to a dummy or correct k8s service host.
 The `KUBERNETES_SERVICE_HOST` switch will activate the creation of the keycloak client and client roles of this microservice.
+
+Run `port-forward.sh` to get the keycloak and database running.
+
+To access those have to map to the hosts file:
+
+```
+127.0.0.1 accounts.[NAMESPACE] __APP_NAME__-db
+```
+
+After running the backend on port 8000, run `yarn start` to get a frontend to it
+
+#### Vs code run configuration
+
+Run configuration is automatically generated for VS code (__APP_NAME__ backend)

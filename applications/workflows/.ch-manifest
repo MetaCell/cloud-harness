@@ -1,0 +1,4 @@
+app-name: workflows
+inferred: true
+templates: [base, flask-server]
+version: '2'

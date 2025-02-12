@@ -20,13 +20,16 @@ harness:
   secrets:
     unsecureSecret: <value>
     secureSecret:
-    random-secret: ""
+    random-static-secret: ""
+    random-dynamic-secret: ?
 ```
 
 Secret values are initialized in three different ways:
 * Set the secret's value (as in `unsecureSecret`). Do that only if you aware of what you are doing as the value may be pushed in the git(hub) repository.
 * Leave the secret's value `null` (as in `secureSecret`) to configure manually later in the ci/cd pipeline.
-* Use the "" (empty string) value (as in `random-secret`) to let cloudharness generate a random value for you.
+* Use the "" (empty string) value (as in `random-static-secret`) to let CloudHarness generate a random value for you. 
+  This secret won't be updated after being set by any of the CloudHarness automations, so has to be managed through `kubectl` directly.
+* Use the `?` value (as in `random-dynamic-secret`) to get a new random value for every deployment upgrade
 
 Secret editing/maintenance alternatives:
 * CI/CD Codefresh support: all `null` and `<value>` secrets will be added to the codefresh deployment file(s) and can be set/overwritten through the codefresh variable configuration

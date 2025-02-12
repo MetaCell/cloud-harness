@@ -3,8 +3,8 @@
   "scripts": {
     "dev": "vite",
     "start": "DOMAIN=http://localhost:5000 vite",
-    "start:dev": "DOMAIN=https://test.ch.metacell.us vite",
-    "start:local": "DOMAIN=http://samples.ch vite",
+    "start:dev": "DOMAIN=https://__APP_NAME__.ch.metacell.us vite",
+    "start:local": "DOMAIN=http://__APP_NAME__.ch vite",
     "prebuild": "eslint .",
     "build": "vite build",
     "lint": "eslint src --report-unused-disable-directives --fix"

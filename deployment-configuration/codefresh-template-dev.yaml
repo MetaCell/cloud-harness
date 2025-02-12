@@ -120,6 +120,7 @@ steps:
     image: "${{test-e2e}}"
     fail_fast: false
     commands:
+      - npx puppeteer browsers install chrome
       - yarn test
     scale: {}
     when:

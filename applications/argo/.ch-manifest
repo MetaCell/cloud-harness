@@ -1,0 +1,4 @@
+app-name: argo
+inferred: true
+templates: [base]
+version: '2'
