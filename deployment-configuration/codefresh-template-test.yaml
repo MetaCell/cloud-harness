@@ -18,7 +18,8 @@ steps:
     type: parallel
     stage: prepare
     steps:
-      - title: Cloning cloud-harness repository...
+      clone_cloud_harness:
+        title: Cloning cloud-harness repository...
         type: git-clone
         stage: prepare
         repo: "https://github.com/MetaCell/cloud-harness.git"
@@ -111,6 +112,7 @@ steps:
     image: "${{test-e2e}}"
     fail_fast: false
     commands:
+      - npx puppeteer browsers install chrome 
       - yarn test
     scale: {}
     hooks:
@@ -133,11 +135,3 @@ steps:
       condition:
         all:
           error: '"${{FAILED}}" == "failed"'
-  delete_deployment:
-    title: "Delete deployment"
-    description: The deployment is deleted at the end of the pipeline
-    image: codefresh/kubectl
-    stage: qa
-    commands:
-      - kubectl config use-context ${{CLUSTER_NAME}}
-      - kubectl delete ns test-${{NAMESPACE_BASENAME}}

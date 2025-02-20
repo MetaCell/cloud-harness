@@ -95,3 +95,64 @@ def test_find_dockerfile_paths():
     assert len(dockerfiles) == 2
     assert next(d for d in dockerfiles if d.endswith("myapp")), "Must find the Dockerfile in the root directory"
     assert next(d for d in dockerfiles if d.endswith("myapp/tasks/mytask")), "Must find the Dockerfile in the tasks directory"
+
+
+class TestReplaceInDict:
+    def test_does_not_replace_in_keys(_):
+        src_dict = {
+            'foo': 1,
+            'bar': 2,
+            'baz': 3,
+            'foobar': 4,
+        }
+
+        new_dict = replace_in_dict(src_dict, 'foo', 'xxx')
+
+        assert new_dict.keys() == src_dict.keys()
+
+    def test_replaces_in_values(_):
+        src_dict = {
+            'a': 'foo',
+            'b': 'bar',
+            'c': 'baz',
+            'd': 3,
+            'e': 'foobar',
+        }
+
+        new_dict = replace_in_dict(src_dict, 'foo', 'xxx')
+
+        assert new_dict == {
+            'a': 'xxx',
+            'b': 'bar',
+            'c': 'baz',
+            'd': 3,
+            'e': 'xxxbar',
+        }
+
+    def test_replaces_in_values_within_lists(_):
+        src_dict = {
+            'a': ['foo', 'bar', 'baz', 3, 'foobar'],
+        }
+
+        new_dict = replace_in_dict(src_dict, 'foo', 'xxx')
+
+        assert new_dict['a'] == ['xxx', 'bar', 'baz', 3, 'xxxbar']
+
+    def test_replaces_in_values_within_nested_dict(_):
+        src_dict = {
+            'a': {
+                'a': 'foo',
+                'b': 'bar',
+                'c': 'foobar',
+                'e': ['foo', 'bar', 'foobar'],
+            },
+        }
+
+        new_dict = replace_in_dict(src_dict, 'foo', 'xxx')
+
+        assert new_dict['a'] == {
+            'a': 'xxx',
+            'b': 'bar',
+            'c': 'xxxbar',
+            'e': ['xxx', 'bar', 'xxxbar']
+        }

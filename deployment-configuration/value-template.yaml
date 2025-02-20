@@ -100,7 +100,7 @@ harness:
         heap:
           initial: 64M
           max: 128M
-      dbms_security_auth_enabled: "false"
+      dbms_security_auth_enabled: "true"
       ports:
         - name: http
           port: 7474

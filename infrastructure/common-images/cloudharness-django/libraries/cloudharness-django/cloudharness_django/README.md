@@ -46,7 +46,9 @@ Quick start
     init_services()
 
     # start the kafka event listener
-    import cloudharness_django.services.events
+    from cloudharness_django.services.events import init_listner  # noqa E402
+
+    init_listner()
     ```
 
 4. Start the development server and visit http://127.0.0.1:8000/

@@ -220,7 +220,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
                 'images': [artifact['image'] for artifact in artifacts.values() if artifact['image']]
             }
         }
-    if backend == COMPOSE_ENGINE or not helm_values.tag:
+    if backend == COMPOSE_ENGINE or helm_values.tag and not helm_values.local:
         skaffold_conf['build']['tagPolicy'] = {
             'envTemplate': {
                 'template': '"{{.TAG}}"'

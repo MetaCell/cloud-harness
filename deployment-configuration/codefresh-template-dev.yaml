@@ -19,7 +19,8 @@ steps:
     type: parallel
     stage: prepare
     steps:
-      - title: Cloning cloud-harness repository...
+      clone_cloud_harness:
+        title: Cloning cloud-harness repository...
         type: git-clone
         stage: prepare
         repo: "https://github.com/MetaCell/cloud-harness.git"
@@ -119,6 +120,7 @@ steps:
     image: "${{test-e2e}}"
     fail_fast: false
     commands:
+      - npx puppeteer browsers install chrome
       - yarn test
     scale: {}
     when:

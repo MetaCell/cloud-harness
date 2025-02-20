@@ -26,6 +26,8 @@ MIDDLEWARE = getattr(
     'cloudharness_django.middleware.BearerTokenMiddleware',
 ]
 
+USER_CHANGE_ENABLED = False
+
 # test if the kubernetes CH all values exists, if so then set up specific k8s stuff
 # IMPROTANT NOTE:
 #   when testing/debugging with Kafka then copy the deployment/helm/values.yaml to the ALLVALUES_PATH
@@ -48,7 +50,7 @@ try:
 except:
     # no current app found, fall back to the default settings, there is a god change that
     # we are running on a developers local machine
-    log.warning("Error setting current app configuration, continuing...")
+    log.warning("Error setting current app configuration, was `harness-deployment` executed? Continuing...")
 
     current_app = applications.ApplicationConfiguration({
         "name": app_name,
