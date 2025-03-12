@@ -8,7 +8,7 @@ from os.path import join, dirname as dn, realpath
 HERE = dn(realpath(__file__))
 
 NAME = "cloudharness_model"
-VERSION = "2.4.0"
+VERSION = "2.5.0"
 REQUIREMENTS = [
     "Jinja2 >= 3.1.3",
     "oyaml >= 1.0",
