@@ -1,53 +1,103 @@
-# Use harness-application to create a new application from templates
+# Use harness-application to create a new application
+
+## Overview
+
+`harness-application` is a command-line tool used to create new applications from predefined code templates. It allows users to quickly scaffold applications with backend, frontend, and database configurations.
+
+## Usage
+
+```sh
+harness-application [name] [-t TEMPLATE]
+```
+
+## Arguments
+
+- `name` *(required)* – The name of the application to be created.
+
+## Options
+
+- `-h, --help` – Displays the help message and exits.
+- `-t TEMPLATES, --template TEMPLATES` – Specifies one or more templates to use when creating the application.
 
 ## Choosing Templates
 
-If you create a new application, you can choose templates that are used to generate the application scaffold.
+When creating a new application, you can choose templates that define its structure and components. Running `harness-application --help` will list the currently available templates:
 
-Running `harness-application --help` will list the currently available templates:
-
-```
+```sh
 usage: harness-application [-h] [-t TEMPLATES] name
-
-Creates a new Application.
-
-positional arguments:
-  name                  Application name
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -t TEMPLATES, --template TEMPLATES
-                        Add a template name. Available templates: - base (always included) - flask-server (backend flask app based on openapi) - webapp (webapp including backend and frontend) - db-postgres - db-neo4j - db-mongo - django-app (fastapi django backend based on openapi)
 ```
 
 ## Available Templates
 
 ### Base
 
-* The `base` template is always included and used as foundation for any other template.
+- The `base` template is always included and serves as the foundation for any other template.
 
-### Flask Server
-* It consists of a single backend, a Python [Flask](https://flask.palletsprojects.com/en/1.1.x/) application. 
-* The [Connexion](https://github.com/zalando/connexion) library maps the OpenAPI definition to Flask routing.
-* Per default, [Gunicorn](https://gunicorn.org/) serves the Flask app with 2 synchronous workers. Depending on the application requirements, you can update the number of workers or choose a different [worker type](https://docs.gunicorn.org/en/stable/design.html).  
+### Backend Templates
 
+#### Flask Server
 
-### Webapp
+- The `flask-server` template consists of a backend built using [Flask](https://flask.palletsprojects.com/en/1.1.x/).
+  - Uses [Connexion](https://github.com/zalando/connexion) to map OpenAPI definitions to Flask routes.
+  - Served by [Gunicorn](https://gunicorn.org/) with 2 synchronous workers by default.
+    - Supports customization of the worker count and type.
 
-* The `webapp` template consists builds upon the `base` template extends it by a [React](https://reactjs.org/) frontend application.
-* The generated frontend bundle is served by the Python backend.
-* Per default, React is used as a frontend application, but you are free to choose a different frontend technology. 
+#### Django
 
+- The `django-fastapi` consists of a backend based on [FastAPI](https://fastapi.tiangolo.com/) and [Django](https://www.djangoproject.com/).
+  - Uses the [FastAPI code generator](https://github.com/koxudaxi/fastapi-code-generator) to map OpenAPI definitions.
+  - Served by [Uvicorn](https://www.uvicorn.org/) with 2 workers by default.
+- The `django-ninja` consists of a backend based on [Django Ninja](https://django-ninja.dev/)
+  - Provides automatic OpenAPI schema generation.
+  - Supports Django's built-in ORM for seamless database integration.
+  - High performance due to Pydantic-based data validation.
+  - Simplifies request parsing and authentication.
 
-### Databases
+### Full-Stack Templates
 
-Additionally, you can choose one of the following database templates:
-* `db-postgres` - [PostgreSQL](https://www.postgresql.org/), a relational database
-* `db-neo4j`- [Neo4J](https://neo4j.com/), a graph database
-* `db-mongo` - [MongoDB](https://www.mongodb.com/), a NoSQL document-based database
+#### Webapp
 
-### Django
-* It consists of a single backend, a Python [FastAPI](https://fastapi.tiangolo.com/) application. 
-* The [FastAPI code generator](https://github.com/koxudaxi/fastapi-code-generator) maps the OpenAPI definition to FastAPI routing.
-* The [Django framework](https://www.djangoproject.com/) encourages rapid development and clean, pragmatic design.
-* Per default, [Uvicorn](https://www.uvicorn.org/) serves the FastAPI app with 2 workers. Depending on the application requirements, you can update the number of workers.
+- The `webapp` template extends the `base` template by adding a [React](https://reactjs.org/) frontend.
+  - The frontend bundle is served by the Python backend.
+  - React is used by default, but other frontend technologies can be integrated.
+
+### Database Templates
+
+- `db-postgres` – [PostgreSQL](https://www.postgresql.org/), a relational database.
+- `db-neo4j` – [Neo4J](https://neo4j.com/), a graph database.
+- `db-mongo` – [MongoDB](https://www.mongodb.com/), a NoSQL document-based database.
+
+## Examples
+
+### Create a New Flask-Based Microservice Application
+
+```sh
+harness-application myapp
+```
+
+### Create a Full-Stack Web Application
+
+```sh
+harness-application myapp -t webapp
+```
+
+### Create a Web Application with a Mongo Database
+
+```sh
+harness-application myapp -t webapp -t db-mongo
+```
+
+### Display Help Information
+
+```sh
+harness-application --help
+```
+
+## Notes
+
+- Multiple templates can be specified by concatenating the `-t` parameter.
+- The tool generates the necessary scaffolding for the chosen templates.
+- Ensure you have the required dependencies installed before running the generated application.
+- For more information, run `harness-application --help` or check out the additional documentation:
+  - [Applications README](./docs/applications/README.md)
+  - [Developer Guide](./docs/dev.md)

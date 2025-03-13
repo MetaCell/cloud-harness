@@ -490,3 +490,15 @@ def load_yaml(yaml_file: pathlib.Path) -> dict:
 def save_yaml(yaml_file: pathlib.Path, data: dict) -> None:
     with yaml_file.open('w') as file:
         yaml.dump(data, file)
+
+
+def get_apps_paths(root, app_name) -> tuple[str]:
+    apps_path = []
+
+    if app_name:
+        logging.info('### Generating server stubs for %s ###', app_name)
+        apps_path = [path for path in root.glob(f'applications/{app_name}') if path.is_dir()]
+    else:
+        logging.info('### Generating server stubs for all applications ###')
+        apps_path = [path for path in root.glob('applications/*') if path.is_dir()]
+    return apps_path

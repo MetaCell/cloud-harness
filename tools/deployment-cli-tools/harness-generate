@@ -17,7 +17,10 @@ def main():
     args = get_command_line_arguments()
     get_dependencies()
 
-    root_path = args.path.absolute()
+    root_path = args.path.absolute() if args.path else pathlib.Path.cwd().absolute()
+    app_name = root_path.name if args.path else args.app_name
+    if args.path and args.app_name:
+        logging.warning('Ignoring app_name flag because path was provided')
 
     # Check if applications folder exists, if not, go up until it's found
     while not (root_path / 'applications').exists():
@@ -32,11 +35,10 @@ def main():
         generate_models(root_path, should_generate)
 
     if args.generate_servers:
-        generate_servers(root_path, should_generate, args.app_name)
+        generate_servers(root_path, should_generate, app_name)
 
     if args.generate_clients:
-        assert args.client_name is not None
-        generate_clients(root_path, should_generate, args.app_name, args.client_name, args.client_types)
+        generate_clients(root_path, should_generate, app_name, args.client_name, args.client_types)
 
 
 class GenerationMode(enum.Flag):
@@ -46,7 +48,7 @@ class GenerationMode(enum.Flag):
 
     @classmethod
     def all(cls):
-        return functools.reduce(operator.or_, cls)
+        return functools.reduce(operator.or_, [cls.CLIENTS, cls.SERVERS])
 
 
 @dataclass(frozen=True)
@@ -72,18 +74,18 @@ class CommandLineArguments:
 
 
 def get_command_line_arguments() -> CommandLineArguments:
-    parser = argparse.ArgumentParser(description='Walks filesystem inside ./applications to create and update application scaffolding based on API specifications.')
+    parser = argparse.ArgumentParser(description='Walks the filesystem inside the ./applications folder to create and update applications scaffolding.')
 
     common_arguments = argparse.ArgumentParser(add_help=False)
-    common_arguments.add_argument('path', metavar='path', nargs='?', default=pathlib.Path.cwd(), type=pathlib.Path,
-                                  help='Base path of the application.')
+    common_arguments.add_argument('path', metavar='path', nargs='?', default=None, type=pathlib.Path,
+                                  help='Base path of the application. If used, the -a/--app_name flag is ignored.')
     common_arguments.add_argument('-i', '--interactive', dest='is_interactive', action="store_true",
                                   help='Asks before generate')
     common_arguments.add_argument('-a', '--app-name', dest='app_name', action="store", default=None,
                                   help='Generate only for a specific application')
 
     clients_arguments = argparse.ArgumentParser(add_help=False)
-    clients_arguments.add_argument('-cn', '--client-name', dest='client_name', action='store', default=LIB_NAME,
+    clients_arguments.add_argument('-cn', '--client-name', dest='client_name', action='store', default=None,
                                    help='specify client prefix name')
     client_type_group = clients_arguments.add_mutually_exclusive_group(required=False)
     client_type_group.add_argument('-t', '--ts-only', dest='client_types', action='store_const', const=ClientType.TS_CLIENT,
@@ -95,20 +97,20 @@ def get_command_line_arguments() -> CommandLineArguments:
     subparsers = parser.add_subparsers(title='generation modes', required=True)
 
     all_parser = subparsers.add_parser('all', parents=[common_arguments, clients_arguments],
-                                       help='Generate models, server stubs and client libraries')
+                                       help='Generate server stubs and client libraries')
     all_parser.set_defaults(generation_mode=GenerationMode.all())
 
-    models_parser = subparsers.add_parser('models', parents=[common_arguments],
-                                          help='Generate only model library')
-    models_parser.set_defaults(generation_mode=GenerationMode.MODELS)
+    clients_parser = subparsers.add_parser('clients', parents=[common_arguments, clients_arguments],
+                                           help='Generate only client libraries')
+    clients_parser.set_defaults(generation_mode=GenerationMode.CLIENTS)
 
     servers_parser = subparsers.add_parser('servers', parents=[common_arguments],
                                            help='Generate only server stubs')
     servers_parser.set_defaults(generation_mode=GenerationMode.SERVERS)
 
-    clients_parser = subparsers.add_parser('clients', parents=[common_arguments, clients_arguments],
-                                           help='Generate only client libraries')
-    clients_parser.set_defaults(generation_mode=GenerationMode.CLIENTS)
+    models_parser = subparsers.add_parser('models', parents=[common_arguments],
+                                          help='Special flag, used to regenerate only model libraries')
+    models_parser.set_defaults(generation_mode=GenerationMode.MODELS)
 
     args = parser.parse_args()
 
