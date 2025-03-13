@@ -17,7 +17,7 @@ from ch_cli_tools.common_types import TemplateType
 from ch_cli_tools.manifest import get_manifest
 
 from . import HERE
-from .utils import confirm, copymergedir, replace_in_file, replaceindir, to_python_module
+from .utils import confirm, copymergedir, replace_in_file, replaceindir, to_python_module, get_apps_paths
 
 CODEGEN = os.path.join(HERE, 'bin', 'openapi-generator-cli.jar')
 APPLICATIONS_SRC_PATH = os.path.join('applications')
@@ -39,24 +39,27 @@ class ClientType(enum.Flag):
 def generate_flask_server(app_path: pathlib.Path, overrides_folder: Optional[pathlib.Path] = None) -> None:
     get_dependencies()
 
-    openapi_directory = app_path / 'api'
-    openapi_file = next(openapi_directory.glob('*.yaml'))
+    try:
+        openapi_directory = app_path / 'api'
+        openapi_file = next(openapi_directory.glob('*.yaml'))
 
-    server_path = app_path / 'server'
-    backend_path = app_path / 'backend'
-    out_path = server_path if server_path.exists() else backend_path
+        server_path = app_path / 'server'
+        backend_path = app_path / 'backend'
+        out_path = server_path if server_path.exists() else backend_path
 
-    command = [
-        'java', '-jar', CODEGEN, 'generate',
-        '-i', openapi_file,
-        '-g', 'python-flask',
-        '-o', out_path,
-        '-c', openapi_directory / 'config.json',
-    ]
-    if overrides_folder:
-        command += ['-t', overrides_folder]
+        command = [
+            'java', '-jar', CODEGEN, 'generate',
+            '-i', openapi_file,
+            '-g', 'python-flask',
+            '-o', out_path,
+            '-c', openapi_directory / 'config.json',
+        ]
+        if overrides_folder:
+            command += ['-t', overrides_folder]
 
-    subprocess.run(command)
+        subprocess.run(command)
+    except:
+        logging.error(f'An error occurred while generating the server stubs for {app_path.name}', exc_info=True)
 
 
 def generate_fastapi_server(app_path: pathlib.Path) -> None:
@@ -230,16 +233,12 @@ def generate_servers(
     """
     Generates server stubs
     """
-    openapi_files = [path for path in root_path.glob('applications/*/api/*.yaml')]
+    apps_path = get_apps_paths(root_path, app_name)
 
-    for openapi_file in openapi_files:
-        app_path = openapi_file.parent.parent
+    for app_path in apps_path:
         manifest = get_manifest(app_path)
 
-        if app_name and manifest.app_name != app_name:
-            continue
-
-        if not should_generate(f'server stubs for {openapi_file}'):
+        if not should_generate(f'Should we regenerate the server stubs for {app_path.name} ?'):
             continue
 
         if TemplateType.DJANGO_FASTAPI in manifest.templates:
@@ -259,32 +258,32 @@ def generate_clients(
     """
     Generates client stubs
     """
-    if not should_generate('client libraries'):
-        return
+    apps_path = get_apps_paths(root_path, app_name)
 
     logging.info('Generating client libraries for %s', str(client_types))
 
-    client_src_path = root_path / 'libraries' / 'client' / client_lib_name
-    apps_path = root_path / 'applications'
-    apps = (app for app in apps_path.iterdir() if app.is_dir())
+    if client_lib_name:
+        client_src_path = root_path / 'libraries' / 'client' / client_lib_name
 
-    for app_path in apps:
+    for app_path in apps_path:
         manifest = get_manifest(app_path)
 
-        if app_name and manifest.app_name != app_name:
+        if not should_generate(f'Should we regenerate the client libraries for {app_path.name} ?'):
             continue
 
         if TemplateType.DJANGO_NINJA in manifest.templates:
             generate_openapi_from_ninja_schema(manifest.app_name, app_path)
 
         for openapi_file in app_path.glob('api/*.yaml'):
-            if ClientType.PYTHON_CLIENT in client_types:
+            if ClientType.PYTHON_CLIENT in client_types and client_lib_name:
                 generate_python_client(manifest.app_name, openapi_file, client_src_path, lib_name=client_lib_name)
 
             if TemplateType.WEBAPP in manifest.templates and ClientType.TS_CLIENT in client_types:
-                generate_ts_client(openapi_file, app_name)
+                ts_client_name = app_name if app_name else manifest.app_name
+                generate_ts_client(openapi_file, ts_client_name)
 
-    aggregate_packages(client_src_path, client_lib_name)
+    if client_lib_name:
+        aggregate_packages(client_src_path, client_lib_name)
 
 
 def aggregate_packages(client_source_path: pathlib.Path, lib_name=LIB_NAME):
