@@ -1,8 +1,8 @@
 import os
 import logging
-import requests
 
 import schemathesis as st
+st.experimental.OPEN_API_3_1.enable()
 
 from cloudharness.auth import get_token
 
@@ -20,16 +20,18 @@ if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
             logging.exception("The local schema file %s cannot be loaded. Attempting loading from URL", openapi_uri)
 
     if not schema:
-        # remote testing: might be /api/openapi.json or /openapi.json
+        # Try app_url/openapi.json
         try:
-            openapi_uri = openapi_uri = app_url + "/openapi.json"
+            openapi_uri = app_url.rstrip("/") + "/openapi.json"
             logging.info("Using openapi spec at %s", openapi_uri)
             schema = st.from_uri(openapi_uri)
         except st.exceptions.SchemaError:
-            # Use alternative configuration
+            logging.warning("Failed to load schema from %s", openapi_uri)
+
+            # Then try app_url/api/openapi.json
             try:
-                openapi_uri = app_url.replace("/api", "") + "/openapi.json"
-                print(requests.get(openapi_uri))
+                openapi_uri = app_url.rstrip("/") + "/api/openapi.json"
+                logging.info("Using openapi spec at %s", openapi_uri)
                 schema = st.from_uri(openapi_uri)
             except st.exceptions.SchemaError as e:
                 raise Exception(
