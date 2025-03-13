@@ -1,10 +1,10 @@
+from cloudharness.auth import get_token
 import os
 import logging
 
 import schemathesis as st
 st.experimental.OPEN_API_3_1.enable()
 
-from cloudharness.auth import get_token
 
 if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
     app_schema = os.environ.get("APP_SCHEMA_FILE", None)
