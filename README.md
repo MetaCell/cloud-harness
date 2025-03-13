@@ -84,13 +84,13 @@ Cloudharness can be used on all major operative systems.
 
 ### Python
 
-Python 3.10 must be installed.
+Python 3.10+ must be installed.
 
 It is recommended to setup a virtual environment.
 With conda:
 
 ```bash
-conda create --name ch python=3.10
+conda create --name ch python=3.12
 conda activate ch
 ```
 
@@ -137,168 +137,16 @@ To use the cli tools, install requirements first:
 bash install.sh
 ```
 
-### Create new REST application
+### Create a new REST application
 
 `harness-application` is a command-line tool used to create new applications based on predefined code templates. It allows users to quickly scaffold applications with backend, frontend, and database configurations.
-
-#### harness-application Usage
-
-```sh
-harness-application [name] [-t TEMPLATE]
-```
-
-#### harness-application Arguments
-
-- `name` *(required)* – The name of the application to be created.
-
-#### harness-application Options
-
-- `-h, --help` – Displays the help message and exits.
-- `-t TEMPLATES, --template TEMPLATES` – Specifies one or more templates to use when creating the application.
-
-#### Available Templates
-
-The following templates can be used with the `-t` flag:
-
-- **flask-server** – Backend Flask server based on OpenAPI.
-- **webapp** – Full-stack React web application with both frontend and backend.
-- **db-postgres** – PostgreSQL database setup.
-- **db-neo4j** – Neo4j database setup.
-- **db-mongo** – MongoDB database setup.
-- **django-fastapi** – FastAPI and Django backend based on OpenAPI.
-- **django-ninja** – Django Ninja backend.
-
-#### harness-application Examples
-
-##### Create a New Flask-Based Microservice Application
-
-```sh
-harness-application myapp
-```
-
-##### Create a Full-Stack Web Application
-
-```sh
-harness-application myapp -t webapp
-```
-
-##### Create a Web Application with Mongo Database
-
-```sh
-harness-application myapp -t webapp -t db-mongo
-```
-
-##### Display Help Information
-
-```sh
-harness-application --help
-```
-
-#### harness-application Notes
-
-- Multiple templates can be specified concatenating the -t parameter.
-- The tool generates the necessary scaffolding for the chosen templates.
-- Ensure you have the required dependencies installed before running the generated application.
-- For more information, run `harness-application --help` or check out the additional documentation:
-  - [Applications README](./docs/applications/README.md)
-  - [Developer Guide](./docs/dev.md)
+More information can be found [here](./docs/applications/harness-application.md).
 
 ### Generate server and client code from openapi
 
 To (re)generate the code for your applications, run `harness-generate`.
-`harness-generate` is a command-line tool used to generate client code, server stubs, and model libraries for applications. It walks through the filesystem inside the `./applications` folder to create and update application scaffolding. The tool supports different generation modes and allows for both interactive and non-interactive usage.
-
-#### Usage
-
-```sh
-harness-generate [mode] [-h] [-i] [-a APP_NAME] [-cn CLIENT_NAME] [-t | -p] [path]
-```
-
-#### harness-generate Arguments
-
-- `path` *(optional)* – The base path of the application. If provided, the `-a/--app-name` flag is ignored.
-
-#### harness-generate Options
-
-- `-h, --help` – Displays the help message and exits.
-- `-i, --interactive` – Asks for confirmation before generating code.
-- `-a APP_NAME, --app-name APP_NAME` – Specifies the application name to generate clients for.
-- `-cn CLIENT_NAME, --client-name CLIENT_NAME` – Specifies a prefix for the client name.
-- `-t, --ts-only` – Generates only TypeScript clients.
-- `-p, --python-only` – Generates only Python clients.
-
-#### Generation Modes
-
-`harness-generate` supports the following modes:
-
-- **all** – Generates both server stubs and client libraries.
-- **clients** – Generates only client libraries.
-- **servers** – Generates only server stubs.
-- **models** – Regenerates only model libraries.
-
-#### harness-generate Examples
-
-##### Generate Client and Server stubs for all applications
-
-```sh
-harness-generate all
-```
-
-##### Generate Client and Server stubs for a Specific Application
-
-```sh
-harness-generate all -a myApp
-```
-
-##### Generate Only Client Libraries
-
-```sh
-harness-generate clients
-```
-
-##### Generate Only Server Stubs
-
-```sh
-harness-generate servers
-```
-
-##### Regenerate Only Model Libraries (deprecated)
-
-```sh
-harness-generate models
-```
-
-##### Generate TypeScript Clients Only and Server stubs
-
-```sh
-harness-generate all -t
-```
-
-##### Generate Python Clients Only and Server stubs
-
-```sh
-harness-generate all -p
-```
-
-##### Interactive Mode
-
-```sh
-harness-generate all -i
-```
-
-#### harness-generate Notes
-
-- The tool scans the `./applications` directory for available applications.
-- If `path` is provided, `-a/--app-name` is ignored.
-- The `models` mode is a special flag used when regenerating only model libraries (deprecated).
-- The tool supports interactive mode to confirm before generating clients.
-- Use either `-t` or `-p`, but not both simultaneously.
-
-For further details, run:
-
-```sh
-harness-generate --help
-```
+`harness-generate` is a command-line tool used to generate client code, server stubs, and model libraries for applications.
+More information can be found [here](./docs/applications/harness-generate.md)
 
 ### Generate deployment
 
