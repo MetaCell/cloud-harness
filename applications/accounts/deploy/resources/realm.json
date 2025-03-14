@@ -44,9 +44,9 @@
         "resetPasswordAllowed": true,
         "editUsernameAllowed": true,
         "users": [
-            {{- range $app := .Values.apps }}
+            {{- range $j, $app := .Values.apps }}
               {{- if (hasKey $app.harness "accounts")  }}
-                {{- range $i, $user := $app.harness.accounts.users }}{{if $i}},{{end}}
+                {{- range $i, $user := $app.harness.accounts.users }}{{if (add $i $j)}},{{end}}
                 {{ include "deploy_accounts_utils.user" (dict "root" $ "app" $app "user" $user) }}
                 {{- end }}
               {{- end }}
@@ -82,11 +82,11 @@
                 }
             ],
             "client": {
-            {{- range $app := .Values.apps }}
+            {{- range $j,$app := .Values.apps }}
               {{- if (hasKey $app.harness "accounts")  }}
                 {{ $app.harness.name | quote }}: [
                 {{- range $i, $role := $app.harness.accounts.roles }}
-                {{if $i}},{{end}}
+                {{if (add $i $j)}},{{end}}
                 {{ include "deploy_accounts_utils.role" (dict "root" $ "app" $app "role" $role) }}
                 {{- end }}
                 ]
