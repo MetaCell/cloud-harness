@@ -7,10 +7,6 @@ from cloudharness.auth import get_token
 st.experimental.OPEN_API_3_1.enable()
 
 
-import os
-import logging
-import schemathesis as st
-
 # Enable experimental OpenAPI 3.1 support if needed
 st.experimental.OPEN_API_3_1.enable()
 
@@ -48,10 +44,9 @@ if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
         if not schema:
             raise Exception("Cannot setup API tests: No valid schema found. Check your deployment and configuration.")
 
-
     if "USERNAME" in os.environ and "PASSWORD" in os.environ:
         logging.info("Setting token from username and password")
-        
+
         @st.auth.register()
         class TokenAuth:
             def get(self, context):
@@ -76,7 +71,7 @@ if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
                 case.headers = case.headers or {}
                 case.headers["Authorization"] = f"Bearer {data}"
                 case.headers["Cookie"] = f"kc-access={data}"
-    
+
     UNSAFE_VALUES = ("%")
 
     @st.hook
