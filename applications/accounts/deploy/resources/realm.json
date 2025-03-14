@@ -47,11 +47,11 @@
             {{- $j := 0}}
             {{- range $app := .Values.apps }}
               {{- if (hasKey $app.harness "accounts")  }}
-                {{- $j := add1 $j }}
                 {{- range $i, $user := $app.harness.accounts.users }}{{if or $i $j}},{{end}}
                 {{ include "deploy_accounts_utils.user" (dict "root" $ "app" $app "user" $user) }}
                 {{- end }}
               {{- end }}
+              {{- $j := add1 $j }}
             {{- end }}
         ],
         "roles": {
@@ -87,13 +87,14 @@
             {{- $k := 0}}
             {{- range $app := .Values.apps }}
               {{- if (hasKey $app.harness "accounts")  }}
-                {{- $k = add1 $k }}
+                
                 {{ $app.harness.name | quote }}: [
                 {{- range $i, $role := $app.harness.accounts.roles }}
                 {{if or $i $k}},{{end}}
                 {{ include "deploy_accounts_utils.role" (dict "root" $ "app" $app "role" $role) }}
                 {{- end }}
                 ]
+                {{- $k = add1 $k }}
               {{- end }}
             {{- end }}
             }
