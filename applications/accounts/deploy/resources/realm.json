@@ -47,11 +47,15 @@
             {{- $j := 0}}
             {{- range $app := .Values.apps }}
               {{- if (hasKey $app.harness "accounts")  }}
-                {{- range $i, $user := $app.harness.accounts.users }}{{if or $i $j}},{{end}}
+                {{- if $j}},{{end}}
+                {{- if len $app.harness.accounts.users}}
+                    {{- $j = add1 $j }}
+                {{- end }}
+                {{- range $i, $user := $app.harness.accounts.users }}{{if $i}},{{end}}
                 {{ include "deploy_accounts_utils.user" (dict "root" $ "app" $app "user" $user) }}
                 {{- end }}
               {{- end }}
-              {{- $j := add1 $j }}
+              
             {{- end }}
         ],
         "roles": {
@@ -86,12 +90,13 @@
             "client": {
             {{- $k := 0}}
             {{- range $app := .Values.apps }}
+
               {{- if (hasKey $app.harness "accounts")  }}
-                
+                {{- if $k}},{{end}}
                 {{ $app.harness.name | quote }}: [
                 {{- range $i, $role := $app.harness.accounts.roles }}
-                {{if or $i $k}},{{end}}
-                {{ include "deploy_accounts_utils.role" (dict "root" $ "app" $app "role" $role) }}
+                {{if $i}},{{end}}
+                {{- include "deploy_accounts_utils.role" (dict "root" $ "app" $app "role" $role) }}
                 {{- end }}
                 ]
                 {{- $k = add1 $k }}
