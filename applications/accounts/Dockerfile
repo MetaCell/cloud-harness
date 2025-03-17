@@ -1,4 +1,4 @@
-FROM quay.io/keycloak/keycloak:16.1.1
+FROM quay.io/keycloak/keycloak:16.1.0
 
 # add kubectl
 USER root

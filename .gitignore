@@ -8,7 +8,7 @@ node_modules
 *.DS_Store
 deployment/helm
 deployment/compose
-docker-compose.yaml
+/docker-compose.yaml
 *.egg-info
 *.idea
 /build

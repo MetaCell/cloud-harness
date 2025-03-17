@@ -173,6 +173,9 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         # Skip excluded apps
                         continue
 
+                    if app_config and not helm_values.apps[app_key].get('build', True):
+                        continue
+
                     if app_config and app_config.dependencies and app_config.dependencies.git:
                         for dep in app_config.dependencies.git:
                             step_name = f"clone_{basename(dep.url).replace('.', '_')}_{basename(dockerfile_relative_to_root).replace('.', '_')}"
@@ -319,11 +322,13 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
     steps = codefresh["steps"]
     if CD_E2E_TEST_STEP in steps and not steps[CD_E2E_TEST_STEP]["scale"]:
         del steps[CD_E2E_TEST_STEP]
-        del steps[CD_BUILD_STEP_TEST]["steps"]["test-e2e"]
+        if CD_BUILD_STEP_TEST in steps and 'test-e2e' in steps[CD_BUILD_STEP_TEST]["steps"]:
+            del steps[CD_BUILD_STEP_TEST]["steps"]["test-e2e"]
 
     if CD_API_TEST_STEP in steps and not steps[CD_API_TEST_STEP]["scale"]:
         del steps[CD_API_TEST_STEP]
-        del steps[CD_BUILD_STEP_TEST]["steps"]["test-api"]
+        if CD_BUILD_STEP_TEST in steps and 'test-api' in steps[CD_BUILD_STEP_TEST]["steps"]:
+            del steps[CD_BUILD_STEP_TEST]["steps"]["test-api"]
 
     if CD_BUILD_STEP_TEST in steps and not steps[CD_BUILD_STEP_TEST]["steps"]:
         del steps[CD_BUILD_STEP_TEST]
