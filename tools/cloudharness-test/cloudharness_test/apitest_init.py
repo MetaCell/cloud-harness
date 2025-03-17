@@ -75,20 +75,17 @@ if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
     UNSAFE_VALUES = ("%")
 
     @st.hook
-    def before_generate_path_parameters(context: HookContext, strategy):
-        def valid_param(x):
-            # Extract the candidate value.
-            param = x["key"] if isinstance(x, dict) and "key" in x else x
-
-            if param is None or param == "":
-                return True
-
-            param_str = str(param)
-
-            # Reject if any unsafe substring is present.
-            if any(unsafe in param_str for unsafe in UNSAFE_VALUES):
-                return False
-
+    def filter_path_parameters(context: HookContext, x):
+        # Extract the candidate value.
+        param = x["key"] if isinstance(x, dict) and "key" in x else x
+        
+        if param is None or param == "":
             return True
 
-        return strategy.filter(valid_param)
+        param_str = str(param)
+
+        # Reject if any unsafe substring is present.
+        if any(unsafe in param_str for unsafe in UNSAFE_VALUES):
+            return False
+
+        return True
