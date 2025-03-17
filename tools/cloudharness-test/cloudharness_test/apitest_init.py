@@ -75,7 +75,7 @@ if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
     def filter_path_parameters(context: HookContext, x):
         # Extract the candidate value.
         param = x["key"] if isinstance(x, dict) and "key" in x else x
-        
+
         if param is None or param == "":
             return True
 
