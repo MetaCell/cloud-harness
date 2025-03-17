@@ -4,10 +4,7 @@ import schemathesis as st
 from schemathesis.hooks import HookContext
 
 from cloudharness.auth import get_token
-st.experimental.OPEN_API_3_1.enable()
 
-
-# Enable experimental OpenAPI 3.1 support if needed
 st.experimental.OPEN_API_3_1.enable()
 
 if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
@@ -72,7 +69,7 @@ if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
                 case.headers["Authorization"] = f"Bearer {data}"
                 case.headers["Cookie"] = f"kc-access={data}"
 
-    UNSAFE_VALUES = ("%")
+    UNSAFE_VALUES = ("%", )
 
     @st.hook
     def filter_path_parameters(context: HookContext, x):

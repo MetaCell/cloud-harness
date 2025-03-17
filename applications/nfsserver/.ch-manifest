@@ -1,0 +1,4 @@
+app-name: nfsserver
+inferred: true
+templates: [base]
+version: '2'

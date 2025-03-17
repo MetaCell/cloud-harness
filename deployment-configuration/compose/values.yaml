@@ -21,7 +21,7 @@ apps: {}
 env:
   # -- Cloud Harness version
   - name: CH_VERSION
-    value: 2.4.0
+    value: 2.5.0
 proxy:
   timeout:
     # -- Timeout for proxy connections in seconds.
