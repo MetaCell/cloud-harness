@@ -4,10 +4,7 @@ import schemathesis as st
 from schemathesis.hooks import HookContext
 
 from cloudharness.auth import get_token
-st.experimental.OPEN_API_3_1.enable()
 
-
-# Enable experimental OpenAPI 3.1 support if needed
 st.experimental.OPEN_API_3_1.enable()
 
 if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
