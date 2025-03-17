@@ -50,7 +50,7 @@ try:
 except:
     # no current app found, fall back to the default settings, there is a god change that
     # we are running on a developers local machine
-    log.warning("Error setting current app configuration, continuing...")
+    log.warning("Error setting current app configuration, was `harness-deployment` executed? Continuing...")
 
     current_app = applications.ApplicationConfiguration({
         "name": app_name,

@@ -1,0 +1,4 @@
+app-name: events
+inferred: true
+templates: [base]
+version: '2'

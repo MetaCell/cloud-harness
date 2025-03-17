@@ -180,14 +180,19 @@ def replaceindir(root_src_dir, source, replace):
             replace_in_file(src_file, source, replace)
 
 
-def replace_in_file(src_file: pathlib.Path, source: str, replacement: str) -> None:
+def confirm(question):
+    answer = input(f"{question} (Y/n): ").casefold()
+    return answer == "y" if answer else True
+
+
+def replace_in_file(src_file: pathlib.Path, source: str, replacement) -> None:
     if src_file.name.endswith('.py') or src_file.name == 'Dockerfile':
-        replacement = to_python_module(replacement)
+        replacement = to_python_module(str(replacement))
 
     with fileinput.input(src_file, inplace=True) as file:
         try:
             for line in file:
-                print(line.replace(source, replacement), end='')
+                print(line.replace(source, str(replacement)), end='')
         except UnicodeDecodeError:
             pass
 
@@ -485,3 +490,15 @@ def load_yaml(yaml_file: pathlib.Path) -> dict:
 def save_yaml(yaml_file: pathlib.Path, data: dict) -> None:
     with yaml_file.open('w') as file:
         yaml.dump(data, file)
+
+
+def get_apps_paths(root, app_name) -> tuple[str]:
+    apps_path = []
+
+    if app_name:
+        logging.info('### Generating server stubs for %s ###', app_name)
+        apps_path = [path for path in root.glob(f'applications/{app_name}') if path.is_dir()]
+    else:
+        logging.info('### Generating server stubs for all applications ###')
+        apps_path = [path for path in root.glob('applications/*') if path.is_dir()]
+    return apps_path
