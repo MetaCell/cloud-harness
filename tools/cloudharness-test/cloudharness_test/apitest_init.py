@@ -69,7 +69,7 @@ if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
                 case.headers["Authorization"] = f"Bearer {data}"
                 case.headers["Cookie"] = f"kc-access={data}"
 
-    UNSAFE_VALUES = ("%")
+    UNSAFE_VALUES = ("%", )
 
     @st.hook
     def before_generate_path_parameters(context: HookContext, strategy):
