@@ -1,5 +1,6 @@
 import os
 import logging
+from urllib.parse import urlparse
 import schemathesis as st
 from schemathesis.hooks import HookContext
 
@@ -10,7 +11,11 @@ st.experimental.OPEN_API_3_1.enable()
 if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
     app_schema = os.environ.get("APP_SCHEMA_FILE", None)
     app_url = os.environ.get("APP_URL", "http://samples.ch.local/api")
-    logging.info("Start schemathesis tests on %s", app_url)
+
+    parsed_url = urlparse(app_url)
+    base_url = f"{parsed_url.scheme}://{parsed_url.netloc}".rstrip("/")
+
+    logging.info("Start schemathesis tests on %s", base_url)
 
     schema = None
 
@@ -25,8 +30,8 @@ if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
     # If no schema from file, then loop over URL candidates
     if not schema:
         candidates = [
-            app_url.rstrip("/") + "/openapi.json",
-            app_url.rstrip("/") + "/api/openapi.json",
+            base_url + "/openapi.json",
+            base_url + "/api/openapi.json",
         ]
         for candidate in candidates:
             try:
