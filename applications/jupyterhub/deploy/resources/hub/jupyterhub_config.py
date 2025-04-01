@@ -286,7 +286,7 @@ if storage_type == "dynamic":
     c.KubeSpawner.volumes = [
         {
             "name": volume_name_template,
-            "persistentVolumeClaim": {"claimName": "{pvc_name_template}"},
+            "persistentVolumeClaim": {"claimName": pvc_name_template},
         }
     ]
     c.KubeSpawner.volume_mounts = [
