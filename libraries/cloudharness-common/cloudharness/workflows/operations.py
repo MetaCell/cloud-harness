@@ -12,7 +12,7 @@ from cloudharness.utils import env, config
 from . import argo
 from .tasks import Task, SendResultTask, CustomTask
 from .utils import PodExecutionContext, affinity_spec, is_accounts_present, name_from_path, volume_mount_template
-import argo
+from argo.workflows.client import V1Toleration
 
 POLLING_WAIT_SECONDS = 1
 SERVICE_ACCOUNT = 'argo-workflows'
@@ -123,7 +123,7 @@ class ContainerizedOperation(ManagedOperation):
             'entrypoint': self.entrypoint,
             'ttlStrategy': self.ttl_strategy,
             'templates': [self.modify_template(template) for template in self.templates],
-            'tolerations': [argo.workflows.client.V1Toleration(key='cloudharness/temporary-job', operator='Equal', value='true').to_dict()],
+            'tolerations': [V1Toleration(key='cloudharness/temporary-job', operator='Equal', value='true').to_dict()],
             'serviceAccountName': SERVICE_ACCOUNT,
             'imagePullSecrets': [{'name': config.CloudharnessConfig.get_registry_secret()}],
             'volumes': [{
