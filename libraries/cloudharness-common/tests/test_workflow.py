@@ -122,6 +122,10 @@ def test_single_task_shared():
     accounts_offset = 1 if is_accounts_present() else 0
     assert len(op.volumes) == 1
     assert len(wf['spec']['volumes']) == 2 + accounts_offset
+    assert wf['spec']['tolerations'], "Tolerations should be added to the workflow"
+    assert wf['spec']['tolerations'][0]['key'] == 'cloudharness/temporary-job'
+    assert wf['spec']['tolerations'][0]['operator'] == 'Equal'
+    assert wf['spec']['tolerations'][0]['value'] == 'true'
     assert wf['spec']['volumes'][1 + accounts_offset]['persistentVolumeClaim']['claimName'] == 'myclaim'
     if accounts_offset == 1:
         assert wf['spec']['volumes'][1]['secret']['secretName'] == 'accounts'
