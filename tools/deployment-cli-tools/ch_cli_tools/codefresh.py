@@ -342,7 +342,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     ROLLOUT_CMD_TPL % app.deployment.name)
             if app.secured and helm_values.secured_gatekeepers:
                 rollout_commands.append(
-                    ROLLOUT_CMD_TPL % app.service.name + "-gk")
+                    ROLLOUT_CMD_TPL % app.subdomain + "-gk")
         # some time to the certificates to settle
         rollout_commands.append("sleep 60")
 
