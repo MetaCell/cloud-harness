@@ -264,7 +264,7 @@ proxy:
     nodeSelector: {}
     tolerations: []
     networkPolicy:
-      enabled: true
+      enabled: false # EDIT: CLOUDHARNESS -- needs more configuration to properly work when true
       ingress: []
       egress: []
       egressAllowRules:
@@ -391,7 +391,7 @@ singleuser:
     blockWithIptables: true
     ip: 169.254.169.254
   networkPolicy:
-    enabled: true
+    enabled: false # EDIT: CLOUDHARNESS -- needs more configuration to properly work when true
     ingress: []
     egress: []
     egressAllowRules:
