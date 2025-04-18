@@ -1,5 +1,6 @@
 import collections
 
+
 def dict_merge(dct, merge_dct, add_keys=True, merge_none=True):
     """ Recursive dict merge. Inspired by :meth:``dict.update()``, instead of
     updating only top-level keys, dict_merge recurses down into dicts nested
