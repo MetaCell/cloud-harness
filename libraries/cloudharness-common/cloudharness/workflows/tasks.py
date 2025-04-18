@@ -1,7 +1,7 @@
 import argo.workflows
 from cloudharness.utils import dict_merge
 from . import argo_service
-from argo.workflows.client import V1alpha1Template 
+from argo.workflows.client import V1alpha1Template
 from cloudharness.utils.env import get_cloudharness_variables, get_image_full_tag
 from .utils import WORKFLOW_NAME_VARIABLE_NAME, PodExecutionContext, affinity_spec, is_accounts_present, volume_mount_template, volume_requires_affinity
 
@@ -13,7 +13,7 @@ class Task(argo_service.ArgoObject):
     Abstract interface for a task.
     """
 
-    def __init__(self, name, resources={}, volume_mounts=[], retry_limit=10, template_overrides: V1alpha1Template=None, **env_args):
+    def __init__(self, name, resources={}, volume_mounts=[], retry_limit=10, template_overrides: V1alpha1Template = None, **env_args):
         self.name = name.replace(' ', '-').lower()
         self.resources = resources
         self.__envs = get_cloudharness_variables()
@@ -89,7 +89,7 @@ class Task(argo_service.ArgoObject):
 
 class ContainerizedTask(Task):
 
-    def __init__(self, name, resources={}, image_pull_policy='IfNotPresent', command=None, retry_limit=10, template_overrides: V1alpha1Template=None, **env_args):
+    def __init__(self, name, resources={}, image_pull_policy='IfNotPresent', command=None, retry_limit=10, template_overrides: V1alpha1Template = None, **env_args):
         super().__init__(name, resources, retry_limit=retry_limit, template_overrides=template_overrides, **env_args)
         self.image_pull_policy = image_pull_policy
         self.command = command
@@ -124,7 +124,7 @@ class InlinedTask(Task):
     Allows to run Python tasks
     """
 
-    def __init__(self, name, source,  **kwargs):
+    def __init__(self, name, source, **kwargs):
         super().__init__(name, **kwargs)
         self.source = source
 
