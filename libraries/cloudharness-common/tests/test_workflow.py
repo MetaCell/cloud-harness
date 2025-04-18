@@ -1,6 +1,6 @@
 """Notice, this test needs a fully operating kubernetes with argo environment in the container running the test"""
 from cloudharness.utils.config import CloudharnessConfig
-from cloudharness.workflows import argo
+from cloudharness.workflows import argo_service
 from cloudharness import set_debug
 from cloudharness.workflows import operations, tasks, utils
 import requests
@@ -89,9 +89,19 @@ def test_simpledag_workflow():
 
 
 def test_custom_task_workflow():
-    task = operations.CustomTask('download-file', 'workflows-extract-download', url='https://www.bing.com')
-    op = operations.PipelineOperation('test-custom-op-', (task,))
+    task = operations.CustomTask(
+        'download-file', 'workflows-extract-download',
+        url='https://www.bing.com', template_overrides=tasks.V1alpha1Template(
+            memoize=True,
+            name='aaa',
+        )
+    )
+    op = operations.SingleTaskOperation('test-custom-op-', task)
     # print('\n', yaml.dump(op.to_workflow()))
+    wf = op.to_workflow()
+    assert wf['spec']['templates'][0]['retryStrategy']['limit'] == 10
+    assert wf['spec']['templates'][0]['memoize'] is True
+    assert wf['spec']['templates'][0]['name'] == 'aaa'
     if execute:
         print(op.execute())
 
@@ -308,7 +318,7 @@ def test_result_task_workflow():
 
 def test_get_workflows():
     if execute:
-        assert len(argo.get_workflows())
+        assert len(argo_service.get_workflows())
 
 
 def test_submit_workflow():
@@ -317,7 +327,7 @@ def test_submit_workflow():
     resp = requests.get(WORKFLOW)
     manifest: dict = yaml.safe_load(resp.text)
     if execute:
-        wf = argo.submit_workflow(manifest)
+        wf = argo_service.submit_workflow(manifest)
         assert wf
         assert wf.name
 
@@ -329,12 +339,12 @@ def test_get_workflow():
 
     resp = requests.get(WORKFLOW)
     manifest: dict = yaml.safe_load(resp.text)
-    wf = argo.submit_workflow(manifest)
-    wf = argo.get_workflow(wf.name)
+    wf = argo_service.submit_workflow(manifest)
+    wf = argo_service.get_workflow(wf.name)
     assert wf
     assert wf.name
     try:
-        argo.get_workflow('riuhfsdhsdfsfisdf')
+        argo_service.get_workflow('riuhfsdhsdfsfisdf')
         assert 1 == 0  # not found raises exception
     except:
         pass
@@ -347,8 +357,8 @@ def test_get_workflow_logs():
 
     resp = requests.get(WORKFLOW)
     manifest: dict = yaml.safe_load(resp.text)
-    wf = argo.submit_workflow(manifest)
-    logs = argo.get_workflow_logs(wf.name)
+    wf = argo_service.submit_workflow(manifest)
+    logs = argo_service.get_workflow_logs(wf.name)
     assert all(log for log in logs)
 
 

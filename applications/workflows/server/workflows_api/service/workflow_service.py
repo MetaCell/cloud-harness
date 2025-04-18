@@ -1,12 +1,12 @@
-from cloudharness.workflows import argo
+from cloudharness.workflows import argo_service
 from workflows_api.models import OperationSearchResult, Operation, SearchResultData
 
-OperationNotFound = argo.WorkflowNotFound
-OperationException = argo.WorkflowException
-BadParam = argo.BadParam
+OperationNotFound = argo_service.WorkflowNotFound
+OperationException = argo_service.WorkflowException
+BadParam = argo_service.BadParam
 
 
-def argo_workflow_to_operation(workflow: argo.Workflow):
+def argo_workflow_to_operation(workflow: argo_service.Workflow):
     return Operation(name=workflow.name,
                      status=workflow.status,
                      create_time=workflow.create_time,
@@ -15,12 +15,12 @@ def argo_workflow_to_operation(workflow: argo.Workflow):
 
 def delete_operation(name):
     """deletes operation by id"""
-    argo.delete_workflow(name)
+    argo_service.delete_workflow(name)
 
 
 def get_operation(name):
     """get operation by id"""
-    return argo_workflow_to_operation(argo.get_workflow(name))
+    return argo_workflow_to_operation(argo_service.get_workflow(name))
 
 
 def list_operations(status=None, continue_token=None, limit=None) -> OperationSearchResult:
@@ -38,7 +38,7 @@ def list_operations(status=None, continue_token=None, limit=None) -> OperationSe
     :rtype: OperationSearchResult
     """
 
-    argo_raw_result = argo.get_workflows(status, limit=limit, continue_token=continue_token)
+    argo_raw_result = argo_service.get_workflows(status, limit=limit, continue_token=continue_token)
     result = OperationSearchResult()
     result.items = tuple(argo_workflow_to_operation(item) for item in argo_raw_result.items)
     result.meta = SearchResultData(continue_token=argo_raw_result.continue_token)
@@ -51,4 +51,4 @@ def log_operation(name: str) -> str:
     :rtype: str
     """
 
-    return argo.get_workflow_logs(name)
+    return argo_service.get_workflow_logs(name)

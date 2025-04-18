@@ -9,7 +9,7 @@ import yaml
 from cloudharness import log
 from cloudharness.events.client import EventClient
 from cloudharness.utils import env, config
-from . import argo
+from . import argo_service
 from .tasks import Task, SendResultTask, CustomTask
 from .utils import PodExecutionContext, affinity_spec, is_accounts_present, name_from_path, volume_mount_template
 from argo.workflows.client import V1Toleration
@@ -206,7 +206,7 @@ class ContainerizedOperation(ManagedOperation):
         log.debug("Submitting workflow\n" + yaml.dump(op))
 
         # TODO use rest api for that? Include this into cloudharness.workflows?
-        self.persisted = argo.submit_workflow(op)
+        self.persisted = argo_service.submit_workflow(op)
         return self.persisted
 
     def is_running(self):
@@ -216,7 +216,7 @@ class ContainerizedOperation(ManagedOperation):
         return False
 
     def refresh(self):
-        self.persisted = argo.get_workflow(self.persisted.name)
+        self.persisted = argo_service.get_workflow(self.persisted.name)
 
     def is_error(self):
         if self.persisted:
@@ -313,7 +313,7 @@ class ExecuteAndWaitOperation(ContainerizedOperation, SyncOperation):
         while not self.persisted.is_finished():
             time.sleep(POLLING_WAIT_SECONDS)
             log.debug(f"Polling argo workflow {self.persisted.name}")
-            self.persisted = argo.get_workflow(self.persisted.name)
+            self.persisted = argo_service.get_workflow(self.persisted.name)
             log.debug(f"Polling succeeded for \
                {self.persisted.name}. Current phase: {self.persisted.status}")
             if timeout and time.time() - start_time > timeout:
