@@ -13,11 +13,11 @@ class Task(argo_service.ArgoObject):
     Abstract interface for a task.
     """
 
-    def __init__(self, name, resources={}, volume_mounts=[], retry_limit=10, template_overrides: V1alpha1Template = None, **env_args):
+    def __init__(self, name, resources=None, volume_mounts=None, retry_limit=10, template_overrides: V1alpha1Template = None, **env_args):
         self.name = name.replace(' ', '-').lower()
-        self.resources = resources
+        self.resources = resources or {}
         self.__envs = get_cloudharness_variables()
-        self.volume_mounts = volume_mounts
+        self.volume_mounts = volume_mounts or []
         self.external_volumes = [
             v.split(':')[0] for v in self.volume_mounts if volume_requires_affinity(v)]
         for k in env_args:
