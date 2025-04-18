@@ -15,7 +15,11 @@ from cloudharness.utils.config import CloudharnessConfig as conf
 from cloudharness import log, applications
 
 ch_conf = conf.get_configuration()
-namespace = conf.get_namespace()
+try:
+    namespace = conf.get_namespace()
+except Exception as e:
+    log.error("Error getting namespace: %s", e)
+    namespace = 'default'
 
 
 class WorkflowException(Exception):

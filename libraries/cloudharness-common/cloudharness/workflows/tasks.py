@@ -1,17 +1,19 @@
-from . import argo
-
+import argo.workflows
+from cloudharness.utils import dict_merge
+from . import argo_service
+from argo.workflows.client import V1alpha1Template 
 from cloudharness.utils.env import get_cloudharness_variables, get_image_full_tag
 from .utils import WORKFLOW_NAME_VARIABLE_NAME, PodExecutionContext, affinity_spec, is_accounts_present, volume_mount_template, volume_requires_affinity
 
 SERVICE_ACCOUNT = 'argo-workflows'
 
 
-class Task(argo.ArgoObject):
+class Task(argo_service.ArgoObject):
     """
     Abstract interface for a task.
     """
 
-    def __init__(self, name, resources={}, volume_mounts=[], **env_args):
+    def __init__(self, name, resources={}, volume_mounts=[], retry_limit=10, template_overrides: V1alpha1Template=None, **env_args):
         self.name = name.replace(' ', '-').lower()
         self.resources = resources
         self.__envs = get_cloudharness_variables()
@@ -20,6 +22,8 @@ class Task(argo.ArgoObject):
             v.split(':')[0] for v in self.volume_mounts if volume_requires_affinity(v)]
         for k in env_args:
             self.__envs[k] = str(env_args[k])
+        self.retry_limit = retry_limit
+        self.template_overrides = template_overrides.to_dict() if template_overrides else {}
 
     def metadata_spec(self):
         return {
@@ -85,14 +89,14 @@ class Task(argo.ArgoObject):
 
 class ContainerizedTask(Task):
 
-    def __init__(self, name, resources={}, image_pull_policy='IfNotPresent', command=None, **env_args):
-        super().__init__(name, resources, **env_args)
+    def __init__(self, name, resources={}, image_pull_policy='IfNotPresent', command=None, retry_limit=10, template_overrides: V1alpha1Template=None, **env_args):
+        super().__init__(name, resources, retry_limit=retry_limit, template_overrides=template_overrides, **env_args)
         self.image_pull_policy = image_pull_policy
         self.command = command
 
     def spec(self):
 
-        spec = {
+        spec = dict_merge({
             'container': {
                 'image': self.image_name,
                 'env': self.envs,
@@ -104,9 +108,12 @@ class ContainerizedTask(Task):
             'metadata': self.metadata_spec(),
             'name': self.name,
             'outputs': {},
-            'affinity': self.affinity_spec()
+            'affinity': self.affinity_spec(),
+            'retryStrategy': {
+                'limit': self.retry_limit
+            }
 
-        }
+        }, self.template_overrides, merge_none=False)
         if self.command is not None:
             spec['container']['command'] = self.command
         return spec
@@ -117,13 +124,13 @@ class InlinedTask(Task):
     Allows to run Python tasks
     """
 
-    def __init__(self, name, source, **kwargs):
+    def __init__(self, name, source,  **kwargs):
         super().__init__(name, **kwargs)
         self.source = source
 
     def spec(self):
 
-        return {
+        return dict_merge({
             'name': self.name,
             'affinity': self.affinity_spec(),
             'metadata': self.metadata_spec(),
@@ -135,7 +142,7 @@ class InlinedTask(Task):
                     'volumeMounts': self.volumes_mounts_spec(),
                     'command': [self.command]
             }
-        }
+        }, self.template_overrides, merge_none=False)
 
     @property
     def command(self):
@@ -143,10 +150,10 @@ class InlinedTask(Task):
 
 
 class PythonTask(InlinedTask):
-    def __init__(self, name, func):
+    def __init__(self, name, func, **kwargs):
         import inspect
         super().__init__(name, (inspect.getsource(
-            func) + f"\n{func.__name__}()").strip())
+            func) + f"\n{func.__name__}()").strip(), **kwargs)
 
     @property
     def image_name(self):
