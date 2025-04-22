@@ -247,6 +247,18 @@ op = operations.ParallelOperation(..., on_exit_notify=on_exit_notify)
 
 Synchronous operation types use this mechanism to wait for the result and get the value.
 
+To customize the onExit strategy an additional `image` parameter can be specified. 
+
+```Python
+import json
+on_exit_notify={
+    'queue': 'my_queue',
+    'payload': json.dumps({'insert': 1})
+    'image': "my-image"
+}
+op = operations.ParallelOperation(..., on_exit_notify=on_exit_notify)
+```
+
 ## Free template customization
 
 To customize the task beyond the Task api, use 
