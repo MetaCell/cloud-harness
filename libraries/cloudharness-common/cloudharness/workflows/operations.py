@@ -168,7 +168,7 @@ class ContainerizedOperation(ManagedOperation):
         payload = self.on_exit_notify['payload']
         exit_task = CustomTask(
             name="exit-handler",
-            image_name='workflows-notify-queue',
+            image_name=self.on_exit_notify('image', 'workflows-notify-queue'),
             workflow_result='{{workflow.status}}',
             queue_name=queue,
             payload=payload
