@@ -60,7 +60,7 @@ class ContainerizedOperation(ManagedOperation):
     """
 
     def __init__(self, basename: str, pod_context: Union[PodExecutionContext, list, tuple] = None,
-                 shared_directory=None, *args, **kwargs):
+                 shared_directory=None, pod_gc=None, *args, **kwargs):
         """
         :param basename:
         :param pod_context: PodExecutionContext - represents affinity with other pods in the system
@@ -76,6 +76,7 @@ class ContainerizedOperation(ManagedOperation):
 
         self.persisted = None
         shared_path = None
+        self.pod_gc = pod_gc
         if shared_directory:
             if shared_directory is True:
                 self.volumes = ['/mnt/shared']
@@ -126,6 +127,10 @@ class ContainerizedOperation(ManagedOperation):
             'tolerations': [V1Toleration(key='cloudharness/temporary-job', operator='Equal', value='true').to_dict()],
             'serviceAccountName': SERVICE_ACCOUNT,
             'imagePullSecrets': [{'name': config.CloudharnessConfig.get_registry_secret()}],
+            'podGC': self.pod_gc or {
+                'strategy': 'OnWorkflowSuccess',
+                'deleteDelayDuration': self.ttl_strategy['secondsAfterSuccess'] if self.ttl_strategy else "600s",
+            },
             'volumes': [{
                 # mount allvalues so we can use the cloudharness Python library
                 'name': 'cloudharness-allvalues',
@@ -168,7 +173,7 @@ class ContainerizedOperation(ManagedOperation):
         payload = self.on_exit_notify['payload']
         exit_task = CustomTask(
             name="exit-handler",
-            image_name=self.on_exit_notify('image', 'workflows-notify-queue'),
+            image_name=self.on_exit_notify.get('image', 'workflows-notify-queue'),
             workflow_result='{{workflow.status}}',
             queue_name=queue,
             payload=payload
