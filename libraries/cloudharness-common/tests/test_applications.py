@@ -1,8 +1,7 @@
-from cloudharness.utils.config import CloudharnessConfig, ConfigObject
 from cloudharness.applications import ApplicationConfiguration, get_configuration
-from .test_env import set_default_environment
-
-set_default_environment()
+from cloudharness.utils.config import CloudharnessConfig, ConfigObject
+from .test_env import set_test_environment
+set_test_environment()
 
 
 conf_1 = {
