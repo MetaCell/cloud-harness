@@ -14,9 +14,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: "{{ .app.harness.service.name }}-gk"
+  name: "{{ .subdomain }}-gk"
   labels:
-    app: "{{ .app.harness.service.name }}-gk"
+    app: "{{ .subdomain }}-gk"
 data:
   proxy.yml: |-
     verbose: {{ .root.Values.debug }}
@@ -37,7 +37,7 @@ data:
     http-only-cookie: false
     tls-cert:
     tls-private-key:
-    redirection-url: {{ ternary "https" "http" $tls }}://{{ .app.harness.subdomain }}.{{ .root.Values.domain }}
+    redirection-url: {{ ternary "https" "http" $tls }}://{{ .subdomain }}.{{ .root.Values.domain }}
     encryption-key: AgXa7xRcoClDEU0ZDSH4X0XhL5Qy2Z2j
     upstream-url: http://{{ .app.harness.service.name }}.{{ .app.namespace | default .root.Release.Namespace }}:{{ .app.harness.service.port | default 80}}
     {{ if .app.harness.secured }}
@@ -50,6 +50,18 @@ data:
     skip-openid-provider-tls-verify: true
     skip-upstream-tls-verify: true
     {{- end }}
+    cors-origins:
+    - {{ (printf "*.%s" .root.Values.domain) | quote }}
+    cors-methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - PATCH
+    cors-headers:
+    - Authorization
+    - Content-Type
+    - Origin
   cacert.crt: {{ .files.Get "resources/certs/cacert.crt" | quote }}
   access-denied.html.tmpl: |-
     <!DOCTYPE html>
@@ -79,47 +91,46 @@ data:
               <h2 class="message">403 Permission Denied</h2>
               <div class="error-details">
                 Sorry, you do not have access to this page, please contact your administrator.
-                If you have been assigned new authorizations, try to refresh the page or to <a href="/oauth/logout?redirect=/">login again</a>.
+                If you are authorized to see this page, please try <a href="/">reload</a> or <a href="/oauth/logout?redirect=/">login again</a>.
               </div>
             </div>
           </div>
         </div>
     </div>
-
     </body>
     </html>
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: "{{ .app.harness.service.name }}-gk"
+  name: "{{ .subdomain }}-gk"
   labels:
-    app: "{{ .app.harness.service.name }}-gk"
+    app: "{{ .subdomain  }}-gk"
 spec:
   ports:
   - name: http
     port: 8080
   selector:
-    app: "{{ .app.harness.service.name }}-gk"
+    app: "{{ .subdomain  }}-gk"
   type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: "{{ .app.harness.service.name }}-gk"
+  name: "{{ .subdomain  }}-gk"
   labels:
-    app: "{{ .app.harness.service.name }}-gk"
+    app: "{{ .subdomain  }}-gk"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: "{{ .app.harness.service.name }}-gk"
+      app: "{{ .subdomain  }}-gk"
   template:
     metadata:
       annotations:
         checksum/config: {{ .app.harness.uri_role_mapping | toString | sha256sum }}
       labels:
-        app: "{{ .app.harness.service.name }}-gk"
+        app: "{{ .subdomain  }}-gk"
     spec:
 {{ include "deploy_utils.etcHosts" .root | indent 6 }}
       containers:
@@ -135,13 +146,13 @@ spec:
         - name: PROXY_CONFIG_FILE
           value: /opt/proxy.yml
         volumeMounts:
-        - name: "{{ .app.harness.service.name }}-gk-proxy-config"
+        - name: "{{ .subdomain  }}-gk-proxy-config"
           mountPath: /opt/proxy.yml
           subPath: proxy.yml
-        - name: "{{ .app.harness.service.name }}-gk-proxy-config"
+        - name: "{{ .subdomain  }}-gk-proxy-config"
           mountPath: /etc/pki/ca-trust/source/anchors/cacert.crt
           subPath: cacert.crt
-        - name: "{{ .app.harness.service.name }}-gk-proxy-config"
+        - name: "{{ .subdomain }}-gk-proxy-config"
           mountPath: /templates/access-denied.html.tmpl
           subPath: access-denied.html.tmpl
         ports:
@@ -152,14 +163,14 @@ spec:
         resources:
           requests:
             memory: "32Mi"
-            cpu: "50m"
+            cpu: "5m"
           limits:
             memory: "64Mi"
             cpu: "100m"
       volumes:
-      - name: "{{ .app.harness.service.name }}-gk-proxy-config"
+      - name: "{{ .subdomain  }}-gk-proxy-config"
         configMap:
-          name: "{{ .app.harness.service.name }}-gk"
+          name: "{{ .subdomain  }}-gk"
 ---
 {{- end }}
 {{- if .Values.secured_gatekeepers }}
@@ -167,8 +178,13 @@ spec:
 {{- range $app := .Values.apps }}
   {{- if and (hasKey $app "port") ($app.harness.secured)   }}
 ---
-    {{ include "deploy_utils.securedservice" (dict "root" $ "app" $app "files" $files) }}
+    {{ include "deploy_utils.securedservice" (dict "root" $ "app" $app "files" $files "subdomain" $app.harness.subdomain) }}
+  {{- end }}
+  {{- if $app.harness.aliases }}
+    {{- range $subdomain := $app.harness.aliases }}
+      {{ include "deploy_utils.securedservice" (dict "root" $ "app" $app "files" $files "subdomain" $subdomain ) }}
     {{- end }}
+  {{- end }}
   {{- range $subapp := $app }}
   {{- if contains "map" (typeOf $subapp)  }}
     {{- if and (hasKey $subapp "harness.port") (hasKey $subapp "harness.secured") }}

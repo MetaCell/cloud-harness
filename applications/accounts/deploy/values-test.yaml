@@ -1,11 +1,3 @@
-harness:
-  dependencies:
-    soft:
-      - workflows
-      - events
-      - common
-      - jupyterhub
-      - volumemanager
   accounts:
     roles:
     - role1

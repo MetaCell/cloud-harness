@@ -11,7 +11,7 @@ harness:
         cpu: "10m"
       limits:
         memory: "1024Mi"
-        cpu: "500m"
+        cpu: "2000m"
   service:
     auto: true
     port: 8080

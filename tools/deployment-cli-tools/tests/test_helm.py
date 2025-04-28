@@ -17,13 +17,6 @@ def test_collect_helm_values(tmp_path):
                                exclude=['events'], domain="my.local",
                                namespace='test', env='dev', local=False, tag=1, registry='reg')
 
-    # Auto values
-    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/cloudharness/myapp:1'
-    assert values.apps['myapp'].harness.deployment.image == 'reg/cloudharness/myapp:1'
-    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
-    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'reg/cloudharness/accounts:1'
-
     # First level include apps
     assert 'samples' in values[KEY_APPS]
     assert 'myapp' in values[KEY_APPS]
@@ -40,6 +33,14 @@ def test_collect_helm_values(tmp_path):
 
     # Explicit exclude overrides include
     assert 'events' not in values[KEY_APPS]
+
+    # Auto values
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/cloudharness/myapp:1'
+    assert values[KEY_APPS]['myapp']['build'] == True
+    assert values.apps['myapp'].harness.deployment.image == 'reg/cloudharness/myapp:1'
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
+    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'reg/cloudharness/accounts:1'
 
     # Base values kept
     assert values[KEY_APPS]['accounts'][KEY_HARNESS]['subdomain'] == 'accounts'
@@ -77,6 +78,15 @@ def test_collect_helm_values(tmp_path):
     assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/cloudharness/myapp-mytask:1'
     # Not indicated as a build dependency
     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES]
+
+
+def test_collect_nobuild(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values'
+    values = create_helm_chart([RESOURCES], output_path=out_folder, include=['myapp'],
+                               exclude=['events'], domain="my.local",
+                               namespace='test', env='nobuild', local=False, tag=1, registry='reg')
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'custom-image'
+    assert values[KEY_APPS]['myapp']['build'] == False
 
 
 def test_collect_helm_values_noreg_noinclude(tmp_path):

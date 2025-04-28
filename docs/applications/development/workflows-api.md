@@ -219,6 +219,18 @@ ttl_strategy={
 op = operations.ParallelOperation(..., ttl_strategy=ttl_strategy)
 ```
 
+## Retry strategy
+
+By default, workflow tasks are retried 10 times. To set the value to something else, use 
+the `retry_limit` parameter.
+
+```python
+from cloudharness.workflows import operations, tasks
+
+my_task = tasks.CustomTask('my-task-retry', 'myapp-mytask', retry_limit=2)
+op = operations.SingleTaskOperation('my-op-retry-', my_task)
+```
+
 ## Notify on exit
 
 The parameter `on_exit_notify` adds an additional task to the workflow that notifies its completion in the events queue.
@@ -234,6 +246,32 @@ op = operations.ParallelOperation(..., on_exit_notify=on_exit_notify)
 ```
 
 Synchronous operation types use this mechanism to wait for the result and get the value.
+
+To customize the onExit strategy an additional `image` parameter can be specified. 
+
+```Python
+import json
+on_exit_notify={
+    'queue': 'my_queue',
+    'payload': json.dumps({'insert': 1})
+    'image': "my-image"
+}
+op = operations.ParallelOperation(..., on_exit_notify=on_exit_notify)
+```
+
+## Free template customization
+
+To customize the task beyond the Task api, use 
+the `template_overrides` parameter.
+
+```python
+from cloudharness.workflows import operations, tasks
+
+my_task = tasks.CustomTask('my-task-retry', 'myapp-mytask', retry_limit=2)
+op = operations.SingleTaskOperation('my-op-retry-', template_overrides=tasks.V1alpha1Template(
+            memoize=True,
+        ))
+```
 
 ## Workflows query service api
 
