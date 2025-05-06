@@ -548,9 +548,9 @@ elif auth_type == 'keycloak':
 
     c.GenericOAuthenticator.login_service = "CH"
     c.GenericOAuthenticator.username_key = "email"
-    c.GenericOAuthenticator.authorize_url = f"{accounts_url}/auth/realms/{realm}/protocol/openid-connect/auth"
-    c.GenericOAuthenticator.token_url = f"{accounts_url}/auth/realms/{realm}/protocol/openid-connect/token"
-    c.GenericOAuthenticator.userdata_url = f"{accounts_url}/auth/realms/{realm}/protocol/openid-connect/userinfo"
+    c.GenericOAuthenticator.authorize_url = f"{accounts_url}/realms/{realm}/protocol/openid-connect/auth"
+    c.GenericOAuthenticator.token_url = f"{accounts_url}/realms/{realm}/protocol/openid-connect/token"
+    c.GenericOAuthenticator.userdata_url = f"{accounts_url}/realms/{realm}/protocol/openid-connect/userinfo"
     c.GenericOAuthenticator.userdata_params = {'state': 'state'}
 
 

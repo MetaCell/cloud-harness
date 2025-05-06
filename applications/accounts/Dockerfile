@@ -1,7 +1,7 @@
-FROM quay.io/keycloak/keycloak:26.0
+FROM quay.io/keycloak/keycloak:26.2.1
 
 EXPOSE 9000
-
+EXPOSE 8080
 USER root
 COPY --chmod=0755 scripts/create_api_user.sh /opt/keycloak/startup-scripts/create_api_user.sh
 COPY --chmod=0755 scripts/kc-entrypoint.sh /opt/keycloak/bin/kc-entrypoint.sh
