@@ -546,13 +546,16 @@ elif auth_type == 'keycloak':
     c.OAuthenticator.client_secret = client_secret
     c.OAuthenticator.allow_all = True
 
+
     c.GenericOAuthenticator.login_service = "CH"
     c.GenericOAuthenticator.username_key = "email"
+    c.GenericOAuthenticator.username_claim = "email"
+    c.GenericOAuthenticator.scope = ["openid"]
     c.GenericOAuthenticator.authorize_url = f"{accounts_url}/realms/{realm}/protocol/openid-connect/auth"
     c.GenericOAuthenticator.token_url = f"{accounts_url}/realms/{realm}/protocol/openid-connect/token"
     c.GenericOAuthenticator.userdata_url = f"{accounts_url}/realms/{realm}/protocol/openid-connect/userinfo"
     c.GenericOAuthenticator.userdata_params = {'state': 'state'}
-
+    c.GenericOAuthenticator.admin_groups = {"administrator"}
 
 set_config_if_not_none(c.OAuthenticator, 'scope', 'auth.scopes')
 
