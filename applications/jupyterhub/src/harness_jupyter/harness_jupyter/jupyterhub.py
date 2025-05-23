@@ -21,7 +21,7 @@ def custom_options_form(spawner, abc):
     try:
         print("Cloudharness: saving profile list in _ch_profile_list")
         spawner._ch_profile_list = spawner.profile_list
-        spawner.profile_list = []
+        # spawner.profile_list = []
         print("Cloudharness: saving profile list in _ch_profile_list")
     except Exception as e:
         print(f"Cloudharness: daving profile exception: {e}")
