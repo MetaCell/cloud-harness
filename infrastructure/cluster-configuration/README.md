@@ -5,7 +5,7 @@
 ### TLDR;
 1. Create Kubernetes cluster (e.g minikube or google cloud)
 1. Initialize kubectl credentials to work with your cluster 
-1. Run `source cluster-init.sh`
+1. Run `source cluster-init.sh`  (This script installs the ingress-nginx controller and cert-manager using Helm in the configured k8s cluster.)
 
 ### Cert-manager
 
