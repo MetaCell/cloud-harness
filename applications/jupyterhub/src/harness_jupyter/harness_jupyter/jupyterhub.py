@@ -18,8 +18,13 @@ set_debug()
 def custom_options_form(spawner, abc):
     # let's skip the profile selection form for now
     # ToDo: for future we can remove this hook
-    spawner._ch_profile_list = spawner.profile_list
-    spawner.profile_list = []
+    try:
+        print("Cloudharness: saving profile list in _ch_profile_list")
+        spawner._ch_profile_list = spawner.profile_list
+        spawner.profile_list = []
+        print("Cloudharness: saving profile list in _ch_profile_list")
+    except Exception as e:
+        print(f"Cloudharness: daving profile exception: {e}")
     # ref: https://github.com/jupyterhub/kubespawner/blob/37a80abb0a6c826e5c118a068fa1cf2725738038/kubespawner/spawner.py#L1885-L1935
     return spawner._options_form_default()
 
