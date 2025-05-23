@@ -85,7 +85,7 @@ class CloudharnessConfig:
 
     @classmethod
     def get_image_tag(cls, base_name):
-        if base_name in cls.get_applications():
+        if base_name in (app["name"] for app in cls.get_applications().values()):
             from cloudharness.applications import get_configuration
             return get_configuration(base_name).image_name
         else:
