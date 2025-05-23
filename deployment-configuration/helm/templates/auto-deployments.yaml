@@ -75,7 +75,7 @@ spec:
         livenessProbe:
           httpGet:
             path: {{ .app.harness.livenessProbe.path }}
-            port: {{ .app.harness.deployment.port | default 8080 }}
+            port: {{ coalesce .app.harness.livenessProbe.port .app.harness.deployment.port 8080 }}
           periodSeconds: {{ .app.harness.livenessProbe.periodSeconds | default 10 }}
           failureThreshold: {{ .app.harness.livenessProbe.failureThreshold | default 3 }}
           initialDelaySeconds: {{ .app.harness.livenessProbe.initialDelaySeconds | default 0 }}
@@ -84,7 +84,7 @@ spec:
         readinessProbe:
           httpGet:
             path: {{ .app.harness.readinessProbe.path }}
-            port: {{ .app.harness.deployment.port | default 8080 }}
+            port: {{ coalesce .app.harness.readinessProbe.port .app.harness.deployment.port 8080 }}
           periodSeconds: {{ .app.harness.readinessProbe.periodSeconds | default 10 }}
           failureThreshold: {{ .app.harness.readinessProbe.failureThreshold | default 3 }}
           initialDelaySeconds: {{ .app.harness.readinessProbe.initialDelaySeconds | default 0 }}
@@ -93,7 +93,7 @@ spec:
         startupProbe:
           httpGet:
             path: {{ .app.harness.startupProbe.path }}
-            port: {{ .app.harness.deployment.port | default 8080 }}
+            port: {{ coalesce .app.harness.startupProbe.port .app.harness.deployment.port 8080 }}
           periodSeconds: {{ .app.harness.startupProbe.periodSeconds | default 10 }}
           failureThreshold: {{ .app.harness.startupProbe.failureThreshold | default 30 }}
           initialDelaySeconds: {{ .app.harness.startupProbe.initialDelaySeconds | default 0 }}

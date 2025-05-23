@@ -16,23 +16,21 @@ harness:
     auto: true
     port: 8080
   env:
-    - name: KEYCLOAK_IMPORT
-      value: "/tmp/realm.json"
-    - name: KEYCLOAK_USER
+    - name: KC_BOOTSTRAP_ADMIN_USERNAME
       value: "admin"
-    - name: KEYCLOAK_PASSWORD
+    - name: KC_BOOTSTRAP_ADMIN_PASSWORD
       value: "metacell"
-    - name: PROXY_ADDRESS_FORWARDING
-      value: "true"
-    - name: DB_VENDOR
-      value: "POSTGRES"
-    - name: DB_ADDR
+    - name: KC_PROXY_HEADERS
+      value: xforwarded
+    - name: KC_DB
+      value: "postgres"
+    - name: KC_DB_URL_HOST
       value: "keycloak-postgres"
-    - name: DB_DATABASE
+    - name: KC_DB_URL_DATABASE
       value: "auth_db"
-    - name: DB_USER
+    - name: KC_DB_USERNAME
       value: "user"
-    - name: DB_PASSWORD
+    - name: KC_DB_PASSWORD
       value: "password"
     - name: JAVA_OPTS
       value: -server -Xms64m -Xmx896m -XX:MetaspaceSize=96M -XX:MaxMetaspaceSize=256m -Djava.net.preferIPv4Stack=true -Djboss.modules.system.pkgs=org.jboss.byteman -Djava.awt.headless=true  --add-exports=java.base/sun.nio.ch=ALL-UNNAMED --add-exports=jdk.unsupported/sun.misc=ALL-UNNAMED --add-exports=jdk.unsupported/sun.reflect=ALL-UNNAMED
@@ -42,7 +40,7 @@ harness:
     type: postgres
     size: 2Gi
     postgres:
-      image: postgres:10.4
+      image: postgres:17
       initialdb: auth_db
     user: user
     pass: password
@@ -51,9 +49,16 @@ harness:
   resources:
     - name: realm-config
       src: realm.json
-      dst: /tmp/realm.json
+      dst: /opt/keycloak/data/import/realm.json
+  startupProbe:
+    path: /health/started
+    port: 9000
   readinessProbe:
-    path: /auth/realms/master
+    path: /health/ready
+    port: 9000
+  livenessProbe:
+    path: /health/live
+    port: 9000
 
 # Keycloak realm configuration
 client:

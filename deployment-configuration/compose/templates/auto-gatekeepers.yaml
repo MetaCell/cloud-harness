@@ -6,7 +6,7 @@
   networks:
   - ch
   restart: always
-  image: quay.io/gogatekeeper/gatekeeper:1.3.8
+  image: quay.io/gogatekeeper/gatekeeper:2.14.3
   expose:
     - '8080'
     - '8443'
@@ -47,7 +47,7 @@ cloudharness-metadata:
 
 data: |-
     verbose: {{ .root.Values.debug }}
-    discovery-url: {{ ternary "https" "http" $tls}}://{{ .root.Values.apps.accounts.harness.subdomain }}.{{ .root.Values.domain }}/auth/realms/{{ .root.Values.namespace }}
+    discovery-url: {{ ternary "https" "http" $tls}}://{{ .root.Values.apps.accounts.harness.subdomain }}.{{ .root.Values.domain }}/realms/{{ .root.Values.namespace }}
     client-id: {{ .root.Values.apps.accounts.webclient.id | quote }}
     client-secret: {{ .root.Values.apps.accounts.webclient.secret }}
     secure-cookie: {{ $tls }}

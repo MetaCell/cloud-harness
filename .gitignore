@@ -1,4 +1,6 @@
 *.jar
+# Allow the KC kafka plugin
+!applications/accounts/plugins/*.jar
 .idea
 node_modules
 .openapi-generator

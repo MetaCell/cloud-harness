@@ -40,7 +40,7 @@ services:
           cpus: 0.010
           memory: 512M
     healthcheck:
-      test: [CMD, curl, -f, http://127.0.0.1:8080/auth/realms/ch/account]
+      test: [CMD, curl, -f, http://127.0.0.1:8080/realms/ch/account]
       interval: 1s
       timeout: 3s
       retries: 30

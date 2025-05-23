@@ -189,7 +189,7 @@ apps:
         src: realm.json
         dst: /tmp/realm.json
       readinessProbe:
-        path: /auth/realms/master
+        path: /realms/master
       name: accounts
     client:
       id: rest-client

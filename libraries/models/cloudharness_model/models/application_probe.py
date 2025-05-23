@@ -12,7 +12,7 @@ class ApplicationProbe(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, path=None, period_seconds=None, failure_threshold=None, initial_delay_seconds=None):  # noqa: E501
+    def __init__(self, path=None, period_seconds=None, failure_threshold=None, initial_delay_seconds=None, port=None):  # noqa: E501
         """ApplicationProbe - a model defined in OpenAPI
 
         :param path: The path of this ApplicationProbe.  # noqa: E501
@@ -23,25 +23,30 @@ class ApplicationProbe(Model):
         :type failure_threshold: float
         :param initial_delay_seconds: The initial_delay_seconds of this ApplicationProbe.  # noqa: E501
         :type initial_delay_seconds: float
+        :param port: The port of this ApplicationProbe.  # noqa: E501
+        :type port: float
         """
         self.openapi_types = {
             'path': str,
             'period_seconds': float,
             'failure_threshold': float,
-            'initial_delay_seconds': float
+            'initial_delay_seconds': float,
+            'port': float
         }
 
         self.attribute_map = {
             'path': 'path',
             'period_seconds': 'periodSeconds',
             'failure_threshold': 'failureThreshold',
-            'initial_delay_seconds': 'initialDelaySeconds'
+            'initial_delay_seconds': 'initialDelaySeconds',
+            'port': 'port'
         }
 
         self._path = path
         self._period_seconds = period_seconds
         self._failure_threshold = failure_threshold
         self._initial_delay_seconds = initial_delay_seconds
+        self._port = port
 
     @classmethod
     def from_dict(cls, dikt) -> 'ApplicationProbe':
@@ -147,3 +152,26 @@ class ApplicationProbe(Model):
         """
 
         self._initial_delay_seconds = initial_delay_seconds
+
+    @property
+    def port(self) -> float:
+        """Gets the port of this ApplicationProbe.
+
+          # noqa: E501
+
+        :return: The port of this ApplicationProbe.
+        :rtype: float
+        """
+        return self._port
+
+    @port.setter
+    def port(self, port: float):
+        """Sets the port of this ApplicationProbe.
+
+          # noqa: E501
+
+        :param port: The port of this ApplicationProbe.
+        :type port: float
+        """
+
+        self._port = port
