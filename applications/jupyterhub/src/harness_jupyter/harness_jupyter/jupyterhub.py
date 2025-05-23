@@ -22,10 +22,10 @@ def custom_options_form(spawner, abc):
     try:
         print("Cloudharness: start saving profile list in _ch_profile_list")
         spawner._ch_profile_list = spawner.profile_list
-        spawner.profile_list = []
+        # spawner.profile_list = []
         print("Cloudharness: saving profile list in _ch_profile_list")
     except Exception as e:
-        print(f"Cloudharness: finish daving profile exception: {e}")
+        print(f"Cloudharness: finish saving profile exception: {e}")
     return spawner._options_form_default()
 
 
@@ -35,10 +35,11 @@ class PodSpawnException(Exception):
 
 def harness_hub():
     """Wraps the method to change spawner configuration"""
+    print("Cloudharness: changing spawner configuration")
     KubeSpawner.get_pod_manifest_base = KubeSpawner.get_pod_manifest
     KubeSpawner.get_pod_manifest = spawner_pod_manifest
     # to skip the profile selection form enable the line below
-    # KubeSpawner.options_form = custom_options_form
+    KubeSpawner.options_form = custom_options_form
     KubeSpawner.get_pvc_manifest_base = KubeSpawner.get_pvc_manifest
     KubeSpawner.get_pvc_manifest = spawner_pvc_manifest
 
