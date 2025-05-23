@@ -90,7 +90,7 @@ the following CNAME entries are needed
 - *.myapp [LB_ADDRESS]
 
 
-The easiest way to get the load balancer addressis to do the deployment and 
+The easiest way to get the load balancer address is to do the deployment and 
 from the ingress with
 
 ```

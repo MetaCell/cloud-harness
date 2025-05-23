@@ -22,7 +22,7 @@ helm repo update
 helm install ingress-nginx ingress-nginx/ingress-nginx
 ```
 
-On localclusters and GCP/GKE, the nginx-ingress chart will deploy a Load Balancer with a given IP address, while . Use that address to create the CNames and A records for the website.
+On localclusters and GCP/GKE, the nginx-ingress chart will deploy a Load Balancer with a given IP address, while in other environments, you may need to configure the Load Balancer manually. Use that address to create the CNames and A records for the website.
 
 
 
