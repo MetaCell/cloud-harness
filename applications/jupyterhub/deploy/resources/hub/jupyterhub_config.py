@@ -12,12 +12,6 @@ from tornado.httpclient import AsyncHTTPClient
 
 # CLOUDHARNESS: EDIT START
 import logging
-
-try:
-    from harness_jupyter.jupyterhub import harness_hub
-    harness_hub()  # activates harness hooks on jupyterhub
-except Exception as e:
-    logging.error("could not import harness_jupyter", exc_info=True)
 # CLOUDHARNESS: EDIT END
 
 # Make sure that modules placed in the same directory as the jupyterhub config are added to the pythonpath
