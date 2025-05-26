@@ -58,7 +58,7 @@ source venv/bin/activate
 sh ./install.sh
 ----
 
-To test if your installation went successfully, check if at least the following command exist: `harness-application`.
+To test if your installation went successfully, check if at least the following command exists: `harness-application`.
 
 .Checking the installation
 [source,bash]
@@ -96,7 +96,7 @@ To check if the creation of the cluster went right, run `kubectl cluster-info`.
 
 The setup of the cluster is not yet entirely finished.
 To conclude this, you need to enable an addon.
-{kub} comes with various addon to deal with various aspects of your cluster.
+{kub} comes with various addons to deal with various aspects of your cluster.
 As the app we will develop/run are sometimes webapps, they need to be exposed "outside" of your cluster.
 The https://kubernetes.io/docs/concepts/services-networking/ingress/[`ingress` addon] helps in exposing HTTP/HTTPS routes from outside your cluster to services inside your cluster.
 Its activation is fairly simple using minikube.
@@ -121,11 +121,11 @@ eval $(minikube docker-env)
 
 == Run the projects and examples from the cloud-harness repository
 
-To be able to build, locally deploy and run the existing app (or any app you'll develop), you have to generate a specific `helm` configuration that will be use by skaffold to build/deploy/run your apps.
+To be able to build, locally deploy and run the existing app (or any app you'll develop), you have to generate a specific `helm` configuration that will be used by skaffold to build/deploy/run your apps.
 The generation of those `helm` artifacts is done using `harness-deployment` with specific options.
-The next snippet show how to generate the `helm` configuration, disabling TLS configuration, enabling the local environment, selecting the `azathoth` namespace to deploy the app, and run it for the `azathoth.local` domain (you can use whatever domain name you want).
+The next snippet shows how to generate the `helm` configuration, disabling TLS configuration, enabling the local environment, selecting the `azathoth` namespace to deploy the app, and run it for the `azathoth.local` domain (you can use whatever domain name you want).
 The namespace can be changed depending on in which namespace you want to deploy your app in your cluster.
-This configuration is generated for *all* the app present in the `applications` folder in the `cloud-harness` repository.
+This configuration is generated for *all* the apps present in the `applications` folder in the `cloud-harness` repository.
 
 To ensure we are working on our fresh `minikube` cluster and not on a cluster configured previously, use the `kubectl config use-context` to switch context (https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/[more about context switching for {kub}]).
 
@@ -169,7 +169,7 @@ In the state of the repository I have on my machine, the apps and services that 
 * notifications,
 * events.
 
-As you can see, some of those projects are services and not app per se.
+As you can see, some of those projects are services and not apps per se.
 
 If you only want to build/run/deploy a specific app with the dependent services, you need to add the option `-i NAME` to the line.
 
@@ -190,7 +190,7 @@ X.X.X.X	azathoth.local samples.azathoth.local hub.azathoth.local sentry.azathoth
 ----
 
 Where `X.X.X.X` will be a dedicated IP address.
-Insert this line into your `hosts` file, and your good to go for the build/deployment.
+Insert this line into your `hosts` file, and you're good to go for the build/deployment.
 
 [NOTE]
 If you missed this line, you can run the previous `harness-deployment` command a second time line, or you can find the IP address launching `minikube ip`.
@@ -220,7 +220,7 @@ X.X.X.X	azathoth.local clockdate.azathoth.local
 Where `X.X.X.X` is the address returned by the command `minikube ip`.
 ====
 
-You can monitor the state of all of your apps and services using `minikube`'s dashboard.
+You can monitor the state of all of your apps and services using minikube's dashboard.
 
 .Checking the state of the cluster and running apps/services
 [source,bash]
