@@ -15,9 +15,9 @@ from .utils import get_cluster_ip, get_git_commit_hash, image_name_from_dockerfi
 
 from .models import HarnessMainConfig
 
-from .configurationgenerator import ConfigurationGenerator, validate_helm_values, \
+from .configurationgenerator import ConfigurationGenerator, get_included_builds, validate_helm_values, \
     KEY_HARNESS, KEY_SERVICE, KEY_DATABASE, KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES, KEY_DEPLOYMENT, DEFAULT_IGNORE, \
-    values_from_legacy, values_set_legacy, get_included_with_dependencies, create_env_variables, collect_apps_helm_templates, generate_tag_from_content, guess_build_dependencies_from_dockerfile
+    values_from_legacy, values_set_legacy, get_included_applications, create_env_variables, collect_apps_helm_templates, generate_tag_from_content, guess_build_dependencies_from_dockerfile
 
 
 def deploy(namespace, output_path='./deployment'):
@@ -139,19 +139,33 @@ class CloudHarnessHelm(ConfigurationGenerator):
             values_set_legacy(v)
 
         if self.include:
-            self.include = get_included_with_dependencies(
+            # Only include applications that are specified in the include list and their dependencies
+            self.include = get_included_applications(
                 values, set(self.include))
+            
+            included_builds = get_included_builds(values, set(self.include))
             logging.info('Selecting included applications')
 
+            included_apps = {}
             for v in [v for v in apps]:
-                if apps[v]['harness']['name'] not in self.include:
-                    del apps[v]
-                    continue
-                values[KEY_TASK_IMAGES].update(apps[v][KEY_TASK_IMAGES])
+                app_name = apps[v]['harness']['name']
+                if app_name in self.include:
+                    included_apps[v] = apps[v]
+                if app_name in included_builds:
+                    values[KEY_TASK_IMAGES].update(apps[v][KEY_TASK_IMAGES])
+                    if app_name not in self.include:
+                        logging.info(f"Adding {app_name} to included build images due to build dependencies")
+                        values[KEY_TASK_IMAGES][app_name] = apps[v][KEY_HARNESS][KEY_DEPLOYMENT]["image"]
+            values[KEY_APPS] = included_apps
                 # Create environment variables
         else:
-            for v in [v for v in apps]:
+            for v in apps:
                 values[KEY_TASK_IMAGES].update(apps[v][KEY_TASK_IMAGES])
+        
+        for ex in self.exclude:
+            if ex in values[KEY_TASK_IMAGES]:
+                logging.info(f"Excluding {ex} from build")
+                del values[KEY_TASK_IMAGES][ex]
         create_env_variables(values)
         return values, self.include
 

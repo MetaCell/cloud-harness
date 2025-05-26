@@ -17,7 +17,7 @@ from .utils import get_cluster_ip, image_name_from_dockerfile_path, get_template
 from .models import HarnessMainConfig
 
 from .configurationgenerator import ConfigurationGenerator, \
-    validate_helm_values, values_from_legacy, values_set_legacy, get_included_with_dependencies, create_env_variables, collect_apps_helm_templates, \
+    validate_helm_values, values_from_legacy, values_set_legacy, get_included_applications, create_env_variables, collect_apps_helm_templates, \
     KEY_HARNESS, KEY_SERVICE, KEY_DATABASE, KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES, KEY_DEPLOYMENT
 
 
@@ -188,7 +188,7 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
             values_set_legacy(v)
 
         if self.include:
-            self.include = get_included_with_dependencies(
+            self.include = get_included_applications(
                 values, set(self.include))
             logging.info('Selecting included applications')
 

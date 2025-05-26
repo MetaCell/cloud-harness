@@ -32,6 +32,7 @@ KEY_TEST_IMAGES = 'test-images'
 DEFAULT_IGNORE = ('/tasks', '.dockerignore', '.hypothesis', "__pycache__", '.node_modules', 'dist', 'build', '.coverage')
 
 
+
 class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
 
     def __init__(self, root_paths: List[str], tag: Union[str, int, None] = 'latest', registry='', local=True, domain=None, exclude=(), secured=True,
@@ -54,6 +55,9 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         self.tls = tls
         self.env = env or {}
         self.namespace = namespace
+
+        # In this tree we will collect the  and their parent dependencies
+        self.build_tree: dict[str, list[str]] = {}
 
         self.templates_path = templates_path
         self.dest_deployment_path = self.output_path / templates_path
@@ -323,7 +327,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         return self.registry + image_name + (f':{tag}' if tag else '')
 
 
-def get_included_with_dependencies(values, include):
+def get_included_applications(values, include):
     app_values = values['apps'].values()
     directly_included = [app for app in app_values if any(
         inc == app[KEY_HARNESS]['name'] for inc in include)]
@@ -338,8 +342,21 @@ def get_included_with_dependencies(values, include):
             dependent.add('accounts')
     if len(dependent) == len(include):
         return dependent
-    return get_included_with_dependencies(values, dependent)
+    return get_included_applications(values, dependent)
 
+def get_included_builds(values, include):
+    app_values = values['apps'].values()
+    directly_included = [app for app in app_values if any(
+        inc == app[KEY_HARNESS]['name'] for inc in include)]
+
+    dependent = set(include)
+    for app in directly_included:
+        if app['harness']['dependencies'].get('build', None):
+            dependent.update(set(app[KEY_HARNESS]['dependencies']['build']))
+
+    if len(dependent) == len(include):
+        return dependent
+    return get_included_builds(values, dependent)
 
 def merge_helm_chart(source_templates_path, dest_helm_chart_path=HELM_CHART_PATH):
     pass

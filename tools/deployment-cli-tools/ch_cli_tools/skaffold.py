@@ -127,6 +127,8 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
     for root_path in root_paths:
         apps_path = join(root_path, APPS_PATH)
+
+        # Get all dockerfiles in the applications directory, including those in subdirectories
         app_dockerfiles = find_dockerfiles_paths(apps_path)
 
         release_config['artifactOverrides'][KEY_TASK_IMAGES] = {
@@ -140,6 +142,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
             app_relative_to_base = os.path.relpath(dockerfile_path, apps_path)
             app_name = app_name_from_path(app_relative_to_base)
             app_key = app_name.replace('-', '_')
+            
             if app_key not in apps:
                 if 'tasks' in app_relative_to_base and manage_task_images:
                     parent_app_name = app_name_from_path(
@@ -148,16 +151,18 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
                     if parent_app_key in apps:
                         artifacts[app_key] = build_artifact(get_image_tag(app_name), app_relative_to_skaffold,
-                                                            base_images.union(static_images))
-
+                                                            guess_build_dependencies_from_dockerfile(dockerfile_path))
+                elif app_name in helm_values[KEY_TASK_IMAGES]:
+                    process_build_dockerfile(dockerfile_path, root_path, 
+                                             requirements=guess_build_dependencies_from_dockerfile(dockerfile_path), app_name=app_name)
                 continue
-
             build_requirements = apps[app_key][KEY_HARNESS].dependencies.build
+            
             # app_image_tag = remove_tag(
             #     apps[app_key][KEY_HARNESS][KEY_DEPLOYMENT]['image'])
             # artifacts[app_key] = build_artifact(
             #     app_image_tag, app_relative_to_skaffold, build_requirements)
-            process_build_dockerfile(dockerfile_path, root_path, requirements=build_requirements, app_name=app_name)
+            process_build_dockerfile(dockerfile_path, root_path, requirements=guess_build_dependencies_from_dockerfile(dockerfile_path), app_name=app_name)
             app = apps[app_key]
             if not app['build']:
                 continue
