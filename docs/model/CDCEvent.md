@@ -22,12 +22,12 @@ json = "{}"
 # create an instance of CDCEvent from a JSON string
 cdc_event_instance = CDCEvent.from_json(json)
 # print the JSON string representation of the object
-print CDCEvent.to_json()
+print(CDCEvent.to_json())
 
 # convert the object into a dict
 cdc_event_dict = cdc_event_instance.to_dict()
 # create an instance of CDCEvent from a dict
-cdc_event_form_dict = cdc_event.from_dict(cdc_event_dict)
+cdc_event_from_dict = CDCEvent.from_dict(cdc_event_dict)
 ```
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

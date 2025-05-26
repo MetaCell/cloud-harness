@@ -26,12 +26,12 @@ json = "{}"
 # create an instance of BackupConfig from a JSON string
 backup_config_instance = BackupConfig.from_json(json)
 # print the JSON string representation of the object
-print BackupConfig.to_json()
+print(BackupConfig.to_json())
 
 # convert the object into a dict
 backup_config_dict = backup_config_instance.to_dict()
 # create an instance of BackupConfig from a dict
-backup_config_form_dict = backup_config.from_dict(backup_config_dict)
+backup_config_from_dict = BackupConfig.from_dict(backup_config_dict)
 ```
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

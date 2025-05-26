@@ -19,12 +19,12 @@ json = "{}"
 # create an instance of ApplicationAccountsConfig from a JSON string
 application_accounts_config_instance = ApplicationAccountsConfig.from_json(json)
 # print the JSON string representation of the object
-print ApplicationAccountsConfig.to_json()
+print(ApplicationAccountsConfig.to_json())
 
 # convert the object into a dict
 application_accounts_config_dict = application_accounts_config_instance.to_dict()
 # create an instance of ApplicationAccountsConfig from a dict
-application_accounts_config_form_dict = application_accounts_config.from_dict(application_accounts_config_dict)
+application_accounts_config_from_dict = ApplicationAccountsConfig.from_dict(application_accounts_config_dict)
 ```
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

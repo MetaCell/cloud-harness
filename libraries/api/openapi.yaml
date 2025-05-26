@@ -787,7 +787,7 @@ components:
           properties:
             port:
               description: Deployment port
-              type: string
+              type: integer
             replicas:
               description: Number of replicas
               type: integer

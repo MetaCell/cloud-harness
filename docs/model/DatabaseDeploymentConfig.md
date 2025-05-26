@@ -28,12 +28,12 @@ json = "{}"
 # create an instance of DatabaseDeploymentConfig from a JSON string
 database_deployment_config_instance = DatabaseDeploymentConfig.from_json(json)
 # print the JSON string representation of the object
-print DatabaseDeploymentConfig.to_json()
+print(DatabaseDeploymentConfig.to_json())
 
 # convert the object into a dict
 database_deployment_config_dict = database_deployment_config_instance.to_dict()
 # create an instance of DatabaseDeploymentConfig from a dict
-database_deployment_config_form_dict = database_deployment_config.from_dict(database_deployment_config_dict)
+database_deployment_config_from_dict = DatabaseDeploymentConfig.from_dict(database_deployment_config_dict)
 ```
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
