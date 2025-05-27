@@ -120,9 +120,7 @@ hub:
       except Exception as e:
         logging.error("could not import harness_jupyter", exc_info=True)
         # to skip the profile selection form enable the line below
-    # no_profile_selection: |
-      
-    #   c.KubeSpawner.profile_list = []
+    # other_conf: |
     #   c.KubeSpawner.allow_named_servers = False
     #   c.KubeSpawner.named_server_limit_per_user = 0
     
