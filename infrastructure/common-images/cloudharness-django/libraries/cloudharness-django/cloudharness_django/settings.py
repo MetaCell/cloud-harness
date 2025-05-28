@@ -15,16 +15,20 @@ INSTALLED_APPS = getattr(
     []) + ['admin_extra_buttons', ]
 
 # add the local apps
-INSTALLED_APPS += ['cloudharness_django', ]
+INSTALLED_APPS += ['cloudharness_django', 'django_prometheus']
 
 # add the CloudHarness Django auto login middleware
-MIDDLEWARE = getattr(
-    settings,
-    'MIDDLEWARE',
-    []
-) + [
-    'cloudharness_django.middleware.BearerTokenMiddleware',
-]
+MIDDLEWARE = \
+    ['django_prometheus.middleware.PrometheusBeforeMiddleware'] + \
+    getattr(
+        settings,
+        'MIDDLEWARE',
+        []
+    ) + \
+    [
+        'cloudharness_django.middleware.BearerTokenMiddleware',
+        'django_prometheus.middleware.PrometheusAfterMiddleware'
+    ]
 
 USER_CHANGE_ENABLED = False
 
@@ -92,3 +96,7 @@ DATABASES = {
         },
     },
 }
+
+if settings.ROOT_URLCONF:
+    APP_URLCONF = settings.ROOT_URLCONF
+    ROOT_URLCONF = "cloudharness_django.urls"
