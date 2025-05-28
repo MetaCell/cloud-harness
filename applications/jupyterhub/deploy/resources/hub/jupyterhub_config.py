@@ -540,7 +540,6 @@ elif auth_type == 'keycloak':
     c.OAuthenticator.client_secret = client_secret
     c.OAuthenticator.allow_all = True
 
-
     c.GenericOAuthenticator.login_service = "CH"
     c.GenericOAuthenticator.username_key = "email"
     c.GenericOAuthenticator.username_claim = "email"

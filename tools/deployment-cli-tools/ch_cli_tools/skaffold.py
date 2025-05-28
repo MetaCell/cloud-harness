@@ -142,7 +142,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
             app_relative_to_base = os.path.relpath(dockerfile_path, apps_path)
             app_name = app_name_from_path(app_relative_to_base)
             app_key = app_name
-            
+
             if app_key not in apps:
                 if 'tasks' in app_relative_to_base and manage_task_images:
                     parent_app_name = app_name_from_path(
@@ -153,11 +153,11 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
                         artifacts[app_key] = build_artifact(get_image_tag(app_name), app_relative_to_skaffold,
                                                             guess_build_dependencies_from_dockerfile(dockerfile_path))
                 elif app_name in helm_values[KEY_TASK_IMAGES]:
-                    process_build_dockerfile(dockerfile_path, root_path, 
+                    process_build_dockerfile(dockerfile_path, root_path,
                                              requirements=guess_build_dependencies_from_dockerfile(dockerfile_path), app_name=app_name)
                 continue
             build_requirements = apps[app_key][KEY_HARNESS].dependencies.build
-            
+
             # app_image_tag = remove_tag(
             #     apps[app_key][KEY_HARNESS][KEY_DEPLOYMENT]['image'])
             # artifacts[app_key] = build_artifact(

@@ -216,14 +216,12 @@ def test_create_skaffold_configuration_nobuild():
     assert 'myapp' not in release['overrides']['apps']
 
 
-
 def test_app_depends_on_app(tmp_path):
     out_folder = tmp_path / 'test_app_depends_on_app'
 
-
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
                                env='', local=False, include=["dependantapp"], exclude=[])
-    
+
     BUILD_DIR = "/tmp/build"
     root_paths = preprocess_build_overrides(
         root_paths=[CLOUDHARNESS_ROOT, RESOURCES],

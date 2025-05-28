@@ -154,7 +154,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 return [f"{k}={env[k]}" for k in env]
 
             def codefresh_steps_from_base_path(base_path, fixed_context=None, include=build_included, publish=True):
-                
+
                 for dockerfile_path in find_dockerfiles_paths(base_path):
                     dockerfile_relative_to_root = relpath(dockerfile_path, '.')
                     dockerfile_relative_to_base = get_app_relative_to_base_path(base_path, dockerfile_path)
@@ -197,7 +197,6 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                             helm_values=helm_values,
                             dependencies=dependencies
                         )
-
 
                         build_steps[app_name] = build
 
@@ -247,7 +246,6 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                 environment=e2e_test_environment(app_config)
                             )
 
-
             def add_unit_test_step(app_config: ApplicationHarnessConfig):
                 # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step
 
@@ -282,8 +280,8 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_image_name)
 
     if build_steps:
-        
-        def adjust_build_steps( index):
+
+        def adjust_build_steps(index):
             """
             Adjust the build steps to be parallel
             """

@@ -374,20 +374,17 @@ def test_exclude_single_task(tmp_path):
 
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
                                env='withpostgres', local=False, include=["myapp"], exclude=["myapp-mytask"])
-    
 
     assert "myapp-mytask" not in values["task-images"], "myapp-mytask has been excluded, so should not appear in the task images"
 
-
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
                                env='fulldep', local=False, include=["dependantapp"], exclude=["myapp-mytask"])
-    
+
     assert "myapp-mytask" not in values["task-images"], "myapp-mytask has been excluded, so should not appear in the task images"
 
 
 def test_app_depends_on_app(tmp_path):
     out_folder = tmp_path / 'test_app_depends_on_app'
-
 
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
                                env='', local=False, include=["dependantapp"], exclude=[])
@@ -396,7 +393,6 @@ def test_app_depends_on_app(tmp_path):
     assert "cloudharness-base" in values["task-images"], "cloudharness-flask should be included as a task image because it is a dependency of cloudharness-flask"
     assert "myapp-mytask" not in values["task-images"], "tasks should not be also included as build dependencies, unless explicitly included"
     assert "legacy" not in values["task-images"], "legacy should not be included as a task image because it is not a dependency"
-
 
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
                                env='testincludetask', local=False, include=["dependantapp"], exclude=[])

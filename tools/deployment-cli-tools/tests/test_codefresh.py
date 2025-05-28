@@ -55,7 +55,6 @@ def test_create_codefresh_configuration():
 
         l1_steps = cf['steps']
 
-        
         step_build_base = l1_steps[STEP_0]
         assert step_build_base["type"] == "parallel"
 
@@ -84,19 +83,15 @@ def test_create_codefresh_configuration():
         assert step['dockerfile'] == "Dockerfile"
         assert os.path.samefile(step['working_directory'], os.path.join(
             RESOURCES, STATIC_IMAGES_PATH, "my-common"))
-        
 
         step = steps["accounts"]
         assert step['dockerfile'] == "Dockerfile"
         assert os.path.samefile(step['working_directory'], os.path.join(
             BUILD_MERGE_DIR, APPS_PATH, "accounts"))
 
-
-
         steps = l1_steps[STEP_1]["steps"]
         assert "cloudharness-flask" in steps, "cloudharness-flask image should be included as dependency"
         assert "samples" not in steps, "samples depends on cloudharness-flask, so it should be included in the next step"
-        
 
         step = steps["cloudharness-flask"]
         assert step['dockerfile'] == "Dockerfile"
@@ -124,8 +119,6 @@ def test_create_codefresh_configuration():
         assert step['dockerfile'] == "Dockerfile"
         assert os.path.samefile(step['working_directory'], os.path.join(
             RESOURCES, APPS_PATH, "myapp"))
-
-
 
         assert CD_UNIT_TEST_STEP in l1_steps, "Unit tests run step should be specified"
         assert CD_API_TEST_STEP in l1_steps, "Api steps are available in the dev env template"
@@ -218,7 +211,6 @@ def test_create_codefresh_configuration_tests():
         l1_steps = cf['steps']
 
         assert "test-e2e" in l1_steps[STEP_0]["steps"], "e2e tests image should be built"
-
 
         e2e_steps = l1_steps[CD_E2E_TEST_STEP]['scale']
 
@@ -324,20 +316,18 @@ def test_create_codefresh_configuration_nobuild():
     assert len(l1_steps[STEP_0]["steps"]) == 1
     assert "myapp-mytask" in l1_steps[STEP_0]["steps"]
     assert STEP_1 not in l1_steps, "no image other than the task image should be included, because the included app  specifies a fixed image tag"
-    
+
     assert "publish_myapp" not in l1_steps["publish"]["steps"]
     assert "publish_myapp-mytask" in l1_steps["publish"]["steps"]
 
 
 def test_app_depends_on_app():
 
-
     root_paths = [CLOUDHARNESS_ROOT, RESOURCES]
     build_included = ['dependantapp']
     values = create_helm_chart(root_paths, output_path=OUT, domain="my.local",
                                env='', local=False, include=build_included, exclude=[])
-    
-    
+
     cf = create_codefresh_deployment_scripts([CLOUD_HARNESS_PATH, RESOURCES], include=build_included,
                                              envs=[],
                                              base_image_name=values['name'],

@@ -171,7 +171,7 @@ def change_pod_manifest(self: KubeSpawner):
 
     logging.info("Setting user quota cpu/mem usage")
 
-    if self.cpu_guarantee is None: # This eventually comes from the current profile. Profile wins over user quota, if set.
+    if self.cpu_guarantee is None:  # This eventually comes from the current profile. Profile wins over user quota, if set.
         set_key_value(self, key="cpu_guarantee", value=float(user_quotas.get("quota-ws-guaranteecpu")))
     if self.cpu_limit is None:
         set_key_value(self, key="cpu_limit", value=float(user_quotas.get("quota-ws-maxcpu")))
@@ -202,7 +202,6 @@ def change_pod_manifest(self: KubeSpawner):
         app_config = self.config['apps']
         registry = self.config['registry']
 
-        
         logging.info("Subdomain is %s", subdomain)
         try:
             app = next(app for app in app_config.values() if 'harness' in app and 'subdomain' in app['harness'] and app['harness']['subdomain'] == subdomain)

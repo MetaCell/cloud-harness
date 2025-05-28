@@ -32,7 +32,6 @@ KEY_TEST_IMAGES = 'test-images'
 DEFAULT_IGNORE = ('/tasks', '.dockerignore', '.hypothesis', "__pycache__", '.node_modules', 'dist', 'build', '.coverage')
 
 
-
 class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
 
     def __init__(self, root_paths: List[str], tag: Union[str, int, None] = 'latest', registry='', local=True, domain=None, exclude=(), secured=True,
@@ -344,6 +343,7 @@ def get_included_applications(values, include):
         return dependent
     return get_included_applications(values, dependent)
 
+
 def get_included_builds(values, include):
     app_values = values['apps'].values()
     directly_included = [app for app in app_values if any(
@@ -362,6 +362,7 @@ def get_included_builds(values, include):
     if len(dependent) == len(include):
         return dependent
     return get_included_builds(values, dependent)
+
 
 def merge_helm_chart(source_templates_path, dest_helm_chart_path=HELM_CHART_PATH):
     pass
