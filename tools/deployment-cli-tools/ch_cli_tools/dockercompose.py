@@ -172,7 +172,7 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
             values_from_legacy(v)
             assert KEY_HARNESS in v, 'Default app value loading is broken'
 
-            app_name = app_key.replace('_', '-')
+            app_name = app_key
             harness = v[KEY_HARNESS]
             harness['name'] = app_name
 

@@ -14,6 +14,11 @@ myapp_path = os.path.join(HERE, "resources/applications/myapp")
 if not os.path.exists(os.path.join(myapp_path, "dependencies/a/.git")):
     os.makedirs(os.path.join(myapp_path, "dependencies/a/.git"))
 
+STEP_0 = "build_application_images_0"
+STEP_1 = "build_application_images_1"
+STEP_2 = "build_application_images_2"
+STEP_3 = "build_application_images_3"
+
 
 def test_create_codefresh_configuration():
     values = create_helm_chart(
@@ -49,11 +54,13 @@ def test_create_codefresh_configuration():
         assert cf['steps']['main_clone']['type'] == 'git-clone', "Steps overriding missing values from the parent"
 
         l1_steps = cf['steps']
-        step_build_base = l1_steps["build_base_images"]
+
+        
+        step_build_base = l1_steps[STEP_0]
         assert step_build_base["type"] == "parallel"
 
-        steps = l1_steps["build_base_images"]["steps"]
-        assert len(steps) == 2, "2 base images should be included as dependencies"
+        steps = l1_steps[STEP_0]["steps"]
+        assert len(steps) == 8, "all images that do not depend on othe builds should be included in the first step"
         assert "cloudharness-base" in steps, "cloudharness-base image should be included as dependency"
         assert "cloudharness-base-debian" not in steps, "cloudharness-base image should not be included"
         assert "cloudharness-frontend-build" in steps, "cloudharness-frontend-build image should be included as dependency"
@@ -71,30 +78,41 @@ def test_create_codefresh_configuration():
                          BASE_IMAGES_PATH, "cloudharness-base", "Dockerfile")
         ), "Not overridden base images should be built from the base directory"
 
-        steps = l1_steps["build_static_images"]["steps"]
-        assert len(
-            steps) == 2, "2 static images should be included as dependencies"
-        assert "cloudharness-flask" in steps, "cloudharness-flask image should be included as dependency"
         assert "my-common" in steps, "my-common image should be included as dependency"
+
+        step = steps["my-common"]
+        assert step['dockerfile'] == "Dockerfile"
+        assert os.path.samefile(step['working_directory'], os.path.join(
+            RESOURCES, STATIC_IMAGES_PATH, "my-common"))
+        
+
+        step = steps["accounts"]
+        assert step['dockerfile'] == "Dockerfile"
+        assert os.path.samefile(step['working_directory'], os.path.join(
+            BUILD_MERGE_DIR, APPS_PATH, "accounts"))
+
+
+
+        steps = l1_steps[STEP_1]["steps"]
+        assert "cloudharness-flask" in steps, "cloudharness-flask image should be included as dependency"
+        assert "samples" not in steps, "samples depends on cloudharness-flask, so it should be included in the next step"
+        
 
         step = steps["cloudharness-flask"]
         assert step['dockerfile'] == "Dockerfile"
         assert os.path.samefile(step['working_directory'], os.path.join(
             CLOUDHARNESS_ROOT, STATIC_IMAGES_PATH, "cloudharness-flask"))
 
-        step = steps["my-common"]
+        step = steps["workflows-notify-queue"]
         assert step['dockerfile'] == "Dockerfile"
         assert os.path.samefile(step['working_directory'], os.path.join(
-            RESOURCES, STATIC_IMAGES_PATH, "my-common"))
+            BUILD_MERGE_DIR, APPS_PATH, "workflows/tasks/notify-queue"))
 
-        steps = l1_steps["build_application_images"]["steps"]
-        assert len(steps) == 13
+        steps = l1_steps[STEP_2]["steps"]
         assert "myapp" in steps
         assert "samples" in steps
-        assert "accounts" in steps
+        assert "accounts" not in steps
         assert "workflows" in steps
-        assert "workflows-notify-queue" in steps
-        assert "workflows-new-task" in steps
         assert "events" not in steps
 
         step = steps["samples"]
@@ -107,15 +125,7 @@ def test_create_codefresh_configuration():
         assert os.path.samefile(step['working_directory'], os.path.join(
             RESOURCES, APPS_PATH, "myapp"))
 
-        step = steps["accounts"]
-        assert step['dockerfile'] == "Dockerfile"
-        assert os.path.samefile(step['working_directory'], os.path.join(
-            BUILD_MERGE_DIR, APPS_PATH, "accounts"))
 
-        step = steps["workflows-notify-queue"]
-        assert step['dockerfile'] == "Dockerfile"
-        assert os.path.samefile(step['working_directory'], os.path.join(
-            BUILD_MERGE_DIR, APPS_PATH, "workflows/tasks/notify-queue"))
 
         assert CD_UNIT_TEST_STEP in l1_steps, "Unit tests run step should be specified"
         assert CD_API_TEST_STEP in l1_steps, "Api steps are available in the dev env template"
@@ -129,7 +139,7 @@ def test_create_codefresh_configuration():
             tstep['commands']) == 2, "Unit test commands are not properly loaded from the unit test configuration file"
         assert tstep['commands'][0] == "tox", "Unit test commands are not properly loaded from the unit test configuration file"
 
-        assert len(l1_steps[CD_BUILD_STEP_DEPENDENCIES]['steps']) == 3, "3 clone steps should be included as we have 2 dependencies from myapp, plus cloudharness"
+        assert len(l1_steps[CD_STEP_CLONE_DEPENDENCIES]['steps']) == 3, "3 clone steps should be included as we have 2 dependencies from myapp, plus cloudharness"
     finally:
         shutil.rmtree(BUILD_MERGE_DIR)
 
@@ -207,12 +217,8 @@ def test_create_codefresh_configuration_tests():
 
         l1_steps = cf['steps']
 
-        st_build_test_steps = l1_steps["build_test_images"]["steps"]
+        assert "test-e2e" in l1_steps[STEP_0]["steps"], "e2e tests image should be built"
 
-        assert "test-e2e" in st_build_test_steps, "e2e tests image should be built"
-        assert "test-api" in st_build_test_steps, "api tests image should be built"
-
-        assert "test-api" in st_build_test_steps["test-api"]["dockerfile"], "test-api image must be built from root context"
 
         e2e_steps = l1_steps[CD_E2E_TEST_STEP]['scale']
 
@@ -222,7 +228,9 @@ def test_create_codefresh_configuration_tests():
             'environment'], "APP_URL must be provided as environment variable"
         assert len(test_step['volumes']) == 1
 
-        assert "test-api" in st_build_test_steps
+        assert "test-api" in l1_steps[STEP_1]["steps"], "api tests image should be built"
+
+        assert "test-api" in l1_steps[STEP_1]["steps"]["test-api"]["dockerfile"], "test-api image must be built from root context"
         api_steps = l1_steps['tests_api']['scale']
         test_step = api_steps["samples_api_test"]
         assert "APP_URL=https://samples.${{DOMAIN}}/api" in test_step[
@@ -244,7 +252,7 @@ def test_create_codefresh_configuration_tests():
         for volume in test_step["volumes"]:
             assert "server" not in volume
 
-        assert any("CLOUDHARNESS_BASE" in arg for arg in st_build_test_steps["test-api"]
+        assert any("CLOUDHARNESS_BASE" in arg for arg in l1_steps[STEP_1]["steps"]["test-api"]
                    ["build_arguments"]), "Missing build dependency on api test image"
 
     finally:
@@ -312,9 +320,25 @@ def test_create_codefresh_configuration_nobuild():
                                              base_image_name=values['name'],
                                              helm_values=values, save=False)
     l1_steps = cf['steps']
-    steps = l1_steps["build_application_images"]["steps"]
-    assert len(steps) == 1
-    assert "myapp" not in steps
-    assert "myapp-mytask" in steps
+    assert STEP_0 in l1_steps, "the task image should be included"
+    assert len(l1_steps[STEP_0]["steps"]) == 1
+    assert "myapp-mytask" in l1_steps[STEP_0]["steps"]
+    assert STEP_1 not in l1_steps, "no image other than the task image should be included, because the included app  specifies a fixed image tag"
+    
     assert "publish_myapp" not in l1_steps["publish"]["steps"]
     assert "publish_myapp-mytask" in l1_steps["publish"]["steps"]
+
+
+def test_app_depends_on_app():
+
+
+    root_paths = [CLOUDHARNESS_ROOT, RESOURCES]
+    build_included = ['dependantapp']
+    values = create_helm_chart(root_paths, output_path=OUT, domain="my.local",
+                               env='', local=False, include=build_included, exclude=[])
+    
+    
+    cf = create_codefresh_deployment_scripts([CLOUD_HARNESS_PATH, RESOURCES], include=build_included,
+                                             envs=[],
+                                             base_image_name=values['name'],
+                                             helm_values=values, save=False)

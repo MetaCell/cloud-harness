@@ -1,0 +1,5 @@
+harness:
+  dependencies:
+    build:
+    - myapp
+    - myapp-mytask

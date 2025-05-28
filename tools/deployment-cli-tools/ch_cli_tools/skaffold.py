@@ -80,7 +80,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
     ) -> None:
         if app_name is None:
             app_name = app_name_from_path(basename(dockerfile_path))
-        app_key = app_name.replace("-", "_")
+        app_key = app_name
         if app_key in helm_values.apps and not helm_values.apps[app_key]['build']:
             return
         if app_name in helm_values[KEY_TASK_IMAGES] or app_key in helm_values.apps:
@@ -141,13 +141,13 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
             context_path = os.path.relpath(dockerfile_path, '.')
             app_relative_to_base = os.path.relpath(dockerfile_path, apps_path)
             app_name = app_name_from_path(app_relative_to_base)
-            app_key = app_name.replace('-', '_')
+            app_key = app_name
             
             if app_key not in apps:
                 if 'tasks' in app_relative_to_base and manage_task_images:
                     parent_app_name = app_name_from_path(
                         app_relative_to_base.split('/tasks')[0])
-                    parent_app_key = parent_app_name.replace('-', '_')
+                    parent_app_key = parent_app_name
 
                     if parent_app_key in apps:
                         artifacts[app_key] = build_artifact(get_image_tag(app_name), app_relative_to_skaffold,
@@ -289,7 +289,7 @@ def create_vscode_debug_configuration(root_paths, helm_values):
             app_relative_to_base = os.path.relpath(path, apps_path)
             app_relative_to_root = os.path.relpath(path, '.')
             app_name = app_name_from_path(app_relative_to_base.split('/')[0])
-            app_key = app_name.replace('-', '_')
+            app_key = app_name
             if app_key in apps.keys():
                 debug_conf["debug"].append({
                     "image": get_image_tag(app_name),

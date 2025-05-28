@@ -238,7 +238,7 @@ def test_app_depends_on_app(tmp_path):
     )
     releases = sk['deploy']['helm']['releases']
 
-    assert len(sk['build']['artifacts']) == 6, "There should be 6 build artifacts (base+common, dependantapp plus its tasks, myapp)"
+    assert len(sk['build']['artifacts']) == 6, "There should be 6 build artifacts (base+common, dependantapp plus its 2 tasks, myapp)"
     assert len(releases) == 1  # Ensure we only found 1 deployment (for myapp)
 
     release = releases[0]
