@@ -152,7 +152,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
             # Include build dependencies that are not included as applications
             for dep_name in included_builds:
                 app_name = None
-                prefix = "-" in dep_name and dep_name.split("-")[0]
+                prefix = dep_name.split("-")[0] if "-" in dep_name else None
                 if dep_name in self.include and dep_name in apps:  # application is part of the deployment
                     app_name = dep_name
                     included_apps[app_name] = apps[app_name]
