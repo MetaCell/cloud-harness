@@ -15,4 +15,4 @@ COPY themes/custom /opt/keycloak/themes/custom
 COPY plugins/metacell-admin-event-listener-module-1.0.0.jar /opt/keycloak/providers/
 
 ENTRYPOINT [ "/opt/keycloak/bin/kc-entrypoint.sh" ]
-CMD [ "start-dev", "--import-realm", "--health-enabled=true" ]
+CMD [ "start-dev", "--import-realm", "--health-enabled=true", "--metrics-enabled=true" ]
