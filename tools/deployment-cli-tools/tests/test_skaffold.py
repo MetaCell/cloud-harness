@@ -214,3 +214,30 @@ def test_create_skaffold_configuration_nobuild():
 
     release = releases[0]
     assert 'myapp' not in release['overrides']['apps']
+
+
+def test_app_depends_on_app(tmp_path):
+    out_folder = tmp_path / 'test_app_depends_on_app'
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               env='', local=False, include=["dependantapp"], exclude=[])
+
+    BUILD_DIR = "/tmp/build"
+    root_paths = preprocess_build_overrides(
+        root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+        helm_values=values,
+        merge_build_path=BUILD_DIR
+    )
+
+    sk = create_skaffold_configuration(
+        root_paths=root_paths,
+        helm_values=values,
+        output_path=OUT
+    )
+    releases = sk['deploy']['helm']['releases']
+
+    assert len(sk['build']['artifacts']) == 6, "There should be 6 build artifacts (base+common, dependantapp plus its 2 tasks, myapp)"
+    assert len(releases) == 1  # Ensure we only found 1 deployment (for myapp)
+
+    release = releases[0]
+    assert 'myapp' not in release['overrides']['apps'], "myapp should not be included in the overrides because it's a build only dependency"

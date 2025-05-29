@@ -43,7 +43,7 @@ def run_e2e_tests(root_paths, helm_values, base_domain, included_applications=[]
             continue
 
         tests_dir = os.path.join(
-            artifacts[appkey.replace("_", "-")], "test", E2E_TESTS_DIRNAME)
+            artifacts[appkey], "test", E2E_TESTS_DIRNAME)
 
         if not app_config.domain and not app_config.subdomain:
             logging.warn(
@@ -63,7 +63,7 @@ def run_e2e_tests(root_paths, helm_values, base_domain, included_applications=[]
                 logging.info("Linking tests libraries to  %s",
                              app_node_modules_path)
                 os.symlink(node_modules_path, app_node_modules_path)
-            env["APP"] = artifacts[appkey.replace("_", "-")]
+            env["APP"] = artifacts[appkey]
 
         logging.info(
             "Running tests for application %s on domain %s", appname, app_domain)

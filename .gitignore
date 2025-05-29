@@ -23,3 +23,4 @@ skaffold.yaml
 __pycache__
 .env
 /.venv
+.history

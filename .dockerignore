@@ -21,3 +21,4 @@ __pycache__
 /cloud-harness
 .openapi-generator
 docker-compose.yaml
+.history
