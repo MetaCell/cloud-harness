@@ -145,6 +145,8 @@ spec:
         env:
         - name: PROXY_CONFIG_FILE
           value: /opt/proxy.yml
+        - name: PROXY_ENABLE_METRICS
+          value: "true"
         volumeMounts:
         - name: "{{ .subdomain  }}-gk-proxy-config"
           mountPath: /opt/proxy.yml
