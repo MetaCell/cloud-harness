@@ -494,6 +494,8 @@ def search_word_in_folder(folder, word):
 
 
 def search_word_by_pattern(folder, pattern, word):
+    if not folder.endswith('/'):
+        folder += '/'
     matches = []
     files = glob.glob(folder + pattern, recursive=True)
     for file in files:
