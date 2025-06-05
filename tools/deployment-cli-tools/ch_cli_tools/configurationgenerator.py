@@ -55,6 +55,9 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         self.env = env or {}
         self.namespace = namespace
 
+        # In this tree we will collect the  and their parent dependencies
+        self.build_tree: dict[str, list[str]] = {}
+
         self.templates_path = templates_path
         self.dest_deployment_path = self.output_path / templates_path
         self.helm_chart_path = self.dest_deployment_path / 'Chart.yaml'
@@ -111,13 +114,13 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
 
             if app_name in self.exclude:
                 continue
-            app_key = app_name.replace('-', '_')
+            app_key = app_name
 
             app_values = self.create_app_values_spec(app_name, app_path, base_image_name=base_image_name, helm_values=helm_values)
 
             # dockerfile_path = next(app_path.rglob('**/Dockerfile'), None)
             # # for dockerfile_path in app_path.rglob('**/Dockerfile'):
-            # #     parent_name = dockerfile_path.parent.name.replace("-", "_")
+            # #     parent_name = dockerfile_path.parent.name
             # #     if parent_name == app_key:
             # #         app_values['build'] = {
             # #             # 'dockerfile': f"{dockerfile_path.relative_to(app_path)}",
@@ -323,7 +326,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         return self.registry + image_name + (f':{tag}' if tag else '')
 
 
-def get_included_with_dependencies(values, include):
+def get_included_applications(values, include):
     app_values = values['apps'].values()
     directly_included = [app for app in app_values if any(
         inc == app[KEY_HARNESS]['name'] for inc in include)]
@@ -338,7 +341,27 @@ def get_included_with_dependencies(values, include):
             dependent.add('accounts')
     if len(dependent) == len(include):
         return dependent
-    return get_included_with_dependencies(values, dependent)
+    return get_included_applications(values, dependent)
+
+
+def get_included_builds(values, include):
+    app_values = values['apps'].values()
+    directly_included = [app for app in app_values if any(
+        inc == app[KEY_HARNESS]['name'] for inc in include)]
+
+    dependent = set(include)
+    for app in directly_included:
+        if app['harness']['dependencies'].get('build', None):
+            dependent.update(set(app[KEY_HARNESS]['dependencies']['build']))
+        if app['harness']['dependencies'].get('hard', None):
+            dependent.update(set(app[KEY_HARNESS]['dependencies']['hard']))
+        if app['harness']['dependencies'].get('soft', None):
+            dependent.update(set(app[KEY_HARNESS]['dependencies']['soft']))
+        if values['secured_gatekeepers'] and app[KEY_HARNESS]['secured']:
+            dependent.add('accounts')
+    if len(dependent) == len(include):
+        return dependent
+    return get_included_builds(values, dependent)
 
 
 def merge_helm_chart(source_templates_path, dest_helm_chart_path=HELM_CHART_PATH):
@@ -392,7 +415,7 @@ def init_app_values(deployment_root, exclude, values=None):
 
         if app_name in exclude:
             continue
-        app_key = app_name.replace('-', '_')
+        app_key = app_name
         if app_key not in values:
             default_values = get_template(default_values_path)
             values[app_key] = default_values
@@ -518,13 +541,13 @@ def validate_dependencies(values):
         app_values = values["apps"][app]
         if 'dependencies' in app_values[KEY_HARNESS]:
             soft_dependencies = {
-                d.replace("-", "_") for d in app_values[KEY_HARNESS]['dependencies']['soft']}
+                d for d in app_values[KEY_HARNESS]['dependencies']['soft']}
             not_found = {d for d in soft_dependencies if d not in all_apps}
             if not_found:
                 logging.warning(
                     f"Soft dependencies specified for application {app} not found: {','.join(not_found)}")
             hard_dependencies = {
-                d.replace("-", "_") for d in app_values[KEY_HARNESS]['dependencies']['hard']}
+                d for d in app_values[KEY_HARNESS]['dependencies']['hard']}
             not_found = {d for d in hard_dependencies if d not in all_apps}
             if not_found:
                 raise ValuesValidationException(

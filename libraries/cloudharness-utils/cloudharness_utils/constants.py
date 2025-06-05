@@ -33,9 +33,6 @@ VALUE_TEMPLATE_PATH = f'{DEPLOYMENT_CONFIGURATION_PATH}/value-template.yaml'
 CH_BASE_IMAGES = {'cloudharness-base': 'python:3.9.10'}
 
 
-CD_BUILD_STEP_BASE = 'build_base_images'
-CD_BUILD_STEP_STATIC = 'build_static_images'
-CD_BUILD_STEP_TEST = 'build_test_images'
 CD_BUILD_STEP_PARALLEL = 'build_application_images'
 CD_UNIT_TEST_STEP = 'tests_unit'
 CD_STEP_INSTALL = 'deployment'
@@ -44,7 +41,7 @@ CD_API_TEST_STEP = 'tests_api'
 CD_E2E_TEST_STEP = 'tests_e2e'
 CD_STEP_PUBLISH = 'publish'
 BUILD_FILENAMES = ('node_modules',)
-CD_BUILD_STEP_DEPENDENCIES = 'post_main_clone'
+CD_STEP_CLONE_DEPENDENCIES = 'post_main_clone'
 
 E2E_TESTS_DIRNAME = 'e2e'
 API_TESTS_DIRNAME = 'api'

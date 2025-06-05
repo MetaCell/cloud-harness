@@ -119,12 +119,13 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         )
 
     codefresh = {}
+    codefresh_sorted = {}
     for e in envs:
         template_name = f"codefresh-template-{e}.yaml"
         codefresh = dict_merge(codefresh, get_template(template_name, True))
 
     steps = {}
-
+    build_steps = {}
     for root_path in root_paths:
         for e in envs:
 
@@ -152,20 +153,18 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 env = get_app_environment(app_config, app_domain, False)
                 return [f"{k}={env[k]}" for k in env]
 
-            def codefresh_steps_from_base_path(base_path, build_step, fixed_context=None, include=build_included, publish=True):
+            def codefresh_steps_from_base_path(base_path, fixed_context=None, include=build_included, publish=True):
 
                 for dockerfile_path in find_dockerfiles_paths(base_path):
                     dockerfile_relative_to_root = relpath(dockerfile_path, '.')
                     dockerfile_relative_to_base = get_app_relative_to_base_path(base_path, dockerfile_path)
                     app_name = app_name_from_path(dockerfile_relative_to_base)
-                    app_key = app_name.replace("-", "_")
-                    app_config: ApplicationHarnessConfig = app_key in helm_values.apps and helm_values.apps[
-                        app_key].harness
+                    app_key = app_name
+                    app_config: ApplicationHarnessConfig = app_key in helm_values.apps and helm_values.apps[app_key].harness
 
                     if include and not any(
-                        f"/{inc}/" in dockerfile_path or
-                        dockerfile_path.endswith(f"/{inc}")
-                            for inc in include):
+                            f"/{inc}/" in dockerfile_path or dockerfile_path.endswith(f"/{inc}") for inc in include
+                    ):
                         # Skip not included apps
                         continue
 
@@ -173,13 +172,19 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         # Skip excluded apps
                         continue
 
+                    if app_config and not helm_values.apps[app_key].get('build', True):
+                        continue
+
                     if app_config and app_config.dependencies and app_config.dependencies.git:
                         for dep in app_config.dependencies.git:
                             step_name = f"clone_{basename(dep.url).replace('.', '_')}_{basename(dockerfile_relative_to_root).replace('.', '_')}"
-                            steps[CD_BUILD_STEP_DEPENDENCIES]['steps'][step_name] = clone_step_spec(dep, dockerfile_relative_to_root)
+                            steps[CD_STEP_CLONE_DEPENDENCIES]['steps'][step_name] = clone_step_spec(dep, dockerfile_relative_to_root)
 
                     build = None
-                    if build_step in steps:
+                    if CD_BUILD_STEP_PARALLEL in steps:
+                        dependencies = guess_build_dependencies_from_dockerfile(
+                            join(dockerfile_path, "Dockerfile")
+                        )
                         build = codefresh_app_build_spec(
                             app_name=app_name,
                             app_context_path=relpath(
@@ -190,15 +195,10 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                 "Dockerfile"),
                             base_name=base_image_name,
                             helm_values=helm_values,
-                            dependencies=guess_build_dependencies_from_dockerfile(
-                                join(dockerfile_path, "Dockerfile")
-                            )
+                            dependencies=dependencies
                         )
 
-                        if not type(steps[build_step]['steps']) == dict:
-                            steps[build_step]['steps'] = {}
-
-                        steps[build_step]['steps'][app_name] = build
+                        build_steps[app_name] = build
 
                     if CD_STEP_PUBLISH in steps and steps[CD_STEP_PUBLISH] and publish:
                         if not type(steps[CD_STEP_PUBLISH]['steps']) == dict:
@@ -261,25 +261,45 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     )
 
             if helm_values[KEY_TASK_IMAGES]:
-                codefresh_steps_from_base_path(join(root_path, BASE_IMAGES_PATH), CD_BUILD_STEP_BASE,
+                codefresh_steps_from_base_path(join(root_path, BASE_IMAGES_PATH),
                                                fixed_context=relpath(root_path, os.getcwd()), include=helm_values[KEY_TASK_IMAGES].keys())
-                codefresh_steps_from_base_path(join(root_path, STATIC_IMAGES_PATH), CD_BUILD_STEP_STATIC,
+                codefresh_steps_from_base_path(join(root_path, STATIC_IMAGES_PATH),
                                                include=helm_values[KEY_TASK_IMAGES].keys())
-
-                codefresh_steps_from_base_path(join(
-                    root_path, APPS_PATH), CD_BUILD_STEP_PARALLEL)
+                codefresh_steps_from_base_path(join(root_path, APPS_PATH), include=helm_values[KEY_TASK_IMAGES].keys())
+                codefresh_steps_from_base_path(join(root_path, APPS_PATH), include=build_included)
 
             if CD_E2E_TEST_STEP in steps:
                 name = "test-e2e"
                 codefresh_steps_from_base_path(join(
-                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=(name,), publish=False)
+                    root_path, TEST_IMAGES_PATH), include=(name,), publish=False)
                 steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_image_name)
 
             if CD_API_TEST_STEP in steps:
                 name = "test-api"
-                codefresh_steps_from_base_path(join(
-                    root_path, TEST_IMAGES_PATH), CD_BUILD_STEP_TEST, include=(name,), fixed_context=relpath(root_path, os.getcwd()), publish=False)
+                codefresh_steps_from_base_path(join(root_path, TEST_IMAGES_PATH), include=(name,), fixed_context=relpath(root_path, os.getcwd()), publish=False)
                 steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_image_name)
+
+    if build_steps:
+
+        def adjust_build_steps(index):
+            """
+            Adjust the build steps to be parallel
+            """
+            new_step = dict(**steps[CD_BUILD_STEP_PARALLEL])
+            new_step['title'] = "Build parallel step %d" % (index + 1)
+            new_step['steps'] = {}
+            steps[f"{CD_BUILD_STEP_PARALLEL}_{index}"] = new_step
+            remaining_steps = set(build_steps.keys())
+            for step_name in remaining_steps:
+                step = build_steps[step_name]
+                if not step["dependencies"] or not any(d for d in step["dependencies"] if d in remaining_steps):
+                    new_step['steps'][step_name] = step
+                    del step["dependencies"]
+                    del build_steps[step_name]
+
+            if build_steps:
+                adjust_build_steps(index + 1)
+        adjust_build_steps(0)
 
     if not codefresh:
         logging.warning(
@@ -319,14 +339,11 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
     steps = codefresh["steps"]
     if CD_E2E_TEST_STEP in steps and not steps[CD_E2E_TEST_STEP]["scale"]:
         del steps[CD_E2E_TEST_STEP]
-        del steps[CD_BUILD_STEP_TEST]["steps"]["test-e2e"]
 
     if CD_API_TEST_STEP in steps and not steps[CD_API_TEST_STEP]["scale"]:
         del steps[CD_API_TEST_STEP]
-        del steps[CD_BUILD_STEP_TEST]["steps"]["test-api"]
 
-    if CD_BUILD_STEP_TEST in steps and not steps[CD_BUILD_STEP_TEST]["steps"]:
-        del steps[CD_BUILD_STEP_TEST]
+    if CD_E2E_TEST_STEP not in steps and not CD_API_TEST_STEP not in steps and CD_WAIT_STEP in steps:
         del steps[CD_WAIT_STEP]
     if CD_WAIT_STEP in steps:
         rollout_commands = steps[CD_WAIT_STEP]['commands']
@@ -337,7 +354,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     ROLLOUT_CMD_TPL % app.deployment.name)
             if app.secured and helm_values.secured_gatekeepers:
                 rollout_commands.append(
-                    ROLLOUT_CMD_TPL % app.service.name + "-gk")
+                    ROLLOUT_CMD_TPL % app.subdomain + "-gk")
         # some time to the certificates to settle
         rollout_commands.append("sleep 60")
 
@@ -436,13 +453,14 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
             'build_arguments') if 'build_arguments' in build_specific else []
 
     build['build_arguments'].append('REGISTRY=${{REGISTRY}}/%s/' % base_name)
+    build['dependencies'] = dependencies
 
     def add_arg_dependencies(dependencies):
         arg_dependencies = [f"{d.upper().replace('-', '_')}={image_tag_with_variables(d, app_specific_tag_variable(d), base_name)}" for
                             d in dependencies]
         build['build_arguments'].extend(arg_dependencies)
 
-    values_key = app_name.replace('-', '_')
+    values_key = app_name
     if dependencies is not None:
         add_arg_dependencies(dependencies)
     elif values_key in helm_values.apps:

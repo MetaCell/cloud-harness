@@ -45,20 +45,17 @@ steps:
     image: codefresh/cfstep-helm:3.6.2
     stage: prepare
     title: "View helm chart"
-  build_base_images:
-    title: Build base images
-    type: parallel
-    stage: build
-    steps: {}
-  build_static_images:
-    title: Build static images
-    type: parallel
-    stage: build
-    steps: {}
   build_application_images:
     type: parallel
     stage: build
-    steps: {}
+    steps: {}   
+  build_application_images_0: 
+  build_application_images_1:
+  build_application_images_2:
+  build_application_images_3:
+  build_application_images_4:
+  build_application_images_5:
+
   tests_unit:
     stage: unittest
     type: parallel

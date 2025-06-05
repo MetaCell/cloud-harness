@@ -1,5 +1,4 @@
 # load the config object (satisfies linters)
-
 c = get_config()  # noqa
 
 import glob
@@ -13,12 +12,6 @@ from tornado.httpclient import AsyncHTTPClient
 
 # CLOUDHARNESS: EDIT START
 import logging
-
-try:
-    from harness_jupyter.jupyterhub import harness_hub
-    harness_hub()  # activates harness hooks on jupyterhub
-except Exception as e:
-    logging.error("could not import harness_jupyter", exc_info=True)
 # CLOUDHARNESS: EDIT END
 
 # Make sure that modules placed in the same directory as the jupyterhub config are added to the pythonpath
@@ -118,28 +111,35 @@ c.JupyterHub.hub_connect_url = (
 )
 
 # implement common labels
-# this duplicates the jupyterhub.commonLabels helper
+# This mimics the jupyterhub.commonLabels helper, but declares managed-by to
+# kubespawner instead of helm.
+#
+# The labels app and release are old labels enabled to be deleted in z2jh 5, but
+# for now retained to avoid a breaking change in z2jh 4 that would force user
+# server restarts. Restarts would be required because NetworkPolicy resources
+# must select old/new pods with labels that then needs to be seen on both
+# old/new pods, and we want these resources to keep functioning for old/new user
+# server pods during an upgrade.
+#
 common_labels = c.KubeSpawner.common_labels = {}
-common_labels["app"] = get_config(
+common_labels["app.kubernetes.io/name"] = common_labels["app"] = get_config(
     "nameOverride",
     default=get_config("Chart.Name", "jupyterhub"),
 )
-common_labels["heritage"] = "jupyterhub"
+release = get_config("Release.Name")
+if release:
+    common_labels["app.kubernetes.io/instance"] = common_labels["release"] = release
 chart_name = get_config("Chart.Name")
 chart_version = get_config("Chart.Version")
 if chart_name and chart_version:
-    common_labels["chart"] = "{}-{}".format(
-        chart_name,
-        chart_version.replace("+", "_"),
+    common_labels["helm.sh/chart"] = common_labels["chart"] = (
+        f"{chart_name}-{chart_version.replace('+', '_')}"
     )
-release = get_config("Release.Name")
-if release:
-    common_labels["release"] = release
+common_labels["app.kubernetes.io/managed-by"] = "kubespawner"
 
 c.KubeSpawner.namespace = os.environ.get("POD_NAMESPACE", "default")
 
 # Max number of consecutive failures before the Hub restarts itself
-# requires jupyterhub 0.9.2
 set_config_if_not_none(
     c.Spawner,
     "consecutive_failure_limit",
@@ -260,7 +260,8 @@ if tolerations:
 storage_type = get_config("singleuser.storage.type")
 if storage_type == "dynamic":
     pvc_name_template = get_config("singleuser.storage.dynamic.pvcNameTemplate")
-    c.KubeSpawner.pvc_name_template = pvc_name_template
+    if pvc_name_template:
+        c.KubeSpawner.pvc_name_template = pvc_name_template
     volume_name_template = get_config("singleuser.storage.dynamic.volumeNameTemplate")
     c.KubeSpawner.storage_pvc_ensure = True
     set_config_if_not_none(
@@ -286,6 +287,7 @@ if storage_type == "dynamic":
         {
             "mountPath": get_config("singleuser.storage.homeMountPath"),
             "name": volume_name_template,
+            "subPath": get_config("singleuser.storage.dynamic.subPath"),
         }
     ]
 elif storage_type == "static":
@@ -491,7 +493,6 @@ for app, cfg in get_config("hub.config", {}).items():
         cfg.pop("keys", None)
     c[app].update(cfg)
 
-
 # load /usr/local/etc/jupyterhub/jupyterhub_config.d config files
 config_dir = "/usr/local/etc/jupyterhub/jupyterhub_config.d"
 if os.path.isdir(config_dir):
@@ -541,11 +542,13 @@ elif auth_type == 'keycloak':
 
     c.GenericOAuthenticator.login_service = "CH"
     c.GenericOAuthenticator.username_key = "email"
-    c.GenericOAuthenticator.authorize_url = f"{accounts_url}/auth/realms/{realm}/protocol/openid-connect/auth"
-    c.GenericOAuthenticator.token_url = f"{accounts_url}/auth/realms/{realm}/protocol/openid-connect/token"
-    c.GenericOAuthenticator.userdata_url = f"{accounts_url}/auth/realms/{realm}/protocol/openid-connect/userinfo"
+    c.GenericOAuthenticator.username_claim = "email"
+    c.GenericOAuthenticator.scope = ["openid"]
+    c.GenericOAuthenticator.authorize_url = f"{accounts_url}/realms/{realm}/protocol/openid-connect/auth"
+    c.GenericOAuthenticator.token_url = f"{accounts_url}/realms/{realm}/protocol/openid-connect/token"
+    c.GenericOAuthenticator.userdata_url = f"{accounts_url}/realms/{realm}/protocol/openid-connect/userinfo"
     c.GenericOAuthenticator.userdata_params = {'state': 'state'}
-
+    c.GenericOAuthenticator.admin_groups = {"administrator"}
 
 set_config_if_not_none(c.OAuthenticator, 'scope', 'auth.scopes')
 

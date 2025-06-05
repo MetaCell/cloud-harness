@@ -132,6 +132,9 @@ components:
                 initialDelaySeconds:
                     description: ''
                     type: number
+                port:
+                    description: ''
+                    type: number
         URL:
             description: ''
             type: string

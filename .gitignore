@@ -1,4 +1,6 @@
 *.jar
+# Allow the KC kafka plugin
+!applications/accounts/plugins/*.jar
 .idea
 node_modules
 .openapi-generator
@@ -8,7 +10,7 @@ node_modules
 *.DS_Store
 deployment/helm
 deployment/compose
-docker-compose.yaml
+/docker-compose.yaml
 *.egg-info
 *.idea
 /build
@@ -23,3 +25,4 @@ __pycache__
 tools/deployment-cli-tools/tests/resources/migration
 tools/deployment-cli-tools/tests/resources/migration.bak
 /.venv
+.history

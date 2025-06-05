@@ -24,7 +24,7 @@ REQUIREMENTS = [
     'requests',
     'cloudharness_model',
     'cloudharness',
-    'schemathesis',
+    'schemathesis>=3.39.16',
 ]
 
 

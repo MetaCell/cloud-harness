@@ -19,7 +19,7 @@ REQUIREMENTS = [
     'cryptography',
     'requests>=2.21.0',
     'sentry-sdk[flask]>=0.14.4',
-    'python-keycloak >= 3.7.0',
+    'python-keycloak >= 4.7.0',
     'cloudharness_model',
     'argo-workflows==5.0.0',
     'cachetools >= 5.3.2',

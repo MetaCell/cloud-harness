@@ -15,9 +15,9 @@ from .utils import get_cluster_ip, get_git_commit_hash, image_name_from_dockerfi
 
 from .models import HarnessMainConfig
 
-from .configurationgenerator import ConfigurationGenerator, validate_helm_values, \
+from .configurationgenerator import ConfigurationGenerator, get_included_builds, validate_helm_values, \
     KEY_HARNESS, KEY_SERVICE, KEY_DATABASE, KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES, KEY_DEPLOYMENT, DEFAULT_IGNORE, \
-    values_from_legacy, values_set_legacy, get_included_with_dependencies, create_env_variables, collect_apps_helm_templates, generate_tag_from_content, guess_build_dependencies_from_dockerfile
+    values_from_legacy, values_set_legacy, get_included_applications, create_env_variables, collect_apps_helm_templates, generate_tag_from_content, guess_build_dependencies_from_dockerfile
 
 
 def deploy(namespace, output_path='./deployment'):
@@ -123,7 +123,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
             values_from_legacy(v)
             assert KEY_HARNESS in v, 'Default app value loading is broken'
 
-            app_name = app_key.replace('_', '-')
+            app_name = app_key
             harness = v[KEY_HARNESS]
             harness['name'] = app_name
 
@@ -139,19 +139,47 @@ class CloudHarnessHelm(ConfigurationGenerator):
             values_set_legacy(v)
 
         if self.include:
-            self.include = get_included_with_dependencies(
+            # Here we filter the applications based on the include list and their dependencies
+            included_builds = get_included_builds(values, set(self.include))
+            # Only include applications that are specified in the include list and their dependencies
+            self.include = get_included_applications(
                 values, set(self.include))
+
             logging.info('Selecting included applications')
 
-            for v in [v for v in apps]:
-                if apps[v]['harness']['name'] not in self.include:
-                    del apps[v]
-                    continue
-                values[KEY_TASK_IMAGES].update(apps[v][KEY_TASK_IMAGES])
-                # Create environment variables
+            included_apps = {}
+
+            # Include build dependencies that are not included as applications
+            for dep_name in included_builds:
+                app_name = None
+                prefix = dep_name.split("-")[0] if "-" in dep_name else None
+                if dep_name in self.include and dep_name in apps:  # application is part of the deployment
+                    app_name = dep_name
+                    included_apps[app_name] = apps[app_name]
+                elif dep_name in apps:  # application is not part of the deployment, but is a build dependency
+                    logging.info(f"Adding {dep_name} to included build images due to build dependencies")
+                    image = apps[dep_name][KEY_HARNESS][KEY_DEPLOYMENT]["image"]
+                    if image:
+                        values[KEY_TASK_IMAGES][dep_name] = image
+                    app_name = dep_name
+                elif prefix in apps:  # build dependency within an application that is not part of the deployment
+                    app_name = prefix
+                    values[KEY_TASK_IMAGES][dep_name] = apps[app_name][KEY_TASK_IMAGES][dep_name]
+                if app_name:
+                    # Include the relevant build images for the application
+                    for key in apps[app_name][KEY_TASK_IMAGES]:
+                        if key in included_builds or app_name in self.include:
+                            values[KEY_TASK_IMAGES][key] = apps[app_name][KEY_TASK_IMAGES][key]
+
+            values[KEY_APPS] = included_apps
         else:
-            for v in [v for v in apps]:
+            for v in apps:
                 values[KEY_TASK_IMAGES].update(apps[v][KEY_TASK_IMAGES])
+
+        for ex in self.exclude:
+            if ex in values[KEY_TASK_IMAGES]:
+                logging.info(f"Excluding {ex} from build")
+                del values[KEY_TASK_IMAGES][ex]
         create_env_variables(values)
         return values, self.include
 
@@ -190,13 +218,15 @@ class CloudHarnessHelm(ConfigurationGenerator):
         else:
             build_dependencies = []
 
-        if len(image_paths) > 0:
+        deployment_values = values.get(KEY_HARNESS, {}).get(KEY_DEPLOYMENT, {})
+        deployment_image = deployment_values.get('image', None) or values.get('image', None)
+        values['build'] = not bool(deployment_image)  # Used by skaffold and ci/cd to determine if the image should be built
+        if len(image_paths) > 0 and not deployment_image:
             image_name = image_name_from_dockerfile_path(os.path.relpath(
                 image_paths[0], os.path.dirname(app_path)), base_image_name)
-
             values['image'] = self.image_tag(
                 image_name, build_context_path=app_path, dependencies=build_dependencies)
-        elif KEY_HARNESS in values and not values[KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('image', None) and values[
+        elif KEY_HARNESS in values and not deployment_image and values[
                 KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('auto', False):
             raise Exception(f"At least one Dockerfile must be specified on application {app_name}. "
                             f"Specify harness.deployment.image value if you intend to use a prebuilt image.")

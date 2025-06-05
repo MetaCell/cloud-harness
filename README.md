@@ -7,7 +7,9 @@ Can scaffold and maintain your cloud solution on top of Cloudharness without wri
 Kubernetes templates, with in place common utilities and applications already configured for you.
 
 What building your cloud solution with CloudHarness gives to you:
+
 - Common framework and utilities to develop and deploy micro-service application
+
   - Helm chart automatic generation
     - deployments
     - services
@@ -23,11 +25,13 @@ What building your cloud solution with CloudHarness gives to you:
     - databases (postgreql)
     - access gatekeepers configuration
     - secrets and configmaps
+
   * Automatic build and push of images
   * REST-API scaffolding building based on OpenApi
   * Continuous deployment script generation
   * Debug backend applications running on Kubernetes
   * Python cluster access utilities
+
 * Prebuilt support applications and shared library to:
   * Log in and user management - based on Keycloak
   * Submit batch and asynchronous workflows - based on Argo
@@ -43,17 +47,18 @@ What building your cloud solution with CloudHarness gives to you:
 
 The microservice architecture is a great to get code separation and flexible development, but may not be of easy implementation, especially for small development teams/projects.
 In particular, these questions may rise:
- - How do I create a deployment for my microservices?
- - How do I orchestrate my microservices?
- - How to create consistent api documentation?
- - Do I need to be an experienced devops to create a micro-service based application?
- - Wouldn't it be nice to develop a plain database/backend/frontend application without infrastructure boilerplate but still be able to configure everything I want when needed?
- - How to run batch operations like ETL processes easily and efficiently in a cloud environment?
- - How to manage databases without being locked to a specific vendor solution?
- - How to perform database backups?
- - How to manage secret data?
- - What about having a precounfigured account management application?
- - Sooner rather than later I'll need an orchestration queue. Why not have that just ready to use?
+
+- How do I create a deployment for my microservices?
+- How do I orchestrate my microservices?
+- How to create consistent api documentation?
+- Do I need to be an experienced devops to create a micro-service based application?
+- Wouldn't it be nice to develop a plain database/backend/frontend application without infrastructure boilerplate but still be able to configure everything I want when needed?
+- How to run batch operations like ETL processes easily and efficiently in a cloud environment?
+- How to manage databases without being locked to a specific vendor solution?
+- How to perform database backups?
+- How to manage secret data?
+- What about having a precounfigured account management application?
+- Sooner rather than later I'll need an orchestration queue. Why not have that just ready to use?
 
 # Command line tools
 
@@ -63,7 +68,7 @@ CloudHarness provides the following command line tools to help application scaff
 * `harness-application` - create a new CloudHarness REST application.
 * `harness-generate` - generates server and client code for all CloudHarness REST applications.
 * `harness-test` - run end to end tests
-  
+
 # Get started
 
 ## Prerequisites
@@ -71,22 +76,26 @@ CloudHarness provides the following command line tools to help application scaff
 ### Operative system
 
 Cloudharness can be used on all major operative systems.
+
 - Linux: supported and tested
 - MacOS: supported and tested
 - Windows/WSL2: supported and tested
 - Windows native: mostly working, unsupported
 
 ### Python
-Python 3.9 must be installed.
+
+Python 3.10+ must be installed.
 
 It is recommended to setup a virtual environment.
 With conda:
+
 ```bash
 conda create --name ch python=3.12
 conda activate ch
 ```
 
 ### Docker
+
 [Docker](https://www.docker.com) is required to build locally.
 
 ### Kubernetes command line client
@@ -110,6 +119,7 @@ conda activate ch
 A node environment with npm is required for developing web applications and to run end to end tests.
 
 Recommended:
+
 - node >= v14.0.0
 - npm >= 8.0.0
 
@@ -120,26 +130,31 @@ A JRE is needed to run the code generators based on openapi-generator.
 For more info, see [here](https://openapi-generator.tech/docs/installation).
 
 ## CloudHarness command line tools
+
 To use the cli tools, install requirements first:
 
 ```bash
 bash install.sh
 ```
-### Generate deployment
 
-To generate a deployment, run `harness-deployment`. See [below](#Deployment) for more.
+### Create a new REST application
 
-### Create new REST application
-To create a new REST application, run `harness-application` from the root of your solution.
+`harness-application` is a command-line tool used to create new applications based on predefined code templates. It allows users to quickly scaffold applications with backend, frontend, and database configurations.
+More information can be found [here](./docs/applications/harness-application.md).
 
 ### Generate server and client code from openapi
-To (re)generate the code for your applications, run `harness-generate` from the root.
-The script will look for all openapi applications, and regenerate the Flask server code and documentation.
-Note: the script will eventually override any manually modified file. To avoid that, define a file openapi-generator-ignore.
+
+To (re)generate the code for your applications, run `harness-generate`.
+`harness-generate` is a command-line tool used to generate client code, server stubs, and model libraries for applications.
+More information can be found [here](./docs/applications/harness-generate.md)
+
+### Generate deployment
+
+To generate a deployment, run `harness-deployment`. See [below](#build-and-deploy) for more information.
 
 # Extend CloudHarness to build your project
 
-CloudHarness is born to be extended. 
+CloudHarness is born to be extended.
 
 The quickest way to start is to install Cloud Harness, copy the *blueprint* folder and build from that with the cli tools, such as
 `harness-application`, `harness-generate`, `harness-deployment`.
@@ -150,10 +165,11 @@ See the [developers documentation](docs/dev.md#start-your-project) for more info
 
 The script `harness-deployment` scans your applications and configurations to create the build and deploy artifacts.
 Created artifacts include:
- - Helm chart (or docker compose configuration file)
- - Skaffold build and run configuration
- - Visual Studio Code debug and run configuration
- - Codefresh pipeline yaml specification (optional)
+
+- Helm chart (or docker compose configuration file)
+- Skaffold build and run configuration
+- Visual Studio Code debug and run configuration
+- Codefresh pipeline yaml specification (optional)
 
 With your project folder structure looking like
 
@@ -193,5 +209,4 @@ Then, you can selectively add files related to configuration that you want to pe
 
 For more information about how to configure a deployment, see [here](./build-deploy/helm-configuration.md)
 
-
-[![Codefresh build status]( https://g.codefresh.io/api/badges/pipeline/tarelli/Cloudharness%2Funittests?type=cf-1&key=eyJhbGciOiJIUzI1NiJ9.NWFkNzMyNDIzNjQ1YWMwMDAxMTJkN2Rl.-gUEkJxH6NCCIRgSIgEikVDte-Q0BsGZKEs4uahgpzs)]( https://g.codefresh.io/pipelines/edit/new/builds?id=6034cfce1036693697cd602b&pipeline=unittests&projects=Cloudharness&projectId=6034cfb83bb11c399e85c71b)
+[![Codefresh build status](https://g.codefresh.io/api/badges/pipeline/tarelli/Cloudharness%2Funittests?type=cf-1&key=eyJhbGciOiJIUzI1NiJ9.NWFkNzMyNDIzNjQ1YWMwMDAxMTJkN2Rl.-gUEkJxH6NCCIRgSIgEikVDte-Q0BsGZKEs4uahgpzs)](https://g.codefresh.io/pipelines/edit/new/builds?id=6034cfce1036693697cd602b&pipeline=unittests&projects=Cloudharness&projectId=6034cfb83bb11c399e85c71b)

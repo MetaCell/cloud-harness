@@ -1,5 +1,7 @@
+import collections
 
-def dict_merge(dct, merge_dct, add_keys=True):
+
+def dict_merge(dct, merge_dct, add_keys=True, merge_none=True):
     """ Recursive dict merge. Inspired by :meth:``dict.update()``, instead of
     updating only top-level keys, dict_merge recurses down into dicts nested
     to an arbitrary depth, updating keys. The ``merge_dct`` is merged into
@@ -31,7 +33,7 @@ def dict_merge(dct, merge_dct, add_keys=True):
         if (k in dct and isinstance(dct[k], dict) and
                 isinstance(merge_dct[k], collections.abc.Mapping)):
             dct[k] = dict_merge(dct[k], merge_dct[k], add_keys=add_keys)
-        else:
+        elif merge_none or (merge_dct[k] is not None):
             dct[k] = merge_dct[k]
 
     return dct

@@ -7,7 +7,7 @@
         pathType: ImplementationSpecific
         backend:
           service:
-            name: {{ .app.harness.service.name }}{{- if (and .app.harness.secured $secured_gatekeepers) }}-gk{{- end }}
+            name: {{ if (and .app.harness.secured $secured_gatekeepers) }}{{ printf "%s-gk" .subdomain }}{{ else }}{{ .app.harness.service.name | quote }}{{ end }}
             port:
               number: {{- if (and .app.harness.secured $secured_gatekeepers) }} 8080 {{- else }} {{ .app.harness.service.port | default 80  }}{{- end }}
 {{- end }}
@@ -52,24 +52,24 @@ spec:
   {{- range $app := .Values.apps }}
     {{- if (and $mainapp (and $app.harness.name (eq $app.harness.name $mainapp))) }}
   - host: {{ $domain | quote }}
-    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app) }}
+    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app "subdomain" $app.harness.subdomain) }}
       {{- range $service := $app.harness.use_services }}
       {{ include "deploy_utils.ingress.service" (dict "root" $ "service_name" $service.name) }}
       {{- end }}
     {{- end }}
     {{- if $app.harness.domain }}
   - host: {{ $app.harness.domain | quote }}
-    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app) }}
+    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app "subdomain" $app.harness.subdomain ) }}
     {{- end }}
     {{- if $app.harness.aliases }}
     {{- range $alias := $app.harness.aliases }}
   - host: {{ printf "%s.%s" $alias $domain | quote }}
-    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app) }}
+    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app  "subdomain" $alias) }}
       {{- end }}
     {{- end }}
     {{- if $app.harness.subdomain }}
   - host: {{ printf "%s.%s" $app.harness.subdomain $domain | quote }}
-    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app) }}
+    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app  "subdomain" $app.harness.subdomain) }}
     {{- range $service := $app.harness.use_services }}
       {{ include "deploy_utils.ingress.service" (dict "root" $ "service_name" $service.name) }}
     {{- end }}
@@ -77,7 +77,7 @@ spec:
         {{- if contains "map" (typeOf $subapp)  }}
           {{- if and $subapp (hasKey $subapp "harness.subdomain") }}
   - host: {{ printf "%s.%s.%s" $subapp.harness.subdomain $app.harness.subdomain $domain | quote }}
-    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $subapp) }}
+    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $subapp "subdomain" (printf "%s.%s" $subapp.harness.subdomain $app.harness.subdomain)) }}
           {{- end }}
        {{- end }}
       {{- end }}
@@ -95,6 +95,11 @@ spec:
           {{- if  ne $app.harness.domain $domain }}
       - {{ $app.harness.domain | quote }}
         {{- end }}
+        {{- end }}
+        {{- if $app.harness.aliases }}
+          {{- range $subdomain := $app.harness.aliases }}
+      - {{ printf "%s.%s" $subdomain $domain | quote }}
+          {{- end }}
         {{- end }}
       {{- end }}
       {{- if $mainapp }}
