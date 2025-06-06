@@ -35,12 +35,12 @@ def test_collect_helm_values(tmp_path):
     assert 'events' not in values[KEY_APPS]
 
     # Auto values
-    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/cloudharness/myapp:1'
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/resources/myapp:1'
     assert values[KEY_APPS]['myapp']['build'] == True
-    assert values.apps['myapp'].harness.deployment.image == 'reg/cloudharness/myapp:1'
+    assert values.apps['myapp'].harness.deployment.image == 'reg/resources/myapp:1'
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
     assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'reg/cloudharness/accounts:1'
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'reg/cloud-harness/accounts:1'
 
     # Base values kept
     assert values[KEY_APPS]['accounts'][KEY_HARNESS]['subdomain'] == 'accounts'
@@ -74,8 +74,8 @@ def test_collect_helm_values(tmp_path):
     # Checl base and task images
     assert values[KEY_TASK_IMAGES]
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
-    assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'reg/cloudharness/cloudharness-base:1'
-    assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/cloudharness/myapp-mytask:1'
+    assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'reg/cloud-harness/cloudharness-base:1'
+    assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/resources/myapp-mytask:1'
     # Not indicated as a build dependency
     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES]
 
@@ -95,10 +95,10 @@ def test_collect_helm_values_noreg_noinclude(tmp_path):
                                namespace='test', env='dev', local=False, tag=1)
 
     # Auto values
-    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'cloudharness/myapp:1'
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'resources/myapp:1'
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
     assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'cloudharness/accounts:1'
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'cloud-harness/accounts:1'
 
     # First level include apps
     assert 'samples' in values[KEY_APPS]
@@ -141,8 +141,8 @@ def test_collect_helm_values_noreg_noinclude(tmp_path):
 
     assert values[KEY_TASK_IMAGES]
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
-    assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'cloudharness/cloudharness-base:1'
-    assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'cloudharness/myapp-mytask:1'
+    assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'cloud-harness/cloudharness-base:1'
+    assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'resources/myapp-mytask:1'
 
 
 def test_collect_helm_values_precedence(tmp_path):
@@ -300,9 +300,9 @@ def test_collect_helm_values_auto_tag(tmp_path):
     values = create()
 
     # Auto values are set by using the directory hash
-    assert 'reg/cloudharness/myapp:' in values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image']
-    assert 'reg/cloudharness/myapp:' in values.apps['myapp'].harness.deployment.image
-    assert 'cloudharness/myapp-mytask' in values[KEY_TASK_IMAGES]['myapp-mytask']
+    assert 'reg/resources/myapp:' in values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image']
+    assert 'reg/resources/myapp:' in values.apps['myapp'].harness.deployment.image
+    assert 'resources/myapp-mytask' in values[KEY_TASK_IMAGES]['myapp-mytask']
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == values.apps['myapp'].harness.deployment.image
     v1 = values.apps['myapp'].harness.deployment.image
     c1 = values["task-images"]["my-common"]

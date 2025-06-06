@@ -1,18 +1,17 @@
 import os
 from os.path import join, relpath, exists, dirname, basename
 from cloudharness_model.models.git_dependency_config import GitDependencyConfig
-import requests
+
 import logging
 from cloudharness_model.models.api_tests_config import ApiTestsConfig
 
 import oyaml as yaml
-import yaml.representer
 
 from cloudharness_utils.testing.util import get_app_environment
 from .models import HarnessMainConfig, ApplicationTestConfig, ApplicationHarnessConfig
 from cloudharness_utils.constants import *
 from .configurationgenerator import KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES
-from .utils import check_docker_manifest_exists, find_dockerfiles_paths, get_app_relative_to_base_path, guess_build_dependencies_from_dockerfile, \
+from .utils import check_image_exists_in_registry, find_dockerfiles_paths, get_app_relative_to_base_path, guess_build_dependencies_from_dockerfile, \
     get_image_name, get_template, dict_merge, app_name_from_path, clean_path
 from cloudharness_utils.testing.api import get_api_filename, get_schemathesis_command, get_urls_from_api_file
 
@@ -58,7 +57,7 @@ def clone_step_spec(conf: GitDependencyConfig, context_path: str):
     }
 
 
-def write_env_file(helm_values: HarnessMainConfig, filename, registry_secret=None):
+def write_env_file(helm_values: HarnessMainConfig, filename, image_cache_endpoint_url=None):
     env = {}
     logging.info("Create env file with image info %s", filename)
 
@@ -70,7 +69,7 @@ def write_env_file(helm_values: HarnessMainConfig, filename, registry_secret=Non
         chunks = image.split(":")[0].split("/")
         registry = chunks[0] if "." in chunks[0] else "docker.io"
         image_name = "/".join(chunks[1::] if "." in chunks[0] else chunks[0::])
-        exists = check_docker_manifest_exists(registry, image_name, tag, registry_secret=registry_secret)
+        exists = check_image_exists_in_registry(registry, image_name, tag, endpoint_url=image_cache_endpoint_url)
         if exists:
             # TODO the hash might be the same but not the parent's hash
             env[app_specific_tag_variable(name) + "_EXISTS"] = 1
@@ -193,7 +192,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                 relpath(
                                     dockerfile_path, root_path) if fixed_context else '',
                                 "Dockerfile"),
-                            base_name=base_image_name,
+                            base_name=os.path.basename(root_path),
                             helm_values=helm_values,
                             dependencies=dependencies
                         )
@@ -257,7 +256,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     steps[CD_UNIT_TEST_STEP]['steps'][f"{app_name}_ut"] = dict(
                         title=f"Unit tests for {app_name}",
                         commands=test_config.unit.commands,
-                        image=image_tag_with_variables(app_name, tag, base_image_name),
+                        image=image_tag_with_variables(app_name, tag, os.path.basename(root_path)),
                     )
 
             if helm_values[KEY_TASK_IMAGES]:
@@ -272,12 +271,12 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 name = "test-e2e"
                 codefresh_steps_from_base_path(join(
                     root_path, TEST_IMAGES_PATH), include=(name,), publish=False)
-                steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_image_name)
+                steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=os.path.basename(root_path))
 
             if CD_API_TEST_STEP in steps:
                 name = "test-api"
                 codefresh_steps_from_base_path(join(root_path, TEST_IMAGES_PATH), include=(name,), fixed_context=relpath(root_path, os.getcwd()), publish=False)
-                steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_image_name)
+                steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=os.path.basename(root_path))
 
     if build_steps:
 
@@ -452,7 +451,6 @@ def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Docker
         build_specific.pop(
             'build_arguments') if 'build_arguments' in build_specific else []
 
-    build['build_arguments'].append('REGISTRY=${{REGISTRY}}/%s/' % base_name)
     build['dependencies'] = dependencies
 
     def add_arg_dependencies(dependencies):

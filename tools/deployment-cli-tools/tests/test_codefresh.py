@@ -127,7 +127,7 @@ def test_create_codefresh_configuration():
                    ) == 2, "Two unit test steps are expected"
         assert 'myapp_ut' in l1_steps[CD_UNIT_TEST_STEP]['steps'], "Myapp test step is expected"
         tstep = l1_steps[CD_UNIT_TEST_STEP]['steps']['myapp_ut']
-        assert tstep['image'] == r"${{REGISTRY}}/cloudharness/myapp:${{MYAPP_TAG}}", "The test image should be the one built for the current app"
+        assert tstep['image'] == r"${{REGISTRY}}/resources/myapp:${{MYAPP_TAG}}", "The test image should be the one built for the current app"
         assert len(
             tstep['commands']) == 2, "Unit test commands are not properly loaded from the unit test configuration file"
         assert tstep['commands'][0] == "tox", "Unit test commands are not properly loaded from the unit test configuration file"
