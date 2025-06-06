@@ -464,12 +464,29 @@ def guess_build_dependencies_from_dockerfile(filename):
                 break
     return dependencies
 
-
-def check_docker_manifest_exists(registry, image_name, tag, registry_secret=None):
-    api_url = f"https://{registry}/v2/{image_name}/manifests/{tag}"
-    resp = requests.get(api_url)
+def check_response_200(endpoint_url):
+    resp = requests.get(endpoint_url)
     return resp.status_code == 200
 
+def check_docker_manifest_exists(registry, image_name, tag):
+    api_url = f"https://{registry}/v2/{image_name}/manifests/{tag}"
+    return check_response_200(api_url)
+
+def check_image_exists_in_registry(registry, image_name, tag, endpoint_url=None):
+    """
+    Check if an image exists in the registry.
+    :param registry: The registry URL (e.g., 'registry.example.com').
+    :param image_name: The name of the image (e.g., 'myapp').
+    :param tag: The tag of the image (e.g., 'latest').
+    :return: True if the image exists, False otherwise.
+    """
+    
+    if endpoint_url:
+        try:
+            return check_response_200(f"{endpoint_url}?repository={registry}/{image_name}&tag={tag}")
+        except requests.RequestException as e:
+            logging.error(f"Error checking image existence at {endpoint_url}: {e}.\nUsing default registry manifest check.")
+    return check_docker_manifest_exists(registry, image_name, tag)
 
 def filter_empty_strings(value):
     return value != ""
@@ -480,8 +497,13 @@ def search_word_in_file(filename, word):
         return []
     matches = []
     with open(filename) as f:
-        if word in f.read():
-            matches.append(filename)
+        try:
+            if word in f.read():
+                matches.append(filename)
+        except UnicodeDecodeError:
+            # Ignore files that cannot be decoded
+            logging.warning(f"Could not read file {filename} due to encoding issues.")
+            return []
     return list(filter(filter_empty_strings, matches))
 
 
