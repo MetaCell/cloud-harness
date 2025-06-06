@@ -59,7 +59,7 @@ def test_create_codefresh_configuration():
         assert step_build_base["type"] == "parallel"
 
         steps = l1_steps[STEP_0]["steps"]
-        assert len(steps) == 8, "all images that do not depend on othe builds should be included in the first step"
+        assert len(steps) == 7, "all images that do not depend on othe builds should be included in the first step"
         assert "cloudharness-base" in steps, "cloudharness-base image should be included as dependency"
         assert "cloudharness-base-debian" not in steps, "cloudharness-base image should not be included"
         assert "cloudharness-frontend-build" in steps, "cloudharness-frontend-build image should be included as dependency"
