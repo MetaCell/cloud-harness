@@ -147,10 +147,14 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
 
         return values
 
-    def _init_static_images(self, base_image_name):
-        for static_img_dockerfile in self.static_images:
+    def _init_static_images(self):
+        for root_path in self.root_paths:
+            for static_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)):
+                self.static_images.add(static_img_dockerfile)
+            
+
             img_name = image_name_from_dockerfile_path(os.path.basename(
-                static_img_dockerfile), base_name=base_image_name)
+                static_img_dockerfile), base_name=clean_image_name(root_path.name))
             self.base_images[os.path.basename(static_img_dockerfile)] = self.image_tag(
                 img_name, build_context_path=static_img_dockerfile,
                 dependencies=guess_build_dependencies_from_dockerfile(static_img_dockerfile)
@@ -175,7 +179,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
                 del helm_values[KEY_TASK_IMAGES][image_name]
                 # del helm_values[KEY_TASK_IMAGES_BUILD][image_name]
 
-    def _init_base_images(self, base_image_name):
+    def _init_base_images(self):
 
         for root_path in self.root_paths:
             for base_img_dockerfile in self.__find_static_dockerfile_paths(root_path):
@@ -186,11 +190,9 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
                     dependencies=guess_build_dependencies_from_dockerfile(base_img_dockerfile)
                 )
 
-            self.static_images.update(find_dockerfiles_paths(
-                os.path.join(root_path, STATIC_IMAGES_PATH)))
         return self.base_images
 
-    def _init_test_images(self, base_image_name):
+    def _init_test_images(self):
         test_images = {}
         for root_path in self.root_paths:
             for base_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, TEST_IMAGES_PATH)):
