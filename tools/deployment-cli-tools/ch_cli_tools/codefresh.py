@@ -256,7 +256,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     steps[CD_UNIT_TEST_STEP]['steps'][f"{app_name}_ut"] = dict(
                         title=f"Unit tests for {app_name}",
                         commands=test_config.unit.commands,
-                        image=image_tag_with_variables(app_name, tag, os.path.basename(root_path)),
+                        image=image_tag_with_variables(app_name, tag, clean_image_name(os.path.basename(os.path.abspath(root_path)))),
                     )
 
             if helm_values[KEY_TASK_IMAGES]:
@@ -271,12 +271,12 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 name = "test-e2e"
                 codefresh_steps_from_base_path(join(
                     root_path, TEST_IMAGES_PATH), include=(name,), publish=False)
-                steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=os.path.basename(root_path))
+                steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=clean_image_name(os.path.basename(os.path.abspath(root_path))))
 
             if CD_API_TEST_STEP in steps:
                 name = "test-api"
                 codefresh_steps_from_base_path(join(root_path, TEST_IMAGES_PATH), include=(name,), fixed_context=relpath(root_path, os.getcwd()), publish=False)
-                steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=os.path.basename(root_path))
+                steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=clean_image_name(os.path.basename(os.path.abspath(root_path))))
 
     if build_steps:
 
