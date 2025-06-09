@@ -480,8 +480,13 @@ def search_word_in_file(filename, word):
         return []
     matches = []
     with open(filename) as f:
-        if word in f.read():
-            matches.append(filename)
+        try:
+            if word in f.read():
+                matches.append(filename)
+        except UnicodeDecodeError:
+            # If the file cannot be read as text, we skip it
+            logging.warning(f"Could not read file {filename} as text, skipping.")
+            return []
     return list(filter(filter_empty_strings, matches))
 
 
