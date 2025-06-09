@@ -33,7 +33,7 @@ steps:
     working_directory: .
     commands:
       - bash cloud-harness/install.sh
-      - harness-deployment $PATHS -n test-${{NAMESPACE_BASENAME}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e $ENV --write-env --cache-url ${{IMAGE_CACHE_URL}} -N $PARAMS
+      - harness-deployment $PATHS -n test-${{NAMESPACE_BASENAME}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -e $ENV --write-env --cache-url '${{IMAGE_CACHE_URL}}' -N $PARAMS
       - cat deployment/.env >> ${{CF_VOLUME_PATH}}/env_vars_to_export
       - cat ${{CF_VOLUME_PATH}}/env_vars_to_export
   prepare_deployment_view:

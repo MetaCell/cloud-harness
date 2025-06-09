@@ -21,7 +21,7 @@ steps:
     commands:
     - bash install.sh
     - harness-deployment . -n test-${{NAMESPACE_BASENAME}} -d ${{DOMAIN}} -r ${{REGISTRY}}
-      -rs ${{REGISTRY_SECRET}} -e test --write-env --cache-url ${{IMAGE_CACHE_URL}}
+      -rs ${{REGISTRY_SECRET}} -e test --write-env --cache-url '${{IMAGE_CACHE_URL}}'
       -N -i samples
     - cat deployment/.env >> ${{CF_VOLUME_PATH}}/env_vars_to_export
     - cat ${{CF_VOLUME_PATH}}/env_vars_to_export
