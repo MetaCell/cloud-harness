@@ -51,7 +51,7 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
 
         self._init_base_images()
         self._init_static_images()
-        helm_values[KEY_TEST_IMAGES] = self._init_test_images(base_image_name)
+        helm_values[KEY_TEST_IMAGES] = self._init_test_images()
 
         self._process_applications(helm_values, base_image_name)
 
