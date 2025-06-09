@@ -1,0 +1,9 @@
+harness:
+  subdomain: hello
+  secured: false
+  service:
+    auto: true
+    port: 8080
+  deployment:
+    auto: true
+    port: 8080

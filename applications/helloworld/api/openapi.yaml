@@ -1,0 +1,17 @@
+openapi: "3.0.3"
+info:
+  title: Hello World API
+  version: 0.1.0
+paths:
+  /hello:
+    get:
+      summary: Return Hello World
+      operationId: hello
+      responses:
+        "200":
+          description: Hello world
+          content:
+            application/json:
+              schema:
+                type: string
+      x-openapi-router-controller: helloworld.controllers.default_controller
