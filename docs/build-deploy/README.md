@@ -31,29 +31,28 @@ See the dedicated [Build and deploy](./docs/build-deploy-howto.md) document for 
 Deployment definition:
 
 - `--domain`, `-d`:  specify the base domain (default cloudharness.metacell.us)
-- `--env`, `-e`: sets a custom environment (default: none)
+- `--env`, `-e`: sets a custom configuration environment (example, dev, prod; default: none). Will load values-[ENV].yaml files. Specify multiple envs with dashes (e.g env1-env2)
 - `--namespace`, `-n`: set the kubernetes namespace (default: ch)
-- `--tag`, `-t`: define build tag (default: latest)
-- `--registry`, `-r`: set the Docker registry where images are pushed on build
 - `--include`, `-i`: set application(s) to include (with their dependencies). If not set, every application will be included
 - `--exclude`, `-ex`: explicitly exclude applications or task images
-
+- `--docker-compose`: targets Docker Compose instead of Kubernetes (see [details below](#docker-compose-target))
 
 Development parameters:
 - `--local`, `-l`: creates internal dns for local deployment
 - `-dtls`: disables the tls configurations on the ingress so everything will be available from plain http
 - `--disable-security`, `-u`: disables all gatekeepers
 
-Optional settings
-- `--output`, `-o`: specify helm chart base path (default `./deployment)
-- `--docker-compose`: targets Docker Compose instead of Kubernetes (see [details below](#docker-compose-target))
 
-Build and deploy (deprecated, use Skaffold instead)
-- `--build`, `-b`: builds and pushes Docker images in the specified registry (if any)
-- `--build-interactive`, `-bi`: builds and pushes Docker images in the specified
-                        registry (if any).Asks interactively what images to
-                        build
-- `--deploy`, `-d`: deploy the helm chart when finish
+CI/CD generation and build parameters
+- `--tag`, `-t`: define build tag. Omit to generate hash-based tags
+- `--registry`, `-r`: set the Docker registry where images are pushed on build
+- `-we', '--write-env`: Write build env to .env file with variables about the generated image tags.
+- `-cu`, `--cache-url`: Specify a custom cache URL for the docker images. This is used to speed up builds by caching layers. Example: https://cache.cloudharness.io?repository=[REGISTRY]/[IMAGE_NAME]&tag=[TAG]
+- `-N`, `--no-cd`: Do not generate ci/cd files
+
+
+Other
+- `--output`, `-o`: specify helm chart base path (default `./deployment)
 
 For a local build the command will look like:
 

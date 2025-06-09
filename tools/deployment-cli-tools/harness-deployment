@@ -70,6 +70,8 @@ if __name__ == "__main__":
                         help='Perform a migration of the deployment to the latest supported version without asking for confirmation. Use with caution.')
     parser.add_argument('--docker-compose', dest='docker_compose', action="store_true",
                         help='Generate docker-compose.yaml and dedicated Skaffold configuration')
+    parser.add_argument('-cu', '--cache-url', dest='image_cache_url', action="store", default=None,
+                        help='Specify a custom cache URL for the docker images. This is used to speed up builds by caching layers. Example: https://cache.cloudharness.io?repository=[REGISTRY]/[IMAGE_NAME]&tag=[TAG]')
 
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
@@ -124,7 +126,7 @@ if __name__ == "__main__":
                 helm_values=helm_values)
 
         if args.write_env:
-            write_env_file(helm_values, os.path.join(root_paths[-1], DEPLOYMENT_PATH, ".env"))
+            write_env_file(helm_values, os.path.join(root_paths[-1], DEPLOYMENT_PATH, ".env"), args.image_cache_url)
 
         create_skaffold_configuration(merged_root_paths, helm_values, backend_deploy=COMPOSE_ENGINE if args.docker_compose else HELM_ENGINE)
 
