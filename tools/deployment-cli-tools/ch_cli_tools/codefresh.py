@@ -162,7 +162,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     app_config: ApplicationHarnessConfig = app_key in helm_values.apps and helm_values.apps[app_key].harness
 
                     if include and not any(
-                            f"/{inc}/" in dockerfile_path or dockerfile_path.endswith(f"/{inc}") for inc in include
+                            f"/{inc}/" in os.path.relpath(dockerfile_path, root_path) or dockerfile_path.endswith(f"/{inc}") for inc in include
                     ):
                         # Skip not included apps
                         continue
