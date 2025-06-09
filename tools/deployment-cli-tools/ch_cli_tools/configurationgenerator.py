@@ -17,7 +17,7 @@ from cloudharness_utils.constants import TEST_IMAGES_PATH, HELM_CHART_PATH, APPS
     DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH
 from .utils import get_cluster_ip, env_variable, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
     get_template, merge_configuration_directories, dict_merge, app_name_from_path, \
-    find_dockerfiles_paths
+    find_dockerfiles_paths, clean_image_name
 
 
 KEY_HARNESS = 'harness'
@@ -102,7 +102,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
 
             app_base_path = root_path / APPS_PATH
             app_values = self.collect_app_values(
-                app_base_path, base_image_name=root_path.name, helm_values=helm_values)
+                app_base_path, base_image_name=clean_image_name(root_path.name), helm_values=helm_values)
             helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
                                                app_values)
 
@@ -180,7 +180,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         for root_path in self.root_paths:
             for base_img_dockerfile in self.__find_static_dockerfile_paths(root_path):
                 img_name = image_name_from_dockerfile_path(
-                    os.path.basename(base_img_dockerfile), base_name=root_path.name)
+                    os.path.basename(base_img_dockerfile), base_name=clean_image_name(root_path.name))
                 self.base_images[os.path.basename(base_img_dockerfile)] = self.image_tag(
                     img_name, build_context_path=root_path,
                     dependencies=guess_build_dependencies_from_dockerfile(base_img_dockerfile)
@@ -195,7 +195,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         for root_path in self.root_paths:
             for base_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, TEST_IMAGES_PATH)):
                 img_name = image_name_from_dockerfile_path(
-                    os.path.basename(base_img_dockerfile), base_name=root_path.name)
+                    os.path.basename(base_img_dockerfile), base_name=clean_image_name(root_path.name))
                 test_images[os.path.basename(base_img_dockerfile)] = self.image_tag(
                     img_name, build_context_path=base_img_dockerfile)
 

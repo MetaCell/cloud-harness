@@ -560,3 +560,9 @@ def get_apps_paths(root, app_name) -> tuple[str]:
         logging.info('### Generating server stubs for all applications ###')
         apps_path = [path for path in root.glob('applications/*') if path.is_dir()]
     return apps_path
+
+def clean_image_name(image_name: str) -> str:
+    """
+    Cleans the image name by removing all unallowed characters and converting it to lowercase.
+    """
+    return re.sub(r'[^a-zA-Z0-9-]', '', image_name.lower()).strip('-')  # Remove unallowed characters and trim
