@@ -192,7 +192,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                 relpath(
                                     dockerfile_path, root_path) if fixed_context else '',
                                 "Dockerfile"),
-                            base_name=clean_image_name(os.path.basename(root_path)),
+                            base_name=clean_image_name(os.path.basename(os.path.abspath(root_path))),
                             helm_values=helm_values,
                             dependencies=dependencies
                         )
