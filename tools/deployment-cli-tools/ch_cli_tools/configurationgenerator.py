@@ -151,7 +151,6 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         for root_path in self.root_paths:
             for static_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)):
                 self.static_images.add(static_img_dockerfile)
-            
 
             img_name = image_name_from_dockerfile_path(os.path.basename(
                 static_img_dockerfile), base_name=clean_image_name(root_path.name))
