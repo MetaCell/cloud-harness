@@ -118,7 +118,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         )
 
     codefresh = {}
-    codefresh_sorted = {}
+
     for e in envs:
         template_name = f"codefresh-template-{e}.yaml"
         codefresh = dict_merge(codefresh, get_template(template_name, True))
@@ -126,6 +126,8 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
     steps = {}
     build_steps = {}
     for root_path in root_paths:
+        if '.overrides' not in root_path:
+            base_image_name = clean_image_name(os.path.basename(os.path.abspath(root_path)))
         for e in envs:
 
             template_name = f"codefresh-template-{e}.yaml"
@@ -153,7 +155,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 return [f"{k}={env[k]}" for k in env]
 
             def codefresh_steps_from_base_path(base_path, fixed_context=None, include=build_included, publish=True):
-
+                found = False
                 for dockerfile_path in find_dockerfiles_paths(base_path):
                     dockerfile_relative_to_root = relpath(dockerfile_path, '.')
                     dockerfile_relative_to_base = get_app_relative_to_base_path(base_path, dockerfile_path)
@@ -192,12 +194,13 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                 relpath(
                                     dockerfile_path, root_path) if fixed_context else '',
                                 "Dockerfile"),
-                            base_name=clean_image_name(os.path.basename(os.path.abspath(root_path))),
+                            base_name=base_image_name,
                             helm_values=helm_values,
                             dependencies=dependencies
                         )
 
                         build_steps[app_name] = build
+                        found = True
 
                     if CD_STEP_PUBLISH in steps and steps[CD_STEP_PUBLISH] and publish:
                         if not type(steps[CD_STEP_PUBLISH]['steps']) == dict:
@@ -207,6 +210,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                             build_tag=build and build['tag'],
                             base_name=base_image_name
                         )
+                        found = True
 
                     if CD_UNIT_TEST_STEP in steps and app_config:
                         add_unit_test_step(app_config)
@@ -231,6 +235,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                     commands=api_tests_commands(
                                         app_config, exists(tests_path), app_domain)
                                 )
+                            found = True
 
                     if CD_E2E_TEST_STEP in steps and app_config and app_config.test.e2e.enabled:
                         tests_path = join(
@@ -244,6 +249,8 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                     clean_path(dockerfile_relative_to_root), app_name),
                                 environment=e2e_test_environment(app_config)
                             )
+                            found = True
+                return found
 
             def add_unit_test_step(app_config: ApplicationHarnessConfig):
                 # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step
@@ -256,7 +263,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     steps[CD_UNIT_TEST_STEP]['steps'][f"{app_name}_ut"] = dict(
                         title=f"Unit tests for {app_name}",
                         commands=test_config.unit.commands,
-                        image=image_tag_with_variables(app_name, tag, clean_image_name(os.path.basename(os.path.abspath(root_path)))),
+                        image=image_tag_with_variables(app_name, tag, base_image_name),
                     )
 
             if helm_values[KEY_TASK_IMAGES]:
@@ -267,16 +274,17 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 codefresh_steps_from_base_path(join(root_path, APPS_PATH), include=helm_values[KEY_TASK_IMAGES].keys())
                 codefresh_steps_from_base_path(join(root_path, APPS_PATH), include=build_included)
 
-            if CD_E2E_TEST_STEP in steps:
+
+            
+            if CD_E2E_TEST_STEP:
                 name = "test-e2e"
-                codefresh_steps_from_base_path(join(
-                    root_path, TEST_IMAGES_PATH), include=(name,), publish=False)
-                steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=clean_image_name(os.path.basename(os.path.abspath(root_path))))
+                if codefresh_steps_from_base_path(join(root_path, TEST_IMAGES_PATH), include=(name,), publish=False):
+                    steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_image_name)
 
             if CD_API_TEST_STEP in steps:
                 name = "test-api"
-                codefresh_steps_from_base_path(join(root_path, TEST_IMAGES_PATH), include=(name,), fixed_context=relpath(root_path, os.getcwd()), publish=False)
-                steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=clean_image_name(os.path.basename(os.path.abspath(root_path))))
+                if codefresh_steps_from_base_path(join(root_path, TEST_IMAGES_PATH), include=(name,), fixed_context=relpath(root_path, os.getcwd()), publish=False):
+                    steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_image_name)
 
     if build_steps:
 
