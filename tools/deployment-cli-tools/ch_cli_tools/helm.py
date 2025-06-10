@@ -145,6 +145,8 @@ class CloudHarnessHelm(ConfigurationGenerator):
             self.include = get_included_applications(
                 values, set(self.include))
 
+            self.include -= set(self.exclude)
+
             logging.info('Selecting included applications')
 
             included_apps = {}

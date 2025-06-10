@@ -377,10 +377,13 @@ def test_exclude_single_task(tmp_path):
 
     assert "myapp-mytask" not in values["task-images"], "myapp-mytask has been excluded, so should not appear in the task images"
 
-    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                               env='fulldep', local=False, include=["dependantapp"], exclude=["myapp-mytask"])
+    try:
+        values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                                env='fulldep', local=False, include=["dependantapp"], exclude=["myapp-mytask"])
 
-    assert "myapp-mytask" not in values["task-images"], "myapp-mytask has been excluded, so should not appear in the task images"
+        assert False, "myapp-mytask has been excluded, but also declared as a dependency, so should not be excluded"
+    except ValuesValidationException as e:
+        pass
 
 
 def test_app_depends_on_app(tmp_path):
@@ -391,7 +394,7 @@ def test_app_depends_on_app(tmp_path):
     assert "myapp" in values["task-images"], "myapp should be included as a task image because it is a dependency of dependantapp"
     assert "cloudharness-flask" in values["task-images"], "cloudharness-flask should be included as a task image because it is a dependency of myapp"
     assert "cloudharness-base" in values["task-images"], "cloudharness-flask should be included as a task image because it is a dependency of cloudharness-flask"
-    assert "myapp-mytask" not in values["task-images"], "tasks should not be also included as build dependencies, unless explicitly included"
+    assert "myapp-mytask" in values["task-images"], "task should be also included as build dependencies,as it's required by another task"
     assert "legacy" not in values["task-images"], "legacy should not be included as a task image because it is not a dependency"
 
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",

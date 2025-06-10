@@ -20,26 +20,33 @@ def relpath_if(p1, p2):
         return p1
     return relpath(p1, p2)
 
+def get_all_images(helm_values: HarnessMainConfig) -> dict[str, str]:
+    all_images = {**helm_values[KEY_TASK_IMAGES]}
+    for app_name, app in helm_values.apps.items():
+        if app.harness.deployment and app.harness.deployment.image:
+            all_images[app_name] = app.harness.deployment.image
+    return all_images
 
 def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, output_path='.', manage_task_images=True, backend_deploy=HELM_ENGINE):
     backend = backend_deploy or HELM_ENGINE
     template_name = 'skaffold-template.yaml'
     skaffold_conf = get_template(template_name, True)
     apps = helm_values.apps
-    base_image_name = (helm_values.registry.name or "") + helm_values.name
     artifacts = {}
     overrides = {}
+
+    all_images = get_all_images(helm_values)
 
     def remove_tag(image_name):
         return image_name.split(":")[0]
 
     def get_image_tag(name):
-        return f"{get_image_name(name, base_image_name)}"
+        return remove_tag(all_images[name])
 
     builds = {}
 
     def build_artifact(
-        image_name: str,
+        app_name: str,
         context_path: str,
         requirements: list[str] = None,
         dockerfile_path: str = '',
@@ -55,6 +62,8 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
         if additional_build_args:
             build_args.update(additional_build_args)
 
+        image_name = get_image_tag(app_name)
+
         artifact_spec = {
             'image': image_name,
             'context': context_path,
@@ -67,6 +76,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
         if requirements:
             artifact_spec['requires'] = [{'image': get_image_tag(req), 'alias': req.replace('-', '_').upper()} for req
                                          in requirements]
+            
         return artifact_spec
 
     base_images = set()
@@ -90,7 +100,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
             base_images.add(get_image_name(app_name))
 
             artifacts[app_name] = build_artifact(
-                get_image_tag(app_name),
+                app_name,
                 context_path,
                 dockerfile_path=relpath(dockerfile_path, output_path),
                 requirements=requirements or guess_build_dependencies_from_dockerfile(dockerfile_path),
@@ -150,7 +160,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
                     parent_app_key = parent_app_name
 
                     if parent_app_key in apps:
-                        artifacts[app_key] = build_artifact(get_image_tag(app_name), app_relative_to_skaffold,
+                        artifacts[app_key] = build_artifact(app_name, app_relative_to_skaffold,
                                                             guess_build_dependencies_from_dockerfile(dockerfile_path))
                 elif app_name in helm_values[KEY_TASK_IMAGES]:
                     process_build_dockerfile(dockerfile_path, root_path,
@@ -261,16 +271,14 @@ def create_vscode_debug_configuration(root_paths, helm_values):
     logging.info("Creating VS code cloud build configuration.\nCloud build extension is needed to debug.")
 
     vscode_launch_path = '.vscode/launch.json'
-
+    all_images = get_all_images(helm_values)
     vs_conf = get_json_template(vscode_launch_path, True)
-    base_image_name = helm_values.name
+
     debug_conf = get_json_template('vscode-debug-template.json', True)
 
     def get_image_tag(name):
-        return f"{get_image_name(name, base_image_name)}"
+        return all_images[name]
 
-    if helm_values.registry.name:
-        base_image_name = helm_values.registry.name + helm_values.name
     for i in range(len(vs_conf['configurations'])):
         conf = vs_conf['configurations'][i]
         if conf['name'] == debug_conf['name']:
