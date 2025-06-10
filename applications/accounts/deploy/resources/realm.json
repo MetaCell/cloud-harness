@@ -10,13 +10,15 @@
 {{- end}}
 {{- define "deploy_accounts_utils.user" }}
     {
-        "username": {{ .user.username | quote }},
+        "username": {{ .user.username | default .user.email | quote }},
         "email": {{ .user.email | default .user.username | quote }},
         "enabled": true,
+        "firstName": {{ .user.firstName | default "Test" | quote }},
+        "lastName": {{ .user.lastName | default "User" | quote }},
         "credentials": [
             {
                 "type": "password",
-                "value": {{ .user.passwword | default "test" | quote }}
+                "value": {{ .user.password | default "test" | quote }}
             }
         ],
         "realmRoles": {{ .user.realmRoles | toJson }},
@@ -722,5 +724,5 @@
                 }
             }
         ],
-        "keycloakVersion": "9.0.2"
+        "keycloakVersion": "26.2.1"
     }
