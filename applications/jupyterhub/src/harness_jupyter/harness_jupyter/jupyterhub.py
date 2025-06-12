@@ -119,15 +119,15 @@ def apply_extra_config(self: KubeSpawner, extra_config: dict):
                 logging.error(
                     f"Error setting {k} to {v}: {e}")
 
-        # check if there are node selectors, if so apply them to the pod
-        node_selectors = extra_config.get('node_selectors', None)
-        if node_selectors:
-            apply_node_selectors(self, node_selectors)
+    # check if there are node selectors, if so apply them to the pod
+    node_selectors = extra_config.get('node_selectors', None)
+    if node_selectors:
+        apply_node_selectors(self, node_selectors)
 
 
 def apply_node_selectors(self: KubeSpawner, node_selectors):
     for node_selector in node_selectors:
-        logging.info("Setting node selector", node_selector["key"])
+        logging.info(f"Setting node selector {node_selector['key']}")
         ns = dict(
             matchExpressions=[
                 dict(
@@ -138,6 +138,7 @@ def apply_node_selectors(self: KubeSpawner, node_selectors):
                 )
             ],
         )
+        logging.info(f"Setting node selector to {ns}")
         match_node_purpose = node_selector['matchPurpose']
         if match_node_purpose == 'prefer':
             self.node_affinity_preferred.append(
