@@ -20,12 +20,14 @@ def relpath_if(p1, p2):
         return p1
     return relpath(p1, p2)
 
+
 def get_all_images(helm_values: HarnessMainConfig) -> dict[str, str]:
     all_images = {**helm_values[KEY_TASK_IMAGES]}
     for app_name, app in helm_values.apps.items():
         if app.harness.deployment and app.harness.deployment.image:
             all_images[app_name] = app.harness.deployment.image
     return all_images
+
 
 def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, output_path='.', manage_task_images=True, backend_deploy=HELM_ENGINE):
     backend = backend_deploy or HELM_ENGINE
@@ -76,7 +78,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
         if requirements:
             artifact_spec['requires'] = [{'image': get_image_tag(req), 'alias': req.replace('-', '_').upper()} for req
                                          in requirements]
-            
+
         return artifact_spec
 
     base_images = set()

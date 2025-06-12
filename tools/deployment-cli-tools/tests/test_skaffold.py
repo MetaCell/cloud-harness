@@ -12,6 +12,7 @@ OUT = '/tmp/deployment'
 CLOUDHARNESS_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 CLOUDHARNESS_DIRNAME = os.path.basename(CLOUDHARNESS_ROOT)
 
+
 def test_create_skaffold_configuration():
     values = create_helm_chart(
         [CLOUDHARNESS_ROOT, RESOURCES],

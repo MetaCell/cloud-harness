@@ -379,7 +379,7 @@ def test_exclude_single_task(tmp_path):
 
     try:
         values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                                env='fulldep', local=False, include=["dependantapp"], exclude=["myapp-mytask"])
+                                   env='fulldep', local=False, include=["dependantapp"], exclude=["myapp-mytask"])
 
         assert False, "myapp-mytask has been excluded, but also declared as a dependency, so should not be excluded"
     except ValuesValidationException as e:
