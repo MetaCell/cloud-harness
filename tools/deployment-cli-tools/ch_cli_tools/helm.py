@@ -72,7 +72,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
 
         for root_path in self.root_paths:
             collect_apps_helm_templates(root_path, exclude=self.exclude, include=self.include,
-                                        dest_helm_chart_path=self.dest_deployment_path)
+                                        dest_helm_chart_path=self.dest_deployment_path, envs=self.env)
 
         # Save values file for manual helm chart
         merged_values = merge_to_yaml_file(helm_values, os.path.join(

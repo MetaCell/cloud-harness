@@ -78,14 +78,14 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         if self.dest_deployment_path.exists():
             shutil.rmtree(self.dest_deployment_path)
         # Initialize with default
-        copy_merge_base_deployment(self.dest_deployment_path, Path(CH_ROOT) / DEPLOYMENT_CONFIGURATION_PATH / self.templates_path)
+        copy_merge_base_deployment(self.dest_deployment_path, Path(CH_ROOT) / DEPLOYMENT_CONFIGURATION_PATH / self.templates_path, self.env)
 
         # Override for every cloudharness scaffolding
         for root_path in self.root_paths:
             copy_merge_base_deployment(dest_helm_chart_path=self.dest_deployment_path,
-                                       base_helm_chart=root_path / DEPLOYMENT_CONFIGURATION_PATH / self.templates_path)
-            collect_apps_helm_templates(root_path, exclude=self.exclude, include=self.include,
-                                        dest_helm_chart_path=self.dest_deployment_path, templates_path=self.templates_path)
+                                       base_helm_chart=root_path / DEPLOYMENT_CONFIGURATION_PATH / self.templates_path, envs=self.env)
+            # collect_apps_helm_templates(root_path, exclude=self.exclude, include=self.include,
+            #                             dest_helm_chart_path=self.dest_deployment_path, templates_path=self.templates_path, envs=self.env)
 
     def _adjust_missing_values(self, helm_values):
         if 'name' not in helm_values:
@@ -152,12 +152,12 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
             for static_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)):
                 self.static_images.add(static_img_dockerfile)
 
-            img_name = image_name_from_dockerfile_path(os.path.basename(
-                static_img_dockerfile), base_name=clean_image_name(root_path.name))
-            self.base_images[os.path.basename(static_img_dockerfile)] = self.image_tag(
-                img_name, build_context_path=static_img_dockerfile,
-                dependencies=guess_build_dependencies_from_dockerfile(static_img_dockerfile)
-            )
+                img_name = image_name_from_dockerfile_path(os.path.basename(
+                    static_img_dockerfile), base_name=clean_image_name(root_path.name))
+                self.base_images[os.path.basename(static_img_dockerfile)] = self.image_tag(
+                    img_name, build_context_path=static_img_dockerfile,
+                    dependencies=guess_build_dependencies_from_dockerfile(static_img_dockerfile)
+                )
 
     def _assign_static_build_dependencies(self, helm_values):
         for static_img_dockerfile in self.static_images:
@@ -369,13 +369,13 @@ def merge_helm_chart(source_templates_path, dest_helm_chart_path=HELM_CHART_PATH
     pass
 
 
-def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart):
+def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart, envs=()):
     if not base_helm_chart.exists():
         return
     if dest_helm_chart_path.exists():
         logging.info("Merging/overriding all files in directory %s",
                      dest_helm_chart_path)
-        merge_configuration_directories(f"{base_helm_chart}", f"{dest_helm_chart_path}")
+        merge_configuration_directories(f"{base_helm_chart}", f"{dest_helm_chart_path}", envs=envs)
     else:
         logging.info("Copying base deployment chart from %s to %s",
                      base_helm_chart, dest_helm_chart_path)
@@ -574,7 +574,7 @@ def validate_dependencies(values):
                     f"Bad service application dependencies specified for application {app}: {','.join(not_found)}")
 
 
-def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_path=HELM_PATH, exclude=(), include=None):
+def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_path=HELM_PATH, exclude=(), include=None, envs=()):
     """
     Searches recursively for helm templates inside the applications and collects the templates in the destination
 
@@ -601,9 +601,12 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_pat
             if dest_dir.exists():
                 logging.warning(
                     "Merging/overriding all files in directory %s", dest_dir)
-                merge_configuration_directories(f"{template_dir}", f"{dest_dir}")
+                merge_configuration_directories(f"{template_dir}", f"{dest_dir}", envs)
             else:
                 shutil.copytree(template_dir, dest_dir)
+            if envs:
+                merge_configuration_directories(f"{dest_dir}", f"{dest_dir}", envs)
+
         resources_dir = app_path / 'deploy' / 'resources'
         if resources_dir.exists():
             dest_dir = dest_helm_chart_path / 'resources' / app_name
@@ -611,7 +614,9 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_pat
             logging.info(
                 "Collecting resources for application  %s to %s", app_name, dest_dir)
 
-            merge_configuration_directories(f"{resources_dir}", f"{dest_dir}")
+            merge_configuration_directories(f"{resources_dir}", f"{dest_dir}", envs)
+            if envs:
+                merge_configuration_directories(f"{dest_dir}", f"{dest_dir}", envs)
 
         if templates_path == HELM_PATH:
             subchart_dir = app_path / 'deploy/charts'
@@ -623,9 +628,11 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_pat
                 if dest_dir.exists():
                     logging.warning(
                         "Merging/overriding all files in directory %s", dest_dir)
-                    merge_configuration_directories(f"{subchart_dir}", f"{dest_dir}")
+                    merge_configuration_directories(f"{subchart_dir}", f"{dest_dir}", envs)
                 else:
                     shutil.copytree(subchart_dir, dest_dir)
+                if envs:
+                    merge_configuration_directories(f"{dest_dir}", f"{dest_dir}", envs)
 
 
 # def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_path=None, exclude=(), include=None):

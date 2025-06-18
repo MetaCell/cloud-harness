@@ -63,6 +63,38 @@ def test_merge_configuration_directories():
             shutil.rmtree(res_path)
 
 
+def test_merge_configuration_directories_envs():
+    try:
+        basedir = os.path.join(HERE, "resources")
+        res_path = os.path.join(basedir, 'conf-res-envs')
+        if os.path.exists(res_path):
+            shutil.rmtree(res_path)
+
+        merge_configuration_directories(os.path.join(basedir, 'conf-source1'), res_path, ("dev",))
+        # 
+
+        assert os.path.exists(os.path.join(res_path, "a.yaml"))
+        assert os.path.exists(os.path.join(res_path, "b.yaml"))
+        
+
+        assert os.path.exists(os.path.join(res_path, "sub", "a.yaml"))
+        assert os.path.exists(os.path.join(res_path, "sub", "b.yaml"))
+
+        with open(os.path.join(res_path, "a.yaml")) as f:
+            a = yaml.load(f)
+        assert a['a'] == 'dev'
+
+
+        merge_configuration_directories(os.path.join(basedir, 'conf-source2'), res_path)
+        assert os.path.exists(os.path.join(res_path, "c.yaml"))
+
+        with open(os.path.join(res_path, "a.yaml")) as f:
+            a = yaml.load(f)
+        assert a['a'] == 'a1'
+    finally:
+        if os.path.exists(res_path):
+            shutil.rmtree(res_path)
+
 def test_guess_build_dependencies_from_dockerfile():
     deps = guess_build_dependencies_from_dockerfile(os.path.join(HERE, "resources/applications/myapp"))
     assert len(deps) == 1
