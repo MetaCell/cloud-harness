@@ -21,14 +21,17 @@ roles:
   - remote_cluster_client
   - transform
 
-replicas: 1
-minimumMasterNodes: 1
+replicas: 2
+minimumMasterNodes: 2
 
 esMajorVersion: ""
 
 # Allows you to add any config files in /usr/share/elasticsearch/config/
 # such as elasticsearch.yml and log4j2.properties
-esConfig: {}
+esConfig:
+  elasticsearch.yml: |
+    xpack.security.enabled: false
+    path.data: /usr/share/elasticsearch/data
 #  elasticsearch.yml: |
 #    key:
 #      nestedkey: value
@@ -57,7 +60,7 @@ envFrom: []
 
 # Disable it to use your own elastic-credential Secret.
 secret:
-  enabled: true
+  enabled: false
   password: "" # generated randomly if not defined
 
 # A list of secrets and their paths to mount inside the pod
@@ -89,8 +92,8 @@ esJavaOpts: "" # example: "-Xmx1g -Xms1g"
 
 resources:
   requests:
-    cpu: "1000m"
-    memory: "2Gi"
+    cpu: "100m"
+    memory: "0.5Gi"
   limits:
     cpu: "1000m"
     memory: "2Gi"
@@ -109,7 +112,7 @@ volumeClaimTemplate:
   accessModes: ["ReadWriteOnce"]
   resources:
     requests:
-      storage: 30Gi
+      storage: 10Gi
 
 rbac:
   create: false
@@ -187,7 +190,7 @@ podManagementPolicy: "Parallel"
 # If you experience slow pod startups you probably want to set this to `false`.
 enableServiceLinks: true
 
-protocol: https
+protocol: http
 httpPort: 9200
 transportPort: 9300
 
