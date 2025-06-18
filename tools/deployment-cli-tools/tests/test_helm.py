@@ -84,8 +84,6 @@ def test_collect_helm_values(tmp_path):
     assert chart_values["test"] == "dev"
 
 
-
-
 def test_collect_nobuild(tmp_path):
     out_folder = tmp_path / 'test_collect_helm_values'
     values = create_helm_chart([RESOURCES], output_path=out_folder, include=['myapp'],

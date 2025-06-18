@@ -1,9 +1,9 @@
+import yaml
+from helpers import helm_template
 import os
 import sys
 
 sys.path.insert(1, os.path.join(sys.path[0], "../../helpers"))
-from helpers import helm_template
-import yaml
 
 clusterName = "elasticsearch"
 nodeGroup = "master"
@@ -106,8 +106,8 @@ def test_defaults():
     assert (
         r["statefulset"][uname]["spec"]["template"]["spec"][
             "terminationGracePeriodSeconds"
-        ]
-        == 120
+        ] ==
+        120
     )
 
     # Pod disruption budget
@@ -168,8 +168,8 @@ imageTag: 6.2.4
 """
     r = helm_template(config)
     assert (
-        r["statefulset"][uname]["spec"]["template"]["spec"]["containers"][0]["image"]
-        == "customImage:6.2.4"
+        r["statefulset"][uname]["spec"]["template"]["spec"]["containers"][0]["image"] ==
+        "customImage:6.2.4"
     )
 
 
@@ -182,9 +182,9 @@ roles:
     env = r["statefulset"][uname]["spec"]["template"]["spec"]["containers"][0]["env"]
     assert {
         "name": "cluster.initial_master_nodes",
-        "value": "elasticsearch-master-0,"
-        + "elasticsearch-master-1,"
-        + "elasticsearch-master-2,",
+        "value": "elasticsearch-master-0," +
+        "elasticsearch-master-1," +
+        "elasticsearch-master-2,",
     } in env
 
     for e in env:
@@ -502,8 +502,8 @@ imagePullSecrets:
     assert (
         r["statefulset"][uname]["spec"]["template"]["spec"]["imagePullSecrets"][0][
             "name"
-        ]
-        == "test-registry"
+        ] ==
+        "test-registry"
     )
 
 
@@ -518,8 +518,8 @@ tolerations:
 """
     r = helm_template(config)
     assert (
-        r["statefulset"][uname]["spec"]["template"]["spec"]["tolerations"][0]["key"]
-        == "key1"
+        r["statefulset"][uname]["spec"]["template"]["spec"]["tolerations"][0]["key"] ==
+        "key1"
     )
 
 
@@ -532,8 +532,8 @@ podAnnotations:
     assert (
         r["statefulset"][uname]["spec"]["template"]["metadata"]["annotations"][
             "iam.amazonaws.com/role"
-        ]
-        == "es-role"
+        ] ==
+        "es-role"
     )
 
 
@@ -548,8 +548,8 @@ rbac:
     assert (
         r["serviceaccount"][uname]["metadata"]["annotations"][
             "eks.amazonaws.com/role-arn"
-        ]
-        == "arn:aws:iam::111111111111:role/k8s.clustername.namespace.serviceaccount"
+        ] ==
+        "arn:aws:iam::111111111111:role/k8s.clustername.namespace.serviceaccount"
     )
 
 
@@ -560,8 +560,8 @@ nodeSelector:
 """
     r = helm_template(config)
     assert (
-        r["statefulset"][uname]["spec"]["template"]["spec"]["nodeSelector"]["disktype"]
-        == "ssd"
+        r["statefulset"][uname]["spec"]["template"]["spec"]["nodeSelector"]["disktype"] ==
+        "ssd"
     )
 
 
@@ -648,28 +648,28 @@ ingress:
     assert i["rules"][0]["http"]["paths"][0]["path"] == "/"
     assert i["rules"][0]["http"]["paths"][0]["backend"]["service"]["name"] == uname
     assert (
-        i["rules"][0]["http"]["paths"][0]["backend"]["service"]["port"]["number"]
-        == 9200
+        i["rules"][0]["http"]["paths"][0]["backend"]["service"]["port"]["number"] ==
+        9200
     )
     assert i["rules"][1]["host"] == None
     assert i["rules"][1]["http"]["paths"][0]["path"] == "/"
     assert i["rules"][1]["http"]["paths"][0]["backend"]["service"]["name"] == uname
     assert (
-        i["rules"][1]["http"]["paths"][0]["backend"]["service"]["port"]["number"]
-        == 9200
+        i["rules"][1]["http"]["paths"][0]["backend"]["service"]["port"]["number"] ==
+        9200
     )
     assert i["rules"][1]["http"]["paths"][1]["path"] == "/mypath"
     assert i["rules"][1]["http"]["paths"][1]["backend"]["service"]["name"] == uname
     assert (
-        i["rules"][1]["http"]["paths"][1]["backend"]["service"]["port"]["number"]
-        == 8888
+        i["rules"][1]["http"]["paths"][1]["backend"]["service"]["port"]["number"] ==
+        8888
     )
     assert i["rules"][2]["host"] == "elasticsearch.hello.there"
     assert i["rules"][2]["http"]["paths"][0]["path"] == "/"
     assert i["rules"][2]["http"]["paths"][0]["backend"]["service"]["name"] == uname
     assert (
-        i["rules"][2]["http"]["paths"][0]["backend"]["service"]["port"]["number"]
-        == 9999
+        i["rules"][2]["http"]["paths"][0]["backend"]["service"]["port"]["number"] ==
+        9999
     )
 
 
@@ -698,8 +698,8 @@ ingress:
     assert i["rules"][0]["http"]["paths"][0]["path"] == "/"
     assert i["rules"][0]["http"]["paths"][0]["backend"]["service"]["name"] == uname
     assert (
-        i["rules"][0]["http"]["paths"][0]["backend"]["service"]["port"]["number"]
-        == 9200
+        i["rules"][0]["http"]["paths"][0]["backend"]["service"]["port"]["number"] ==
+        9200
     )
 
 
@@ -1043,14 +1043,14 @@ def test_set_pod_security_context():
     assert (
         r["statefulset"][uname]["spec"]["template"]["spec"]["securityContext"][
             "fsGroup"
-        ]
-        == 1000
+        ] ==
+        1000
     )
     assert (
         r["statefulset"][uname]["spec"]["template"]["spec"]["securityContext"][
             "runAsUser"
-        ]
-        == 1000
+        ] ==
+        1000
     )
 
     config = """
@@ -1064,12 +1064,12 @@ def test_set_pod_security_context():
     assert (
         r["statefulset"][uname]["spec"]["template"]["spec"]["securityContext"][
             "fsGroup"
-        ]
-        == 1001
+        ] ==
+        1001
     )
     assert (
-        r["statefulset"][uname]["spec"]["template"]["spec"]["securityContext"]["other"]
-        == "test"
+        r["statefulset"][uname]["spec"]["template"]["spec"]["securityContext"]["other"] ==
+        "test"
     )
 
 
@@ -1083,8 +1083,8 @@ def test_fsGroup_backwards_compatability():
     assert (
         r["statefulset"][uname]["spec"]["template"]["spec"]["securityContext"][
             "fsGroup"
-        ]
-        == 1001
+        ] ==
+        1001
     )
 
 
@@ -1118,14 +1118,14 @@ labels:
 """
     r = helm_template(config)
     assert (
-        r["statefulset"][uname]["metadata"]["labels"]["app.kubernetes.io/name"]
-        == "elasticsearch"
+        r["statefulset"][uname]["metadata"]["labels"]["app.kubernetes.io/name"] ==
+        "elasticsearch"
     )
     assert (
         r["statefulset"][uname]["spec"]["template"]["metadata"]["labels"][
             "app.kubernetes.io/name"
-        ]
-        == "elasticsearch"
+        ] ==
+        "elasticsearch"
     )
 
 
@@ -1239,7 +1239,7 @@ keystore:
 
 
 def test_pod_security_policy():
-    ## Make sure the default config is not creating any resources
+    # Make sure the default config is not creating any resources
     config = ""
     resources = ("role", "rolebinding", "serviceaccount", "podsecuritypolicy")
     r = helm_template(config)
@@ -1249,7 +1249,7 @@ def test_pod_security_policy():
         "serviceAccountName" not in r["statefulset"][uname]["spec"]["template"]["spec"]
     )
 
-    ## Make sure all the resources are created with default values
+    # Make sure all the resources are created with default values
     config = """
 rbac:
   create: true
@@ -1277,15 +1277,15 @@ podSecurityPolicy:
         "name": uname,
     }
     assert (
-        r["statefulset"][uname]["spec"]["template"]["spec"]["serviceAccountName"]
-        == uname
+        r["statefulset"][uname]["spec"]["template"]["spec"]["serviceAccountName"] ==
+        uname
     )
     psp_spec = r["podsecuritypolicy"][uname]["spec"]
     assert psp_spec["privileged"] is True
 
 
 def test_external_pod_security_policy():
-    ## Make sure we can use an externally defined pod security policy
+    # Make sure we can use an externally defined pod security policy
     config = """
 rbac:
   create: true
@@ -1309,7 +1309,7 @@ podSecurityPolicy:
 
 
 def test_external_service_account():
-    ## Make sure we can use an externally defined service account
+    # Make sure we can use an externally defined service account
     config = """
 rbac:
   create: false
@@ -1323,8 +1323,8 @@ podSecurityPolicy:
     r = helm_template(config)
 
     assert (
-        r["statefulset"][uname]["spec"]["template"]["spec"]["serviceAccountName"]
-        == "customServiceAccountName"
+        r["statefulset"][uname]["spec"]["template"]["spec"]["serviceAccountName"] ==
+        "customServiceAccountName"
     )
     # When referencing an external service account we do not want any resources to be created.
     for resource in resources:
@@ -1332,7 +1332,7 @@ podSecurityPolicy:
 
 
 def test_name_override():
-    ## Make sure we can use a name override
+    # Make sure we can use a name override
     config = """
 nameOverride: "customName"
 """
@@ -1343,7 +1343,7 @@ nameOverride: "customName"
 
 
 def test_full_name_override():
-    ## Make sure we can use a full name override
+    # Make sure we can use a full name override
     config = """
 fullnameOverride: "customfullName"
 """
@@ -1485,8 +1485,8 @@ def test_default_automount_sa_token():
     assert (
         r["statefulset"][uname]["spec"]["template"]["spec"][
             "automountServiceAccountToken"
-        ]
-        == True
+        ] ==
+        True
     )
 
 
@@ -1499,6 +1499,6 @@ rbac:
     assert (
         r["statefulset"][uname]["spec"]["template"]["spec"][
             "automountServiceAccountToken"
-        ]
-        == False
+        ] ==
+        False
     )

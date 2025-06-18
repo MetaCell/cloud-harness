@@ -358,15 +358,15 @@ def _merge_configuration_file(source_file_path: pathlib.Path, destination_file_p
         shutil.copy2(source_file_path, destination_file_path)
     ext = source_file_path.suffix.lower()
     merge_files = merge_operations.get(ext, None)
-    
+
     if source_file_path != destination_file_path:
         if merge_files is not None:
-                try:
-                    merge_files(source_file_path, destination_file_path)
-                    logging.info(f'Merged/overridden file content of {destination_file_path} with {source_file_path}')
-                except:
-                    logging.warning(f'Merge error: overwriting file {destination_file_path} with {source_file_path}')
-                    shutil.copy2(source_file_path, destination_file_path)
+            try:
+                merge_files(source_file_path, destination_file_path)
+                logging.info(f'Merged/overridden file content of {destination_file_path} with {source_file_path}')
+            except:
+                logging.warning(f'Merge error: overwriting file {destination_file_path} with {source_file_path}')
+                shutil.copy2(source_file_path, destination_file_path)
         else:
             logging.warning(f'Overwriting file {destination_file_path} with {source_file_path}')
             shutil.copy2(source_file_path, destination_file_path)
@@ -380,7 +380,8 @@ def _merge_configuration_file(source_file_path: pathlib.Path, destination_file_p
                     merge_files(env_specific_file, destination_file_path)
                     logging.info(f'Merged/overridden file content of {destination_file_path} with {env_specific_file}')
                 except:
-                    pass  
+                    pass
+
 
 def dict_merge(dct, merge_dct, add_keys=True):
     """ Recursive dict merge. Inspired by :meth:``dict.update()``, instead of
