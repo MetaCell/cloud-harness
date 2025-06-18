@@ -1,6 +1,6 @@
 harness:
   subdomain: es
-  secured: false
+  secured: true
   service:
     port: 9200
     auto: false
