@@ -36,6 +36,25 @@ Secret editing/maintenance alternatives:
 * Using Helm to set/overwrite the secret's value `helm ... --set apps.<appname>.harness.secrets.<secret>=<value>`
 * Using kubernetes secret edit `kubectl edit secret <secret>`
 
+## Secrets in Codefresh pipelines
+
+Secrets defined under `harness.secrets` are also exported as deployment variables in the automatically
+generated Codefresh pipeline.  When the deployment step is assembled, each secret name is transformed
+before being referenced in the pipeline:
+
+- Any underscore (`_`) in the secret name is replaced by a double underscore (`__`).
+- The resulting string is converted to upper case to form the environment variable name.
+
+For example a secret declared as `db_password` becomes the variable `DB__PASSWORD` in Codefresh and will
+appear in the deployment step as:
+
+```
+custom_values:
+  - apps_<appname>_harness_secrets_db__password=${{DB__PASSWORD}}
+```
+
+The same underscore replacement is applied to the application name in the `custom_values` entry.
+
 ## Secret usage in Python backend apps
 
 The CloudHarness python library (`cloudharness-common`) provides easy access to the CH secrets, just import `get_secrets` from `cloudharness.utils.secrets`.
@@ -48,3 +67,4 @@ print(f"Secret1 = {secret1_value}")
 ```
 
 Hint: make sure the secret's value is read on every use, remember that secrets can be changed "on the fly"
+
