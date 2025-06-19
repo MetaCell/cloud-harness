@@ -8,15 +8,15 @@ from ch_cli_tools.skaffold import *
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')
 RESOURCES_BUGGY = os.path.join(HERE, 'resources_buggy')
-OUT = '/tmp/deployment'
+
 CLOUDHARNESS_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 CLOUDHARNESS_DIRNAME = os.path.basename(CLOUDHARNESS_ROOT)
 
 
-def test_create_skaffold_configuration():
+def test_create_skaffold_configuration(tmp_path):
     values = create_helm_chart(
         [CLOUDHARNESS_ROOT, RESOURCES],
-        output_path=OUT,
+        output_path=tmp_path,
         include=['samples', 'myapp'],
         exclude=['events'],
         domain="my.local",
@@ -36,9 +36,9 @@ def test_create_skaffold_configuration():
     sk = create_skaffold_configuration(
         root_paths=root_paths,
         helm_values=values,
-        output_path=OUT
+        output_path=tmp_path
     )
-    assert os.path.exists(os.path.join(OUT, 'skaffold.yaml'))
+    assert os.path.exists(os.path.join(tmp_path, 'skaffold.yaml'))
     exp_apps = ('accounts', 'samples', 'workflows', 'myapp', 'common')
     assert len(sk['build']['artifacts']) == len(
         exp_apps) + len(values[KEY_TASK_IMAGES])
@@ -105,14 +105,14 @@ def test_create_skaffold_configuration():
     assert '--timeout=10m' in flags['install']
     assert '--install' in flags['upgrade']
 
-    shutil.rmtree(OUT)
+    shutil.rmtree(tmp_path)
     shutil.rmtree(BUILD_DIR)
 
 
 def test_create_skaffold_configuration_with_conflicting_dependencies(tmp_path):
     values = create_helm_chart(
         [CLOUDHARNESS_ROOT, RESOURCES_BUGGY],
-        output_path=OUT,
+        output_path=tmp_path,
         include=['myapp'],
         exclude=['events'],
         domain="my.local",
@@ -131,7 +131,7 @@ def test_create_skaffold_configuration_with_conflicting_dependencies(tmp_path):
     sk = create_skaffold_configuration(
         root_paths=root_paths,
         helm_values=values,
-        output_path=OUT
+        output_path=tmp_path
     )
 
     releases = sk['deploy']['helm']['releases']
@@ -148,7 +148,7 @@ def test_create_skaffold_configuration_with_conflicting_dependencies(tmp_path):
 def test_create_skaffold_configuration_with_conflicting_dependencies_requirements_file(tmp_path):
     values = create_helm_chart(
         [CLOUDHARNESS_ROOT, RESOURCES_BUGGY],
-        output_path=OUT,
+        output_path=tmp_path,
         include=['myapp2'],
         exclude=['events'],
         domain="my.local",
@@ -167,7 +167,7 @@ def test_create_skaffold_configuration_with_conflicting_dependencies_requirement
     sk = create_skaffold_configuration(
         root_paths=root_paths,
         helm_values=values,
-        output_path=OUT
+        output_path=tmp_path
     )
 
     releases = sk['deploy']['helm']['releases']
@@ -181,10 +181,10 @@ def test_create_skaffold_configuration_with_conflicting_dependencies_requirement
     assert myapp_config['harness']['deployment']['args'][0] == '/usr/src/app/myapp_code/__main__.py'
 
 
-def test_create_skaffold_configuration_nobuild():
+def test_create_skaffold_configuration_nobuild(tmp_path):
     values = create_helm_chart(
         [RESOURCES],
-        output_path=OUT,
+        output_path=tmp_path,
         include=['myapp'],
         domain="my.local",
         namespace='test',
@@ -204,7 +204,7 @@ def test_create_skaffold_configuration_nobuild():
     sk = create_skaffold_configuration(
         root_paths=root_paths,
         helm_values=values,
-        output_path=OUT
+        output_path=tmp_path
     )
     releases = sk['deploy']['helm']['releases']
 
@@ -231,7 +231,7 @@ def test_app_depends_on_app(tmp_path):
     sk = create_skaffold_configuration(
         root_paths=root_paths,
         helm_values=values,
-        output_path=OUT
+        output_path=tmp_path
     )
     releases = sk['deploy']['helm']['releases']
 

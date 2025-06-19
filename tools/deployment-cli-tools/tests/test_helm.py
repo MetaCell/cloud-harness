@@ -79,6 +79,10 @@ def test_collect_helm_values(tmp_path):
     # Not indicated as a build dependency
     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES]
 
+    chart_values = yaml.safe_load(open(helm_path / 'charts/myapp/values.yaml', 'r'))  # Check if the values.yaml is valid YAML
+    assert chart_values is not None, "values.yaml should be valid YAML"
+    assert chart_values["test"] == "dev"
+
 
 def test_collect_nobuild(tmp_path):
     out_folder = tmp_path / 'test_collect_helm_values'
