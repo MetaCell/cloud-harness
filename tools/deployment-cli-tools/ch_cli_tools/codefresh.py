@@ -127,7 +127,8 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
     build_steps = {}
     for root_path in root_paths:
         if '.overrides' not in root_path:
-            base_image_name = clean_image_name(os.path.basename(os.path.abspath(root_path)))
+            base_image_name = helm_values['name'] if root_path == root_paths[0] else\
+                clean_image_name(os.path.basename(os.path.abspath(root_path)))
         for e in envs:
 
             template_name = f"codefresh-template-{e}.yaml"
