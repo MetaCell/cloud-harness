@@ -55,9 +55,6 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
         additional_build_args: dict[str, str] = None,
     ) -> dict:
         build_args = {
-            'REGISTRY': helm_values.registry.name,
-            'TAG': helm_values.tag,
-            'NOCACHE': str(time.time()),
             'DEBUG': 'true' if helm_values.local or helm_values.debug else ''
         }
 

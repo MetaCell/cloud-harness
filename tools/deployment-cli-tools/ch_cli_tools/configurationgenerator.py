@@ -93,8 +93,10 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
                 chart_idx_content = yaml.safe_load(f)
             helm_values['name'] = chart_idx_content['name'].lower()
 
-    def _process_applications(self, helm_values, base_image_name):
-        for root_path in self.root_paths:
+    def _process_applications(self, helm_values, base_image_name=None):
+        for i in range(len(self.root_paths)):
+            root_path = self.root_paths[i]
+            base_name = clean_image_name(root_path.name) if i > 0 else base_image_name
             app_values = init_app_values(
                 root_path, exclude=self.exclude, values=helm_values[KEY_APPS])
             helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
@@ -102,7 +104,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
 
             app_base_path = root_path / APPS_PATH
             app_values = self.collect_app_values(
-                app_base_path, base_image_name=clean_image_name(root_path.name), helm_values=helm_values)
+                app_base_path, base_image_name=base_name, helm_values=helm_values)
             helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
                                                app_values)
 
@@ -147,13 +149,15 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
 
         return values
 
-    def _init_static_images(self):
-        for root_path in self.root_paths:
+    def _init_static_images(self, base_image_name):
+        for i in range(len(self.root_paths)):
+            root_path = self.root_paths[i]
+            base_name = clean_image_name(root_path.name) if i > 0 else base_image_name
             for static_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)):
                 self.static_images.add(static_img_dockerfile)
 
                 img_name = image_name_from_dockerfile_path(os.path.basename(
-                    static_img_dockerfile), base_name=clean_image_name(root_path.name))
+                    static_img_dockerfile), base_name=base_name)
                 self.base_images[os.path.basename(static_img_dockerfile)] = self.image_tag(
                     img_name, build_context_path=static_img_dockerfile,
                     dependencies=guess_build_dependencies_from_dockerfile(static_img_dockerfile)
@@ -178,12 +182,14 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
                 del helm_values[KEY_TASK_IMAGES][image_name]
                 # del helm_values[KEY_TASK_IMAGES_BUILD][image_name]
 
-    def _init_base_images(self):
+    def _init_base_images(self, base_image_name):
+        for i in range(len(self.root_paths)):
+            root_path = self.root_paths[i]
+            base_name = clean_image_name(root_path.name) if i > 0 else base_image_name
 
-        for root_path in self.root_paths:
             for base_img_dockerfile in self.__find_static_dockerfile_paths(root_path):
                 img_name = image_name_from_dockerfile_path(
-                    os.path.basename(base_img_dockerfile), base_name=clean_image_name(root_path.name))
+                    os.path.basename(base_img_dockerfile), base_name=base_name)
                 self.base_images[os.path.basename(base_img_dockerfile)] = self.image_tag(
                     img_name, build_context_path=root_path,
                     dependencies=guess_build_dependencies_from_dockerfile(base_img_dockerfile)
@@ -191,12 +197,15 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
 
         return self.base_images
 
-    def _init_test_images(self):
+    def _init_test_images(self, base_image_name):
         test_images = {}
-        for root_path in self.root_paths:
+        for i in range(len(self.root_paths)):
+            root_path = self.root_paths[i]
+            base_name = clean_image_name(root_path.name) if i > 0 else base_image_name
+
             for base_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, TEST_IMAGES_PATH)):
                 img_name = image_name_from_dockerfile_path(
-                    os.path.basename(base_img_dockerfile), base_name=clean_image_name(root_path.name))
+                    os.path.basename(base_img_dockerfile), base_name=base_name)
                 test_images[os.path.basename(base_img_dockerfile)] = self.image_tag(
                     img_name, build_context_path=base_img_dockerfile)
 

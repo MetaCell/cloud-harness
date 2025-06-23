@@ -4,5 +4,5 @@ description: CloudHarness Helm Chart
 maintainers:
 - {email: filippo@metacell.us, name: Filippo Ledda}
 - {email: zoran@metacell.us, name: Zoran Sinnema}
-name: cloudharness
+name: cloud-harness
 version: 0.0.1
