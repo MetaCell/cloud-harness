@@ -154,6 +154,56 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 env = get_app_environment(app_config, app_domain, False)
                 return [f"{k}={env[k]}" for k in env]
 
+            def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Dockerfile", base_name=None, helm_values: HarnessMainConfig = {}, dependencies=None):
+                logging.info('Generating build script for ' + app_name)
+                title = app_name.capitalize().replace(
+                    '-', ' ').replace('/', ' ').replace('.', ' ').strip()
+                build = codefresh_template_spec(
+                    template_path=CF_BUILD_PATH,
+                    image_name=get_image_name(app_name, base_name),
+                    title=title,
+                    working_directory='./' + app_context_path,
+                    dockerfile=dockerfile_path)
+
+                tag = app_specific_tag_variable(app_name)
+                build["tag"] = "${{%s}}" % tag
+
+                specific_build_template_path = join(app_context_path, 'build.yaml')
+                if exists(specific_build_template_path):
+                    logging.info("Specific build template found: %s" %
+                                 (specific_build_template_path))
+                    with open(specific_build_template_path) as f:
+                        build_specific = yaml.safe_load(f)
+
+                    build_specific.pop(
+                        'build_arguments') if 'build_arguments' in build_specific else []
+
+                build['dependencies'] = dependencies
+
+                def get_other_image_name(app_name):
+                    return ("${{REGISTRY}}/" + f"{build_steps[app_name]['image_name']}:{build_steps[app_name]['tag']}")\
+                        if app_name in build_steps \
+                        else image_tag_with_variables(app_name, app_specific_tag_variable(app_name), base_name)
+
+                def add_arg_dependencies(dependencies):
+                    arg_dependencies = [f"{d.upper().replace('-', '_')}={get_other_image_name(d)}"
+                                        for d in dependencies]
+                    build['build_arguments'].extend(arg_dependencies)
+
+                values_key = app_name
+                if dependencies is not None:
+                    add_arg_dependencies(dependencies)
+                elif values_key in helm_values.apps:
+                    try:
+                        add_arg_dependencies(
+                            helm_values.apps[values_key].harness.dependencies.build)
+                    except (KeyError, AttributeError):
+                        add_arg_dependencies(helm_values['task-images'])
+
+                when_condition = existing_build_when_condition(tag)
+                build["when"] = when_condition
+                return build
+
             def codefresh_steps_from_base_path(base_path, fixed_context=None, include=build_included, publish=True):
                 found = False
                 for dockerfile_path in find_dockerfiles_paths(base_path):
@@ -431,52 +481,6 @@ def image_tag_with_variables(app_name, build_tag, base_name=""):
 
 def app_specific_tag_variable(app_name):
     return "%s_TAG" % app_name.replace('-', '_').upper().strip()
-
-
-def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Dockerfile", base_name=None, helm_values: HarnessMainConfig = {}, dependencies=None):
-    logging.info('Generating build script for ' + app_name)
-    title = app_name.capitalize().replace(
-        '-', ' ').replace('/', ' ').replace('.', ' ').strip()
-    build = codefresh_template_spec(
-        template_path=CF_BUILD_PATH,
-        image_name=get_image_name(app_name, base_name),
-        title=title,
-        working_directory='./' + app_context_path,
-        dockerfile=dockerfile_path)
-
-    tag = app_specific_tag_variable(app_name)
-    build["tag"] = "${{%s}}" % tag
-
-    specific_build_template_path = join(app_context_path, 'build.yaml')
-    if exists(specific_build_template_path):
-        logging.info("Specific build template found: %s" %
-                     (specific_build_template_path))
-        with open(specific_build_template_path) as f:
-            build_specific = yaml.safe_load(f)
-
-        build_specific.pop(
-            'build_arguments') if 'build_arguments' in build_specific else []
-
-    build['dependencies'] = dependencies
-
-    def add_arg_dependencies(dependencies):
-        arg_dependencies = [f"{d.upper().replace('-', '_')}={image_tag_with_variables(d, app_specific_tag_variable(d), base_name)}" for
-                            d in dependencies]
-        build['build_arguments'].extend(arg_dependencies)
-
-    values_key = app_name
-    if dependencies is not None:
-        add_arg_dependencies(dependencies)
-    elif values_key in helm_values.apps:
-        try:
-            add_arg_dependencies(
-                helm_values.apps[values_key].harness.dependencies.build)
-        except (KeyError, AttributeError):
-            add_arg_dependencies(helm_values['task-images'])
-
-    when_condition = existing_build_when_condition(tag)
-    build["when"] = when_condition
-    return build
 
 
 def existing_build_when_condition(tag):

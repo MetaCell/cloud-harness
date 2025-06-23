@@ -117,6 +117,11 @@ def test_create_codefresh_configuration():
 
         step = steps["myapp"]
         assert step['dockerfile'] == "Dockerfile"
+        for build_argument in step['build_arguments']:
+            if build_argument.startswith("CLOUDHARNESS_FLASK="):
+                assert "cloud-harness" in build_argument, "Cloudharness flask image should have cloud-harness in its path"
+                assert build_argument == "CLOUDHARNESS_FLASK=${{REGISTRY}}/cloud-harness/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}", "Dependency is not properly set in the build arguments"
+
         assert os.path.samefile(step['working_directory'], os.path.join(
             RESOURCES, APPS_PATH, "myapp"))
 
@@ -131,7 +136,6 @@ def test_create_codefresh_configuration():
         assert len(
             tstep['commands']) == 2, "Unit test commands are not properly loaded from the unit test configuration file"
         assert tstep['commands'][0] == "tox", "Unit test commands are not properly loaded from the unit test configuration file"
-
         assert len(l1_steps[CD_STEP_CLONE_DEPENDENCIES]['steps']) == 3, "3 clone steps should be included as we have 2 dependencies from myapp, plus cloudharness"
     finally:
         shutil.rmtree(BUILD_MERGE_DIR)
