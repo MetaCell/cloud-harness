@@ -152,7 +152,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
     def _init_static_images(self, base_image_name):
         for i in range(len(self.root_paths)):
             root_path = self.root_paths[i]
-            base_name = clean_image_name(root_path.name) if i < len(self.root_paths) - 1  else base_image_name
+            base_name = clean_image_name(root_path.name) if i < len(self.root_paths) - 1 else base_image_name
             for static_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)):
                 self.static_images.add(static_img_dockerfile)
 
@@ -509,16 +509,8 @@ def create_env_variables(values):
 def hosts_info(values):
     domain = values['domain']
     namespace = values['namespace']
-    subdomains = [app[KEY_HARNESS]['subdomain'] for app in values[KEY_APPS].values() if
-                  KEY_HARNESS in app and app[KEY_HARNESS]['subdomain']] + [alias for app in values[KEY_APPS].values() if
-                                                                           KEY_HARNESS in app and app[KEY_HARNESS]['aliases'] for alias in app[KEY_HARNESS]['aliases']]
-    try:
-        ip = get_cluster_ip()
-    except:
-        logging.warning('Cannot get cluster ip')
-        return
-    logging.info(
-        "\nTo test locally, update your hosts file" + f"\n{ip}\t{domain + ' ' + ' '.join(sd + '.' + domain for sd in subdomains)}")
+    subdomains = [app[KEY_HARNESS]['subdomain'] for app in values[KEY_APPS].values() if KEY_HARNESS in app and app[KEY_HARNESS]['subdomain']] +\
+        [alias for app in values[KEY_APPS].values() if KEY_HARNESS in app and app[KEY_HARNESS]['aliases'] for alias in app[KEY_HARNESS]['aliases']]
 
     deployments = (app[KEY_HARNESS][KEY_DEPLOYMENT]['name']
                    for app in values[KEY_APPS].values() if KEY_HARNESS in app)
@@ -527,14 +519,22 @@ def hosts_info(values):
         "\nTo run locally some apps, also those references may be needed")
     for appname in values[KEY_APPS]:
         app = values[KEY_APPS][appname]['harness']
-        if 'deployment' not in app:
+        if 'service' not in app:
             continue
         print(
-            "kubectl port-forward -n {namespace} deployment/{app} {port}:{port}".format(
-                app=app['deployment']['name'], port=app['deployment']['port'], namespace=namespace))
+            "kubectl port-forward -n {namespace} service/{app} {port}:{port}".format(
+                app=app['service']['name'], port=app['service']['port'], namespace=namespace))
 
     print(
         f"127.0.0.1\t{' '.join('%s.%s' % (s, values['namespace']) for s in deployments)}")
+
+    try:
+        ip = get_cluster_ip()
+    except:
+        logging.warning('Cannot get cluster ip')
+        ip = "127.0.0.1"
+    logging.info(
+        "\nTo test locally, update your hosts file" + f"\n{ip}\t{domain + ' ' + ' '.join(sd + '.' + domain for sd in subdomains)}")
 
 
 class ValuesValidationException(Exception):
