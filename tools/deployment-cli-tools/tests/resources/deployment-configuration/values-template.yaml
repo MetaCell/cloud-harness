@@ -1,5 +1,6 @@
 mainapp: myapp
 domain: myapp.local
+name: testprojectname
 a: b
 database:
   auto: true

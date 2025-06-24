@@ -8,7 +8,7 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')
 OUT = '/tmp/deployment'
 CLOUDHARNESS_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-BUILD_MERGE_DIR = "./build/test_deployment"
+BUILD_MERGE_DIR = "./build/.overrides"
 
 myapp_path = os.path.join(HERE, "resources/applications/myapp")
 if not os.path.exists(os.path.join(myapp_path, "dependencies/a/.git")):
@@ -61,8 +61,10 @@ def test_create_codefresh_configuration():
         steps = l1_steps[STEP_0]["steps"]
         assert len(steps) == 7, "all images that do not depend on othe builds should be included in the first step"
         assert "cloudharness-base" in steps, "cloudharness-base image should be included as dependency"
+        assert "testprojectname/" in steps["cloudharness-base"]['image_name'], "cloudharness-base image should be overridden and take the main name"
         assert "cloudharness-base-debian" not in steps, "cloudharness-base image should not be included"
         assert "cloudharness-frontend-build" in steps, "cloudharness-frontend-build image should be included as dependency"
+        assert "cloud-harness/" in steps["cloudharness-frontend-build"]['image_name'], "cloudharness-frontend-build image is not overridden and should keep the cloud-harness prefix"
 
         step = steps["cloudharness-frontend-build"]
         assert os.path.samefile(step['working_directory'], CLOUDHARNESS_ROOT)
@@ -117,6 +119,7 @@ def test_create_codefresh_configuration():
 
         step = steps["myapp"]
         assert step['dockerfile'] == "Dockerfile"
+        assert "testprojectname/" in step['image_name'], f"myapp image should have the project name coming from the chart in its path, is {step['image_name']}"
         for build_argument in step['build_arguments']:
             if build_argument.startswith("CLOUDHARNESS_FLASK="):
                 assert "cloud-harness" in build_argument, "Cloudharness flask image should have cloud-harness in its path"
@@ -132,7 +135,7 @@ def test_create_codefresh_configuration():
                    ) == 2, "Two unit test steps are expected"
         assert 'myapp_ut' in l1_steps[CD_UNIT_TEST_STEP]['steps'], "Myapp test step is expected"
         tstep = l1_steps[CD_UNIT_TEST_STEP]['steps']['myapp_ut']
-        assert tstep['image'] == r"${{REGISTRY}}/resources/myapp:${{MYAPP_TAG}}", "The test image should be the one built for the current app"
+        assert tstep['image'] == r"${{REGISTRY}}/testprojectname/myapp:${{MYAPP_TAG}}", "The test image should be the one built for the current app"
         assert len(
             tstep['commands']) == 2, "Unit test commands are not properly loaded from the unit test configuration file"
         assert tstep['commands'][0] == "tox", "Unit test commands are not properly loaded from the unit test configuration file"
@@ -175,7 +178,7 @@ def test_create_codefresh_configuration_multienv():
         for cmd in cf['steps']['prepare_deployment']['commands']:
             if 'harness-deployment' in cmd:
                 assert '-e dev-test' in cmd
-                assert "test_deployment" in cmd
+                assert "test-${{NAMESPACE_BASENAME}}" in cmd
                 assert "-i samples" in cmd
 
     finally:

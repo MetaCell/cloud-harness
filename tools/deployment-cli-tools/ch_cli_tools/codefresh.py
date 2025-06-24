@@ -1,5 +1,5 @@
 import os
-from os.path import join, relpath, exists, dirname, basename
+from os.path import join, relpath, exists, dirname, basename, abspath
 from cloudharness_model.models.git_dependency_config import GitDependencyConfig
 
 import logging
@@ -105,6 +105,9 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                       for app in helm_values['apps'].values() if 'harness' in app]
     out_filename = f"codefresh-{'-'.join(envs)}.yaml"
 
+    if base_image_name is None:
+        base_image_name = helm_values['name']
+
     if build_included:
         logging.info(
             'Including the following subpaths to the build: %s.', ', '
@@ -125,10 +128,12 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
     steps = {}
     build_steps = {}
-    for root_path in root_paths:
-        if '.overrides' not in root_path:
-            base_image_name = helm_values['name'] if root_path == root_paths[0] else\
-                clean_image_name(os.path.basename(os.path.abspath(root_path)))
+    has_overrides = any(DEFAULT_MERGE_PATH in root_path for root_path in root_paths)
+    for i in range(len(root_paths)):
+            
+        root_path = root_paths[i]
+        base_name = clean_image_name(basename(abspath(root_path))) if i < len(root_paths) - (2 if has_overrides else 1) else base_image_name
+
         for e in envs:
 
             template_name = f"codefresh-template-{e}.yaml"
@@ -245,7 +250,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                 relpath(
                                     dockerfile_path, root_path) if fixed_context else '',
                                 "Dockerfile"),
-                            base_name=base_image_name,
+                            base_name=base_name,
                             helm_values=helm_values,
                             dependencies=dependencies
                         )
@@ -259,7 +264,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         steps[CD_STEP_PUBLISH]['steps']['publish_' + app_name] = codefresh_app_publish_spec(
                             app_name=app_name,
                             build_tag=build and build['tag'],
-                            base_name=base_image_name
+                            base_name=base_name
                         )
                         found = True
 
@@ -314,7 +319,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     steps[CD_UNIT_TEST_STEP]['steps'][f"{app_name}_ut"] = dict(
                         title=f"Unit tests for {app_name}",
                         commands=test_config.unit.commands,
-                        image=image_tag_with_variables(app_name, tag, base_image_name),
+                        image=image_tag_with_variables(app_name, tag, base_name),
                     )
 
             if helm_values[KEY_TASK_IMAGES]:
@@ -325,15 +330,15 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 codefresh_steps_from_base_path(join(root_path, APPS_PATH), include=helm_values[KEY_TASK_IMAGES].keys())
                 codefresh_steps_from_base_path(join(root_path, APPS_PATH), include=build_included)
 
-            if CD_E2E_TEST_STEP:
+            if CD_E2E_TEST_STEP in steps:
                 name = "test-e2e"
                 if codefresh_steps_from_base_path(join(root_path, TEST_IMAGES_PATH), include=(name,), publish=False):
-                    steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_image_name)
+                    steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_name)
 
             if CD_API_TEST_STEP in steps:
                 name = "test-api"
                 if codefresh_steps_from_base_path(join(root_path, TEST_IMAGES_PATH), include=(name,), fixed_context=relpath(root_path, os.getcwd()), publish=False):
-                    steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_image_name)
+                    steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_name)
 
     if build_steps:
 

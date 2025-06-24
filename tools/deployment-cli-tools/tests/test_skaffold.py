@@ -50,7 +50,7 @@ def test_create_skaffold_configuration(tmp_path):
     for img in values[KEY_TASK_IMAGES]:
         assert img in artifact_overrides[KEY_TASK_IMAGES]
 
-    assert f'reg/{CLOUDHARNESS_DIRNAME}/cloudharness-base' in (
+    assert f'reg/testprojectname/cloudharness-base' in (
         a['image'] for a in sk['build']['artifacts'])
 
     overrides = sk['deploy']['helm']['releases'][0]['overrides']
@@ -62,7 +62,7 @@ def test_create_skaffold_configuration(tmp_path):
     assert 'harness' in artifact_overrides[KEY_APPS]['accounts'][KEY_HARNESS][KEY_DEPLOYMENT]['image']
 
     cloudharness_base_artifact = next(
-        a for a in sk['build']['artifacts'] if a['image'] == f'reg/{CLOUDHARNESS_DIRNAME}/cloudharness-base')
+        a for a in sk['build']['artifacts'] if a['image'] == f'reg/testprojectname/cloudharness-base')
     assert cloudharness_base_artifact['context'] == BUILD_DIR
     assert 'requires' not in cloudharness_base_artifact
 
@@ -83,7 +83,7 @@ def test_create_skaffold_configuration(tmp_path):
     assert samples_artifact['docker']['buildArgs']['TEST_ARGUMENT'] == 'example value'
 
     myapp_artifact = next(
-        a for a in sk['build']['artifacts'] if a['image'] == f'reg/resources/myapp')
+        a for a in sk['build']['artifacts'] if a['image'] == f'reg/testprojectname/myapp')
     assert os.path.samefile(myapp_artifact['context'], join(
         RESOURCES, 'applications/myapp'))
     assert myapp_artifact['hooks']['before'], 'The hook for dependencies should be included'
