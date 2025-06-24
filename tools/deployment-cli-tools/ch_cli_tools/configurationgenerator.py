@@ -526,7 +526,7 @@ def hosts_info(values):
                 app=app['service']['name'], port=app['service']['port'], namespace=namespace))
 
     print(
-        f"127.0.0.1\t{' '.join('%s.%s' % (s, values['namespace']) for s in deployments)}")
+        f"127.0.0.1\t{' '.join('%s.%s' % (values[KEY_APPS][s]['harness']['service']['name'], values['namespace']) for s in deployments)}")
 
     try:
         ip = get_cluster_ip()
