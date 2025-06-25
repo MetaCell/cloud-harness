@@ -574,8 +574,7 @@ def validate_dependencies(values):
                     f"Bad build dependencies specified for application {app}: {','.join(not_found)} not found as built image")
 
         if 'use_services' in app_values[KEY_HARNESS]:
-            service_dependencies = {d['name'].replace(
-                "-", "_") for d in app_values[KEY_HARNESS]['use_services']}
+            service_dependencies = {d['name'] for d in app_values[KEY_HARNESS]['use_services']}
 
             not_found = {d for d in service_dependencies if d not in all_apps}
             if not_found:

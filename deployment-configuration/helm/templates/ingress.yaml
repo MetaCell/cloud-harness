@@ -14,7 +14,7 @@
 {{- define "deploy_utils.ingress.service" }}
   {{ $domain := .root.Values.domain }}
   {{ $secured_gatekeepers := and .root.Values.secured_gatekeepers }}
-  {{ $app := get .root.Values.apps (print .service_name | snakecase) }}
+  {{ $app := get .root.Values.apps  .service_name}}
       - path: /proxy/{{ $app.harness.service.name }}/(.*)
         pathType: ImplementationSpecific
         backend:
