@@ -518,15 +518,15 @@ def hosts_info(values):
     logging.info(
         "\nTo run locally some apps, also those references may be needed")
     for appname in values[KEY_APPS]:
-        app = values[KEY_APPS][appname]['harness']
-        if 'service' not in app:
+        app = values[KEY_APPS][appname][KEY_HARNESS]
+        if KEY_SERVICE not in app:
             continue
         print(
             "kubectl port-forward -n {namespace} service/{app} {port}:{port}".format(
-                app=app['service']['name'], port=app['service']['port'], namespace=namespace))
+                app=app[KEY_SERVICE]['name'], port=app[KEY_SERVICE]['port'], namespace=namespace))
 
     print(
-        f"127.0.0.1\t{' '.join('%s.%s' % (values[KEY_APPS][s]['harness']['service']['name'], values['namespace']) for s in deployments)}")
+        f"127.0.0.1\t{' '.join('%s.%s' % (values[KEY_APPS][s][KEY_HARNESS][KEY_SERVICE]['name'], values['namespace']) for s in deployments)}")
 
     try:
         ip = get_cluster_ip()
