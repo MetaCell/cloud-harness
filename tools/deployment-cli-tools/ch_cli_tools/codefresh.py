@@ -160,7 +160,8 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 env = get_app_environment(app_config, app_domain, False)
                 return [f"{k}={env[k]}" for k in env]
 
-            def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Dockerfile", base_name=None, helm_values: HarnessMainConfig = {}, dependencies=None):
+            def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Dockerfile", base_name=None, 
+                                         helm_values: HarnessMainConfig = {}, dependencies=None, additional_tags=()):
                 logging.info('Generating build script for ' + app_name)
                 title = app_name.capitalize().replace(
                     '-', ' ').replace('/', ' ').replace('.', ' ').strip()
@@ -172,7 +173,12 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     dockerfile=dockerfile_path)
 
                 tag = app_specific_tag_variable(app_name)
-                build["tag"] = "${{%s}}" % tag
+                build["tags"] = [
+                    "${{%s}}" % tag,
+                    "${{DEPLOYMENT_TAG}}-dev",
+                    "${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}",
+                    *additional_tags,
+                ]
 
                 specific_build_template_path = join(app_context_path, 'build.yaml')
                 if exists(specific_build_template_path):
@@ -187,7 +193,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 build['dependencies'] = dependencies
 
                 def get_other_image_name(app_name):
-                    return ("${{REGISTRY}}/" + f"{build_steps[app_name]['image_name']}:{build_steps[app_name]['tag']}")\
+                    return ("${{REGISTRY}}/" + f"{build_steps[app_name]['image_name']}:{build_steps[app_name]['tags'][0]}")\
                         if app_name in build_steps \
                         else image_tag_with_variables(app_name, app_specific_tag_variable(app_name), base_name)
 
@@ -252,7 +258,8 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                                 "Dockerfile"),
                             base_name=base_name,
                             helm_values=helm_values,
-                            dependencies=dependencies
+                            dependencies=dependencies,
+                            additional_tags=('latest',) if not publish else ()
                         )
 
                         build_steps[app_name] = build
@@ -263,7 +270,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                             steps[CD_STEP_PUBLISH]['steps'] = {}
                         steps[CD_STEP_PUBLISH]['steps']['publish_' + app_name] = codefresh_app_publish_spec(
                             app_name=app_name,
-                            build_tag=build and build['tag'],
+                            build_tag=build and build['tags'][0],
                             base_name=base_name
                         )
                         found = True
@@ -474,9 +481,7 @@ def codefresh_app_publish_spec(app_name, build_tag, base_name=None):
             app_name, base_name), build_tag or '${{DEPLOYMENT_TAG}}'),
         title=title,
     )
-    if not build_tag:
-        # if not build tag we are reusing old images and deploying on a production env
-        step_spec['tags'].append('latest')
+    step_spec['tags'].append('latest')
     return step_spec
 
 
