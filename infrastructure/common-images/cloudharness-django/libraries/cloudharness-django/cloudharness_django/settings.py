@@ -74,9 +74,11 @@ if current_app.harness.database.type == "sqlite3":
     DATABASE_NAME = os.path.join(getattr(settings, "PERSISTENT_ROOT", "."), f"{app_name}.sqlite3")
     DATABSE_HOST = None
     DATABASE_PORT = None
+    TEST_DATABASE_NAME = os.path.join(getattr(settings, "PERSISTENT_ROOT", "."), "testdb.sqlite3")
 elif current_app.harness.database.type == "postgres":
     DATABASE_ENGINE = "django.db.backends.postgresql"
     DATABASE_NAME = current_app.harness.database.postgres.initialdb
+    TEST_DATABASE_NAME = f"test_{DATABASE_NAME}"
     DATABSE_HOST = current_app.harness.database.name
     DATABASE_PORT = current_app.harness.database.postgres.ports[0].port
 
@@ -91,8 +93,8 @@ DATABASES = {
         "HOST": DATABSE_HOST,
         "PORT": DATABASE_PORT,
         "TEST": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": os.path.join(getattr(settings, "PERSISTENT_ROOT", "."), "testdb.sqlite3"),
+            "ENGINE": DATABASE_ENGINE or "django.db.backends.sqlite3",
+            "NAME": TEST_DATABASE_NAME,
         },
     },
 }
