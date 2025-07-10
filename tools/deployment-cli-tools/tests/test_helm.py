@@ -149,7 +149,6 @@ def test_collect_helm_values_noreg_noinclude(tmp_path):
     assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'testprojectname/cloudharness-base:1'
     assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'testprojectname/myapp-mytask:1'
     assert values[KEY_TASK_IMAGES]['my-common'] == 'testprojectname/my-common:1'
-    
 
 
 def test_collect_helm_values_precedence(tmp_path):
