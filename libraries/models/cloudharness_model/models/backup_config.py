@@ -196,7 +196,7 @@ class BackupConfig(Model):
         :type schedule: str
         """
         if schedule is not None and not re.search(r'(@(annually|yearly|monthly|weekly|daily|hourly|reboot))|(@every (\d+(ns|us|µs|ms|s|m|h))+)|((((\d+,)+\d+|(\d+(\/|-)\d+)|\d+|\*) ?){5,7})', schedule):  # noqa: E501
-            raise ValueError("Invalid value for `schedule`, must be a follow pattern or equal to `/(@(annually|yearly|monthly|weekly|daily|hourly|reboot))|(@every (\d+(ns|us|µs|ms|s|m|h))+)|((((\d+,)+\d+|(\d+(\/|-)\d+)|\d+|\*) ?){5,7})/`")  # noqa: E501
+            raise ValueError(r"Invalid value for `schedule`, must be a follow pattern or equal to `/(@(annually|yearly|monthly|weekly|daily|hourly|reboot))|(@every (\d+(ns|us|µs|ms|s|m|h))+)|((((\d+,)+\d+|(\d+(\/|-)\d+)|\d+|\*) ?){5,7})/`")  # noqa: E501
 
         self._schedule = schedule
 

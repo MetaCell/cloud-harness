@@ -135,7 +135,7 @@ class DeploymentAutoArtifactConfigAllOf(Model):
         :type image: str
         """
         if image is not None and not re.search(r'(?:[a-z]+\/)?([a-z]+)(?::[0-9]+)?', image):  # noqa: E501
-            raise ValueError("Invalid value for `image`, must be a follow pattern or equal to `/(?:[a-z]+\/)?([a-z]+)(?::[0-9]+)?/`")  # noqa: E501
+            raise ValueError(r"Invalid value for `image`, must be a follow pattern or equal to `/(?:[a-z]+\/)?([a-z]+)(?::[0-9]+)?/`")  # noqa: E501
 
         self._image = image
 
