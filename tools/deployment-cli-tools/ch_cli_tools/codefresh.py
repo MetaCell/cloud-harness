@@ -130,7 +130,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
     build_steps = {}
     has_overrides = any(DEFAULT_MERGE_PATH in root_path for root_path in root_paths)
     for i in range(len(root_paths)):
-            
+
         root_path = root_paths[i]
         base_name = clean_image_name(basename(abspath(root_path))) if i < len(root_paths) - (2 if has_overrides else 1) else base_image_name
 
@@ -160,7 +160,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 env = get_app_environment(app_config, app_domain, False)
                 return [f"{k}={env[k]}" for k in env]
 
-            def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Dockerfile", base_name=None, 
+            def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Dockerfile", base_name=None,
                                          helm_values: HarnessMainConfig = {}, dependencies=None, additional_tags=()):
                 logging.info('Generating build script for ' + app_name)
                 title = app_name.capitalize().replace(
