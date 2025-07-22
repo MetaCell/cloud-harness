@@ -175,7 +175,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 tag = app_specific_tag_variable(app_name)
                 build["tags"] = [
                     "${{%s}}" % tag,
-                    "${{DEPLOYMENT_TAG}}-dev",
+                    "${{DEPLOYMENT_PUBLISH_TAG}}-dev",
                     "${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}",
                     *additional_tags,
                 ]
