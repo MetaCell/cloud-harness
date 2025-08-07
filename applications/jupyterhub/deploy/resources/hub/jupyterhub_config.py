@@ -549,6 +549,7 @@ elif auth_type == 'keycloak':
     c.GenericOAuthenticator.userdata_url = f"{accounts_url}/realms/{realm}/protocol/openid-connect/userinfo"
     c.GenericOAuthenticator.userdata_params = {'state': 'state'}
     c.GenericOAuthenticator.admin_groups = {"administrator"}
+    c.GenericOAuthenticator.manage_groups = True
 
 set_config_if_not_none(c.OAuthenticator, 'scope', 'auth.scopes')
 
