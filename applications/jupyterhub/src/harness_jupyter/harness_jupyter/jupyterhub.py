@@ -72,6 +72,27 @@ def affinity_spec(key, value):
         'topologyKey': 'kubernetes.io/hostname'
     }
 
+def affinity_preferred_spec(key, value, topology_key='kubernetes.io/hostname', operator='In'):
+    """
+    Generates a Kubernetes preferred affinity term.
+    """
+
+    return {
+        'weight': 100,
+        'podAffinityTerm': {
+            'labelSelector': {
+                'matchExpressions': [
+                    {
+                        'key': key,
+                        'operator': operator,
+                        'values': [value]
+                    }
+                ]
+            },
+            'topologyKey': topology_key
+        }
+    }
+
 
 def set_user_volume_affinity(self: KubeSpawner):
     # Add labels to use for affinity
@@ -83,7 +104,7 @@ def set_user_volume_affinity(self: KubeSpawner):
     self.extra_labels = labels
 
     for key, value in labels.items():
-        self.pod_affinity_required.append(affinity_spec(key, value))
+        self.pod_affinity_preferred.append(affinity_preferred_spec(key, value))
 
 
 def set_key_value(self, key, value, unit=None):
