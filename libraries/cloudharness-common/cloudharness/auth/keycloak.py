@@ -90,7 +90,7 @@ def is_uuid(s):
     try:
         uuid.UUID(s)
         return True
-    except ValueError:
+    except:
         return False
 
 
