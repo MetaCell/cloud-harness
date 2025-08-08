@@ -14,13 +14,13 @@ class KCAttributeNode:
         self.children.append(child)
 
 
-def _filter_attrs(attrs, valid_keys):
+def _filter_attrs(attrs, valid_keys={}):
     # only use the attributes defined by the valid keys map
     valid_attrs = {}
     if attrs is None:
         return valid_attrs
     for key in attrs:
-        if key in valid_keys:
+        if key in valid_keys or not valid_keys:
             # map to value
             valid_attrs.update({key: attrs[key][0]})
     return valid_attrs
