@@ -50,7 +50,7 @@
             {{- range $app := .Values.apps }}
               {{- if (hasKey $app.harness "accounts")  }}
                 {{- if $j}},{{end}}
-                {{- if len $app.harness.accounts.users}}
+                {{- if $app.harness.accounts.users}}
                     {{- $j = add1 $j }}
                 {{- end }}
                 {{- range $i, $user := $app.harness.accounts.users }}{{if $i}},{{end}}
