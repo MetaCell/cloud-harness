@@ -39,7 +39,7 @@ def harness_hub():
     KubeSpawner.get_pod_manifest_base = KubeSpawner.get_pod_manifest
     KubeSpawner.get_pod_manifest = spawner_pod_manifest
     # to skip the profile selection form enable the line below
-    KubeSpawner.options_form = custom_options_form
+    # KubeSpawner.options_form = custom_options_form
     KubeSpawner.get_pvc_manifest_base = KubeSpawner.get_pvc_manifest
     KubeSpawner.get_pvc_manifest = spawner_pvc_manifest
 
