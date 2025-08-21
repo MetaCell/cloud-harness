@@ -6,5 +6,5 @@ ADD . /
 
 ENV url 'github.com/MetaCell/cloud-harness/blob/master/README.md'
 ENV shared_directory /tmp
-
-CMD source ./download.sh
+RUN chmod +x ./download.sh
+CMD ["/bin/sh", "-c", "./download.sh"]
