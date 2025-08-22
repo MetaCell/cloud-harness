@@ -2,7 +2,7 @@ import sys
 import urllib.parse
 import asyncio
 from functools import partial
-
+from tornado import web
 from kubespawner.spawner import KubeSpawner
 from jupyterhub.utils import exponential_backoff
 
@@ -29,8 +29,9 @@ def custom_options_form(spawner, abc):
     return spawner._options_form_default()
 
 
-class PodSpawnException(Exception):
-    pass
+class PodSpawnException(web.HTTPError):
+    def __init__(self, message, status_code=403):
+        super().__init__(status_code=status_code, log_message=message)
 
 
 def harness_hub():
