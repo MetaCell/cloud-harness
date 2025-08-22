@@ -87,6 +87,10 @@ def get_token(username, password):
 
 def is_uuid(s):
     import uuid
+    if not s:
+        return False
+    if type(s) == uuid.UUID:
+        return True
     try:
         uuid.UUID(s)
         return True
