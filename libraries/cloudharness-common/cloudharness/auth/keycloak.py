@@ -594,11 +594,15 @@ class AuthClient():
         user = self.get_user(user_id)
         attributes = user.get('attributes', {}) or {}
         attributes[attribute_name] = attribute_value
+        user.attributes = attributes
         admin_client.update_user(
             user_id,
             {
-                'attributes': attributes
-            })
+                'attributes': attributes,
+                'username': user.username,
+                'email': user.email,
+            }
+        )
 
     @with_refreshtoken
     def user_delete_attribute(self, user_id, attribute_name):
@@ -617,7 +621,9 @@ class AuthClient():
             admin_client.update_user(
                 user_id,
                 {
-                    'attributes': attributes
+                    'attributes': attributes,
+                    'username': user.username,
+                    'email': user.email,
                 })
             return True
         return False
