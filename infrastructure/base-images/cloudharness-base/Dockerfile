@@ -26,7 +26,7 @@ RUN pip install -e /libraries/models --no-cache-dir
 RUN pip install -e /libraries/cloudharness-common --no-cache-dir
 RUN pip install -e /libraries/client/cloudharness_cli --no-cache-dir
 
-ARG $DEBUG
-RUN if [[ -z "$DEBUG" ]] ; then pip install debugpy --prefer-binary ; else echo "Debug not supported" ; fi
+ARG DEBUG
+RUN if [ -z "$DEBUG" ] ; then pip install debugpy --prefer-binary ; else echo "Debug not supported" ; fi
 
 WORKDIR /
