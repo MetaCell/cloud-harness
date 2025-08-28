@@ -119,9 +119,9 @@
             },
         "clients": [
             {
-            "id": "18893fbb-8252-4aaa-bc9b-60799ceb9932",
-            "clientId": "account-console",
-            "name": "${client_account-console}",
+            "id": "18893fbb-8252-4aaa-bc9b-60799ceb9931",
+            "clientId": "account-console-copy",
+            "name": "${client_account-console} (Copy)",
             "rootUrl": "${authBaseUrl}",
             "baseUrl": {{ printf "/realms/%s/account" .Values.namespace | quote }},
             "surrogateAuthRequired": false,
