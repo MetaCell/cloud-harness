@@ -16,12 +16,6 @@ from .utils import get_template, dict_merge, find_dockerfiles_paths, app_name_fr
 from . import HERE, CH_ROOT
 
 
-import os.path, pkgutil
-import ch_cli_tools
-pkgpath = os.path.dirname(ch_cli_tools.__file__)
-print([name for _, name, _ in pkgutil.iter_modules([pkgpath])])
-
-
 env = Environment(
     loader=PackageLoader(package_name="ch_cli_tools", package_path="templates/tilt"),
     autoescape=select_autoescape()
