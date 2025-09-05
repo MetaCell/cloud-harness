@@ -1,0 +1,55 @@
+load('ext://namespace', 'namespace_create', "namespace_inject")
+
+
+def deploy(name, namespace):
+
+    # create namespaces
+    namespace_create(namespace)
+
+    # setup ingress
+    local("kubectl get namespace ingress-nginx 2>/dev/null 1>/dev/null || bash -c 'helm upgrade --install ingress-nginx ingress-nginx --repo https://kubernetes.github.io/ingress-nginx --namespace ingress-nginx --create-namespace --version v4.2.5 && sleep 10'")
+
+    # load helm chart
+    yaml = decode_yaml_stream(helm(
+        "deployment/helm",
+        # The release name, equivalent to helm --name
+        name=name,
+        # The namespace to install in, equivalent to helm --namespace
+        namespace=namespace,
+        # The values file to substitute into the chart.
+        values=["deployment/helm/values.yaml"],
+        # Values to set from the command-line
+        set=["service.port=1234", "ingress.enabled=true"]
+        )
+    )
+
+    source_root = os.path.abspath(os.getcwd())
+    # modify deployments
+    for r in yaml:
+        if r.get("kind") == "Deployment":
+            print("+ patching deployment:", r["metadata"]["name"])
+            r["spec"]["template"]["spec"].setdefault("volumes", []).append({
+                "name": name + "-root",
+                "hostPath": {
+                    "path": source_root
+                }
+            })
+            for container in r["spec"]["template"]["spec"]["containers"]:
+                print("  + modifying container:", container["name"])
+                print("    - add " + name + " root folder")
+                container.setdefault("volumeMounts", []).append({
+                    "mountPath": "/usr/src/" + name,
+                    "name": name + "-root"
+                })
+                if "resources" in container:
+                    print("    - modifying resource requests and limits")
+                    if "limits" not in container["resources"]:
+                        container["resources"]["limits"] = {}
+                    container["resources"]["limits"]["cpu"] = "8000m"
+                    container["resources"]["limits"]["memory"] = "4096Mi"
+
+    # don't watch mnp folder
+    watch_settings(ignore=source_root)
+
+    # install applications
+    k8s_yaml(namespace_inject(encode_yaml_stream(yaml), namespace))
