@@ -150,6 +150,8 @@ def create_tilt_configuration(root_paths, helm_values: HarnessMainConfig, manage
             context_path = os.path.relpath(dockerfile_path, '.')
             app_relative_to_base = os.path.relpath(dockerfile_path, apps_path)
             app_name = app_name_from_path(app_relative_to_base)
+            if app_name in helm_values["apps"]:
+                app_name = helm_values["apps"][app_name]["harness"]["subdomain"]
             app_key = app_name
 
             if app_key not in apps:
@@ -159,11 +161,14 @@ def create_tilt_configuration(root_paths, helm_values: HarnessMainConfig, manage
                     parent_app_key = parent_app_name
 
                     if parent_app_key in apps:
-                        artifacts[app_key] = build_artifact(app_name, app_relative_to_skaffold,
-                                                            guess_build_dependencies_from_dockerfile(dockerfile_path))
+                        artifacts[app_key] = build_artifact(
+                            app_name,
+                            app_relative_to_skaffold,
+                            guess_build_dependencies_from_dockerfile(dockerfile_path),
+                            dockerfile_path=dockerfile_path)
                 elif app_name in helm_values[KEY_TASK_IMAGES]:
                     process_build_dockerfile(dockerfile_path, root_path,
-                                             requirements=guess_build_dependencies_from_dockerfile(dockerfile_path), app_name=app_name)
+                                             requirements=guess_build_dependencies_from_dockerfile(dockerfile_path), dockerfile_path=dockerfile_path, app_name=app_name)
                 continue
 
             process_build_dockerfile(dockerfile_path, root_path, requirements=guess_build_dependencies_from_dockerfile(dockerfile_path), app_name=app_name)
