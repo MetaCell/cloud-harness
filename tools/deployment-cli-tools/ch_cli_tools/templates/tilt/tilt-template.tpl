@@ -3,11 +3,25 @@ load('ext://uibutton', 'cmd_button')
 
 # build images
 {% for image in images -%}
-docker_build(ref='{{image.image}}', context='{{image.context}}', dockerfile='{{image.docker.dockerfile}}', build_args={{image.docker.buildArgs}})
+docker_build(ref='{{image.image}}', context='{{image.context}}', dockerfile='{{image.docker.dockerfile}}', build_args={{image.docker.buildArgs}}{% if image.is_task %}, match_in_env_vars=True{% endif %})
 {% endfor %}
 
+extra_env = {}
+{% for image in images -%}
+{% if image.is_app -%}
+extra_env.setdefault("{{ image.name }}", [])
+{% for task in images -%}
+{% if task.is_task and task.parent_app_name == image.name -%}
+extra_env["{{ image.name }}"].append("{{ task.image }}")
+{% endif -%}
+{% endfor -%}
+{% endif -%}
+{% endfor %}
+
+print(extra_env)
+
 # deploy
-deploy(name='{{name}}', namespace='{{namespace}}')
+deploy(name='{{name}}', namespace='{{namespace}}', extra_env=extra_env)
 
 {% for app in apps -%}
 # Add Tilt ui elements for: {{app.name}}

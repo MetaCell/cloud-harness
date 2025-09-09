@@ -1,7 +1,7 @@
 load('ext://namespace', 'namespace_create', "namespace_inject")
 
 
-def deploy(name, namespace):
+def deploy(name, namespace, extra_env):
 
     # create namespaces
     namespace_create(namespace)
@@ -27,7 +27,8 @@ def deploy(name, namespace):
     # modify deployments
     for r in yaml:
         if r.get("kind") == "Deployment":
-            print("+ patching deployment:", r["metadata"]["name"])
+            deployment_name = r["metadata"]["name"]
+            print("+ patching deployment:", deployment_name)
             r["spec"]["template"]["spec"].setdefault("volumes", []).append({
                 "name": name + "-root",
                 "hostPath": {
@@ -47,10 +48,16 @@ def deploy(name, namespace):
                         container["resources"]["limits"] = {}
                     container["resources"]["limits"]["cpu"] = "8000m"
                     container["resources"]["limits"]["memory"] = "4096Mi"
+                if deployment_name in extra_env and len(extra_env[deployment_name]) > 0:
+                    print("Adding extra env to ", deployment_name)
+                    for env in extra_env[deployment_name]:
+                        print(env)
+                        container["env"].append({
+                            "name": env, "value": env
+                        })
 
     # don't watch mnp folder
     #watch_settings(ignore=source_root)
 
     # install applications
-    #k8s_yaml(namespace_inject(encode_yaml_stream(yaml), namespace))
-    k8s_yaml(encode_yaml_stream(yaml))
+    k8s_yaml(namespace_inject(encode_yaml_stream(yaml), namespace))

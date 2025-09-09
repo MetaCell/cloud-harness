@@ -59,7 +59,9 @@ def create_tilt_configuration(root_paths, helm_values: HarnessMainConfig, manage
         requirements: list[str] = None,
         dockerfile_path: str = '',
         additional_build_args: dict[str, str] = None,
-        is_app: bool = False
+        is_app: bool = False,
+        is_task: bool = False,
+        parent_app_name: str = None
     ) -> dict:
         build_args = {
             'DEBUG': 'true' if helm_values.local or helm_values.debug else ''
@@ -79,6 +81,8 @@ def create_tilt_configuration(root_paths, helm_values: HarnessMainConfig, manage
             'image': image_name,
             'context': context_path,
             'is_app': is_app,
+            'is_task': is_task,
+            'parent_app_name': parent_app_name,
             'docker': {
                 'dockerfile': join(dockerfile_path, 'Dockerfile'),
                 'buildArgs': build_args
@@ -165,7 +169,9 @@ def create_tilt_configuration(root_paths, helm_values: HarnessMainConfig, manage
                             app_name,
                             app_relative_to_skaffold,
                             guess_build_dependencies_from_dockerfile(dockerfile_path),
-                            dockerfile_path=dockerfile_path)
+                            dockerfile_path=dockerfile_path,
+                            is_task=True,
+                            parent_app_name=parent_app_name)
                 elif app_name in helm_values[KEY_TASK_IMAGES]:
                     process_build_dockerfile(dockerfile_path, root_path,
                                              requirements=guess_build_dependencies_from_dockerfile(dockerfile_path), dockerfile_path=dockerfile_path, app_name=app_name)
