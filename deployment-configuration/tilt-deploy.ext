@@ -49,9 +49,8 @@ def deploy(name, namespace, extra_env):
                     container["resources"]["limits"]["cpu"] = "8000m"
                     container["resources"]["limits"]["memory"] = "4096Mi"
                 if deployment_name in extra_env and len(extra_env[deployment_name]) > 0:
-                    print("Adding extra env to ", deployment_name)
+                    print("Adding tasks images dependencies to env ", deployment_name)
                     for env in extra_env[deployment_name]:
-                        print(env)
                         container["env"].append({
                             "name": env, "value": env
                         })
