@@ -6,9 +6,6 @@ def deploy(name, namespace, extra_env):
     # create namespaces
     namespace_create(namespace)
 
-    # setup ingress
-    local("kubectl get namespace ingress-nginx 2>/dev/null 1>/dev/null || bash -c 'helm upgrade --install ingress-nginx ingress-nginx --repo https://kubernetes.github.io/ingress-nginx --namespace ingress-nginx --create-namespace --version v4.2.5 && sleep 10'")
-
     # load helm chart
     yaml = decode_yaml_stream(helm(
         "deployment/helm",
