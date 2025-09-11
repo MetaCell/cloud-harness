@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Wrapper script to source the runtime virtual environment
+# Usage: source /workspace/dev-scripts/use-venv
+
+VENV_DIR="$HOME/.local/venv"
+
+if [ -d "$VENV_DIR" ]; then
+    # Check if we're already in the virtual environment
+    if [[ "$VIRTUAL_ENV" != "$VENV_DIR" ]]; then
+        source "$VENV_DIR/bin/activate"
+        echo "Runtime virtual environment activated."
+    fi
+else
+    echo "No runtime virtual environment found. Run '/workspace/dev-scripts/runtime-venv.sh' first."
+fi

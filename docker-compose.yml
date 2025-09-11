@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  cloudharness:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cloudharness-cli:latest
+    container_name: cloudharness-dev
+    ports:
+      - "5000:5000"
+      - "9000:9000"
+    volumes:
+      - .:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock  # For Docker-in-Docker capabilities
+      - ~/.docker:/root/.docker:ro  # Docker client configuration and credentials
+      - ./.devcontainer/home/:/root  # Map local .devcontainer/home to container root
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    environment:
+      - PYTHONPATH=/cloudharness:/workspace/libraries/models:/workspace/libraries/cloudharness-utils:/workspace/libraries/cloudharness-common:/workspace/libraries/client/cloudharness_cli:/workspace/tools/deployment-cli-tools
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    user: "root"
+    command: tail -f /dev/null  # Keep container running infinitely

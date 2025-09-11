@@ -1,0 +1,47 @@
+{
+    "name": "CloudHarness Development",
+    "dockerComposeFile": "../docker-compose.yml",
+    "service": "cloudharness",
+    "workspaceFolder": "/workspace",
+    "shutdownAction": "none",
+    "postCreateCommand": "chmod +x /workspace/dev-scripts/vscode-setup.sh && /workspace/dev-scripts/vscode-setup.sh && touch ~/.bashrc && echo 'source /workspace/dev-scripts/use-venv' >> ~/.bashrc && echo 'CloudHarness development environment ready! Virtual environment will auto-activate in new terminals.'",
+    "postStartCommand": "source /workspace/dev-scripts/use-venv && echo 'Runtime virtual environment activated'",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "python.defaultInterpreterPath": "/root/.local/venv/bin/python",
+                "python.terminal.activateEnvironment": true,
+                "python.terminal.activateEnvInCurrentTerminal": true,
+                "terminal.integrated.shellIntegration.enabled": true,
+                "extensions.autoUpdate": false,
+                "extensions.autoCheckUpdates": false,
+                "python.analysis.extraPaths": [
+                    "/root/.local/venv/lib/python3.12/site-packages",
+                    "/workspace/libraries/models",
+                    "/workspace/libraries/cloudharness-utils",
+                    "/workspace/libraries/cloudharness-common",
+                    "/workspace/libraries/client/cloudharness_cli",
+                    "/workspace/tools/deployment-cli-tools"
+                ]
+            },
+            "extensions": [
+                "ms-python.python",
+                "ms-python.autopep8",
+                "ms-python.pylint",
+                "ms-python.python-extension-pack",
+                "KevinRose.vsc-python-indent",
+                "dbaeumer.vscode-eslint",
+                "github.copilot",
+                "redhat.vscode-yaml",
+                "ms-vscode.vscode-json"
+            ]
+        }
+    },
+    "remoteUser": "root",
+    "mounts": [
+        "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached"
+    ],
+    "forwardPorts": [],
+    "updateContentCommand": "echo 'Container updated'"
+}
