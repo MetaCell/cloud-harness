@@ -8,6 +8,8 @@ if setup_infrastructure:
     # setup ingress
     print("Installing ingress controller")
     local("cd infrastructure/cluster-configuration && source cluster-init.sh")
+    print("Let's wait a few seconds...")
+    local("sleep 30")
 else:
     print("To setup the infrastructure (f.e. ingress controller)")
     print("run: tilt up -- --setup-infrastructure")
