@@ -1,14 +1,16 @@
 load('{{ch_root}}/deployment-configuration/tilt-deploy.ext', 'deploy')
 load('ext://uibutton', 'cmd_button')
 
-config.define_bool('skip-ingress')
+config.define_bool('setup-infrastructure')
 cfg = config.parse()
-skip_ingress = cfg.get('skip-ingress', False)
-if not skip_ingress:
+setup_infrastructure = cfg.get('setup-infrastructure', False)
+if setup_infrastructure:
     # setup ingress
     print("Installing ingress controller")
-    print("To skip installing the ingress controller run: tilt up -- --skip-ingress")
-    local("kubectl get namespace ingress-nginx 2>/dev/null 1>/dev/null || bash -c 'helm upgrade --install ingress-nginx ingress-nginx --repo https://kubernetes.github.io/ingress-nginx --namespace ingress-nginx --create-namespace --version v4.2.5 && sleep 10'")
+    local("cd infrastructure/cluster-configuration && source cluster-init.sh")
+else:
+    print("To setup the infrastructure (f.e. ingress controller)")
+    print("run: tilt up -- --setup-infrastructure")
 
 # build images
 {% for image in images -%}
