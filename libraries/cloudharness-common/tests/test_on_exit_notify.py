@@ -1,17 +1,13 @@
 """Test on_exit_notify functionality with optional queue and payload parameters"""
-import sys
-import os
-import yaml
 
-# Add the cloudharness-common library to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
-from cloudharness.utils.config import CloudharnessConfig
-from cloudharness.workflows import operations, tasks, utils
-from test_env import set_test_environment
+from cloudharness.workflows import operations, tasks
+from cloudharness import set_debug
+from .test_env import set_test_environment
 
 # Set up test environment
 set_test_environment()
+set_debug()
+
 
 def test_on_exit_notify_custom_image_only():
     """Test that on_exit_notify works with just a custom image, no queue/payload"""
