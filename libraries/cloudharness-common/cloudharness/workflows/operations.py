@@ -178,8 +178,6 @@ class ContainerizedOperation(ManagedOperation):
         if 'payload' in self.on_exit_notify:
             env_args['payload'] = self.on_exit_notify['payload']
             
-        if 'env' in self.on_exit_notify:
-            env_args.update(self.on_exit_notify['env'])
         
         exit_task = CustomTask(
             name="exit-handler",
