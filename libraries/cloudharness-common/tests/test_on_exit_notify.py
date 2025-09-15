@@ -41,7 +41,13 @@ def test_on_exit_notify_custom_image_only():
     assert 'my-custom-exit-handler' in exit_template['container']['image'], f"Image should contain my-custom-exit-handler, got {exit_template['container']['image']}"
 
     # Check environment variables - should only have workflow_result
-    env_vars = {env['name']: env['value'] for env in exit_template['container']['env']}
+    env_vars = {}
+    for env in exit_template['container']['env']:
+        if 'value' in env:
+            env_vars[env['name']] = env['value']
+        elif 'valueFrom' in env:
+            env_vars[env['name']] = env['valueFrom']
+
     assert 'workflow_result' in env_vars, "workflow_result should be present"
     assert env_vars['workflow_result'] == '{{workflow.status}}', "workflow_result should have correct value"
 
@@ -50,7 +56,6 @@ def test_on_exit_notify_custom_image_only():
     assert 'payload' not in env_vars, "payload should not be present when not specified"
 
     print("✓ Test passed: Custom image without queue/payload works correctly")
-    return True
 
 
 def test_on_exit_notify_with_queue_and_payload():
@@ -82,7 +87,13 @@ def test_on_exit_notify_with_queue_and_payload():
     assert exit_template is not None, "exit-handler template should exist"
 
     # Check environment variables - should have all three
-    env_vars = {env['name']: env['value'] for env in exit_template['container']['env']}
+    env_vars = {}
+    for env in exit_template['container']['env']:
+        if 'value' in env:
+            env_vars[env['name']] = env['value']
+        elif 'valueFrom' in env:
+            env_vars[env['name']] = env['valueFrom']
+
     assert 'workflow_result' in env_vars, "workflow_result should be present"
     assert 'queue_name' in env_vars, "queue_name should be present"
     assert 'payload' in env_vars, "payload should be present"
@@ -91,7 +102,6 @@ def test_on_exit_notify_with_queue_and_payload():
     assert env_vars['payload'] == '{"test": true}', f"payload should be correct, got {env_vars['payload']}"
 
     print("✓ Test passed: Backward compatibility works correctly")
-    return True
 
 
 def test_on_exit_notify_mixed_usage():
@@ -123,7 +133,13 @@ def test_on_exit_notify_mixed_usage():
     assert exit_template is not None, "exit-handler template should exist"
 
     # Check environment variables
-    env_vars = {env['name']: env['value'] for env in exit_template['container']['env']}
+    env_vars = {}
+    for env in exit_template['container']['env']:
+        if 'value' in env:
+            env_vars[env['name']] = env['value']
+        elif 'valueFrom' in env:
+            env_vars[env['name']] = env['valueFrom']
+
     assert 'workflow_result' in env_vars, "workflow_result should be present"
     assert 'queue_name' in env_vars, "queue_name should be present"
     assert 'payload' not in env_vars, "payload should not be present when not specified"
@@ -131,7 +147,6 @@ def test_on_exit_notify_mixed_usage():
     assert env_vars['queue_name'] == 'my_queue', f"queue_name should be 'my_queue', got {env_vars['queue_name']}"
 
     print("✓ Test passed: Mixed usage works correctly")
-    return True
 
 
 def test_on_exit_notify_default_image():
@@ -166,4 +181,3 @@ def test_on_exit_notify_default_image():
     assert 'workflows-notify-queue' in exit_template['container']['image'], f"Should use default image, got {exit_template['container']['image']}"
 
     print("✓ Test passed: Default image works correctly")
-    return True
