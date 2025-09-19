@@ -31,6 +31,7 @@ Name | Type | Description | Notes
 **envmap** | **Dict[str, object]** |  | [optional] 
 **dockerfile** | [**DockerfileConfig**](DockerfileConfig.md) |  | [optional] 
 **sentry** | **bool** |  | [optional] 
+**proxy** | [**ProxyConf**](ProxyConf.md) |  | [optional] 
 
 ## Example
 

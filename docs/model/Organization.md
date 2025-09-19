@@ -6,7 +6,11 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**domains** | **List[str]** |  | [optional] 
+**name** | **str** |  | [optional] 
+**domains** | [**List[NamedObject]**](NamedObject.md) |  | [optional] 
+**alias** | **str** |  | [optional] 
+**enabled** | **bool** |  | [optional] 
+**id** | **str** |  | [optional] 
 
 ## Example
 
