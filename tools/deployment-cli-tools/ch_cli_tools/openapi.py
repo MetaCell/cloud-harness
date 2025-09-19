@@ -95,7 +95,7 @@ def generate_model(base_path=ROOT):
     lib_path = f"{base_path}/libraries/models"
 
     # Generate model stuff: use python-flask generator
-    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/models/api/openapi.yaml -g python-flask -o \
+    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/models/api/openapi.yaml -g python -o \
           {lib_path}  --skip-validate-spec -c {base_path}/libraries/models/api/config.json"
     os.system(command)
 
