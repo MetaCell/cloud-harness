@@ -17,23 +17,22 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from typing import Any, ClassVar, Dict, List, Optional
-from cloudharness_model.models.named_object import NamedObject
+from cloudharness_model.models.proxy_payload_conf import ProxyPayloadConf
+from cloudharness_model.models.proxy_timeout_conf import ProxyTimeoutConf
 from typing import Optional, Set
 from typing_extensions import Self
 
-class Organization(BaseModel):
+class ProxyConf(BaseModel):
     """
     
     """ # noqa: E501
-    name: Optional[StrictStr] = None
-    domains: Optional[List[NamedObject]] = None
-    alias: Optional[StrictStr] = None
-    enabled: Optional[StrictBool] = None
-    id: Optional[StrictStr] = None
+    forwarded_headers: Optional[StrictBool] = Field(default=None, alias="forwardedHeaders")
+    payload: Optional[ProxyPayloadConf] = None
+    timeout: Optional[ProxyTimeoutConf] = None
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["name", "domains", "alias", "enabled", "id"]
+    __properties: ClassVar[List[str]] = ["forwardedHeaders", "payload", "timeout"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -53,7 +52,7 @@ class Organization(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Optional[Self]:
-        """Create an instance of Organization from a JSON string"""
+        """Create an instance of ProxyConf from a JSON string"""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(self) -> Dict[str, Any]:
@@ -76,13 +75,12 @@ class Organization(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of each item in domains (list)
-        _items = []
-        if self.domains:
-            for _item in self.domains:
-                if _item:
-                    _items.append(_item.to_dict())
-            _dict['domains'] = _items
+        # override the default output from pydantic by calling `to_dict()` of payload
+        if self.payload:
+            _dict['payload'] = self.payload.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of timeout
+        if self.timeout:
+            _dict['timeout'] = self.timeout.to_dict()
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:
             for _key, _value in self.additional_properties.items():
@@ -92,7 +90,7 @@ class Organization(BaseModel):
 
     @classmethod
     def from_dict(cls, obj: Optional[Dict[str, Any]]) -> Optional[Self]:
-        """Create an instance of Organization from a dict"""
+        """Create an instance of ProxyConf from a dict"""
         if obj is None:
             return None
 
@@ -100,11 +98,9 @@ class Organization(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "name": obj.get("name"),
-            "domains": [NamedObject.from_dict(_item) for _item in obj["domains"]] if obj.get("domains") is not None else None,
-            "alias": obj.get("alias"),
-            "enabled": obj.get("enabled"),
-            "id": obj.get("id")
+            "forwardedHeaders": obj.get("forwardedHeaders"),
+            "payload": ProxyPayloadConf.from_dict(obj["payload"]) if obj.get("payload") is not None else None,
+            "timeout": ProxyTimeoutConf.from_dict(obj["timeout"]) if obj.get("timeout") is not None else None
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

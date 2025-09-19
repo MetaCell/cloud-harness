@@ -23,17 +23,16 @@ from cloudharness_model.models.named_object import NamedObject
 from typing import Optional, Set
 from typing_extensions import Self
 
-class Organization(BaseModel):
+class OrganizationOneOf(BaseModel):
     """
-    
+    OrganizationOneOf
     """ # noqa: E501
-    name: Optional[StrictStr] = None
     domains: Optional[List[NamedObject]] = None
     alias: Optional[StrictStr] = None
     enabled: Optional[StrictBool] = None
     id: Optional[StrictStr] = None
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["name", "domains", "alias", "enabled", "id"]
+    __properties: ClassVar[List[str]] = ["domains", "alias", "enabled", "id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -53,7 +52,7 @@ class Organization(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Optional[Self]:
-        """Create an instance of Organization from a JSON string"""
+        """Create an instance of OrganizationOneOf from a JSON string"""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(self) -> Dict[str, Any]:
@@ -92,7 +91,7 @@ class Organization(BaseModel):
 
     @classmethod
     def from_dict(cls, obj: Optional[Dict[str, Any]]) -> Optional[Self]:
-        """Create an instance of Organization from a dict"""
+        """Create an instance of OrganizationOneOf from a dict"""
         if obj is None:
             return None
 
@@ -100,7 +99,6 @@ class Organization(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "name": obj.get("name"),
             "domains": [NamedObject.from_dict(_item) for _item in obj["domains"]] if obj.get("domains") is not None else None,
             "alias": obj.get("alias"),
             "enabled": obj.get("enabled"),

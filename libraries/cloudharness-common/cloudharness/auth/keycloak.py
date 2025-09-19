@@ -1,5 +1,6 @@
 import os
 from typing import List
+from cloudharness_model.models.organization import Organization
 import jwt
 import json
 import requests
@@ -410,11 +411,9 @@ class AuthClient():
         admin_client = self.get_admin_client()
         users = []
         for user in admin_client.get_users(query=query):
-            user.update({
-                "userGroups": admin_client.get_user_groups(user['id'], brief_representation=not with_details),
-                'realmRoles': admin_client.get_realm_roles_of_user(user['id'])
-            })
-            users.append(User.from_dict(user))
+            user = User.from_dict(user)
+            self._add_related_to_user(user, with_details, admin_client)
+            users.append(user)
         return users
 
     @with_refreshtoken
@@ -454,11 +453,15 @@ class AuthClient():
             except InvalidToken as e:
                 raise UserNotFound(user_id)
 
-        user.update({
-            "userGroups": admin_client.get_user_groups(user_id=user['id'], brief_representation=not with_details),
-            'realmRoles': admin_client.get_realm_roles_of_user(user['id'])
-        })
-        return User.from_dict(user)
+        user = User.from_dict(user)
+        self._add_related_to_user(user, with_details, admin_client)
+        return user
+
+    def _add_related_to_user(self, user: User, with_details: bool, admin_client):
+        user.user_groups = [UserGroup.from_dict(group) for group in admin_client.get_user_groups(user_id=user['id'], brief_representation=not with_details)]
+        user.realm_roles = admin_client.get_realm_roles_of_user(user['id'])
+        user.organizations = [Organization.from_dict(org) for org in admin_client.get_user_organizations(user['id'])]
+        return user
 
     def get_current_user(self) -> User:
         """

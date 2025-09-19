@@ -11,7 +11,7 @@ from cloudharness_django.services import get_user_service, get_auth_service
 from cloudharness import log
 
 
-def _get_user():
+def _get_user() -> User:
     bearer = get_authentication_token()
     if bearer:
         # found bearer token get the Django user
@@ -20,9 +20,12 @@ def _get_user():
             payload = jwt.decode(token, algorithms=["RS256"], options={"verify_signature": False}, audience="web-client")
             kc_id = payload["sub"]
             try:
-                user = User.objects.get(member__kc_id=kc_id)
+                kc_user = User.objects.get(member__kc_id=kc_id)
             except User.DoesNotExist:
-                user = get_user_service().sync_kc_user(get_auth_service().get_auth_client().get_current_user())
+                user_svc = get_user_service()
+                kc_user = user_svc.get_auth_client().get_current_user()
+                user = user_svc.sync_kc_user(kc_user)
+                user_svc.sync_kc_user_groups(kc_user)
             return user
         except KeycloakGetError:
             # KC user not found

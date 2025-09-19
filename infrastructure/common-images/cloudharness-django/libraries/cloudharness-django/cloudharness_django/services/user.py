@@ -2,6 +2,7 @@ from django.contrib.auth.models import User, Group
 
 from cloudharness_django.models import Team, Member
 from cloudharness_django.services.auth import AuthorizationLevel
+from cloudharness import models as ch_models
 
 
 def get_user_by_kc_id(kc_id) -> User:
@@ -66,14 +67,14 @@ class UserService:
         kc_user_id = user.member.kc_id
         self.auth_client.group_user_remove(kc_user_id, kc_group_id)
 
-    def sync_kc_group(self, kc_group):
+    def sync_kc_group(self, kc_group: ch_models.UserGroup):
         # sync the kc group with the django group
         try:
-            team = Team.objects.get(kc_id=kc_group["id"])
+            team = Team.objects.get(kc_id=kc_group.id)
             group, created = Group.objects.get_or_create(team=team)
-            group.name = kc_group["name"]
+            group.name = kc_group.name
         except Team.DoesNotExist:
-            group, created = Group.objects.get_or_create(name=kc_group["name"])
+            group, created = Group.objects.get_or_create(name=kc_group.name)
             try:
                 # check if group has a team
                 team = group.team
@@ -83,7 +84,7 @@ class UserService:
                 if superusers and len(superusers) > 0:
                     team = Team.objects.create(
                         owner=superusers[0],  # one of the superusers will be the default team owner
-                        kc_id=kc_group["id"],
+                        kc_id=kc_group.id,
                         group=group)
                     team.save()
         group.save()
@@ -95,32 +96,34 @@ class UserService:
         for kc_group in kc_groups:
             self.sync_kc_group(kc_group)
 
-    def sync_kc_user(self, kc_user, is_superuser=False, delete=False):
+    def sync_kc_user(self, kc_user: ch_models.User, is_superuser=False, delete=False):
         # sync the kc user with the django user
 
-        user, created = User.objects.get_or_create(username=kc_user["username"])
+        user, _ = User.objects.get_or_create(username=kc_user.username)
 
-        member, created = Member.objects.get_or_create(user=user)
-        member.kc_id = kc_user["id"]
+        member, _ = Member.objects.get_or_create(user=user)
+        member.kc_id = kc_user.id
         member.save()
         user = self._map_kc_user(user, kc_user, is_superuser, delete)
+        self.sync_kc_user_groups(kc_user)
         user.save()
         return user
 
-    def sync_kc_user_groups(self, kc_user):
+    def sync_kc_user_groups(self, kc_user: ch_models.User):
         # Sync the user usergroups and memberships
-        user = User.objects.get(username=kc_user["email"])
+        user = User.objects.get(username=kc_user.email)
         user_groups = []
-        for kc_group in kc_user["userGroups"]:
-            user_groups += [Group.objects.get(name=kc_group["name"])]
+        for kc_group in [*kc_user.user_groups, *kc_user.organizations]:
+            group, _ = Group.objects.get_or_create(name=kc_group.name)
+            user_groups.append(group)
         user.groups.set(user_groups)
         user.save()
 
         try:
-            if user.member.kc_id != kc_user["id"]:
-                user.member.kc_id = kc_user["id"]
+            if user.member.kc_id != kc_user.id:
+                user.member.kc_id = kc_user.id
         except Member.DoesNotExist:
-            member = Member(user=user, kc_id=kc_user["id"])
+            member = Member(user=user, kc_id=kc_user.id)
             member.save()
 
     def sync_kc_users_groups(self):
@@ -131,14 +134,12 @@ class UserService:
         )
 
         # sync the users
-        for kc_user in self.auth_client.get_users():
+        users = self.auth_client.get_users()
+        for kc_user in users:
             # check if user in all_admin_users
             is_superuser = any([admin_user for admin_user in all_admin_users if admin_user["email"] == kc_user["email"]])
             self.sync_kc_user(kc_user, is_superuser)
 
-        # sync the groups
-        self.sync_kc_groups()
-
         # sync the user groups and memberships
-        for kc_user in self.auth_client.get_users():
+        for kc_user in users:
             self.sync_kc_user_groups(kc_user)

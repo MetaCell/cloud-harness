@@ -31,6 +31,7 @@ from cloudharness_model.models.file_resources_config import FileResourcesConfig
 from cloudharness_model.models.jupyter_hub_config import JupyterHubConfig
 from cloudharness_model.models.name_value import NameValue
 from cloudharness_model.models.named_object import NamedObject
+from cloudharness_model.models.proxy_conf import ProxyConf
 from cloudharness_model.models.service_auto_artifact_config import ServiceAutoArtifactConfig
 from cloudharness_model.models.uri_role_mapping_config import UriRoleMappingConfig
 from typing import Optional, Set
@@ -65,8 +66,9 @@ class ApplicationHarnessConfig(BaseModel):
     envmap: Optional[Dict[str, Any]] = None
     dockerfile: Optional[DockerfileConfig] = None
     sentry: Optional[StrictBool] = None
+    proxy: Optional[ProxyConf] = None
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["deployment", "service", "subdomain", "aliases", "domain", "dependencies", "secured", "uri_role_mapping", "secrets", "use_services", "database", "resources", "readinessProbe", "startupProbe", "livenessProbe", "sourceRoot", "name", "jupyterhub", "accounts", "test", "quotas", "env", "envmap", "dockerfile", "sentry"]
+    __properties: ClassVar[List[str]] = ["deployment", "service", "subdomain", "aliases", "domain", "dependencies", "secured", "uri_role_mapping", "secrets", "use_services", "database", "resources", "readinessProbe", "startupProbe", "livenessProbe", "sourceRoot", "name", "jupyterhub", "accounts", "test", "quotas", "env", "envmap", "dockerfile", "sentry", "proxy"]
 
     @field_validator('source_root')
     def source_root_validate_regular_expression(cls, value):
@@ -180,6 +182,9 @@ class ApplicationHarnessConfig(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of dockerfile
         if self.dockerfile:
             _dict['dockerfile'] = self.dockerfile.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of proxy
+        if self.proxy:
+            _dict['proxy'] = self.proxy.to_dict()
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:
             for _key, _value in self.additional_properties.items():
@@ -221,7 +226,8 @@ class ApplicationHarnessConfig(BaseModel):
             "env": [NameValue.from_dict(_item) for _item in obj["env"]] if obj.get("env") is not None else None,
             "envmap": obj.get("envmap"),
             "dockerfile": DockerfileConfig.from_dict(obj["dockerfile"]) if obj.get("dockerfile") is not None else None,
-            "sentry": obj.get("sentry")
+            "sentry": obj.get("sentry"),
+            "proxy": ProxyConf.from_dict(obj["proxy"]) if obj.get("proxy") is not None else None
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

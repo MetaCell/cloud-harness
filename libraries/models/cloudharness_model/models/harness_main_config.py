@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from cloudharness_model.models.application_config import ApplicationConfig
 from cloudharness_model.models.backup_config import BackupConfig
+from cloudharness_model.models.ingress_config import IngressConfig
 from cloudharness_model.models.name_value import NameValue
 from cloudharness_model.models.registry_config import RegistryConfig
 from typing import Optional, Set
@@ -44,8 +45,9 @@ class HarnessMainConfig(BaseModel):
     name: Optional[StrictStr] = Field(default=None, description="Base name")
     task_images: Optional[Dict[str, Any]] = Field(default=None, alias="task-images")
     build_hash: Optional[StrictStr] = None
+    ingress: Optional[IngressConfig] = None
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["local", "secured_gatekeepers", "domain", "namespace", "mainapp", "registry", "tag", "apps", "env", "privenv", "backup", "name", "task-images", "build_hash"]
+    __properties: ClassVar[List[str]] = ["local", "secured_gatekeepers", "domain", "namespace", "mainapp", "registry", "tag", "apps", "env", "privenv", "backup", "name", "task-images", "build_hash", "ingress"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -115,6 +117,9 @@ class HarnessMainConfig(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of backup
         if self.backup:
             _dict['backup'] = self.backup.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of ingress
+        if self.ingress:
+            _dict['ingress'] = self.ingress.to_dict()
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:
             for _key, _value in self.additional_properties.items():
@@ -150,7 +155,8 @@ class HarnessMainConfig(BaseModel):
             "backup": BackupConfig.from_dict(obj["backup"]) if obj.get("backup") is not None else None,
             "name": obj.get("name"),
             "task-images": obj.get("task-images"),
-            "build_hash": obj.get("build_hash")
+            "build_hash": obj.get("build_hash"),
+            "ingress": IngressConfig.from_dict(obj["ingress"]) if obj.get("ingress") is not None else None
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

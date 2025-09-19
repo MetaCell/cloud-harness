@@ -1,7 +1,4 @@
 from json import JSONEncoder
-import six
-
-from cloudharness_model.models.base_model_ import Model
 
 
 class CloudHarnessJSONEncoder(JSONEncoder):

@@ -20,6 +20,7 @@ Name | Type | Description | Notes
 **name** | **str** | Base name | [optional] 
 **task_images** | **Dict[str, object]** |  | [optional] 
 **build_hash** | **str** |  | [optional] 
+**ingress** | [**IngressConfig**](IngressConfig.md) |  | [optional] 
 
 ## Example
 

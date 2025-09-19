@@ -589,6 +589,9 @@ components:
                 build_hash:
                     description: ""
                     type: string
+                ingress:
+                    $ref: "#/components/schemas/IngressConfig"
+                    description: ""
             additionalProperties: true
         ApplicationHarnessConfig:
             description: |-
@@ -709,16 +712,31 @@ components:
                 sentry:
                     description: ""
                     type: boolean
+                proxy:
+                    $ref: "#/components/schemas/ProxyConf"
+                    description: ""
             additionalProperties: true
         Organization:
             description: ""
             type: object
-            properties:
-                domains:
-                    description: ""
-                    type: array
-                    items:
-                        type: string
+            allOf:
+                - type: object
+                  properties:
+                      domains:
+                          description: ""
+                          type: array
+                          items:
+                              $ref: "#/components/schemas/NamedObject"
+                      alias:
+                          description: ""
+                          type: string
+                      enabled:
+                          description: ""
+                          type: boolean
+                      id:
+                          description: ""
+                          type: string
+                - $ref: "#/components/schemas/NamedObject"
         DatabaseDeploymentConfig:
             description: ""
             type: object
@@ -778,15 +796,6 @@ components:
                     description: ""
                     type: boolean
             additionalProperties: true
-        NamedObject:
-            title: Root Type for NamedObject
-            description: ""
-            type: object
-            properties:
-                name:
-                    type: string
-            example:
-                name: a name
         BackupConfig:
             description: ""
             required:
@@ -911,3 +920,74 @@ components:
                 meta:
                     $ref: "#/components/schemas/CDCEventMeta"
                     description: ""
+        ProxyConf:
+            title: Root Type for ProxyConf
+            description: ""
+            type: object
+            properties:
+                forwardedHeaders:
+                    type: boolean
+                payload:
+                    $ref: "#/components/schemas/ProxyPayloadConf"
+                    properties:
+                        max:
+                            format: int32
+                            type: integer
+                timeout:
+                    $ref: "#/components/schemas/ProxyTimeoutConf"
+                    properties:
+                        keepalive:
+                            format: int32
+                            type: integer
+                        read:
+                            format: int32
+                            type: integer
+                        send:
+                            format: int32
+                            type: integer
+            example:
+                forwardedHeaders: true
+                payload:
+                    max: 250
+                timeout:
+                    keepalive: 60
+                    read: 60
+                    send: 60
+        ProxyPayloadConf:
+            title: Root Type for ProxyPayloadConf
+            description: ""
+            type: object
+            properties:
+                max:
+                    format: int32
+                    type: integer
+            example:
+                max: 250
+        ProxyTimeoutConf:
+            title: Root Type for ProxyTimeoutConf
+            description: ""
+            type: object
+            properties:
+                keepalive:
+                    format: int32
+                    type: integer
+                read:
+                    format: int32
+                    type: integer
+                send:
+                    format: int32
+                    type: integer
+            example:
+                keepalive: 60
+                read: 60
+                send: 60
+        NamedObject:
+            title: Root Type for NamedObject
+            description: ""
+            type: object
+            properties:
+                name:
+                    type: string
+            additionalProperties: true
+            example:
+                name: a name

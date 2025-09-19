@@ -42,6 +42,9 @@ from cloudharness_model.models.jupyter_hub_config import JupyterHubConfig
 from cloudharness_model.models.name_value import NameValue
 from cloudharness_model.models.named_object import NamedObject
 from cloudharness_model.models.organization import Organization
+from cloudharness_model.models.proxy_conf import ProxyConf
+from cloudharness_model.models.proxy_payload_conf import ProxyPayloadConf
+from cloudharness_model.models.proxy_timeout_conf import ProxyTimeoutConf
 from cloudharness_model.models.registry_config import RegistryConfig
 from cloudharness_model.models.service_auto_artifact_config import ServiceAutoArtifactConfig
 from cloudharness_model.models.unit_tests_config import UnitTestsConfig
