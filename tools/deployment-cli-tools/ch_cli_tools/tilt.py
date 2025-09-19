@@ -61,8 +61,10 @@ def create_tilt_configuration(root_paths, helm_values: HarnessMainConfig, manage
         additional_build_args: dict[str, str] = None,
         is_app: bool = False,
         is_task: bool = False,
-        parent_app_name: str = None
+        parent_app_name: str = None,
+        app_key: str = None,
     ) -> dict:
+        app_key = app_key or app_name
         build_args = {
             'DEBUG': 'true' if helm_values.local or helm_values.debug else ''
         }
@@ -74,10 +76,11 @@ def create_tilt_configuration(root_paths, helm_values: HarnessMainConfig, manage
             for req in requirements:
                 build_args.update({req.replace('-', '_').upper(): get_image_tag(req)})
 
-        image_name = get_image_tag(app_name)
+        image_name = get_image_tag(app_key)
 
         artifact_spec = {
             'name': app_name,
+            'app_key': app_key,
             'image': image_name,
             'context': context_path,
             'is_app': is_app,
@@ -97,20 +100,21 @@ def create_tilt_configuration(root_paths, helm_values: HarnessMainConfig, manage
         root_path: str,
         global_context: bool = False,
         requirements: list[str] = None,
-        app_name: str = None
+        app_name: str = None,
+        app_key: str = None,
+        is_app: bool = True
     ) -> None:
-        is_app = True
         if app_name is None:
             app_name = app_name_from_path(basename(dockerfile_path))
             is_app = False
-        app_key = app_name
+        app_key = app_key or app_name
         if app_key in helm_values.apps and not helm_values.apps[app_key]['build']:
             return
         if app_name in helm_values[KEY_TASK_IMAGES] or app_key in helm_values.apps:
             context_path = relpath_if(root_path, output_path) if global_context else relpath_if(dockerfile_path, output_path)
 
             builds[app_name] = context_path
-            base_images.add(get_image_name(app_name))
+            base_images.add(get_image_name(app_key))
 
             artifacts[app_name] = build_artifact(
                 app_name,
@@ -118,7 +122,8 @@ def create_tilt_configuration(root_paths, helm_values: HarnessMainConfig, manage
                 dockerfile_path=relpath(dockerfile_path, output_path),
                 requirements=requirements or guess_build_dependencies_from_dockerfile(dockerfile_path),
                 additional_build_args=get_additional_build_args(helm_values, app_key),
-                is_app=is_app
+                is_app=is_app,
+                app_key=app_key
             )
 
             if app_key in helm_values.apps and helm_values.apps[app_key].harness.dependencies and helm_values.apps[app_key].harness.dependencies.git:
@@ -151,11 +156,8 @@ def create_tilt_configuration(root_paths, helm_values: HarnessMainConfig, manage
         for dockerfile_path in app_dockerfiles:
             app_relative_to_skaffold = os.path.relpath(
                 dockerfile_path, output_path)
-            context_path = os.path.relpath(dockerfile_path, '.')
             app_relative_to_base = os.path.relpath(dockerfile_path, apps_path)
             app_name = app_name_from_path(app_relative_to_base)
-            if app_name in helm_values["apps"]:
-                app_name = helm_values["apps"][app_name]["harness"]["subdomain"]
             app_key = app_name
 
             if app_key not in apps:
@@ -177,7 +179,10 @@ def create_tilt_configuration(root_paths, helm_values: HarnessMainConfig, manage
                                              requirements=guess_build_dependencies_from_dockerfile(dockerfile_path), dockerfile_path=dockerfile_path, app_name=app_name)
                 continue
 
-            process_build_dockerfile(dockerfile_path, root_path, requirements=guess_build_dependencies_from_dockerfile(dockerfile_path), app_name=app_name)
+            if app_name in helm_values["apps"]:
+                is_app = helm_values["apps"][app_name]["harness"]["service"]["auto"]
+                app_name = helm_values["apps"][app_name]["harness"]["subdomain"]
+            process_build_dockerfile(dockerfile_path, root_path, requirements=guess_build_dependencies_from_dockerfile(dockerfile_path), app_name=app_name, app_key=app_key, is_app=is_app)
             app = apps[app_key]
             if not app['build']:
                 continue

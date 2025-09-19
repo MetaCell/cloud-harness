@@ -93,6 +93,7 @@ def env_variable(name, value):
 
 
 def get_cluster_ip():
+    return get_host_address()
     out = subprocess.check_output(
         ['kubectl', 'cluster-info'], timeout=10).decode("utf-8")
     ips = re.findall(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", out)
