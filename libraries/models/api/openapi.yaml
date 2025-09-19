@@ -6,8 +6,7 @@ components:
     schemas:
         AutoArtifactSpec:
             description: ""
-            required:
-                - auto
+            required: []
             type: object
             properties:
                 auto:
@@ -156,22 +155,6 @@ components:
                 value:
                     description: ""
                     type: string
-        IngressConfig:
-            description: ""
-            type: object
-            allOf:
-                - type: object
-                  properties:
-                      ssl_redirect:
-                          description: ""
-                          type: boolean
-                      letsencrypt:
-                          description: ""
-                          type: object
-                          properties:
-                              email:
-                                  type: string
-                - $ref: "#/components/schemas/AutoArtifactSpec"
         UserGroup:
             type: object
             properties:
@@ -991,3 +974,23 @@ components:
             additionalProperties: true
             example:
                 name: a name
+        IngressConfig:
+            description: ""
+            type: object
+            allOf:
+                - type: object
+                  properties:
+                      ssl_redirect:
+                          description: ""
+                          type: boolean
+                      letsencrypt:
+                          description: ""
+                          type: object
+                          properties:
+                              email:
+                                  type: string
+                      enabled:
+                          description: ""
+                          type: boolean
+                - $ref: "#/components/schemas/AutoArtifactSpec"
+            additionalProperties: true

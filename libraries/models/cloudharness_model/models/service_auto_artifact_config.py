@@ -26,7 +26,7 @@ class ServiceAutoArtifactConfig(BaseModel):
     """
     
     """ # noqa: E501
-    auto: StrictBool = Field(description="When true, enables automatic template")
+    auto: Optional[StrictBool] = Field(default=None, description="When true, enables automatic template")
     name: Optional[StrictStr] = None
     port: Optional[StrictInt] = Field(default=None, description="Service port")
     additional_properties: Dict[str, Any] = {}

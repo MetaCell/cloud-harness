@@ -6,10 +6,11 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**auto** | **bool** | When true, enables automatic template | 
+**auto** | **bool** | When true, enables automatic template | [optional] 
 **name** | **str** |  | [optional] 
 **ssl_redirect** | **bool** |  | [optional] 
 **letsencrypt** | [**IngressConfigAllOfLetsencrypt**](IngressConfigAllOfLetsencrypt.md) |  | [optional] 
+**enabled** | **bool** |  | [optional] 
 
 ## Example
 

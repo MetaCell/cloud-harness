@@ -6,7 +6,7 @@ Defines a volume attached to the deployment. Automatically created the volume cl
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**auto** | **bool** | When true, enables automatic template | 
+**auto** | **bool** | When true, enables automatic template | [optional] 
 **name** | **str** |  | [optional] 
 **mountpath** | **str** | The mount path for the volume | 
 **size** | **object** | The volume size.   E.g. 5Gi | [optional] 

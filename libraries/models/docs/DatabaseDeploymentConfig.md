@@ -6,7 +6,7 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**auto** | **bool** | When true, enables automatic template | 
+**auto** | **bool** | When true, enables automatic template | [optional] 
 **name** | **str** |  | [optional] 
 **type** | **str** | Define the database type.  One of (mongo, postgres, neo4j, sqlite3) | [optional] 
 **size** | **str** | Specify database disk size | [optional] 

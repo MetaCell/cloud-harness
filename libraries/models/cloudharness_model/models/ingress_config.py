@@ -27,12 +27,13 @@ class IngressConfig(BaseModel):
     """
     
     """ # noqa: E501
-    auto: StrictBool = Field(description="When true, enables automatic template")
+    auto: Optional[StrictBool] = Field(default=None, description="When true, enables automatic template")
     name: Optional[StrictStr] = None
     ssl_redirect: Optional[StrictBool] = None
     letsencrypt: Optional[IngressConfigAllOfLetsencrypt] = None
+    enabled: Optional[StrictBool] = None
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["auto", "name", "ssl_redirect", "letsencrypt"]
+    __properties: ClassVar[List[str]] = ["auto", "name", "ssl_redirect", "letsencrypt", "enabled"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -98,7 +99,8 @@ class IngressConfig(BaseModel):
             "auto": obj.get("auto"),
             "name": obj.get("name"),
             "ssl_redirect": obj.get("ssl_redirect"),
-            "letsencrypt": IngressConfigAllOfLetsencrypt.from_dict(obj["letsencrypt"]) if obj.get("letsencrypt") is not None else None
+            "letsencrypt": IngressConfigAllOfLetsencrypt.from_dict(obj["letsencrypt"]) if obj.get("letsencrypt") is not None else None,
+            "enabled": obj.get("enabled")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

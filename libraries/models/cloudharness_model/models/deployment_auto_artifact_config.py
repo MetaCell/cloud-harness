@@ -29,7 +29,7 @@ class DeploymentAutoArtifactConfig(BaseModel):
     """
     
     """ # noqa: E501
-    auto: StrictBool = Field(description="When true, enables automatic template")
+    auto: Optional[StrictBool] = Field(default=None, description="When true, enables automatic template")
     name: Optional[StrictStr] = None
     port: Optional[Any] = Field(default=None, description="Deployment port")
     replicas: Optional[StrictInt] = Field(default=None, description="Number of replicas")

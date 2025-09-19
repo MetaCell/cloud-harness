@@ -26,7 +26,7 @@ class AutoArtifactSpec(BaseModel):
     """
     
     """ # noqa: E501
-    auto: StrictBool = Field(description="When true, enables automatic template")
+    auto: Optional[StrictBool] = Field(default=None, description="When true, enables automatic template")
     name: Optional[StrictStr] = None
     additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["auto", "name"]

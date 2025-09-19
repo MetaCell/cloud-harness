@@ -26,7 +26,7 @@ class DeploymentVolumeSpec(BaseModel):
     """
     Defines a volume attached to the deployment. Automatically created the volume claim and mounts.
     """ # noqa: E501
-    auto: StrictBool = Field(description="When true, enables automatic template")
+    auto: Optional[StrictBool] = Field(default=None, description="When true, enables automatic template")
     name: Optional[StrictStr] = None
     mountpath: StrictStr = Field(description="The mount path for the volume")
     size: Optional[Any] = Field(default=None, description="The volume size.   E.g. 5Gi")

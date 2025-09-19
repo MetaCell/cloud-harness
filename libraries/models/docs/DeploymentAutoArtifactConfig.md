@@ -6,7 +6,7 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**auto** | **bool** | When true, enables automatic template | 
+**auto** | **bool** | When true, enables automatic template | [optional] 
 **name** | **str** |  | [optional] 
 **port** | **object** | Deployment port | [optional] 
 **replicas** | **int** | Number of replicas | [optional] 

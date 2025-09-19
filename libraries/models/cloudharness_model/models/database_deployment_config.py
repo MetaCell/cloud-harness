@@ -28,7 +28,7 @@ class DatabaseDeploymentConfig(BaseModel):
     """
     
     """ # noqa: E501
-    auto: StrictBool = Field(description="When true, enables automatic template")
+    auto: Optional[StrictBool] = Field(default=None, description="When true, enables automatic template")
     name: Optional[StrictStr] = None
     type: Optional[Annotated[str, Field(strict=True)]] = Field(default=None, description="Define the database type.  One of (mongo, postgres, neo4j, sqlite3)")
     size: Optional[StrictStr] = Field(default=None, description="Specify database disk size")
