@@ -73,6 +73,7 @@ def affinity_spec(key, value):
         'topologyKey': 'kubernetes.io/hostname'
     }
 
+
 def affinity_preferred_spec(key, value, topology_key='kubernetes.io/hostname', operator='In'):
     """
     Generates a Kubernetes preferred affinity term.

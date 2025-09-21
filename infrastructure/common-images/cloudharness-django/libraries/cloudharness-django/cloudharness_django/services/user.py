@@ -100,7 +100,7 @@ class UserService:
 
         # First try to find existing user by kc_id
         user = get_user_by_kc_id(kc_user["id"])
-        
+
         if not user:
             # Create new user if doesn't exist
             username = kc_user.get("username", kc_user["email"])
@@ -114,7 +114,7 @@ class UserService:
             member, created = Member.objects.get_or_create(user=user)
             member.kc_id = kc_user["id"]
             member.save()
-        
+
         user = self._map_kc_user(user, kc_user, is_superuser, delete)
         user.save()
         return user
@@ -125,7 +125,7 @@ class UserService:
         if not user:
             # User doesn't exist, skip group sync
             return
-        
+
         user_groups = []
         for kc_group in kc_user["userGroups"]:
             user_groups += [Group.objects.get(name=kc_group["name"])]
