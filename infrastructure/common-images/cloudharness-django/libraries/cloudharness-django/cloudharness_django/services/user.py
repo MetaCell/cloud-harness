@@ -98,18 +98,34 @@ class UserService:
     def sync_kc_user(self, kc_user, is_superuser=False, delete=False):
         # sync the kc user with the django user
 
-        user, created = User.objects.get_or_create(username=kc_user["username"])
-
-        member, created = Member.objects.get_or_create(user=user)
-        member.kc_id = kc_user["id"]
-        member.save()
+        # First try to find existing user by kc_id
+        user = get_user_by_kc_id(kc_user["id"])
+        
+        if not user:
+            # Create new user if doesn't exist
+            username = kc_user.get("username", kc_user["email"])
+            user, created = User.objects.get_or_create(username=username)
+            # Create member record
+            member, created = Member.objects.get_or_create(user=user)
+            member.kc_id = kc_user["id"]
+            member.save()
+        else:
+            # Update existing user - ensure member record is consistent
+            member, created = Member.objects.get_or_create(user=user)
+            member.kc_id = kc_user["id"]
+            member.save()
+        
         user = self._map_kc_user(user, kc_user, is_superuser, delete)
         user.save()
         return user
 
     def sync_kc_user_groups(self, kc_user):
         # Sync the user usergroups and memberships
-        user = User.objects.get(username=kc_user["email"])
+        user = get_user_by_kc_id(kc_user["id"])
+        if not user:
+            # User doesn't exist, skip group sync
+            return
+        
         user_groups = []
         for kc_group in kc_user["userGroups"]:
             user_groups += [Group.objects.get(name=kc_group["name"])]
@@ -119,6 +135,7 @@ class UserService:
         try:
             if user.member.kc_id != kc_user["id"]:
                 user.member.kc_id = kc_user["id"]
+                user.member.save()
         except Member.DoesNotExist:
             member = Member(user=user, kc_id=kc_user["id"])
             member.save()
@@ -133,7 +150,7 @@ class UserService:
         # sync the users
         for kc_user in self.auth_client.get_users():
             # check if user in all_admin_users
-            is_superuser = any([admin_user for admin_user in all_admin_users if admin_user["email"] == kc_user["email"]])
+            is_superuser = any([admin_user for admin_user in all_admin_users if admin_user["id"] == kc_user["id"]])
             self.sync_kc_user(kc_user, is_superuser)
 
         # sync the groups
