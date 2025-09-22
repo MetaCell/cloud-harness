@@ -21,10 +21,16 @@ def _convert_to_attrdict(value):
 
 
 def _get_value_from_additional_properties(obj, key):
-    """Helper function to get value from additional_properties with AttrDict conversion"""
-    if hasattr(obj, 'additional_properties') and key in obj.additional_properties:
-        value = obj.additional_properties[key]
-        return _convert_to_attrdict(value)
+    """Helper function to get value from additional_properties without triggering __getattr__ recursion"""
+    # Use object.__getattribute__ to directly access additional_properties without triggering our override
+    try:
+        additional_properties = object.__getattribute__(obj, 'additional_properties')
+        if key in additional_properties:
+            value = additional_properties[key]
+            return _convert_to_attrdict(value)
+    except AttributeError:
+        # Object doesn't have additional_properties
+        pass
     return None
 
 
@@ -40,8 +46,11 @@ def _try_camelcase_conversions(obj, key, check_attributes=False):
         if value is not None:
             return value
         # Check attributes if requested
-        if check_attributes and hasattr(obj, snake_case_key):
-            return getattr(obj, snake_case_key)
+        if check_attributes:
+            try:
+                return object.__getattribute__(obj, snake_case_key)
+            except AttributeError:
+                pass
     
     # Try camelCase version of the key
     camel_case_key = humps.camelize(key)
@@ -51,8 +60,11 @@ def _try_camelcase_conversions(obj, key, check_attributes=False):
         if value is not None:
             return value
         # Check attributes if requested
-        if check_attributes and hasattr(obj, camel_case_key):
-            return getattr(obj, camel_case_key)
+        if check_attributes:
+            try:
+                return object.__getattribute__(obj, camel_case_key)
+            except AttributeError:
+                pass
     
     return None
 
@@ -60,10 +72,13 @@ def _try_camelcase_conversions(obj, key, check_attributes=False):
 def _check_field_aliases(obj, key):
     """Helper function to check if key is an alias for a field"""
     # Check pydantic v2
-    if hasattr(obj, 'model_fields'):
-        for field_name, field_info in obj.model_fields.items():
+    try:
+        model_fields = object.__getattribute__(obj, 'model_fields')
+        for field_name, field_info in model_fields.items():
             if hasattr(field_info, 'alias') and field_info.alias == key:
-                return getattr(obj, field_name)
+                return object.__getattribute__(obj, field_name)
+    except AttributeError:
+        pass
     
     return None
 
@@ -150,19 +165,31 @@ def _pydantic_getitem_override(self, key: str):
 
 def _pydantic_getattribute_override(self, name: str):
     """
-    Override for pydantic.BaseModel.__getattribute__ to convert dict values to AttrDict
+    Override for pydantic.BaseModel.__getattribute__ with minimal interference
     """
     # Get the attribute using the original __getattribute__
+    value = object.__getattribute__(self, name)
+    
+    # Special handling for additional_properties - don't convert to AttrDict
+    if name == 'additional_properties':
+        return value
+    
+    # Check if this is a property - avoid recursion by directly accessing type's __dict__
+    cls = type(self)
+    if hasattr(cls, '__dict__') and name in cls.__dict__ and isinstance(cls.__dict__[name], property):
+        # This is a property, don't convert its return value
+        return value
+    
+    # For pydantic model fields containing dicts, convert to AttrDict for better access
     try:
-        value = object.__getattribute__(self, name)
-        # Don't convert additional_properties to AttrDict to avoid breaking assignment
-        if name == 'additional_properties':
-            return value
-        # Convert other dict values to AttrDict for better access
-        return _convert_to_attrdict(value)
+        model_fields = object.__getattribute__(self, 'model_fields')
+        if name in model_fields:
+            return _convert_to_attrdict(value)
     except AttributeError:
-        # Fall back to the custom __getattr__ logic
-        return _pydantic_getattr_override(self, name)
+        pass
+    
+    # Return other attributes unchanged
+    return value
 
 
 def _pydantic_getattr_override(self, name: str):
@@ -282,8 +309,20 @@ def _pydantic_contains_override(self, key: str):
 def _pydantic_setattr_override(self, name: str, value):
     """
     Override for pydantic.BaseModel.__setattr__ to handle camelCase attributes
-    and prevent validation errors on non-existent fields.
+    and prevent validation errors on non-existent fields, while preserving property behavior.
     """
+    # First check if this is a property - if so, use the standard mechanism
+    cls_dict = object.__getattribute__(self.__class__, '__dict__')
+    if name in cls_dict and isinstance(cls_dict[name], property):
+        # This is a property, use the standard __setattr__ to trigger the setter
+        object.__setattr__(self, name, value)
+        return
+    
+    # Handle private attributes (starting with _) - always set them directly
+    if name.startswith('_'):
+        object.__setattr__(self, name, value)
+        return
+    
     # Check if name is a defined pydantic field
     if hasattr(self, 'model_fields') and name in self.model_fields:
         # Use the original __setattr__ for defined fields

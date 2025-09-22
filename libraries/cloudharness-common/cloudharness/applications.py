@@ -17,8 +17,10 @@ class ApplicationConfiguration(ApplicationConfig):
 
     def __init__(self, *args, **kargs):
         if len(args) == 1 and type(args[0]) == dict:
+            self.__conf = None
             return
         ApplicationConfig.__init__(self, *args, **kargs)
+        # Set __conf after parent initialization to ensure it's not overwritten
         self.__conf = None
 
     def is_auto_service(self) -> bool:

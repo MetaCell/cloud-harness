@@ -16,10 +16,10 @@ from __future__ import annotations
 import pprint
 import re  # noqa: F401
 import json
-
+from cloudharness_model.models.application_harness_config import ApplicationHarnessConfig
 from pydantic import BaseModel, ConfigDict
 from typing import Any, ClassVar, Dict, List
-from cloudharness_model.models.application_harness_config import ApplicationHarnessConfig
+
 from typing import Optional, Set
 from typing_extensions import Self
 
