@@ -32,7 +32,7 @@ def test_get_quotas(mocker):
                 {"path": "/Low CU", "attributes": {'quota-ws-maxmem': [3], 'quota-ws-maxcpu': [2.5], 'quota-ws-open': [1]}}
             ]
         }
-        
+
     def mock_get_api_password():
         return "password"
     mocker.patch('cloudharness.auth.keycloak.AuthClient.get_admin_client', mock_get_admin_client)
