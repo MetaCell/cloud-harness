@@ -99,13 +99,13 @@ class UserService:
     def sync_kc_user(self, kc_user: ch_models.User, is_superuser=False, delete=False):
         # sync the kc user with the django user using kc_id for reliable lookups
         user = get_user_by_kc_id(kc_user.id)
-        
+
         if user is None:
             # User doesn't exist, create new one
             username = kc_user.username or kc_user.email
             if not username:
                 raise ValueError(f"Keycloak user {kc_user.id} has no username or email")
-            
+
             user, _ = User.objects.get_or_create(username=username)
             # Create the member relationship
             Member.objects.create(kc_id=kc_user.id, user=user)
@@ -118,7 +118,7 @@ class UserService:
     def sync_kc_user_groups(self, kc_user: ch_models.User):
         # Sync the user usergroups and memberships using kc_id for reliable lookups
         user = get_user_by_kc_id(kc_user.id)
-        
+
         if user is None:
             raise ValueError(f"Django user not found for Keycloak user {kc_user.id}")
 
