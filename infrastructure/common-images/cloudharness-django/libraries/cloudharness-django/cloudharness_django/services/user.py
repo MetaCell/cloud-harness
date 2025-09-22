@@ -7,7 +7,7 @@ from cloudharness import models as ch_models
 
 def get_user_by_kc_id(kc_id) -> User:
     try:
-        return Member.objects.get(kc_id=kc_id).user
+        return Member.objects.get(kc_id=kc_id).select_related("user").user
     except Member.DoesNotExist:
         return None
 
@@ -22,7 +22,7 @@ class UserService:
         all_users = self.auth_client.get_users()
         return [kc_user for kc_user in all_users if kc_user["email"] == user.email][0]
 
-    def _map_kc_user(self, user, kc_user=None, is_superuser=False, delete=False):
+    def _map_kc_user(self, user: User, kc_user: ch_models.User = None, is_superuser=False, delete=False):
         # map a kc user to a django user
         if not kc_user:
             kc_user = self._get_kc_user(user)
@@ -34,10 +34,10 @@ class UserService:
         user.is_staff = is_superuser
         user.is_superuser = is_superuser
 
-        user.username = kc_user.get("username", kc_user["email"])
-        user.first_name = kc_user.get("firstName", "")
-        user.last_name = kc_user.get("lastName", "")
-        user.email = kc_user.get("email", "")
+        user.username = kc_user.username or kc_user.email
+        user.first_name = kc_user.first_name or ""
+        user.last_name = kc_user.last_name or ""
+        user.email = kc_user.email or ""
 
         user.is_active = kc_user.get("enabled", delete)
         return user
@@ -98,12 +98,12 @@ class UserService:
 
     def sync_kc_user(self, kc_user: ch_models.User, is_superuser=False, delete=False):
         # sync the kc user with the django user
+        user, _ = User.objects.get_or_create(username=kc_user.username or kc_user.email)
 
-        user, _ = User.objects.get_or_create(username=kc_user.username)
-
-        member, _ = Member.objects.get_or_create(user=user)
-        member.kc_id = kc_user.id
-        member.save()
+        member, created = Member.objects.get_or_create(kc_id=kc_user.id, user=user)
+        if created:
+            member.kc_id = kc_user.id
+            member.save()
         user = self._map_kc_user(user, kc_user, is_superuser, delete)
         self.sync_kc_user_groups(kc_user)
         user.save()
@@ -111,7 +111,7 @@ class UserService:
 
     def sync_kc_user_groups(self, kc_user: ch_models.User):
         # Sync the user usergroups and memberships
-        user = User.objects.get(username=kc_user.email)
+        user = User.objects.get(username=kc_user.username or kc_user.email)
         user_groups = []
         for kc_group in [*kc_user.user_groups, *kc_user.organizations]:
             group, _ = Group.objects.get_or_create(name=kc_group.name)
@@ -137,7 +137,7 @@ class UserService:
         users = self.auth_client.get_users()
         for kc_user in users:
             # check if user in all_admin_users
-            is_superuser = any([admin_user for admin_user in all_admin_users if admin_user["email"] == kc_user["email"]])
+            is_superuser = any([admin_user for admin_user in all_admin_users if admin_user["id"] == kc_user["id"]])
             self.sync_kc_user(kc_user, is_superuser)
 
         # sync the user groups and memberships
