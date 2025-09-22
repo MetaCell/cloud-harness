@@ -17,13 +17,17 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List, Optional
-from cloudharness_model.models.user import User
 from typing import Optional, Set
 from typing_extensions import Self
 
-class CDCEventMeta(BaseModel):
+
+from cloudharness_model.base_model import CloudHarnessBaseModel
+from pydantic import BaseModel, Field, field_validator, StrictStr, StrictBool, StrictInt, StrictFloat
+from typing import ClassVar, List, Dict, Any, Union, Optional, Annotated
+import importlib
+from cloudharness_model.models.user import User
+
+class CDCEventMeta(CloudHarnessBaseModel):
     """
     
     """ # noqa: E501
@@ -34,27 +38,6 @@ class CDCEventMeta(BaseModel):
     description: Optional[StrictStr] = Field(default=None, description="General description -- for human consumption")
     additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["app_name", "user", "args", "kwargs", "description"]
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        validate_assignment=True,
-        protected_namespaces=(),
-    )
-
-
-    def to_str(self) -> str:
-        """Returns the string representation of the model using alias"""
-        return pprint.pformat(self.model_dump(by_alias=True))
-
-    def to_json(self) -> str:
-        """Returns the JSON representation of the model using alias"""
-        # TODO: pydantic v2: use .model_dump_json(by_alias=True, exclude_unset=True) instead
-        return json.dumps(self.to_dict())
-
-    @classmethod
-    def from_json(cls, json_str: str) -> Optional[Self]:
-        """Create an instance of CDCEventMeta from a JSON string"""
-        return cls.from_dict(json.loads(json_str))
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the dictionary representation of the model using alias.

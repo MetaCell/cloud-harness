@@ -71,10 +71,10 @@ def test_robustness():
 
 
 def test_property_access():
-    """Test that properties work correctly with monkey patches"""
-    from pydantic import BaseModel
+    """Test that properties work correctly with CloudHarnessBaseModel inheritance"""
+    from cloudharness_model.base_model import CloudHarnessBaseModel
     
-    class TestModelWithProperties(BaseModel):
+    class TestModelWithProperties(CloudHarnessBaseModel):
         name: str = "test"
         _internal_data: dict = {}
         additional_properties: dict = {}

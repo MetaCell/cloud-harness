@@ -17,9 +17,14 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
-from typing import Any, ClassVar, Dict, List, Optional
-from typing_extensions import Annotated
+from typing import Optional, Set
+from typing_extensions import Self
+
+
+from cloudharness_model.base_model import CloudHarnessBaseModel
+from pydantic import BaseModel, Field, field_validator, StrictStr, StrictBool, StrictInt, StrictFloat
+from typing import ClassVar, List, Dict, Any, Union, Optional, Annotated
+import importlib
 from cloudharness_model.models.application_accounts_config import ApplicationAccountsConfig
 from cloudharness_model.models.application_dependencies_config import ApplicationDependenciesConfig
 from cloudharness_model.models.application_probe import ApplicationProbe
@@ -34,10 +39,8 @@ from cloudharness_model.models.named_object import NamedObject
 from cloudharness_model.models.proxy_conf import ProxyConf
 from cloudharness_model.models.service_auto_artifact_config import ServiceAutoArtifactConfig
 from cloudharness_model.models.uri_role_mapping_config import UriRoleMappingConfig
-from typing import Optional, Set
-from typing_extensions import Self
 
-class ApplicationHarnessConfig(BaseModel):
+class ApplicationHarnessConfig(CloudHarnessBaseModel):
     """
     Define helm variables that allow CloudHarness to enable and configure your  application's deployment
     """ # noqa: E501
@@ -80,27 +83,6 @@ class ApplicationHarnessConfig(BaseModel):
             raise ValueError(r"must validate the regular expression /^[^<>:;,?*|]+$/")
         return value
 
-    model_config = ConfigDict(
-        populate_by_name=True,
-        validate_assignment=True,
-        protected_namespaces=(),
-    )
-
-
-    def to_str(self) -> str:
-        """Returns the string representation of the model using alias"""
-        return pprint.pformat(self.model_dump(by_alias=True))
-
-    def to_json(self) -> str:
-        """Returns the JSON representation of the model using alias"""
-        # TODO: pydantic v2: use .model_dump_json(by_alias=True, exclude_unset=True) instead
-        return json.dumps(self.to_dict())
-
-    @classmethod
-    def from_json(cls, json_str: str) -> Optional[Self]:
-        """Create an instance of ApplicationHarnessConfig from a JSON string"""
-        return cls.from_dict(json.loads(json_str))
-
     def to_dict(self) -> Dict[str, Any]:
         """Return the dictionary representation of the model using alias.
 
@@ -133,16 +115,16 @@ class ApplicationHarnessConfig(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of each item in uri_role_mapping (list)
         _items = []
         if self.uri_role_mapping:
-            for _item in self.uri_role_mapping:
-                if _item:
-                    _items.append(_item.to_dict())
+            for _item_uri_role_mapping in self.uri_role_mapping:
+                if _item_uri_role_mapping:
+                    _items.append(_item_uri_role_mapping.to_dict())
             _dict['uri_role_mapping'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in use_services (list)
         _items = []
         if self.use_services:
-            for _item in self.use_services:
-                if _item:
-                    _items.append(_item.to_dict())
+            for _item_use_services in self.use_services:
+                if _item_use_services:
+                    _items.append(_item_use_services.to_dict())
             _dict['use_services'] = _items
         # override the default output from pydantic by calling `to_dict()` of database
         if self.database:
@@ -150,9 +132,9 @@ class ApplicationHarnessConfig(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of each item in resources (list)
         _items = []
         if self.resources:
-            for _item in self.resources:
-                if _item:
-                    _items.append(_item.to_dict())
+            for _item_resources in self.resources:
+                if _item_resources:
+                    _items.append(_item_resources.to_dict())
             _dict['resources'] = _items
         # override the default output from pydantic by calling `to_dict()` of readiness_probe
         if self.readiness_probe:
@@ -175,9 +157,9 @@ class ApplicationHarnessConfig(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of each item in env (list)
         _items = []
         if self.env:
-            for _item in self.env:
-                if _item:
-                    _items.append(_item.to_dict())
+            for _item_env in self.env:
+                if _item_env:
+                    _items.append(_item_env.to_dict())
             _dict['env'] = _items
         # override the default output from pydantic by calling `to_dict()` of dockerfile
         if self.dockerfile:

@@ -1,4 +1,2 @@
-# Apply pydantic enhancements
-from cloudharness_model.pydantic_utils import apply_pydantic_patches
-apply_pydantic_patches()
+# Import the CloudHarnessBaseModel for use by generated models
 from .models import *
