@@ -109,11 +109,6 @@ class UserService:
             member, created = Member.objects.get_or_create(user=user)
             member.kc_id = kc_user["id"]
             member.save()
-        else:
-            # Update existing user - ensure member record is consistent
-            member, created = Member.objects.get_or_create(user=user)
-            member.kc_id = kc_user["id"]
-            member.save()
 
         user = self._map_kc_user(user, kc_user, is_superuser, delete)
         user.save()
