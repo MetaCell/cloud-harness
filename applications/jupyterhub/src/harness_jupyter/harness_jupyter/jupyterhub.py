@@ -248,18 +248,21 @@ def change_pod_manifest(self: KubeSpawner):
 
             logging.info("Setting user quota cpu/mem usage")
 
-            set_key_value(self, key="cpu_guarantee", value=float(user_quotas.get("quota-ws-guaranteecpu", self.cpu_guarantee)))
-            set_key_value(self, key="cpu_limit", value=float(user_quotas.get("quota-ws-maxcpu", self.cpu_limit)))
-            set_key_value(self, key="mem_guarantee", value=user_quotas.get("quota-ws-guaranteemem", self.mem_guarantee), unit="G")
-            set_key_value(self, key="mem_limit", value=user_quotas.get("quota-ws-maxmem", self.mem_limit), unit="G")
-            # check if there is an applicationHook defined in the values.yaml
-            # if so then execute the applicationHook function with "self" as parameter
-            #
-            # e.g.
-            #   jupyterhub:
-            #       applicationHook: "jupyter.change_pod_manifest"
-            #
-            # this will execute jupyter.change_pod_manifest(self=self)
+        set_key_value(self, key="cpu_guarantee", value=float(user_quotas.get("quota-ws-guaranteecpu", self.cpu_guarantee)))
+        set_key_value(self, key="cpu_limit", value=float(user_quotas.get("quota-ws-maxcpu", self.cpu_limit)))
+        set_key_value(self, key="mem_guarantee", value=user_quotas.get("quota-ws-guaranteemem", self.mem_guarantee), unit="G")
+        set_key_value(self, key="mem_limit", value=user_quotas.get("quota-ws-maxmem", self.mem_limit), unit="G")
+
+        # check if there is an applicationHook defined in the values.yaml
+        # if so then execute the applicationHook function with "self" as parameter
+        #
+        # e.g.
+        #   jupyterhub:
+        #       applicationHook: "jupyter.change_pod_manifest"
+        #
+        # this will execute jupyter.change_pod_manifest(self=self)
+
+        if 'jupyterhub' in harness and harness['jupyterhub']:
             if 'applicationHook' in harness['jupyterhub']:
                 func_name = harness['jupyterhub']['applicationHook'].split('.')
                 logging.info(f"Executing application hook {func_name}")
