@@ -193,13 +193,6 @@ def change_pod_manifest(self: KubeSpawner):
 
     # set user quota cpu/mem usage if value has a "value" else don't change the value
 
-    logging.info("Setting user quota cpu/mem usage")
-
-    set_key_value(self, key="cpu_guarantee", value=float(user_quotas.get("quota-ws-guaranteecpu", self.cpu_guarantee)))
-    set_key_value(self, key="cpu_limit", value=float(user_quotas.get("quota-ws-maxcpu", self.cpu_limit)))
-    set_key_value(self, key="mem_guarantee", value=user_quotas.get("quota-ws-guaranteemem", self.mem_guarantee), unit="G")
-    set_key_value(self, key="mem_limit", value=user_quotas.get("quota-ws-maxmem", self.mem_limit), unit="G")
-
     # Default value, might be overwritten by the app config
     self.storage_pvc_ensure = bool(self.pvc_name)
 
@@ -253,6 +246,12 @@ def change_pod_manifest(self: KubeSpawner):
                 except:
                     logging.error("Error loading Spawner extra configuration", exc_info=True)
 
+            logging.info("Setting user quota cpu/mem usage")
+
+            set_key_value(self, key="cpu_guarantee", value=float(user_quotas.get("quota-ws-guaranteecpu", self.cpu_guarantee)))
+            set_key_value(self, key="cpu_limit", value=float(user_quotas.get("quota-ws-maxcpu", self.cpu_limit)))
+            set_key_value(self, key="mem_guarantee", value=user_quotas.get("quota-ws-guaranteemem", self.mem_guarantee), unit="G")
+            set_key_value(self, key="mem_limit", value=user_quotas.get("quota-ws-maxmem", self.mem_limit), unit="G")
             # check if there is an applicationHook defined in the values.yaml
             # if so then execute the applicationHook function with "self" as parameter
             #
