@@ -73,6 +73,7 @@ def affinity_spec(key, value):
         'topologyKey': 'kubernetes.io/hostname'
     }
 
+
 def affinity_preferred_spec(key, value, topology_key='kubernetes.io/hostname', operator='In'):
     """
     Generates a Kubernetes preferred affinity term.
@@ -194,14 +195,10 @@ def change_pod_manifest(self: KubeSpawner):
 
     logging.info("Setting user quota cpu/mem usage")
 
-    if self.cpu_guarantee is None:  # This eventually comes from the current profile. Profile wins over user quota, if set.
-        set_key_value(self, key="cpu_guarantee", value=float(user_quotas.get("quota-ws-guaranteecpu")))
-    if self.cpu_limit is None:
-        set_key_value(self, key="cpu_limit", value=float(user_quotas.get("quota-ws-maxcpu")))
-    if self.mem_guarantee is None:
-        set_key_value(self, key="mem_guarantee", value=user_quotas.get("quota-ws-guaranteemem"), unit="G")
-    if self.mem_limit is None:
-        set_key_value(self, key="mem_limit", value=user_quotas.get("quota-ws-maxmem"), unit="G")
+    set_key_value(self, key="cpu_guarantee", value=float(user_quotas.get("quota-ws-guaranteecpu", self.cpu_guarantee)))
+    set_key_value(self, key="cpu_limit", value=float(user_quotas.get("quota-ws-maxcpu", self.cpu_limit)))
+    set_key_value(self, key="mem_guarantee", value=user_quotas.get("quota-ws-guaranteemem", self.mem_guarantee), unit="G")
+    set_key_value(self, key="mem_limit", value=user_quotas.get("quota-ws-maxmem", self.mem_limit), unit="G")
 
     # Default value, might be overwritten by the app config
     self.storage_pvc_ensure = bool(self.pvc_name)
