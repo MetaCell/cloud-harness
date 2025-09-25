@@ -2,6 +2,9 @@
 import jwt
 
 from django.contrib.auth.models import User
+from asgiref.sync import iscoroutinefunction
+from django.utils.decorators import sync_and_async_middleware
+from asgiref.sync import async_to_sync, iscoroutinefunction
 
 from keycloak.exceptions import KeycloakGetError
 
@@ -11,7 +14,7 @@ from cloudharness_django.services import get_user_service, get_auth_service
 from cloudharness import log
 
 
-def _get_user():
+async def _get_user():
     bearer = get_authentication_token()
     if bearer:
         # found bearer token get the Django user
@@ -20,9 +23,9 @@ def _get_user():
             payload = jwt.decode(token, algorithms=["RS256"], options={"verify_signature": False}, audience="web-client")
             kc_id = payload["sub"]
             try:
-                user = User.objects.get(member__kc_id=kc_id)
+                user = await User.objects.aget(member__kc_id=kc_id)
             except User.DoesNotExist:
-                user = get_user_service().sync_kc_user(get_auth_service().get_auth_client().get_current_user())
+                user = await get_user_service().sync_kc_user(get_auth_service().get_auth_client().get_current_user())
             return user
         except KeycloakGetError:
             # KC user not found
@@ -36,20 +39,31 @@ def _get_user():
     return None
 
 
-class BearerTokenMiddleware:
-    def __init__(self, get_response=None):
-        # One-time configuration and initialization.
-        self.get_response = get_response
+@sync_and_async_middleware
+def BearerTokenMiddleware(get_response=None):
+    # One-time configuration and initialization.
+    if iscoroutinefunction(get_response):
+        async def middleware(request):
+            if (not request.path.startswith("/static")) and getattr(getattr(request, "user", {}), "is_anonymous", True):
+                user = await _get_user()
+                if user:
+                    # auto login, set the user
+                    request.user = user
+                    request._cached_user = user
 
-    def __call__(self, request):
-        if getattr(getattr(request, "user", {}), "is_anonymous", True):
-            user = _get_user()
-            if user:
-                # auto login, set the user
-                request.user = user
-                request._cached_user = user
+            response = await get_response(request)
+            return response
+    else:
+        def middleware(request):
+            if (not request.path.startswith("/static")) and getattr(getattr(request, "user", {}), "is_anonymous", True):
+                user = async_to_sync(_get_user)()
+                if user:
+                    # auto login, set the user
+                    request.user = user
+                    request._cached_user = user
 
-        return self.get_response(request)
+            return get_response(request)
+    return middleware
 
 
 class BearerTokenAuthentication:
