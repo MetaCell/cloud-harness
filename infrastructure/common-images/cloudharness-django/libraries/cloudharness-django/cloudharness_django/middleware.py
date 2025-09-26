@@ -20,7 +20,7 @@ def _get_user() -> User:
             payload = jwt.decode(token, algorithms=["RS256"], options={"verify_signature": False}, audience="web-client")
             kc_id = payload["sub"]
             try:
-                kc_user = User.objects.get(member__kc_id=kc_id)
+                user = User.objects.get(member__kc_id=kc_id)
             except User.DoesNotExist:
                 user_svc = get_user_service()
                 kc_user = user_svc.get_auth_client().get_current_user()
