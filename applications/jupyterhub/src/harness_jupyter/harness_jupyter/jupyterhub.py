@@ -73,6 +73,7 @@ def affinity_spec(key, value):
         'topologyKey': 'kubernetes.io/hostname'
     }
 
+
 def affinity_preferred_spec(key, value, topology_key='kubernetes.io/hostname', operator='In'):
     """
     Generates a Kubernetes preferred affinity term.
@@ -192,17 +193,6 @@ def change_pod_manifest(self: KubeSpawner):
 
     # set user quota cpu/mem usage if value has a "value" else don't change the value
 
-    logging.info("Setting user quota cpu/mem usage")
-
-    if self.cpu_guarantee is None:  # This eventually comes from the current profile. Profile wins over user quota, if set.
-        set_key_value(self, key="cpu_guarantee", value=float(user_quotas.get("quota-ws-guaranteecpu")))
-    if self.cpu_limit is None:
-        set_key_value(self, key="cpu_limit", value=float(user_quotas.get("quota-ws-maxcpu")))
-    if self.mem_guarantee is None:
-        set_key_value(self, key="mem_guarantee", value=user_quotas.get("quota-ws-guaranteemem"), unit="G")
-    if self.mem_limit is None:
-        set_key_value(self, key="mem_limit", value=user_quotas.get("quota-ws-maxmem"), unit="G")
-
     # Default value, might be overwritten by the app config
     self.storage_pvc_ensure = bool(self.pvc_name)
 
@@ -256,14 +246,23 @@ def change_pod_manifest(self: KubeSpawner):
                 except:
                     logging.error("Error loading Spawner extra configuration", exc_info=True)
 
-            # check if there is an applicationHook defined in the values.yaml
-            # if so then execute the applicationHook function with "self" as parameter
-            #
-            # e.g.
-            #   jupyterhub:
-            #       applicationHook: "jupyter.change_pod_manifest"
-            #
-            # this will execute jupyter.change_pod_manifest(self=self)
+            logging.info("Setting user quota cpu/mem usage")
+
+        set_key_value(self, key="cpu_guarantee", value=float(user_quotas.get("quota-ws-guaranteecpu", self.cpu_guarantee)))
+        set_key_value(self, key="cpu_limit", value=float(user_quotas.get("quota-ws-maxcpu", self.cpu_limit)))
+        set_key_value(self, key="mem_guarantee", value=user_quotas.get("quota-ws-guaranteemem", self.mem_guarantee), unit="G")
+        set_key_value(self, key="mem_limit", value=user_quotas.get("quota-ws-maxmem", self.mem_limit), unit="G")
+
+        # check if there is an applicationHook defined in the values.yaml
+        # if so then execute the applicationHook function with "self" as parameter
+        #
+        # e.g.
+        #   jupyterhub:
+        #       applicationHook: "jupyter.change_pod_manifest"
+        #
+        # this will execute jupyter.change_pod_manifest(self=self)
+
+        if 'jupyterhub' in harness and harness['jupyterhub']:
             if 'applicationHook' in harness['jupyterhub']:
                 func_name = harness['jupyterhub']['applicationHook'].split('.')
                 logging.info(f"Executing application hook {func_name}")
