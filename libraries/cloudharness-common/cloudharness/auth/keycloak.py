@@ -1,6 +1,8 @@
+from base64 import b64decode
 import os
 from typing import List
 from cloudharness_model.models.organization import Organization
+from cryptography.hazmat.primitives import serialization
 import jwt
 import json
 import requests
@@ -10,7 +12,7 @@ from keycloak.exceptions import KeycloakAuthenticationError, KeycloakGetError
 
 from cloudharness import log
 from cloudharness.middleware import get_authentication_token
-from cloudharness.models import UserGroup, User
+from cloudharness.models import User, UserGroup
 
 from .exceptions import UserNotFound, InvalidToken, AuthSecretNotFound
 
@@ -44,7 +46,7 @@ def with_refreshtoken(func):
     return wrapper
 
 
-def decode_token(token, **kwargs):
+def decode_token(token, **kwargs) -> dict | None:
     """
     Check and retrieve authentication information from custom bearer token.
     Returned value will be passed in 'token_info' parameter of your operation function, if there is one.
@@ -60,6 +62,17 @@ def decode_token(token, **kwargs):
     except InvalidToken:
         return None
     return decoded
+
+
+def get_current_user_id() -> str | None:
+
+    authentication_token = get_authentication_token()
+
+    user_dict = decode_token(authentication_token.split(' ')[-1])
+    if user_dict:
+        return user_dict.get('sub')
+
+    return None
 
 
 def get_server_url():
@@ -167,13 +180,10 @@ class AuthClient():
     @classmethod
     def get_public_key(cls):
         if not cls.__public_key:
-            AUTH_PUBLIC_KEY_URL = os.path.join(
-                get_server_url(), "realms", get_auth_realm())
-
-            KEY = json.loads(requests.get(AUTH_PUBLIC_KEY_URL,
-                                          verify=False).text)['public_key']
-            cls.__public_key = b"-----BEGIN PUBLIC KEY-----\n" + \
-                str.encode(KEY) + b"\n-----END PUBLIC KEY-----"
+            public_key_url = os.path.join(get_server_url(), "realms", get_auth_realm())
+            key_der_base64 = requests.get(public_key_url).json()['public_key']
+            key_der = b64decode(key_der_base64.encode())
+            cls.__public_key = serialization.load_der_public_key(key_der)
         return cls.__public_key
 
     @classmethod
@@ -190,7 +200,7 @@ class AuthClient():
         """
         try:
             decoded = jwt.decode(token, cls.get_public_key(),
-                                 algorithms='RS256', audience=audience)
+                                 algorithms=['RS256'], audience=audience)
         except jwt.exceptions.InvalidTokenError as e:
             raise InvalidToken(e) from e
         return decoded

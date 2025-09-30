@@ -1,7 +1,7 @@
 from django.contrib.auth.models import User, Group
 
 from cloudharness_django.models import Team, Member
-from cloudharness_django.services.auth import AuthorizationLevel
+from cloudharness_django.services.auth import AuthService, AuthorizationLevel
 from cloudharness import models as ch_models
 
 
@@ -13,7 +13,7 @@ def get_user_by_kc_id(kc_id) -> User:
 
 
 class UserService:
-    def __init__(self, auth_service):
+    def __init__(self, auth_service: AuthService):
         self.auth_service = auth_service
         self.auth_client = auth_service.get_auth_client()
 
