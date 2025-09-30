@@ -68,6 +68,9 @@ def get_current_user_id() -> str | None:
 
     authentication_token = get_authentication_token()
 
+    if not authentication_token or authentication_token == 'Bearer undefined':
+        return None
+
     user_dict = decode_token(authentication_token.split(' ')[-1])
     if user_dict:
         return user_dict.get('sub')
