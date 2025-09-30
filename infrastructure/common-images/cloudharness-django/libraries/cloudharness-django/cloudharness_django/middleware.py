@@ -21,9 +21,13 @@ def _get_user(kc_user_id: str) -> User:
             user = User.objects.get(member__kc_id=kc_user_id)
         except User.DoesNotExist:
             user_svc = get_user_service()
-            kc_user = user_svc.get_auth_client().get_current_user()
-            user = user_svc.sync_kc_user(kc_user)
-            user_svc.sync_kc_user_groups(kc_user)
+            kc_user = user_svc.auth_client.get_current_user()
+            try:
+                user = user_svc.sync_kc_user(kc_user)
+                user_svc.sync_kc_user_groups(kc_user)
+            except Exception as e:
+                log.exception("User sync error, %s", kc_user.email)
+                return None
         return user
     except KeycloakGetError:
         # KC user not found
@@ -31,7 +35,7 @@ def _get_user(kc_user_id: str) -> User:
     except InvalidToken:
         return None
     except Exception as e:
-        log.exception("User mapping error, %s", kc_user.email)
+        log.exception("User %s mapping error, %s", kc_user_id, e)
         return None
 
 
