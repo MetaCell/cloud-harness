@@ -307,8 +307,22 @@ class CloudHarnessBaseModel(BaseModel):
             if value is not None:
                 return value
         
+        # Try fallback to var_{name} pattern for Python keywords like 'pass'
+        var_name = f"var_{name}"
+        try:
+            return object.__getattribute__(self, var_name)
+        except AttributeError:
+            pass
+        
+        # Try fallback to _{name} pattern for Python keywords like 'pass'
+        underscore_name = f"_{name}"
+        try:
+            return object.__getattribute__(self, underscore_name)
+        except AttributeError:
+            pass
+        
         # If not found, raise AttributeError as expected
-        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'. Fix this by falling back to var_{name} in case of attribute error")
 
     def __setitem__(self, key: str, value):
         """Support item assignment with additional_properties and field aliases."""
