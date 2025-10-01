@@ -97,21 +97,31 @@ class UserService:
             self.sync_kc_group(kc_group)
 
     def sync_kc_user(self, kc_user: ch_models.User, is_superuser=False, delete=False):
-        # sync the kc user with the django user
-        user, _ = User.objects.get_or_create(username=kc_user.username or kc_user.email)
+        # sync the kc user with the django user using kc_id for reliable lookups
+        user = get_user_by_kc_id(kc_user.id)
 
-        member, created = Member.objects.get_or_create(kc_id=kc_user.id, user=user)
-        if created:
-            member.kc_id = kc_user.id
-            member.save()
+        if user is None:
+            # User doesn't exist, create new one
+            username = kc_user.username or kc_user.email
+            if not username:
+                raise ValueError(f"Keycloak user {kc_user.id} has no username or email")
+
+            user, _ = User.objects.get_or_create(username=username)
+            # Create the member relationship
+            Member.objects.create(kc_id=kc_user.id, user=user)
+
         user = self._map_kc_user(user, kc_user, is_superuser, delete)
         self.sync_kc_user_groups(kc_user)
         user.save()
         return user
 
     def sync_kc_user_groups(self, kc_user: ch_models.User):
-        # Sync the user usergroups and memberships
-        user = User.objects.get(username=kc_user.username or kc_user.email)
+        # Sync the user usergroups and memberships using kc_id for reliable lookups
+        user = get_user_by_kc_id(kc_user.id)
+
+        if user is None:
+            raise ValueError(f"Django user not found for Keycloak user {kc_user.id}")
+
         user_groups = []
         for kc_group in [*kc_user.user_groups, *kc_user.organizations]:
             group, _ = Group.objects.get_or_create(name=kc_group.name)
@@ -119,9 +129,12 @@ class UserService:
         user.groups.set(user_groups)
         user.save()
 
+        # Ensure the member relationship exists and is correct
         try:
-            if user.member.kc_id != kc_user.id:
-                user.member.kc_id = kc_user.id
+            member = user.member
+            if member.kc_id != kc_user.id:
+                member.kc_id = kc_user.id
+                member.save()
         except Member.DoesNotExist:
             member = Member(user=user, kc_id=kc_user.id)
             member.save()
