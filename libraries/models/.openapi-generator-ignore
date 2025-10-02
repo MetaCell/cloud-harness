@@ -36,7 +36,8 @@ setup.py
 encoder.py
 *.sh
 */util.py
-*/models/base_model_.py
+*/models/base_model.py
+*/models/user_group.py # keep user_group model as there it is generated with an internal reference in it
 requirements.txt
 */encoder.py
 */model_utils.py

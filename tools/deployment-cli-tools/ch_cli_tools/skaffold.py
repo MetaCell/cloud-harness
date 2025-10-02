@@ -317,7 +317,7 @@ def get_additional_build_args(helm_values: HarnessMainConfig, app_key: str) -> d
     if app_key not in helm_values.apps:
         return None
 
-    if not (helm_values.apps[app_key].harness.dockerfile and helm_values.apps[app_key].harness.dockerfile.buildArgs):
+    if not (helm_values.apps[app_key].harness.dockerfile and helm_values.apps[app_key].harness.dockerfile.build_args):
         return None
 
-    return helm_values.apps[app_key].harness.dockerfile.buildArgs
+    return helm_values.apps[app_key].harness.dockerfile.build_args
