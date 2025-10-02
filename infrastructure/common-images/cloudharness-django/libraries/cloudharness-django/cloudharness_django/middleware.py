@@ -7,6 +7,7 @@ from keycloak.exceptions import KeycloakGetError
 
 from cloudharness.auth.exceptions import InvalidToken
 from cloudharness_django.services import get_user_service
+from .models import Member
 from cloudharness import log
 from cloudharness.auth.keycloak import get_current_user_id, User as KcUser
 
@@ -28,6 +29,12 @@ def _get_user(kc_user_id: str) -> User:
             except Exception as e:
                 log.exception("User sync error, %s", kc_user.email)
                 return None
+        except User.MultipleObjectsReturned:
+            # Race condition, multiple users created for the same kc_id
+            log.warning("Multiple users found for kc_id %s, cleaning up...", kc_user_id)
+            user = User.objects.filter(member__kc_id=kc_user_id).order_by('id').first()
+            User.objects.filter(member__kc_id=kc_user_id).exclude(id=user.id).delete()
+            return user
         return user
     except KeycloakGetError:
         # KC user not found
