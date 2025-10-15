@@ -53,6 +53,7 @@ class BearerTokenMiddleware:
 
     def __call__(self, request):
         user = getattr(request, "user", None)
+
         kc_user = get_current_user_id()
         if kc_user:
             if not user or user.is_anonymous or user.member.kc_id != kc_user.id:
@@ -61,8 +62,8 @@ class BearerTokenMiddleware:
                     # auto login, set the user
                     request.user = user
                     request._cached_user = user
-        else:
-            logout(request)
+        # elif not request.path.startswith('/admin/'):
+        #     logout(request)
 
         return self.get_response(request)
 

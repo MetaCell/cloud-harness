@@ -107,8 +107,13 @@ class UserService:
                 raise ValueError(f"Keycloak user {kc_user.id} has no username or email")
 
             user, _ = User.objects.get_or_create(username=username)
-            # Create the member relationship
-            Member.objects.create(kc_id=kc_user.id, user=user)
+            try:
+                member = Member.objects.get(user=user)
+                member.kc_id = kc_user.id
+                member.save()
+            except Member.DoesNotExist:
+                # Create the member relationship
+                Member.objects.create(kc_id=kc_user.id, user=user)
 
         user = self._map_kc_user(user, kc_user, is_superuser, delete)
         self.sync_kc_user_groups(kc_user)
