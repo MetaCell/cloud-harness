@@ -3,6 +3,7 @@ import jwt
 
 from django.contrib.auth.models import User
 from django.contrib.auth import logout
+from django.db import transaction
 from keycloak.exceptions import KeycloakGetError
 
 from cloudharness.auth.exceptions import InvalidToken
@@ -10,10 +11,11 @@ from cloudharness_django.services import get_user_service
 from .models import Member
 from cloudharness import log
 from cloudharness.auth.keycloak import get_current_user_id, User as KcUser
+from psycopg2.errors import UniqueViolation
 
 
 def _get_user(kc_user_id: str) -> User:
-
+    user = None
     if kc_user_id is None:
         return None
         # found bearer token get the Django user
@@ -26,15 +28,21 @@ def _get_user(kc_user_id: str) -> User:
             try:
                 user = user_svc.sync_kc_user(kc_user)
                 user_svc.sync_kc_user_groups(kc_user)
-            except Exception as e:
-                log.exception("User sync error, %s", kc_user.email)
-                return None
+            except UniqueViolation as e:
+                # this can happen as a race condition while creating the Member object
+                log.warning("UniqueViolation error for kc_id %s. Probably a race condition. %s", kc_user_id, str(e))
+                return User.objects.get(member__kc_id=kc_user_id)  # If it still fails, we are missing something serious
+
         except User.MultipleObjectsReturned:
             # Race condition, multiple users created for the same kc_id
             log.warning("Multiple users found for kc_id %s, cleaning up...", kc_user_id)
             user = User.objects.filter(member__kc_id=kc_user_id).order_by('id').first()
             User.objects.filter(member__kc_id=kc_user_id).exclude(id=user.id).delete()
             return user
+
+        except Exception as e:
+            log.exception("User sync error, %s", kc_user.email)
+            return None
         return user
     except KeycloakGetError:
         # KC user not found
@@ -51,6 +59,7 @@ class BearerTokenMiddleware:
         # One-time configuration and initialization.
         self.get_response = get_response
 
+    @transaction.atomic
     def __call__(self, request):
         user = getattr(request, "user", None)
 
