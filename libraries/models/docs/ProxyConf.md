@@ -9,6 +9,7 @@ Name | Type | Description | Notes
 **forwarded_headers** | **bool** |  | [optional] 
 **payload** | [**ProxyPayloadConf**](ProxyPayloadConf.md) |  | [optional] 
 **timeout** | [**ProxyTimeoutConf**](ProxyTimeoutConf.md) |  | [optional] 
+**gatekeeper** | [**GatekeeperConf**](GatekeeperConf.md) |  | [optional] 
 
 ## Example
 

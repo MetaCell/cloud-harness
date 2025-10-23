@@ -76,3 +76,8 @@ proxy:
   payload:
     # -- Maximum size of payload in MB
     max: 250
+  gatekeeper:
+    # -- Default gatekeeper image
+    image: "quay.io/gogatekeeper/gatekeeper:2.14.3"
+    # -- Default number of gatekeeper replicas
+    replicas: 5

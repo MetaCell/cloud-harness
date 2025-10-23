@@ -139,3 +139,8 @@ harness:
     payload:
       # -- Maximum size of payload in MB
       max:
+    gatekeeper:
+      # -- Default gatekeeper image
+      image: "quay.io/gogatekeeper/gatekeeper:2.14.3"
+      # -- Default number of gatekeeper replicas
+      replicas: 5
