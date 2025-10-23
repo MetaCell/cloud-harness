@@ -241,7 +241,7 @@ def test_create_codefresh_configuration_tests():
         assert len(test_step["commands"]) == 2, "Both default and custom api tests should be run"
 
         st_cmd = test_step["commands"][0]
-        assert "--pre-run cloudharness_test.apitest_init" in st_cmd, "Prerun hook must be specified in schemathesis command"
+        assert any("SCHEMATHESIS_HOOKS=cloudharness_test.apitest_init" in env for env in test_step['environment']), "Prerun hook must be specified in environment"
         assert "api/openapi.yaml" in st_cmd, "Openapi file must be passed to the schemathesis command"
 
         assert "-c all" in st_cmd, "Default check loaded is `all` on schemathesis command"
