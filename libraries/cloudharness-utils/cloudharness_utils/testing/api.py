@@ -12,11 +12,12 @@ def get_api_filename(app_dir):
 
 
 def get_schemathesis_command(api_filename, app_config: ApplicationHarnessConfig, app_domain: str):
-    return ["st", "--pre-run", "cloudharness_test.apitest_init", "run", api_filename, *get_schemathesis_params(app_config, app_domain)]
+    # Make sure to set SCHEMATHESIS_HOOKS=cloudharness_test.apitest_init in environment to use the custom hooks
+    return ["st", "run", api_filename, *get_schemathesis_params(app_config, app_domain)]
 
 
 def get_schemathesis_params(app_config: ApplicationHarnessConfig, app_domain: str):
-    params = ["--base-url", app_domain]
+    params = ["--url", app_domain]
     api_config: ApiTestsConfig = app_config.test.api
     if api_config.checks:
         for c in api_config.checks:

@@ -6,7 +6,6 @@ from schemathesis.hooks import HookContext
 
 from cloudharness.auth import get_token
 
-st.experimental.OPEN_API_3_1.enable()
 
 if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
     app_schema = os.environ.get("APP_SCHEMA_FILE", None)
@@ -22,9 +21,9 @@ if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
     # First, attempt to load the local file if provided
     if app_schema:
         try:
-            schema = st.from_file(app_schema)
+            schema = st.openapi.from_file(app_schema)
             logging.info("Successfully loaded schema from local file: %s", app_schema)
-        except st.exceptions.SchemaError:
+        except st.errors.LoaderError:
             logging.exception("The local schema file %s cannot be loaded. Attempting loading from URL", app_schema)
 
     # If no schema from file, then loop over URL candidates
@@ -36,10 +35,10 @@ if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
         for candidate in candidates:
             try:
                 logging.info("Attempting to load schema from URI: %s", candidate)
-                schema = st.from_uri(candidate)
+                schema = st.openapi.from_url(candidate)
                 logging.info("Successfully loaded schema from %s", candidate)
                 break  # Exit loop on successful load
-            except st.exceptions.SchemaError as e:
+            except st.errors.LoaderError as e:
                 logging.warning("Failed to load schema from %s: %s", candidate, e)
             except Exception as e:
                 logging.error("Unexpected error when loading schema from %s: %s", candidate, e)
@@ -49,10 +48,9 @@ if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
     if "USERNAME" in os.environ and "PASSWORD" in os.environ:
         logging.info("Setting token from username and password")
 
-        @st.auth.register()
+        @st.auth()
         class TokenAuth:
-            def get(self, context):
-
+            def get(self, case, ctx):
                 username = os.environ["USERNAME"]
                 password = os.environ["PASSWORD"]
 
@@ -63,10 +61,9 @@ if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
                 case.headers["Authorization"] = f"Bearer {data}"
                 case.headers["Cookie"] = f"kc-access={data}"
     else:
-        @st.auth.register()
+        @st.auth()
         class TokenAuth:
-            def get(self, context):
-
+            def get(self, case, ctx):
                 return ""
 
             def set(self, case, data, context):
