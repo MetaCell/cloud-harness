@@ -23,5 +23,12 @@ harness:
     api:
       enabled: true
       autotest: true
+      runParams:
+        - --phases
+        - examples
+        - --mode
+        - positive
+        - --max-examples
+        - "10"
       checks:
         - all
