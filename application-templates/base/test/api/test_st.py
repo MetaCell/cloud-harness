@@ -10,7 +10,7 @@ app_url = os.environ.get("APP_URL", "http://samples.ch.local/api")
 schema = st.from_uri(app_url + "/openapi.json")
 
 
-@schema.parametrize(endpoint="/ping")
+@schema.include(path="/ping").parametrize()
 def test_ping(case):
     response = case.call()
     pprint(response.__dict__)

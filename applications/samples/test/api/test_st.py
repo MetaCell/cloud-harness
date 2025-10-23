@@ -10,27 +10,27 @@ app_url = os.environ.get("APP_URL", "http://samples.ch.local/api")
 schema = st.from_uri(app_url + "/openapi.json")
 
 
-@schema.parametrize(endpoint="/error")
+@schema.include(path="/error").parametrize()
 def test_api(case):
     response = case.call()
     pprint(response.__dict__)
     assert response.status_code >= 500, "this api errors on purpose"
 
 
-@schema.parametrize(endpoint="/valid")
+@schema.include(path="/valid").parametrize()
 def test_bearer(case):
     response = case.call()
 
     case.validate_response(response, checks=(response_schema_conformance,))
 
 
-@schema.parametrize(endpoint="/valid-cookie")
+@schema.include(path="/valid-cookie").parametrize()
 def test_cookie(case):
     response = case.call()
     case.validate_response(response, checks=(response_schema_conformance,))
 
 
-@schema.parametrize(endpoint="/sampleresources", method="POST")
+@schema.include(path="/sampleresources", method="POST").parametrize()
 def test_response(case):
     response = case.call()
     case.validate_response(response, checks=(response_schema_conformance,))

@@ -14,7 +14,7 @@ except:
     schema = st.from_uri(app_url.replace("/api", "") + "/openapi.json")
 
 
-@schema.parametrize(endpoint="/ping")
+@schema.include(path="/ping").parametrize()
 def test_ping(case):
     response = case.call()
     pprint(response.__dict__)
