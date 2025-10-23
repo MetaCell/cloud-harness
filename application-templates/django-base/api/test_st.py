@@ -14,7 +14,7 @@ except:
     schema = st.from_uri(app_url.replace("/api", "") + "/openapi.json")
 
 
-@schema.include(path="/ping").parametrize()
+@schema.include(path="/ping", method="GET").parametrize()
 def test_ping(case):
     response = case.call()
     assert response.status_code == 200, "this api errors on purpose"

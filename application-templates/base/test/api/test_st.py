@@ -10,7 +10,7 @@ app_url = os.environ.get("APP_URL", "http://samples.ch.local/api")
 schema = st.from_uri(app_url + "/openapi.json")
 
 
-@schema.include(path="/ping").parametrize()
+@schema.include(path="/ping", method="GET").parametrize()
 def test_ping(case):
     response = case.call()
     assert response.status_code == 200, "this api errors on purpose"
