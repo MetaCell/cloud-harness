@@ -18,7 +18,8 @@
               number: {{ $app.harness.service.port | default 80 }}
       {{- else if hasSuffix "/*" $uri }}
         {{- $cleanPath := trimSuffix "/*" $uri }}
-      - path: {{ printf "%s/(.*)" $cleanPath }}
+        {{- $pathWithoutSlash := trimPrefix "/" $cleanPath }}
+      - path: {{ printf "/(%s/.*)" $pathWithoutSlash }}
         pathType: ImplementationSpecific
         backend:
           service:
