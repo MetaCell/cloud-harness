@@ -17,7 +17,6 @@ except:
 @schema.include(path="/ping").parametrize()
 def test_ping(case):
     response = case.call()
-    pprint(response.__dict__)
     assert response.status_code == 200, "this api errors on purpose"
 
 

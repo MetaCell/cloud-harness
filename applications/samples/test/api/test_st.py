@@ -13,14 +13,12 @@ schema = st.from_uri(app_url + "/openapi.json")
 @schema.include(path="/error").parametrize()
 def test_api(case):
     response = case.call()
-    pprint(response.__dict__)
     assert response.status_code >= 500, "this api errors on purpose"
 
 
 @schema.include(path="/valid").parametrize()
 def test_bearer(case):
     response = case.call()
-
     case.validate_response(response, checks=(response_schema_conformance,))
 
 
