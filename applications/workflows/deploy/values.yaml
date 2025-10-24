@@ -16,12 +16,5 @@ harness:
     api:
       enabled: true
       autotest: true
-      runParams:
-        - --mode
-        - positive
-        - --max-examples
-        - "5"
-        - --exclude-checks
-        - response_schema_conformance,positive_data_acceptance
       checks:
         - all

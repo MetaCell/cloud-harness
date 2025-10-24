@@ -78,16 +78,14 @@ harness:
       checks:
         - all
       runParams:
-        - "--skip-deprecated-operations"
+        - "--exclude-deprecated"
         - "--exclude-operation-id=submit_sync"
         - "--exclude-operation-id=submit_sync_with_results"
         - "--exclude-operation-id=error"
-        - "--hypothesis-suppress-health-check=too_slow"
-        - "--hypothesis-deadline=180000"
+        - "--suppress-health-check=too_slow"
         - "--request-timeout=180000"
-        - "--hypothesis-max-examples=2"
-        - "--show-trace"
-        - "--exclude-checks=ignored_auth" # ignored_auth is not working on schemathesis 3.36.0
+        - "--max-examples=2"
+        - "--exclude-checks=ignored_auth"
 
   dockerfile:
     buildArgs:

@@ -241,11 +241,11 @@ def test_create_codefresh_configuration_tests():
         assert len(test_step["commands"]) == 2, "Both default and custom api tests should be run"
 
         st_cmd = test_step["commands"][0]
-        assert any("SCHEMATHESIS_HOOKS=cloudharness_test.apitest_init" in env for env in test_step['environment']), "Prerun hook must be specified in environment"
+        assert any("SCHEMATHESIS_HOOKS=cloudharness_test.apitest_init" in env for env in test_step['environment']), "SCHEMATHESIS_HOOKS hook must be specified in environment"
         assert "api/openapi.yaml" in st_cmd, "Openapi file must be passed to the schemathesis command"
 
         assert "-c all" in st_cmd, "Default check loaded is `all` on schemathesis command"
-        assert "--hypothesis-deadline=" in st_cmd, "Custom parameters are loaded from values.yaml"
+        assert "--exclude-deprecated" in st_cmd, "Custom parameters are loaded from values.yaml"
 
         test_step = api_steps["common_api_test"]
         for volume in test_step["volumes"]:
