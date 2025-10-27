@@ -7,5 +7,5 @@ enabled = false
 
 # Set previous_search_token to empty to avoid invalid token generation
 # Since this is an optional parameter used for pagination, omitting it is valid
-[parameters]
+[parameters.query]
 previous_search_token = null
