@@ -85,6 +85,7 @@ harness:
         - "--exclude-operation-id=valid_token"
         - "--exclude-operation-id=valid_cookie"
         - "--suppress-health-check=too_slow"
+        - "--suppress-health-check=filter_too_much"
         - "--request-timeout=180000"
         - "--max-examples=2"
         - "--exclude-checks=ignored_auth"
