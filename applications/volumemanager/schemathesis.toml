@@ -3,3 +3,7 @@ unexpected-methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 
 [checks]
 negative_data_rejection.enabled = false
+
+[[operations]]
+include-name = "POST /pvc"
+parameters = { size = "2Gi" }
