@@ -45,6 +45,11 @@ def pvc_post():  # noqa: E501
     """
     if connexion.request.is_json:
         persistent_volume_claim_create = PersistentVolumeClaimCreate.from_dict(connexion.request.get_json())  # noqa: E501
+        
+        # Validate required fields
+        if not persistent_volume_claim_create.name or not persistent_volume_claim_create.size:
+            return {'description': 'Name and size are required fields.'}, 400
+        
         try:
             create_persistent_volume_claim(
                 name=persistent_volume_claim_create.name,

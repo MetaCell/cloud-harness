@@ -28,7 +28,8 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersistentVolumeClaim'
+                type: string
+                example: "Saved!"
           description: Save successful.
         "400":
           description: The Persistent Volume Claim already exists.
