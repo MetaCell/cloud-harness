@@ -26,7 +26,7 @@ def getdsn(appname):  # noqa: E501
     try:
         ch_app = applications.get_configuration(appname)
     except applications.ConfigurationCallException as e:
-        return {"error": f"Application `{appname}` does not exist"}, 400
+        return {"error": f"Application `{appname}` does not exist"}, 404
     if ch_app.is_sentry_enabled():
         if global_dsn:
             # if a global dsn env var is set and not empty then use this
