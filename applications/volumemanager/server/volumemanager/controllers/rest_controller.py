@@ -58,17 +58,6 @@ def pvc_post():  # noqa: E501
         # Validate required fields
         if not persistent_volume_claim_create.name or not persistent_volume_claim_create.size:
             return {'description': 'Name and size are required and cannot be empty.'}, 400
-        
-        # Validate name format (Kubernetes DNS-1123 subdomain)
-        name_pattern = re.compile(r'^[a-z0-9]([-a-z0-9]*[a-z0-9])?$')
-        if not name_pattern.match(persistent_volume_claim_create.name) or len(persistent_volume_claim_create.name) > 253:
-            return {'description': 'Name must be a valid DNS-1123 subdomain (lowercase alphanumeric characters, "-", and must start and end with an alphanumeric character, max 253 characters).'}, 400
-        
-        # Validate size format
-        size_pattern = re.compile(r'^[1-9][0-9]*(Ei|Pi|Ti|Gi|Mi|Ki|E|P|T|G|M|K)?$')
-        if not size_pattern.match(persistent_volume_claim_create.size):
-            return {'description': 'Size must be a valid Kubernetes resource quantity (e.g., 2Gi, 500Mi).'}, 400
-        
         try:
             create_persistent_volume_claim(
                 name=persistent_volume_claim_create.name,

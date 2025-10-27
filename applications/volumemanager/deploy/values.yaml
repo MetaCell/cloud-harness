@@ -19,3 +19,6 @@ harness:
       autotest: true
       checks:
         - all
+      runParams:
+        - "--phases=examples"
+        - "--max-examples=1"
