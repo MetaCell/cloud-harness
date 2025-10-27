@@ -5,10 +5,10 @@ from cloudharness_test import apitest_init  # include to perform default authori
 app_url = os.environ.get("APP_URL", "http://samples.ch.local/api")
 
 try:
-    schema = st.from_uri(app_url + "/openapi.json")
+    schema = st.openapi.from_url(app_url + "/openapi.json")
 except:
     # support alternative schema location
-    schema = st.from_uri(app_url.replace("/api", "") + "/openapi.json")
+    schema = st.openapi.from_url(app_url.replace("/api", "") + "/openapi.json")
 
 
 @schema.include(path="/ping", method="GET").parametrize()

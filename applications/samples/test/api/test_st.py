@@ -7,7 +7,7 @@ from cloudharness_test import apitest_init  # include to perform default authori
 
 app_url = os.environ.get("APP_URL", "http://samples.ch.local/api")
 
-schema = st.from_uri(app_url + "/openapi.json")
+schema = st.openapi.from_url(app_url + "/openapi.json")
 
 
 @schema.include(path="/error", method="GET").parametrize()
