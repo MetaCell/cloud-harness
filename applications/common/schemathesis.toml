@@ -1,5 +1,2 @@
 [phases.coverage]
 unexpected-methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
-
-[hypothesis]
-suppress_health_check = ["filter_too_much"]

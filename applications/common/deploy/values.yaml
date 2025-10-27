@@ -25,3 +25,5 @@ harness:
       autotest: true
       checks:
         - all
+      runParams:
+        - "--suppress-health-check=filter_too_much"
