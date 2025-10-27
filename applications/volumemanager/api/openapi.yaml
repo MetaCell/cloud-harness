@@ -75,7 +75,7 @@ components:
   schemas:
     PersistentVolumeClaimCreate:
       example:
-        size: 2Gi (see also https://github.com/kubernetes/community/blob/master/contributors/design-proposals/scheduling/resources.md#resource-quantities)
+        size: 2Gi
         name: pvc-1
       properties:
         name:
@@ -84,12 +84,12 @@ components:
           type: string
         size:
           description: The size of the Persistent Volume Claim to create.
-          example: 2Gi (see also https://github.com/kubernetes/community/blob/master/contributors/design-proposals/scheduling/resources.md#resource-quantities)
+          example: 2Gi
           type: string
       type: object
     PersistentVolumeClaim:
       example:
-        size: 2Gi (see also https://github.com/kubernetes/community/blob/master/contributors/design-proposals/scheduling/resources.md#resource-quantities)
+        size: 2Gi
         name: pvc-1
         namespace: ch
         accessmode: ReadWriteMany
@@ -108,7 +108,7 @@ components:
           type: string
         size:
           description: The size of the Persistent Volume Claim.
-          example: 2Gi (see also https://github.com/kubernetes/community/blob/master/contributors/design-proposals/scheduling/resources.md#resource-quantities)
+          example: 2Gi
           type: string
       type: object
   securitySchemes:
