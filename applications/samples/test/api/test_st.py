@@ -12,27 +12,17 @@ schema = st.openapi.from_url(app_url + "/openapi.json")
 
 @schema.include(path="/error", method="GET").parametrize()
 def test_api(case):
-    try:
-        response = case.call()
-        debug_info = (
-            f"[DEBUG] Request URL: {getattr(response.request, 'url', None)}\n"
-            f"[DEBUG] Request method: {getattr(response.request, 'method', None)}\n"
-            f"[DEBUG] Response status: {getattr(response, 'status_code', None)}\n"
-            f"[DEBUG] Response headers: {dict(getattr(response, 'headers', {}))}\n"
-            f"[DEBUG] Response body: {getattr(response, 'text', None)}\n"
-        )
-        print(debug_info)
-        assert response.status_code >= 500, "this api errors on purpose"
-    except Exception as e:
-        # Print debug info even if assertion fails
-        if 'response' in locals():
-            print("[EXCEPTION DEBUG] Request URL:", getattr(response.request, 'url', None))
-            print("[EXCEPTION DEBUG] Request method:", getattr(response.request, 'method', None))
-            print("[EXCEPTION DEBUG] Response status:", getattr(response, 'status_code', None))
-            print("[EXCEPTION DEBUG] Response headers:", dict(getattr(response, 'headers', {})))
-            print("[EXCEPTION DEBUG] Response body:", getattr(response, 'text', None))
-        print("[EXCEPTION]", e)
-        raise
+    response = case.call()
+    
+    if case.method == "GET":
+        # Assert that this endpoint returns a 500 error as expected
+        assert response.status_code == 500, f"Expected 500 error, got {response.status_code}. This api errors on purpose."
+    elif case.method == "OPTIONS":
+        # OPTIONS requests typically return 200 OK
+        assert response.status_code == 200, f"Expected 200 OK for OPTIONS, got {response.status_code}."
+    else:
+        # Other methods should return 405 (Method Not Allowed)
+        assert response.status_code == 405, f"Expected 405 (Method Not Allowed) for {case.method}, got {response.status_code}."
 
 
 @schema.include(path="/valid", method="GET").parametrize()
