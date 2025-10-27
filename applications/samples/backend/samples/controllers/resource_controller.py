@@ -44,7 +44,7 @@ def delete_sample_resource(sampleresource_id):  # noqa: E501
     except resource_service.ResourceNotFound:
         return "Resource not found", 404
     except ValueError:
-        return "sampleresource_id must be integer", 400
+        return "Resource not found", 404
     return 'OK', 204
 
 
@@ -64,7 +64,7 @@ def get_sample_resource(sampleresource_id):  # noqa: E501
     except resource_service.ResourceNotFound:
         return "Resource not found", 404
     except ValueError:
-        return "sampleresource_id must be integer", 400
+        return "Resource not found", 404
 
 
 def get_sample_resources():  # noqa: E501
@@ -101,4 +101,4 @@ def update_sample_resource(sampleresource_id, sample_resource=None):  # noqa: E5
     except resource_service.ResourceNotFound:
         return "Resource not found", 404
     except ValueError:
-        return "sampleresource_id must be integer", 400
+        return "Resource not found", 404

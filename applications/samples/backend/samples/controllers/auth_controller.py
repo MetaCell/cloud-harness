@@ -15,6 +15,8 @@ def valid_token():  # noqa: E501
     """
     from cloudharness.middleware import get_authentication_token
     token = get_authentication_token()
+    if not token:
+        return 'Unauthorized', 401
     return 'OK!'
 
 
@@ -29,5 +31,7 @@ def valid_cookie():  # noqa: E501
     from cloudharness.middleware import get_authentication_token
     from cloudharness.auth import decode_token
     token = get_authentication_token()
+    if not token:
+        return 'Unauthorized', 401
     assert decode_token(token)
     return 'OK'
