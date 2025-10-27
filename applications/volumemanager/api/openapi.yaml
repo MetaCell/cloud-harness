@@ -54,6 +54,9 @@ paths:
         required: true
         schema:
           type: string
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          minLength: 1
+          maxLength: 253
         style: simple
       responses:
         "200":
@@ -87,6 +90,9 @@ components:
           description: The size of the Persistent Volume Claim to create.
           example: 2Gi
           type: string
+      required:
+        - name
+        - size
       type: object
     PersistentVolumeClaim:
       example:
