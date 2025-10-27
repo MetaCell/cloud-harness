@@ -65,6 +65,9 @@ def list_operations(status=None, previous_search_token=None, limit=None):  # noq
 
     :rtype: OperationSearchResult
     """
+    if previous_search_token == "":
+        previous_search_token = None
+    
     try:
         return workflow_service.list_operations(status, continue_token=previous_search_token, limit=limit)
     except BadParam as e:
