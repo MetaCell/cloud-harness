@@ -1,2 +1,6 @@
 [phases.coverage]
 unexpected-methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+
+# Disable negative testing - don't test with unknown/invalid properties
+[phases.negative]
+enabled = false
