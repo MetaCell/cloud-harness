@@ -1,7 +1,7 @@
 import os
 from pprint import pprint
 import schemathesis as st
-from schemathesis.specs.openapi.checks import response_schema_conformance, not_a_server_error
+from schemathesis.specs.openapi.checks import response_schema_conformance
 
 from cloudharness_test import apitest_init  # include to perform default authorization
 

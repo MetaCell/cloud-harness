@@ -1,8 +1,5 @@
 import os
-from pprint import pprint
 import schemathesis as st
-from schemathesis.specs.openapi.checks import response_schema_conformance, not_a_server_error
-
 from cloudharness_test import apitest_init  # include to perform default authorization
 
 app_url = os.environ.get("APP_URL", "http://samples.ch.local/api")
