@@ -164,10 +164,11 @@ spec:
           containerPort: 8443
         resources:
           requests:
-            memory: "32Mi"
+            cpu: {{ .app.harness.proxy.gatekeeper.resources.requests.cpu | default .root.Values.proxy.gatekeeper.resources.requests.cpu | default null }}
+            memory: {{ .app.harness.proxy.gatekeeper.resources.requests.memory | default .root.Values.proxy.gatekeeper.resources.requests.memory | default "32Mi" }}
           limits:
-            memory: "64Mi"
-            cpu: "100m"
+            cpu: {{ .app.harness.proxy.gatekeeper.resources.limits.cpu | default .root.Values.proxy.gatekeeper.resources.limits.cpu | default null }}
+            memory: {{ .app.harness.proxy.gatekeeper.resources.limits.memory | default .root.Values.proxy.gatekeeper.resources.limits.memory | default "64Mi" }}
       volumes:
       - name: "{{ .subdomain  }}-gk-proxy-config"
         configMap:

@@ -143,4 +143,11 @@ harness:
       # -- Default gatekeeper image
       image: "quay.io/gogatekeeper/gatekeeper:2.14.3"
       # -- Default number of gatekeeper replicas
-      replicas: 5
+      replicas: 1
+      resources:
+        requests:
+          cpu: 
+          memory: "32Mi"
+        limits:
+          cpu:
+          memory: "64Mi"
