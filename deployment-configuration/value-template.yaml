@@ -146,8 +146,6 @@ harness:
       replicas: 1
       resources:
         requests:
-          cpu: 
           memory: "32Mi"
         limits:
-          cpu:
           memory: "64Mi"

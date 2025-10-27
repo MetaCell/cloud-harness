@@ -83,8 +83,6 @@ proxy:
     replicas: 1
     resources:
       requests:
-        cpu: 
-        memory: "64Mi"
+        memory: "32Mi"
       limits:
-        cpu:
-        memory: "128Mi"
+        memory: "64Mi"
