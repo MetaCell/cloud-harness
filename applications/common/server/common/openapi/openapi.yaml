@@ -57,13 +57,16 @@ paths:
           description: Sentry not configured for the given application
         "404":
           content:
+            application/json:
+              schema:
+                type: object
             application/problem+json:
               schema:
                 type: object
             text/html:
               schema:
                 type: string
-          description: Sentry not configured for the given application
+          description: Application not found
       summary: Gets the Sentry DSN for a given application
       tags:
       - Sentry
