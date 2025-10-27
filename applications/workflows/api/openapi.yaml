@@ -79,7 +79,7 @@ paths:
         parameters:
             - examples:
                   e1:
-                      value: '"my-operation"'
+                      value: my-operation
                   e2:
                       value: my-operation-122a
               name: name
@@ -103,8 +103,7 @@ paths:
                   in: query
                 - examples:
                       example1:
-                          value: >-
-                              "eyJ2IjoibWV0YS5rOHMuaW8vdjEiLCJydiI6NDUzMDMzOCwic3RhcnQiOiJoZWxsby13b3JsZC05YnE2ZFx1MDAwMCJ8"
+                          value: eyJ2IjoibWV0YS5rOHMuaW8vdjEiLCJydiI6NDUzMDMzOCwic3RhcnQiOiJoZWxsby13b3JsZC05YnE2ZFx1MDAwMCJ8
                   name: previous_search_token
                   description: continue previous search (pagination chunks)
                   schema:

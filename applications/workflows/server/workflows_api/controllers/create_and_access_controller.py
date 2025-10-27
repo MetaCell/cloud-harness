@@ -90,3 +90,6 @@ def log_operation(name):  # noqa: E501
         return workflow_service.log_operation(name)
     except OperationNotFound as e:
         return (f'{name} not found', 404)
+    except OperationException as e:
+        log.error(f'Unhandled remote exception while retrieving workflow logs for {name}', exc_info=e)
+        return f'Unexpected error', e.status
