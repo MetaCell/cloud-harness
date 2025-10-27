@@ -1,6 +1,7 @@
 import connexion
 import six
 import flask
+import kubernetes.client.rest
 
 from cloudharness.service.pvc import create_persistent_volume_claim, get_persistent_volume_claim
 
@@ -44,8 +45,18 @@ def pvc_post():  # noqa: E501
     """
     if connexion.request.is_json:
         persistent_volume_claim_create = PersistentVolumeClaimCreate.from_dict(connexion.request.get_json())  # noqa: E501
-        create_persistent_volume_claim(
-            name=persistent_volume_claim_create.name,
-            size=persistent_volume_claim_create.size,
-            logger=flask.current_app.logger)
-    return 'Saved!'
+        try:
+            create_persistent_volume_claim(
+                name=persistent_volume_claim_create.name,
+                size=persistent_volume_claim_create.size,
+                logger=flask.current_app.logger)
+        except kubernetes.client.rest.ApiException as e:
+            # Kubernetes returns 409 Conflict when resource already exists
+            if e.status == 409:
+                return {'description': 'The Persistent Volume Claim already exists.'}, 400
+            flask.current_app.logger.error(f"Error creating PVC: {e}")
+            return {'description': f'Failed to create Persistent Volume Claim: {e.reason}'}, 500
+        except Exception as e:
+            flask.current_app.logger.error(f"Error creating PVC: {e}")
+            return {'description': f'Failed to create Persistent Volume Claim: {str(e)}'}, 500
+    return 'Saved!', 201

@@ -32,6 +32,10 @@ paths:
           description: Save successful.
         "400":
           description: The Persistent Volume Claim already exists.
+        "401":
+          description: Unauthorized - No authorization token provided.
+        "500":
+          description: Internal server error.
       security:
       - bearerAuth: []
       summary: Create a Persistent Volume Claim in Kubernetes
@@ -57,6 +61,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/PersistentVolumeClaim'
           description: The Persistent Volume Claim.
+        "401":
+          description: Unauthorized - No authorization token provided.
         "404":
           description: The Persistent Volume Claim was not found.
       security:
