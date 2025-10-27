@@ -4,6 +4,7 @@ unexpected-methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 [checks]
 negative_data_rejection.enabled = false
 
-# Set previous_search_token to empty to avoid invalid token generation
-[parameters.query]
-previous_search_token = ""
+
+[[operations]]
+include-name = "GET /operations"
+parameters = { previous_search_token = "" }
