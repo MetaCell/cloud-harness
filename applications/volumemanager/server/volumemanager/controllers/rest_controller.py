@@ -2,6 +2,7 @@ import connexion
 import six
 import flask
 import re
+from kubernetes.client.rest import ApiException
 
 from cloudharness.service.pvc import create_persistent_volume_claim, get_persistent_volume_claim
 
@@ -25,13 +26,18 @@ def pvc_name_get(name):  # noqa: E501
         return f"Persistent Volume Claim with name {name} not found.", 404
 
     # Extract access mode safely
-    access_mode = pvc.status.access_modes[0] if pvc.status.access_modes else ''
+    access_mode = pvc.status.access_modes[0] if pvc.status and pvc.status.access_modes else ''
+    
+    # Extract size safely
+    size = ''
+    if pvc.status and pvc.status.capacity:
+        size = pvc.status.capacity.get('storage', '')
     
     pvc_response = PersistentVolumeClaim(
         name=pvc.metadata.name,
         namespace=pvc.metadata.namespace,
         accessmode=access_mode,
-        size=pvc.status.capacity.get('storage', '')
+        size=size
     )
     return pvc_response
 
@@ -68,6 +74,12 @@ def pvc_post():  # noqa: E501
                 name=persistent_volume_claim_create.name,
                 size=persistent_volume_claim_create.size,
                 logger=flask.current_app.logger)
+        except ApiException as e:
+            flask.current_app.logger.error(f"Kubernetes API error creating PVC: {e}")
+            # Return 400 for client errors (bad request to k8s), 500 for server errors
+            if e.status >= 400 and e.status < 500:
+                return {'description': f'Invalid PVC configuration: {e.reason}'}, 400
+            return {'description': f'Failed to create Persistent Volume Claim: {e.reason}'}, 500
         except Exception as e:
             flask.current_app.logger.error(f"Error creating PVC: {e}")
             return {'description': f'Failed to create Persistent Volume Claim: {str(e)}'}, 500
