@@ -5,8 +5,7 @@ unexpected-methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 [phases.negative]
 enabled = false
 
-# Set previous_search_token to empty/null to avoid invalid token generation
-# Since this is an optional parameter used for pagination, not providing it is valid
-[[parameters.query]]
-name = "previous_search_token"
-value = null
+# Set previous_search_token to empty to avoid invalid token generation
+# Since this is an optional parameter used for pagination, omitting it is valid
+[parameters]
+previous_search_token = null
