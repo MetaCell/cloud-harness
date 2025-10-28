@@ -82,8 +82,6 @@ harness:
         - "--exclude-operation-id=submit_sync"
         - "--exclude-operation-id=submit_sync_with_results"
         - "--exclude-operation-id=error"
-        - "--exclude-operation-id=valid_token"
-        - "--exclude-operation-id=valid_cookie"
         - "--suppress-health-check=too_slow"
         - "--suppress-health-check=filter_too_much"
         - "--request-timeout=180000"

@@ -1,2 +1,12 @@
 [phases.coverage]
 unexpected-methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+
+[[operations]]
+include-operation-id = "valid_token"
+[operations.checks]
+negative_data_rejection.enabled = false
+
+[[operations]]
+include-operation-id = "valid_cookie"
+[operations.checks]
+negative_data_rejection.enabled = false
