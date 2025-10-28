@@ -450,13 +450,21 @@ def codefresh_template_spec(template_path, **kwargs):
 
 
 def api_tests_commands(app_config: ApplicationHarnessConfig, run_custom_tests, api_url):
+    """Return commands to execute API tests for Codefresh pipeline.
+
+    Harness-test is now the unified entrypoint; it internally builds schemathesis command with headers.
+    We invoke harness-test with -a flag targeting only API tests & include specific app.
+    Custom pytest tests run separately inside the same container.
+    """
     api_config: ApiTestsConfig = app_config.test.api
     commands = []
+    app_name = app_config.name
     if api_config.autotest:
-        commands.append(" ".join(get_schemathesis_command(
-            get_api_filename(""), app_config, api_url)))
+        # harness-test requires values.yaml generated & domain; Codefresh sets environment accordingly.
+        # We limit to the specific app using -i and run only api tests with -a
+        commands.append(f"harness-test . -i {app_name} -a")
     if run_custom_tests:
-        commands.append(f"pytest -v test/api")
+        commands.append("pytest -v test/api")
     return commands
 
 

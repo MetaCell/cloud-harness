@@ -69,7 +69,7 @@ def run_api_tests(root_paths, helm_values: HarnessMainConfig, base_domain, inclu
 
             if api_config.autotest:
                 logging.info("Running auto api tests")
-                cmd = get_schemathesis_command(api_filename, app_config, app_domain)
+                cmd = get_schemathesis_command(api_filename, app_config, app_domain, app_env)
                 logging.info("Running: %s", " ".join(cmd))
                 result = subprocess.run(cmd,
                                         env=app_env, cwd=app_dir)

@@ -4,8 +4,6 @@ from urllib.parse import urlparse
 import schemathesis as st
 from schemathesis.hooks import HookContext
 
-from cloudharness.auth import get_token
-
 
 if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
     app_schema = os.environ.get("APP_SCHEMA_FILE", None)
@@ -45,31 +43,7 @@ if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
         if not schema:
             raise Exception("Cannot setup API tests: No valid schema found. Check your deployment and configuration.")
 
-    if "USERNAME" in os.environ and "PASSWORD" in os.environ:
-        logging.info("Setting token from username and password")
-
-        @st.auth()
-        class TokenAuth:
-            def get(self, case, ctx):
-                username = os.environ["USERNAME"]
-                password = os.environ["PASSWORD"]
-
-                return get_token(username, password)
-
-            def set(self, case, data, context):
-                case.headers = case.headers or {}
-                case.headers["Authorization"] = f"Bearer {data}"
-                case.headers["Cookie"] = f"kc-access={data}"
-    else:
-        @st.auth()
-        class TokenAuth:
-            def get(self, case, ctx):
-                return ""
-
-            def set(self, case, data, context):
-                case.headers = case.headers or {}
-                case.headers["Authorization"] = f"Bearer {data}"
-                case.headers["Cookie"] = f"kc-access={data}"
+    # Authentication headers are now passed directly via CLI flags; no auth hook required.
 
     UNSAFE_VALUES = ("%", )
 
