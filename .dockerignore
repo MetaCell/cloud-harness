@@ -5,7 +5,6 @@ docs
 /infrastructure
 /blueprint
 test
-/tools/deployment-cli-tools
 .github
 .git
 .vscode
