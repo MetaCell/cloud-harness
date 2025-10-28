@@ -13,7 +13,7 @@ from cloudharness_utils.constants import *
 from .configurationgenerator import KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES
 from .utils import check_image_exists_in_registry, clean_image_name, find_dockerfiles_paths, get_app_relative_to_base_path, guess_build_dependencies_from_dockerfile, \
     get_image_name, get_template, dict_merge, app_name_from_path, clean_path
-from cloudharness_utils.testing.api import get_api_filename, get_schemathesis_command, get_urls_from_api_file
+from cloudharness_utils.testing.api import get_api_filename, get_urls_from_api_file
 
 logging.getLogger().setLevel(logging.INFO)
 

@@ -23,12 +23,7 @@ def get_schemathesis_command(api_filename, app_config: ApplicationHarnessConfig,
 
 
 def _get_auth_headers(app_env: dict):
-    """Return schemathesis CLI flags for auth.
-
-    Only support retrieving a bearer token via USERNAME/PASSWORD and setting
-    Authorization & Cookie headers as previously implemented in hooks.
-    If token retrieval fails, no auth headers are added (mirrors prior silent failure behavior).
-    """
+    """Return schemathesis CLI flags for auth."""
     if not app_env:
         return []
     username = app_env.get("USERNAME")

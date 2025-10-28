@@ -43,8 +43,6 @@ if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
         if not schema:
             raise Exception("Cannot setup API tests: No valid schema found. Check your deployment and configuration.")
 
-    # Authentication headers are now passed directly via CLI flags; no auth hook required.
-
     UNSAFE_VALUES = ("%", )
 
     @st.hook

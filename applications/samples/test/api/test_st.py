@@ -3,7 +3,8 @@ from pprint import pprint
 import schemathesis as st
 from schemathesis.specs.openapi.checks import response_schema_conformance
 
-from cloudharness_test import apitest_init  # include to perform default authorization
+from cloudharness_test import apitest_init  # include to register default hooks
+from cloudharness_test import apitest_auth_hooks  # include to register authentication hooks
 
 app_url = os.environ.get("APP_URL", "http://samples.ch.local/api")
 
