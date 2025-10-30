@@ -2,6 +2,8 @@ ARG CLOUDHARNESS_BASE
 
 FROM $CLOUDHARNESS_BASE
 
+ENV CH_VALUES_PATH=/codefresh/volume/cloud-harness
+
 # Install cloudharness-utils first (required by other packages)
 COPY libraries/cloudharness-utils/requirements.txt /libraries/cloudharness-utils/requirements.txt
 RUN pip install -r /libraries/cloudharness-utils/requirements.txt --no-cache-dir
