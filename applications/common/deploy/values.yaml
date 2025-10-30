@@ -5,6 +5,9 @@ harness:
     auto: true
     port: 8080
     name: common
+  proxy:
+    gatekeeper:
+      replicas: 1
   deployment:
     auto: true
     name: common

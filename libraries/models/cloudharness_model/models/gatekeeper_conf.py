@@ -25,20 +25,15 @@ from cloudharness_model.base_model import CloudHarnessBaseModel
 from pydantic import BaseModel, Field, field_validator, StrictStr, StrictBool, StrictInt, StrictFloat
 from typing import ClassVar, List, Dict, Any, Union, Optional, Annotated
 import importlib
-from cloudharness_model.models.gatekeeper_conf import GatekeeperConf
-from cloudharness_model.models.proxy_payload_conf import ProxyPayloadConf
-from cloudharness_model.models.proxy_timeout_conf import ProxyTimeoutConf
 
-class ProxyConf(CloudHarnessBaseModel):
+class GatekeeperConf(CloudHarnessBaseModel):
     """
     
     """ # noqa: E501
-    forwarded_headers: Optional[StrictBool] = Field(default=None, alias="forwardedHeaders")
-    payload: Optional[ProxyPayloadConf] = None
-    timeout: Optional[ProxyTimeoutConf] = None
-    gatekeeper: Optional[GatekeeperConf] = None
+    image: Optional[StrictStr] = None
+    replicas: Optional[StrictInt] = None
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["forwardedHeaders", "payload", "timeout", "gatekeeper"]
+    __properties: ClassVar[List[str]] = ["image", "replicas"]
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the dictionary representation of the model using alias.
@@ -60,15 +55,6 @@ class ProxyConf(CloudHarnessBaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of payload
-        if self.payload:
-            _dict['payload'] = self.payload.to_dict()
-        # override the default output from pydantic by calling `to_dict()` of timeout
-        if self.timeout:
-            _dict['timeout'] = self.timeout.to_dict()
-        # override the default output from pydantic by calling `to_dict()` of gatekeeper
-        if self.gatekeeper:
-            _dict['gatekeeper'] = self.gatekeeper.to_dict()
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:
             for _key, _value in self.additional_properties.items():
@@ -78,7 +64,7 @@ class ProxyConf(CloudHarnessBaseModel):
 
     @classmethod
     def from_dict(cls, obj: Optional[Dict[str, Any]]) -> Optional[Self]:
-        """Create an instance of ProxyConf from a dict"""
+        """Create an instance of GatekeeperConf from a dict"""
         if obj is None:
             return None
 
@@ -86,10 +72,8 @@ class ProxyConf(CloudHarnessBaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "forwardedHeaders": obj.get("forwardedHeaders"),
-            "payload": ProxyPayloadConf.from_dict(obj["payload"]) if obj.get("payload") is not None else None,
-            "timeout": ProxyTimeoutConf.from_dict(obj["timeout"]) if obj.get("timeout") is not None else None,
-            "gatekeeper": GatekeeperConf.from_dict(obj["gatekeeper"]) if obj.get("gatekeeper") is not None else None
+            "image": obj.get("image"),
+            "replicas": obj.get("replicas")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

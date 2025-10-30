@@ -87,6 +87,7 @@ Class | Method | HTTP request | Description
  - [DockerfileConfig](docs/DockerfileConfig.md)
  - [E2ETestsConfig](docs/E2ETestsConfig.md)
  - [FileResourcesConfig](docs/FileResourcesConfig.md)
+ - [GatekeeperConf](docs/GatekeeperConf.md)
  - [GitDependencyConfig](docs/GitDependencyConfig.md)
  - [HarnessMainConfig](docs/HarnessMainConfig.md)
  - [IngressConfig](docs/IngressConfig.md)
