@@ -13,12 +13,13 @@ class TokenAuth:
     Requires USERNAME and PASSWORD environment variables to be set.
     """
 
-    def get(self, context):
+    def get(self, case, ctx):
         """
         Retrieve the authentication token using username and password from environment.
 
         Args:
-            context: Schemathesis hook context
+            case: Schemathesis test case
+            ctx: Schemathesis hook context
 
         Returns:
             str: The bearer token
