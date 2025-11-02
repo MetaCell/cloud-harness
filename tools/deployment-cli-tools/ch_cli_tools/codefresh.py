@@ -460,7 +460,7 @@ def api_tests_commands(app_config: ApplicationHarnessConfig, run_custom_tests, a
     commands = []
     app_name = app_config.name
     if api_config.autotest:
-        commands.append(f"harness-test . -c $CH_VALUES_PATH -i {app_name} -a")
+        commands.append(f"harness-test . -c $CH_VALUES_PATH/deployment/helm -i {app_name} -a")
     if run_custom_tests:
         commands.append("pytest -v test/api")
     return commands

@@ -243,7 +243,7 @@ def test_create_codefresh_configuration_tests():
         # First command should run harness-test with api flag, specific app, and helm chart path
         harness_test_cmd = test_step["commands"][0]
         assert "harness-test" in harness_test_cmd, "harness-test should be used for api tests"
-        assert "-c $CH_VALUES_PATH" in harness_test_cmd, "Helm chart path should be specified with -c flag"
+        assert "-c $CH_VALUES_PATH/deployment/helm" in harness_test_cmd, "Helm chart path should be specified with -c flag"
         assert "-i samples" in harness_test_cmd, "App name should be included with -i flag"
         assert "-a" in harness_test_cmd, "API tests should be run with -a flag"
         # Second command should run custom pytest tests
