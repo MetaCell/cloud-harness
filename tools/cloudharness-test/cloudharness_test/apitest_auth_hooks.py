@@ -4,7 +4,7 @@ import schemathesis as st
 from cloudharness.auth import get_token
 
 
-@st.auth.register()
+@st.auth()
 class TokenAuth:
     """
     Schemathesis authentication hook that retrieves a bearer token
