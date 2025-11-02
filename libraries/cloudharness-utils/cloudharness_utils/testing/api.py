@@ -4,7 +4,6 @@ import logging
 from ruamel.yaml import YAML
 
 from cloudharness_model.models import ApiTestsConfig, ApplicationHarnessConfig
-from cloudharness.auth import get_token
 
 yaml = YAML(typ='safe')
 
@@ -23,6 +22,8 @@ def get_schemathesis_command(api_filename, app_config: ApplicationHarnessConfig,
 
 
 def _get_auth_headers(app_env: dict):
+    from cloudharness.auth import get_token
+
     """Return schemathesis CLI flags for auth."""
     if not app_env:
         return []
