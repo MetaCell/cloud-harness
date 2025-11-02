@@ -238,14 +238,17 @@ def test_create_codefresh_configuration_tests():
 
         assert any("allvalues.yaml" in v for v in test_step['volumes'])
 
-        assert len(test_step["commands"]) == 2, "Both default and custom api tests should be run"
+        assert len(test_step["commands"]) == 3, "Both default and custom api tests should be run"
 
-        st_cmd = test_step["commands"][0]
-        assert any("SCHEMATHESIS_HOOKS=cloudharness_test.apitest_init" in env for env in test_step['environment']), "SCHEMATHESIS_HOOKS hook must be specified in environment"
-        assert "api/openapi.yaml" in st_cmd, "Openapi file must be passed to the schemathesis command"
-
-        assert "-c all" in st_cmd, "Default check loaded is `all` on schemathesis command"
-        assert "--exclude-deprecated" in st_cmd, "Custom parameters are loaded from values.yaml"
+        # First command should change to the values path
+        assert test_step["commands"][0] == "cd $CH_VALUES_PATH", "First command should change to values directory"
+        # Second command should run harness-test with api flag and specific app
+        harness_test_cmd = test_step["commands"][1]
+        assert "harness-test" in harness_test_cmd, "harness-test should be used for api tests"
+        assert "-i samples" in harness_test_cmd, "App name should be included with -i flag"
+        assert "-a" in harness_test_cmd, "API tests should be run with -a flag"
+        # Third command should run custom pytest tests
+        assert "pytest -v test/api" in test_step["commands"][2], "Custom pytest tests should be run"
 
         test_step = api_steps["common_api_test"]
         for volume in test_step["volumes"]:
