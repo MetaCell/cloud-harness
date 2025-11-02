@@ -238,17 +238,16 @@ def test_create_codefresh_configuration_tests():
 
         assert any("allvalues.yaml" in v for v in test_step['volumes'])
 
-        assert len(test_step["commands"]) == 3, "Both default and custom api tests should be run"
+        assert len(test_step["commands"]) == 2, "Both default and custom api tests should be run"
 
-        # First command should change to the values path
-        assert test_step["commands"][0] == "cd $CH_VALUES_PATH", "First command should change to values directory"
-        # Second command should run harness-test with api flag and specific app
-        harness_test_cmd = test_step["commands"][1]
+        # First command should run harness-test with api flag, specific app, and helm chart path
+        harness_test_cmd = test_step["commands"][0]
         assert "harness-test" in harness_test_cmd, "harness-test should be used for api tests"
+        assert "-c $CH_VALUES_PATH" in harness_test_cmd, "Helm chart path should be specified with -c flag"
         assert "-i samples" in harness_test_cmd, "App name should be included with -i flag"
         assert "-a" in harness_test_cmd, "API tests should be run with -a flag"
-        # Third command should run custom pytest tests
-        assert "pytest -v test/api" in test_step["commands"][2], "Custom pytest tests should be run"
+        # Second command should run custom pytest tests
+        assert "pytest -v test/api" in test_step["commands"][1], "Custom pytest tests should be run"
 
         test_step = api_steps["common_api_test"]
         for volume in test_step["volumes"]:

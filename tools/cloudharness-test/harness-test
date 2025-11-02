@@ -35,7 +35,7 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--include', dest='include', action="append", default=[],
                         help='Specify the applications to include and exclude the rest. '
                              'Omit to test all application included by harness-deployment.')
-    parser.add_argument('-c', '--helm-chart', dest='helm_chart_path', action="store", default=HELM_DIR,
+    parser.add_argument('-c', '--helm-chart', dest='helm_chart_path', action="store", default=None,
                         help=f'Specify helm chart base path (default `{HELM_DIR}`')
     parser.add_argument('-e', '--e2e', dest='run_e2e', action="store_const", default=None, const=True,
                         help=f'Run only end to end tests (default: run both api and end to end tests')
@@ -52,7 +52,8 @@ if __name__ == "__main__":
         print('There are unknown args. Make sure to call the script with the accepted args. Try --help')
         print(f'unknown: {unknown}')
     else:
-        helm_values_path = os.path.join(HELM_DIR, 'values.yaml')
+        helm_chart_dir = args.helm_chart_path or HELM_DIR
+        helm_values_path = os.path.join(helm_chart_dir, 'values.yaml')
         if not os.path.exists(helm_values_path):
             logging.error(
                 "Could not find helm installation. Have you run harness-deployment already?")

@@ -460,10 +460,7 @@ def api_tests_commands(app_config: ApplicationHarnessConfig, run_custom_tests, a
     commands = []
     app_name = app_config.name
     if api_config.autotest:
-        # harness-test requires values.yaml generated & domain; Codefresh sets environment accordingly.
-        # We limit to the specific app using -i and run only api tests with -a
-        commands.append(f"cd $CH_VALUES_PATH")
-        commands.append(f"harness-test . -i {app_name} -a")
+        commands.append(f"harness-test . -c $CH_VALUES_PATH -i {app_name} -a")
     if run_custom_tests:
         commands.append("pytest -v test/api")
     return commands
