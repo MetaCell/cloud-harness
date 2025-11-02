@@ -14,7 +14,7 @@ schema = st.openapi.from_url(app_url + "/openapi.json")
 @schema.include(path="/error", method="GET").parametrize()
 def test_api(case):
     response = case.call()
-    
+
     if case.method == "GET":
         # Assert that this endpoint returns a 500 error as expected
         assert response.status_code == 500, f"Expected 500 error, got {response.status_code}. This api errors on purpose."

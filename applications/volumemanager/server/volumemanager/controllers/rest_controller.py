@@ -27,12 +27,12 @@ def pvc_name_get(name):  # noqa: E501
 
     # Extract access mode safely
     access_mode = pvc.status.access_modes[0] if pvc.status and pvc.status.access_modes else ''
-    
+
     # Extract size safely
     size = ''
     if pvc.status and pvc.status.capacity:
         size = pvc.status.capacity.get('storage', '')
-    
+
     pvc_response = PersistentVolumeClaim(
         name=pvc.metadata.name,
         namespace=pvc.metadata.namespace,
@@ -54,7 +54,7 @@ def pvc_post():  # noqa: E501
     """
     if connexion.request.is_json:
         persistent_volume_claim_create = PersistentVolumeClaimCreate.from_dict(connexion.request.get_json())  # noqa: E501
-        
+
         # Validate required fields
         if not persistent_volume_claim_create.name or not persistent_volume_claim_create.size:
             return {'description': 'Name and size are required and cannot be empty.'}, 400
