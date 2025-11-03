@@ -17,8 +17,6 @@ yaml = YAML(typ='safe')
 HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
 ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, '/')
 
-HELM_DIR = os.path.join('./deployment/helm')
-
 if __name__ == "__main__":
     import argparse
 
@@ -36,7 +34,7 @@ if __name__ == "__main__":
                         help='Specify the applications to include and exclude the rest. '
                              'Omit to test all application included by harness-deployment.')
     parser.add_argument('-c', '--helm-chart', dest='helm_chart_path', action="store", default=None,
-                        help=f'Specify helm chart base path (default `{HELM_DIR}`')
+                        help='Specify helm chart base path (default: deployment/helm relative to first path)')
     parser.add_argument('-e', '--e2e', dest='run_e2e', action="store_const", default=None, const=True,
                         help=f'Run only end to end tests (default: run both api and end to end tests')
     parser.add_argument('-a', '--api', dest='run_api', action="store_const", default=None, const=True,
@@ -47,6 +45,7 @@ if __name__ == "__main__":
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
     root_paths = [os.path.join(os.getcwd(), path) for path in args.paths]
+    HELM_DIR = os.path.join(root_paths[0], 'deployment/helm')
 
     if unknown:
         print('There are unknown args. Make sure to call the script with the accepted args. Try --help')
