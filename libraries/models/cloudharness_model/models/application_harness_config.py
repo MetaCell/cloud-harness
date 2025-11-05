@@ -50,7 +50,7 @@ class ApplicationHarnessConfig(CloudHarnessBaseModel):
     aliases: Optional[List[StrictStr]] = Field(default=None, description="If specified, an ingress will be created at [alias].[.Values.domain] for each alias")
     domain: Optional[StrictStr] = Field(default=None, description="If specified, an ingress will be created at [domain]")
     dependencies: Optional[ApplicationDependenciesConfig] = None
-    secured: Optional[StrictBool] = Field(default=None, description="When true, the application is shielded with a getekeeper")
+    secured: Optional[Any] = Field(default=None, description="When true, the application is shielded with a getekeeper")
     uri_role_mapping: Optional[List[UriRoleMappingConfig]] = Field(default=None, description="Map uri/roles to secure with the Gatekeeper (if `secured: true`)")
     secrets: Optional[Dict[str, Any]] = None
     use_services: Optional[List[NamedObject]] = Field(default=None, description="Specify which services this application uses in the frontend to create proxy ingresses. e.g.  ``` - name: samples ```")
@@ -171,6 +171,11 @@ class ApplicationHarnessConfig(CloudHarnessBaseModel):
         if self.additional_properties is not None:
             for _key, _value in self.additional_properties.items():
                 _dict[_key] = _value
+
+        # set to None if secured (nullable) is None
+        # and model_fields_set contains the field
+        if self.secured is None and "secured" in self.model_fields_set:
+            _dict['secured'] = None
 
         return _dict
 
