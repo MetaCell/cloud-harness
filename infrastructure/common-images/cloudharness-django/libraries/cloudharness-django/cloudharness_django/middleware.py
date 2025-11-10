@@ -65,7 +65,7 @@ class BearerTokenMiddleware:
 
         kc_user = get_current_user_id()
         if kc_user:
-            if not user or user.is_anonymous or user.member.kc_id != kc_user.id:
+            if not user or user.is_anonymous or getattr(user, "member", None) is None or user.member.kc_id != kc_user.id:
                 user = _get_user(kc_user)
                 if user:
                     # auto login, set the user
