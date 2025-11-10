@@ -10,7 +10,7 @@ from cloudharness.auth.exceptions import InvalidToken
 from cloudharness_django.services import get_user_service
 from .models import Member
 from cloudharness import log
-from cloudharness.auth.keycloak import get_current_user_id, User as KcUser
+from cloudharness.auth.keycloak import AuthClient, User as KcUser, get_authentication_token
 from psycopg2.errors import UniqueViolation
 
 
@@ -109,11 +109,21 @@ class BearerTokenMiddleware:
     @transaction.atomic
     def __call__(self, request):
         user = getattr(request, "user", None)
-
-        kc_user = get_current_user_id()
+        authentication_token = get_authentication_token()
+        if not authentication_token or authentication_token == 'Bearer undefined':
+            return self.get_response(request)
+        try:
+            kc_user = AuthClient.decode_token(authentication_token.split(' ')[-1])
+            kc_user_id = kc_user.get('sub')
+        except InvalidToken:
+            logout(request)
+            response = self.get_response(request)
+            response.delete_cookie('kc-access')
+            return response
+        
         if kc_user:
-            if not user or user.is_anonymous or getattr(user, "member", None) is None or user.member.kc_id != kc_user.id:
-                user = _get_user(kc_user)
+            if not user or user.is_anonymous or getattr(user, "member", None) is None or user.member.kc_id != kc_user_id:
+                user = _get_user(kc_user_id)
                 if user:
                     # CRITICAL SAFETY CHECK: Never assign user without Member
                     # This is the final defense to ensure request.user always has a Member
@@ -137,8 +147,8 @@ class BearerTokenMiddleware:
 class BearerTokenAuthentication:
     # for django rest framework usage
     def authenticate(self, request):
-        kc_user = get_current_user_id()
-        if not kc_user:
+        authentication_token = get_authentication_token()
+        if not authentication_token or authentication_token == 'Bearer undefined':
             return None
         user: User = getattr(request._request, 'user', None)
         if user and user.is_authenticated:
@@ -150,8 +160,13 @@ class BearerTokenAuthentication:
                 log.error("Authenticated user %s has no Member! Falling back to _get_user.", user.id)
                 # Fall through to _get_user which will handle this safely
         
-        # Get or create user with guaranteed Member
-        user = _get_user(kc_user)
+        try:
+            kc_user = AuthClient.decode_token(authentication_token.split(' ')[-1])
+            kc_user_id = kc_user.get('sub')
+        except InvalidToken:
+            logout(request)
+            return self.get_response(request)
+        user = _get_user(kc_user_id)
         if user:
             # FINAL SAFETY CHECK: Ensure Member exists before returning
             try:
