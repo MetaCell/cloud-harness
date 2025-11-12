@@ -261,7 +261,7 @@ def git_clone_hook(conf: GitDependencyConfig, context_path: str):
             join(os.path.dirname(os.path.dirname(HERE)), 'clone.sh'),
             conf.branch_tag,
             conf.url,
-            join(context_path, "dependencies", conf.path or os.path.basename(conf.url).split('.')[0])
+            join(context_path, "dependencies", (conf.path + "/" if conf.path else "") + os.path.basename(conf.url).split('.')[0])
         ]
     }
 
