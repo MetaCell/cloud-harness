@@ -52,7 +52,6 @@ def clone_step_spec(conf: GitDependencyConfig, context_path: str):
         "type": "git-clone",
         "repo": conf.url,
         "revision": conf.branch_tag,
-        "depth": 1,
         "working_directory": join(context_path, "dependencies", conf.path or ""),
         "git": get_main_domain(conf.url)  # Cannot really tell what's the git config name, usually the name of the repo
     }
