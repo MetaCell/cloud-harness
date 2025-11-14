@@ -189,7 +189,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
             def identify_unicorn_based_main(candidates):
                 import re
-                gunicorn_pattern = re.compile(r"gunicorn")
+                gunicorn_pattern = re.compile(r"CLOUDHARNESS_FLASK|gunicorn|CLOUDHARNESS_DJANGO", re.IGNORECASE)
                 # sort candidates, shortest path first
                 for candidate in sorted(candidates, key=lambda x: len(x.split("/"))):
                     dockerfile_path = f"{candidate}/.."
