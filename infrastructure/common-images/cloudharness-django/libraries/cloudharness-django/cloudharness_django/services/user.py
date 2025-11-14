@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User, Group
+from django.db import transaction
 
 from cloudharness_django.models import Team, Member
 from cloudharness_django.services.auth import AuthService, AuthorizationLevel
@@ -96,28 +97,47 @@ class UserService:
         for kc_group in kc_groups:
             self.sync_kc_group(kc_group)
 
+    @transaction.atomic
     def sync_kc_user(self, kc_user: ch_models.User, is_superuser=False, delete=False):
-        # sync the kc user with the django user using kc_id for reliable lookups
+        """
+        Sync the kc user with the django user using kc_id for reliable lookups.
+        ALWAYS creates both User and Member atomically - never returns a User without a Member.
+        """
         user = get_user_by_kc_id(kc_user.id)
 
         if user is None:
-            # User doesn't exist, create new one
+            # User doesn't exist, create new one WITH Member atomically
             username = kc_user.username or kc_user.email
             if not username:
                 raise ValueError(f"Keycloak user {kc_user.id} has no username or email")
 
-            user, _ = User.objects.get_or_create(username=username)
+            # Create user and member atomically
+            user, user_created = User.objects.get_or_create(username=username)
+            
+            # CRITICAL: Ensure Member exists before proceeding
             try:
                 member = Member.objects.get(user=user)
-                member.kc_id = kc_user.id
-                member.save()
+                # Member exists but might have wrong kc_id
+                if member.kc_id != kc_user.id:
+                    member.kc_id = kc_user.id
+                    member.save()
             except Member.DoesNotExist:
                 # Create the member relationship
                 Member.objects.create(kc_id=kc_user.id, user=user)
 
+        # Update user attributes
         user = self._map_kc_user(user, kc_user, is_superuser, delete)
         self.sync_kc_user_groups(kc_user)
         user.save()
+        
+        # FINAL SAFETY CHECK: Verify Member exists before returning
+        # This ensures we never return a user without a Member
+        try:
+            _ = user.member  # Access member to trigger DoesNotExist if missing
+        except:
+            # This should never happen, but if it does, create Member immediately
+            Member.objects.create(kc_id=kc_user.id, user=user)
+        
         return user
 
     def sync_kc_user_groups(self, kc_user: ch_models.User):
