@@ -1,4 +1,4 @@
-import json as js
+import json
 from cloudharness_model.encoder import CloudHarnessJSONEncoder
 import logging
 import sys
@@ -16,7 +16,7 @@ def set_debug():
 # TODO log will write through a rest service
 
 
-json_dumps = js.dumps
+json_dumps = json.dumps
 
 
 def dumps(o, *args, **kwargs):
