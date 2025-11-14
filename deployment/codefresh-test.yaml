@@ -507,18 +507,6 @@ steps:
     commands:
     - echo $APP_NAME
     scale:
-      volumemanager_api_test:
-        title: volumemanager api test
-        volumes:
-        - '${{CF_REPO_NAME}}/applications/volumemanager:/home/test'
-        - '${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml'
-        environment:
-        - APP_URL=https://volumemanager.${{DOMAIN}}/api
-        - USERNAME=volumes@testuser.com
-        - PASSWORD=test
-        commands:
-        - st --pre-run cloudharness_test.apitest_init run api/openapi.yaml --base-url
-          https://volumemanager.${{DOMAIN}}/api -c all
       samples_api_test:
         title: samples api test
         volumes:
