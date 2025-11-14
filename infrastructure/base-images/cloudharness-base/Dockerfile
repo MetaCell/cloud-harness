@@ -3,6 +3,19 @@ FROM ${PARENT}
 
 RUN apt-get update && apt-get install -y nfs-common && rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update && apt-get purge -y 'imagemagick*' && rm -rf /var/lib/apt/lists/*
+
+# Build and install ImageMagick (7.1.2-8) from source (overwrite system, fix CVE-2025-57807)
+RUN IM_VERSION=7.1.2-8 && \
+    cd /tmp && \
+    wget -q https://github.com/ImageMagick/ImageMagick/archive/refs/tags/${IM_VERSION}.tar.gz -O ImageMagick-${IM_VERSION}.tar.gz && \
+    tar xzf ImageMagick-${IM_VERSION}.tar.gz && \
+    cd ImageMagick-${IM_VERSION} && \
+    ./configure --prefix=/usr --enable-shared --disable-static && \
+    make -j"$(nproc)" && make install && ldconfig && \
+    cd / && rm -rf /tmp/ImageMagick-* && \
+    which magick && magick -version | grep "${IM_VERSION}" || (echo "Incorrect ImageMagick version" && exit 1)
+
 RUN --mount=type=cache,target=/root/.cache python -m pip install --upgrade pip &&\
     pip install pytest  --prefer-binary
 
