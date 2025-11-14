@@ -1,6 +1,6 @@
-connexion[swagger-ui,flask,uvicorn]>=3.0.0,<4.0.0
+connexion[swagger-ui,flask,gunicorn]>=3.0.0,<4.0.0
 swagger-ui-bundle>=1.1.0
 python_dateutil >= 2.9.0
 setuptools >= 21.0.0
-uvicorn
+gunicorn
 

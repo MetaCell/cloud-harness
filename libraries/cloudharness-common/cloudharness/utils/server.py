@@ -18,6 +18,14 @@ class JSONEncoder(DefaultJSONProvider):
     include_nulls = False
 
     def default(self, o):
+        # Check if object has a to_dict method (preferred for OpenAPI models)
+        if hasattr(o, 'to_dict') and callable(getattr(o, 'to_dict')):
+            result = o.to_dict()
+            if not self.include_nulls:
+                # Filter out None values if include_nulls is False
+                result = {k: v for k, v in result.items() if v is not None}
+            return result
+        # Fallback to openapi_types handling for backwards compatibility
         if hasattr(o, 'openapi_types'):
             dikt = {}
             for attr, _ in six.iteritems(o.openapi_types):
@@ -28,6 +36,14 @@ class JSONEncoder(DefaultJSONProvider):
                 dikt[attr] = value
             return dikt
         return DefaultJSONProvider.default(self, o)
+    
+    def dumps(self, obj, **kwargs):
+        """Override dumps to ensure our default method is used
+        
+        Uses stdlib_json to avoid issues with cloudharness monkeypatch
+        """
+        kwargs.setdefault('default', self.default)
+        return json.dumps(obj, **kwargs)
 
 
 def init_webapp_routes(app: flask.Flask, www_path):

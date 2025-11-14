@@ -1,7 +1,6 @@
 import connexion
 import six
 
-from samples.models.valid import Valid  # noqa: E501
 from samples import util
 
 

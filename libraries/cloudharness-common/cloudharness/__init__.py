@@ -16,22 +16,6 @@ def set_debug():
 # TODO log will write through a rest service
 
 
-json_dumps = js.dumps
-
-
-def dumps(o, *args, **kwargs):
-    try:
-        if "cls" not in kwargs:
-            return json_dumps(o, cls=CloudHarnessJSONEncoder, *args, **kwargs)
-        return json_dumps(o, *args, **kwargs)
-    except:
-        logging.error(repr(o))
-        raise
-
-
-json = js
-json.dumps = dumps
-
 
 class NotCorrectlyInitialized(Exception):
     pass

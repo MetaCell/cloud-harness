@@ -22,7 +22,7 @@ def create_sample_resource(sample_resource=None):  # noqa: E501
         except:
             return "Payload is not of type SampleResource", 400
 
-    # Create a file inside the nfs
+    # Create a file inside the volume
     with open("/tmp/myvolume/myfile", "w") as f:
         print("test", file=f)
 

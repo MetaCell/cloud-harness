@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from volumemanager.models.base_model_ import Model
+from volumemanager.models.base_model import Model
 from volumemanager import util
 
 
@@ -48,7 +45,7 @@ class PersistentVolumeClaimCreate(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Gets the name of this PersistentVolumeClaimCreate.
 
         Unique name for the Persisten Volume Claim to create.  # noqa: E501
@@ -59,7 +56,7 @@ class PersistentVolumeClaimCreate(Model):
         return self._name
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str):
         """Sets the name of this PersistentVolumeClaimCreate.
 
         Unique name for the Persisten Volume Claim to create.  # noqa: E501
@@ -71,7 +68,7 @@ class PersistentVolumeClaimCreate(Model):
         self._name = name
 
     @property
-    def size(self):
+    def size(self) -> str:
         """Gets the size of this PersistentVolumeClaimCreate.
 
         The size of the Persistent Volume Claim to create.  # noqa: E501
@@ -82,7 +79,7 @@ class PersistentVolumeClaimCreate(Model):
         return self._size
 
     @size.setter
-    def size(self, size):
+    def size(self, size: str):
         """Sets the size of this PersistentVolumeClaimCreate.
 
         The size of the Persistent Volume Claim to create.  # noqa: E501
