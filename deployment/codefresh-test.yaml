@@ -594,7 +594,7 @@ steps:
   approval:
     type: pending-approval
     stage: qa
-    title: Approve anyway and delete deployment
+    title: Approve anyway
     description: The pipeline will fail after ${{WAIT_ON_FAIL}} minutes
     timeout:
       timeUnit: minutes

@@ -2,7 +2,6 @@
 
 from cloudharness.utils.server import init_flask, main
 from cloudharness import log
-from common.repository.db import open_db
 
 
 
