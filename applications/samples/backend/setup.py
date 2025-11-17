@@ -14,11 +14,11 @@ VERSION = "2.4.0"
 # http://pypi.python.org/pypi/setuptools
 
 REQUIRES = [
-    "connexion[swagger-ui]==2.14.2",
-    "Flask >= 2.2.5",
-    "python_dateutil>=2.6.0",
-    "pyjwt>=2.6.0",
-    "swagger-ui-bundle>=0.0.2",
+    "connexion[swagger-ui,flask,uvicorn]>=3.0.0,<4.0.0",
+    "Flask",
+    "python_dateutil",
+    "pyjwt",
+    "swagger-ui-bundle",
     "cloudharness",
 
 ]
