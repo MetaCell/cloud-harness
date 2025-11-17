@@ -4,4 +4,3 @@ python_dateutil>=2.9.0
 setuptools>=21.0.0
 uvicorn
 flask_sqlalchemy==3.0.2
-sqlalchemy<2.0.0
