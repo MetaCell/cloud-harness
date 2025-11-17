@@ -78,12 +78,10 @@ harness:
       checks:
         - all
       runParams:
-      - "--skip-deprecated-operations" 
-      - "--hypothesis-suppress-health-check=too_slow" 
-      - "--hypothesis-deadline=60000"
+      - "--exclude-deprecated"
+      - "--suppress-health-check=too_slow"
       - "--request-timeout=60000"
-      - "--hypothesis-max-examples=2"
-      - "--show-trace"
+      - "--max-examples=2"
 ```
 
 See [the model documentation](model/ApiTestsConfig.md) for more insights about test parameters.

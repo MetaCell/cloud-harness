@@ -13,7 +13,7 @@ from cloudharness_utils.constants import *
 from .configurationgenerator import KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES
 from .utils import check_image_exists_in_registry, clean_image_name, find_dockerfiles_paths, get_app_relative_to_base_path, guess_build_dependencies_from_dockerfile, \
     get_image_name, get_template, dict_merge, app_name_from_path, clean_path
-from cloudharness_utils.testing.api import get_api_filename, get_schemathesis_command, get_urls_from_api_file
+from cloudharness_utils.testing.api import get_api_filename, get_urls_from_api_file
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -450,13 +450,19 @@ def codefresh_template_spec(template_path, **kwargs):
 
 
 def api_tests_commands(app_config: ApplicationHarnessConfig, run_custom_tests, api_url):
+    """Return commands to execute API tests for Codefresh pipeline.
+
+    Harness-test is now the unified entrypoint; it internally builds schemathesis command with headers.
+    We invoke harness-test with -a flag targeting only API tests & include specific app.
+    Custom pytest tests run separately inside the same container.
+    """
     api_config: ApiTestsConfig = app_config.test.api
     commands = []
+    app_name = app_config.name
     if api_config.autotest:
-        commands.append(" ".join(get_schemathesis_command(
-            get_api_filename(""), app_config, api_url)))
+        commands.append(f"harness-test $CH_VALUES_PATH -i {app_name} -a")
     if run_custom_tests:
-        commands.append(f"pytest -v test/api")
+        commands.append("pytest -v test/api")
     return commands
 
 

@@ -28,10 +28,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersistentVolumeClaim'
+                type: string
+                example: "Saved!"
           description: Save successful.
         "400":
-          description: The Persistent Volume Claim already exists.
+          description: Bad request - invalid or missing required fields.
+        "401":
+          description: Unauthorized - No authorization token provided.
+        "500":
+          description: Internal server error.
       security:
       - bearerAuth: []
       summary: Create a Persistent Volume Claim in Kubernetes
@@ -49,6 +54,9 @@ paths:
         required: true
         schema:
           type: string
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          minLength: 1
+          maxLength: 253
         style: simple
       responses:
         "200":
@@ -57,6 +65,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/PersistentVolumeClaim'
           description: The Persistent Volume Claim.
+        "400":
+          description: Bad request - invalid path parameter or headers.
+        "401":
+          description: Unauthorized - No authorization token provided.
         "404":
           description: The Persistent Volume Claim was not found.
       security:
@@ -69,21 +81,29 @@ components:
   schemas:
     PersistentVolumeClaimCreate:
       example:
-        size: 2Gi (see also https://github.com/kubernetes/community/blob/master/contributors/design-proposals/scheduling/resources.md#resource-quantities)
+        size: 2Gi
         name: pvc-1
       properties:
         name:
           description: Unique name for the Persisten Volume Claim to create.
           example: pvc-1
           type: string
+          minLength: 1
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
         size:
           description: The size of the Persistent Volume Claim to create.
-          example: 2Gi (see also https://github.com/kubernetes/community/blob/master/contributors/design-proposals/scheduling/resources.md#resource-quantities)
+          example: 2Gi
           type: string
+          minLength: 1
+          pattern: '^[1-9][0-9]*(Ei|Pi|Ti|Gi|Mi|Ki|E|P|T|G|M|K)?$'
+      required:
+        - name
+        - size
       type: object
+      additionalProperties: false
     PersistentVolumeClaim:
       example:
-        size: 2Gi (see also https://github.com/kubernetes/community/blob/master/contributors/design-proposals/scheduling/resources.md#resource-quantities)
+        size: 2Gi
         name: pvc-1
         namespace: ch
         accessmode: ReadWriteMany
@@ -102,7 +122,7 @@ components:
           type: string
         size:
           description: The size of the Persistent Volume Claim.
-          example: 2Gi (see also https://github.com/kubernetes/community/blob/master/contributors/design-proposals/scheduling/resources.md#resource-quantities)
+          example: 2Gi
           type: string
       type: object
   securitySchemes:

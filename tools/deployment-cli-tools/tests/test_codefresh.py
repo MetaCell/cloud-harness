@@ -240,12 +240,14 @@ def test_create_codefresh_configuration_tests():
 
         assert len(test_step["commands"]) == 2, "Both default and custom api tests should be run"
 
-        st_cmd = test_step["commands"][0]
-        assert "--pre-run cloudharness_test.apitest_init" in st_cmd, "Prerun hook must be specified in schemathesis command"
-        assert "api/openapi.yaml" in st_cmd, "Openapi file must be passed to the schemathesis command"
-
-        assert "-c all" in st_cmd, "Default check loaded is `all` on schemathesis command"
-        assert "--hypothesis-deadline=" in st_cmd, "Custom parameters are loaded from values.yaml"
+        # First command should run harness-test with api flag, specific app, and helm chart path
+        harness_test_cmd = test_step["commands"][0]
+        assert "harness-test" in harness_test_cmd, "harness-test should be used for api tests"
+        assert "-c $CH_VALUES_PATH/deployment/helm" in harness_test_cmd, "Helm chart path should be specified with -c flag"
+        assert "-i samples" in harness_test_cmd, "App name should be included with -i flag"
+        assert "-a" in harness_test_cmd, "API tests should be run with -a flag"
+        # Second command should run custom pytest tests
+        assert "pytest -v test/api" in test_step["commands"][1], "Custom pytest tests should be run"
 
         test_step = api_steps["common_api_test"]
         for volume in test_step["volumes"]:

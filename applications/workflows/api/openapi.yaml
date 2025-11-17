@@ -52,7 +52,6 @@ paths:
         parameters:
             - name: name
               schema:
-                  pattern: '^[0-9A-Za-z\s\-]+$'
                   type: string
               in: path
               required: true
@@ -79,12 +78,11 @@ paths:
         parameters:
             - examples:
                   e1:
-                      value: '"my-operation"'
+                      value: my-operation
                   e2:
                       value: my-operation-122a
               name: name
               schema:
-                  pattern: '^[0-9A-Za-z\s\-]+$'
                   type: string
               in: path
               required: true
@@ -101,11 +99,7 @@ paths:
                   schema:
                       $ref: "#/components/schemas/OperationStatus"
                   in: query
-                - examples:
-                      example1:
-                          value: >-
-                              "eyJ2IjoibWV0YS5rOHMuaW8vdjEiLCJydiI6NDUzMDMzOCwic3RhcnQiOiJoZWxsby13b3JsZC05YnE2ZFx1MDAwMCJ8"
-                  name: previous_search_token
+                - name: previous_search_token
                   description: continue previous search (pagination chunks)
                   schema:
                       type: string

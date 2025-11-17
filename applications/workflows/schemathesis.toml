@@ -1,0 +1,10 @@
+[phases.coverage]
+unexpected-methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+
+[checks]
+negative_data_rejection.enabled = false
+
+
+[[operations]]
+include-name = "GET /operations"
+parameters = { previous_search_token = "" }

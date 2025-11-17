@@ -12,4 +12,6 @@ def info_from_bearerAuth(token):
     :return: Decoded token information or None if token is invalid
     :rtype: dict | None
     """
+    if token is None:
+        return None
     return {'uid': 'user_id'}

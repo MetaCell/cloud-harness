@@ -18,8 +18,14 @@ def get_app_environment(app_config: ApplicationHarnessConfig, app_domain, use_lo
         password = get_user_password(main_user)
         my_env["USERNAME"] = main_user.username
         my_env["PASSWORD"] = password
+
     test_config: ApplicationTestConfig = app_config.test
+    api_config = test_config.api
     e2e_config: E2ETestsConfig = test_config.e2e
+
+    if api_config.enabled or api_config.autotest:
+        my_env["SCHEMATHESIS_HOOKS"] = "cloudharness_test.apitest_init"
+
     if not e2e_config.smoketest:
         my_env["SKIP_SMOKETEST"] = "true"
     if e2e_config.ignore_console_errors:

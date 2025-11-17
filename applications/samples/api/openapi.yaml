@@ -54,6 +54,8 @@ paths:
               schema:
                 type: string
           description: Check if token is valid
+        "400":
+          description: Bad request
         "401":
           description: "invalid token, unauthorized"
       security:
@@ -74,6 +76,8 @@ paths:
               schema:
                 type: string
           description: Check if token is valid
+        "400":
+          description: Bad request
         "401":
           description: "invalid token, unauthorized"
       security:
