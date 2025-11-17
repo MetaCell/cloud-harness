@@ -26,7 +26,5 @@ def valid_cookie():  # noqa: E501
     :rtype: List[Valid]
     """
     from cloudharness.middleware import get_authentication_token
-    from cloudharness.auth import decode_token
     token = get_authentication_token()
-    assert decode_token(token)
     return 'OK'

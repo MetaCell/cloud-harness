@@ -336,4 +336,4 @@ components:
       in: cookie
       name: kc-access
       type: apiKey
-      x-apikeyInfoFunc: cloudharness.auth.decode_token
+      x-apikeyInfoFunc: samples.controllers.security_controller_.info_from_cookieAuth

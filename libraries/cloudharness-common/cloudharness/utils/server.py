@@ -170,7 +170,16 @@ def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_enco
         
         # Register error handler with Flask app directly for better compatibility
         @app.errorhandler(Exception)
-        def flask_handle_exception(exc: Exception):
+        def flask_handle_exception(*args):
+            # Flask error handlers can be called with different signatures
+            # Handle both single argument (exc) and multiple arguments flexibly
+            if len(args) == 1:
+                exc = args[0]
+            elif len(args) >= 2:
+                exc = args[0] if isinstance(args[0], Exception) else args[1]
+            else:
+                exc = Exception("Unknown error")
+            
             # For Flask error handlers, we don't get the request object, 
             # but we can access it via flask.request if needed
             try:
