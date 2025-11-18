@@ -20,7 +20,7 @@ def create_sample_resource(sample_resource=None):  # noqa: E501
     # Connexion 3.x with pythonic_params should auto-deserialize, but if not, get from Flask request
     if sample_resource is None:
         sample_resource = request.get_json()
-    
+
     if isinstance(sample_resource, dict):
         sample_resource = SampleResource.from_dict(sample_resource)
 
@@ -95,10 +95,10 @@ def update_sample_resource(sampleresource_id, sample_resource=None):  # noqa: E5
     # Connexion 3.x with pythonic_params should auto-deserialize, but if not, get from Flask request
     if sample_resource is None:
         sample_resource = request.get_json()
-    
+
     if isinstance(sample_resource, dict):
         sample_resource = SampleResource.from_dict(sample_resource)
-    
+
     try:
         resource = resource_service.update_sample_resource(
             int(sampleresource_id), sample_resource)

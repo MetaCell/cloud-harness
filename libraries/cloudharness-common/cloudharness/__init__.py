@@ -41,8 +41,6 @@ def dumps(o, *args, **kwargs):
         raise
 
 
-
-
 class NotCorrectlyInitialized(Exception):
     pass
 

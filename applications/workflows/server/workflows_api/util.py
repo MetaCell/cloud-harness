@@ -67,8 +67,8 @@ def deserialize_date(string):
     :rtype: date
     """
     if string is None:
-      return None
-    
+        return None
+
     try:
         from dateutil.parser import parse
         return parse(string).date()
@@ -87,8 +87,8 @@ def deserialize_datetime(string):
     :rtype: datetime
     """
     if string is None:
-      return None
-    
+        return None
+
     try:
         from dateutil.parser import parse
         return parse(string)
@@ -144,4 +144,4 @@ def _deserialize_dict(data, boxed_type):
     :rtype: dict
     """
     return {k: _deserialize(v, boxed_type)
-            for k, v in data.items() }
+            for k, v in data.items()}
