@@ -35,7 +35,7 @@ class JSONEncoder(DefaultJSONProvider):
                 attr = o.attribute_map[attr]
                 dikt[attr] = value
             return dikt
-        return DefaultJSONProvider.default(self, o)
+        return super().default(o)
 
     def dumps(self, obj, **kwargs):
         """Override dumps to ensure our default method is used

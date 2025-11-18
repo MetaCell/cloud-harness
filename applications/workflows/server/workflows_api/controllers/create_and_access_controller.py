@@ -51,7 +51,7 @@ def get_operation(name):  # noqa: E501
         return f'Unexpected error', e.status
 
 
-def list_operations(status=None, previous_search_token=None, limit=None, body=None):  # noqa: E501
+def list_operations(status=None, previous_search_token=None, limit=None):  # noqa: E501
     """lists operations
 
     see all operations for the user  # noqa: E501
@@ -62,8 +62,6 @@ def list_operations(status=None, previous_search_token=None, limit=None, body=No
     :type previous_search: dict | bytes
     :param limit: maximum number of records to return per page
     :type limit: int
-    :param body: unused body parameter (Connexion compatibility)
-    :type body: dict | bytes
 
     :rtype: OperationSearchResult
     """
