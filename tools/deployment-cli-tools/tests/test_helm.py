@@ -40,7 +40,7 @@ def test_collect_helm_values(tmp_path):
     assert values.apps['myapp'].harness.deployment.image == 'reg/testprojectname/myapp:1'
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
     assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'reg/cloud-harness/accounts:1'
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/accounts:1'
 
     # Base values kept
     assert values[KEY_APPS]['accounts'][KEY_HARNESS]['subdomain'] == 'accounts'
@@ -74,9 +74,9 @@ def test_collect_helm_values(tmp_path):
     # Checl base and task images
     assert values[KEY_TASK_IMAGES]
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
-    assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'reg/testprojectname/cloudharness-base:1', "Cloudharness base image is overridden, so takes the main project name prefix"
+    assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'reg/testprojectname/cloudharness-base:1'
     assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/testprojectname/myapp-mytask:1'
-    assert values[KEY_TASK_IMAGES]['cloudharness-flask'] == 'reg/cloud-harness/cloudharness-flask:1'
+    assert values[KEY_TASK_IMAGES]['cloudharness-flask'] == 'reg/testprojectname/cloudharness-flask:1'
     # Not indicated as a build dependency
     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES]
 
@@ -103,7 +103,7 @@ def test_collect_helm_values_noreg_noinclude(tmp_path):
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'testprojectname/myapp:1'
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
     assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'cloud-harness/accounts:1'
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'testprojectname/accounts:1'
 
     # First level include apps
     assert 'samples' in values[KEY_APPS]

@@ -35,11 +35,11 @@ class JSONEncoder(DefaultJSONProvider):
                 attr = o.attribute_map[attr]
                 dikt[attr] = value
             return dikt
-        return DefaultJSONProvider.default(self, o)
-    
+        return super().default(o)
+
     def dumps(self, obj, **kwargs):
         """Override dumps to ensure our default method is used
-        
+
         Uses stdlib_json to avoid issues with cloudharness monkeypatch
         """
         kwargs.setdefault('default', self.default)
@@ -86,7 +86,7 @@ def setup_cors(app: flask.Flask):
             response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
             response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
         return response
-    
+
     @app.before_request
     def handle_preflight():
         if flask.request.method == "OPTIONS" and flask.request.path.startswith('/api/'):
@@ -164,10 +164,10 @@ def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_enco
             except Exception as general_error:
                 logging.error(f"Error in error handler: {general_error}", exc_info=True)
                 data['trace'] = traceback.format_exc()
-            
+
             logging.error(str(exc), exc_info=True)
             return json.dumps(data), 500
-        
+
         # Register error handler with Flask app directly for better compatibility
         @app.errorhandler(Exception)
         def flask_handle_exception(*args):
@@ -179,8 +179,8 @@ def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_enco
                 exc = args[0] if isinstance(args[0], Exception) else args[1]
             else:
                 exc = Exception("Unknown error")
-            
-            # For Flask error handlers, we don't get the request object, 
+
+            # For Flask error handlers, we don't get the request object,
             # but we can access it via flask.request if needed
             try:
                 import flask
@@ -197,7 +197,7 @@ def main():
     import inspect
     frm = inspect.stack()[1]
     mod = inspect.getmodule(frm[0])
-    
+
     # Get the connexion app variable from the calling module
     connexion_app = getattr(mod, 'app', None)
     if connexion_app and hasattr(connexion_app, 'run'):

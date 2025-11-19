@@ -3,6 +3,7 @@ FROM ${PARENT}
 
 RUN apt update && apt install -y --no-install-recommends \
     gcc \
+    g++ \
     python3-dev \
     libpq-dev \
     nfs-common \
