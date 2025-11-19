@@ -14,7 +14,7 @@ harness:
         cpu: "2000m"
   service:
     auto: true
-    port: 80
+    port: 8080
   env:
     - name: KC_BOOTSTRAP_ADMIN_USERNAME
       value: "admin"
