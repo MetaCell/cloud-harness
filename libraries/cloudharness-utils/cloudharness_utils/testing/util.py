@@ -22,8 +22,8 @@ def get_app_environment(app_config: ApplicationHarnessConfig, app_domain, use_lo
     e2e_config: E2ETestsConfig = test_config.e2e
     if not e2e_config.smoketest:
         my_env["SKIP_SMOKETEST"] = "true"
-    if e2e_config.ignoreConsoleErrors:
+    if e2e_config.ignore_console_errors:
         my_env["IGNORE_CONSOLE_ERRORS"] = "true"
-    if e2e_config.ignoreRequestErrors:
+    if e2e_config.ignore_request_errors:
         my_env["IGNORE_REQUEST_ERRORS"] = "true"
     return my_env

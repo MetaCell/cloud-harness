@@ -50,7 +50,7 @@ class AuthService:
         self.admin_role = admin_role
 
     @classmethod
-    def get_auth_client(cls):
+    def get_auth_client(cls) -> AuthClient:
         return auth_client
 
     def get_client_name(self):

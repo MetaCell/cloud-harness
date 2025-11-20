@@ -24,7 +24,7 @@ class KeycloakMessageService:
         resource_path = message["resource-path"].split("/")
 
         log.info(f"{event_client} {message}")
-        if resource in ["CLIENT_ROLE_MAPPING", "GROUP", "USER", "GROUP_MEMBERSHIP"]:
+        if resource in ["CLIENT_ROLE_MAPPING", "GROUP", "USER", "GROUP_MEMBERSHIP", "ORGANIZATION_MEMBERSHIP"]:
             try:
                 init_services()
                 user_service = get_user_service()
@@ -41,7 +41,7 @@ class KeycloakMessageService:
                     # set/user user is_superuser
                     kc_user = auth_client.get_user(resource_path[1])
                     user_service.sync_kc_user(kc_user)
-                if resource == "GROUP_MEMBERSHIP":
+                if resource == "GROUP_MEMBERSHIP" or resource == "ORGANIZATION_MEMBERSHIP":
                     # adding / deleting users from groups, update the user
                     # updating the user will also update the user groups
                     kc_user = auth_client.get_user(resource_path[1])
