@@ -11,7 +11,7 @@ from cloudharness_utils.testing.util import get_app_environment
 from .models import HarnessMainConfig, ApplicationTestConfig, ApplicationHarnessConfig
 from cloudharness_utils.constants import *
 from .configurationgenerator import KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES
-from .utils import check_image_exists_in_registry, clean_image_name, find_dockerfiles_paths, get_app_relative_to_base_path, guess_build_dependencies_from_dockerfile, \
+from .utils import check_image_exists_in_registry, find_dockerfiles_paths, get_app_relative_to_base_path, guess_build_dependencies_from_dockerfile, \
     get_image_name, get_template, dict_merge, app_name_from_path, clean_path
 from cloudharness_utils.testing.api import get_api_filename, get_schemathesis_command, get_urls_from_api_file
 
@@ -132,7 +132,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
     for i in range(len(root_paths)):
 
         root_path = root_paths[i]
-        base_name = clean_image_name(basename(abspath(root_path))) if i < len(root_paths) - (2 if has_overrides else 1) else base_image_name
+        base_name = base_image_name
 
         for e in envs:
 

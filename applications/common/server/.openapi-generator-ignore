@@ -28,3 +28,4 @@ Dockerfile
 */test/*
 test-requirements.txt
 .dockerignore
+*/requirements.txt

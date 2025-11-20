@@ -17,7 +17,6 @@ tags:
 paths:
   /error:
     get:
-      deprecated: true
       operationId: error
       responses:
         "200":
@@ -48,7 +47,6 @@ paths:
       x-openapi-router-controller: samples.controllers.workflows_controller
   /operation_sync:
     get:
-      deprecated: true
       operationId: submit_sync
       responses:
         "200":
@@ -63,7 +61,6 @@ paths:
       x-openapi-router-controller: samples.controllers.workflows_controller
   /operation_sync_results:
     get:
-      deprecated: true
       operationId: submit_sync_with_results
       parameters:
       - description: first number to sum
@@ -339,4 +336,4 @@ components:
       in: cookie
       name: kc-access
       type: apiKey
-      x-apikeyInfoFunc: cloudharness.auth.decode_token
+      x-apikeyInfoFunc: samples.controllers.security_controller_.info_from_cookieAuth

@@ -8,7 +8,7 @@ from os.path import join, dirname as dn, realpath
 HERE = dn(realpath(__file__))
 
 NAME = "cloudharness_model"
-VERSION = "2.5.0"
+VERSION = "3.0.0"
 REQUIREMENTS = [
     "pydantic >= 2",
     "typing-extensions >= 4.7.1",

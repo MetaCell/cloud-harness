@@ -59,7 +59,7 @@ def test_create_skaffold_configuration(tmp_path):
     assert overrides[KEY_APPS]['samples'][KEY_HARNESS][KEY_DEPLOYMENT]['args']
 
     assert 'reg' == artifact_overrides[KEY_APPS]['accounts'][KEY_HARNESS][KEY_DEPLOYMENT]['image'][0:3]
-    assert 'harness' in artifact_overrides[KEY_APPS]['accounts'][KEY_HARNESS][KEY_DEPLOYMENT]['image']
+    assert 'harness' not in artifact_overrides[KEY_APPS]['accounts'][KEY_HARNESS][KEY_DEPLOYMENT]['image']
 
     cloudharness_base_artifact = next(
         a for a in sk['build']['artifacts'] if a['image'] == f'reg/testprojectname/cloudharness-base')
@@ -67,7 +67,7 @@ def test_create_skaffold_configuration(tmp_path):
     assert 'requires' not in cloudharness_base_artifact
 
     cloudharness_flask_artifact = next(
-        a for a in sk['build']['artifacts'] if a['image'] == f'reg/{CLOUDHARNESS_DIRNAME}/cloudharness-flask')
+        a for a in sk['build']['artifacts'] if a['image'] == f'reg/testprojectname/cloudharness-flask')
 
     assert os.path.samefile(cloudharness_flask_artifact['context'],
                             join(CLOUDHARNESS_ROOT, 'infrastructure/common-images/cloudharness-flask')
@@ -76,7 +76,7 @@ def test_create_skaffold_configuration(tmp_path):
     assert len(cloudharness_flask_artifact['requires']) == 1
 
     samples_artifact = next(
-        a for a in sk['build']['artifacts'] if a['image'] == f'reg/{CLOUDHARNESS_DIRNAME}/samples'
+        a for a in sk['build']['artifacts'] if a['image'] == f'reg/testprojectname/samples'
     )
     assert os.path.samefile(samples_artifact['context'], join(CLOUDHARNESS_ROOT, 'applications/samples'))
     assert 'TEST_ARGUMENT' in samples_artifact['docker']['buildArgs']
@@ -89,14 +89,14 @@ def test_create_skaffold_configuration(tmp_path):
     assert myapp_artifact['hooks']['before'], 'The hook for dependencies should be included'
     assert len(myapp_artifact['hooks']['before']) == 2, 'The hook for dependencies should include 2 clone commands'
     accounts_artifact = next(
-        a for a in sk['build']['artifacts'] if a['image'] == f'reg/{CLOUDHARNESS_DIRNAME}/accounts')
+        a for a in sk['build']['artifacts'] if a['image'] == f'reg/testprojectname/accounts')
     assert os.path.samefile(accounts_artifact['context'], '/tmp/build/applications/accounts')
 
     # Custom unit tests
     assert len(sk['test']) == 2, 'Unit tests should be included'
 
     samples_test = sk['test'][0]
-    assert samples_test['image'] == f'reg/{CLOUDHARNESS_DIRNAME}/samples', 'Unit tests for samples should be included'
+    assert samples_test['image'] == f'reg/testprojectname/samples', 'Unit tests for samples should be included'
     assert "samples/test" in samples_test['custom'][0]['command'], "The test command must come from values.yaml test/unit/commands"
 
     assert len(sk['test'][1]['custom']) == 2
