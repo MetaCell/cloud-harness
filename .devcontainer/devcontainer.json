@@ -1,11 +1,16 @@
 {
     "name": "CloudHarness Development",
-    "dockerComposeFile": "../docker-compose.yml",
-    "service": "cloudharness",
+    
+    
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "app",
     "workspaceFolder": "/workspace",
     "shutdownAction": "none",
-    "postCreateCommand": "chmod +x /workspace/dev-scripts/vscode-setup.sh && /workspace/dev-scripts/vscode-setup.sh && touch ~/.bashrc && echo 'source /workspace/dev-scripts/use-venv' >> ~/.bashrc && echo 'CloudHarness development environment ready! Virtual environment will auto-activate in new terminals.'",
-    "postStartCommand": "source /workspace/dev-scripts/use-venv && echo 'Runtime virtual environment activated'",
+    "forwardPorts": [3000, 5000, 8000, 8100, 9000, 9100, 9200],
+    "postCreateCommand": "bash /usr/local/share/dev-scripts/post-create.sh",
+    "features": {
+        "ghcr.io/devcontainers/features/github-cli:1": {}
+    },
     "customizations": {
         "vscode": {
             "settings": {
@@ -13,7 +18,11 @@
                 "python.defaultInterpreterPath": "/root/.local/venv/bin/python",
                 "python.terminal.activateEnvironment": true,
                 "python.terminal.activateEnvInCurrentTerminal": true,
-                "terminal.integrated.shellIntegration.enabled": true,
+                // Disable VS Code shell integration - conflicts with bash-preexec (required for atuin/starship)
+                "terminal.integrated.shellIntegration.enabled": false,
+                "terminal.integrated.env.linux": {
+                    "XDG_DATA_HOME": "${env:HOME}/.local/share"
+                },
                 "extensions.autoUpdate": false,
                 "extensions.autoCheckUpdates": false,
                 "python.analysis.extraPaths": [
@@ -23,7 +32,22 @@
                     "/workspace/libraries/cloudharness-common",
                     "/workspace/libraries/client/cloudharness_cli",
                     "/workspace/tools/deployment-cli-tools"
-                ]
+                ],
+                "github.copilot.enable": {
+                    "*": true,
+                    "yaml": true,
+                    "plaintext": true,
+                    "markdown": true,
+                    "python": true,
+                    "javascript": true,
+                    "typescript": true,
+                    "json": true,
+                    "jsonc": true
+                },
+                "remote.extensionKind": {
+                    "GitHub.copilot": ["ui"],
+                    "GitHub.copilot-chat": ["ui"]
+                }
             },
             "extensions": [
                 "ms-python.python",
@@ -32,16 +56,12 @@
                 "ms-python.python-extension-pack",
                 "KevinRose.vsc-python-indent",
                 "dbaeumer.vscode-eslint",
-                "github.copilot",
                 "redhat.vscode-yaml",
-                "ms-vscode.vscode-json"
+                "ms-vscode.vscode-json",
+                "ms-kubernetes-tools.vscode-kubernetes-tools"
             ]
         }
     },
     "remoteUser": "root",
-    "mounts": [
-        "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached"
-    ],
-    "forwardPorts": [],
     "updateContentCommand": "echo 'Container updated'"
 }
