@@ -1,4 +1,5 @@
 module.exports = {
+  preset: "ts-jest",
   testEnvironment: "node",
   roots: [".", process.env.APP],
   testMatch: ["**__tests__/**/*.[jt]s?(x)", "**/?(*.)+(spec|test).[tj]s?(x)"],
@@ -6,6 +7,6 @@ module.exports = {
   "testSequencer": "./testSequencer.js",
   setupFilesAfterEnv: ["./jest.setup.js"],
   transform: {
-    "^.+\\.tsx?$": "ts-jest"
+    "^.+\\.tsx?$": ["ts-jest", {}]
   }
 };
