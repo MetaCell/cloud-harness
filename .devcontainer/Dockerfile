@@ -130,11 +130,11 @@ RUN (npm install -g yarn@latest || (command -v corepack >/dev/null 2>&1 && corep
 WORKDIR /cloudharness
 
 # Copy all requirements files first for better Docker layer caching
-COPY ../libraries/models/requirements.txt ./libraries/models/
-COPY ../libraries/cloudharness-utils/requirements.txt ./libraries/cloudharness-utils/
-COPY ../libraries/cloudharness-common/requirements.txt ./libraries/cloudharness-common/
-COPY ../libraries/client/cloudharness_cli/requirements.txt ./libraries/client/cloudharness_cli/
-COPY ../tools/deployment-cli-tools/requirements.txt ./tools/deployment-cli-tools/
+COPY libraries/models/requirements.txt ./libraries/models/
+COPY libraries/cloudharness-utils/requirements.txt ./libraries/cloudharness-utils/
+COPY libraries/cloudharness-common/requirements.txt ./libraries/cloudharness-common/
+COPY libraries/client/cloudharness_cli/requirements.txt ./libraries/client/cloudharness_cli/
+COPY tools/deployment-cli-tools/requirements.txt ./tools/deployment-cli-tools/
 
 # Install all external dependencies with caching
 RUN --mount=type=cache,target=/root/.cache \
@@ -145,8 +145,8 @@ RUN --mount=type=cache,target=/root/.cache \
     pip install -r tools/deployment-cli-tools/requirements.txt --prefer-binary
 
 # Copy requirements files for common framework libraries
-COPY ../infrastructure/common-images/cloudharness-flask/requirements.txt ./infrastructure/flask-requirements.txt
-COPY ../infrastructure/common-images/cloudharness-django/libraries/cloudharness-django/requirements.txt ./infrastructure/django-requirements.txt
+COPY infrastructure/common-images/cloudharness-flask/requirements.txt ./infrastructure/flask-requirements.txt
+COPY infrastructure/common-images/cloudharness-django/libraries/cloudharness-django/requirements.txt ./infrastructure/django-requirements.txt
 
 # Install additional tools and common framework libraries
 RUN --mount=type=cache,target=/root/.cache \
@@ -155,24 +155,24 @@ RUN --mount=type=cache,target=/root/.cache \
     pip install -r infrastructure/django-requirements.txt --prefer-binary
 
 # Copy and install libraries one by one
-COPY ../libraries/models ./libraries/models
+COPY libraries/models ./libraries/models
 RUN pip install -e libraries/models --no-cache-dir
 
-COPY ../libraries/cloudharness-utils ./libraries/cloudharness-utils
+COPY libraries/cloudharness-utils ./libraries/cloudharness-utils
 RUN pip install -e libraries/cloudharness-utils --no-cache-dir
 
-COPY ../libraries/cloudharness-common ./libraries/cloudharness-common
+COPY libraries/cloudharness-common ./libraries/cloudharness-common
 RUN pip install -e libraries/cloudharness-common --no-cache-dir
 
-COPY ../libraries/client/cloudharness_cli ./libraries/client/cloudharness_cli
+COPY libraries/client/cloudharness_cli ./libraries/client/cloudharness_cli
 RUN pip install -e libraries/client/cloudharness_cli --no-cache-dir
 
-COPY ../tools/deployment-cli-tools ./tools/deployment-cli-tools
+COPY tools/deployment-cli-tools ./tools/deployment-cli-tools
 RUN pip install -e tools/deployment-cli-tools --no-cache-dir
 
 
 # Copy and install cloudharness framework libraries (last to ensure they override any conflicts)
-COPY ../infrastructure/common-images/cloudharness-django/libraries/cloudharness-django infrastructure/cloudharness-django
+COPY infrastructure/common-images/cloudharness-django/libraries/cloudharness-django infrastructure/cloudharness-django
 RUN pip install -e infrastructure/cloudharness-django --no-cache-dir || echo "cloudharness-django not installable" 
 
 # Ensure latest npm & yarn still available after project copy (optional refresh)
