@@ -137,50 +137,7 @@
     },
     {
       "cleanUp": false,
-      "debug": [
-        {
-          "image": "cloud-harness/workflows:1",
-          "sourceFileMap": {
-            "${workspaceFolder}/applications/workflows/server": "/usr/src/app",
-            "justMyCode": false
-          }
-        },
-        {
-          "image": "cloud-harness/jupyterhub:1",
-          "sourceFileMap": {
-            "${workspaceFolder}/applications/jupyterhub/src/harness_jupyter": "/usr/src/app",
-            "justMyCode": false
-          }
-        },
-        {
-          "image": "cloud-harness/jupyterhub:1",
-          "sourceFileMap": {
-            "${workspaceFolder}/applications/jupyterhub/src/chauthenticator": "/usr/src/app",
-            "justMyCode": false
-          }
-        },
-        {
-          "image": "cloud-harness/common:1",
-          "sourceFileMap": {
-            "${workspaceFolder}/applications/common/server": "/usr/src/app",
-            "justMyCode": false
-          }
-        },
-        {
-          "image": "cloud-harness/volumemanager:1",
-          "sourceFileMap": {
-            "${workspaceFolder}/applications/volumemanager/server": "/usr/src/app",
-            "justMyCode": false
-          }
-        },
-        {
-          "image": "cloud-harness/samples:1",
-          "sourceFileMap": {
-            "${workspaceFolder}/applications/samples/backend": "/usr/src/app",
-            "justMyCode": false
-          }
-        }
-      ],
+      "debug": [],
       "imageRegistry": "localhost:5000",
       "name": "CloudHarness: Run/Debug",
       "portForward": true,

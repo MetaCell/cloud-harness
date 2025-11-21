@@ -30,6 +30,12 @@ else
     echo '{}' > /root/.docker-container/config.json
 fi
 
+# Download bash-preexec if it doesn't exist (required for atuin/starship)
+if [ ! -f ~/.bash-preexec.sh ]; then
+    echo "Downloading bash-preexec..."
+    curl -sL https://raw.githubusercontent.com/rcaloras/bash-preexec/master/bash-preexec.sh -o ~/.bash-preexec.sh
+fi
+
 # Initialize bashrc if needed
 if [ ! -f ~/.bashrc ] || [ ! -s ~/.bashrc ] || ! grep -q 'common-bashrc' ~/.bashrc; then
     echo "Initializing ~/.bashrc..."
@@ -59,11 +65,13 @@ if [ -n "$DOCKER_SOCKET_PROXY" ]; then
 fi
 
 # Source common bash configuration (aliases and functions)
-source /workspace/dev-scripts/common-bashrc.sh
+if [ -f /usr/local/share/dev-scripts/common-bashrc.sh ]; then
+    source /usr/local/share/dev-scripts/common-bashrc.sh
+fi
 
 # Source the virtual environment (must use source, not bash)
-if [ -f /workspace/dev-scripts/use-venv ]; then
-    source /workspace/dev-scripts/use-venv
+if [ -f /usr/local/share/dev-scripts/use-venv ]; then
+    source /usr/local/share/dev-scripts/use-venv
 fi
 
 # Load bash-preexec (required for atuin and starship to work with VS Code)
@@ -84,19 +92,26 @@ if command -v starship &> /dev/null; then
     eval "$(starship init bash)"
 fi
 
-# Fix for VS Code shell integration overriding PROMPT_COMMAND
-# Ensure bash-preexec hooks are called so atuin and starship work
-if declare -F __bp_precmd_invoke_cmd &>/dev/null; then
-    # Prepend bash-preexec to PROMPT_COMMAND if not already there
-    if [[ "$PROMPT_COMMAND" != *"__bp_precmd_invoke_cmd"* ]]; then
-        PROMPT_COMMAND="__bp_precmd_invoke_cmd; $PROMPT_COMMAND"
+# Fix for VS Code shell integration overriding bash-preexec's DEBUG trap
+# VS Code loads its shell integration after bashrc, so we restore the trap on each prompt
+__restore_bash_preexec_trap() {
+    if declare -F __bp_preexec_invoke_exec &>/dev/null; then
+        local current_trap=\$(trap -p DEBUG)
+        if [[ "\$current_trap" != *"__bp_preexec_invoke_exec"* ]]; then
+            trap '__bp_preexec_invoke_exec "\$_"' DEBUG
+        fi
     fi
+}
+
+# Add the trap restoration to PROMPT_COMMAND
+if [[ "\$PROMPT_COMMAND" != *"__restore_bash_preexec_trap"* ]]; then
+    PROMPT_COMMAND="__restore_bash_preexec_trap\${PROMPT_COMMAND:+; \$PROMPT_COMMAND}"
 fi
 
 # asdf version manager
-if [ -f "$HOME/.asdf/asdf.sh" ]; then
-    . "$HOME/.asdf/asdf.sh"
-    . "$HOME/.asdf/completions/asdf.bash"
+if [ -f "\$HOME/.asdf/asdf.sh" ]; then
+    . "\$HOME/.asdf/asdf.sh"
+    . "\$HOME/.asdf/completions/asdf.bash"
 fi
 EOF
 fi
@@ -108,8 +123,9 @@ if command -v atuin &> /dev/null; then
     # Create atuin data directory if it doesn't exist
     mkdir -p ~/.local/share/atuin ~/.config/atuin
     
-    # Generate default config with explicit paths
-    cat > ~/.config/atuin/config.toml << 'ATUINCONF'
+    # Generate default config with explicit paths (only if it doesn't exist)
+    if [ ! -f ~/.config/atuin/config.toml ]; then
+        cat > ~/.config/atuin/config.toml << 'ATUINCONF'
 ## Atuin configuration for CloudHarness dev container
 
 ## Explicitly set paths to avoid VS Code XDG_DATA_HOME issues
@@ -132,12 +148,139 @@ secrets_filter = true
 enter_accept = true
 history_filter = ["^secret", "^password", "AWS_SECRET", "KUBECONFIG"]
 ATUINCONF
+    fi
     
     # Import existing bash history
     if [ -f ~/.bash_history ]; then
         echo "Importing bash history into Atuin..."
         atuin import auto 2>/dev/null || true
     fi
+fi
+
+# Create Starship config if it doesn't exist
+if [ ! -f ~/.config/starship.toml ]; then
+    echo "Creating Starship prompt configuration..."
+    mkdir -p ~/.config
+    cat > ~/.config/starship.toml << 'STARSHIPCONF'
+# Starship prompt configuration for CloudHarness dev container
+# Documentation: https://starship.rs/config/
+
+# Timeout for starship to run (in milliseconds)
+command_timeout = 1000
+
+# Add a new line before the prompt
+add_newline = true
+
+# Format of the prompt
+format = """
+[╭─](bold green)$username\
+$hostname\
+$directory\
+$git_branch\
+$git_status\
+$python\
+$nodejs\
+$docker_context\
+$kubernetes
+[╰─](bold green)$character"""
+
+[character]
+success_symbol = "[➜](bold green)"
+error_symbol = "[✗](bold red)"
+
+[username]
+style_user = "bold yellow"
+style_root = "bold red"
+format = "[$user]($style) "
+disabled = false
+show_always = true
+
+[hostname]
+ssh_only = false
+format = "[@$hostname](bold blue) "
+disabled = false
+
+[directory]
+truncation_length = 3
+truncate_to_repo = true
+format = "[$path]($style)[$read_only]($read_only_style) "
+style = "bold cyan"
+read_only = " 🔒"
+
+[git_branch]
+symbol = " "
+format = "on [$symbol$branch]($style) "
+style = "bold purple"
+
+[git_status]
+format = '([\[$all_status$ahead_behind\]]($style) )'
+style = "bold red"
+conflicted = "🏳"
+ahead = "⇡${count}"
+behind = "⇣${count}"
+diverged = "⇕⇡${ahead_count}⇣${behind_count}"
+untracked = "?${count}"
+stashed = "$${count}"
+modified = "!${count}"
+staged = "+${count}"
+renamed = "»${count}"
+deleted = "✘${count}"
+
+[python]
+symbol = " "
+format = 'via [${symbol}${pyenv_prefix}(${version} )(\($virtualenv\) )]($style)'
+style = "yellow"
+pyenv_version_name = false
+detect_extensions = ["py"]
+detect_files = [".python-version", "Pipfile", "__pycache__", "pyproject.toml", "requirements.txt", "setup.py", "tox.ini"]
+detect_folders = []
+
+[nodejs]
+symbol = " "
+format = "via [$symbol($version )]($style)"
+style = "bold green"
+
+[docker_context]
+symbol = " "
+format = "via [$symbol$context]($style) "
+style = "blue bold"
+only_with_files = true
+detect_files = ["docker-compose.yml", "docker-compose.yaml", "Dockerfile"]
+detect_folders = []
+
+[kubernetes]
+symbol = "☸ "
+format = 'on [$symbol$context( \($namespace\))]($style) '
+style = "cyan bold"
+disabled = false
+detect_files = ["k8s"]
+detect_folders = ["k8s"]
+
+[kubernetes.context_aliases]
+"docker-desktop" = "🐳 desktop"
+"kind-.*" = "kind"
+"minikube" = "mini"
+
+[cmd_duration]
+min_time = 500
+format = "took [$duration](bold yellow) "
+
+[time]
+disabled = false
+format = '🕙[\[ $time \]]($style) '
+time_format = "%T"
+style = "bold white"
+
+[memory_usage]
+disabled = true
+threshold = -1
+symbol = " "
+format = "via $symbol[${ram_pct}]($style) "
+style = "bold dimmed white"
+
+[package]
+disabled = true
+STARSHIPCONF
 fi
 
 # Create tmux config if it doesn't exist

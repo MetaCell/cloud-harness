@@ -1,31 +1,16 @@
 {
     "name": "My Project Development",
-    "build": {
-        "context": "..",
-        "dockerfile": "./Dockerfile"
-    },
+    
+    
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "app",
     "workspaceFolder": "/workspace",
     "shutdownAction": "none",
-    "runArgs": [
-        "--name=myproject-dev",
-        "--user=root",
-        "--network=host"
-    ],
-    "containerEnv": {
-        "PYTHONPATH": "/cloudharness:/workspace/cloud-harness/libraries/models:/workspace/cloud-harness/libraries/cloudharness-utils:/workspace/cloud-harness/libraries/cloudharness-common:/workspace/cloud-harness/libraries/client/cloudharness_cli:/workspace/tools/deployment-cli-tools",
-        "DOCKER_HOST": "unix:///var/run/docker.sock",
-        "KUBECONFIG": "/root/.kube-container/config"
-    },
-    "mounts": [
-        "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
-        "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
-        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.docker,target=/root/.docker,type=bind,readonly",
-        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.kube,target=/root/.kube,type=bind,readonly",
-        "source=${localWorkspaceFolder}/.devcontainer/home,target=/root,type=bind",
-        "source=${localWorkspaceFolder}/.devcontainer/vscode,target=/workspace/.vscode,type=bind"
-    ],
     "forwardPorts": [3000, 5000, 8000, 8100, 9000, 9100, 9200],
-    "postCreateCommand": "bash /workspace/.devcontainer/post-create.sh",
+    "postCreateCommand": "bash /usr/local/share/dev-scripts/post-create.sh",
+    "features": {
+        "ghcr.io/devcontainers/features/github-cli:1": {}
+    },
     "customizations": {
         "vscode": {
             "settings": {
@@ -33,7 +18,11 @@
                 "python.defaultInterpreterPath": "/root/.local/venv/bin/python",
                 "python.terminal.activateEnvironment": true,
                 "python.terminal.activateEnvInCurrentTerminal": true,
-                "terminal.integrated.shellIntegration.enabled": true,
+                // Disable VS Code shell integration - conflicts with bash-preexec (required for atuin/starship)
+                "terminal.integrated.shellIntegration.enabled": false,
+                "terminal.integrated.env.linux": {
+                    "XDG_DATA_HOME": "${env:HOME}/.local/share"
+                },
                 "extensions.autoUpdate": false,
                 "extensions.autoCheckUpdates": false,
                 "python.analysis.extraPaths": [
@@ -43,7 +32,22 @@
                     "/workspace/cloud-harness/libraries/cloudharness-common",
                     "/workspace/cloud-harness/libraries/client/cloudharness_cli",
                     "/workspace/tools/deployment-cli-tools"
-                ]
+                ],
+                "github.copilot.enable": {
+                    "*": true,
+                    "yaml": true,
+                    "plaintext": true,
+                    "markdown": true,
+                    "python": true,
+                    "javascript": true,
+                    "typescript": true,
+                    "json": true,
+                    "jsonc": true
+                },
+                "remote.extensionKind": {
+                    "GitHub.copilot": ["ui"],
+                    "GitHub.copilot-chat": ["ui"]
+                }
             },
             "extensions": [
                 "ms-python.python",
@@ -52,7 +56,6 @@
                 "ms-python.python-extension-pack",
                 "KevinRose.vsc-python-indent",
                 "dbaeumer.vscode-eslint",
-                "github.copilot",
                 "redhat.vscode-yaml",
                 "ms-vscode.vscode-json",
                 "ms-kubernetes-tools.vscode-kubernetes-tools"
