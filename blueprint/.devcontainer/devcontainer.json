@@ -1,0 +1,64 @@
+{
+    "name": "My Project Development",
+    "build": {
+        "context": "..",
+        "dockerfile": "./Dockerfile"
+    },
+    "workspaceFolder": "/workspace",
+    "shutdownAction": "none",
+    "runArgs": [
+        "--name=myproject-dev",
+        "--user=root",
+        "--network=host"
+    ],
+    "containerEnv": {
+        "PYTHONPATH": "/cloudharness:/workspace/cloud-harness/libraries/models:/workspace/cloud-harness/libraries/cloudharness-utils:/workspace/cloud-harness/libraries/cloudharness-common:/workspace/cloud-harness/libraries/client/cloudharness_cli:/workspace/tools/deployment-cli-tools",
+        "DOCKER_HOST": "unix:///var/run/docker.sock",
+        "KUBECONFIG": "/root/.kube-container/config"
+    },
+    "mounts": [
+        "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+        "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.docker,target=/root/.docker,type=bind,readonly",
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.kube,target=/root/.kube,type=bind,readonly",
+        "source=${localWorkspaceFolder}/.devcontainer/home,target=/root,type=bind",
+        "source=${localWorkspaceFolder}/.devcontainer/vscode,target=/workspace/.vscode,type=bind"
+    ],
+    "forwardPorts": [3000, 5000, 8000, 8100, 9000, 9100, 9200],
+    "postCreateCommand": "bash /workspace/.devcontainer/post-create.sh",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "python.defaultInterpreterPath": "/root/.local/venv/bin/python",
+                "python.terminal.activateEnvironment": true,
+                "python.terminal.activateEnvInCurrentTerminal": true,
+                "terminal.integrated.shellIntegration.enabled": true,
+                "extensions.autoUpdate": false,
+                "extensions.autoCheckUpdates": false,
+                "python.analysis.extraPaths": [
+                    "/root/.local/venv/lib/python3.12/site-packages",
+                    "/workspace/cloud-harness/libraries/models",
+                    "/workspace/cloud-harness/libraries/cloudharness-utils",
+                    "/workspace/cloud-harness/libraries/cloudharness-common",
+                    "/workspace/cloud-harness/libraries/client/cloudharness_cli",
+                    "/workspace/tools/deployment-cli-tools"
+                ]
+            },
+            "extensions": [
+                "ms-python.python",
+                "ms-python.autopep8",
+                "ms-python.pylint",
+                "ms-python.python-extension-pack",
+                "KevinRose.vsc-python-indent",
+                "dbaeumer.vscode-eslint",
+                "github.copilot",
+                "redhat.vscode-yaml",
+                "ms-vscode.vscode-json",
+                "ms-kubernetes-tools.vscode-kubernetes-tools"
+            ]
+        }
+    },
+    "remoteUser": "root",
+    "updateContentCommand": "echo 'Container updated'"
+}
