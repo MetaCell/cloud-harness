@@ -90,7 +90,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
         if app_name is None:
             app_name = app_name_from_path(basename(dockerfile_path))
         app_key = app_name
-        if app_key in helm_values.apps and not helm_values.apps[app_key]['build']:
+        if app_key in helm_values.apps and ('build' not in helm_values.apps[app_key] or not helm_values.apps[app_key]['build']):
             return
         if app_name in helm_values[KEY_TASK_IMAGES] or app_key in helm_values.apps:
             context_path = relpath_if(root_path, output_path) if global_context else relpath_if(dockerfile_path, output_path)
@@ -173,7 +173,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
             #     app_image_tag, app_relative_to_skaffold, build_requirements)
             process_build_dockerfile(dockerfile_path, root_path, requirements=guess_build_dependencies_from_dockerfile(dockerfile_path), app_name=app_name)
             app = apps[app_key]
-            if not app['build']:
+            if 'build' not in app or not app['build']:
                 continue
             if app[KEY_HARNESS][KEY_DEPLOYMENT]['image']:
                 release_config['artifactOverrides']['apps'][app_key] = \
@@ -261,7 +261,7 @@ def git_clone_hook(conf: GitDependencyConfig, context_path: str):
             join(os.path.dirname(os.path.dirname(HERE)), 'clone.sh'),
             conf.branch_tag,
             conf.url,
-            join(context_path, "dependencies", conf.path or os.path.basename(conf.url).split('.')[0])
+            join(context_path, "dependencies", (conf.path + "/" if conf.path else "") + os.path.basename(conf.url).split('.')[0])
         ]
     }
 
@@ -317,7 +317,7 @@ def get_additional_build_args(helm_values: HarnessMainConfig, app_key: str) -> d
     if app_key not in helm_values.apps:
         return None
 
-    if not (helm_values.apps[app_key].harness.dockerfile and helm_values.apps[app_key].harness.dockerfile.buildArgs):
+    if not (helm_values.apps[app_key].harness.dockerfile and helm_values.apps[app_key].harness.dockerfile.build_args):
         return None
 
-    return helm_values.apps[app_key].harness.dockerfile.buildArgs
+    return helm_values.apps[app_key].harness.dockerfile.build_args

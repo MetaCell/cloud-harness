@@ -20,7 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
+# SECURITY WARNING: keep the secret key used in production secret! TODO change this
 SECRET_KEY = "django-insecure-81kv$0=07xac7r(pgz6ndb5t0at4-z@ae6&f@u6_3jo&9d#4kl"
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -165,3 +165,4 @@ KC_PRIVILEGED_ROLES = [
 ]
 
 KC_DEFAULT_USER_ROLE = None  # don't add the user role to the realm default role
+SESSION_COOKIE_AGE = 3600

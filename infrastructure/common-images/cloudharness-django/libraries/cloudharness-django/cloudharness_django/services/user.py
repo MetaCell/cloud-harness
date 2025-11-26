@@ -1,7 +1,9 @@
 from django.contrib.auth.models import User, Group
+from django.db import transaction
 
 from cloudharness_django.models import Team, Member
-from cloudharness_django.services.auth import AuthorizationLevel
+from cloudharness_django.services.auth import AuthService, AuthorizationLevel
+from cloudharness import models as ch_models
 
 
 def get_user_by_kc_id(kc_id) -> User:
@@ -12,7 +14,7 @@ def get_user_by_kc_id(kc_id) -> User:
 
 
 class UserService:
-    def __init__(self, auth_service):
+    def __init__(self, auth_service: AuthService):
         self.auth_service = auth_service
         self.auth_client = auth_service.get_auth_client()
 
@@ -21,7 +23,7 @@ class UserService:
         all_users = self.auth_client.get_users()
         return [kc_user for kc_user in all_users if kc_user["email"] == user.email][0]
 
-    def _map_kc_user(self, user, kc_user=None, is_superuser=False, delete=False):
+    def _map_kc_user(self, user: User, kc_user: ch_models.User = None, is_superuser=False, delete=False):
         # map a kc user to a django user
         if not kc_user:
             kc_user = self._get_kc_user(user)
@@ -33,10 +35,10 @@ class UserService:
         user.is_staff = is_superuser
         user.is_superuser = is_superuser
 
-        user.username = kc_user.get("username", kc_user["email"])
-        user.first_name = kc_user.get("firstName", "")
-        user.last_name = kc_user.get("lastName", "")
-        user.email = kc_user.get("email", "")
+        user.username = kc_user.username or kc_user.email
+        user.first_name = kc_user.first_name or ""
+        user.last_name = kc_user.last_name or ""
+        user.email = kc_user.email or ""
 
         user.is_active = kc_user.get("enabled", delete)
         return user
@@ -66,14 +68,14 @@ class UserService:
         kc_user_id = user.member.kc_id
         self.auth_client.group_user_remove(kc_user_id, kc_group_id)
 
-    def sync_kc_group(self, kc_group):
+    def sync_kc_group(self, kc_group: ch_models.UserGroup):
         # sync the kc group with the django group
         try:
-            team = Team.objects.get(kc_id=kc_group["id"])
+            team = Team.objects.get(kc_id=kc_group.id)
             group, created = Group.objects.get_or_create(team=team)
-            group.name = kc_group["name"]
+            group.name = kc_group.name
         except Team.DoesNotExist:
-            group, created = Group.objects.get_or_create(name=kc_group["name"])
+            group, created = Group.objects.get_or_create(name=kc_group.name)
             try:
                 # check if group has a team
                 team = group.team
@@ -83,7 +85,7 @@ class UserService:
                 if superusers and len(superusers) > 0:
                     team = Team.objects.create(
                         owner=superusers[0],  # one of the superusers will be the default team owner
-                        kc_id=kc_group["id"],
+                        kc_id=kc_group.id,
                         group=group)
                     team.save()
         group.save()
@@ -95,32 +97,71 @@ class UserService:
         for kc_group in kc_groups:
             self.sync_kc_group(kc_group)
 
-    def sync_kc_user(self, kc_user, is_superuser=False, delete=False):
-        # sync the kc user with the django user
+    @transaction.atomic
+    def sync_kc_user(self, kc_user: ch_models.User, is_superuser=False, delete=False):
+        """
+        Sync the kc user with the django user using kc_id for reliable lookups.
+        ALWAYS creates both User and Member atomically - never returns a User without a Member.
+        """
+        user = get_user_by_kc_id(kc_user.id)
 
-        user, created = User.objects.get_or_create(username=kc_user["username"])
+        if user is None:
+            # User doesn't exist, create new one WITH Member atomically
+            username = kc_user.username or kc_user.email
+            if not username:
+                raise ValueError(f"Keycloak user {kc_user.id} has no username or email")
 
-        member, created = Member.objects.get_or_create(user=user)
-        member.kc_id = kc_user["id"]
-        member.save()
+            # Create user and member atomically
+            user, user_created = User.objects.get_or_create(username=username)
+            
+            # CRITICAL: Ensure Member exists before proceeding
+            try:
+                member = Member.objects.get(user=user)
+                # Member exists but might have wrong kc_id
+                if member.kc_id != kc_user.id:
+                    member.kc_id = kc_user.id
+                    member.save()
+            except Member.DoesNotExist:
+                # Create the member relationship
+                Member.objects.create(kc_id=kc_user.id, user=user)
+
+        # Update user attributes
         user = self._map_kc_user(user, kc_user, is_superuser, delete)
+        self.sync_kc_user_groups(kc_user)
         user.save()
+        
+        # FINAL SAFETY CHECK: Verify Member exists before returning
+        # This ensures we never return a user without a Member
+        try:
+            _ = user.member  # Access member to trigger DoesNotExist if missing
+        except:
+            # This should never happen, but if it does, create Member immediately
+            Member.objects.create(kc_id=kc_user.id, user=user)
+        
         return user
 
-    def sync_kc_user_groups(self, kc_user):
-        # Sync the user usergroups and memberships
-        user = User.objects.get(username=kc_user["email"])
+    def sync_kc_user_groups(self, kc_user: ch_models.User):
+        # Sync the user usergroups and memberships using kc_id for reliable lookups
+        user = get_user_by_kc_id(kc_user.id)
+
+        if user is None:
+            raise ValueError(f"Django user not found for Keycloak user {kc_user.id}")
+
         user_groups = []
-        for kc_group in kc_user["userGroups"]:
-            user_groups += [Group.objects.get(name=kc_group["name"])]
+        for kc_group in [*kc_user.user_groups, *kc_user.organizations]:
+            group, _ = Group.objects.get_or_create(name=kc_group.name)
+            user_groups.append(group)
         user.groups.set(user_groups)
         user.save()
 
+        # Ensure the member relationship exists and is correct
         try:
-            if user.member.kc_id != kc_user["id"]:
-                user.member.kc_id = kc_user["id"]
+            member = user.member
+            if member.kc_id != kc_user.id:
+                member.kc_id = kc_user.id
+                member.save()
         except Member.DoesNotExist:
-            member = Member(user=user, kc_id=kc_user["id"])
+            member = Member(user=user, kc_id=kc_user.id)
             member.save()
 
     def sync_kc_users_groups(self):
@@ -131,14 +172,12 @@ class UserService:
         )
 
         # sync the users
-        for kc_user in self.auth_client.get_users():
+        users = self.auth_client.get_users()
+        for kc_user in users:
             # check if user in all_admin_users
-            is_superuser = any([admin_user for admin_user in all_admin_users if admin_user["email"] == kc_user["email"]])
+            is_superuser = any([admin_user for admin_user in all_admin_users if admin_user["id"] == kc_user["id"]])
             self.sync_kc_user(kc_user, is_superuser)
 
-        # sync the groups
-        self.sync_kc_groups()
-
         # sync the user groups and memberships
-        for kc_user in self.auth_client.get_users():
+        for kc_user in users:
             self.sync_kc_user_groups(kc_user)

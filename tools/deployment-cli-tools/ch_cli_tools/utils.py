@@ -89,7 +89,7 @@ def get_image_name(app_name, base_name=None):
 
 
 def env_variable(name, value):
-    return {'name': f"{name}".upper(), 'value': value}
+    return {'name': f"{name}".upper(), 'value': str(value)}
 
 
 def get_cluster_ip():

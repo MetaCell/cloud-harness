@@ -169,14 +169,19 @@ class ContainerizedOperation(ManagedOperation):
         return spec
 
     def add_on_exit_notify_handler(self, spec):
-        queue = self.on_exit_notify['queue']
-        payload = self.on_exit_notify['payload']
+        env_args = {
+            'workflow_result': '{{workflow.status}}'
+        }
+
+        if 'queue' in self.on_exit_notify:
+            env_args['queue_name'] = self.on_exit_notify['queue']
+        if 'payload' in self.on_exit_notify:
+            env_args['payload'] = self.on_exit_notify['payload']
+
         exit_task = CustomTask(
             name="exit-handler",
             image_name=self.on_exit_notify.get('image', 'workflows-notify-queue'),
-            workflow_result='{{workflow.status}}',
-            queue_name=queue,
-            payload=payload
+            **env_args
         )
         spec['onExit'] = 'exit-handler'
         spec['templates'].append(
