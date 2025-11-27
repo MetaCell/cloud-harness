@@ -1,7 +1,7 @@
 load('ext://namespace', 'namespace_create', "namespace_inject")
 
 
-def deploy(name, namespace, extra_env):
+def deploy(name, namespace, extra_env, watch):
 
     # create namespaces
     namespace_create(namespace)
@@ -57,8 +57,11 @@ def deploy(name, namespace, extra_env):
                             "name": env, "value": env
                         })
 
-    # don't watch mnp folder
-    #watch_settings(ignore=source_root)
+    if not watch:
+        # don't watch mnp folder
+        watch_settings(ignore=source_root)
+    else:
+        print("Watching for file changes")
 
     # install applications
     k8s_yaml(namespace_inject(encode_yaml_stream(yaml), namespace))

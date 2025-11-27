@@ -2,8 +2,10 @@ load('{{ch_root}}/deployment-configuration/tilt-deploy.ext', 'deploy')
 load('ext://uibutton', 'cmd_button')
 
 config.define_bool('setup-infrastructure')
+config.define_bool('watch')
 cfg = config.parse()
 setup_infrastructure = cfg.get('setup-infrastructure', False)
+watch = cfg.get('watch', False)
 if setup_infrastructure:
     # setup ingress
     print("Installing ingress controller")
@@ -14,6 +16,10 @@ if setup_infrastructure:
 else:
     print("To setup the infrastructure (f.e. ingress controller)")
     print("run: tilt up -- --setup-infrastructure")
+
+if not watch:
+    print("To watch file changes, run: tilt up -- --watch")
+
 
 # build images
 {% for image in images -%}
@@ -33,7 +39,7 @@ extra_env["{{ image.name }}"].append("{{ task.image }}")
 {% endfor %}
 
 # deploy
-deploy(name='{{name}}', namespace='{{namespace}}', extra_env=extra_env)
+deploy(name='{{name}}', namespace='{{namespace}}', extra_env=extra_env, watch=watch)
 
 {% for app in apps -%}
 # Add Tilt ui elements for: {{app.name}}
