@@ -42,7 +42,7 @@ k8s_resource(
     links=[link('http://{{app.name}}.{{domain}}', 'Open {{app.name}} page')]
 )
 cmd_button('{{app.app_key}}:set debug mode',
-    argv=["sh", "-c", "kubectl patch deployment {{app.name}} -n {{namespace}} --type='json' -p='[{\"op\": \"replace\", \"path\": \"/spec/template/spec/containers/0/command\", \"value\": [\"/bin/bash\", \"-c\", \"sleep infinity\"]}]'"],
+    argv=["sh", "-c", "kubectl -n {{namespace}} patch deployment {{app.app_key}} --patch '{\"spec\": {\"template\": {\"spec\": {\"containers\": [{\"name\": \"{{app.app_key}}\", \"command\": [\"/bin/bash\"], \"args\": [\"-c\", \"sleep infinity\"], \"livenessProbe\": null, \"readinessProbe\": null}]}}}}'"],
     resource='{{app.app_key}}',
     icon_name='bug_report',
     text='set debug mode',
