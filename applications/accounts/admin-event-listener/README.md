@@ -3,7 +3,7 @@
 ## Building
 ```
 mvn clean install
-cp ./ear-module/target/metacell-admin-event-listener-bundle-0.1.0.ear ../plugins/
+cp ./jar-module/target/metacell-admin-event-listener-module-1.0.0.jar ../plugins/
 ```
 
 ## Install
