@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from workflows_api.models.base_model_ import Model
+from workflows_api.models.base_model import Model
 from workflows_api import util
 
 
@@ -43,7 +40,7 @@ class SearchResultData(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def continue_token(self):
+    def continue_token(self) -> str:
         """Gets the continue_token of this SearchResultData.
 
         token to use for pagination  # noqa: E501
@@ -54,7 +51,7 @@ class SearchResultData(Model):
         return self._continue_token
 
     @continue_token.setter
-    def continue_token(self, continue_token):
+    def continue_token(self, continue_token: str):
         """Sets the continue_token of this SearchResultData.
 
         token to use for pagination  # noqa: E501

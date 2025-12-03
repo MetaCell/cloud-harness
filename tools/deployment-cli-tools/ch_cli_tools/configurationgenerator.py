@@ -17,7 +17,7 @@ from cloudharness_utils.constants import TEST_IMAGES_PATH, HELM_CHART_PATH, APPS
     DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH
 from .utils import get_cluster_ip, env_variable, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
     get_template, merge_configuration_directories, dict_merge, app_name_from_path, \
-    find_dockerfiles_paths, clean_image_name
+    find_dockerfiles_paths
 
 
 KEY_HARNESS = 'harness'
@@ -39,7 +39,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
                  namespace: str = None, templates_path: str = HELM_PATH):
         assert domain, 'A domain must be specified'
         self.root_paths = [Path(r) for r in root_paths]
-        self.tag = tag
+        self.tag = str(tag) if tag else None
         if registry and not registry.endswith('/'):
             self.registry = f'{registry}/'
         else:
@@ -96,7 +96,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
     def _process_applications(self, helm_values, base_image_name=None):
         for i in range(len(self.root_paths)):
             root_path = self.root_paths[i]
-            base_name = clean_image_name(root_path.name) if i < len(self.root_paths) - 1 else base_image_name
+            base_name = base_image_name
             app_values = init_app_values(
                 root_path, exclude=self.exclude, values=helm_values[KEY_APPS])
             helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
@@ -152,7 +152,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
     def _init_static_images(self, base_image_name):
         for i in range(len(self.root_paths)):
             root_path = self.root_paths[i]
-            base_name = clean_image_name(root_path.name) if i < len(self.root_paths) - 1 else base_image_name
+            base_name = base_image_name
             for static_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)):
                 self.static_images.add(static_img_dockerfile)
 
@@ -185,7 +185,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
     def _init_base_images(self, base_image_name):
         for i in range(len(self.root_paths)):
             root_path = self.root_paths[i]
-            base_name = clean_image_name(root_path.name) if i < len(self.root_paths) - 1 else base_image_name
+            base_name = base_image_name
 
             for base_img_dockerfile in self.__find_static_dockerfile_paths(root_path):
                 img_name = image_name_from_dockerfile_path(
@@ -201,7 +201,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         test_images = {}
         for i in range(len(self.root_paths)):
             root_path = self.root_paths[i]
-            base_name = clean_image_name(root_path.name) if i < len(self.root_paths) - 1 else base_image_name
+            base_name = base_image_name
 
             for base_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, TEST_IMAGES_PATH)):
                 img_name = image_name_from_dockerfile_path(
@@ -487,7 +487,7 @@ def extract_env_variables_from_values(values, envs=tuple(), prefix=''):
         newenvs = list(envs)
         for key, value in values.items():
             v = extract_env_variables_from_values(
-                value, envs, f"{prefix}_{key}".replace('-', '_').upper())
+                str(value), envs, f"{prefix}_{key}".replace('-', '_').upper())
             if key in ('name', 'port', 'subdomain'):
                 newenvs.extend(v)
         return newenvs

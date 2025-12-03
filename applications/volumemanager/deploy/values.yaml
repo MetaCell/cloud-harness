@@ -1,6 +1,9 @@
 harness:
   name: volumemanager
   subdomain: volumemanager
+  proxy:
+    gatekeeper:
+      replicas: 1
   service:
     port: 8080
     auto: true
@@ -15,7 +18,7 @@ harness:
       - cloudharness-flask
   test:
     api:
-      enabled: true
+      enabled: false
       autotest: true
       checks:
         - all

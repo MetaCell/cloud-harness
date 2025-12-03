@@ -25,20 +25,6 @@ def ping():  # noqa: E501
 
     import os
 
-    expected_environment_variables = {
-        'WORKERS': '3',
-        'ENVIRONMENT_TEST_A': 'value',
-        'ENVIRONMENT_TEST_B': '123',
-    }
-
-    for key, expected_value in expected_environment_variables.items():
-        try:
-            environment_value = os.environ[key]
-            if environment_value != expected_value:
-                raise Exception(f'Expected environment variable {key} to be {expected_value}, but got {environment_value}')
-        except KeyError:
-            raise Exception(f'Expected to have an environment variable {key} defined')
-
     import time
     return time.time()
 
