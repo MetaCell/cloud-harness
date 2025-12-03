@@ -1,6 +1,7 @@
 import connexion
 import six
 
+from samples.models.valid import Valid  # noqa: E501
 from samples import util
 
 
@@ -26,5 +27,7 @@ def valid_cookie():  # noqa: E501
     :rtype: List[Valid]
     """
     from cloudharness.middleware import get_authentication_token
+    from cloudharness.auth import decode_token
     token = get_authentication_token()
+    assert decode_token(token)
     return 'OK'

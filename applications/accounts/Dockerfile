@@ -1,4 +1,4 @@
-FROM quay.io/keycloak/keycloak:26.4
+FROM quay.io/keycloak/keycloak:26.2.1
 
 EXPOSE 9000
 EXPOSE 8080
@@ -12,7 +12,7 @@ USER keycloak
 COPY themes/custom /opt/keycloak/themes/custom
 
 # # keycloak kafka listener plugin
-COPY plugins/* /opt/keycloak/providers/
+COPY plugins/metacell-admin-event-listener-module-1.0.0.jar /opt/keycloak/providers/
 
 ENTRYPOINT [ "/opt/keycloak/bin/kc-entrypoint.sh" ]
-CMD [ "start", "--import-realm" ]
+CMD [ "start-dev", "--import-realm", "--health-enabled=true", "--metrics-enabled=true" ]

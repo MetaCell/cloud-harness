@@ -121,7 +121,7 @@ metadata:
   labels:
     app: "{{ .subdomain  }}-gk"
 spec:
-  replicas: {{ .app.harness.proxy.gatekeeper.replicas | default .root.Values.proxy.gatekeeper.replicas | default 5 }}
+  replicas: 1
   selector:
     matchLabels:
       app: "{{ .subdomain  }}-gk"
@@ -135,7 +135,7 @@ spec:
 {{ include "deploy_utils.etcHosts" .root | indent 6 }}
       containers:
       - name: {{ .app.harness.service.name | quote }}
-        image: {{ .app.harness.proxy.gatekeeper.image | default .root.Values.proxy.gatekeeper.image | default "quay.io/gogatekeeper/gatekeeper:2.14.3" }}
+        image: "quay.io/gogatekeeper/gatekeeper:2.14.3"
         imagePullPolicy: IfNotPresent
         {{ if .root.Values.local }}
         securityContext:
@@ -163,7 +163,12 @@ spec:
         - name: https
           containerPort: 8443
         resources:
-{{ .app.harness.proxy.gatekeeper.resources | default .root.Values.proxy.gatekeeper.resources | toYaml | nindent 10 }}
+          requests:
+            memory: "32Mi"
+            cpu: "5m"
+          limits:
+            memory: "64Mi"
+            cpu: "100m"
       volumes:
       - name: "{{ .subdomain  }}-gk-proxy-config"
         configMap:

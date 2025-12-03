@@ -22,7 +22,7 @@ def get_schemathesis_params(app_config: ApplicationHarnessConfig, app_domain: st
         for c in api_config.checks:
             params += ["-c", c]
 
-    return [*params, *api_config.run_params]
+    return [*params, *api_config.runParams]
 
 
 def get_urls_from_api_file(api_filename):

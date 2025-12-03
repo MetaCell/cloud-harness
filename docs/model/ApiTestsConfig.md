@@ -21,12 +21,12 @@ json = "{}"
 # create an instance of ApiTestsConfig from a JSON string
 api_tests_config_instance = ApiTestsConfig.from_json(json)
 # print the JSON string representation of the object
-print(ApiTestsConfig.to_json())
+print ApiTestsConfig.to_json()
 
 # convert the object into a dict
 api_tests_config_dict = api_tests_config_instance.to_dict()
 # create an instance of ApiTestsConfig from a dict
-api_tests_config_from_dict = ApiTestsConfig.from_dict(api_tests_config_dict)
+api_tests_config_form_dict = api_tests_config.from_dict(api_tests_config_dict)
 ```
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

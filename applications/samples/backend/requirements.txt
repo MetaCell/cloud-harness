@@ -1,9 +1,3 @@
-connexion[swagger-ui,flask,uvicorn]>=3.0.0,<4.0.0
-swagger-ui-bundle>=1.1.0
-python_dateutil>=2.9.0
-setuptools>=21.0.0
-uvicorn
-# Following some unnecessary requirements to make sure they can be installed
-psycopg2-binary
-sqlalchemy<2.0.0
-scipy
+connexion[swagger-ui]==2.14.2
+Flask == 2.2.5
+swagger-ui-bundle==0.0.9

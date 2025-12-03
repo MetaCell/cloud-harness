@@ -21,12 +21,12 @@ json = "{}"
 # create an instance of JupyterHubConfig from a JSON string
 jupyter_hub_config_instance = JupyterHubConfig.from_json(json)
 # print the JSON string representation of the object
-print(JupyterHubConfig.to_json())
+print JupyterHubConfig.to_json()
 
 # convert the object into a dict
 jupyter_hub_config_dict = jupyter_hub_config_instance.to_dict()
 # create an instance of JupyterHubConfig from a dict
-jupyter_hub_config_from_dict = JupyterHubConfig.from_dict(jupyter_hub_config_dict)
+jupyter_hub_config_form_dict = jupyter_hub_config.from_dict(jupyter_hub_config_dict)
 ```
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

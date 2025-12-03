@@ -1,6 +1,5 @@
 import connexion
 import six
-from flask import request
 
 from samples.models.sample_resource import SampleResource  # noqa: E501
 from samples import util
@@ -17,14 +16,13 @@ def create_sample_resource(sample_resource=None):  # noqa: E501
 
     :rtype: None
     """
-    # Connexion 3.x with pythonic_params should auto-deserialize, but if not, get from Flask request
-    if sample_resource is None:
-        sample_resource = request.get_json()
+    if connexion.request.is_json:
+        try:
+            sample_resource = SampleResource.from_dict(connexion.request.get_json())  # noqa: E501
+        except:
+            return "Payload is not of type SampleResource", 400
 
-    if isinstance(sample_resource, dict):
-        sample_resource = SampleResource.from_dict(sample_resource)
-
-    # Create a file inside the volume
+    # Create a file inside the nfs
     with open("/tmp/myvolume/myfile", "w") as f:
         print("test", file=f)
 
@@ -92,13 +90,10 @@ def update_sample_resource(sampleresource_id, sample_resource=None):  # noqa: E5
 
     :rtype: None
     """
-    # Connexion 3.x with pythonic_params should auto-deserialize, but if not, get from Flask request
-    if sample_resource is None:
-        sample_resource = request.get_json()
-
-    if isinstance(sample_resource, dict):
-        sample_resource = SampleResource.from_dict(sample_resource)
-
+    try:
+        sample_resource = SampleResource.from_dict(connexion.request.get_json())  # noqa: E501
+    except:
+        return "Payload is not of type SampleResource", 400
     try:
         resource = resource_service.update_sample_resource(
             int(sampleresource_id), sample_resource)

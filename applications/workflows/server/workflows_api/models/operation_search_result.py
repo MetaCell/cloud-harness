@@ -1,8 +1,11 @@
+# coding: utf-8
+
+from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from workflows_api.models.base_model import Model
+from workflows_api.models.base_model_ import Model
 from workflows_api.models.operation import Operation
 from workflows_api.models.search_result_data import SearchResultData
 from workflows_api import util
@@ -49,7 +52,7 @@ class OperationSearchResult(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def meta(self) -> SearchResultData:
+    def meta(self):
         """Gets the meta of this OperationSearchResult.
 
 
@@ -59,7 +62,7 @@ class OperationSearchResult(Model):
         return self._meta
 
     @meta.setter
-    def meta(self, meta: SearchResultData):
+    def meta(self, meta):
         """Sets the meta of this OperationSearchResult.
 
 
@@ -70,7 +73,7 @@ class OperationSearchResult(Model):
         self._meta = meta
 
     @property
-    def items(self) -> List[Operation]:
+    def items(self):
         """Gets the items of this OperationSearchResult.
 
 
@@ -80,7 +83,7 @@ class OperationSearchResult(Model):
         return self._items
 
     @items.setter
-    def items(self, items: List[Operation]):
+    def items(self, items):
         """Sets the items of this OperationSearchResult.
 
 

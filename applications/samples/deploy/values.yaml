@@ -17,9 +17,6 @@ harness:
       usenfs: false
     auto: true
     port: 8080
-  proxy:
-    gatekeeper:
-      replicas: 1
   uri_role_mapping:
     - uri: /
       white-listed: true

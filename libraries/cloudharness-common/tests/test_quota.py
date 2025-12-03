@@ -12,7 +12,6 @@ jh_config = get_configuration("jupyterhub")
 assert jh_config is not None
 
 
-# pip install pytest-mock
 def test_get_quotas(mocker):
     def mock_get_admin_client(self):
         return None
@@ -32,13 +31,9 @@ def test_get_quotas(mocker):
                 {"path": "/Low CU", "attributes": {'quota-ws-maxmem': [3], 'quota-ws-maxcpu': [2.5], 'quota-ws-open': [1]}}
             ]
         }
-
-    def mock_get_api_password():
-        return "password"
     mocker.patch('cloudharness.auth.keycloak.AuthClient.get_admin_client', mock_get_admin_client)
     mocker.patch('cloudharness.auth.keycloak.AuthClient.get_current_user', mock_get_current_user)
     mocker.patch('cloudharness.auth.keycloak.AuthClient.get_user', mock_get_user)
-    mocker.patch('cloudharness.auth.keycloak.get_api_password', mock_get_api_password)
     user_quotas_jh = get_user_quotas(jh_config, user_id=None)
 
     assert user_quotas_jh.get("quota-ws-maxmem") == 8.0

@@ -26,7 +26,7 @@ def test_collect_compose_values(tmp_path):
     assert values.apps['myapp'].harness.deployment.image == 'reg/testprojectname/myapp:1'
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
     assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/accounts:1'
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'reg/cloud-harness/accounts:1'
 
     # First level include apps
     assert 'samples' in values[KEY_APPS]
@@ -102,7 +102,7 @@ def test_collect_compose_values_noreg_noinclude(tmp_path):
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'testprojectname/myapp:1'
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
     assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'testprojectname/accounts:1'
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'cloud-harness/accounts:1'
 
     # First level include apps
     assert 'samples' in values[KEY_APPS]

@@ -8,6 +8,7 @@ import logging
 from time import sleep
 from cloudharness import json, dumps
 
+from cloudharness_model.util import DeserializationException
 from keycloak.exceptions import KeycloakGetError
 from kafka import KafkaProducer, KafkaConsumer
 from kafka.admin import KafkaAdminClient, NewTopic
@@ -195,7 +196,7 @@ class EventClient:
                     try:
                         if "operation" in record.value:
                             yield CDCEvent.from_dict(record.value)
-                    except Exception as e:
+                    except DeserializationException as e:
                         log.error("Message is not in the proper CDC format: %s", record.value)
                         continue
         except Exception as e:

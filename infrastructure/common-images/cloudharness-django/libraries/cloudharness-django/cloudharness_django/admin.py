@@ -5,7 +5,7 @@ from django.contrib.auth.models import User, Group
 
 from admin_extra_buttons.api import ExtraButtonsMixin, button
 from .models import Member
-
+from cloudharness_django.services import get_user_service
 
 # Register your models here.
 
@@ -32,7 +32,6 @@ class CHUserAdmin(ExtraButtonsMixin, UserAdmin):
 
     @button()
     def sync_keycloak(self, request):
-        from cloudharness_django.services import get_user_service
         get_user_service().sync_kc_users_groups()
         self.message_user(request, 'Keycloak users & groups synced.')
 
@@ -50,7 +49,6 @@ class CHGroupAdmin(ExtraButtonsMixin, GroupAdmin):
 
     @button()
     def sync_keycloak(self, request):
-        from cloudharness_django.services import get_user_service
         get_user_service().sync_kc_users_groups()
         self.message_user(request, 'Keycloak users & groups synced.')
 

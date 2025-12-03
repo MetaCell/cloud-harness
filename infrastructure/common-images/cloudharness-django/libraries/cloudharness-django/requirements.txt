@@ -1,7 +1,0 @@
-Django>=5
-django-admin-extra-buttons>=1.4.2
-psycopg2-binary>=2.9.3
-Pillow>=9.2.0
-python-keycloak
-django-prometheus
-uvicorn

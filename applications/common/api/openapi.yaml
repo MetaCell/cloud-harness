@@ -10,6 +10,46 @@ servers:
         url: /api
         description: SwaggerHub API Auto Mocking
 paths:
+    '/sentry/getdsn/{appname}':
+        get:
+            tags:
+                - Sentry
+            responses:
+                '200':
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                    description: Sentry DSN for the given application
+                '400':
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                        text/html:
+                            schema:
+                                type: string
+                    description: Sentry not configured for the given application
+                '404':
+                    content:
+                        application/problem+json:
+                            schema:
+                                type: object
+                        text/html:
+                            schema:
+                                type: string
+                    description: Sentry not configured for the given application
+            operationId: getdsn
+            summary: Gets the Sentry DSN for a given application
+            description: Gets the Sentry DSN for a given application
+            x-openapi-router-controller: common.controllers.sentry_controller
+        parameters:
+            -
+                name: appname
+                schema:
+                    type: string
+                in: path
+                required: true
     /accounts/config:
         get:
             tags:

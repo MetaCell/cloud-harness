@@ -12,10 +12,10 @@ Name | Type | Description | Notes
 **aliases** | **List[str]** | If specified, an ingress will be created at [alias].[.Values.domain] for each alias | [optional] 
 **domain** | **str** | If specified, an ingress will be created at [domain] | [optional] 
 **dependencies** | [**ApplicationDependenciesConfig**](ApplicationDependenciesConfig.md) |  | [optional] 
-**secured** | **object** | When true, the application is shielded with a getekeeper | [optional] 
+**secured** | **bool** | When true, the application is shielded with a getekeeper | [optional] 
 **uri_role_mapping** | [**List[UriRoleMappingConfig]**](UriRoleMappingConfig.md) | Map uri/roles to secure with the Gatekeeper (if &#x60;secured: true&#x60;) | [optional] 
 **secrets** | **Dict[str, object]** |  | [optional] 
-**use_services** | [**List[NamedObject]**](NamedObject.md) | Specify which services this application uses in the frontend to create proxy ingresses. e.g.  &#x60;&#x60;&#x60; - name: samples &#x60;&#x60;&#x60; | [optional] 
+**use_services** | **List[str]** | Specify which services this application uses in the frontend to create proxy ingresses. e.g.  &#x60;&#x60;&#x60; - name: samples &#x60;&#x60;&#x60; | [optional] 
 **database** | [**DatabaseDeploymentConfig**](DatabaseDeploymentConfig.md) |  | [optional] 
 **resources** | [**List[FileResourcesConfig]**](FileResourcesConfig.md) | Application file resources. Maps from deploy/resources folder and mounts as configmaps | [optional] 
 **readiness_probe** | [**ApplicationProbe**](ApplicationProbe.md) |  | [optional] 
@@ -30,8 +30,6 @@ Name | Type | Description | Notes
 **env** | [**List[NameValue]**](NameValue.md) | Environmental variables added to all containers (deprecated, please use envmap) | [optional] 
 **envmap** | **Dict[str, object]** |  | [optional] 
 **dockerfile** | [**DockerfileConfig**](DockerfileConfig.md) |  | [optional] 
-**sentry** | **bool** |  | [optional] 
-**proxy** | [**ProxyConf**](ProxyConf.md) |  | [optional] 
 
 ## Example
 
@@ -43,12 +41,12 @@ json = "{}"
 # create an instance of ApplicationHarnessConfig from a JSON string
 application_harness_config_instance = ApplicationHarnessConfig.from_json(json)
 # print the JSON string representation of the object
-print(ApplicationHarnessConfig.to_json())
+print ApplicationHarnessConfig.to_json()
 
 # convert the object into a dict
 application_harness_config_dict = application_harness_config_instance.to_dict()
 # create an instance of ApplicationHarnessConfig from a dict
-application_harness_config_from_dict = ApplicationHarnessConfig.from_dict(application_harness_config_dict)
+application_harness_config_form_dict = application_harness_config.from_dict(application_harness_config_dict)
 ```
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

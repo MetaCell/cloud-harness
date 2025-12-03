@@ -1,8 +1,11 @@
+# coding: utf-8
+
+from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from common.models.base_model import Model
+from common.models.base_model_ import Model
 from common import util
 
 
@@ -50,7 +53,7 @@ class GetConfig200Response(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def url(self) -> str:
+    def url(self):
         """Gets the url of this GetConfig200Response.
 
         The auth URL.  # noqa: E501
@@ -61,7 +64,7 @@ class GetConfig200Response(Model):
         return self._url
 
     @url.setter
-    def url(self, url: str):
+    def url(self, url):
         """Sets the url of this GetConfig200Response.
 
         The auth URL.  # noqa: E501
@@ -73,7 +76,7 @@ class GetConfig200Response(Model):
         self._url = url
 
     @property
-    def realm(self) -> str:
+    def realm(self):
         """Gets the realm of this GetConfig200Response.
 
         The realm.  # noqa: E501
@@ -84,7 +87,7 @@ class GetConfig200Response(Model):
         return self._realm
 
     @realm.setter
-    def realm(self, realm: str):
+    def realm(self, realm):
         """Sets the realm of this GetConfig200Response.
 
         The realm.  # noqa: E501
@@ -96,7 +99,7 @@ class GetConfig200Response(Model):
         self._realm = realm
 
     @property
-    def client_id(self) -> str:
+    def client_id(self):
         """Gets the client_id of this GetConfig200Response.
 
         The clientID.  # noqa: E501
@@ -107,7 +110,7 @@ class GetConfig200Response(Model):
         return self._client_id
 
     @client_id.setter
-    def client_id(self, client_id: str):
+    def client_id(self, client_id):
         """Sets the client_id of this GetConfig200Response.
 
         The clientID.  # noqa: E501

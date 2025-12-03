@@ -93,17 +93,16 @@ def generate_fastapi_server(app_path: pathlib.Path) -> None:
 def generate_model(base_path=ROOT):
     get_dependencies()
     lib_path = f"{base_path}/libraries/models"
-    template_path = f"{base_path}/tools/deployment-cli-tools/ch_cli_tools/templates/python"
 
     # Generate model stuff: use python-flask generator
-    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/models/api/openapi.yaml -g python -o \
-          {lib_path}  --skip-validate-spec -c {base_path}/libraries/models/api/config.json -t {template_path}"
+    command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/models/api/openapi.yaml -g python-flask -o \
+          {lib_path}  --skip-validate-spec -c {base_path}/libraries/models/api/config.json"
     os.system(command)
 
     # Generate docs: use python generator
     tmp_path = f"{lib_path}/tmp"
     command = f"java -jar {CODEGEN} generate -i {base_path}/libraries/models/api/openapi.yaml -g python -o \
-        {tmp_path}  --skip-validate-spec -c {base_path}/libraries/models/api/config.json -t {template_path}"
+        {tmp_path}  --skip-validate-spec -c {base_path}/libraries/models/api/config.json"
     os.system(command)
     try:
         source_dir = join(tmp_path, "docs")

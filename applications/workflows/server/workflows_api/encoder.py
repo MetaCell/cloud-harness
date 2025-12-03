@@ -1,6 +1,7 @@
 from connexion.apps.flask_app import FlaskJSONEncoder
+import six
 
-from workflows_api.models.base_model import Model
+from workflows_api.models.base_model_ import Model
 
 
 class JSONEncoder(FlaskJSONEncoder):
@@ -9,7 +10,7 @@ class JSONEncoder(FlaskJSONEncoder):
     def default(self, o):
         if isinstance(o, Model):
             dikt = {}
-            for attr in o.openapi_types:
+            for attr, _ in six.iteritems(o.openapi_types):
                 value = getattr(o, attr)
                 if value is None and not self.include_nulls:
                     continue

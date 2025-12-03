@@ -1,4 +1,0 @@
-app-name: elasticsearch
-inferred: true
-templates: [base]
-version: '2'

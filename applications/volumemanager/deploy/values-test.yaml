@@ -1,2 +1,14 @@
+harness:
+  accounts:
+    roles:
+    - role1
+    - role2
+    - role3
+    users:
+    - username: volumes@testuser.com
+      clientRoles:
+      - role1
+      realmRoles:
+      - administrator
 
 

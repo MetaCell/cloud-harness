@@ -22,12 +22,12 @@ json = "{}"
 # create an instance of ApplicationProbe from a JSON string
 application_probe_instance = ApplicationProbe.from_json(json)
 # print the JSON string representation of the object
-print(ApplicationProbe.to_json())
+print ApplicationProbe.to_json()
 
 # convert the object into a dict
 application_probe_dict = application_probe_instance.to_dict()
 # create an instance of ApplicationProbe from a dict
-application_probe_from_dict = ApplicationProbe.from_dict(application_probe_dict)
+application_probe_form_dict = application_probe.from_dict(application_probe_dict)
 ```
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

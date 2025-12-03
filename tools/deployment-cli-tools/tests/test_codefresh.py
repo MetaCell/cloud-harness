@@ -64,7 +64,7 @@ def test_create_codefresh_configuration():
         assert "testprojectname/" in steps["cloudharness-base"]['image_name'], "cloudharness-base image should be overridden and take the main name"
         assert "cloudharness-base-debian" not in steps, "cloudharness-base image should not be included"
         assert "cloudharness-frontend-build" in steps, "cloudharness-frontend-build image should be included as dependency"
-        assert "testprojectname/" in steps["cloudharness-frontend-build"]['image_name'], "cloudharness-frontend-build image is not overridden"
+        assert "cloud-harness/" in steps["cloudharness-frontend-build"]['image_name'], "cloudharness-frontend-build image is not overridden and should keep the cloud-harness prefix"
 
         step = steps["cloudharness-frontend-build"]
         assert os.path.samefile(step['working_directory'], CLOUDHARNESS_ROOT)
@@ -122,8 +122,8 @@ def test_create_codefresh_configuration():
         assert "testprojectname/" in step['image_name'], f"myapp image should have the project name coming from the chart in its path, is {step['image_name']}"
         for build_argument in step['build_arguments']:
             if build_argument.startswith("CLOUDHARNESS_FLASK="):
-                assert "testprojectname" in build_argument, "Cloudharness flask image should have cloud-harness in its path"
-                assert build_argument == "CLOUDHARNESS_FLASK=${{REGISTRY}}/testprojectname/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}", "Dependency is not properly set in the build arguments"
+                assert "cloud-harness" in build_argument, "Cloudharness flask image should have cloud-harness in its path"
+                assert build_argument == "CLOUDHARNESS_FLASK=${{REGISTRY}}/cloud-harness/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}", "Dependency is not properly set in the build arguments"
 
         assert os.path.samefile(step['working_directory'], os.path.join(
             RESOURCES, APPS_PATH, "myapp"))

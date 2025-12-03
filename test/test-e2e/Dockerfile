@@ -1,4 +1,4 @@
-FROM ghcr.io/puppeteer/puppeteer:24
+FROM ghcr.io/puppeteer/puppeteer:23
 
 USER root
 RUN mkdir -p /home/test
