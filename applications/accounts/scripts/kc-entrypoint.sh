@@ -2,8 +2,6 @@
 
 /opt/keycloak/bin/kc.sh $@ &
 
-MAX_ATTEMPTS=30
-ATTEMPT=0
 API_USERNAME="admin_api"
 API_PASSWORD=$(cat /opt/cloudharness/resources/auth/api_user_password 2>/dev/null || echo "")
 
@@ -11,12 +9,6 @@ echo "Waiting for Keycloak to start..."
 
 # Wait for Keycloak to be ready
 until curl -sf http://localhost:8080/health/ready > /dev/null 2>&1; do
-    ATTEMPT=$((ATTEMPT + 1))
-    if [ $ATTEMPT -ge $MAX_ATTEMPTS ]; then
-        echo "ERROR: Keycloak did not become ready after $MAX_ATTEMPTS attempts."
-        wait
-        exit 1
-    fi
     sleep 2s
 done
 
