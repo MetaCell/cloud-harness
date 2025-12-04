@@ -1,3 +1,5 @@
+import time
+
 from cloudharness.applications import ConfigurationCallException
 
 from django.conf import settings
@@ -23,9 +25,9 @@ class KeycloakMessageService:
         operation = message["operation-type"]
         resource_path = message["resource-path"].split("/")
 
-        log.info(f"{event_client} {message}")
         if resource in ["CLIENT_ROLE_MAPPING", "GROUP", "USER", "GROUP_MEMBERSHIP"]:
             try:
+                time.sleep(1)  # wait a bit to let kc db transactions finish
                 init_services()
                 user_service = get_user_service()
                 auth_client = get_auth_service().get_auth_client()
@@ -33,19 +35,23 @@ class KeycloakMessageService:
                 if resource == "GROUP":
                     kc_group = auth_client.get_group(resource_path[1])
                     user_service.sync_kc_group(kc_group)
+                    return
                 if resource == "USER":
                     kc_user = auth_client.get_user(resource_path[1])
                     user_service.sync_kc_user(kc_user, delete=operation == "DELETE")
+                    return
                 if resource == "CLIENT_ROLE_MAPPING":
                     # adding/deleting user client roles
                     # set/user user is_superuser
                     kc_user = auth_client.get_user(resource_path[1])
                     user_service.sync_kc_user(kc_user)
+                    return
                 if resource == "GROUP_MEMBERSHIP":
                     # adding / deleting users from groups, update the user
                     # updating the user will also update the user groups
                     kc_user = auth_client.get_user(resource_path[1])
                     user_service.sync_kc_user(kc_user)
+                    return
             except Exception as e:
                 log.error(e)
                 raise e
@@ -100,7 +106,6 @@ def init_listener():
 
 def init_listener_in_background():
     import threading
-    import time
 
     def background_operation():
         while True:
