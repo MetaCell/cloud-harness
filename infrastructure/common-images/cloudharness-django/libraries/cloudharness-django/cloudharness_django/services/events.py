@@ -91,9 +91,10 @@ def init_listener():
     if not hasattr(settings, "PROJECT_NAME"):
         raise KeycloakOIDCNoProjectError("Project name not found, please set PROJECT_NAME in your settings module")
 
+    kafka_group_id = settings.PROJECT_NAME.lower()
     global _message_service_singleton
     if _message_service_singleton is None:
-        _message_service_singleton = KeycloakMessageService(settings.PROJECT_NAME)
+        _message_service_singleton = KeycloakMessageService(kafka_group_id)
 
     _message_service_singleton.setup_event_service()
 
