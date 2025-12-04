@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  # Docker Socket Proxy - provides secure, filtered access to Docker daemon
+  # See: https://github.com/Tecnativa/docker-socket-proxy
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: cloudharness-docker-proxy
+    restart: "no"
+    privileged: false
+    environment:
+      # Disable all by default
+      ALLOW_RESTARTS: 1
+      ALLOW_START: 0
+      ALLOW_STOP: 1
+      
+      # Enable read-only operations (safe)
+      EVENTS: 1
+      PING: 1
+      VERSION: 1
+      
+      # Enable image operations (needed for building)
+      IMAGES: 1
+      INFO: 1
+      
+      # Enable container operations (most common dev tasks)
+      CONTAINERS: 1
+      POST: 1  # Allows creating containers
+      
+      # Enable build operations
+      BUILD: 1
+      COMMIT: 1
+      
+      # Enable network operations (needed for docker-compose)
+      NETWORKS: 1
+      
+      # Enable volume operations (needed for development)
+      VOLUMES: 1
+      
+      # Enable exec (for debugging containers)
+      EXEC: 1
+      
+      # DISABLE dangerous operations (security)
+      ALLOW_PRIVILEGED: 0  # Block --privileged flag
+      
+      # Disable direct host mounts at API level where possible
+      # Note: This blocks some mount operations but not all
+      # Docker API doesn't provide granular mount path filtering
+      # Consider using bind-propagation restrictions
+      
+      # Optional: Enable these if needed
+      # SECRETS: 1
+      # SERVICES: 1
+      # SWARM: 1
+      # NODES: 1
+      # TASKS: 1
+      
+      # Logging
+      LOG_LEVEL: info
+    volumes:
+      # Mount the real Docker socket (only this container has direct access)
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - devcontainer
+    ports:
+      # Expose on localhost only for security
+      # If port is already in use, container will exit silently (restart: no)
+      - "127.0.0.1:2375:2375"
+
+  # Dev container - connects through the proxy
+  app:
+    image: gcr.io/metacellllc/cloud-harness/dev-container:latest
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    container_name: cloudharness-dev
+    user: root
+    network_mode: host
+    # Don't fail if proxy isn't running (may already be running from another devcontainer)
+    depends_on:
+      docker-socket-proxy:
+        condition: service_started
+        required: false
+    environment:
+      PYTHONPATH: "/cloudharness:/workspace/libraries/models:/workspace/libraries/cloudharness-utils:/workspace/libraries/cloudharness-common:/workspace/libraries/client/cloudharness_cli:/workspace/tools/deployment-cli-tools"
+      # Point docker client to the proxy on localhost
+      DOCKER_HOST: "tcp://127.0.0.1:2375"
+      KUBECONFIG: "/root/.kube-container/config"
+      DOCKER_SOCKET_PROXY: "1"  # Flag to indicate we're using proxy
+      # Disable credential store to avoid desktop.exe error
+      DOCKER_CONFIG: "/root/.docker-container"
+    volumes:
+      - ../:/workspace:cached
+      - ${HOME}/.docker:/root/.docker:ro
+      - ${HOME}/.kube:/root/.kube:ro
+      - ./home:/root
+      - ./vscode:/workspace/.vscode
+      # Mount VS Code server directory for extension persistence
+      - vscode-server:/root/.vscode-server
+      - vscode-server-insiders:/root/.vscode-server-insiders
+    command: sleep infinity
+
+networks:
+  devcontainer:
+    driver: bridge
+
+volumes:
+  vscode-server:
+  vscode-server-insiders:

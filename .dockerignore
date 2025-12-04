@@ -2,10 +2,10 @@
 .tox
 docs
 /applications
-/infrastructure
+# /infrastructure
 /blueprint
 test
-/tools/deployment-cli-tools
+# /tools/deployment-cli-tools
 .github
 .git
 .vscode

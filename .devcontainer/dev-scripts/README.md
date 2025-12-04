@@ -19,17 +19,17 @@ When using VS Code with dev containers, the virtual environment is automatically
 
 1. **Set up and activate the runtime virtual environment:**
    ```bash
-   /workspace/dev-scripts/runtime-venv.sh
+   /usr/local/share/dev-scripts/runtime-venv.sh
    ```
 
 2. **Activate an existing runtime virtual environment:**
    ```bash
-   source /workspace/dev-scripts/use-venv
+   source /usr/local/share/dev-scripts/use-venv
    ```
 
 3. **VS Code setup (automatically runs in dev container):**
    ```bash
-   /workspace/dev-scripts/vscode-setup.sh
+   /usr/local/share/dev-scripts/vscode-setup.sh
    ```
 
 4. **Install additional packages (while venv is active):**

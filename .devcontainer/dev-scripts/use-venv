@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# Wrapper script to source the runtime virtual environment
+# Usage: source /usr/local/share/dev-scripts/use-venv
+
+VENV_DIR="$HOME/.local/venv"
+
+if [ -d "$VENV_DIR" ]; then
+    # Check if we're already in the virtual environment
+    if [[ "$VIRTUAL_ENV" != "$VENV_DIR" ]]; then
+        # Prevent venv from modifying PS1
+        export VIRTUAL_ENV_DISABLE_PROMPT=1
+        source "$VENV_DIR/bin/activate"
+        # Customize prompt with colors: green (venv), cyan user, blue path
+        # export PS1="\[\033[32m\](venv)\[\033[0m\] \[\033[36m\]\u\[\033[0m\]:\[\033[34m\]\w\[\033[0m\]\$ "
+        # Only show message in interactive shells on first activation
+        if [[ $- == *i* ]] && [[ -z "$VENV_ACTIVATED" ]]; then
+            echo "Runtime virtual environment activated."
+            export VENV_ACTIVATED=1
+        fi
+    fi
+else
+    echo "No runtime virtual environment found. Run '/usr/local/share/dev-scripts/runtime-venv.sh' first."
+fi

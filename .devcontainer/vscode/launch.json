@@ -1,0 +1,151 @@
+{
+  "configurations": [
+    {
+      "console": "integratedTerminal",
+      "name": "Python: Current File",
+      "program": "${file}",
+      "request": "launch",
+      "type": "python"
+    },
+    {
+      "args": [
+        ".",
+        "-i",
+        "samples",
+        "-d",
+        "ch",
+        "-dtls",
+        "-e",
+        "test",
+        "-l",
+        "-n",
+        "ch",
+        "-t",
+        "1"
+      ],
+      "console": "integratedTerminal",
+      "name": "Harness deployment",
+      "program": "tools/deployment-cli-tools/harness-deployment",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        ".",
+        "-i",
+        "samples",
+        "-d",
+        "ch.local",
+        "-dtls",
+        "-e",
+        "test-local",
+        "-l",
+        "-n",
+        "ch",
+        "--no-cd",
+        "-t",
+        "latest"
+      ],
+      "console": "integratedTerminal",
+      "name": "Harness deployment local",
+      "program": "tools/deployment-cli-tools/harness-deployment",
+      "request": "launch",
+      "type": "python"
+    },
+    {
+      "args": [
+        ".",
+        "-a"
+      ],
+      "console": "integratedTerminal",
+      "name": "Harness test",
+      "program": "${workspaceFolder}/tools/cloudharness-test/harness-test",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "main:app"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/applications/testdjango/backend",
+      "env": {
+        "ACCOUNTS_ADMIN_PASSWORD": "metacell",
+        "ACCOUNTS_ADMIN_USERNAME": "admin",
+        "CH_CURRENT_APP_NAME": "testdjango",
+        "CH_VALUES_PATH": "${workspaceFolder}/deployment/helm/values.yaml",
+        "DJANGO_SETTINGS_MODULE": "django_baseapp.settings",
+        "KUBERNETES_SERVICE_HOST": "ssdds"
+      },
+      "justMyCode": false,
+      "module": "uvicorn",
+      "name": "testdjango backend",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "django_baseapp.asgi:application"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/applications/ninja/backend",
+      "env": {
+        "ACCOUNTS_ADMIN_PASSWORD": "metacell",
+        "ACCOUNTS_ADMIN_USERNAME": "admin",
+        "CH_CURRENT_APP_NAME": "ninja",
+        "CH_VALUES_PATH": "${workspaceFolder}/deployment/helm/values.yaml",
+        "DJANGO_SETTINGS_MODULE": "django_baseapp.settings",
+        "KUBERNETES_SERVICE_HOST": "ssdds"
+      },
+      "justMyCode": false,
+      "module": "uvicorn",
+      "name": "ninja backend",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "django_baseapp.asgi:application"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/applications/ninjatest/backend",
+      "env": {
+        "ACCOUNTS_ADMIN_PASSWORD": "metacell",
+        "ACCOUNTS_ADMIN_USERNAME": "admin",
+        "CH_CURRENT_APP_NAME": "ninjatest",
+        "CH_VALUES_PATH": "${workspaceFolder}/deployment/helm/values.yaml",
+        "DJANGO_SETTINGS_MODULE": "django_baseapp.settings",
+        "KUBERNETES_SERVICE_HOST": "ssdds"
+      },
+      "justMyCode": false,
+      "module": "uvicorn",
+      "name": "ninjatest backend",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "cleanUp": false,
+      "debug": [],
+      "imageRegistry": "localhost:5000",
+      "name": "CloudHarness: Run/Debug",
+      "portForward": true,
+      "request": "launch",
+      "skaffoldConfig": "${workspaceFolder}/skaffold.yaml",
+      "type": "cloudcode.kubernetes",
+      "watch": true
+    }
+  ],
+  "version": "0.2.0"
+}

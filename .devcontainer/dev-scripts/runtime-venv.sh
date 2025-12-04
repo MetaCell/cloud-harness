@@ -8,7 +8,7 @@ VENV_DIR="$HOME/.local/venv"
 # Create virtual environment if it doesn't exist
 if [ ! -d "$VENV_DIR" ]; then
     echo "Creating runtime virtual environment at $VENV_DIR..."
-    python -m venv "$VENV_DIR"
+    python -m venv --system-site-packages "$VENV_DIR"
 fi
 
 # Activate the virtual environment

@@ -2,7 +2,5 @@ docker
 six
 ruamel.yaml
 oyaml
-cloudharness_model
-cloudharness_utils
 dirhash
 StrEnum ; python_version < '3.11'

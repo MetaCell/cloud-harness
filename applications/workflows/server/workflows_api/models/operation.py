@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from workflows_api.models.base_model_ import Model
+from workflows_api.models.base_model import Model
 from workflows_api.models.operation_status import OperationStatus
 from workflows_api import util
 
@@ -17,7 +14,7 @@ class Operation(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, message=None, name=None, create_time=None, status=None, workflow=None):  # noqa: E501
+    def __init__(self, message=None, name=None, create_time=None, status=OperationStatus.PENDING, workflow=None):  # noqa: E501
         """Operation - a model defined in OpenAPI
 
         :param message: The message of this Operation.  # noqa: E501
@@ -65,7 +62,7 @@ class Operation(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def message(self):
+    def message(self) -> str:
         """Gets the message of this Operation.
 
         usually set when an error occurred  # noqa: E501
@@ -76,7 +73,7 @@ class Operation(Model):
         return self._message
 
     @message.setter
-    def message(self, message):
+    def message(self, message: str):
         """Sets the message of this Operation.
 
         usually set when an error occurred  # noqa: E501
@@ -88,7 +85,7 @@ class Operation(Model):
         self._message = message
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Gets the name of this Operation.
 
         operation name  # noqa: E501
@@ -99,7 +96,7 @@ class Operation(Model):
         return self._name
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str):
         """Sets the name of this Operation.
 
         operation name  # noqa: E501
@@ -111,7 +108,7 @@ class Operation(Model):
         self._name = name
 
     @property
-    def create_time(self):
+    def create_time(self) -> datetime:
         """Gets the create_time of this Operation.
 
 
@@ -121,7 +118,7 @@ class Operation(Model):
         return self._create_time
 
     @create_time.setter
-    def create_time(self, create_time):
+    def create_time(self, create_time: datetime):
         """Sets the create_time of this Operation.
 
 
@@ -132,7 +129,7 @@ class Operation(Model):
         self._create_time = create_time
 
     @property
-    def status(self):
+    def status(self) -> OperationStatus:
         """Gets the status of this Operation.
 
 
@@ -142,7 +139,7 @@ class Operation(Model):
         return self._status
 
     @status.setter
-    def status(self, status):
+    def status(self, status: OperationStatus):
         """Sets the status of this Operation.
 
 
@@ -153,7 +150,7 @@ class Operation(Model):
         self._status = status
 
     @property
-    def workflow(self):
+    def workflow(self) -> str:
         """Gets the workflow of this Operation.
 
         low level representation as an Argo json  # noqa: E501
@@ -164,7 +161,7 @@ class Operation(Model):
         return self._workflow
 
     @workflow.setter
-    def workflow(self, workflow):
+    def workflow(self, workflow: str):
         """Sets the workflow of this Operation.
 
         low level representation as an Argo json  # noqa: E501

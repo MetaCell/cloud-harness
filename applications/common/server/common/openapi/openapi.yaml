@@ -27,47 +27,6 @@ paths:
       tags:
       - Accounts
       x-openapi-router-controller: common.controllers.accounts_controller
-  /sentry/getdsn/{appname}:
-    get:
-      description: Gets the Sentry DSN for a given application
-      operationId: getdsn
-      parameters:
-      - explode: false
-        in: path
-        name: appname
-        required: true
-        schema:
-          type: string
-        style: simple
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: object
-          description: Sentry DSN for the given application
-        "400":
-          content:
-            application/json:
-              schema:
-                type: object
-            text/html:
-              schema:
-                type: string
-          description: Sentry not configured for the given application
-        "404":
-          content:
-            application/problem+json:
-              schema:
-                type: object
-            text/html:
-              schema:
-                type: string
-          description: Sentry not configured for the given application
-      summary: Gets the Sentry DSN for a given application
-      tags:
-      - Sentry
-      x-openapi-router-controller: common.controllers.sentry_controller
   /version:
     get:
       operationId: get_version

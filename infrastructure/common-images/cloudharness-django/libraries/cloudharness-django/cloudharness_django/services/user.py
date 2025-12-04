@@ -113,7 +113,7 @@ class UserService:
 
             # Create user and member atomically
             user, user_created = User.objects.get_or_create(username=username)
-            
+
             # CRITICAL: Ensure Member exists before proceeding
             try:
                 member = Member.objects.get(user=user)
@@ -129,7 +129,7 @@ class UserService:
         user = self._map_kc_user(user, kc_user, is_superuser, delete)
         self.sync_kc_user_groups(kc_user)
         user.save()
-        
+
         # FINAL SAFETY CHECK: Verify Member exists before returning
         # This ensures we never return a user without a Member
         try:
@@ -137,7 +137,7 @@ class UserService:
         except:
             # This should never happen, but if it does, create Member immediately
             Member.objects.create(kc_id=kc_user.id, user=user)
-        
+
         return user
 
     def sync_kc_user_groups(self, kc_user: ch_models.User):

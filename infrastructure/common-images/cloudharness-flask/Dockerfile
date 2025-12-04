@@ -16,4 +16,5 @@ RUN --mount=type=cache,target=/root/.cache python -m pip install --upgrade pip &
     pip install --prefer-binary -r requirements.txt --default-timeout=1000
 
 EXPOSE $PORT
-CMD gunicorn --workers=$WORKERS --bind=0.0.0.0:$PORT $MODULE_NAME.__main__:app
+
+CMD gunicorn -k uvicorn.workers.UvicornWorker --workers=$WORKERS --bind=0.0.0.0:$PORT $MODULE_NAME.__main__:app --timeout 180

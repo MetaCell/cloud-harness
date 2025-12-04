@@ -1,0 +1,14 @@
+{
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+    "editor.formatOnSave": true,
+    "javascript.format.enable": true,
+    "eslint.format.enable": true,
+    "eslint.workingDirectories": [{ "mode": "auto" }],
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+    },
+      "[typescriptreact]": {
+        "editor.defaultFormatter": "dbaeumer.vscode-eslint"
+      },
+      "python.linting.lintOnSave": false,
+}
