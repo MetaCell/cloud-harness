@@ -7,12 +7,10 @@ API_PASSWORD=$(cat /opt/cloudharness/resources/auth/api_user_password 2>/dev/nul
 
 echo "Waiting for Keycloak to start..."
 
-# Wait for Keycloak to be ready
-until curl -sf http://localhost:8080/health/ready > /dev/null 2>&1; do
-    sleep 2s
-done
+# Wait for Keycloak to be ready - just give it some time to start up
+sleep 120s
 
-echo "Keycloak is ready. Attempting authentication..."
+echo "Attempting authentication..."
 
 # First, try to authenticate as admin_api
 if [ -n "$API_PASSWORD" ] && /opt/keycloak/bin/kcadm.sh config credentials \
