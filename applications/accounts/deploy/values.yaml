@@ -73,3 +73,13 @@ admin:
   pass: metacell
   user: admin
   role: administrator
+editUsernameAllowed: true
+useEvents: false
+identityProviders:
+- github
+- google
+theme:
+  login: "keycloak"
+  account: "keycloak"
+  admin: "keycloak"
+  email: "keycloak"

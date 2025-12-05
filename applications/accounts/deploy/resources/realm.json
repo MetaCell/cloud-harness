@@ -1,177 +1,24 @@
-{{- define "deploy_accounts_utils.role" }}
-    {
-      "id": {{ uuidv4 | quote }},
-      "name": {{ .role| quote }},
-      "composite": false,
-      "clientRole": true,
-      "containerId": {{ .app.harness.name | quote }},
-      "attributes": {}
-    }
-{{- end}}
-{{- define "deploy_accounts_utils.user" }}
-    {
-        "username": {{ .user.username | default .user.email | quote }},
-        "email": {{ .user.email | default .user.username | quote }},
-        "enabled": true,
-        "firstName": {{ .user.firstName | default "Test" | quote }},
-        "lastName": {{ .user.lastName | default "User" | quote }},
-        "credentials": [
-            {
-                "type": "password",
-                "value": {{ .user.password | default "test" | quote }}
-            }
-        ],
-        "realmRoles": {{ .user.realmRoles | toJson }},
-        "clientRoles": {
-            {{ .app.harness.name | quote }}: {{ .user.clientRoles | toJson }}
-        } 
-    }
-
-{{- end}}
 {
         "id": {{ .Values.namespace | quote }},
         "realm": {{ .Values.namespace | quote }},
         "enabled": true,
         "sslRequired": {{ ternary "none" "external" (not .Values.tls) | quote }},
-        "loginTheme": "keycloak",
-        "accountTheme": "keycloak",
-        "adminTheme": "keycloak",
-        "emailTheme": "keycloak",
-        "registrationAllowed": true,
-        "registrationEmailAsUsername": false,
+        "loginTheme": {{ .Values.apps.accounts.theme.login | default "keycloak" | quote }},
+        "accountTheme": {{ .Values.apps.accounts.theme.account | default "keycloak" | quote }},
+        "adminTheme": {{ .Values.apps.accounts.theme.admiin | default "keycloak" | quote }},
+        "emailTheme": {{ .Values.apps.accounts.theme.email | default "keycloak" | quote }},
+        "registrationAllowed": {{ .Values.apps.accounts.registrationAllowed | default true }},
+        "registrationEmailAsUsername": {{ .Values.apps.accounts.registrationEmailAsUsername | default false }},
         "rememberMe": true,
         "verifyEmail": false,
         "loginWithEmailAllowed": true,
         "duplicateEmailsAllowed": false,
         "resetPasswordAllowed": true,
-        "editUsernameAllowed": true,
-        "components": {
-          "org.keycloak.userprofile.UserProfileProvider": [
-            {
-              "id": "002b69df-9702-40dd-b73e-3a66d161bf11",
-              "providerId": "declarative-user-profile",
-              "subComponents": {},
-              "config": {
-                "kc.user.profile.config": [
-                  "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"email\",\"displayName\":\"${email}\",\"validations\":{\"email\":{},\"length\":{\"max\":255}},\"annotations\":{},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"annotations\":{},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"annotations\":{},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\",\"unmanagedAttributePolicy\":\"ENABLED\"}]}"
-                ]
-              }
-            }
-          ],
-          "org.keycloak.keys.KeyProvider": [
-            {
-              "id": "e632ce46-36ad-421a-b1a5-776383cc1565",
-              "name": "rsa-generated",
-              "providerId": "rsa-generated",
-              "subComponents": {},
-              "config": {
-                "priority": [
-                  "100"
-                ]
-              }
-            },
-            {
-              "id": "b68bee45-a8f0-46ca-b7d9-0df90189736a",
-              "name": "hmac-generated-hs512",
-              "providerId": "hmac-generated",
-              "subComponents": {},
-              "config": {
-                "priority": [
-                  "100"
-                ],
-                "algorithm": [
-                  "HS512"
-                ]
-              }
-            },
-            {
-              "id": "55960a57-af77-4f4c-8b6e-925c74bb44db",
-              "name": "aes-generated",
-              "providerId": "aes-generated",
-              "subComponents": {},
-              "config": {
-                "priority": [
-                  "100"
-                ]
-              }
-            },
-            {
-              "id": "ce068675-5cae-434e-851f-09f653ccc604",
-              "name": "rsa-enc-generated",
-              "providerId": "rsa-enc-generated",
-              "subComponents": {},
-              "config": {
-                "priority": [
-                  "100"
-                ],
-                "algorithm": [
-                  "RSA-OAEP"
-                ]
-              }
-            }
-          ]
-        },
-        "users": [
-            {{- $j := 0}}
-            {{- range $app := .Values.apps }}
-              {{- if (hasKey $app.harness "accounts")  }}
-                {{- if $j}},{{end}}
-                {{- if $app.harness.accounts.users}}
-                    {{- $j = add1 $j }}
-                {{- end }}
-                {{- range $i, $user := $app.harness.accounts.users }}{{if $i}},{{end}}
-                {{ include "deploy_accounts_utils.user" (dict "root" $ "app" $app "user" $user) }}
-                {{- end }}
-              {{- end }}
-              
-            {{- end }}
-        ],
-        "roles": {
-            "realm": [
-                {
-                    "id": "70835ad6-1454-4bc5-86a4-f1597e776b75",
-                    "name": {{ .Values.apps.accounts.admin.role | quote }},
-                    "composite": false,
-                    "clientRole": false,
-                    "containerId": {{ .Values.namespace | quote }},
-                    "attributes": {}
-                },
-                {
-                    "id": "498353dd-88eb-4a5e-99b8-d912e0f20f23",
-                    "name": "uma_authorization",
-                    "description": "${role_uma_authorization}",
-                    "composite": false,
-                    "clientRole": false,
-                    "containerId": {{ .Values.namespace | quote }},
-                    "attributes": {}
-                },
-                {
-                    "id": "f99970f1-958b-4bb8-8b39-0d7498b0ecc4",
-                    "name": "offline_access",
-                    "description": "${role_offline-access}",
-                    "composite": false,
-                    "clientRole": false,
-                    "containerId": {{ .Values.namespace | quote }},
-                    "attributes": {}
-                }
-            ],
-            "client": {
-            {{- $k := 0}}
-            {{- range $app := .Values.apps }}
-
-              {{- if (hasKey $app.harness "accounts")  }}
-                {{- if $k}},{{end}}
-                {{ $app.harness.name | quote }}: [
-                {{- range $i, $role := $app.harness.accounts.roles }}
-                {{if $i}},{{end}}
-                {{- include "deploy_accounts_utils.role" (dict "root" $ "app" $app "role" $role) }}
-                {{- end }}
-                ]
-                {{- $k = add1 $k }}
-              {{- end }}
-            {{- end }}
-            }
-        },
+        "editUsernameAllowed": {{ .Values.apps.accounts.editUsernameAllowed }},
+        {{- include "deploy_accounts_utils.events" (dict "app" .Values.apps.accounts) | indent 8 -}}
+        {{- include "deploy_accounts_utils.identity_providers" (dict "app" .Values.apps.accounts) | indent 8 -}}
+        {{- include "deploy_accounts_utils.components" . | indent 8 -}}
+        {{- include "deploy_accounts_utils.users_roles" (dict "Values" .Values) | indent 8 -}}
         "clientScopeMappings": {
                 "account": [
                 {
@@ -774,6 +621,17 @@
                             "claim.name": "website",
                             "jsonType.label": "String"
                         }
+                    },
+                    {
+                    "id": "0b8d0cf7-eebc-4c51-892e-2b65212856b4",
+                    "name": "sub",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-sub-mapper",
+                    "consentRequired": false,
+                    "config": {
+                        "introspection.token.claim": "true",
+                        "access.token.claim": "true"
+                    }
                     },
                     {
                         "id": "3d763f84-d417-4b4e-99e4-2b0e05bf861a",
