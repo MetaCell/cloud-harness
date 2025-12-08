@@ -5,7 +5,7 @@
         "sslRequired": {{ ternary "none" "external" (not .Values.tls) | quote }},
         "loginTheme": {{ .Values.apps.accounts.theme.login | default "keycloak" | quote }},
         "accountTheme": {{ .Values.apps.accounts.theme.account | default "keycloak" | quote }},
-        "adminTheme": {{ .Values.apps.accounts.theme.admiin | default "keycloak" | quote }},
+        "adminTheme": {{ .Values.apps.accounts.theme.admin | default "keycloak" | quote }},
         "emailTheme": {{ .Values.apps.accounts.theme.email | default "keycloak" | quote }},
         "registrationAllowed": {{ .Values.apps.accounts.registrationAllowed | default true }},
         "registrationEmailAsUsername": {{ .Values.apps.accounts.registrationEmailAsUsername | default false }},
