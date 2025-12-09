@@ -21,7 +21,7 @@ if [ -n "$API_PASSWORD" ] && /opt/keycloak/bin/kcadm.sh config credentials \
     echo "Successfully authenticated as $API_USERNAME"
     echo "Startup scripts not needed (admin_api user already exists)"
 else
-    echo "admin_api user does not exist or authentication failed. Authenticating as bootstrap admin to create/update the user..."
+    echo "admin_api user does not exist or authentication failed. Authenticating as bootstrap admin to create the user..."
     
     # Authenticate as bootstrap admin to create admin_api user
     if ! /opt/keycloak/bin/kcadm.sh config credentials \
