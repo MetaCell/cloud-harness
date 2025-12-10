@@ -8,7 +8,7 @@ export TMP_CLIENT_SECRET="${KC_BOOTSTRAP_ADMIN_USERNAME}"
 echo "create_api_user: waiting for Keycloak to start..."
 
 create_temporary_client() {
-    /opt/keycloak/bin/kc.sh bootstrap-admin service --client-id=${TMP_CLIENT} --client-secret:env=TMP_CLIENT_SECRET
+    /opt/keycloak/bin/kc.sh bootstrap-admin service --client-id=${TMP_CLIENT} --client-secret:env=TMP_CLIENT_SECRET --http-management-port 9876
 }
 
 delete_temporary_client() {
@@ -24,7 +24,7 @@ create_kc_config() {
 
 api_user_exists() {
     return $(/opt/keycloak/bin/kcadm.sh get users -q "username=$API_USERNAME" | grep -q "$API_USERNAME"; echo $?)
-}
+}   
 
 create_api_user() {
     /opt/keycloak/bin/kcadm.sh create users -s "username=${API_USERNAME}" -s enabled=True
