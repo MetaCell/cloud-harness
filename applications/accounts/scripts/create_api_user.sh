@@ -1,13 +1,42 @@
 #!/bin/bash
 
-
-API_USERNAME="admin_api"
-API_PASSWORD=$(cat /opt/cloudharness/resources/auth/api_user_password 2>/dev/null || echo "")
+export API_USERNAME="admin_api"
+export API_PASSWORD=$(cat /opt/cloudharness/resources/auth/api_user_password 2>/dev/null || echo "")
+export TMP_CLIENT="tmp_client"
+export TMP_CLIENT_SECRET="${KC_BOOTSTRAP_ADMIN_USERNAME}"
 
 echo "create_api_user: waiting for Keycloak to start..."
 
+create_temporary_client() {
+    /opt/keycloak/bin/kc.sh bootstrap-admin service --client-id=${TMP_CLIENT} --client-secret:env=TMP_CLIENT_SECRET
+}
+
+delete_temporary_client() {
+    CLIENT_ID=$(/opt/keycloak/bin/kcadm.sh get clients -r master -q clientId=${TMP_CLIENT} --fields id --format csv|tr -d '"')
+    if [ -n "$CLIENT_ID" ]; then
+        /opt/keycloak/bin/kcadm.sh delete clients/$CLIENT_ID -r master
+    fi
+}
+
+create_kc_config() {
+    /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --client ${TMP_CLIENT} --secret ${TMP_CLIENT_SECRET}
+}
+
+api_user_exists() {
+    return $(/opt/keycloak/bin/kcadm.sh get users -q "username=$API_USERNAME" | grep -q "$API_USERNAME"; echo $?)
+}
+
+create_api_user() {
+    /opt/keycloak/bin/kcadm.sh create users -s "username=${API_USERNAME}" -s enabled=True
+}
+
+set_password_and_roles() {
+    /opt/keycloak/bin/kcadm.sh set-password --username "$API_USERNAME" --new-password "$API_PASSWORD"
+    /opt/keycloak/bin/kcadm.sh add-roles --uusername "$API_USERNAME" --rolename admin
+}
+
 # Wait for Keycloak to be ready - just give it some time to start up
-sleep 120s
+
 
 echo "Attempting authentication..."
 
@@ -19,40 +48,29 @@ if [ -n "$API_PASSWORD" ] && /opt/keycloak/bin/kcadm.sh config credentials \
     --password "$API_PASSWORD" 2>/dev/null; then
     echo "Successfully authenticated as $API_USERNAME"
     echo "Startup scripts not needed (admin_api user already exists)"
-else
-    echo "admin_api user does not exist or authentication failed. Authenticating as bootstrap admin to create the user..."
-    
-    # Authenticate as bootstrap admin to create admin_api user
-    if ! /opt/keycloak/bin/kcadm.sh config credentials \
-        --server http://localhost:8080 \
-        --realm master \
-        --user "$KC_BOOTSTRAP_ADMIN_USERNAME" \
-        --password "$KC_BOOTSTRAP_ADMIN_PASSWORD"; then
-        echo "ERROR: Failed to authenticate as bootstrap admin. You must manually create the ${API_USERNAME} with password from the secret api_user_password."
-        echo "Continuing without running startup scripts..."
-        exit 0
-    fi
-    
-    echo "Successfully authenticated as bootstrap admin"
+    exit 0
+fi
 
-    echo "Checking if API user exists..."
+echo "admin_api user does not exist or authentication failed. Authenticating to create the user..."
 
-    # Check if user already exists
-    if /opt/keycloak/bin/kcadm.sh get users -q "username=$API_USERNAME" | grep -q "$API_USERNAME"; then
-        echo "ERROR: API user $API_USERNAME already exists, but password is out of sync. You may need to reset it manually."
-        # /opt/keycloak/bin/kcadm.sh set-password --username "$API_USERNAME" --new-password "$API_PASSWORD"
-        # Removed automatic password reset as that would only work if the main admin password is unchanged from the default password
-        # That would create the false impression that the password is reset successfully when in fact it has not on production systems
-        exit 0
-    fi
+set -e
+create_temporary_client
+create_kc_config
+echo "Temporary credentials successfully created."
 
-    echo "Creating API user $API_USERNAME"
-    set -e 
-    # create the user and reload keycloak
-    /opt/keycloak/bin/kcadm.sh create users -s "username=$API_USERNAME" -s enabled=True
-    /opt/keycloak/bin/kcadm.sh set-password --username "$API_USERNAME" --new-password "$API_PASSWORD"
-    /opt/keycloak/bin/kcadm.sh add-roles --uusername "$API_USERNAME" --rolename admin
-
+echo "Checking if API user exists..."
+# Check if user already exists
+if ! api_user_exists; then
+    echo "API user $API_USERNAME doesn't exists, creating..."
+    create_api_user
     echo "API user created successfully"
-fi   
+else
+    echo "API user $API_USERNAME already exists."
+fi
+set +e
 
+echo "Setting password and role."
+set_password_and_roles
+
+echo "Cleaning up temporary client."
+delete_temporary_client
