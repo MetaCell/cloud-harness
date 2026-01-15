@@ -120,13 +120,14 @@ spec:
             mountPath: /opt/cloudharness/resources/secrets/{{ $dep }}
             readOnly: true
           {{- end }}
+          
+          
+          {{- end }}
           {{- if or (has  "accounts" .app.harness.dependencies.hard) (eq .app.harness.name "accounts") }} 
           {{/* legacy path for accounts auth resources mount */}}
-          {{- if eq $dep "accounts" }}
           - name: cloudharness-accounts
             mountPath: /opt/cloudharness/resources/auth
             readOnly: true
-          {{- end }}
           {{- end }}
           {{- if  .app.harness.deployment.volume }}
           - name: {{ .app.harness.deployment.volume.name }}
