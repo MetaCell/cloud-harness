@@ -1,6 +1,7 @@
 from base64 import b64decode
 import os
 from typing import List
+from cloudharness.utils.secrets import get_secret
 from cloudharness_model.models.organization import Organization
 from cryptography.hazmat.primitives import serialization
 import jwt
@@ -26,11 +27,8 @@ except:
 
 def get_api_password() -> str:
     name = "api_user_password"
-    AUTH_SECRET_PATH = os.environ.get(
-        "AUTH_SECRET_PATH", "/opt/cloudharness/resources/auth")
     try:
-        with open(os.path.join(AUTH_SECRET_PATH, name)) as fh:
-            return fh.read()
+        return get_secret(name, "accounts")
     except:
         # if no secrets folder or file exists
         raise AuthSecretNotFound(name)

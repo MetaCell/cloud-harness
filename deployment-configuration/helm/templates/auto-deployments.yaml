@@ -112,10 +112,21 @@ spec:
           - name: cloudharness-allvalues
             mountPath: /opt/cloudharness/resources
             readOnly: true
-          {{- if or (has  "accounts" .app.harness.dependencies.hard) (eq .app.harness.name "accounts") }}
-          - name: cloudharness-kc-accounts
+          {{- $root := .root }}
+          {{- range $dep := concat .app.harness.dependencies.hard .app.harness.dependencies.soft }}
+          {{- $depApp := index $root.Values.apps $dep }}
+          {{- if $depApp.harness.secrets }}
+          - name: cloudharness-{{ $dep }}
+            mountPath: /opt/cloudharness/resources/secrets/{{ $dep }}
+            readOnly: true
+          {{- end }}
+          {{- if or (has  "accounts" .app.harness.dependencies.hard) (eq .app.harness.name "accounts") }} 
+          {{/* legacy path for accounts auth resources mount */}}
+          {{- if eq $dep "accounts" }}
+          - name: cloudharness-accounts
             mountPath: /opt/cloudharness/resources/auth
             readOnly: true
+          {{- end }}
           {{- end }}
           {{- if  .app.harness.deployment.volume }}
           - name: {{ .app.harness.deployment.volume.name }}
@@ -131,17 +142,21 @@ spec:
           {{- end}}
           {{- if .app.harness.secrets }}
           - name: secrets
-            mountPath: "/opt/cloudharness/resources/secrets"
+            mountPath: "/opt/cloudharness/resources/secrets/{{ .app.harness.name }}"
             readOnly: true
           {{- end }}
       volumes:
         - name: cloudharness-allvalues
           configMap:
             name: cloudharness-allvalues
-        {{- if or (has  "accounts" .app.harness.dependencies.hard) (eq .app.harness.name "accounts") }}
-        - name: cloudharness-kc-accounts
+        {{- $root := .root }}
+        {{- range $dep := concat .app.harness.dependencies.hard .app.harness.dependencies.soft }}
+        {{- $depApp := index $root.Values.apps $dep }}
+        {{- if $depApp.harness.secrets }}
+        - name: cloudharness-{{ $dep }}
           secret:
-            secretName: accounts
+            secretName: {{ $dep }}
+        {{- end }}
         {{- end }}
         {{- if .app.harness.deployment.volume }}
         - name: {{ .app.harness.deployment.volume.name }}

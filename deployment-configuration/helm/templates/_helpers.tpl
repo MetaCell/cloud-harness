@@ -10,11 +10,7 @@ Create chart name and version as used by the chart label.
 For custom images: if images are coming from local(e.g minikube) registry, image pull policy is "Never". Otherwise it is "IfNotPresent"
 */}}
 {{- define "deploy_utils.pullpolicy" -}}
-{{- if and .Values.local (not .Values.registry.name) -}}
-{{- print "Never" -}}
-{{- else -}}
 {{- print "IfNotPresent" -}}
-{{- end -}}
 {{- end -}}
 {{/*
 Add environmental variables to all containers
