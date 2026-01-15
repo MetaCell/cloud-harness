@@ -123,7 +123,7 @@ spec:
           
           
           {{- end }}
-          {{- (has  "accounts" .app.harness.dependencies.hard) }} 
+          {{- if (has  "accounts" .app.harness.dependencies.hard) }} 
           {{/* legacy path for accounts auth resources mount */}}
           - name: cloudharness-accounts
             mountPath: /opt/cloudharness/resources/auth
