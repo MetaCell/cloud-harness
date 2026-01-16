@@ -89,8 +89,8 @@ class ApplicationConfiguration(ApplicationConfig):
                 f"Cannot get service port for {self.name}: auto service is not enabled")
         return port
 
-    def get_service_address(self) -> str:
-        return f"http://{self.service_name}.{CloudharnessConfig.get_namespace()}:{self.service_port}"
+    def get_service_address(self, prefix="http://") -> str:
+        return f"{prefix}{self.service_name}.{CloudharnessConfig.get_namespace()}:{self.service_port}"
 
     def get_public_address(self) -> str:
 
