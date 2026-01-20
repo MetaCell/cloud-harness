@@ -529,7 +529,8 @@ def hosts_info(values):
         f"127.0.0.1\t{' '.join('%s.%s' % (values[KEY_APPS][s][KEY_HARNESS][KEY_SERVICE]['name'], values['namespace']) for s in deployments)}")
 
     try:
-        ip = get_cluster_ip()
+        local = values.get('local', False)
+        ip = get_cluster_ip(local=local)
     except:
         logging.warning('Cannot get cluster ip')
         ip = "127.0.0.1"

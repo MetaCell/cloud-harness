@@ -92,12 +92,42 @@ def env_variable(name, value):
     return {'name': f"{name}".upper(), 'value': value}
 
 
-def get_cluster_ip():
+def get_cluster_ip(local=False):
+    if local:
+        # Try minikube with profile detection for local development
+        try:
+            # Get current kubectl context to extract minikube profile
+            context = subprocess.check_output(['kubectl', 'config', 'current-context'], timeout=5).decode("utf-8").strip()
+            
+            # Try with profile if context looks like minikube
+            if 'minikube' in context.lower():
+                profile = context  # Context name is often the profile name
+                try:
+                    out = subprocess.check_output(['minikube', '-p', profile, 'ip'], timeout=5).decode("utf-8").strip()
+                    if out:
+                        return out
+                except:
+                    pass
+            
+            # Try without profile (default minikube)
+            out = subprocess.check_output(['minikube', 'ip'], timeout=5).decode("utf-8").strip()
+            if out:
+                return out
+        except:
+            pass
+        
+        # Try kubectl cluster-info
+        try:
+            out = subprocess.check_output(
+                ['kubectl', 'cluster-info'], timeout=10).decode("utf-8")
+            ips = re.findall(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", out)
+            if ips:
+                return ips[0]
+        except:
+            pass
+    
+    # Fallback to host address (used for non-local deployments)
     return get_host_address()
-    out = subprocess.check_output(
-        ['kubectl', 'cluster-info'], timeout=10).decode("utf-8")
-    ips = re.findall(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", out)
-    return ips[0] if ips else get_host_address()
 
 
 def get_host_address():
