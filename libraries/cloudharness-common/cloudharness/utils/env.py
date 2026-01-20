@@ -84,7 +84,7 @@ def get_cloudharness_events_client_id():
 
 
 def get_cloudharness_events_service():
-    return get_service_cluster_address('BOOTSTRAP')
+    return get_service_cluster_address('bootstrap')
 
 
 def get_service_cluster_address(cloudharness_app_name):
