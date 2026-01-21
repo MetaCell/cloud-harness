@@ -94,6 +94,17 @@ def env_variable(name, value):
 
 def get_cluster_ip(local=False):
     if local:
+        # Try to get LoadBalancer IP from ingress-nginx first (preferred for local dev with minikube tunnel)
+        try:
+            out = subprocess.check_output([
+                'kubectl', '-n', 'ingress-nginx', 'get', 'svc', 'ingress-nginx-controller',
+                '-o', 'jsonpath={.status.loadBalancer.ingress[0].ip}'
+            ], timeout=5).decode("utf-8").strip()
+            if out and out != '<no value>':
+                return out
+        except:
+            pass
+        
         # Try minikube with profile detection for local development
         try:
             # Get current kubectl context to extract minikube profile
