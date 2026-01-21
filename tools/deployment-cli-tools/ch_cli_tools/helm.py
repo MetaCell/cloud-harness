@@ -109,7 +109,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
         values['local'] = self.local
         if self.local:
             try:
-                values['localIp'] = get_cluster_ip()
+                values['localIp'] = get_cluster_ip(local=True)
             except subprocess.TimeoutExpired:
                 logging.warning("Minikube not available")
             except:
