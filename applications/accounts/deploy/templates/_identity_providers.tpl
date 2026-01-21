@@ -46,7 +46,8 @@
 {{- define "deploy_accounts_utils.identity_providers" -}}
     {{- if hasKey .app "identityProviders" -}}
         "identityProviders": [
-        {{- range $provider := .app.identityProviders }}
+        {{- range $i, $provider := .app.identityProviders }}
+            {{- if $i}},{{end}}
             {{ include (printf "deploy_accounts_utils.%s_identity_provider" $provider) (dict "app" $.app) | indent 12 }}
         {{- end -}}
         ],
