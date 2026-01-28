@@ -1,7 +1,7 @@
 from django.contrib.auth.models import User, Group
 from django.db import transaction
 
-from cloudharness_django.models import Team, Member
+from cloudharness_django.models import Team, Member, Organization, OrganizationMember
 from cloudharness_django.services.auth import AuthService, AuthorizationLevel
 from cloudharness import models as ch_models
 
@@ -90,6 +90,24 @@ class UserService:
                     team.save()
         group.save()
 
+    def sync_kc_organization(self, kc_organization):
+        # sync the kc organization to Organization model
+        organization, _ = Organization.objects.get_or_create(kc_id=kc_organization["id"])
+        organization.name = kc_organization["name"]
+        organization.save()
+
+    def sync_kc_organizations(self, kc_organizations=None):
+        if not kc_organizations:
+            kc_organizations = self.auth_client.get_organizations()
+
+        kc_organization_ids = set()
+        for kc_organization in kc_organizations:
+            self.sync_kc_organization(kc_organization)
+            kc_organization_ids.add(kc_organization["id"])
+
+        # Delete organizations that no longer exist in Keycloak
+        Organization.objects.exclude(kc_id__in=kc_organization_ids).delete()
+
     def sync_kc_groups(self, kc_groups=None):
         # sync all groups
         if not kc_groups:
@@ -164,6 +182,36 @@ class UserService:
             member = Member(user=user, kc_id=kc_user.id)
             member.save()
 
+    def sync_kc_user_organizations(self, kc_user):
+        # Ensure OrganizationMember records reflect Keycloak userOrganizations
+        try:
+            member = Member.objects.get(user__email=kc_user["email"])
+        except Member.DoesNotExist:
+            # Member not available yet; nothing to sync
+            return
+
+        desired_org_ids = set()
+        kc_user_organizations = self.auth_client.get_user_organizations(kc_user["id"])
+        for kc_org in kc_user_organizations:
+            try:
+                org = Organization.objects.get(kc_id=kc_org["id"])
+            except Organization.DoesNotExist:
+                # Organizations should already be synced; skip if missing
+                continue
+            desired_org_ids.add(org.id)
+
+        existing_qs = OrganizationMember.objects.filter(member=member)
+        existing_org_ids = set(existing_qs.values_list("organization_id", flat=True))
+
+        to_add = desired_org_ids - existing_org_ids
+        to_remove = existing_org_ids - desired_org_ids
+
+        for org_id in to_add:
+            OrganizationMember.objects.get_or_create(member=member, organization_id=org_id)
+
+        if to_remove:
+            OrganizationMember.objects.filter(member=member, organization_id__in=to_remove).delete()
+
     def sync_kc_users_groups(self):
         # cache all admin users to minimize KC rest api calls
         all_admin_users = self.auth_client.get_client_role_members(
@@ -178,6 +226,13 @@ class UserService:
             is_superuser = any([admin_user for admin_user in all_admin_users if admin_user["id"] == kc_user["id"]])
             self.sync_kc_user(kc_user, is_superuser)
 
+        # sync the groups
+        self.sync_kc_groups()
+
+        # sync the organizations
+        self.sync_kc_organizations()
+
         # sync the user groups and memberships
         for kc_user in users:
             self.sync_kc_user_groups(kc_user)
+            self.sync_kc_user_organizations(kc_user)

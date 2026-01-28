@@ -55,5 +55,22 @@ class CHGroupAdmin(ExtraButtonsMixin, GroupAdmin):
         self.message_user(request, 'Keycloak users & groups synced.')
 
 
+class CHOrganizationAdmin(ExtraButtonsMixin, admin.ModelAdmin):
+
+    def has_add_permission(self, request):
+        return settings.DEBUG
+
+    def has_change_permission(self, request, obj=None):
+        return settings.DEBUG
+
+    def has_delete_permission(self, request, obj=None):
+        return settings.DEBUG
+
+    @button()
+    def sync_keycloak(self, request):
+        get_user_service().sync_kc_organizations()
+        self.message_user(request, 'Keycloak organizations synced.')
+
+
 admin.site.register(User, CHUserAdmin)
 admin.site.register(Group, CHGroupAdmin)

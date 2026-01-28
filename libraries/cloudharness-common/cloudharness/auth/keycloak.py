@@ -641,3 +641,53 @@ class AuthClient():
                 })
             return True
         return False
+
+    @with_refreshtoken
+    def get_organizations(self, with_members=False) -> List[dict]:
+        """
+        Get all organizations in the realm
+        
+        :param with_members: If True, include organization members for each org. Defaults to False
+        :return: List of organization representations
+        """
+        admin_client = self.get_admin_client()
+        try:
+            orgs = admin_client.get_organizations()
+            if with_members:
+                for org in orgs:
+                    org['members'] = admin_client.get_organization_members(org['id'])
+            return orgs
+        except Exception as e:
+            log.error(f"Error getting organizations: {e}")
+            raise
+
+    @with_refreshtoken
+    def get_organization_members(self, org_id: str) -> List[User]:
+        """
+        Get all members of an organization
+        
+        :param org_id: Organization ID
+        :return: List of User objects
+        """
+        admin_client = self.get_admin_client()
+        try:
+            members = admin_client.get_organization_members(org_id)
+            return [User.from_dict(member) for member in members]
+        except Exception as e:
+            log.error(f"Error getting members for organization {org_id}: {e}")
+            raise
+
+    @with_refreshtoken
+    def get_user_organizations(self, user_id: str) -> List[dict]:
+        """
+        Get all organizations a user belongs to
+        
+        :param user_id: User ID
+        :return: List of organization representations
+        """
+        admin_client = self.get_admin_client()
+        try:
+            return admin_client.get_user_organizations(user_id)
+        except Exception as e:
+            log.error(f"Error getting organizations for user {user_id}: {e}")
+            raise
