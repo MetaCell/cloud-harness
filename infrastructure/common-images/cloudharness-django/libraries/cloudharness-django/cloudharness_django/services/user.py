@@ -166,7 +166,7 @@ class UserService:
             raise ValueError(f"Django user not found for Keycloak user {kc_user.id}")
 
         user_groups = []
-        for kc_group in [*kc_user.user_groups, *kc_user.organizations]:
+        for kc_group in [*kc_user.user_groups]:
             group, _ = Group.objects.get_or_create(name=kc_group.name)
             user_groups.append(group)
         user.groups.set(user_groups)
@@ -200,17 +200,17 @@ class UserService:
                 continue
             desired_org_ids.add(org.id)
 
-        existing_qs = OrganizationMember.objects.filter(member=member)
+        existing_qs = OrganizationMember.objects.filter(user=member.user)
         existing_org_ids = set(existing_qs.values_list("organization_id", flat=True))
 
         to_add = desired_org_ids - existing_org_ids
         to_remove = existing_org_ids - desired_org_ids
 
         for org_id in to_add:
-            OrganizationMember.objects.get_or_create(member=member, organization_id=org_id)
+            OrganizationMember.objects.get_or_create(user=member.user, organization_id=org_id)
 
         if to_remove:
-            OrganizationMember.objects.filter(member=member, organization_id__in=to_remove).delete()
+            OrganizationMember.objects.filter(user=member.user, organization_id__in=to_remove).delete()
 
     def sync_kc_users_groups(self):
         # cache all admin users to minimize KC rest api calls
