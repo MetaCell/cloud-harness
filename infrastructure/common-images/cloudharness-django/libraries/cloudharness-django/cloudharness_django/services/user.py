@@ -229,10 +229,15 @@ class UserService:
         # sync the groups
         self.sync_kc_groups()
 
-        # sync the organizations
-        self.sync_kc_organizations()
-
         # sync the user groups and memberships
         for kc_user in users:
             self.sync_kc_user_groups(kc_user)
+
+    def sync_kc_users_organizations(self):
+        # sync the users organizations
+        users = self.auth_client.get_users()
+        # sync the organizations
+        self.sync_kc_organizations()
+
+        for kc_user in users:
             self.sync_kc_user_organizations(kc_user)
