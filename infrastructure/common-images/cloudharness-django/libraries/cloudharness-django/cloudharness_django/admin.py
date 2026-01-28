@@ -68,6 +68,7 @@ class CHOrganizationAdmin(ExtraButtonsMixin, admin.ModelAdmin):
 
     @button()
     def sync_keycloak(self, request):
+        from cloudharness_django.services import get_user_service
         get_user_service().sync_kc_organizations()
         self.message_user(request, 'Keycloak organizations synced.')
 
