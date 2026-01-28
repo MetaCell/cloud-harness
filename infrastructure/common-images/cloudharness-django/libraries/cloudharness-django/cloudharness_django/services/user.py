@@ -1,7 +1,7 @@
 from django.contrib.auth.models import User, Group
 from django.db import transaction
 
-from cloudharness_django.models import Team, Member
+from cloudharness_django.models import Team, Member, Organization, OrganizationMember
 from cloudharness_django.services.auth import AuthService, AuthorizationLevel
 from cloudharness import models as ch_models
 
@@ -141,18 +141,22 @@ class UserService:
         return user
 
     def sync_kc_user_groups(self, kc_user: ch_models.User):
-        # Sync the user usergroups and memberships using kc_id for reliable lookups
+        # Sync the user usergroups (not organizations) using kc_id for reliable lookups
         user = get_user_by_kc_id(kc_user.id)
 
         if user is None:
             raise ValueError(f"Django user not found for Keycloak user {kc_user.id}")
 
         user_groups = []
-        for kc_group in [*kc_user.user_groups, *kc_user.organizations]:
+        # Only sync user_groups, not organizations (organizations are handled separately)
+        for kc_group in kc_user.user_groups or []:
             group, _ = Group.objects.get_or_create(name=kc_group.name)
             user_groups.append(group)
         user.groups.set(user_groups)
         user.save()
+
+        # Sync organization memberships separately
+        self.sync_kc_user_organizations(kc_user)
 
         # Ensure the member relationship exists and is correct
         try:
@@ -163,6 +167,70 @@ class UserService:
         except Member.DoesNotExist:
             member = Member(user=user, kc_id=kc_user.id)
             member.save()
+
+    def sync_kc_organization(self, kc_org: ch_models.Organization) -> Organization:
+        """
+        Sync a single Keycloak organization to Django.
+        First tries to find by kc_id, then by name (for organizations created without kc_id).
+        Updates the kc_id if found by name.
+
+        :param kc_org: Keycloak organization object
+        :return: Django Organization instance
+        """
+        org = None
+
+        # First try to find by kc_id
+        try:
+            org = Organization.objects.get(kc_id=kc_org.id)
+            # Update name if changed
+            if org.name != kc_org.name:
+                org.name = kc_org.name
+                org.save()
+        except Organization.DoesNotExist:
+            # Try to find by name (for organizations created without kc_id)
+            try:
+                org = Organization.objects.get(name=kc_org.name, kc_id__isnull=True)
+                # Update with kc_id from Keycloak
+                org.kc_id = kc_org.id
+                org.save()
+            except Organization.DoesNotExist:
+                # Create new organization
+                org = Organization.objects.create(
+                    kc_id=kc_org.id,
+                    name=kc_org.name
+                )
+        return org
+
+    def sync_kc_user_organizations(self, kc_user: ch_models.User):
+        """
+        Sync the user's organization memberships from Keycloak to Django.
+        Creates Organization records if they don't exist and manages OrganizationMember relationships.
+
+        :param kc_user: Keycloak user object with organizations attribute
+        """
+        user = get_user_by_kc_id(kc_user.id)
+
+        if user is None:
+            raise ValueError(f"Django user not found for Keycloak user {kc_user.id}")
+
+        # Get current organization memberships
+        current_org_ids = set()
+
+        # Sync each organization the user belongs to
+        for kc_org in kc_user.organizations or []:
+            org = self.sync_kc_organization(kc_org)
+            current_org_ids.add(org.id)
+
+            # Create membership if it doesn't exist
+            OrganizationMember.objects.get_or_create(
+                user=user,
+                organization=org
+            )
+
+        # Remove memberships that no longer exist in Keycloak
+        OrganizationMember.objects.filter(user=user).exclude(
+            organization_id__in=current_org_ids
+        ).delete()
 
     def sync_kc_users_groups(self):
         # cache all admin users to minimize KC rest api calls
