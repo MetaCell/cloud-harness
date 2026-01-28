@@ -51,7 +51,7 @@ class CHGroupAdmin(ExtraButtonsMixin, GroupAdmin):
     @button()
     def sync_keycloak(self, request):
         from cloudharness_django.services import get_user_service
-        get_user_service().sync_kc_users_groups()
+        get_user_service().sync_kc_groups()
         self.message_user(request, 'Keycloak users & groups synced.')
 
 
