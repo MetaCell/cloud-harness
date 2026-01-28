@@ -597,10 +597,14 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_pat
         app_name = app_name_from_path(os.path.relpath(f"{app_path}", app_base_path))
         if app_name in exclude or (include and not any(inc in app_name for inc in include)):
             continue
+
+        # Determine which template directory to use
+        regular_template_dir = app_path / 'deploy' / 'templates'
         if templates_path == HELM_PATH:
-            template_dir = app_path / 'deploy' / 'templates'
+            template_dir = regular_template_dir
         else:
             template_dir = app_path / 'deploy' / f'templates-{templates_path}'
+
         if template_dir.exists():
             dest_dir = dest_helm_chart_path / 'templates' / app_name
 
@@ -614,6 +618,21 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_pat
                 shutil.copytree(template_dir, dest_dir)
             if envs:
                 merge_configuration_directories(f"{dest_dir}", f"{dest_dir}", envs)
+
+        # For non-helm mode (e.g., compose), also copy helper templates (_*.tpl) from regular
+        # templates directory. These are needed because resources (e.g., realm.json) may reference
+        # template helpers defined there.
+        if templates_path != HELM_PATH and regular_template_dir.exists():
+            helper_files = list(regular_template_dir.glob("_*.tpl"))
+            if helper_files:
+                dest_dir = dest_helm_chart_path / 'templates' / app_name
+                dest_dir.mkdir(parents=True, exist_ok=True)
+                logging.info(
+                    "Collecting helper templates for application %s to %s", app_name, dest_dir)
+                for helper_file in helper_files:
+                    dest_file = dest_dir / helper_file.name
+                    if not dest_file.exists():  # Don't overwrite if templates-{path} provided one
+                        shutil.copy(helper_file, dest_file)
 
         resources_dir = app_path / 'deploy' / 'resources'
         if resources_dir.exists():
