@@ -226,8 +226,6 @@ class UserService:
             is_superuser = any([admin_user for admin_user in all_admin_users if admin_user["id"] == kc_user["id"]])
             self.sync_kc_user(kc_user, is_superuser)
 
-        # sync the groups
-        self.sync_kc_groups()
 
         # sync the user groups and memberships
         for kc_user in users:
