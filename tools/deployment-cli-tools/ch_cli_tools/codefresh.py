@@ -70,6 +70,7 @@ def write_env_file(helm_values: HarnessMainConfig, filename, image_cache_endpoin
         registry = chunks[0] if "." in chunks[0] else "docker.io"
         image_name = "/".join(chunks[1::] if "." in chunks[0] else chunks[0::])
         exists = check_image_exists_in_registry(registry, image_name, tag, endpoint_url=image_cache_endpoint_url)
+        logging.info("Image %s exists check: %s", image, exists)
         if exists:
             # TODO the hash might be the same but not the parent's hash
             env[app_specific_tag_variable(name) + "_EXISTS"] = 1
