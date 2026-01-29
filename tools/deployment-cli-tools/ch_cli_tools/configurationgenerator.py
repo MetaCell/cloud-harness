@@ -158,6 +158,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
 
                 img_name = image_name_from_dockerfile_path(os.path.basename(
                     static_img_dockerfile), base_name=base_name)
+                # Static images have context where the Dockerfile is located
                 self.base_images[os.path.basename(static_img_dockerfile)] = self.image_tag(
                     img_name, build_context_path=static_img_dockerfile,
                     dependencies=guess_build_dependencies_from_dockerfile(static_img_dockerfile)
@@ -183,13 +184,15 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
                 # del helm_values[KEY_TASK_IMAGES_BUILD][image_name]
 
     def _init_base_images(self, base_image_name):
+        """Initialize base images (infrastructure/base-images/) with root context."""
         for i in range(len(self.root_paths)):
             root_path = self.root_paths[i]
             base_name = base_image_name
 
-            for base_img_dockerfile in self.__find_static_dockerfile_paths(root_path):
+            for base_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, BASE_IMAGES_PATH)):
                 img_name = image_name_from_dockerfile_path(
                     os.path.basename(base_img_dockerfile), base_name=base_name)
+                # Base images have context at root
                 self.base_images[os.path.basename(base_img_dockerfile)] = self.image_tag(
                     img_name, build_context_path=root_path,
                     dependencies=guess_build_dependencies_from_dockerfile(base_img_dockerfile)
@@ -210,9 +213,6 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
                     img_name, build_context_path=base_img_dockerfile)
 
         return test_images
-
-    def __find_static_dockerfile_paths(self, root_path):
-        return find_dockerfiles_paths(os.path.join(root_path, BASE_IMAGES_PATH)) + find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH))
 
     def _merge_base_helm_values(self, helm_values):
         # Override for every cloudharness scaffolding
@@ -328,9 +328,17 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
             logging.info(f"Ignoring {ignore}")
             tag = generate_tag_from_content(build_context_path, ignore)
             logging.info(f"Content hash: {tag}")
+            
+            # Get dependencies from build context if not provided
             dependencies = dependencies or guess_build_dependencies_from_dockerfile(build_context_path)
-            tag = sha1((tag + "".join(self.all_images.get(n, '') for n in dependencies)).encode("utf-8")).hexdigest()
-            logging.info(f"Generated tag: {tag}")
+            
+            # Combine with dependency tags
+            dep_tags = "".join(self.all_images.get(n, '') for n in dependencies)
+            if dep_tags:
+                logging.info(f"Dependency tags: {[(n, self.all_images.get(n, '')) for n in dependencies]}")
+            tag = sha1((tag + dep_tags).encode("utf-8")).hexdigest()
+            logging.info(f"Generated tag (with dependencies): {tag}")
+            
             app_name = image_name.split("/")[-1]  # the image name can have a prefix
             self.all_images[app_name] = tag
         return self.registry + image_name + (f':{tag}' if tag else '')
