@@ -391,8 +391,9 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 if app.harness.secrets:
                     for secret in [secret[0] for secret in app.harness.secrets.items() if secret[1] != ""]:
                         secret_name = secret.replace("_", "__")
+                        value_ref = "\"${{%s}}\"" % secret_name.upper()
                         arguments["custom_values"].append(
-                            "apps_%s_harness_secrets_%s=${{%s}}" % (app_name.replace("_", "__"), secret_name, secret_name.upper()))
+                            "apps_%s_harness_secrets_%s=%s" % (app_name.replace("_", "__"), secret_name, value_ref))
 
     cmds = codefresh['steps']['prepare_deployment']['commands']
 
