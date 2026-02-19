@@ -1,0 +1,15 @@
+{
+    "python.defaultInterpreterPath": "/root/.local/venv/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "python.terminal.activateEnvInCurrentTerminal": true,
+    "terminal.integrated.defaultProfile.linux": "bash",
+    "terminal.integrated.shellIntegration.enabled": true,
+    "python.analysis.extraPaths": [
+        "/root/.local/venv/lib/python3.12/site-packages",
+        "/workspace/libraries/cloudharness-common",
+        "/workspace/libraries/models",
+        "/workspace/libraries/cloudharness-utils",
+        "/workspace/libraries/client/cloudharness_cli",
+        "/workspace/tools/deployment-cli-tools"
+    ]
+}

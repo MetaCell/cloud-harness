@@ -1,0 +1,67 @@
+{
+    "name": "CloudHarness Development",
+    
+    
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "app",
+    "workspaceFolder": "/workspace",
+    "shutdownAction": "none",
+    "forwardPorts": [3000, 5000, 8000, 8100, 9000, 9100, 9200],
+    "postCreateCommand": "bash /usr/local/share/dev-scripts/post-create.sh",
+    "features": {
+        "ghcr.io/devcontainers/features/github-cli:1": {}
+    },
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "python.defaultInterpreterPath": "/root/.local/venv/bin/python",
+                "python.terminal.activateEnvironment": true,
+                "python.terminal.activateEnvInCurrentTerminal": true,
+                // Disable VS Code shell integration - conflicts with bash-preexec (required for atuin/starship)
+                "terminal.integrated.shellIntegration.enabled": false,
+                "terminal.integrated.env.linux": {
+                    "XDG_DATA_HOME": "${env:HOME}/.local/share"
+                },
+                "extensions.autoUpdate": false,
+                "extensions.autoCheckUpdates": false,
+                "python.analysis.extraPaths": [
+                    "/root/.local/venv/lib/python3.12/site-packages",
+                    "/workspace/libraries/models",
+                    "/workspace/libraries/cloudharness-utils",
+                    "/workspace/libraries/cloudharness-common",
+                    "/workspace/libraries/client/cloudharness_cli",
+                    "/workspace/tools/deployment-cli-tools"
+                ],
+                "github.copilot.enable": {
+                    "*": true,
+                    "yaml": true,
+                    "plaintext": true,
+                    "markdown": true,
+                    "python": true,
+                    "javascript": true,
+                    "typescript": true,
+                    "json": true,
+                    "jsonc": true
+                },
+                "remote.extensionKind": {
+                    "GitHub.copilot": ["ui"],
+                    "GitHub.copilot-chat": ["ui"]
+                }
+            },
+            "extensions": [
+                "ms-python.python",
+                "ms-python.autopep8",
+                "ms-python.pylint",
+                "ms-python.python-extension-pack",
+                "KevinRose.vsc-python-indent",
+                "dbaeumer.vscode-eslint",
+                "redhat.vscode-yaml",
+                "ms-vscode.vscode-json",
+                "ms-kubernetes-tools.vscode-kubernetes-tools"
+            ]
+        }
+    },
+    "remoteUser": "root",
+    "updateContentCommand": "echo 'Container updated'"
+}
