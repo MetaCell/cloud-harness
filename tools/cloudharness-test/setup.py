@@ -12,7 +12,7 @@ from setuptools import setup, find_packages
 
 
 NAME = "cloudharness-test"
-VERSION = "2.3.0"
+VERSION = "3.0.0"
 # To install the library, run the following
 #
 # python setup.py install
@@ -24,7 +24,7 @@ REQUIREMENTS = [
     'requests',
     'cloudharness_model',
     'cloudharness',
-    'schemathesis',
+    'schemathesis<4.0.0',
 ]
 
 

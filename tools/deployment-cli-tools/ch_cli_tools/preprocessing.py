@@ -63,7 +63,7 @@ def preprocess_build_overrides(root_paths, helm_values, merge_build_path=DEFAULT
             if app_name not in artifacts:
                 artifacts[app_name] = base_path
 
-            elif app_name.replace("-", "_") in helm_values[KEY_APPS]:
+            elif app_name in helm_values[KEY_APPS]:
                 merge_appdir(root_path, base_path)
                 merged = True
 
@@ -118,7 +118,7 @@ def get_build_paths(root_paths, helm_values, merge_build_path=DEFAULT_MERGE_PATH
     for root_path in root_paths:
         for base_path in find_subdirs(join(root_path, APPS_PATH)):
             app_name = app_name_from_path(basename(base_path))
-            if app_name.replace("-", "_") not in helm_values[KEY_APPS]:
+            if app_name not in helm_values[KEY_APPS]:
                 continue
             if app_name not in artifacts:
                 artifacts[app_name] = base_path

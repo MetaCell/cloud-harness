@@ -33,7 +33,7 @@ steps:
     working_directory: .
     commands:
       - bash cloud-harness/install.sh
-      - harness-deployment $PATHS -t ${{DEPLOYMENT_TAG}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -n ${{NAMESPACE}} -e $ENV $PARAMS
+      - harness-deployment $PATHS -t ${{DEPLOYMENT_TAG}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -n ${{NAMESPACE}} -e $ENV --no-cd $PARAMS
   prepare_deployment_view:
     commands:
       - "helm template ./deployment/helm --debug -n ${{NAMESPACE}}"
@@ -78,7 +78,7 @@ steps:
     stage: qa
     title: Api tests
     working_directory: /home/test
-    image: "${{test-api}}"
+    image: "${{REGISTRY}}/cloud-harness/test-api:latest"
     fail_fast: false
     commands:
       - echo $APP_NAME
@@ -91,7 +91,7 @@ steps:
     stage: qa
     title: End to end tests
     working_directory: /home/test
-    image: "${{test-e2e}}"
+    image: "${{REGISTRY}}/cloud-harness/test-e2e:latest"
     fail_fast: false
     commands:
       - yarn test

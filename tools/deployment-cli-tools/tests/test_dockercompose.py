@@ -22,11 +22,11 @@ def test_collect_compose_values(tmp_path):
                                                  namespace='test', env='dev', local=False, tag=1, registry='reg')
 
     # Auto values
-    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/cloudharness/myapp:1'
-    assert values.apps['myapp'].harness.deployment.image == 'reg/cloudharness/myapp:1'
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/myapp:1'
+    assert values.apps['myapp'].harness.deployment.image == 'reg/testprojectname/myapp:1'
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
     assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'reg/cloudharness/accounts:1'
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/accounts:1'
 
     # First level include apps
     assert 'samples' in values[KEY_APPS]
@@ -87,8 +87,8 @@ def test_collect_compose_values(tmp_path):
     # Checl base and task images
     assert values[KEY_TASK_IMAGES]
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
-    assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'reg/cloudharness/cloudharness-base:1'
-    assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/cloudharness/myapp-mytask:1'
+    assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'reg/testprojectname/cloudharness-base:1', "cloudharness-base image is overridden"
+    assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/testprojectname/myapp-mytask:1'
     # Not indicated as a build dependency
     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES]
 
@@ -99,10 +99,10 @@ def test_collect_compose_values_noreg_noinclude(tmp_path):
                                                  namespace='test', env='dev', local=False, tag=1)
 
     # Auto values
-    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'cloudharness/myapp:1'
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'testprojectname/myapp:1'
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
     assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'cloudharness/accounts:1'
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'testprojectname/accounts:1'
 
     # First level include apps
     assert 'samples' in values[KEY_APPS]
@@ -157,8 +157,8 @@ def test_collect_compose_values_noreg_noinclude(tmp_path):
 
     assert values[KEY_TASK_IMAGES]
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
-    assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'cloudharness/cloudharness-base:1'
-    assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'cloudharness/myapp-mytask:1'
+    assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'testprojectname/cloudharness-base:1'
+    assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'testprojectname/myapp-mytask:1'
 
 
 def test_collect_compose_values_precedence(tmp_path):
@@ -208,7 +208,6 @@ def test_collect_compose_values_build_dependencies(tmp_path):
 
     assert 'cloudharness-flask' in values[KEY_TASK_IMAGES], "Cloudharness-flask is included in the build dependencies"
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES], "Cloudharness-base is included in cloudharness-flask Dockerfile and it should be guessed"
-    assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES], "Cloudharness-base-debian is not included in any dependency"
     assert 'cloudharness-frontend-build' not in values[KEY_TASK_IMAGES], "cloudharness-frontend-build is not included in any dependency"
 
 
@@ -219,7 +218,6 @@ def test_collect_compose_values_build_dependencies_nodeps(tmp_path):
 
     assert 'cloudharness-flask' not in values[KEY_TASK_IMAGES], "Cloudharness-flask is not included in the build dependencies"
     assert 'cloudharness-base' not in values[KEY_TASK_IMAGES], "Cloudharness-base is not included in the build dependencies"
-    assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES], "Cloudharness-base-debian is not included in any dependency"
     assert 'cloudharness-frontend-build' not in values[KEY_TASK_IMAGES], "cloudharness-frontend-build is not included in any dependency"
 
 
@@ -316,9 +314,9 @@ def test_collect_compose_values_auto_tag(tmp_path):
     values = create()
 
     # Auto values are set by using the directory hash
-    assert 'reg/cloudharness/myapp:' in values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image']
-    assert 'reg/cloudharness/myapp:' in values.apps['myapp'].harness.deployment.image
-    assert 'cloudharness/myapp-mytask' in values[KEY_TASK_IMAGES]['myapp-mytask']
+    assert 'reg/testprojectname/myapp:' in values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image']
+    assert 'reg/testprojectname/myapp:' in values.apps['myapp'].harness.deployment.image
+    assert 'testprojectname/myapp-mytask' in values[KEY_TASK_IMAGES]['myapp-mytask']
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == values.apps['myapp'].harness.deployment.image
     v1 = values.apps['myapp'].harness.deployment.image
     c1 = values["task-images"]["my-common"]
@@ -372,7 +370,7 @@ def test_collect_compose_values_auto_tag(tmp_path):
     finally:
         fname.unlink()
 
-    fname = Path(CLOUDHARNESS_ROOT) / 'atestfile'
+    fname = Path(RESOURCES) / 'atestfile'
     try:
         fname.write_text('a')
 

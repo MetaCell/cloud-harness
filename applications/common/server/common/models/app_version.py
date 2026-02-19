@@ -1,11 +1,8 @@
-# coding: utf-8
-
-from __future__ import absolute_import
 from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from common.models.base_model_ import Model
+from common.models.base_model import Model
 from common import util
 
 
@@ -48,7 +45,7 @@ class AppVersion(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def build(self):
+    def build(self) -> str:
         """Gets the build of this AppVersion.
 
 
@@ -58,7 +55,7 @@ class AppVersion(Model):
         return self._build
 
     @build.setter
-    def build(self, build):
+    def build(self, build: str):
         """Sets the build of this AppVersion.
 
 
@@ -69,7 +66,7 @@ class AppVersion(Model):
         self._build = build
 
     @property
-    def tag(self):
+    def tag(self) -> str:
         """Gets the tag of this AppVersion.
 
 
@@ -79,7 +76,7 @@ class AppVersion(Model):
         return self._tag
 
     @tag.setter
-    def tag(self, tag):
+    def tag(self, tag: str):
         """Sets the tag of this AppVersion.
 
 

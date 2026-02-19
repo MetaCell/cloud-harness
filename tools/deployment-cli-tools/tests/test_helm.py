@@ -17,13 +17,6 @@ def test_collect_helm_values(tmp_path):
                                exclude=['events'], domain="my.local",
                                namespace='test', env='dev', local=False, tag=1, registry='reg')
 
-    # Auto values
-    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/cloudharness/myapp:1'
-    assert values.apps['myapp'].harness.deployment.image == 'reg/cloudharness/myapp:1'
-    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
-    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'reg/cloudharness/accounts:1'
-
     # First level include apps
     assert 'samples' in values[KEY_APPS]
     assert 'myapp' in values[KEY_APPS]
@@ -40,6 +33,14 @@ def test_collect_helm_values(tmp_path):
 
     # Explicit exclude overrides include
     assert 'events' not in values[KEY_APPS]
+
+    # Auto values
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/myapp:1'
+    assert values[KEY_APPS]['myapp']['build'] == True
+    assert values.apps['myapp'].harness.deployment.image == 'reg/testprojectname/myapp:1'
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
+    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/accounts:1'
 
     # Base values kept
     assert values[KEY_APPS]['accounts'][KEY_HARNESS]['subdomain'] == 'accounts'
@@ -73,10 +74,24 @@ def test_collect_helm_values(tmp_path):
     # Checl base and task images
     assert values[KEY_TASK_IMAGES]
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
-    assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'reg/cloudharness/cloudharness-base:1'
-    assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/cloudharness/myapp-mytask:1'
+    assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'reg/testprojectname/cloudharness-base:1'
+    assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/testprojectname/myapp-mytask:1'
+    assert values[KEY_TASK_IMAGES]['cloudharness-flask'] == 'reg/testprojectname/cloudharness-flask:1'
     # Not indicated as a build dependency
     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES]
+
+    chart_values = yaml.safe_load(open(helm_path / 'charts/myapp/values.yaml', 'r'))  # Check if the values.yaml is valid YAML
+    assert chart_values is not None, "values.yaml should be valid YAML"
+    assert chart_values["test"] == "dev"
+
+
+def test_collect_nobuild(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values'
+    values = create_helm_chart([RESOURCES], output_path=out_folder, include=['myapp'],
+                               exclude=['events'], domain="my.local",
+                               namespace='test', env='nobuild', local=False, tag=1, registry='reg')
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'custom-image'
+    assert values[KEY_APPS]['myapp']['build'] == False
 
 
 def test_collect_helm_values_noreg_noinclude(tmp_path):
@@ -85,10 +100,10 @@ def test_collect_helm_values_noreg_noinclude(tmp_path):
                                namespace='test', env='dev', local=False, tag=1)
 
     # Auto values
-    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'cloudharness/myapp:1'
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'testprojectname/myapp:1'
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
     assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'cloudharness/accounts:1'
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'testprojectname/accounts:1'
 
     # First level include apps
     assert 'samples' in values[KEY_APPS]
@@ -131,8 +146,9 @@ def test_collect_helm_values_noreg_noinclude(tmp_path):
 
     assert values[KEY_TASK_IMAGES]
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
-    assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'cloudharness/cloudharness-base:1'
-    assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'cloudharness/myapp-mytask:1'
+    assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'testprojectname/cloudharness-base:1'
+    assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'testprojectname/myapp-mytask:1'
+    assert values[KEY_TASK_IMAGES]['my-common'] == 'testprojectname/my-common:1'
 
 
 def test_collect_helm_values_precedence(tmp_path):
@@ -290,9 +306,9 @@ def test_collect_helm_values_auto_tag(tmp_path):
     values = create()
 
     # Auto values are set by using the directory hash
-    assert 'reg/cloudharness/myapp:' in values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image']
-    assert 'reg/cloudharness/myapp:' in values.apps['myapp'].harness.deployment.image
-    assert 'cloudharness/myapp-mytask' in values[KEY_TASK_IMAGES]['myapp-mytask']
+    assert 'reg/testprojectname/myapp:' in values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image']
+    assert 'reg/testprojectname/myapp:' in values.apps['myapp'].harness.deployment.image
+    assert 'testprojectname/myapp-mytask' in values[KEY_TASK_IMAGES]['myapp-mytask']
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == values.apps['myapp'].harness.deployment.image
     v1 = values.apps['myapp'].harness.deployment.image
     c1 = values["task-images"]["my-common"]
@@ -346,7 +362,7 @@ def test_collect_helm_values_auto_tag(tmp_path):
     finally:
         fname.unlink()
 
-    fname = Path(CLOUDHARNESS_ROOT) / 'atestfile'
+    fname = Path(RESOURCES) / 'atestfile'
     try:
         fname.write_text('a')
 
@@ -357,3 +373,38 @@ def test_collect_helm_values_auto_tag(tmp_path):
         assert v1 != values.apps['myapp'].harness.deployment.image, "2 levels dependency: If a base image dependency is changed, the hash should change"
     finally:
         fname.unlink()
+
+
+def test_exclude_single_task(tmp_path):
+    out_folder = tmp_path / 'test_exclude_single_task'
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               env='withpostgres', local=False, include=["myapp"], exclude=["myapp-mytask"])
+
+    assert "myapp-mytask" not in values["task-images"], "myapp-mytask has been excluded, so should not appear in the task images"
+
+    try:
+        values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                                   env='fulldep', local=False, include=["dependantapp"], exclude=["myapp-mytask"])
+
+        assert False, "myapp-mytask has been excluded, but also declared as a dependency, so should not be excluded"
+    except ValuesValidationException as e:
+        pass
+
+
+def test_app_depends_on_app(tmp_path):
+    out_folder = tmp_path / 'test_app_depends_on_app'
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               env='', local=False, include=["dependantapp"], exclude=[])
+    assert "myapp" in values["task-images"], "myapp should be included as a task image because it is a dependency of dependantapp"
+    assert "cloudharness-flask" in values["task-images"], "cloudharness-flask should be included as a task image because it is a dependency of myapp"
+    assert "cloudharness-base" in values["task-images"], "cloudharness-flask should be included as a task image because it is a dependency of cloudharness-flask"
+    assert "myapp-mytask" in values["task-images"], "task should be also included as build dependencies,as it's required by another task"
+    assert "legacy" not in values["task-images"], "legacy should not be included as a task image because it is not a dependency"
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               env='testincludetask', local=False, include=["dependantapp"], exclude=[])
+
+    assert "myapp" in values["task-images"], "myapp should be included as a task image because it is a dependency of dependantapp"
+    assert "myapp-mytask" in values["task-images"], "tasks should be also included as build dependencies, when explicitly included as build dependencies"

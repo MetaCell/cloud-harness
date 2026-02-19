@@ -2,14 +2,17 @@ import time
 from collections.abc import Iterable
 from typing import List, Union
 
+import argo.workflows
+import argo.workflows.client
 import yaml
 
 from cloudharness import log
 from cloudharness.events.client import EventClient
 from cloudharness.utils import env, config
-from . import argo
+from . import argo_service
 from .tasks import Task, SendResultTask, CustomTask
 from .utils import PodExecutionContext, affinity_spec, is_accounts_present, name_from_path, volume_mount_template
+from argo.workflows.client import V1Toleration
 
 POLLING_WAIT_SECONDS = 1
 SERVICE_ACCOUNT = 'argo-workflows'
@@ -57,7 +60,7 @@ class ContainerizedOperation(ManagedOperation):
     """
 
     def __init__(self, basename: str, pod_context: Union[PodExecutionContext, list, tuple] = None,
-                 shared_directory=None, *args, **kwargs):
+                 shared_directory=None, pod_gc=None, *args, **kwargs):
         """
         :param basename:
         :param pod_context: PodExecutionContext - represents affinity with other pods in the system
@@ -73,6 +76,7 @@ class ContainerizedOperation(ManagedOperation):
 
         self.persisted = None
         shared_path = None
+        self.pod_gc = pod_gc
         if shared_directory:
             if shared_directory is True:
                 self.volumes = ['/mnt/shared']
@@ -120,8 +124,13 @@ class ContainerizedOperation(ManagedOperation):
             'entrypoint': self.entrypoint,
             'ttlStrategy': self.ttl_strategy,
             'templates': [self.modify_template(template) for template in self.templates],
+            'tolerations': [V1Toleration(key='cloudharness/temporary-job', operator='Equal', value='true').to_dict()],
             'serviceAccountName': SERVICE_ACCOUNT,
             'imagePullSecrets': [{'name': config.CloudharnessConfig.get_registry_secret()}],
+            'podGC': self.pod_gc or {
+                'strategy': 'OnWorkflowSuccess',
+                'deleteDelayDuration': self.ttl_strategy['secondsAfterSuccess'] if self.ttl_strategy else "600s",
+            },
             'volumes': [{
                 # mount allvalues so we can use the cloudharness Python library
                 'name': 'cloudharness-allvalues',
@@ -160,14 +169,19 @@ class ContainerizedOperation(ManagedOperation):
         return spec
 
     def add_on_exit_notify_handler(self, spec):
-        queue = self.on_exit_notify['queue']
-        payload = self.on_exit_notify['payload']
+        env_args = {
+            'workflow_result': '{{workflow.status}}'
+        }
+
+        if 'queue' in self.on_exit_notify:
+            env_args['queue_name'] = self.on_exit_notify['queue']
+        if 'payload' in self.on_exit_notify:
+            env_args['payload'] = self.on_exit_notify['payload']
+
         exit_task = CustomTask(
             name="exit-handler",
-            image_name='workflows-notify-queue',
-            workflow_result='{{workflow.status}}',
-            queue_name=queue,
-            payload=payload
+            image_name=self.on_exit_notify.get('image', 'workflows-notify-queue'),
+            **env_args
         )
         spec['onExit'] = 'exit-handler'
         spec['templates'].append(
@@ -202,7 +216,7 @@ class ContainerizedOperation(ManagedOperation):
         log.debug("Submitting workflow\n" + yaml.dump(op))
 
         # TODO use rest api for that? Include this into cloudharness.workflows?
-        self.persisted = argo.submit_workflow(op)
+        self.persisted = argo_service.submit_workflow(op)
         return self.persisted
 
     def is_running(self):
@@ -212,7 +226,7 @@ class ContainerizedOperation(ManagedOperation):
         return False
 
     def refresh(self):
-        self.persisted = argo.get_workflow(self.persisted.name)
+        self.persisted = argo_service.get_workflow(self.persisted.name)
 
     def is_error(self):
         if self.persisted:
@@ -309,7 +323,7 @@ class ExecuteAndWaitOperation(ContainerizedOperation, SyncOperation):
         while not self.persisted.is_finished():
             time.sleep(POLLING_WAIT_SECONDS)
             log.debug(f"Polling argo workflow {self.persisted.name}")
-            self.persisted = argo.get_workflow(self.persisted.name)
+            self.persisted = argo_service.get_workflow(self.persisted.name)
             log.debug(f"Polling succeeded for \
                {self.persisted.name}. Current phase: {self.persisted.status}")
             if timeout and time.time() - start_time > timeout:

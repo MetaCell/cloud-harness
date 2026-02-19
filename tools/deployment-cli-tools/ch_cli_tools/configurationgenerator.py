@@ -39,7 +39,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
                  namespace: str = None, templates_path: str = HELM_PATH):
         assert domain, 'A domain must be specified'
         self.root_paths = [Path(r) for r in root_paths]
-        self.tag = tag
+        self.tag = str(tag) if tag else None
         if registry and not registry.endswith('/'):
             self.registry = f'{registry}/'
         else:
@@ -54,6 +54,9 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         self.tls = tls
         self.env = env or {}
         self.namespace = namespace
+
+        # In this tree we will collect the  and their parent dependencies
+        self.build_tree: dict[str, list[str]] = {}
 
         self.templates_path = templates_path
         self.dest_deployment_path = self.output_path / templates_path
@@ -75,14 +78,14 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         if self.dest_deployment_path.exists():
             shutil.rmtree(self.dest_deployment_path)
         # Initialize with default
-        copy_merge_base_deployment(self.dest_deployment_path, Path(CH_ROOT) / DEPLOYMENT_CONFIGURATION_PATH / self.templates_path)
+        copy_merge_base_deployment(self.dest_deployment_path, Path(CH_ROOT) / DEPLOYMENT_CONFIGURATION_PATH / self.templates_path, self.env)
 
         # Override for every cloudharness scaffolding
         for root_path in self.root_paths:
             copy_merge_base_deployment(dest_helm_chart_path=self.dest_deployment_path,
-                                       base_helm_chart=root_path / DEPLOYMENT_CONFIGURATION_PATH / self.templates_path)
-            collect_apps_helm_templates(root_path, exclude=self.exclude, include=self.include,
-                                        dest_helm_chart_path=self.dest_deployment_path, templates_path=self.templates_path)
+                                       base_helm_chart=root_path / DEPLOYMENT_CONFIGURATION_PATH / self.templates_path, envs=self.env)
+            # collect_apps_helm_templates(root_path, exclude=self.exclude, include=self.include,
+            #                             dest_helm_chart_path=self.dest_deployment_path, templates_path=self.templates_path, envs=self.env)
 
     def _adjust_missing_values(self, helm_values):
         if 'name' not in helm_values:
@@ -90,8 +93,10 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
                 chart_idx_content = yaml.safe_load(f)
             helm_values['name'] = chart_idx_content['name'].lower()
 
-    def _process_applications(self, helm_values, base_image_name):
-        for root_path in self.root_paths:
+    def _process_applications(self, helm_values, base_image_name=None):
+        for i in range(len(self.root_paths)):
+            root_path = self.root_paths[i]
+            base_name = base_image_name
             app_values = init_app_values(
                 root_path, exclude=self.exclude, values=helm_values[KEY_APPS])
             helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
@@ -99,7 +104,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
 
             app_base_path = root_path / APPS_PATH
             app_values = self.collect_app_values(
-                app_base_path, base_image_name=base_image_name, helm_values=helm_values)
+                app_base_path, base_image_name=base_name, helm_values=helm_values)
             helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
                                                app_values)
 
@@ -111,13 +116,13 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
 
             if app_name in self.exclude:
                 continue
-            app_key = app_name.replace('-', '_')
+            app_key = app_name
 
             app_values = self.create_app_values_spec(app_name, app_path, base_image_name=base_image_name, helm_values=helm_values)
 
             # dockerfile_path = next(app_path.rglob('**/Dockerfile'), None)
             # # for dockerfile_path in app_path.rglob('**/Dockerfile'):
-            # #     parent_name = dockerfile_path.parent.name.replace("-", "_")
+            # #     parent_name = dockerfile_path.parent.name
             # #     if parent_name == app_key:
             # #         app_values['build'] = {
             # #             # 'dockerfile': f"{dockerfile_path.relative_to(app_path)}",
@@ -145,13 +150,19 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         return values
 
     def _init_static_images(self, base_image_name):
-        for static_img_dockerfile in self.static_images:
-            img_name = image_name_from_dockerfile_path(os.path.basename(
-                static_img_dockerfile), base_name=base_image_name)
-            self.base_images[os.path.basename(static_img_dockerfile)] = self.image_tag(
-                img_name, build_context_path=static_img_dockerfile,
-                dependencies=guess_build_dependencies_from_dockerfile(static_img_dockerfile)
-            )
+        for i in range(len(self.root_paths)):
+            root_path = self.root_paths[i]
+            base_name = base_image_name
+            for static_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)):
+                self.static_images.add(static_img_dockerfile)
+
+                img_name = image_name_from_dockerfile_path(os.path.basename(
+                    static_img_dockerfile), base_name=base_name)
+                # Static images have context where the Dockerfile is located
+                self.base_images[os.path.basename(static_img_dockerfile)] = self.image_tag(
+                    img_name, build_context_path=static_img_dockerfile,
+                    dependencies=guess_build_dependencies_from_dockerfile(static_img_dockerfile)
+                )
 
     def _assign_static_build_dependencies(self, helm_values):
         for static_img_dockerfile in self.static_images:
@@ -173,33 +184,35 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
                 # del helm_values[KEY_TASK_IMAGES_BUILD][image_name]
 
     def _init_base_images(self, base_image_name):
+        """Initialize base images (infrastructure/base-images/) with root context."""
+        for i in range(len(self.root_paths)):
+            root_path = self.root_paths[i]
+            base_name = base_image_name
 
-        for root_path in self.root_paths:
-            for base_img_dockerfile in self.__find_static_dockerfile_paths(root_path):
+            for base_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, BASE_IMAGES_PATH)):
                 img_name = image_name_from_dockerfile_path(
-                    os.path.basename(base_img_dockerfile), base_name=base_image_name)
+                    os.path.basename(base_img_dockerfile), base_name=base_name)
+                # Base images have context at root
                 self.base_images[os.path.basename(base_img_dockerfile)] = self.image_tag(
                     img_name, build_context_path=root_path,
                     dependencies=guess_build_dependencies_from_dockerfile(base_img_dockerfile)
                 )
 
-            self.static_images.update(find_dockerfiles_paths(
-                os.path.join(root_path, STATIC_IMAGES_PATH)))
         return self.base_images
 
     def _init_test_images(self, base_image_name):
         test_images = {}
-        for root_path in self.root_paths:
+        for i in range(len(self.root_paths)):
+            root_path = self.root_paths[i]
+            base_name = base_image_name
+
             for base_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, TEST_IMAGES_PATH)):
                 img_name = image_name_from_dockerfile_path(
-                    os.path.basename(base_img_dockerfile), base_name=base_image_name)
+                    os.path.basename(base_img_dockerfile), base_name=base_name)
                 test_images[os.path.basename(base_img_dockerfile)] = self.image_tag(
                     img_name, build_context_path=base_img_dockerfile)
 
         return test_images
-
-    def __find_static_dockerfile_paths(self, root_path):
-        return find_dockerfiles_paths(os.path.join(root_path, BASE_IMAGES_PATH)) + find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH))
 
     def _merge_base_helm_values(self, helm_values):
         # Override for every cloudharness scaffolding
@@ -315,15 +328,23 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
             logging.info(f"Ignoring {ignore}")
             tag = generate_tag_from_content(build_context_path, ignore)
             logging.info(f"Content hash: {tag}")
+            
+            # Get dependencies from build context if not provided
             dependencies = dependencies or guess_build_dependencies_from_dockerfile(build_context_path)
-            tag = sha1((tag + "".join(self.all_images.get(n, '') for n in dependencies)).encode("utf-8")).hexdigest()
-            logging.info(f"Generated tag: {tag}")
+            
+            # Combine with dependency tags
+            dep_tags = "".join(self.all_images.get(n, '') for n in dependencies)
+            if dep_tags:
+                logging.info(f"Dependency tags: {[(n, self.all_images.get(n, '')) for n in dependencies]}")
+            tag = sha1((tag + dep_tags).encode("utf-8")).hexdigest()
+            logging.info(f"Generated tag (with dependencies): {tag}")
+            
             app_name = image_name.split("/")[-1]  # the image name can have a prefix
             self.all_images[app_name] = tag
         return self.registry + image_name + (f':{tag}' if tag else '')
 
 
-def get_included_with_dependencies(values, include):
+def get_included_applications(values, include):
     app_values = values['apps'].values()
     directly_included = [app for app in app_values if any(
         inc == app[KEY_HARNESS]['name'] for inc in include)]
@@ -338,20 +359,40 @@ def get_included_with_dependencies(values, include):
             dependent.add('accounts')
     if len(dependent) == len(include):
         return dependent
-    return get_included_with_dependencies(values, dependent)
+    return get_included_applications(values, dependent)
+
+
+def get_included_builds(values, include):
+    app_values = values['apps'].values()
+    directly_included = [app for app in app_values if any(
+        inc == app[KEY_HARNESS]['name'] for inc in include)]
+
+    dependent = set(include)
+    for app in directly_included:
+        if app['harness']['dependencies'].get('build', None):
+            dependent.update(set(app[KEY_HARNESS]['dependencies']['build']))
+        if app['harness']['dependencies'].get('hard', None):
+            dependent.update(set(app[KEY_HARNESS]['dependencies']['hard']))
+        if app['harness']['dependencies'].get('soft', None):
+            dependent.update(set(app[KEY_HARNESS]['dependencies']['soft']))
+        if values['secured_gatekeepers'] and app[KEY_HARNESS]['secured']:
+            dependent.add('accounts')
+    if len(dependent) == len(include):
+        return dependent
+    return get_included_builds(values, dependent)
 
 
 def merge_helm_chart(source_templates_path, dest_helm_chart_path=HELM_CHART_PATH):
     pass
 
 
-def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart):
+def copy_merge_base_deployment(dest_helm_chart_path, base_helm_chart, envs=()):
     if not base_helm_chart.exists():
         return
     if dest_helm_chart_path.exists():
         logging.info("Merging/overriding all files in directory %s",
                      dest_helm_chart_path)
-        merge_configuration_directories(f"{base_helm_chart}", f"{dest_helm_chart_path}")
+        merge_configuration_directories(f"{base_helm_chart}", f"{dest_helm_chart_path}", envs=envs)
     else:
         logging.info("Copying base deployment chart from %s to %s",
                      base_helm_chart, dest_helm_chart_path)
@@ -392,7 +433,7 @@ def init_app_values(deployment_root, exclude, values=None):
 
         if app_name in exclude:
             continue
-        app_key = app_name.replace('-', '_')
+        app_key = app_name
         if app_key not in values:
             default_values = get_template(default_values_path)
             values[app_key] = default_values
@@ -454,7 +495,7 @@ def extract_env_variables_from_values(values, envs=tuple(), prefix=''):
         newenvs = list(envs)
         for key, value in values.items():
             v = extract_env_variables_from_values(
-                value, envs, f"{prefix}_{key}".replace('-', '_').upper())
+                str(value), envs, f"{prefix}_{key}".replace('-', '_').upper())
             if key in ('name', 'port', 'subdomain'):
                 newenvs.extend(v)
         return newenvs
@@ -476,16 +517,8 @@ def create_env_variables(values):
 def hosts_info(values):
     domain = values['domain']
     namespace = values['namespace']
-    subdomains = [app[KEY_HARNESS]['subdomain'] for app in values[KEY_APPS].values() if
-                  KEY_HARNESS in app and app[KEY_HARNESS]['subdomain']] + [alias for app in values[KEY_APPS].values() if
-                                                                           KEY_HARNESS in app and app[KEY_HARNESS]['aliases'] for alias in app[KEY_HARNESS]['aliases']]
-    try:
-        ip = get_cluster_ip()
-    except:
-        logging.warning('Cannot get cluster ip')
-        return
-    logging.info(
-        "\nTo test locally, update your hosts file" + f"\n{ip}\t{domain + ' ' + ' '.join(sd + '.' + domain for sd in subdomains)}")
+    subdomains = [app[KEY_HARNESS]['subdomain'] for app in values[KEY_APPS].values() if KEY_HARNESS in app and app[KEY_HARNESS]['subdomain']] +\
+        [alias for app in values[KEY_APPS].values() if KEY_HARNESS in app and app[KEY_HARNESS]['aliases'] for alias in app[KEY_HARNESS]['aliases']]
 
     deployments = (app[KEY_HARNESS][KEY_DEPLOYMENT]['name']
                    for app in values[KEY_APPS].values() if KEY_HARNESS in app)
@@ -493,15 +526,23 @@ def hosts_info(values):
     logging.info(
         "\nTo run locally some apps, also those references may be needed")
     for appname in values[KEY_APPS]:
-        app = values[KEY_APPS][appname]['harness']
-        if 'deployment' not in app:
+        app = values[KEY_APPS][appname][KEY_HARNESS]
+        if KEY_SERVICE not in app:
             continue
         print(
-            "kubectl port-forward -n {namespace} deployment/{app} {port}:{port}".format(
-                app=app['deployment']['name'], port=app['deployment']['port'], namespace=namespace))
+            "kubectl port-forward -n {namespace} service/{app} {port}:{port}".format(
+                app=app[KEY_SERVICE]['name'], port=app[KEY_SERVICE]['port'], namespace=namespace))
 
     print(
-        f"127.0.0.1\t{' '.join('%s.%s' % (s, values['namespace']) for s in deployments)}")
+        f"127.0.0.1\t{' '.join('%s.%s' % (values[KEY_APPS][s][KEY_HARNESS][KEY_SERVICE]['name'], values['namespace']) for s in deployments)}")
+
+    try:
+        ip = get_cluster_ip()
+    except:
+        logging.warning('Cannot get cluster ip')
+        ip = "127.0.0.1"
+    logging.info(
+        "\nTo test locally, update your hosts file" + f"\n{ip}\t{domain + ' ' + ' '.join(sd + '.' + domain for sd in subdomains)}")
 
 
 class ValuesValidationException(Exception):
@@ -518,13 +559,13 @@ def validate_dependencies(values):
         app_values = values["apps"][app]
         if 'dependencies' in app_values[KEY_HARNESS]:
             soft_dependencies = {
-                d.replace("-", "_") for d in app_values[KEY_HARNESS]['dependencies']['soft']}
+                d for d in app_values[KEY_HARNESS]['dependencies']['soft']}
             not_found = {d for d in soft_dependencies if d not in all_apps}
             if not_found:
                 logging.warning(
                     f"Soft dependencies specified for application {app} not found: {','.join(not_found)}")
             hard_dependencies = {
-                d.replace("-", "_") for d in app_values[KEY_HARNESS]['dependencies']['hard']}
+                d for d in app_values[KEY_HARNESS]['dependencies']['hard']}
             not_found = {d for d in hard_dependencies if d not in all_apps}
             if not_found:
                 raise ValuesValidationException(
@@ -541,8 +582,7 @@ def validate_dependencies(values):
                     f"Bad build dependencies specified for application {app}: {','.join(not_found)} not found as built image")
 
         if 'use_services' in app_values[KEY_HARNESS]:
-            service_dependencies = {d['name'].replace(
-                "-", "_") for d in app_values[KEY_HARNESS]['use_services']}
+            service_dependencies = {d['name'] for d in app_values[KEY_HARNESS]['use_services']}
 
             not_found = {d for d in service_dependencies if d not in all_apps}
             if not_found:
@@ -550,7 +590,7 @@ def validate_dependencies(values):
                     f"Bad service application dependencies specified for application {app}: {','.join(not_found)}")
 
 
-def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_path=HELM_PATH, exclude=(), include=None):
+def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_path=HELM_PATH, exclude=(), include=None, envs=()):
     """
     Searches recursively for helm templates inside the applications and collects the templates in the destination
 
@@ -565,10 +605,14 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_pat
         app_name = app_name_from_path(os.path.relpath(f"{app_path}", app_base_path))
         if app_name in exclude or (include and not any(inc in app_name for inc in include)):
             continue
+
+        # Determine which template directory to use
+        regular_template_dir = app_path / 'deploy' / 'templates'
         if templates_path == HELM_PATH:
-            template_dir = app_path / 'deploy' / 'templates'
+            template_dir = regular_template_dir
         else:
             template_dir = app_path / 'deploy' / f'templates-{templates_path}'
+
         if template_dir.exists():
             dest_dir = dest_helm_chart_path / 'templates' / app_name
 
@@ -577,9 +621,27 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_pat
             if dest_dir.exists():
                 logging.warning(
                     "Merging/overriding all files in directory %s", dest_dir)
-                merge_configuration_directories(f"{template_dir}", f"{dest_dir}")
+                merge_configuration_directories(f"{template_dir}", f"{dest_dir}", envs)
             else:
                 shutil.copytree(template_dir, dest_dir)
+            if envs:
+                merge_configuration_directories(f"{dest_dir}", f"{dest_dir}", envs)
+
+        # For non-helm mode (e.g., compose), also copy helper templates (_*.tpl) from regular
+        # templates directory. These are needed because resources (e.g., realm.json) may reference
+        # template helpers defined there.
+        if templates_path != HELM_PATH and regular_template_dir.exists():
+            helper_files = list(regular_template_dir.glob("_*.tpl"))
+            if helper_files:
+                dest_dir = dest_helm_chart_path / 'templates' / app_name
+                dest_dir.mkdir(parents=True, exist_ok=True)
+                logging.info(
+                    "Collecting helper templates for application %s to %s", app_name, dest_dir)
+                for helper_file in helper_files:
+                    dest_file = dest_dir / helper_file.name
+                    if not dest_file.exists():  # Don't overwrite if templates-{path} provided one
+                        shutil.copy(helper_file, dest_file)
+
         resources_dir = app_path / 'deploy' / 'resources'
         if resources_dir.exists():
             dest_dir = dest_helm_chart_path / 'resources' / app_name
@@ -587,7 +649,9 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_pat
             logging.info(
                 "Collecting resources for application  %s to %s", app_name, dest_dir)
 
-            merge_configuration_directories(f"{resources_dir}", f"{dest_dir}")
+            merge_configuration_directories(f"{resources_dir}", f"{dest_dir}", envs)
+            if envs:
+                merge_configuration_directories(f"{dest_dir}", f"{dest_dir}", envs)
 
         if templates_path == HELM_PATH:
             subchart_dir = app_path / 'deploy/charts'
@@ -599,9 +663,11 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_pat
                 if dest_dir.exists():
                     logging.warning(
                         "Merging/overriding all files in directory %s", dest_dir)
-                    merge_configuration_directories(f"{subchart_dir}", f"{dest_dir}")
+                    merge_configuration_directories(f"{subchart_dir}", f"{dest_dir}", envs)
                 else:
                     shutil.copytree(subchart_dir, dest_dir)
+                if envs:
+                    merge_configuration_directories(f"{dest_dir}", f"{dest_dir}", envs)
 
 
 # def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_path=None, exclude=(), include=None):

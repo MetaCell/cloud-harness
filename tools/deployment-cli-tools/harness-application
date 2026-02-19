@@ -1,26 +1,17 @@
 #!/usr/bin/env python
 
-import json
 import pathlib
 import sys
-import os
 import re
-import shutil
-import tempfile
-import subprocess
 import logging
 import argparse
+from typing import Union
 
-from ch_cli_tools import CH_ROOT
-from cloudharness_utils.constants import APPLICATION_TEMPLATE_PATH
-from ch_cli_tools.openapi import generate_server, generate_fastapi_server, APPLICATIONS_SRC_PATH, generate_ts_client
-from ch_cli_tools.utils import merge_configuration_directories, replaceindir, replace_in_file, \
-    to_python_module, copymergedir, get_json_template, replace_in_dict
-
-try:
-    from enum import StrEnum
-except ImportError:
-    from strenum import StrEnum
+from ch_cli_tools.openapi import APPLICATIONS_SRC_PATH
+from ch_cli_tools.utils import confirm, replaceindir, replace_in_file, save_yaml, \
+    to_python_module
+from ch_cli_tools.common_types import CloudHarnessManifest, TemplateType
+from ch_cli_tools.application_builders import AppBuilderPipeline
 
 # Only allow lowercased alphabetical characters separated by "-".
 name_pattern = re.compile("[a-z]+((-)?[a-z])?")
@@ -28,47 +19,25 @@ name_pattern = re.compile("[a-z]+((-)?[a-z])?")
 PLACEHOLDER = '__APP_NAME__'
 
 
-class TemplateType(StrEnum):
-    BASE = 'base'
-    FLASK_SERVER = 'flask-server'
-    WEBAPP = 'webapp'
-    DB_POSTGRES = 'db-postgres'
-    DB_NEO4J = 'db-neo4j'
-    DB_MONGO = 'db-mongo'
-    DJANGO_APP = 'django-app'
-    SERVER = 'server'
-
-
-def main():
+def main() -> None:
     app_name, templates = get_command_line_arguments()
 
-    app_path = os.path.join(APPLICATIONS_SRC_PATH, app_name)
-    os.makedirs(app_path, exist_ok=True)
+    app_path = pathlib.Path(APPLICATIONS_SRC_PATH) / app_name
+    app_path.mkdir(exist_ok=True)
 
-    if TemplateType.DJANGO_APP in templates and TemplateType.WEBAPP not in templates:
-        templates = [TemplateType.BASE, TemplateType.WEBAPP] + templates
+    templates = normalize_templates(templates)
 
-    if TemplateType.WEBAPP in templates:
-        handle_webapp_template(app_name, app_path)
+    pipeline = AppBuilderPipeline(app_name, app_path, templates)
 
-    if TemplateType.SERVER in templates:
-        handle_server_template(app_path)
+    pipeline.handle_pre_merge()
 
-    for template_name in templates:
-        merge_template_directories(template_name, app_path)
-
-    if TemplateType.FLASK_SERVER in templates:
-        handle_flask_server_template(app_path)
-
-    replace_in_file(os.path.join(app_path, 'api/config.json'), PLACEHOLDER, to_python_module(app_name))
-
-    if TemplateType.DJANGO_APP in templates:
-        handle_django_app_template(app_name, app_path)
-
+    pipeline.handle_merge()
+    replace_in_file(app_path / 'api' / 'config.json', PLACEHOLDER, to_python_module(app_name))
     replaceindir(app_path, PLACEHOLDER, app_name)
 
-    if TemplateType.WEBAPP in templates:
-        handle_webapp_template_cleanup(app_path)
+    pipeline.handle_post_merge()
+
+    create_manifest_file(app_path, app_name, templates)
 
 
 def get_command_line_arguments() -> tuple[str, list[str]]:
@@ -89,7 +58,8 @@ def get_command_line_arguments() -> tuple[str, list[str]]:
                         - db-postgres
                         - db-neo4j
                         - db-mongo
-                        - django-app (fastapi django backend based on openapi)
+                        - django-fastapi (fastapi django backend based on openapi)
+                        - django-ninja (django ninja backend)
                         """)
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
@@ -112,78 +82,36 @@ def get_command_line_arguments() -> tuple[str, list[str]]:
     return args.name, args.templates
 
 
-def handle_webapp_template(app_name: str, app_path: str) -> None:
-    if os.path.exists(os.path.join(app_path, 'frontend')):
-        shutil.rmtree(os.path.join(app_path, 'frontend'))
-    cmd = ["yarn", "create", "vite", app_name, "--template", "react-ts"]
-    logging.info(f"Running command: {' '.join(cmd)}")
-    subprocess.run(cmd, cwd=app_path)
-    shutil.move(os.path.join(app_path, app_name), os.path.join(app_path, 'frontend'))
-    generate_ts_client(openapi_file=os.path.join(app_path, 'api/openapi.yaml'))
+def normalize_templates(templates: list[str]) -> list[str]:
+    templates = list(templates)
+
+    def django_template_index():
+        return next(index for index, template in enumerate(templates) if template in TemplateType.django_templates())
+
+    has_django_template = any(template in TemplateType.django_templates() for template in templates)
+    if TemplateType.WEBAPP not in templates:
+        if (confirm(f'Do you want to generate Vite frontend application?')):
+            templates.insert(django_template_index(), TemplateType.WEBAPP)
+
+    has_database_template = any(template in TemplateType.database_templates() for template in templates)
+    if has_django_template and not has_database_template:
+        if (confirm(f'Do you want to use a postgres database?')):
+            templates.insert(django_template_index(), TemplateType.DB_POSTGRES)
+
+    return templates
 
 
-def handle_webapp_template_cleanup(app_path: str) -> None:
-    try:
-        os.remove(os.path.join(app_path, 'backend', 'Dockerfile'))
-    except FileNotFoundError:
-        # backend dockerfile not found, continue
-        pass
-
-
-def handle_server_template(app_path: str) -> None:
-    with tempfile.TemporaryDirectory() as tmp_dirname:
-        copymergedir(os.path.join(CH_ROOT, APPLICATION_TEMPLATE_PATH, TemplateType.SERVER), tmp_dirname)
-        merge_configuration_directories(app_path, tmp_dirname)
-        generate_server(app_path, tmp_dirname)
-
-
-def handle_flask_server_template(app_path: str) -> None:
-    generate_server(app_path)
-
-
-def handle_django_app_template(app_name: str, app_path: str) -> None:
-    replace_in_file(os.path.join(app_path, 'api/templates/main.jinja2'), PLACEHOLDER, to_python_module(app_name))
-    generate_fastapi_server(app_path)
-    replace_in_file(
-        os.path.join(app_path, 'deploy/values.yaml'),
-        f"{PLACEHOLDER}:{PLACEHOLDER}",
-        f"{to_python_module(app_name)}:{to_python_module(app_name)}"
+def create_manifest_file(app_path: pathlib.Path, app_name: str, templates: list[Union[str, TemplateType]]) -> None:
+    manifest_file = app_path / '.ch-manifest'
+    manifest = CloudHarnessManifest(
+        app_name=app_name,
+        version='1',
+        inferred=False,
+        templates=[str(template) for template in templates],
     )
-    replace_in_file(os.path.join(app_path, "dev-setup.sh"), PLACEHOLDER, app_name)
-    create_django_app_vscode_debug_configuration(app_name)
-    try:
-        os.remove(os.path.join(app_path, 'backend', "__APP_NAME__", "__main__.py"))
-    except FileNotFoundError:
-        # backend dockerfile not found, continue
-        pass
 
-
-def create_django_app_vscode_debug_configuration(app_name: str):
-    vscode_launch_path = pathlib.Path('.vscode/launch.json')
-    configuration_name = f'{app_name} backend'
-
-    launch_config = get_json_template(vscode_launch_path, True)
-
-    launch_config['configurations'] = [
-        configuration for configuration in launch_config['configurations']
-        if configuration['name'] != configuration_name
-    ]
-
-    debug_config = get_json_template('vscode-django-app-debug-template.json', True)
-    debug_config = replace_in_dict(debug_config, PLACEHOLDER, app_name)
-
-    launch_config['configurations'].append(debug_config)
-
-    vscode_launch_path.parent.mkdir(parents=True, exist_ok=True)
-    with vscode_launch_path.open('w') as f:
-        json.dump(launch_config, f, indent=2, sort_keys=True)
-
-
-def merge_template_directories(template_name: str, app_path: str) -> None:
-    for base_path in (CH_ROOT, os.getcwd()):
-        template_path = os.path.join(base_path, APPLICATION_TEMPLATE_PATH, template_name)
-        if os.path.exists(template_path):
-            merge_configuration_directories(template_path, app_path)
+    logging.info('Creating manifest file')
+    save_yaml(manifest_file, manifest.to_dict())
 
 
 if __name__ == "__main__":

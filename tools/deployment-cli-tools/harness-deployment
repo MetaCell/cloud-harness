@@ -11,6 +11,7 @@ from ch_cli_tools.skaffold import create_skaffold_configuration, create_vscode_d
 from ch_cli_tools.codefresh import create_codefresh_deployment_scripts, write_env_file
 from ch_cli_tools.preprocessing import preprocess_build_overrides
 from ch_cli_tools.utils import merge_app_directories
+from ch_cli_tools.migration import perform_migration
 from cloudharness_utils.constants import DEPLOYMENT_PATH, COMPOSE_ENGINE, HELM_ENGINE
 
 HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
@@ -63,8 +64,14 @@ if __name__ == "__main__":
                         help=f'Do not generate ci/cd files')
     parser.add_argument('-we', '--write-env', dest='write_env', action="store_const", default=None, const=True,
                         help=f'Write build env to .env file in {DEPLOYMENT_PATH}')
+    parser.add_argument('--migrate', dest='migration', action="store_true",
+                        help='Perform a migration of the deployment to the latest supported version.')
+    parser.add_argument('--migrate-accept-all', dest='migration_accept_all', action="store_true",
+                        help='Perform a migration of the deployment to the latest supported version without asking for confirmation. Use with caution.')
     parser.add_argument('--docker-compose', dest='docker_compose', action="store_true",
                         help='Generate docker-compose.yaml and dedicated Skaffold configuration')
+    parser.add_argument('-cu', '--cache-url', dest='image_cache_url', action="store", default='',
+                        help='Specify a custom cache URL for the docker images. This is used to speed up builds by caching layers. Example: https://cache.cloudharness.io?repository=[REGISTRY]/[IMAGE_NAME]&tag=[TAG]')
 
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
@@ -77,12 +84,16 @@ if __name__ == "__main__":
         print('There are unknown args. Make sure to call the script with the accepted args. Try --help')
         print(f'unknown: {unknown}')
     else:
-
         if args.merge:
             logging.warning(
                 "Merge (-m, --merge) argument is deprecated. Directory merging is now set automatically")
             merge_app_directories(root_paths, destination=args.merge)
             root_paths = [args.merge]
+
+        if args.migration_accept_all:
+            perform_migration(root_paths, accept_all=True)
+        elif args.migration:
+            perform_migration(root_paths, accept_all=False)
 
         chart_fn = create_helm_chart if not args.docker_compose else create_docker_compose_configuration
 
@@ -115,7 +126,7 @@ if __name__ == "__main__":
                 helm_values=helm_values)
 
         if args.write_env:
-            write_env_file(helm_values, os.path.join(root_paths[-1], DEPLOYMENT_PATH, ".env"))
+            write_env_file(helm_values, os.path.join(root_paths[-1], DEPLOYMENT_PATH, ".env"), args.image_cache_url)
 
         create_skaffold_configuration(merged_root_paths, helm_values, backend_deploy=COMPOSE_ENGINE if args.docker_compose else HELM_ENGINE)
 

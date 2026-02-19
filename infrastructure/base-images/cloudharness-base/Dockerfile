@@ -1,13 +1,13 @@
-ARG PARENT=python:3.12-alpine
+ARG PARENT=python:3.12-slim-trixie
 FROM ${PARENT}
 
-RUN apk update
-RUN apk upgrade
-
-# Add bash for k8s console
-RUN apk add bash
-# dev tools needed by some python libraries
-RUN apk add gcc libc-dev g++ python3-dev libffi-dev openssl-dev rust musl-dev cargo 
+RUN apt update && apt install -y --no-install-recommends \
+    gcc \
+    g++ \
+    python3-dev \
+    libpq-dev \
+    nfs-common \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN --mount=type=cache,target=/root/.cache python -m pip install --upgrade pip &&\
     pip install pytest  --prefer-binary
@@ -23,17 +23,16 @@ RUN --mount=type=cache,target=/root/.cache python -m pip install --upgrade pip &
     pip install -r /libraries/client/cloudharness_cli/requirements.txt  --prefer-binary
 
 COPY libraries/models /libraries/models
-RUN pip install -e /libraries/models
+RUN pip install -e /libraries/models --no-cache-dir
 
 COPY libraries/cloudharness-common /libraries/cloudharness-common
 COPY libraries/client/cloudharness_cli /libraries/client/cloudharness_cli
 
-#
+RUN pip install -e /libraries/models --no-cache-dir
+RUN pip install -e /libraries/cloudharness-common --no-cache-dir
+RUN pip install -e /libraries/client/cloudharness_cli --no-cache-dir
 
-RUN pip install -e /libraries/cloudharness-common
-RUN pip install -e /libraries/client/cloudharness_cli
-
-ARG $DEBUG
-RUN if [[ -z "$DEBUG" ]] ; then pip install debugpy --prefer-binary ; else echo "Debug not supported" ; fi
+ARG DEBUG
+RUN if [ -z "$DEBUG" ] ; then pip install debugpy --prefer-binary ; else echo "Debug not supported" ; fi
 
 WORKDIR /

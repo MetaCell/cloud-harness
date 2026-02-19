@@ -15,16 +15,22 @@ INSTALLED_APPS = getattr(
     []) + ['admin_extra_buttons', ]
 
 # add the local apps
-INSTALLED_APPS += ['cloudharness_django', ]
+INSTALLED_APPS += ['cloudharness_django', 'django_prometheus']
 
 # add the CloudHarness Django auto login middleware
-MIDDLEWARE = getattr(
-    settings,
-    'MIDDLEWARE',
-    []
-) + [
-    'cloudharness_django.middleware.BearerTokenMiddleware',
-]
+MIDDLEWARE = \
+    ['django_prometheus.middleware.PrometheusBeforeMiddleware'] + \
+    getattr(
+        settings,
+        'MIDDLEWARE',
+        []
+    ) + \
+    [
+        'cloudharness_django.middleware.BearerTokenMiddleware',
+        'django_prometheus.middleware.PrometheusAfterMiddleware'
+    ]
+
+USER_CHANGE_ENABLED = False
 
 # test if the kubernetes CH all values exists, if so then set up specific k8s stuff
 # IMPROTANT NOTE:
@@ -48,7 +54,7 @@ try:
 except:
     # no current app found, fall back to the default settings, there is a god change that
     # we are running on a developers local machine
-    log.warning("Error setting current app configuration, continuing...")
+    log.warning("Error setting current app configuration, was `harness-deployment` executed? Continuing...")
 
     current_app = applications.ApplicationConfiguration({
         "name": app_name,
@@ -68,9 +74,11 @@ if current_app.harness.database.type == "sqlite3":
     DATABASE_NAME = os.path.join(getattr(settings, "PERSISTENT_ROOT", "."), f"{app_name}.sqlite3")
     DATABSE_HOST = None
     DATABASE_PORT = None
+    TEST_DATABASE_NAME = os.path.join(getattr(settings, "PERSISTENT_ROOT", "."), "testdb.sqlite3")
 elif current_app.harness.database.type == "postgres":
     DATABASE_ENGINE = "django.db.backends.postgresql"
     DATABASE_NAME = current_app.harness.database.postgres.initialdb
+    TEST_DATABASE_NAME = f"test_{DATABASE_NAME}"
     DATABSE_HOST = current_app.harness.database.name
     DATABASE_PORT = current_app.harness.database.postgres.ports[0].port
 
@@ -85,8 +93,12 @@ DATABASES = {
         "HOST": DATABSE_HOST,
         "PORT": DATABASE_PORT,
         "TEST": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": os.path.join(getattr(settings, "PERSISTENT_ROOT", "."), "testdb.sqlite3"),
+            "ENGINE": DATABASE_ENGINE or "django.db.backends.sqlite3",
+            "NAME": TEST_DATABASE_NAME,
         },
     },
 }
+
+if settings.ROOT_URLCONF:
+    APP_URLCONF = settings.ROOT_URLCONF
+    ROOT_URLCONF = "cloudharness_django.urls"

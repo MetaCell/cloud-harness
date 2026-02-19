@@ -26,3 +26,4 @@ setup.py
 Dockerfile
 */__main__.py
 */test/*
+*/requirements.txt

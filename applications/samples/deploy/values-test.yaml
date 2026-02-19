@@ -5,6 +5,11 @@ harness:
       - events
       - common
       - jupyterhub
+      - volumemanager
+    build:
+      - cloudharness-flask
+      - cloudharness-frontend-build
+      - cloudharness-django
   accounts:
     roles:
     - role1

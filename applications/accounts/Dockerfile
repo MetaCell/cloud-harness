@@ -1,12 +1,18 @@
-FROM quay.io/keycloak/keycloak:16.1.1
+FROM quay.io/keycloak/keycloak:26.4
 
-# add kubectl
+EXPOSE 9000
+EXPOSE 8080
 USER root
-COPY --chmod=0755 scripts/create_api_user.sh /opt/jboss/startup-scripts/create_api_user.sh
-USER jboss
+COPY --chmod=0755 scripts/create_api_user.sh /opt/keycloak/startup-scripts/create_api_user.sh
+COPY --chmod=0755 scripts/kc-entrypoint.sh /opt/keycloak/bin/kc-entrypoint.sh
+
+USER keycloak
 
 # Customize keycloak look
-COPY themes/custom /opt/jboss/keycloak/themes/custom
+COPY themes/custom /opt/keycloak/themes/custom
 
-# keycloak kafka listener plugin
-COPY plugins/metacell-admin-event-listener-bundle-1.0.0.ear /opt/jboss/keycloak/standalone/deployments/
+# # keycloak kafka listener plugin
+COPY plugins/* /opt/keycloak/providers/
+
+ENTRYPOINT [ "/opt/keycloak/bin/kc-entrypoint.sh" ]
+CMD [ "start", "--import-realm" ]

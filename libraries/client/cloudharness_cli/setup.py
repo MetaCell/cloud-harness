@@ -12,7 +12,7 @@
 from setuptools import setup, find_packages  # noqa: H301
 
 NAME = "cloudharness-cli"
-VERSION = "2.4.0"
+VERSION = "2.5.0"
 # To install the library, run the following
 #
 # python setup.py install
@@ -20,7 +20,7 @@ VERSION = "2.4.0"
 # prerequisite: setuptools
 # http://pypi.python.org/pypi/setuptools
 
-REQUIRES = ["urllib3 >= 1.25.3, < 2.1.0", "python_dateutil >= 2.5.3", "pydantic >= 2", "typing-extensions >= 4.7.1"]
+REQUIRES = ["urllib3", "python_dateutil >= 2.5.3", "pydantic >= 2", "typing-extensions >= 4.7.1"]
 
 
 setup(

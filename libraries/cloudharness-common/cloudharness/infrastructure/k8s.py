@@ -76,6 +76,8 @@ def get_pod_logs(pod_name, namespace=namespace):
     except kubernetes.client.rest.ApiException as e:
         if e.status == 400:
             return f"Pod {pod_name} has not emitted logs yet..."
+        elif 400 < e.status < 500:
+            return str(e)
         raise Exception(e.status) from e
 
 

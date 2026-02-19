@@ -1,5 +1,9 @@
+from base64 import b64decode
 import os
 from typing import List
+from cloudharness.utils.secrets import get_secret
+from cloudharness_model.models.organization import Organization
+from cryptography.hazmat.primitives import serialization
 import jwt
 import json
 import requests
@@ -9,7 +13,7 @@ from keycloak.exceptions import KeycloakAuthenticationError, KeycloakGetError
 
 from cloudharness import log
 from cloudharness.middleware import get_authentication_token
-from cloudharness.models import UserGroup, User
+from cloudharness.models import User, UserGroup
 
 from .exceptions import UserNotFound, InvalidToken, AuthSecretNotFound
 
@@ -23,11 +27,8 @@ except:
 
 def get_api_password() -> str:
     name = "api_user_password"
-    AUTH_SECRET_PATH = os.environ.get(
-        "AUTH_SECRET_PATH", "/opt/cloudharness/resources/auth")
     try:
-        with open(os.path.join(AUTH_SECRET_PATH, name)) as fh:
-            return fh.read()
+        return get_secret(name, "accounts")
     except:
         # if no secrets folder or file exists
         raise AuthSecretNotFound(name)
@@ -43,7 +44,7 @@ def with_refreshtoken(func):
     return wrapper
 
 
-def decode_token(token, **kwargs):
+def decode_token(token, **kwargs) -> dict | None:
     """
     Check and retrieve authentication information from custom bearer token.
     Returned value will be passed in 'token_info' parameter of your operation function, if there is one.
@@ -61,13 +62,27 @@ def decode_token(token, **kwargs):
     return decoded
 
 
+def get_current_user_id() -> str | None:
+
+    authentication_token = get_authentication_token()
+
+    if not authentication_token or authentication_token == 'Bearer undefined':
+        return None
+
+    user_dict = decode_token(authentication_token.split(' ')[-1])
+    if user_dict:
+        return user_dict.get('sub')
+
+    return None
+
+
 def get_server_url():
     accounts_app = get_configuration('accounts')
 
     if not os.environ.get('KUBERNETES_SERVICE_HOST', None):
         # running outside kubernetes
-        return accounts_app.get_public_address() + '/auth/'
-    return accounts_app.get_service_address() + '/auth/'
+        return accounts_app.get_public_address()
+    return accounts_app.get_service_address()
 
 
 def get_auth_realm():
@@ -87,10 +102,14 @@ def get_token(username, password):
 
 def is_uuid(s):
     import uuid
+    if not s:
+        return False
+    if type(s) == uuid.UUID:
+        return True
     try:
         uuid.UUID(s)
         return True
-    except ValueError:
+    except:
         return False
 
 
@@ -162,13 +181,10 @@ class AuthClient():
     @classmethod
     def get_public_key(cls):
         if not cls.__public_key:
-            AUTH_PUBLIC_KEY_URL = os.path.join(
-                get_server_url(), "realms", get_auth_realm())
-
-            KEY = json.loads(requests.get(AUTH_PUBLIC_KEY_URL,
-                                          verify=False).text)['public_key']
-            cls.__public_key = b"-----BEGIN PUBLIC KEY-----\n" + \
-                str.encode(KEY) + b"\n-----END PUBLIC KEY-----"
+            public_key_url = os.path.join(get_server_url(), "realms", get_auth_realm())
+            key_der_base64 = requests.get(public_key_url).json()['public_key']
+            key_der = b64decode(key_der_base64.encode())
+            cls.__public_key = serialization.load_der_public_key(key_der)
         return cls.__public_key
 
     @classmethod
@@ -185,7 +201,7 @@ class AuthClient():
         """
         try:
             decoded = jwt.decode(token, cls.get_public_key(),
-                                 algorithms='RS256', audience=audience)
+                                 algorithms=['RS256'], audience=audience)
         except jwt.exceptions.InvalidTokenError as e:
             raise InvalidToken(e) from e
         return decoded
@@ -406,11 +422,9 @@ class AuthClient():
         admin_client = self.get_admin_client()
         users = []
         for user in admin_client.get_users(query=query):
-            user.update({
-                "userGroups": admin_client.get_user_groups(user['id'], brief_representation=not with_details),
-                'realmRoles': admin_client.get_realm_roles_of_user(user['id'])
-            })
-            users.append(User.from_dict(user))
+            user = User.from_dict(user)
+            self._add_related_to_user(user, with_details, admin_client)
+            users.append(user)
         return users
 
     @with_refreshtoken
@@ -450,11 +464,15 @@ class AuthClient():
             except InvalidToken as e:
                 raise UserNotFound(user_id)
 
-        user.update({
-            "userGroups": admin_client.get_user_groups(user_id=user['id'], brief_representation=not with_details),
-            'realmRoles': admin_client.get_realm_roles_of_user(user['id'])
-        })
-        return User.from_dict(user)
+        user = User.from_dict(user)
+        self._add_related_to_user(user, with_details, admin_client)
+        return user
+
+    def _add_related_to_user(self, user: User, with_details: bool, admin_client):
+        user.user_groups = [UserGroup.from_dict(group) for group in admin_client.get_user_groups(user_id=user['id'], brief_representation=not with_details)]
+        user.realm_roles = admin_client.get_realm_roles_of_user(user['id'])
+        user.organizations = [Organization.from_dict(org) for org in admin_client.get_user_organizations(user['id'])]
+        return user
 
     def get_current_user(self) -> User:
         """
@@ -590,11 +608,15 @@ class AuthClient():
         user = self.get_user(user_id)
         attributes = user.get('attributes', {}) or {}
         attributes[attribute_name] = attribute_value
+        user.attributes = attributes
         admin_client.update_user(
             user_id,
             {
-                'attributes': attributes
-            })
+                'attributes': attributes,
+                'username': user.username,
+                'email': user.email,
+            }
+        )
 
     @with_refreshtoken
     def user_delete_attribute(self, user_id, attribute_name):
@@ -613,7 +635,9 @@ class AuthClient():
             admin_client.update_user(
                 user_id,
                 {
-                    'attributes': attributes
+                    'attributes': attributes,
+                    'username': user.username,
+                    'email': user.email,
                 })
             return True
         return False

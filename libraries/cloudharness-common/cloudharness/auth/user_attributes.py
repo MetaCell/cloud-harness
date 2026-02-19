@@ -1,8 +1,6 @@
-import re
 from keycloak import KeycloakError
 from .keycloak import AuthClient
-from cloudharness.applications import get_current_configuration
-from cloudharness_model.models import ApplicationConfig
+from cloudharness.auth.exceptions import AuthSecretNotFound
 from cloudharness import log
 
 
@@ -16,13 +14,13 @@ class KCAttributeNode:
         self.children.append(child)
 
 
-def _filter_attrs(attrs, valid_keys):
+def _filter_attrs(attrs, valid_keys={}):
     # only use the attributes defined by the valid keys map
     valid_attrs = {}
     if attrs is None:
         return valid_attrs
     for key in attrs:
-        if key in valid_keys:
+        if key in valid_keys or not valid_keys:
             # map to value
             valid_attrs.update({key: attrs[key][0]})
     return valid_attrs
@@ -123,7 +121,7 @@ def get_user_attributes(user_id: str = None, valid_keys={}, default_attributes={
         if not user_id:
             user_id = auth_client.get_current_user()["id"]
         user = auth_client.get_user(user_id, with_details=True)
-    except KeycloakError as e:
+    except (KeycloakError, AuthSecretNotFound) as e:
         log.warning("Quotas not available: error retrieving user: %s", user_id)
         raise UserNotFound("User not found") from e
 

@@ -21,39 +21,47 @@ def relpath_if(p1, p2):
     return relpath(p1, p2)
 
 
+def get_all_images(helm_values: HarnessMainConfig) -> dict[str, str]:
+    all_images = {**helm_values[KEY_TASK_IMAGES]}
+    for app_name, app in helm_values.apps.items():
+        if app.harness.deployment and app.harness.deployment.image:
+            all_images[app_name] = app.harness.deployment.image
+    return all_images
+
+
 def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, output_path='.', manage_task_images=True, backend_deploy=HELM_ENGINE):
     backend = backend_deploy or HELM_ENGINE
     template_name = 'skaffold-template.yaml'
     skaffold_conf = get_template(template_name, True)
     apps = helm_values.apps
-    base_image_name = (helm_values.registry.name or "") + helm_values.name
     artifacts = {}
     overrides = {}
+
+    all_images = get_all_images(helm_values)
 
     def remove_tag(image_name):
         return image_name.split(":")[0]
 
     def get_image_tag(name):
-        return f"{get_image_name(name, base_image_name)}"
+        return remove_tag(all_images[name])
 
     builds = {}
 
     def build_artifact(
-        image_name: str,
+        app_name: str,
         context_path: str,
         requirements: list[str] = None,
         dockerfile_path: str = '',
         additional_build_args: dict[str, str] = None,
     ) -> dict:
         build_args = {
-            'REGISTRY': helm_values.registry.name,
-            'TAG': helm_values.tag,
-            'NOCACHE': str(time.time()),
             'DEBUG': 'true' if helm_values.local or helm_values.debug else ''
         }
 
         if additional_build_args:
             build_args.update(additional_build_args)
+
+        image_name = get_image_tag(app_name)
 
         artifact_spec = {
             'image': image_name,
@@ -67,6 +75,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
         if requirements:
             artifact_spec['requires'] = [{'image': get_image_tag(req), 'alias': req.replace('-', '_').upper()} for req
                                          in requirements]
+
         return artifact_spec
 
     base_images = set()
@@ -80,7 +89,9 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
     ) -> None:
         if app_name is None:
             app_name = app_name_from_path(basename(dockerfile_path))
-        app_key = app_name.replace("-", "_")
+        app_key = app_name
+        if app_key in helm_values.apps and ('build' not in helm_values.apps[app_key] or not helm_values.apps[app_key]['build']):
+            return
         if app_name in helm_values[KEY_TASK_IMAGES] or app_key in helm_values.apps:
             context_path = relpath_if(root_path, output_path) if global_context else relpath_if(dockerfile_path, output_path)
 
@@ -88,7 +99,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
             base_images.add(get_image_name(app_name))
 
             artifacts[app_name] = build_artifact(
-                get_image_tag(app_name),
+                app_name,
                 context_path,
                 dockerfile_path=relpath(dockerfile_path, output_path),
                 requirements=requirements or guess_build_dependencies_from_dockerfile(dockerfile_path),
@@ -125,6 +136,8 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
     for root_path in root_paths:
         apps_path = join(root_path, APPS_PATH)
+
+        # Get all dockerfiles in the applications directory, including those in subdirectories
         app_dockerfiles = find_dockerfiles_paths(apps_path)
 
         release_config['artifactOverrides'][KEY_TASK_IMAGES] = {
@@ -137,26 +150,31 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
             context_path = os.path.relpath(dockerfile_path, '.')
             app_relative_to_base = os.path.relpath(dockerfile_path, apps_path)
             app_name = app_name_from_path(app_relative_to_base)
-            app_key = app_name.replace('-', '_')
+            app_key = app_name
+
             if app_key not in apps:
                 if 'tasks' in app_relative_to_base and manage_task_images:
                     parent_app_name = app_name_from_path(
                         app_relative_to_base.split('/tasks')[0])
-                    parent_app_key = parent_app_name.replace('-', '_')
+                    parent_app_key = parent_app_name
 
                     if parent_app_key in apps:
-                        artifacts[app_key] = build_artifact(get_image_tag(app_name), app_relative_to_skaffold,
-                                                            base_images.union(static_images))
-
+                        artifacts[app_key] = build_artifact(app_name, app_relative_to_skaffold,
+                                                            guess_build_dependencies_from_dockerfile(dockerfile_path))
+                elif app_name in helm_values[KEY_TASK_IMAGES]:
+                    process_build_dockerfile(dockerfile_path, root_path,
+                                             requirements=guess_build_dependencies_from_dockerfile(dockerfile_path), app_name=app_name)
                 continue
-
             build_requirements = apps[app_key][KEY_HARNESS].dependencies.build
+
             # app_image_tag = remove_tag(
             #     apps[app_key][KEY_HARNESS][KEY_DEPLOYMENT]['image'])
             # artifacts[app_key] = build_artifact(
             #     app_image_tag, app_relative_to_skaffold, build_requirements)
-            process_build_dockerfile(dockerfile_path, root_path, requirements=build_requirements, app_name=app_name)
+            process_build_dockerfile(dockerfile_path, root_path, requirements=guess_build_dependencies_from_dockerfile(dockerfile_path), app_name=app_name)
             app = apps[app_key]
+            if 'build' not in app or not app['build']:
+                continue
             if app[KEY_HARNESS][KEY_DEPLOYMENT]['image']:
                 release_config['artifactOverrides']['apps'][app_key] = \
                     {
@@ -171,7 +189,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
             def identify_unicorn_based_main(candidates):
                 import re
-                gunicorn_pattern = re.compile(r"gunicorn")
+                gunicorn_pattern = re.compile(r"CLOUDHARNESS_FLASK|gunicorn|CLOUDHARNESS_DJANGO", re.IGNORECASE)
                 # sort candidates, shortest path first
                 for candidate in sorted(candidates, key=lambda x: len(x.split("/"))):
                     dockerfile_path = f"{candidate}/.."
@@ -243,7 +261,7 @@ def git_clone_hook(conf: GitDependencyConfig, context_path: str):
             join(os.path.dirname(os.path.dirname(HERE)), 'clone.sh'),
             conf.branch_tag,
             conf.url,
-            join(context_path, "dependencies", conf.path or os.path.basename(conf.url).split('.')[0])
+            join(context_path, "dependencies", (conf.path + "/" if conf.path else "") + os.path.basename(conf.url).split('.')[0])
         ]
     }
 
@@ -252,16 +270,14 @@ def create_vscode_debug_configuration(root_paths, helm_values):
     logging.info("Creating VS code cloud build configuration.\nCloud build extension is needed to debug.")
 
     vscode_launch_path = '.vscode/launch.json'
-
+    all_images = get_all_images(helm_values)
     vs_conf = get_json_template(vscode_launch_path, True)
-    base_image_name = helm_values.name
+
     debug_conf = get_json_template('vscode-debug-template.json', True)
 
     def get_image_tag(name):
-        return f"{get_image_name(name, base_image_name)}"
+        return all_images[name]
 
-    if helm_values.registry.name:
-        base_image_name = helm_values.registry.name + helm_values.name
     for i in range(len(vs_conf['configurations'])):
         conf = vs_conf['configurations'][i]
         if conf['name'] == debug_conf['name']:
@@ -280,7 +296,7 @@ def create_vscode_debug_configuration(root_paths, helm_values):
             app_relative_to_base = os.path.relpath(path, apps_path)
             app_relative_to_root = os.path.relpath(path, '.')
             app_name = app_name_from_path(app_relative_to_base.split('/')[0])
-            app_key = app_name.replace('-', '_')
+            app_key = app_name
             if app_key in apps.keys():
                 debug_conf["debug"].append({
                     "image": get_image_tag(app_name),
@@ -301,7 +317,7 @@ def get_additional_build_args(helm_values: HarnessMainConfig, app_key: str) -> d
     if app_key not in helm_values.apps:
         return None
 
-    if not (helm_values.apps[app_key].harness.dockerfile and helm_values.apps[app_key].harness.dockerfile.buildArgs):
+    if not (helm_values.apps[app_key].harness.dockerfile and helm_values.apps[app_key].harness.dockerfile.build_args):
         return None
 
-    return helm_values.apps[app_key].harness.dockerfile.buildArgs
+    return helm_values.apps[app_key].harness.dockerfile.build_args

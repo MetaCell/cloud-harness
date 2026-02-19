@@ -30,7 +30,7 @@ steps:
     working_directory: .
     commands:
       - bash cloud-harness/install.sh
-      - harness-deployment $PATHS -t ${{DEPLOYMENT_TAG}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs ${{REGISTRY_SECRET}} -n ${{NAMESPACE}} -e $ENV $PARAMS
+      - harness-deployment $PATHS -t ${{DEPLOYMENT_TAG}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rs '${{REGISTRY_SECRET}}' -n ${{NAMESPACE}} -e $ENV --no-cd $PARAMS
   prepare_deployment_view:
     commands:
       - "helm template ./deployment/helm --debug -n ${{NAMESPACE}}"

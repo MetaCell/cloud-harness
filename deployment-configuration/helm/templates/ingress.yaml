@@ -1,20 +1,57 @@
 {{- define "deploy_utils.ingress.http" }}
   {{ $domain := .root.Values.domain }}
   {{ $secured_gatekeepers := and .root.Values.secured_gatekeepers }}
+  {{ $app := .app }}
     http:
       paths:
+{{- if and $app.harness.secured $secured_gatekeepers $app.harness.uri_role_mapping }}
+  {{- range $mapping := $app.harness.uri_role_mapping }}
+    {{- if and (hasKey $mapping "white-listed") (index $mapping "white-listed") }}
+      {{- $uri := $mapping.uri }}
+      {{- if eq $uri "/" }}
+      - path: /()
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{ $app.harness.service.name | quote }}
+            port:
+              number: {{ $app.harness.service.port | default 80 }}
+      {{- else if hasSuffix "/*" $uri }}
+        {{- $cleanPath := trimSuffix "/*" $uri }}
+        {{- $pathWithoutSlash := trimPrefix "/" $cleanPath }}
+      - path: {{ printf "/(%s/.*)" $pathWithoutSlash }}
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{ $app.harness.service.name | quote }}
+            port:
+              number: {{ $app.harness.service.port | default 80 }}
+      {{- else if not (contains "*" $uri) }}
+        {{- $pathWithoutSlash := trimPrefix "/" $uri }}
+      - path: {{ printf "/(%s)" $pathWithoutSlash }}
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{ $app.harness.service.name | quote }}
+            port:
+              number: {{ $app.harness.service.port | default 80 }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
       - path: /(.*)
         pathType: ImplementationSpecific
         backend:
           service:
-            name: {{ .app.harness.service.name }}{{- if (and .app.harness.secured $secured_gatekeepers) }}-gk{{- end }}
+            name: {{ if (and $app.harness.secured $secured_gatekeepers) }}{{ printf "%s-gk" .subdomain }}{{ else }}{{ $app.harness.service.name | quote }}{{ end }}
             port:
-              number: {{- if (and .app.harness.secured $secured_gatekeepers) }} 8080 {{- else }} {{ .app.harness.service.port | default 80  }}{{- end }}
+              number: {{- if (and $app.harness.secured $secured_gatekeepers) }} 8080 {{- else }} {{ $app.harness.service.port | default 80  }}{{- end }}
+
 {{- end }}
 {{- define "deploy_utils.ingress.service" }}
   {{ $domain := .root.Values.domain }}
   {{ $secured_gatekeepers := and .root.Values.secured_gatekeepers }}
-  {{ $app := get .root.Values.apps (print .service_name | snakecase) }}
+  {{ $app := get .root.Values.apps  .service_name}}
       - path: /proxy/{{ $app.harness.service.name }}/(.*)
         pathType: ImplementationSpecific
         backend:
@@ -40,6 +77,9 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: {{ (and $tls .Values.ingress.ssl_redirect) | quote }}
     nginx.ingress.kubernetes.io/proxy-body-size: '{{ .Values.proxy.payload.max }}m'
     nginx.ingress.kubernetes.io/proxy-buffer-size: '128k'
+    nginx.ingress.kubernetes.io/proxy-buffering: "on"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "8"
+    nginx.ingress.kubernetes.io/proxy-max-temp-file-size: "1024m"
     nginx.ingress.kubernetes.io/from-to-www-redirect: 'true'
     nginx.ingress.kubernetes.io/rewrite-target: /$1
     nginx.ingress.kubernetes.io/auth-keepalive-timeout: {{ .Values.proxy.timeout.keepalive | quote }}
@@ -52,24 +92,24 @@ spec:
   {{- range $app := .Values.apps }}
     {{- if (and $mainapp (and $app.harness.name (eq $app.harness.name $mainapp))) }}
   - host: {{ $domain | quote }}
-    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app) }}
+    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app "subdomain" $app.harness.subdomain) }}
       {{- range $service := $app.harness.use_services }}
       {{ include "deploy_utils.ingress.service" (dict "root" $ "service_name" $service.name) }}
       {{- end }}
     {{- end }}
     {{- if $app.harness.domain }}
   - host: {{ $app.harness.domain | quote }}
-    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app) }}
+    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app "subdomain" $app.harness.subdomain ) }}
     {{- end }}
     {{- if $app.harness.aliases }}
     {{- range $alias := $app.harness.aliases }}
   - host: {{ printf "%s.%s" $alias $domain | quote }}
-    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app) }}
+    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app  "subdomain" $alias) }}
       {{- end }}
     {{- end }}
     {{- if $app.harness.subdomain }}
   - host: {{ printf "%s.%s" $app.harness.subdomain $domain | quote }}
-    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app) }}
+    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app  "subdomain" $app.harness.subdomain) }}
     {{- range $service := $app.harness.use_services }}
       {{ include "deploy_utils.ingress.service" (dict "root" $ "service_name" $service.name) }}
     {{- end }}
@@ -77,7 +117,7 @@ spec:
         {{- if contains "map" (typeOf $subapp)  }}
           {{- if and $subapp (hasKey $subapp "harness.subdomain") }}
   - host: {{ printf "%s.%s.%s" $subapp.harness.subdomain $app.harness.subdomain $domain | quote }}
-    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $subapp) }}
+    {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $subapp "subdomain" (printf "%s.%s" $subapp.harness.subdomain $app.harness.subdomain)) }}
           {{- end }}
        {{- end }}
       {{- end }}
@@ -95,6 +135,11 @@ spec:
           {{- if  ne $app.harness.domain $domain }}
       - {{ $app.harness.domain | quote }}
         {{- end }}
+        {{- end }}
+        {{- if $app.harness.aliases }}
+          {{- range $subdomain := $app.harness.aliases }}
+      - {{ printf "%s.%s" $subdomain $domain | quote }}
+          {{- end }}
         {{- end }}
       {{- end }}
       {{- if $mainapp }}

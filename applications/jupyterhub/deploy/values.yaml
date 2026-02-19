@@ -112,7 +112,18 @@ hub:
   annotations: {}
   command: []
   args: []
-  extraConfig: {}
+  extraConfig:
+    harness_hub: |
+      try:
+        from harness_jupyter.jupyterhub import harness_hub
+        harness_hub()  # activates harness hooks on jupyterhub
+      except Exception as e:
+        logging.error("could not import harness_jupyter", exc_info=True)
+        # to skip the profile selection form enable the line below
+    # other_conf: |
+    #   c.KubeSpawner.allow_named_servers = False
+    #   c.KubeSpawner.named_server_limit_per_user = 0
+    
   extraFiles: {}
   extraEnv: {}
   extraContainers: []
@@ -264,7 +275,7 @@ proxy:
     nodeSelector: {}
     tolerations: []
     networkPolicy:
-      enabled: true
+      enabled: false # EDIT: CLOUDHARNESS -- needs more configuration to properly work when true
       ingress: []
       egress: []
       egressAllowRules:
@@ -391,7 +402,7 @@ singleuser:
     blockWithIptables: true
     ip: 169.254.169.254
   networkPolicy:
-    enabled: true
+    enabled: false # EDIT: CLOUDHARNESS -- needs more configuration to properly work when true
     ingress: []
     egress: []
     egressAllowRules:

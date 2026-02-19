@@ -6,8 +6,7 @@ components:
     schemas:
         AutoArtifactSpec:
             description: ''
-            required:
-                - auto
+            required: []
             type: object
             properties:
                 auto:
@@ -16,21 +15,6 @@ components:
                 name:
                     description: ''
                     type: string
-        UriRoleMappingConfig:
-            description: 'Defines the application Gatekeeper configuration, if enabled (i.e. `secured: true`.'
-            required:
-                - roles
-                - uri
-            type: object
-            properties:
-                uri:
-                    $ref: '#/components/schemas/PathSpecifier'
-                    description: Path to secure
-                roles:
-                    description: Roles allowed to access the present uri
-                    type: array
-                    items:
-                        type: string
         ServiceAutoArtifactConfig:
             description: ''
             type: object
@@ -83,16 +67,6 @@ components:
                 limits:
                     $ref: '#/components/schemas/CpuMemoryConfig'
                     description: ''
-        CpuMemoryConfig:
-            description: ''
-            type: object
-            properties:
-                cpu:
-                    description: ''
-                    type: string
-                memory:
-                    description: ''
-                    type: string
         FileResourcesConfig:
             description: ''
             required:
@@ -130,6 +104,9 @@ components:
                     description: ''
                     type: number
                 initialDelaySeconds:
+                    description: ''
+                    type: number
+                port:
                     description: ''
                     type: number
         URL:
@@ -180,60 +157,6 @@ components:
                 value:
                     description: ''
                     type: string
-        IngressConfig:
-            description: ''
-            type: object
-            allOf:
-                -
-                    type: object
-                    properties:
-                        ssl_redirect:
-                            description: ''
-                            type: boolean
-                        letsencrypt:
-                            description: ''
-                            type: object
-                            properties:
-                                email:
-                                    type: string
-                -
-                    $ref: '#/components/schemas/AutoArtifactSpec'
-        BackupConfig:
-            description: ''
-            required:
-                - dir
-                - resources
-            type: object
-            properties:
-                active:
-                    description: ''
-                    type: boolean
-                keep_days:
-                    description: ''
-                    type: integer
-                keep_weeks:
-                    description: ''
-                    type: integer
-                keep_months:
-                    description: ''
-                    type: integer
-                schedule:
-                    description: Cron expression
-                    pattern: >-
-                        /(@(annually|yearly|monthly|weekly|daily|hourly|reboot))|(@every
-                        (\d+(ns|us|µs|ms|s|m|h))+)|((((\d+,)+\d+|(\d+(\/|-)\d+)|\d+|\*) ?){5,7})/
-                    type: string
-                suffix:
-                    description: The file suffix added to backup files
-                volumesize:
-                    description: The volume size for backups (all backups share the same volume)
-                    type: string
-                dir:
-                    $ref: '#/components/schemas/Filename'
-                    description: 'Target directory of backups, the mount point of the persistent volume.'
-                resources:
-                    $ref: '#/components/schemas/DeploymentResourcesConf'
-                    description: ''
         UserGroup:
             type: object
             properties:
@@ -337,6 +260,16 @@ components:
                 username:
                     type: string
                 additionalProperties: {}
+                userGroups:
+                    description: ''
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/UserGroup'
+                organizations:
+                    description: ''
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Organization'
         Filename:
             description: ''
             pattern: '^[^<>:;,?*|]+$'
@@ -345,38 +278,6 @@ components:
             description: ''
             pattern: '^[^<>:;,?|]+$'
             type: string
-        CDCEvent:
-            description: |-
-                A message sent to the orchestration queue.
-                Applications can listen to these events to react to data change events happening
-                on other applications.
-            required:
-                - message_type
-                - operation
-                - uid
-                - meta
-            type: object
-            properties:
-                operation:
-                    description: the operation on the object e.g. create / update / delete
-                    enum:
-                        - create
-                        - update
-                        - delete
-                        - other
-                    type: string
-                uid:
-                    description: the unique identifier attribute of the object
-                    type: string
-                message_type:
-                    description: the type of the message (relates to the object type) e.g. jobs
-                    type: string
-                resource:
-                    $ref: '#/components/schemas/FreeObject'
-                    description: The target object
-                meta:
-                    $ref: '#/components/schemas/CDCEventMeta'
-                    description: ''
         CDCEventMeta:
             description: ''
             required:
@@ -465,7 +366,6 @@ components:
                     description: ''
                     type: string
                 password:
-                    format: password
                     description: ''
                     type: string
                 clientRoles:
@@ -570,71 +470,6 @@ components:
                     items:
                         type: string
                     example: '["not_a_server_error", "status_code_conformance"]'
-        DeploymentAutoArtifactConfig:
-            description: ''
-            type: object
-            allOf:
-                -
-                    type: object
-                    properties:
-                        port:
-                            description: Deployment port
-                            type: string
-                        replicas:
-                            description: Number of replicas
-                            type: integer
-                        image:
-                            description: >-
-                                Image name to use in the deployment. Leave it blank to set from the
-                                application's
-
-                                Docker file
-                            pattern: '(?:[a-z]+/)?([a-z]+)(?::[0-9]+)?'
-                            type: string
-                        resources:
-                            $ref: '#/components/schemas/DeploymentResourcesConf'
-                            description: Deployment resources
-                        volume:
-                            $ref: '#/components/schemas/DeploymentVolumeSpec'
-                            description: Volume specification
-                    resources:
-                        description: Deployment resources
-                        type: string
-                        test:
-                            description: ssaa
-                            type: string
-                -
-                    $ref: '#/components/schemas/AutoArtifactSpec'
-        DeploymentVolumeSpec:
-            description: |-
-                Defines a volume attached to the deployment.
-                Automatically created the volume claim and mounts.
-            type: object
-            allOf:
-                -
-                    required:
-                        - mountpath
-                    type: object
-                    properties:
-                        mountpath:
-                            description: The mount path for the volume
-                            type: string
-                        size:
-                            description: |-
-                                The volume size. 
-
-                                E.g. 5Gi
-                        usenfs:
-                            description: Set to `true` to use the nfs on the created volume and mount as ReadWriteMany.
-                            type: boolean
-                -
-                    $ref: '#/components/schemas/AutoArtifactSpec'
-            example:
-                auto: true
-                mountpath: /usr/src/app/persistent
-                name: my-files
-                size: 5Gi
-                usenfs: true
         SimpleMap:
             description: ''
             type: object
@@ -665,50 +500,6 @@ components:
                 url: 'https://github.com/MetaCell/nwb-explorer.git'
                 branch_tag: master
                 path: /git
-        DatabaseDeploymentConfig:
-            description: ''
-            type: object
-            allOf:
-                -
-                    type: object
-                    properties:
-                        type:
-                            description: |-
-                                Define the database type.
-
-                                One of (mongo, postgres, neo4j, sqlite3)
-                            pattern: ^(mongo|postgres|neo4j|sqlite3)$
-                            type: string
-                            example: '"neo4j"'
-                        size:
-                            description: Specify database disk size
-                            type: string
-                            example: 1Gi
-                        user:
-                            description: database username
-                            type: string
-                        pass:
-                            format: password
-                            description: Database password
-                            type: string
-                        image_ref:
-                            description: Used for referencing images from the build
-                            type: string
-                            example: 'image_ref: myownpgimage'
-                        mongo:
-                            $ref: '#/components/schemas/FreeObject'
-                            description: Mongo db specific configuration
-                        postgres:
-                            $ref: '#/components/schemas/FreeObject'
-                            description: Postgres database specific configuration
-                        neo4j:
-                            description: Neo4j database specific configuration
-                        resources:
-                            $ref: '#/components/schemas/DeploymentResourcesConf'
-                            description: Database deployment resources
-                -
-                    $ref: '#/components/schemas/AutoArtifactSpec'
-            additionalAttributes: true
         DockerfileConfig:
             description: Configuration for a dockerfile
             type: object
@@ -722,7 +513,7 @@ components:
                         The use of this feature is to aid in development (e.g. not running tests on every
                         local build) and not for setting environment variables in different environments;
                         caution should be taken when using this feature as it can lead to inconsistent
-                        behaviour across environments. 
+                        behaviour across environments.
         HarnessMainConfig:
             description: ''
             required:
@@ -767,8 +558,10 @@ components:
                     items:
                         $ref: '#/components/schemas/NameValue'
                 privenv:
-                    $ref: '#/components/schemas/NameValue'
                     description: Private environmental variables added to all pods
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/NameValue'
                 backup:
                     $ref: '#/components/schemas/BackupConfig'
                     description: ''
@@ -781,7 +574,331 @@ components:
                 build_hash:
                     description: ''
                     type: string
+                ingress:
+                    $ref: '#/components/schemas/IngressConfig'
+                    description: ''
             additionalProperties: true
+        Organization:
+            description: ''
+            type: object
+            allOf:
+                -
+                    type: object
+                    properties:
+                        domains:
+                            description: ''
+                            type: array
+                            items:
+                                $ref: '#/components/schemas/NamedObject'
+                        alias:
+                            description: ''
+                            type: string
+                        enabled:
+                            description: ''
+                            type: boolean
+                        id:
+                            description: ''
+                            type: string
+                -
+                    $ref: '#/components/schemas/NamedObject'
+        DatabaseDeploymentConfig:
+            description: ''
+            type: object
+            allOf:
+                -
+                    type: object
+                    properties:
+                        type:
+                            description: |-
+                                Define the database type.
+
+                                One of (mongo, postgres, neo4j, sqlite3)
+                            pattern: ^(mongo|postgres|neo4j|sqlite3)$
+                            type: string
+                            example: '"neo4j"'
+                        size:
+                            description: Specify database disk size
+                            type: string
+                            example: 1Gi
+                        user:
+                            description: database username
+                            type: string
+                        pass:
+                            description: Database password
+                            type: string
+                        image_ref:
+                            description: Used for referencing images from the build
+                            type: string
+                            example: 'image_ref: myownpgimage'
+                        mongo:
+                            $ref: '#/components/schemas/FreeObject'
+                            description: Mongo db specific configuration
+                        postgres:
+                            $ref: '#/components/schemas/FreeObject'
+                            description: Postgres database specific configuration
+                        neo4j:
+                            description: Neo4j database specific configuration
+                        resources:
+                            $ref: '#/components/schemas/DeploymentResourcesConf'
+                            description: Database deployment resources
+                -
+                    $ref: '#/components/schemas/AutoArtifactSpec'
+            additionalProperties: true
+        UriRoleMappingConfig:
+            description: 'Defines the application Gatekeeper configuration, if enabled (i.e. `secured: true`.'
+            required:
+                - uri
+            type: object
+            properties:
+                uri:
+                    $ref: '#/components/schemas/PathSpecifier'
+                    description: Path to secure
+                roles:
+                    description: Roles allowed to access the present uri
+                    type: array
+                    items:
+                        type: string
+                white-listed:
+                    description: ''
+                    type: boolean
+            additionalProperties: true
+        BackupConfig:
+            description: ''
+            required:
+                - dir
+                - resources
+            type: object
+            properties:
+                active:
+                    description: ''
+                    type: boolean
+                keep_days:
+                    description: ''
+                keep_weeks:
+                    description: ''
+                keep_months:
+                    description: ''
+                schedule:
+                    description: Cron expression
+                    type: string
+                suffix:
+                    description: The file suffix added to backup files
+                    type: string
+                volumesize:
+                    description: The volume size for backups (all backups share the same volume)
+                    type: string
+                dir:
+                    $ref: '#/components/schemas/Filename'
+                    description: 'Target directory of backups, the mount point of the persistent volume.'
+                resources:
+                    $ref: '#/components/schemas/DeploymentResourcesConf'
+                    description: ''
+        CpuMemoryConfig:
+            description: ''
+            type: object
+            properties:
+                cpu:
+                    description: ''
+                memory:
+                    description: ''
+        DeploymentAutoArtifactConfig:
+            description: ''
+            type: object
+            allOf:
+                -
+                    type: object
+                    properties:
+                        port:
+                            description: Deployment port
+                        replicas:
+                            description: Number of replicas
+                            type: integer
+                        image:
+                            description: >-
+                                Image name to use in the deployment. Leave it blank to set from the
+                                application's
+
+                                Docker file
+                            pattern: '(?:[a-z]+/)?([a-z]+)(?::[0-9]+)?'
+                            type: string
+                        resources:
+                            $ref: '#/components/schemas/DeploymentResourcesConf'
+                            description: Deployment resources
+                        volume:
+                            $ref: '#/components/schemas/DeploymentVolumeSpec'
+                            description: Volume specification
+                -
+                    $ref: '#/components/schemas/AutoArtifactSpec'
+        DeploymentVolumeSpec:
+            description: |-
+                Defines a volume attached to the deployment.
+                Automatically created the volume claim and mounts.
+            type: object
+            allOf:
+                -
+                    required:
+                        - mountpath
+                    type: object
+                    properties:
+                        mountpath:
+                            description: The mount path for the volume
+                            type: string
+                        size:
+                            description: |-
+                                The volume size. 
+
+                                E.g. 5Gi
+                        usenfs:
+                            description: Set to `true` to use the nfs on the created volume and mount as ReadWriteMany.
+                            type: boolean
+                -
+                    $ref: '#/components/schemas/AutoArtifactSpec'
+            example:
+                auto: true
+                mountpath: /usr/src/app/persistent
+                name: my-files
+                size: 5Gi
+                usenfs: true
+        CDCEvent:
+            description: |-
+                A message sent to the orchestration queue.
+                Applications can listen to these events to react to data change events happening
+                on other applications.
+            required:
+                - message_type
+                - operation
+                - uid
+                - meta
+            type: object
+            properties:
+                operation:
+                    description: the operation on the object e.g. create / update / delete
+                    enum:
+                        - create
+                        - update
+                        - delete
+                        - other
+                    type: string
+                uid:
+                    description: the unique identifier attribute of the object
+                message_type:
+                    description: the type of the message (relates to the object type) e.g. jobs
+                    type: string
+                resource:
+                    $ref: '#/components/schemas/FreeObject'
+                    description: The target object
+                meta:
+                    $ref: '#/components/schemas/CDCEventMeta'
+                    description: ''
+        ProxyConf:
+            title: Root Type for ProxyConf
+            description: ''
+            type: object
+            properties:
+                forwardedHeaders:
+                    type: boolean
+                payload:
+                    $ref: '#/components/schemas/ProxyPayloadConf'
+                    properties:
+                        max:
+                            format: int32
+                            type: integer
+                timeout:
+                    $ref: '#/components/schemas/ProxyTimeoutConf'
+                    properties:
+                        keepalive:
+                            format: int32
+                            type: integer
+                        read:
+                            format: int32
+                            type: integer
+                        send:
+                            format: int32
+                            type: integer
+                gatekeeper:
+                    $ref: '#/components/schemas/GatekeeperConf'
+                    description: ''
+            example:
+                forwardedHeaders: true
+                payload:
+                    max: 250
+                timeout:
+                    keepalive: 60
+                    read: 60
+                    send: 60
+        ProxyPayloadConf:
+            title: Root Type for ProxyPayloadConf
+            description: ''
+            type: object
+            properties:
+                max:
+                    format: int32
+                    type: integer
+            example:
+                max: 250
+        ProxyTimeoutConf:
+            title: Root Type for ProxyTimeoutConf
+            description: ''
+            type: object
+            properties:
+                keepalive:
+                    format: int32
+                    type: integer
+                read:
+                    format: int32
+                    type: integer
+                send:
+                    format: int32
+                    type: integer
+            example:
+                keepalive: 60
+                read: 60
+                send: 60
+        NamedObject:
+            title: Root Type for NamedObject
+            description: ''
+            type: object
+            properties:
+                name:
+                    type: string
+            additionalProperties: true
+            example:
+                name: a name
+        IngressConfig:
+            description: ''
+            type: object
+            allOf:
+                -
+                    type: object
+                    properties:
+                        ssl_redirect:
+                            description: ''
+                            type: boolean
+                        letsencrypt:
+                            description: ''
+                            type: object
+                            properties:
+                                email:
+                                    type: string
+                        enabled:
+                            description: ''
+                            type: boolean
+                -
+                    $ref: '#/components/schemas/AutoArtifactSpec'
+            additionalProperties: true
+        GatekeeperConf:
+            title: Root Type for GatekeeperConf
+            description: ''
+            type: object
+            properties:
+                image:
+                    type: string
+                replicas:
+                    format: int32
+                    type: integer
+            example:
+                image: 'quay.io/gogatekeeper/gatekeeper:2.14.3'
+                replicas: 5
         ApplicationHarnessConfig:
             description: |-
                 Define helm variables that allow CloudHarness to enable and configure your 
@@ -813,7 +930,6 @@ components:
                         --include (-i) is used. Specify application names in the list.
                 secured:
                     description: 'When true, the application is shielded with a getekeeper'
-                    type: boolean
                 uri_role_mapping:
                     description: 'Map uri/roles to secure with the Gatekeeper (if `secured: true`)'
                     type: array
@@ -845,7 +961,7 @@ components:
                         ```
                     type: array
                     items:
-                        type: string
+                        $ref: '#/components/schemas/NamedObject'
                 database:
                     $ref: '#/components/schemas/DatabaseDeploymentConfig'
                     description: ''
@@ -898,4 +1014,10 @@ components:
                 dockerfile:
                     $ref: '#/components/schemas/DockerfileConfig'
                     description: Configuration for the dockerfile used to build the app
+                sentry:
+                    description: ''
+                    type: boolean
+                proxy:
+                    $ref: '#/components/schemas/ProxyConf'
+                    description: ''
             additionalProperties: true

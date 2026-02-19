@@ -75,7 +75,7 @@ spec:
         livenessProbe:
           httpGet:
             path: {{ .app.harness.livenessProbe.path }}
-            port: {{ .app.harness.deployment.port | default 8080 }}
+            port: {{ coalesce .app.harness.livenessProbe.port .app.harness.deployment.port 8080 }}
           periodSeconds: {{ .app.harness.livenessProbe.periodSeconds | default 10 }}
           failureThreshold: {{ .app.harness.livenessProbe.failureThreshold | default 3 }}
           initialDelaySeconds: {{ .app.harness.livenessProbe.initialDelaySeconds | default 0 }}
@@ -84,7 +84,7 @@ spec:
         readinessProbe:
           httpGet:
             path: {{ .app.harness.readinessProbe.path }}
-            port: {{ .app.harness.deployment.port | default 8080 }}
+            port: {{ coalesce .app.harness.readinessProbe.port .app.harness.deployment.port 8080 }}
           periodSeconds: {{ .app.harness.readinessProbe.periodSeconds | default 10 }}
           failureThreshold: {{ .app.harness.readinessProbe.failureThreshold | default 3 }}
           initialDelaySeconds: {{ .app.harness.readinessProbe.initialDelaySeconds | default 0 }}
@@ -93,7 +93,7 @@ spec:
         startupProbe:
           httpGet:
             path: {{ .app.harness.startupProbe.path }}
-            port: {{ .app.harness.deployment.port | default 8080 }}
+            port: {{ coalesce .app.harness.startupProbe.port .app.harness.deployment.port 8080 }}
           periodSeconds: {{ .app.harness.startupProbe.periodSeconds | default 10 }}
           failureThreshold: {{ .app.harness.startupProbe.failureThreshold | default 30 }}
           initialDelaySeconds: {{ .app.harness.startupProbe.initialDelaySeconds | default 0 }}
@@ -112,8 +112,20 @@ spec:
           - name: cloudharness-allvalues
             mountPath: /opt/cloudharness/resources
             readOnly: true
-          {{- if or (has  "accounts" .app.harness.dependencies.hard) (eq .app.harness.name "accounts") }}
-          - name: cloudharness-kc-accounts
+          {{- $root := .root }}
+          {{- range $dep := concat .app.harness.dependencies.hard .app.harness.dependencies.soft }}
+          {{- $depApp := index $root.Values.apps $dep }}
+          {{- if $depApp.harness.secrets }}
+          - name: cloudharness-{{ $dep }}
+            mountPath: /opt/cloudharness/resources/secrets/{{ $dep }}
+            readOnly: true
+          {{- end }}
+          
+          
+          {{- end }}
+          {{- if (has  "accounts" .app.harness.dependencies.hard) }} 
+          {{/* legacy path for accounts auth resources mount */}}
+          - name: cloudharness-accounts
             mountPath: /opt/cloudharness/resources/auth
             readOnly: true
           {{- end }}
@@ -131,17 +143,21 @@ spec:
           {{- end}}
           {{- if .app.harness.secrets }}
           - name: secrets
-            mountPath: "/opt/cloudharness/resources/secrets"
+            mountPath: "/opt/cloudharness/resources/secrets/{{ .app.harness.name }}"
             readOnly: true
           {{- end }}
       volumes:
         - name: cloudharness-allvalues
           configMap:
             name: cloudharness-allvalues
-        {{- if or (has  "accounts" .app.harness.dependencies.hard) (eq .app.harness.name "accounts") }}
-        - name: cloudharness-kc-accounts
+        {{- $root := .root }}
+        {{- range $dep := concat .app.harness.dependencies.hard .app.harness.dependencies.soft }}
+        {{- $depApp := index $root.Values.apps $dep }}
+        {{- if $depApp.harness.secrets }}
+        - name: cloudharness-{{ $dep }}
           secret:
-            secretName: accounts
+            secretName: {{ $dep }}
+        {{- end }}
         {{- end }}
         {{- if .app.harness.deployment.volume }}
         - name: {{ .app.harness.deployment.volume.name }}

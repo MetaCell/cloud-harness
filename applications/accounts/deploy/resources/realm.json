@@ -1,100 +1,93 @@
-{{- define "deploy_accounts_utils.role" }}
-    {
-      "id": {{ uuidv4 | quote }},
-      "name": {{ .role| quote }},
-      "composite": false,
-      "clientRole": true,
-      "containerId": {{ .app.harness.name | quote }},
-      "attributes": {}
-    }
-{{- end}}
-{{- define "deploy_accounts_utils.user" }}
-    {
-        "username": {{ .user.username | quote }},
-        "email": {{ .user.email | default .user.username | quote }},
-        "enabled": true,
-        "credentials": [
-            {
-                "type": "password",
-                "value": {{ .user.passwword | default "test" | quote }}
-            }
-        ],
-        "realmRoles": {{ .user.realmRoles | toJson }},
-        "clientRoles": {
-            {{ .app.harness.name | quote }}: {{ .user.clientRoles | toJson }}
-        } 
-    }
-
-{{- end}}
 {
         "id": {{ .Values.namespace | quote }},
         "realm": {{ .Values.namespace | quote }},
         "enabled": true,
         "sslRequired": {{ ternary "none" "external" (not .Values.tls) | quote }},
-        "loginTheme": "keycloak",
-        "accountTheme": "keycloak",
-        "adminTheme": "keycloak",
-        "emailTheme": "keycloak",
-        "registrationAllowed": true,
-        "registrationEmailAsUsername": false,
+        "loginTheme": {{ .Values.apps.accounts.theme.login | default "keycloak" | quote }},
+        "accountTheme": {{ .Values.apps.accounts.theme.account | default "keycloak" | quote }},
+        "adminTheme": {{ .Values.apps.accounts.theme.admin | default "keycloak" | quote }},
+        "emailTheme": {{ .Values.apps.accounts.theme.email | default "keycloak" | quote }},
+        "registrationAllowed": {{ .Values.apps.accounts.registrationAllowed | default true }},
+        "registrationEmailAsUsername": {{ .Values.apps.accounts.registrationEmailAsUsername | default false }},
         "rememberMe": true,
         "verifyEmail": false,
         "loginWithEmailAllowed": true,
         "duplicateEmailsAllowed": false,
         "resetPasswordAllowed": true,
-        "editUsernameAllowed": true,
-        "users": [
-            {{- range $app := .Values.apps }}
-              {{- if (hasKey $app.harness "accounts")  }}
-                {{- range $i, $user := $app.harness.accounts.users }}{{if $i}},{{end}}
-                {{ include "deploy_accounts_utils.user" (dict "root" $ "app" $app "user" $user) }}
-                {{- end }}
-              {{- end }}
-            {{- end }}
-        ],
-        "roles": {
-            "realm": [
+        "editUsernameAllowed": {{ .Values.apps.accounts.editUsernameAllowed }},
+        {{- include "deploy_accounts_utils.events" (dict "app" .Values.apps.accounts) | indent 8 -}}
+        {{- include "deploy_accounts_utils.identity_providers" (dict "app" .Values.apps.accounts) | indent 8 -}}
+        {{- include "deploy_accounts_utils.components" . | indent 8 -}}
+        {{- include "deploy_accounts_utils.users_roles" (dict "Values" .Values) | indent 8 -}}
+        "clientScopeMappings": {
+                "account": [
                 {
-                    "id": "70835ad6-1454-4bc5-86a4-f1597e776b75",
-                    "name": {{ .Values.apps.accounts.admin.role | quote }},
-                    "composite": false,
-                    "clientRole": false,
-                    "containerId": {{ .Values.namespace | quote }},
-                    "attributes": {}
-                },
+                    "client": "account-console",
+                    "roles": [
+                    "manage-account",
+                    "view-groups"
+                    ]
+                }
+                ]
+            },
+        "clients": [
+            {
+            "id": "18893fbb-8252-4aaa-bc9b-60799ceb9931",
+            "clientId": "account-console-copy",
+            "name": "${client_account-console} (Copy)",
+            "rootUrl": "${authBaseUrl}",
+            "baseUrl": {{ printf "/realms/%s/account" .Values.namespace | quote }},
+            "surrogateAuthRequired": false,
+            "enabled": true,
+            "alwaysDisplayInConsole": false,
+            "clientAuthenticatorType": "client-secret",
+            "redirectUris": [
+                {{ printf "/realms/%s/account/*" .Values.namespace | quote }}
+            ],
+            "webOrigins": [],
+            "notBefore": 0,
+            "bearerOnly": false,
+            "consentRequired": false,
+            "standardFlowEnabled": true,
+            "implicitFlowEnabled": false,
+            "directAccessGrantsEnabled": false,
+            "serviceAccountsEnabled": false,
+            "publicClient": true,
+            "frontchannelLogout": false,
+            "protocol": "openid-connect",
+            "attributes": {
+                "realm_client": "false",
+                "post.logout.redirect.uris": "+",
+                "pkce.code.challenge.method": "S256"
+            },
+            "authenticationFlowBindingOverrides": {},
+            "fullScopeAllowed": false,
+            "nodeReRegistrationTimeout": 0,
+            "protocolMappers": [
                 {
-                    "id": "498353dd-88eb-4a5e-99b8-d912e0f20f23",
-                    "name": "uma_authorization",
-                    "description": "${role_uma_authorization}",
-                    "composite": false,
-                    "clientRole": false,
-                    "containerId": {{ .Values.namespace | quote }},
-                    "attributes": {}
-                },
-                {
-                    "id": "f99970f1-958b-4bb8-8b39-0d7498b0ecc4",
-                    "name": "offline_access",
-                    "description": "${role_offline-access}",
-                    "composite": false,
-                    "clientRole": false,
-                    "containerId": {{ .Values.namespace | quote }},
-                    "attributes": {}
+                "id": "9a68ec2d-943d-49cb-9fdd-cd821d606210",
+                "name": "audience resolve",
+                "protocol": "openid-connect",
+                "protocolMapper": "oidc-audience-resolve-mapper",
+                "consentRequired": false,
+                "config": {}
                 }
             ],
-            "client": {
-            {{- range $app := .Values.apps }}
-              {{- if (hasKey $app.harness "accounts")  }}
-                {{ $app.harness.name | quote }}: [
-                {{- range $i, $role := $app.harness.accounts.roles }}
-                {{if $i}},{{end}}
-                {{ include "deploy_accounts_utils.role" (dict "root" $ "app" $app "role" $role) }}
-                {{- end }}
-                ]
-              {{- end }}
-            {{- end }}
-            }
-        },
-        "clients": [
+            "defaultClientScopes": [
+                "service_account",
+                "web-origins",
+                "acr",
+                "address",
+                "administrator-scope",
+                "phone",
+                "profile",
+                "roles",
+                "microprofile-jwt",
+                "basic",
+                "email"
+            ],
+            "optionalClientScopes": []
+            },
             {
                 "id": "9a6a2560-c6be-4493-8bd5-3fdc4522d82b",
                 "clientId": {{ .Values.apps.accounts.client.id | quote }},
@@ -267,6 +260,17 @@
                             "claim.name": "groups",
                             "jsonType.label": "String"
                         }
+                    },
+                    {
+                    "id": "f99f57ac-a765-4aba-9b45-9425beec0a9f",
+                    "name": "sub",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-sub-mapper",
+                    "consentRequired": false,
+                    "config": {
+                        "introspection.token.claim": "true",
+                        "access.token.claim": "true"
+                    }
                     }
                 ]
             },
@@ -619,6 +623,17 @@
                         }
                     },
                     {
+                    "id": "0b8d0cf7-eebc-4c51-892e-2b65212856b4",
+                    "name": "sub",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-sub-mapper",
+                    "consentRequired": false,
+                    "config": {
+                        "introspection.token.claim": "true",
+                        "access.token.claim": "true"
+                    }
+                    },
+                    {
                         "id": "3d763f84-d417-4b4e-99e4-2b0e05bf861a",
                         "name": "family name",
                         "protocol": "openid-connect",
@@ -712,5 +727,5 @@
                 }
             }
         ],
-        "keycloakVersion": "9.0.2"
+        "keycloakVersion": "26.2.1"
     }

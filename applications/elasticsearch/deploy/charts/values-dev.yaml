@@ -1,0 +1,15 @@
+resources:
+  requests:
+    cpu: "10m"
+    memory: "0.2Gi"
+  limits:
+    cpu: "1000m"
+    memory: "2Gi"
+
+volumeClaimTemplate:
+  resources:
+    requests:
+      storage: 2Gi
+
+tests:
+  enabled: true
