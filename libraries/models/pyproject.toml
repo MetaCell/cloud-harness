@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cloudharness_model"
-version = "1.0.0"
+version = "3.0.0"
 description = "cloudharness"
 authors = ["OpenAPI Generator Community <team@openapitools.org>"]
 license = "NoLicense"
