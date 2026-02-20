@@ -252,7 +252,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
         deployment_image = deployment_values.get('image', None) or values.get('image', None)
         values['build'] = not bool(deployment_image)  # Used by skaffold and ci/cd to determine if the image should be built
 
-        image_name = get_image_name(values.get(KEY_HARNESS, {}).get('image_name', None), base_image_name)
+        image_name = get_image_name(values.get(KEY_HARNESS, {}).get('image_name', ''), base_image_name)
         if len(image_paths) > 0 and not deployment_image:
 
             image_name = image_name or image_name_from_dockerfile_path(os.path.relpath(image_paths[0], os.path.dirname(app_path)), base_image_name)
