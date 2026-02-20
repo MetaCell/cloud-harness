@@ -86,7 +86,7 @@ admin:
   user: admin
   role: administrator
 editUsernameAllowed: true
-useEvents: false
+useEvents: true
 identityProviders:
 - github
 - google
