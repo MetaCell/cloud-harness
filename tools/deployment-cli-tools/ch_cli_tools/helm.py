@@ -251,10 +251,10 @@ class CloudHarnessHelm(ConfigurationGenerator):
         deployment_values = values.get(KEY_HARNESS, {}).get(KEY_DEPLOYMENT, {})
         deployment_image = deployment_values.get('image', None) or values.get('image', None)
         values['build'] = not bool(deployment_image)  # Used by skaffold and ci/cd to determine if the image should be built
-        
-        image_name = get_image_name(values.get(KEY_HARNESS, {}).get('image_name', None) , base_image_name) 
+
+        image_name = get_image_name(values.get(KEY_HARNESS, {}).get('image_name', None), base_image_name)
         if len(image_paths) > 0 and not deployment_image:
-            
+
             image_name = image_name or image_name_from_dockerfile_path(os.path.relpath(image_paths[0], os.path.dirname(app_path)), base_image_name)
             values['image'] = self.image_tag(
                 image_name, build_context_path=app_path, dependencies=build_dependencies)
@@ -262,7 +262,6 @@ class CloudHarnessHelm(ConfigurationGenerator):
                 KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('auto', False):
             raise Exception(f"At least one Dockerfile must be specified on application {app_name}. "
                             f"Specify harness.deployment.image value if you intend to use a prebuilt image.")
-        
 
         task_images_paths = [path for path in find_dockerfiles_paths(
             app_path) if 'tasks/' in path]
@@ -276,7 +275,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
         for task_path in task_images_paths:
             task_name = app_name_from_path(os.path.relpath(
                 task_path, os.path.dirname(app_path)))
-            task_img_name = "-".join([image_name, os.path.basename(task_path)] ) if image_name else image_name_from_dockerfile_path(task_path, base_image_name)
+            task_img_name = "-".join([image_name, os.path.basename(task_path)]) if image_name else image_name_from_dockerfile_path(task_path, base_image_name)
 
             values[KEY_TASK_IMAGES][task_name] = self.image_tag(
                 task_img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys())

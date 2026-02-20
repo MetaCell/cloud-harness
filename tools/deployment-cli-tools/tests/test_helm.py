@@ -97,14 +97,11 @@ def test_collect_nobuild(tmp_path):
 def test_collect_helm_values_harness_image_name_override(tmp_path):
     out_folder = tmp_path / 'test_collect_helm_values_harness_image_name_override'
 
-   
-
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
-                                   domain="my.local", namespace='test', env='imagename', local=False, tag=1, registry='reg')
+                               domain="my.local", namespace='test', env='imagename', local=False, tag=1, registry='reg')
 
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/custom-myapp:1'
     assert values[KEY_APPS]['myapp'][KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/testprojectname/custom-myapp-mytask:1'
-
 
 
 def test_collect_helm_values_noreg_noinclude(tmp_path):

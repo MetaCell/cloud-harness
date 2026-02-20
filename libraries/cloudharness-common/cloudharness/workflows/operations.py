@@ -157,7 +157,7 @@ class ContainerizedOperation(ManagedOperation):
         volumes_mounts = list(self.volumes) or []
         # Tasks volumes must be declared at workflow level
         volumes_mounts += list({v for task in self.task_list()
-                               for v in task.volume_mounts if task.volume_mounts})
+                                for v in task.volume_mounts if task.volume_mounts})
 
         spec['volumeClaimTemplates'] = [self.spec_volumeclaim(volume) for volume in volumes_mounts if
                                         # without PVC prefix (e.g. /location)
