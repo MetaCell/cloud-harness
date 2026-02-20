@@ -65,7 +65,7 @@ Take the following best practices into account when writing code for the project
 ### Package Management Rules
 - **Frontend**: ONLY use yarn, NEVER npm
 - **Backend**: ONLY use pip within conda environment
-- **ALWAYS** activate `mnp` conda environment before any backend work
+- **ALWAYS** activate `ch` conda environment before any backend work
 
 ### CloudHarness Considerations
 - Dependencies may need special handling in development environment
