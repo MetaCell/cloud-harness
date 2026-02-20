@@ -36,6 +36,12 @@ if __name__ == "__main__":
 
     parser.add_argument('-n', '--namespace', dest='namespace', action="store", default=None,
                         help='Specify the namespace of the deployment (default taken from values.yaml)')
+    parser.add_argument('--name', dest='name', action="store", default=None,
+                        help='Specify the helm chart name (default: namespace when provided, otherwise chart default)')
+    parser.add_argument('--chart-version', dest='chart_version', action="store", default=None,
+                        help='Specify the helm chart version')
+    parser.add_argument('--app-version', dest='app_version', action="store", default=None,
+                        help='Specify the helm chart appVersion')
 
     parser.add_argument('-r', '--registry', dest='registry', action="store", default='',
                         help='Specify image registry prefix')
@@ -97,8 +103,8 @@ if __name__ == "__main__":
 
         chart_fn = create_helm_chart if not args.docker_compose else create_docker_compose_configuration
 
-        helm_values = chart_fn(
-            root_paths,
+        chart_args = dict(
+            root_paths=root_paths,
             tag=args.tag,
             registry=args.registry,
             domain=args.domain,
@@ -110,8 +116,17 @@ if __name__ == "__main__":
             registry_secret=args.registry_secret,
             tls=not args.no_tls,
             env=envs,
-            namespace=args.namespace
+            namespace=args.namespace,
         )
+
+        if not args.docker_compose:
+            chart_args.update(dict(
+                name=args.name,
+                chart_version=args.chart_version,
+                app_version=args.app_version,
+            ))
+
+        helm_values = chart_fn(**chart_args)
 
         merged_root_paths = preprocess_build_overrides(
             root_paths=root_paths, helm_values=helm_values)
