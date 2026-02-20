@@ -94,6 +94,19 @@ def test_collect_nobuild(tmp_path):
     assert values[KEY_APPS]['myapp']['build'] == False
 
 
+def test_collect_helm_values_harness_image_name_override(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values_harness_image_name_override'
+
+   
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
+                                   domain="my.local", namespace='test', env='imagename', local=False, tag=1, registry='reg')
+
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/custom-myapp:1'
+    assert values[KEY_APPS]['myapp'][KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/testprojectname/custom-myapp-mytask:1'
+
+
+
 def test_collect_helm_values_noreg_noinclude(tmp_path):
     out_path = tmp_path / 'test_collect_helm_values_noreg_noinclude'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, domain="my.local",
@@ -373,6 +386,51 @@ def test_collect_helm_values_auto_tag(tmp_path):
         assert v1 != values.apps['myapp'].harness.deployment.image, "2 levels dependency: If a base image dependency is changed, the hash should change"
     finally:
         fname.unlink()
+
+
+def test_chart_metadata_defaults_to_namespace_name(tmp_path):
+    out_folder = tmp_path / 'test_chart_metadata_defaults_to_namespace_name'
+    create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=out_folder,
+        include=['myapp'],
+        domain="my.local",
+        namespace='custom-ns',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+
+    chart_path = out_folder / HELM_CHART_PATH / 'Chart.yaml'
+    chart = yaml.safe_load(open(chart_path, 'r'))
+    assert chart['name'] == 'custom-ns'
+    assert chart['metadata']['namespace'] == 'custom-ns'
+
+
+def test_chart_metadata_optional_overrides(tmp_path):
+    out_folder = tmp_path / 'test_chart_metadata_optional_overrides'
+    create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=out_folder,
+        include=['myapp'],
+        domain="my.local",
+        namespace='custom-ns',
+        name='custom-chart',
+        chart_version='9.8.7',
+        app_version='4.5.6',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+
+    chart_path = out_folder / HELM_CHART_PATH / 'Chart.yaml'
+    chart = yaml.safe_load(open(chart_path, 'r'))
+    assert chart['name'] == 'custom-chart'
+    assert chart['version'] == '9.8.7'
+    assert chart['appVersion'] == '4.5.6'
+    assert chart['metadata']['namespace'] == 'custom-ns'
 
 
 def test_exclude_single_task(tmp_path):

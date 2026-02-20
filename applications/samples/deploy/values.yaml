@@ -1,5 +1,6 @@
 harness:
   subdomain: samples
+  image_name: sampleapp
   secured: true
   sentry: true
   port: 80
@@ -50,6 +51,7 @@ harness:
       - workflows
       - events
       - accounts
+      - cloudharness-base
       - common
     build:
       - cloudharness-flask

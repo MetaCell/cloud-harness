@@ -482,6 +482,9 @@ def codefresh_app_publish_spec(app_name, build_tag, base_name=None):
             app_name, base_name), build_tag or '${{DEPLOYMENT_TAG}}'),
         title=title,
     )
+    step_spec["when"] = existing_publish_when_condition(
+        app_specific_publish_skip_variable(app_name)
+    )
     step_spec['tags'].append('latest')
     return step_spec
 
@@ -493,6 +496,10 @@ def image_tag_with_variables(app_name, build_tag, base_name=""):
 
 def app_specific_tag_variable(app_name):
     return "%s_TAG" % app_name.replace('-', '_').upper().strip()
+
+
+def app_specific_publish_skip_variable(app_name):
+    return "%s_PUBLISH_SKIP" % app_name.replace('-', '_').upper().strip()
 
 
 def existing_build_when_condition(tag):
@@ -513,3 +520,15 @@ def existing_build_when_condition(tag):
     }
 
     return when_condition
+
+
+def existing_publish_when_condition(skip_publish_variable):
+    return {
+        "condition": {
+            "all": {
+                "skipPublish": "includes('${{%s}}', '{{%s}}') == false" % (
+                    skip_publish_variable, skip_publish_variable
+                ),
+            }
+        }
+    }

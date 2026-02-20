@@ -1020,4 +1020,7 @@ components:
                 proxy:
                     $ref: '#/components/schemas/ProxyConf'
                     description: ''
+                image_name:
+                    description: Use this name for the image in place of the default directory name
+                    type: string
             additionalProperties: true

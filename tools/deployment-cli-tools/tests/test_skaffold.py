@@ -76,7 +76,7 @@ def test_create_skaffold_configuration(tmp_path):
     assert len(cloudharness_flask_artifact['requires']) == 1
 
     samples_artifact = next(
-        a for a in sk['build']['artifacts'] if a['image'] == f'reg/testprojectname/samples'
+        a for a in sk['build']['artifacts'] if a['image'] == f'reg/testprojectname/sample'
     )
     assert os.path.samefile(samples_artifact['context'], join(CLOUDHARNESS_ROOT, 'applications/samples'))
     assert 'TEST_ARGUMENT' in samples_artifact['docker']['buildArgs']
@@ -96,7 +96,7 @@ def test_create_skaffold_configuration(tmp_path):
     assert len(sk['test']) == 2, 'Unit tests should be included'
 
     samples_test = sk['test'][0]
-    assert samples_test['image'] == f'reg/testprojectname/samples', 'Unit tests for samples should be included'
+    assert samples_test['image'] == f'reg/testprojectname/sample', 'Unit tests for samples should be included'
     assert "samples/test" in samples_test['custom'][0]['command'], "The test command must come from values.yaml test/unit/commands"
 
     assert len(sk['test'][1]['custom']) == 2

@@ -85,6 +85,8 @@ def get_parent_app_name(app_relative_path):
 
 
 def get_image_name(app_name, base_name=None):
+    if not app_name:
+        return None
     return (base_name + '/' + app_name) if base_name else app_name
 
 

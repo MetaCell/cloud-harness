@@ -32,6 +32,7 @@ Name | Type | Description | Notes
 **dockerfile** | [**DockerfileConfig**](DockerfileConfig.md) |  | [optional] 
 **sentry** | **bool** |  | [optional] 
 **proxy** | [**ProxyConf**](ProxyConf.md) |  | [optional] 
+**image_name** | **str** | Use this name for the image in place of the default directory name | [optional] 
 
 ## Example
 

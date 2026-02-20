@@ -140,6 +140,9 @@ def test_create_codefresh_configuration():
             tstep['commands']) == 2, "Unit test commands are not properly loaded from the unit test configuration file"
         assert tstep['commands'][0] == "tox", "Unit test commands are not properly loaded from the unit test configuration file"
         assert len(l1_steps[CD_STEP_CLONE_DEPENDENCIES]['steps']) == 3, "3 clone steps should be included as we have 2 dependencies from myapp, plus cloudharness"
+
+        publish_base_step = l1_steps[CD_STEP_PUBLISH]['steps']['publish_cloudharness-base']
+        assert publish_base_step['when']['condition']['all']['skipPublish'] == "includes('${{CLOUDHARNESS_BASE_PUBLISH_SKIP}}', '{{CLOUDHARNESS_BASE_PUBLISH_SKIP}}') == false"
     finally:
         shutil.rmtree(BUILD_MERGE_DIR)
 
@@ -339,3 +342,44 @@ def test_app_depends_on_app():
                                              envs=[],
                                              base_image_name=values['name'],
                                              helm_values=values, save=False)
+
+
+def test_prepare_deployment_includes_optional_helm_metadata_args():
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['myapp'],
+        domain="my.local",
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 envs=['dev'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+
+        commands = cf['steps']['prepare_deployment']['commands']
+        export_cmd = next(c for c in commands if c.startswith('export HELM_META_ARGS='))
+        run_cmd = next(c for c in commands if 'harness-deployment' in c)
+
+        assert 'HARNESS_CHART_NAME' in export_cmd
+        assert 'HARNESS_CHART_VERSION' in export_cmd
+        assert 'HARNESS_APP_VERSION' in export_cmd
+        assert '--name %s' in export_cmd
+        assert '--chart-version %s' in export_cmd
+        assert '--app-version %s' in export_cmd
+        assert '$HELM_META_ARGS' in run_cmd
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR)
