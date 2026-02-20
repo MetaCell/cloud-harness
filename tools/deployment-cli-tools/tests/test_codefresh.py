@@ -328,6 +328,53 @@ def test_create_codefresh_configuration_nobuild():
     assert "publish_myapp-mytask" in l1_steps["publish"]["steps"]
 
 
+def test_codefresh_secret_with_quotes():
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['myapp'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+
+        values.apps["myapp"].harness.secrets = {
+            "settings_secret": "SECRET_KEY='replace-with-strong-shared-secret'"
+        }
+
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 envs=['dev'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+
+        custom_values = cf['steps']['deployment']['arguments']['custom_values']
+        entry = next(
+            value for value in custom_values
+            if value.startswith("apps_myapp_harness_secrets_settings__secret=")
+        )
+        assert entry == 'apps_myapp_harness_secrets_settings__secret="${{SETTINGS__SECRET}}"'
+        rendered = entry.replace(
+            "${{SETTINGS__SECRET}}",
+            values.apps["myapp"].harness.secrets["settings_secret"]
+        )
+        assert rendered == 'apps_myapp_harness_secrets_settings__secret="SECRET_KEY=\'replace-with-strong-shared-secret\'"'
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR)
+
+
 def test_app_depends_on_app():
 
     root_paths = [CLOUDHARNESS_ROOT, RESOURCES]
