@@ -51,9 +51,10 @@ def _get_user(kc_user_id: str) -> User:
             user_svc = get_user_service()
             kc_user = user_svc.auth_client.get_current_user()
             try:
-                # sync_kc_user is atomic and guarantees Member creation
-                user = user_svc.sync_kc_user(kc_user)
-                user_svc.sync_kc_user_groups(kc_user)
+                with transaction.atomic():
+                    # sync_kc_user is atomic and guarantees Member creation
+                    user = user_svc.sync_kc_user(kc_user)
+                    user_svc.sync_kc_user_groups(kc_user)
 
                 # SAFETY CHECK: Final verification that Member exists
                 try:
@@ -111,7 +112,6 @@ class BearerTokenMiddleware:
         # One-time configuration and initialization.
         self.get_response = get_response
 
-    @transaction.atomic
     def __call__(self, request):
 
         authentication_token = get_authentication_token()
@@ -147,7 +147,6 @@ class BearerTokenMiddleware:
                         # Safe to assign - user has a valid Member
                         request.user = user
                         request._cached_user = user
-
                     except:
                         # This should NEVER happen due to _get_user safety checks,
                         # but if it does, DO NOT assign the user - keep anonymous
@@ -156,7 +155,7 @@ class BearerTokenMiddleware:
                         # Don't assign user - request will remain anonymous
         # elif not request.path.startswith('/admin/'):
         #     logout(request)
-        if kc_user_id:
+        if kc_user_id and user:
             cache.set(cache_key, user, timeout=USER_CACHE_TTL)
         return self.get_response(request)
 
