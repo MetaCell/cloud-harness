@@ -328,17 +328,17 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
             logging.info(f"Ignoring {ignore}")
             tag = generate_tag_from_content(build_context_path, ignore)
             logging.info(f"Content hash: {tag}")
-            
+
             # Get dependencies from build context if not provided
             dependencies = dependencies or guess_build_dependencies_from_dockerfile(build_context_path)
-            
+
             # Combine with dependency tags
             dep_tags = "".join(self.all_images.get(n, '') for n in dependencies)
             if dep_tags:
                 logging.info(f"Dependency tags: {[(n, self.all_images.get(n, '')) for n in dependencies]}")
             tag = sha1((tag + dep_tags).encode("utf-8")).hexdigest()
             logging.info(f"Generated tag (with dependencies): {tag}")
-            
+
             app_name = image_name.split("/")[-1]  # the image name can have a prefix
             self.all_images[app_name] = tag
         return self.registry + image_name + (f':{tag}' if tag else '')
