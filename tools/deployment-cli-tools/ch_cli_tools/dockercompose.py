@@ -22,12 +22,12 @@ from .configurationgenerator import ConfigurationGenerator, \
 
 
 def create_docker_compose_configuration(root_paths, tag: Union[str, int, None] = 'latest', registry='', local=True, domain=None, exclude=(), secured=True,
-                                        output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
+                                        output_path='./deployment', include=None, registry_secret=None, registry_secret_value=None, tls=True, env=None,
                                         namespace=None) -> HarnessMainConfig:
     if (type(env)) == str:
         env = [env]
     return CloudHarnessDockerCompose(root_paths, tag=tag, registry=registry, local=local, domain=domain, exclude=exclude, secured=secured,
-                                     output_path=output_path, include=include, registry_secret=registry_secret, tls=tls, env=env,
+                                     output_path=output_path, include=include, registry_secret=registry_secret, registry_secret_value=registry_secret_value, tls=tls, env=env,
                                      namespace=namespace, templates_path=COMPOSE).process_values()
 
 

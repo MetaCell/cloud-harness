@@ -32,7 +32,7 @@ spec:
     spec:
       {{- if and .root.Values.registry.secret (contains .root.Values.registry.name .app.harness.deployment.image) }}
       imagePullSecrets:
-      - name: {{ .root.Values.registry.secret }}
+      - name: {{ .root.Values.registry.secret.name }}
       {{- end }}
       {{- if and .app.harness.deployment.volume }}
       {{- if or (not (hasKey .app.harness.deployment.volume "usenfs")) (not .app.harness.deployment.volume.usenfs) }}

@@ -30,12 +30,12 @@ def deploy(namespace, output_path='./deployment'):
 
 
 def create_helm_chart(root_paths, tag: Union[str, int, None] = 'latest', registry='', local=True, domain=None, exclude=(), secured=True,
-                      output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
+                      output_path='./deployment', include=None, registry_secret=None, registry_secret_value=None, tls=True, env=None,
                       namespace=None) -> HarnessMainConfig:
     if (type(env)) == str:
         env = [env]
     return CloudHarnessHelm(root_paths, tag=tag, registry=registry, local=local, domain=domain, exclude=exclude, secured=secured,
-                            output_path=output_path, include=include, registry_secret=registry_secret, tls=tls, env=env,
+                            output_path=output_path, include=include, registry_secret=registry_secret, registry_secret_value=registry_secret_value, tls=tls, env=env,
                             namespace=namespace).process_values()
 
 
@@ -95,7 +95,8 @@ class CloudHarnessHelm(ConfigurationGenerator):
         if self.registry_secret:
             logging.info(f"Registry secret set")
         values['registry']['name'] = self.registry
-        values['registry']['secret'] = self.registry_secret
+        values['registry']['secret']['name'] = self.registry_secret
+        values['registry']['secret']['value'] = self.registry_secret_value
         values['tag'] = self.tag
         values['build_hash'] = get_git_commit_hash(self.root_paths[-1])  # Fix: Call the defined function to get the git commit hash
         if self.namespace:

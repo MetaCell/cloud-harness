@@ -25,16 +25,15 @@ from cloudharness_model.base_model import CloudHarnessBaseModel
 from pydantic import BaseModel, Field, field_validator, StrictStr, StrictBool, StrictInt, StrictFloat
 from typing import ClassVar, List, Dict, Any, Union, Optional, Annotated
 import importlib
-from cloudharness_model.models.registry_secret_config import RegistrySecretConfig
 
-class RegistryConfig(CloudHarnessBaseModel):
+class RegistrySecretConfig(CloudHarnessBaseModel):
     """
     
     """ # noqa: E501
-    name: StrictStr
-    secret: Optional[RegistrySecretConfig] = None
+    name: StrictStr = Field(description="The name of the secret to create for docker registry credentials")
+    value: Optional[StrictStr] = Field(default=None, description="The value of the secret to create for docker registry credentials. The value should be the base64 encoded content of a .dockerconfigjson file.")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["name", "secret"]
+    __properties: ClassVar[List[str]] = ["name", "value"]
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the dictionary representation of the model using alias.
@@ -56,9 +55,6 @@ class RegistryConfig(CloudHarnessBaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of secret
-        if self.secret:
-            _dict['secret'] = self.secret.to_dict()
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:
             for _key, _value in self.additional_properties.items():
@@ -68,7 +64,7 @@ class RegistryConfig(CloudHarnessBaseModel):
 
     @classmethod
     def from_dict(cls, obj: Optional[Dict[str, Any]]) -> Optional[Self]:
-        """Create an instance of RegistryConfig from a dict"""
+        """Create an instance of RegistrySecretConfig from a dict"""
         if obj is None:
             return None
 
@@ -77,7 +73,7 @@ class RegistryConfig(CloudHarnessBaseModel):
 
         _obj = cls.model_validate({
             "name": obj.get("name"),
-            "secret": RegistrySecretConfig.from_dict(obj["secret"]) if obj.get("secret") is not None else None
+            "value": obj.get("value")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

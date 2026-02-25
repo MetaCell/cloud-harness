@@ -100,6 +100,7 @@ Class | Method | HTTP request | Description
  - [ProxyPayloadConf](docs/ProxyPayloadConf.md)
  - [ProxyTimeoutConf](docs/ProxyTimeoutConf.md)
  - [RegistryConfig](docs/RegistryConfig.md)
+ - [RegistrySecretConfig](docs/RegistrySecretConfig.md)
  - [ServiceAutoArtifactConfig](docs/ServiceAutoArtifactConfig.md)
  - [UnitTestsConfig](docs/UnitTestsConfig.md)
  - [UriRoleMappingConfig](docs/UriRoleMappingConfig.md)
