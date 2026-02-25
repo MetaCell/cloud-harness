@@ -17,7 +17,7 @@ from cloudharness_utils.constants import TEST_IMAGES_PATH, HELM_CHART_PATH, APPS
     DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH
 from .utils import get_cluster_ip, env_variable, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
     get_template, merge_configuration_directories, dict_merge, app_name_from_path, \
-    find_dockerfiles_paths
+    find_dockerfiles_paths, get_git_commit_hash
 
 
 KEY_HARNESS = 'harness'
@@ -525,7 +525,33 @@ def values_set_legacy(values):
 
 def generate_tag_from_content(content_path, ignore=()):
     from dirhash import dirhash
-    return dirhash(content_path, 'sha1', ignore=ignore)
+    content_path = str(content_path)
+    ignore = set(ignore)
+
+    # Cloned git repos always live under {content_path}/dependencies/ (possibly
+    # nested one extra level, e.g. dependencies/{path}/{repo}).
+    # Use their commit hash instead of hashing their content with dirhash.
+    git_hashes = []
+    dependencies_path = os.path.join(content_path, 'dependencies')
+    if os.path.isdir(dependencies_path):
+        ignore.add('dependencies')
+        for dirpath, dirnames, _ in os.walk(dependencies_path):
+            for dirname in list(dirnames):
+                subdir = os.path.join(dirpath, dirname)
+                if os.path.isdir(os.path.join(subdir, '.git')):
+                    dirnames.remove(dirname)  # don't descend into the repo
+                    commit_hash = get_git_commit_hash(subdir)
+                    if commit_hash:
+                        logging.info(f"Using git commit hash {commit_hash} for cloned repo at {subdir}")
+                        git_hashes.append(commit_hash)
+                    else:
+                        logging.warning(f"Could not get git commit hash for repo at {subdir}")
+
+    content_hash = dirhash(content_path, 'sha1', ignore=ignore)
+
+    if git_hashes:
+        return sha1((content_hash + ''.join(git_hashes)).encode('utf-8')).hexdigest()
+    return content_hash
 
 
 def extract_env_variables_from_values(values, envs=tuple(), prefix=''):
