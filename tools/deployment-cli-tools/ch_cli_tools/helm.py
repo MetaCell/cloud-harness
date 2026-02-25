@@ -9,7 +9,7 @@ from hashlib import sha1
 import subprocess
 
 from cloudharness_utils.constants import VALUES_MANUAL_PATH, HELM_CHART_PATH
-from .utils import get_cluster_ip, get_git_commit_hash, image_name_from_dockerfile_path, \
+from .utils import get_cluster_ip, get_git_commit_hash, get_image_name, image_name_from_dockerfile_path, \
     get_template, merge_to_yaml_file, dict_merge, app_name_from_path, \
     find_dockerfiles_paths
 
@@ -31,15 +31,45 @@ def deploy(namespace, output_path='./deployment'):
 
 def create_helm_chart(root_paths, tag: Union[str, int, None] = 'latest', registry='', local=True, domain=None, exclude=(), secured=True,
                       output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
-                      namespace=None) -> HarnessMainConfig:
+                      namespace=None, name=None, chart_version=None, app_version=None) -> HarnessMainConfig:
     if (type(env)) == str:
         env = [env]
     return CloudHarnessHelm(root_paths, tag=tag, registry=registry, local=local, domain=domain, exclude=exclude, secured=secured,
                             output_path=output_path, include=include, registry_secret=registry_secret, tls=tls, env=env,
-                            namespace=namespace).process_values()
+                            namespace=namespace, name=name, chart_version=chart_version,
+                            app_version=app_version).process_values()
 
 
 class CloudHarnessHelm(ConfigurationGenerator):
+
+    def __init__(self, root_paths, tag: Union[str, int, None] = 'latest', registry='', local=True, domain=None, exclude=(), secured=True,
+                 output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
+                 namespace=None, name=None, chart_version=None, app_version=None):
+        super().__init__(root_paths, tag=tag, registry=registry, local=local, domain=domain, exclude=exclude, secured=secured,
+                         output_path=output_path, include=include, registry_secret=registry_secret, tls=tls, env=env,
+                         namespace=namespace)
+        self.chart_name = name
+        self.chart_version = chart_version
+        self.app_version = app_version
+
+    def _merge_chart_metadata(self, values_name=None):
+        metadata = {}
+
+        resolved_name = self.chart_name or self.namespace or values_name
+        if resolved_name:
+            metadata['name'] = resolved_name
+
+        if self.namespace:
+            metadata['metadata'] = {'namespace': self.namespace}
+
+        if self.chart_version:
+            metadata['version'] = self.chart_version
+
+        if self.app_version:
+            metadata['appVersion'] = self.app_version
+
+        if metadata:
+            merge_to_yaml_file(metadata, self.helm_chart_path)
 
     def process_values(self) -> HarnessMainConfig:
         """
@@ -77,9 +107,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
         # Save values file for manual helm chart
         merged_values = merge_to_yaml_file(helm_values, os.path.join(
             self.dest_deployment_path, VALUES_MANUAL_PATH))
-        if self.namespace:
-            merge_to_yaml_file({'metadata': {'namespace': self.namespace},
-                                'name': helm_values['name']}, self.helm_chart_path)
+        self._merge_chart_metadata(helm_values['name'])
         validate_helm_values(merged_values)
         return HarnessMainConfig.from_dict(merged_values)
 
@@ -223,9 +251,11 @@ class CloudHarnessHelm(ConfigurationGenerator):
         deployment_values = values.get(KEY_HARNESS, {}).get(KEY_DEPLOYMENT, {})
         deployment_image = deployment_values.get('image', None) or values.get('image', None)
         values['build'] = not bool(deployment_image)  # Used by skaffold and ci/cd to determine if the image should be built
+
+        image_name = get_image_name(values.get(KEY_HARNESS, {}).get('image_name', ''), base_image_name)
         if len(image_paths) > 0 and not deployment_image:
-            image_name = image_name_from_dockerfile_path(os.path.relpath(
-                image_paths[0], os.path.dirname(app_path)), base_image_name)
+
+            image_name = image_name or image_name_from_dockerfile_path(os.path.relpath(image_paths[0], os.path.dirname(app_path)), base_image_name)
             values['image'] = self.image_tag(
                 image_name, build_context_path=app_path, dependencies=build_dependencies)
         elif KEY_HARNESS in values and not deployment_image and values[
@@ -245,9 +275,9 @@ class CloudHarnessHelm(ConfigurationGenerator):
         for task_path in task_images_paths:
             task_name = app_name_from_path(os.path.relpath(
                 task_path, os.path.dirname(app_path)))
-            img_name = image_name_from_dockerfile_path(task_name, base_image_name)
+            task_img_name = "-".join([image_name, os.path.basename(task_path)]) if image_name else image_name_from_dockerfile_path(task_path, base_image_name)
 
             values[KEY_TASK_IMAGES][task_name] = self.image_tag(
-                img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys())
+                task_img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys())
 
         return values
