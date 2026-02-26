@@ -125,17 +125,19 @@ components:
                         configuring automatic deployment)
             additionalProperties: true
         RegistrySecretConfig:
-          description: ''
-          required:
-            - name
-          type: object
-          properties:
-            name:
-              description: The name of the secret to create for docker registry credentials
-              type: string
-            value:
-              description: The value of the secret to create for docker registry credentials. The value should be the base64 encoded content of a .dockerconfigjson file.
-              type: string
+            description: ''
+            required:
+                - name
+            type: object
+            properties:
+                name:
+                    description: The name of the secret to create for docker registry credentials
+                    type: string
+                value:
+                    description: >-
+                        The value of the secret to create for docker registry  credentials. This should be the
+                        raw JSON content of the  Google Cloud service account key used for the registry.
+                    type: string
         RegistryConfig:
             description: ''
             required:

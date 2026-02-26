@@ -47,8 +47,6 @@ if __name__ == "__main__":
                         help='Specify image registry prefix')
     parser.add_argument('-rs', '--registry-secret', dest='registry_secret', action="store", default='',
                         help='Specify image registry secret')
-    parser.add_argument('-rsv', '--registry-secret-value', dest='registry_secret_value', action="store", default='',
-                        help='Specify image registry secret value')
     parser.add_argument('-o', '--output', dest='output_path', action="store", default='./deployment',
                         help='Specify helm chart base path (default `./deployment)`')
     parser.add_argument('-d', '--domain', dest='domain', action="store", default="cloudharness.metacell.us",
@@ -116,7 +114,6 @@ if __name__ == "__main__":
             exclude=args.exclude,
             include=args.include,
             registry_secret=args.registry_secret,
-            registry_secret_value=args.registry_secret_value,
             tls=not args.no_tls,
             env=envs,
             namespace=args.namespace,

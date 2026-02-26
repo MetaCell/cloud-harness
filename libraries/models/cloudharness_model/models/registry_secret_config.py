@@ -31,7 +31,7 @@ class RegistrySecretConfig(CloudHarnessBaseModel):
     
     """ # noqa: E501
     name: StrictStr = Field(description="The name of the secret to create for docker registry credentials")
-    value: Optional[StrictStr] = Field(default=None, description="The value of the secret to create for docker registry credentials. The value should be the base64 encoded content of a .dockerconfigjson file.")
+    value: Optional[StrictStr] = Field(default=None, description="The value of the secret to create for docker registry  credentials. This should be the raw JSON content of the  Google Cloud service account key used for the registry.")
     additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["name", "value"]
 

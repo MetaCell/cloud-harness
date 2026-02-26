@@ -7,7 +7,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **name** | **str** | The name of the secret to create for docker registry credentials | 
-**value** | **str** | The value of the secret to create for docker registry credentials. The value should be the base64 encoded content of a .dockerconfigjson file. | [optional] 
+**value** | **str** | The value of the secret to create for docker registry  credentials. This should be the raw JSON content of the  Google Cloud service account key used for the registry. | [optional] 
 
 ## Example
 
