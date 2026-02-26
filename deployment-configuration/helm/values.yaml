@@ -13,6 +13,10 @@ registry:
   name: "localhost:5000"
   # -- Optional secret used for pulling from docker registry.
   secret:
+    # -- Secret name used for pulling from docker registry.
+    name:
+    # -- Value of the secret used for pulling from docker registry in json encoded format.
+    value:
 # -- Docker tag used to pull images.
 tag: latest
 # -- List of applications.

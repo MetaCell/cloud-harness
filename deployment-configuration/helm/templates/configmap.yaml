@@ -10,6 +10,13 @@ metadata:
 data:
   allvalues.yaml: |
 {{- $values_copy := deepCopy .Values }}
+{{- $registry := get $values_copy "registry" }}
+{{- if $registry }}
+  {{- $secret := get $registry "secret" }}
+  {{- if and (kindIs "map" $secret) (not (empty $secret.value)) }}
+    {{- $tmp := set $registry "secret" nil }}
+  {{- end }}
+{{- end }}
 {{- range $key, $val := .Values.apps }}
   {{- $app := get $values_copy.apps $key }}
   {{- $tmp := set $app.harness "secrets" dict }}

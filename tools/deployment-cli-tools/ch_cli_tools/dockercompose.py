@@ -22,12 +22,12 @@ from .configurationgenerator import ConfigurationGenerator, \
 
 
 def create_docker_compose_configuration(root_paths, tag: Union[str, int, None] = 'latest', registry='', local=True, domain=None, exclude=(), secured=True,
-                                        output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
+                                        output_path='./deployment', include=None, registry_secret_name=None, tls=True, env=None,
                                         namespace=None) -> HarnessMainConfig:
     if (type(env)) == str:
         env = [env]
     return CloudHarnessDockerCompose(root_paths, tag=tag, registry=registry, local=local, domain=domain, exclude=exclude, secured=secured,
-                                     output_path=output_path, include=include, registry_secret=registry_secret, tls=tls, env=env,
+                                     output_path=output_path, include=include, registry_secret_name=registry_secret_name, tls=tls, env=env,
                                      namespace=namespace, templates_path=COMPOSE).process_values()
 
 
@@ -176,10 +176,10 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
             logging.info(f"Registry set: {self.registry}")
         if self.local:
             values['registry']['secret'] = ''
-        if self.registry_secret:
+        if self.registry_secret_name:
             logging.info(f"Registry secret set")
         values['registry']['name'] = self.registry
-        values['registry']['secret'] = self.registry_secret
+        values['registry']['secret'] = self.registry_secret_name
         values['tag'] = self.tag
         if self.namespace:
             values['namespace'] = self.namespace
