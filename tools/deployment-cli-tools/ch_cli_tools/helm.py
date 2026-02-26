@@ -55,7 +55,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
     def _merge_chart_metadata(self, values_name=None):
         metadata = {}
 
-        resolved_name = self.chart_name or self.namespace or values_name
+        resolved_name = self.chart_name
         if resolved_name:
             metadata['name'] = resolved_name
 
