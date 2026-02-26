@@ -12,7 +12,7 @@ from .models import HarnessMainConfig, ApplicationTestConfig, ApplicationHarness
 from cloudharness_utils.constants import *
 from .configurationgenerator import KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES
 from .utils import check_image_exists_in_registry, find_dockerfiles_paths, get_app_relative_to_base_path, guess_build_dependencies_from_dockerfile, \
-    get_image_name, get_template, dict_merge, app_name_from_path, clean_path
+    get_template, dict_merge, app_name_from_path, clean_path, strip_registry_tag
 from cloudharness_utils.testing.api import get_api_filename, get_schemathesis_command, get_urls_from_api_file
 
 logging.getLogger().setLevel(logging.INFO)
@@ -161,14 +161,17 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 env = get_app_environment(app_config, app_domain, False)
                 return [f"{k}={env[k]}" for k in env]
 
-            def codefresh_app_build_spec(app_name, app_context_path, dockerfile_path="Dockerfile", base_name=None,
+            def codefresh_app_build_spec(app_name, full_image_name, app_context_path, dockerfile_path="Dockerfile",
                                          helm_values: HarnessMainConfig = {}, dependencies=None, additional_tags=()):
                 logging.info('Generating build script for ' + app_name)
                 title = app_name.capitalize().replace(
                     '-', ' ').replace('/', ' ').replace('.', ' ').strip()
+
                 build = codefresh_template_spec(
                     template_path=CF_BUILD_PATH,
-                    image_name=get_image_name(app_name, base_name),
+                    image_name=strip_registry_tag(
+                        full_image_name, helm_values.registry.name
+                    ),
                     title=title,
                     working_directory='./' + app_context_path,
                     dockerfile=dockerfile_path)
@@ -194,9 +197,8 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 build['dependencies'] = dependencies
 
                 def get_other_image_name(app_name):
-                    return ("${{REGISTRY}}/" + f"{build_steps[app_name]['image_name']}:{build_steps[app_name]['tags'][0]}")\
-                        if app_name in build_steps \
-                        else image_tag_with_variables(app_name, app_specific_tag_variable(app_name), base_name)
+                    full_image_name = helm_values.apps[app_name].image if app_name in helm_values.apps else helm_values[KEY_TASK_IMAGES][app_name]
+                    return image_tag_with_variables(full_image_name, helm_values.registry.name, app_specific_tag_variable(app_name))
 
                 def add_arg_dependencies(dependencies):
                     arg_dependencies = [f"{d.upper().replace('-', '_')}={get_other_image_name(d)}"
@@ -225,6 +227,9 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     app_name = app_name_from_path(dockerfile_relative_to_base)
                     app_key = app_name
                     app_config: ApplicationHarnessConfig = app_key in helm_values.apps and helm_values.apps[app_key].harness
+                    full_image_name = helm_values.apps[app_key].image if app_key in helm_values.apps\
+                        else helm_values[KEY_TASK_IMAGES][app_key] if app_key in helm_values[KEY_TASK_IMAGES]\
+                        else f"{base_name}/{app_name}"
 
                     if include and not any(
                             f"/{inc}/" in os.path.relpath(dockerfile_path, root_path) or dockerfile_path.endswith(f"/{inc}") for inc in include
@@ -251,13 +256,13 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         )
                         build = codefresh_app_build_spec(
                             app_name=app_name,
+                            full_image_name=full_image_name,
                             app_context_path=relpath(
                                 fixed_context, '.') if fixed_context else dockerfile_relative_to_root,
                             dockerfile_path=join(
                                 relpath(
                                     dockerfile_path, root_path) if fixed_context else '',
                                 "Dockerfile"),
-                            base_name=base_name,
                             helm_values=helm_values,
                             dependencies=dependencies,
                             additional_tags=('latest',) if not publish else ()
@@ -270,9 +275,10 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         if not type(steps[CD_STEP_PUBLISH]['steps']) == dict:
                             steps[CD_STEP_PUBLISH]['steps'] = {}
                         steps[CD_STEP_PUBLISH]['steps']['publish_' + app_name] = codefresh_app_publish_spec(
-                            app_name=app_name,
+                            full_src_image=helm_values.apps[app_name].image if app_name in helm_values.apps else helm_values[KEY_TASK_IMAGES][app_name],
                             build_tag=build and build['tags'][0],
-                            base_name=base_name
+                            registry=helm_values.registry.name,
+                            app_name=app_name
                         )
                         found = True
 
@@ -321,13 +327,14 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
                 test_config: ApplicationTestConfig = app_config.test
                 app_name = app_config.name
+                full_image_name = helm_values.apps[app_name].image if app_name in helm_values.apps else helm_values[KEY_TASK_IMAGES][app_name]
 
                 if test_config.unit.enabled and test_config.unit.commands:
                     tag = app_specific_tag_variable(app_name)
                     steps[CD_UNIT_TEST_STEP]['steps'][f"{app_name}_ut"] = dict(
                         title=f"Unit tests for {app_name}",
                         commands=test_config.unit.commands,
-                        image=image_tag_with_variables(app_name, tag, base_name),
+                        image=image_tag_with_variables(full_image_name, helm_values.registry.name, tag),
                     )
 
             if helm_values[KEY_TASK_IMAGES]:
@@ -341,12 +348,12 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
             if CD_E2E_TEST_STEP in steps:
                 name = "test-e2e"
                 if codefresh_steps_from_base_path(join(root_path, TEST_IMAGES_PATH), include=(name,), publish=False):
-                    steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_name)
+                    steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(f"{base_name}/{name}", helm_values.registry.name, app_specific_tag_variable(name))
 
             if CD_API_TEST_STEP in steps:
                 name = "test-api"
                 if codefresh_steps_from_base_path(join(root_path, TEST_IMAGES_PATH), include=(name,), fixed_context=relpath(root_path, os.getcwd()), publish=False):
-                    steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(name, app_specific_tag_variable(name), base_name=base_name)
+                    steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(f"{base_name}/{name}", helm_values.registry.name, app_specific_tag_variable(name))
 
     if build_steps:
 
@@ -480,14 +487,14 @@ def api_test_volumes(app_relative_to_root):
     ]
 
 
-def codefresh_app_publish_spec(app_name, build_tag, base_name=None):
+def codefresh_app_publish_spec(app_name, full_src_image, build_tag, registry):
     title = app_name.capitalize().replace(
         '-', ' ').replace('/', ' ').replace('.', ' ').strip()
 
     step_spec = codefresh_template_spec(
         template_path=CF_TEMPLATE_PUBLISH_PATH,
-        candidate="${{REGISTRY}}/%s:%s" % (get_image_name(
-            app_name, base_name), build_tag or '${{DEPLOYMENT_TAG}}'),
+        candidate="${{REGISTRY}}/%s:%s" % (strip_registry_tag(
+            full_src_image, registry), build_tag or '${{DEPLOYMENT_TAG}}'),
         title=title,
     )
     step_spec["when"] = existing_publish_when_condition(
@@ -497,9 +504,9 @@ def codefresh_app_publish_spec(app_name, build_tag, base_name=None):
     return step_spec
 
 
-def image_tag_with_variables(app_name, build_tag, base_name=""):
-    return "${{REGISTRY}}/%s:${{%s}}" % (get_image_name(
-        app_name, base_name), build_tag or '${{DEPLOYMENT_TAG}}')
+def image_tag_with_variables(app_name, registry_name, build_tag):
+    return "${{REGISTRY}}/%s:${{%s}}" % (strip_registry_tag(
+        app_name, registry_name), build_tag or '${{DEPLOYMENT_TAG}}')
 
 
 def app_specific_tag_variable(app_name):

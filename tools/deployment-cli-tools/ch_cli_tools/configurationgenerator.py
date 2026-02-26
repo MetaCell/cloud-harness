@@ -17,7 +17,7 @@ from cloudharness_utils.constants import TEST_IMAGES_PATH, HELM_CHART_PATH, APPS
     DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH
 from .utils import get_cluster_ip, env_variable, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
     get_template, merge_configuration_directories, dict_merge, app_name_from_path, \
-    find_dockerfiles_paths
+    find_dockerfiles_paths, get_git_commit_hash
 
 
 KEY_HARNESS = 'harness'
@@ -71,9 +71,29 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
     def create_app_values_spec(self, app_name, app_path, base_image_name=None, helm_values={}):
         ...
 
+    @abc.abstractmethod
+    def load_app_values(self, app_name, app_path, helm_values={}):
+        """Lightweight loading of app values from deploy/values.yaml.
+
+        Only reads YAML configuration — no Dockerfile discovery, no image tagging.
+        Returns values with harness.dependencies and harness.secured populated,
+        which is sufficient for include/dependency resolution.
+        """
+        ...
+
+    @abc.abstractmethod
+    def finalize_app_values(self, app_name, app_path, app_values, base_image_name=None, helm_values={}):
+        """Expensive finalization of app values for included apps only.
+
+        Performs Dockerfile discovery, image tagging (dirhash), and task image
+        processing. Called only for apps that survive the include filter.
+        """
+        ...
+
     def __init_deployment(self):
         """
-        Create the base helm chart
+        Create the base helm chart — values files only for the initial phase.
+        Templates, files, and resources are deferred to _finalize_base_deployment.
         """
         if self.dest_deployment_path.exists():
             shutil.rmtree(self.dest_deployment_path)
@@ -84,8 +104,6 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         for root_path in self.root_paths:
             copy_merge_base_deployment(dest_helm_chart_path=self.dest_deployment_path,
                                        base_helm_chart=root_path / DEPLOYMENT_CONFIGURATION_PATH / self.templates_path, envs=self.env)
-            # collect_apps_helm_templates(root_path, exclude=self.exclude, include=self.include,
-            #                             dest_helm_chart_path=self.dest_deployment_path, templates_path=self.templates_path, envs=self.env)
 
     def _adjust_missing_values(self, helm_values):
         if 'name' not in helm_values:
@@ -108,6 +126,50 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
             helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
                                                app_values)
 
+    def _load_all_app_values(self, helm_values):
+        """Lightweight pass: load deploy/values.yaml for all apps.
+
+        Only reads YAML configuration — no Dockerfile discovery, no image tagging.
+        Populates harness.dependencies and harness.secured, which is sufficient
+        for include/dependency resolution.
+        """
+        for root_path in self.root_paths:
+            app_values = init_app_values(
+                root_path, exclude=self.exclude, values=helm_values[KEY_APPS])
+            helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS], app_values)
+
+            app_base_path = root_path / APPS_PATH
+            app_values = self._collect_app_values_lightweight(
+                app_base_path, helm_values=helm_values)
+            helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS], app_values)
+
+    def _collect_app_values_lightweight(self, app_base_path, helm_values=None):
+        """Collect only YAML-based values for all apps (no image processing)."""
+        values = {}
+        for app_path in app_base_path.glob("*/"):
+            app_name = app_name_from_path(f"{app_path.relative_to(app_base_path)}")
+            if app_name in self.exclude:
+                continue
+            app_values = self.load_app_values(app_name, app_path, helm_values=helm_values)
+            values[app_name] = dict_merge(
+                values[app_name], app_values) if app_name in values else app_values
+        return values
+
+    def _finalize_included_app_values(self, helm_values, base_image_name=None):
+        """Expensive pass: run Dockerfile discovery and image tagging for included apps only."""
+        included_apps = set(helm_values[KEY_APPS].keys())
+        for root_path in self.root_paths:
+            app_base_path = root_path / APPS_PATH
+            for app_path in app_base_path.glob("*/"):
+                app_name = app_name_from_path(f"{app_path.relative_to(app_base_path)}")
+                if app_name not in included_apps:
+                    continue
+                finalized = self.finalize_app_values(
+                    app_name, app_path, helm_values[KEY_APPS][app_name],
+                    base_image_name=base_image_name, helm_values=helm_values)
+                helm_values[KEY_APPS][app_name] = dict_merge(
+                    helm_values[KEY_APPS][app_name], finalized)
+
     def collect_app_values(self, app_base_path, base_image_name=None, helm_values=None):
         values = {}
 
@@ -119,30 +181,6 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
             app_key = app_name
 
             app_values = self.create_app_values_spec(app_name, app_path, base_image_name=base_image_name, helm_values=helm_values)
-
-            # dockerfile_path = next(app_path.rglob('**/Dockerfile'), None)
-            # # for dockerfile_path in app_path.rglob('**/Dockerfile'):
-            # #     parent_name = dockerfile_path.parent.name
-            # #     if parent_name == app_key:
-            # #         app_values['build'] = {
-            # #             # 'dockerfile': f"{dockerfile_path.relative_to(app_path)}",
-            # #             'dockerfile': "Dockerfile",
-            # #             'context': os.path.relpath(dockerfile_path.parent, self.dest_deployment_path.parent),
-            # #         }
-            # #     elif "tasks/" in f"{dockerfile_path}":
-            # #         parent_name = parent_name.upper()
-            # #         values.setdefault("task-images-build", {})[parent_name] = {
-            # #             'dockerfile': "Dockerfile",
-            # #             'context': os.path.relpath(dockerfile_path.parent, self.dest_deployment_path.parent),
-            # #         }
-            # #         import ipdb; ipdb.set_trace()  # fmt: skip
-
-            # if dockerfile_path:
-            #     app_values['build'] = {
-            #         # 'dockerfile': f"{dockerfile_path.relative_to(app_path)}",
-            #         'dockerfile': "Dockerfile",
-            #         'context': os.path.relpath(dockerfile_path.parent, self.dest_deployment_path.parent),
-            #     }
 
             values[app_key] = dict_merge(
                 values[app_key], app_values) if app_key in values else app_values
@@ -487,7 +525,33 @@ def values_set_legacy(values):
 
 def generate_tag_from_content(content_path, ignore=()):
     from dirhash import dirhash
-    return dirhash(content_path, 'sha1', ignore=ignore)
+    content_path = str(content_path)
+    ignore = set(ignore)
+
+    # Cloned git repos always live under {content_path}/dependencies/ (possibly
+    # nested one extra level, e.g. dependencies/{path}/{repo}).
+    # Use their commit hash instead of hashing their content with dirhash.
+    git_hashes = []
+    dependencies_path = os.path.join(content_path, 'dependencies')
+    if os.path.isdir(dependencies_path):
+        ignore.add('dependencies')
+        for dirpath, dirnames, _ in os.walk(dependencies_path):
+            for dirname in list(dirnames):
+                subdir = os.path.join(dirpath, dirname)
+                if os.path.isdir(os.path.join(subdir, '.git')):
+                    dirnames.remove(dirname)  # don't descend into the repo
+                    commit_hash = get_git_commit_hash(subdir)
+                    if commit_hash:
+                        logging.info(f"Using git commit hash {commit_hash} for cloned repo at {subdir}")
+                        git_hashes.append(commit_hash)
+                    else:
+                        logging.warning(f"Could not get git commit hash for repo at {subdir}")
+
+    content_hash = dirhash(content_path, 'sha1', ignore=ignore)
+
+    if git_hashes:
+        return sha1((content_hash + ''.join(git_hashes)).encode('utf-8')).hexdigest()
+    return content_hash
 
 
 def extract_env_variables_from_values(values, envs=tuple(), prefix=''):
