@@ -35,7 +35,7 @@ DEFAULT_IGNORE = ('/tasks', '.dockerignore', '.hypothesis', "__pycache__", '.nod
 class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
 
     def __init__(self, root_paths: List[str], tag: Union[str, int, None] = 'latest', registry='', local=True, domain=None, exclude=(), secured=True,
-                 output_path='./deployment', include: List[str] = None, registry_secret: str = None, tls: str = True, env: str = None,
+                 output_path='./deployment', include: List[str] = None, registry_secret_name: str = None, tls: str = True, env: str = None,
                  namespace: str = None, templates_path: str = HELM_PATH):
         assert domain, 'A domain must be specified'
         self.root_paths = [Path(r) for r in root_paths]
@@ -50,7 +50,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         self.secured = secured
         self.output_path = Path(output_path)
         self.include = include
-        self.registry_secret = registry_secret
+        self.registry_secret_name = registry_secret_name
         self.tls = tls
         self.env = env or {}
         self.namespace = namespace
