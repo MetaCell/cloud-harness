@@ -20,10 +20,15 @@ steps:
     working_directory: .
     commands:
     - bash ./install.sh
-    - export HELM_META_ARGS="$( [ -n "${{HARNESS_CHART_NAME}}" ] && printf -- "--name
-      %s " "${{HARNESS_CHART_NAME}}"; [ -n "${{HARNESS_CHART_VERSION}}" ] && printf
-      -- "--chart-version %s " "${{HARNESS_CHART_VERSION}}"; [ -n "${{HARNESS_APP_VERSION}}"
-      ] && printf -- "--app-version %s" "${{HARNESS_APP_VERSION}}" )"
+    - export HELM_NAME_ARG="$( [ -n "${{CHART_NAME}}" ] && printf -- "--name %s" "${{CHART_NAME}}"
+      )"
+    - export HELM_CHART_VERSION_ARG="$( [ -n "${{CHART_VERSION}}" ] && printf -- "--chart-version
+      %s" "${{CHART_VERSION}}" )"
+    - export HELM_APP_VERSION_ARG="$( APP_VERSION_RESOLVED="${{APP_VERSION}}"; [ -z
+      "$APP_VERSION_RESOLVED" ] && APP_VERSION_RESOLVED="${{DEPLOYMENT_TAG}}"; [ -n
+      "$APP_VERSION_RESOLVED" ] && printf -- "--app-version %s" "$APP_VERSION_RESOLVED"
+      )"
+    - export HELM_META_ARGS="$HELM_NAME_ARG $HELM_CHART_VERSION_ARG $HELM_APP_VERSION_ARG"
     - harness-deployment . -n test-${{NAMESPACE_BASENAME}} -d ${{DOMAIN}} -r ${{REGISTRY}}
       -rsn ${{REGISTRY_SECRET}} -e test --write-env --cache-url '${{IMAGE_CACHE_URL}}'
       -N $HELM_META_ARGS -i samples
@@ -42,50 +47,6 @@ steps:
     type: parallel
     stage: build
     steps:
-      cloudharness-base:
-        type: build
-        stage: build
-        dockerfile: infrastructure/base-images/cloudharness-base/Dockerfile
-        registry: '${{CODEFRESH_REGISTRY}}'
-        buildkit: true
-        build_arguments:
-        - NOCACHE=${{CF_BUILD_ID}}
-        image_name: cloud-harness/cloudharness-base
-        title: Cloudharness base
-        working_directory: ./.
-        tags:
-        - '${{CLOUDHARNESS_BASE_TAG}}'
-        - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
-        - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
-        when:
-          condition:
-            any:
-              buildDoesNotExist: includes('${{CLOUDHARNESS_BASE_TAG_EXISTS}}', '{{CLOUDHARNESS_BASE_TAG_EXISTS}}')
-                == true
-              forceNoCache: includes('${{CLOUDHARNESS_BASE_TAG_FORCE_BUILD}}', '{{CLOUDHARNESS_BASE_TAG_FORCE_BUILD}}')
-                == false
-      accounts:
-        type: build
-        stage: build
-        dockerfile: infrastructure/base-images/cloudharness-base/Dockerfile
-        registry: '${{CODEFRESH_REGISTRY}}'
-        buildkit: true
-        build_arguments:
-        - NOCACHE=${{CF_BUILD_ID}}
-        image_name: cloud-harness/cloudharness-base
-        title: Cloudharness base
-        working_directory: ./.
-        tags:
-        - '${{CLOUDHARNESS_BASE_TAG}}'
-        - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
-        - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
-        when:
-          condition:
-            any:
-              buildDoesNotExist: includes('${{CLOUDHARNESS_BASE_TAG_EXISTS}}', '{{CLOUDHARNESS_BASE_TAG_EXISTS}}')
-                == true
-              forceNoCache: includes('${{CLOUDHARNESS_BASE_TAG_FORCE_BUILD}}', '{{CLOUDHARNESS_BASE_TAG_FORCE_BUILD}}')
-                == false
       test-e2e:
         type: build
         stage: build
@@ -131,12 +92,7 @@ steps:
                 '{{CLOUDHARNESS_FRONTEND_BUILD_TAG_EXISTS}}') == true
               forceNoCache: includes('${{CLOUDHARNESS_FRONTEND_BUILD_TAG_FORCE_BUILD}}',
                 '{{CLOUDHARNESS_FRONTEND_BUILD_TAG_FORCE_BUILD}}') == false
-    title: Build parallel step 1
-  build_application_images_1:
-    type: parallel
-    stage: build
-    steps:
-      workflows-extract-download:
+      accounts:
         type: build
         stage: build
         dockerfile: Dockerfile
@@ -154,10 +110,37 @@ steps:
         when:
           condition:
             any:
-              buildDoesNotExist: includes('${{WORKFLOWS_EXTRACT_DOWNLOAD_TAG_EXISTS}}',
-                '{{WORKFLOWS_EXTRACT_DOWNLOAD_TAG_EXISTS}}') == true
-              forceNoCache: includes('${{WORKFLOWS_EXTRACT_DOWNLOAD_TAG_FORCE_BUILD}}',
-                '{{WORKFLOWS_EXTRACT_DOWNLOAD_TAG_FORCE_BUILD}}') == false
+              buildDoesNotExist: includes('${{ACCOUNTS_TAG_EXISTS}}', '{{ACCOUNTS_TAG_EXISTS}}')
+                == true
+              forceNoCache: includes('${{ACCOUNTS_TAG_FORCE_BUILD}}', '{{ACCOUNTS_TAG_FORCE_BUILD}}')
+                == false
+      cloudharness-base:
+        type: build
+        stage: build
+        dockerfile: infrastructure/base-images/cloudharness-base/Dockerfile
+        registry: '${{CODEFRESH_REGISTRY}}'
+        buildkit: true
+        build_arguments:
+        - NOCACHE=${{CF_BUILD_ID}}
+        image_name: cloud-harness/cloudharness-base
+        title: Cloudharness base
+        working_directory: ./.
+        tags:
+        - '${{CLOUDHARNESS_BASE_TAG}}'
+        - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
+        - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
+        when:
+          condition:
+            any:
+              buildDoesNotExist: includes('${{CLOUDHARNESS_BASE_TAG_EXISTS}}', '{{CLOUDHARNESS_BASE_TAG_EXISTS}}')
+                == true
+              forceNoCache: includes('${{CLOUDHARNESS_BASE_TAG_FORCE_BUILD}}', '{{CLOUDHARNESS_BASE_TAG_FORCE_BUILD}}')
+                == false
+    title: Build parallel step 1
+  build_application_images_1:
+    type: parallel
+    stage: build
+    steps:
       samples-print-file:
         type: build
         stage: build
@@ -181,52 +164,6 @@ steps:
                 == true
               forceNoCache: includes('${{SAMPLES_PRINT_FILE_TAG_FORCE_BUILD}}', '{{SAMPLES_PRINT_FILE_TAG_FORCE_BUILD}}')
                 == false
-      samples-secret:
-        type: build
-        stage: build
-        dockerfile: Dockerfile
-        registry: '${{CODEFRESH_REGISTRY}}'
-        buildkit: true
-        build_arguments:
-        - NOCACHE=${{CF_BUILD_ID}}
-        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        image_name: cloud-harness/sampleapp-secret
-        title: Samples secret
-        working_directory: ./applications/samples/tasks/secret
-        tags:
-        - '${{SAMPLES_SECRET_TAG}}'
-        - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
-        - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
-        when:
-          condition:
-            any:
-              buildDoesNotExist: includes('${{SAMPLES_SECRET_TAG_EXISTS}}', '{{SAMPLES_SECRET_TAG_EXISTS}}')
-                == true
-              forceNoCache: includes('${{SAMPLES_SECRET_TAG_FORCE_BUILD}}', '{{SAMPLES_SECRET_TAG_FORCE_BUILD}}')
-                == false
-      jupyterhub:
-        type: build
-        stage: build
-        dockerfile: Dockerfile
-        registry: '${{CODEFRESH_REGISTRY}}'
-        buildkit: true
-        build_arguments:
-        - NOCACHE=${{CF_BUILD_ID}}
-        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        image_name: cloud-harness/jupyterhub
-        title: Jupyterhub
-        working_directory: ./applications/jupyterhub
-        tags:
-        - '${{JUPYTERHUB_TAG}}'
-        - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
-        - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
-        when:
-          condition:
-            any:
-              buildDoesNotExist: includes('${{JUPYTERHUB_TAG_EXISTS}}', '{{JUPYTERHUB_TAG_EXISTS}}')
-                == true
-              forceNoCache: includes('${{JUPYTERHUB_TAG_FORCE_BUILD}}', '{{JUPYTERHUB_TAG_FORCE_BUILD}}')
-                == false
       workflows-notify-queue:
         type: build
         stage: build
@@ -236,11 +173,11 @@ steps:
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
         - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        image_name: cloud-harness/cloudharness-flask
-        title: Cloudharness flask
-        working_directory: ./infrastructure/common-images/cloudharness-flask
+        image_name: cloud-harness/workflows-notify-queue
+        title: Workflows notify queue
+        working_directory: ./applications/workflows/tasks/notify-queue
         tags:
-        - '${{CLOUDHARNESS_FLASK_TAG}}'
+        - '${{WORKFLOWS_NOTIFY_QUEUE_TAG}}'
         - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
         - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
         when:
@@ -250,52 +187,6 @@ steps:
                 '{{WORKFLOWS_NOTIFY_QUEUE_TAG_EXISTS}}') == true
               forceNoCache: includes('${{WORKFLOWS_NOTIFY_QUEUE_TAG_FORCE_BUILD}}',
                 '{{WORKFLOWS_NOTIFY_QUEUE_TAG_FORCE_BUILD}}') == false
-      cloudharness-flask:
-        type: build
-        stage: build
-        dockerfile: Dockerfile
-        registry: '${{CODEFRESH_REGISTRY}}'
-        buildkit: true
-        build_arguments:
-        - NOCACHE=${{CF_BUILD_ID}}
-        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        image_name: cloud-harness/cloudharness-flask
-        title: Cloudharness flask
-        working_directory: ./infrastructure/common-images/cloudharness-flask
-        tags:
-        - '${{CLOUDHARNESS_FLASK_TAG}}'
-        - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
-        - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
-        when:
-          condition:
-            any:
-              buildDoesNotExist: includes('${{CLOUDHARNESS_FLASK_TAG_EXISTS}}', '{{CLOUDHARNESS_FLASK_TAG_EXISTS}}')
-                == true
-              forceNoCache: includes('${{CLOUDHARNESS_FLASK_TAG_FORCE_BUILD}}', '{{CLOUDHARNESS_FLASK_TAG_FORCE_BUILD}}')
-                == false
-      cloudharness-django:
-        type: build
-        stage: build
-        dockerfile: Dockerfile
-        registry: '${{CODEFRESH_REGISTRY}}'
-        buildkit: true
-        build_arguments:
-        - NOCACHE=${{CF_BUILD_ID}}
-        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        image_name: cloud-harness/cloudharness-django
-        title: Cloudharness django
-        working_directory: ./infrastructure/common-images/cloudharness-django
-        tags:
-        - '${{CLOUDHARNESS_DJANGO_TAG}}'
-        - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
-        - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
-        when:
-          condition:
-            any:
-              buildDoesNotExist: includes('${{CLOUDHARNESS_DJANGO_TAG_EXISTS}}', '{{CLOUDHARNESS_DJANGO_TAG_EXISTS}}')
-                == true
-              forceNoCache: includes('${{CLOUDHARNESS_DJANGO_TAG_FORCE_BUILD}}', '{{CLOUDHARNESS_DJANGO_TAG_FORCE_BUILD}}')
-                == false
       workflows-send-result-event:
         type: build
         stage: build
@@ -319,6 +210,29 @@ steps:
                 '{{WORKFLOWS_SEND_RESULT_EVENT_TAG_EXISTS}}') == true
               forceNoCache: includes('${{WORKFLOWS_SEND_RESULT_EVENT_TAG_FORCE_BUILD}}',
                 '{{WORKFLOWS_SEND_RESULT_EVENT_TAG_FORCE_BUILD}}') == false
+      cloudharness-flask:
+        type: build
+        stage: build
+        dockerfile: Dockerfile
+        registry: '${{CODEFRESH_REGISTRY}}'
+        buildkit: true
+        build_arguments:
+        - NOCACHE=${{CF_BUILD_ID}}
+        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
+        image_name: cloud-harness/cloudharness-flask
+        title: Cloudharness flask
+        working_directory: ./infrastructure/common-images/cloudharness-flask
+        tags:
+        - '${{CLOUDHARNESS_FLASK_TAG}}'
+        - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
+        - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
+        when:
+          condition:
+            any:
+              buildDoesNotExist: includes('${{CLOUDHARNESS_FLASK_TAG_EXISTS}}', '{{CLOUDHARNESS_FLASK_TAG_EXISTS}}')
+                == true
+              forceNoCache: includes('${{CLOUDHARNESS_FLASK_TAG_FORCE_BUILD}}', '{{CLOUDHARNESS_FLASK_TAG_FORCE_BUILD}}')
+                == false
       test-api:
         type: build
         stage: build
@@ -343,11 +257,126 @@ steps:
                 == true
               forceNoCache: includes('${{TEST_API_TAG_FORCE_BUILD}}', '{{TEST_API_TAG_FORCE_BUILD}}')
                 == false
+      cloudharness-django:
+        type: build
+        stage: build
+        dockerfile: Dockerfile
+        registry: '${{CODEFRESH_REGISTRY}}'
+        buildkit: true
+        build_arguments:
+        - NOCACHE=${{CF_BUILD_ID}}
+        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
+        image_name: cloud-harness/cloudharness-django
+        title: Cloudharness django
+        working_directory: ./infrastructure/common-images/cloudharness-django
+        tags:
+        - '${{CLOUDHARNESS_DJANGO_TAG}}'
+        - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
+        - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
+        when:
+          condition:
+            any:
+              buildDoesNotExist: includes('${{CLOUDHARNESS_DJANGO_TAG_EXISTS}}', '{{CLOUDHARNESS_DJANGO_TAG_EXISTS}}')
+                == true
+              forceNoCache: includes('${{CLOUDHARNESS_DJANGO_TAG_FORCE_BUILD}}', '{{CLOUDHARNESS_DJANGO_TAG_FORCE_BUILD}}')
+                == false
+      workflows-extract-download:
+        type: build
+        stage: build
+        dockerfile: Dockerfile
+        registry: '${{CODEFRESH_REGISTRY}}'
+        buildkit: true
+        build_arguments:
+        - NOCACHE=${{CF_BUILD_ID}}
+        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
+        image_name: cloud-harness/workflows-extract-download
+        title: Workflows extract download
+        working_directory: ./applications/workflows/tasks/extract-download
+        tags:
+        - '${{WORKFLOWS_EXTRACT_DOWNLOAD_TAG}}'
+        - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
+        - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
+        when:
+          condition:
+            any:
+              buildDoesNotExist: includes('${{WORKFLOWS_EXTRACT_DOWNLOAD_TAG_EXISTS}}',
+                '{{WORKFLOWS_EXTRACT_DOWNLOAD_TAG_EXISTS}}') == true
+              forceNoCache: includes('${{WORKFLOWS_EXTRACT_DOWNLOAD_TAG_FORCE_BUILD}}',
+                '{{WORKFLOWS_EXTRACT_DOWNLOAD_TAG_FORCE_BUILD}}') == false
+      jupyterhub:
+        type: build
+        stage: build
+        dockerfile: Dockerfile
+        registry: '${{CODEFRESH_REGISTRY}}'
+        buildkit: true
+        build_arguments:
+        - NOCACHE=${{CF_BUILD_ID}}
+        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
+        image_name: cloud-harness/jupyterhub
+        title: Jupyterhub
+        working_directory: ./applications/jupyterhub
+        tags:
+        - '${{JUPYTERHUB_TAG}}'
+        - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
+        - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
+        when:
+          condition:
+            any:
+              buildDoesNotExist: includes('${{JUPYTERHUB_TAG_EXISTS}}', '{{JUPYTERHUB_TAG_EXISTS}}')
+                == true
+              forceNoCache: includes('${{JUPYTERHUB_TAG_FORCE_BUILD}}', '{{JUPYTERHUB_TAG_FORCE_BUILD}}')
+                == false
+      samples-secret:
+        type: build
+        stage: build
+        dockerfile: Dockerfile
+        registry: '${{CODEFRESH_REGISTRY}}'
+        buildkit: true
+        build_arguments:
+        - NOCACHE=${{CF_BUILD_ID}}
+        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
+        image_name: cloud-harness/sampleapp-secret
+        title: Samples secret
+        working_directory: ./applications/samples/tasks/secret
+        tags:
+        - '${{SAMPLES_SECRET_TAG}}'
+        - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
+        - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
+        when:
+          condition:
+            any:
+              buildDoesNotExist: includes('${{SAMPLES_SECRET_TAG_EXISTS}}', '{{SAMPLES_SECRET_TAG_EXISTS}}')
+                == true
+              forceNoCache: includes('${{SAMPLES_SECRET_TAG_FORCE_BUILD}}', '{{SAMPLES_SECRET_TAG_FORCE_BUILD}}')
+                == false
     title: Build parallel step 2
   build_application_images_2:
     type: parallel
     stage: build
     steps:
+      workflows:
+        type: build
+        stage: build
+        dockerfile: Dockerfile
+        registry: '${{CODEFRESH_REGISTRY}}'
+        buildkit: true
+        build_arguments:
+        - NOCACHE=${{CF_BUILD_ID}}
+        - CLOUDHARNESS_FLASK=${{REGISTRY}}/cloud-harness/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}
+        image_name: cloud-harness/workflows
+        title: Workflows
+        working_directory: ./applications/workflows/server
+        tags:
+        - '${{WORKFLOWS_TAG}}'
+        - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
+        - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
+        when:
+          condition:
+            any:
+              buildDoesNotExist: includes('${{WORKFLOWS_TAG_EXISTS}}', '{{WORKFLOWS_TAG_EXISTS}}')
+                == true
+              forceNoCache: includes('${{WORKFLOWS_TAG_FORCE_BUILD}}', '{{WORKFLOWS_TAG_FORCE_BUILD}}')
+                == false
       common:
         type: build
         stage: build
@@ -395,7 +424,7 @@ steps:
                 == true
               forceNoCache: includes('${{SAMPLES_TAG_FORCE_BUILD}}', '{{SAMPLES_TAG_FORCE_BUILD}}')
                 == false
-      workflows:
+      volumemanager:
         type: build
         stage: build
         dockerfile: Dockerfile
@@ -404,43 +433,19 @@ steps:
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
         - CLOUDHARNESS_FLASK=${{REGISTRY}}/cloud-harness/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}
-        image_name: cloud-harness/workflows
-        title: Workflows
-        working_directory: ./applications/workflows/server
+        image_name: cloud-harness/volumemanager
+        title: Volumemanager
+        working_directory: ./applications/volumemanager/server
         tags:
-        - '${{WORKFLOWS_TAG}}'
+        - '${{VOLUMEMANAGER_TAG}}'
         - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
         - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
         when:
           condition:
             any:
-              buildDoesNotExist: includes('${{WORKFLOWS_TAG_EXISTS}}', '{{WORKFLOWS_TAG_EXISTS}}')
+              buildDoesNotExist: includes('${{VOLUMEMANAGER_TAG_EXISTS}}', '{{VOLUMEMANAGER_TAG_EXISTS}}')
                 == true
-              forceNoCache: includes('${{WORKFLOWS_TAG_FORCE_BUILD}}', '{{WORKFLOWS_TAG_FORCE_BUILD}}')
-                == false
-      samples:
-        type: build
-        stage: build
-        dockerfile: Dockerfile
-        registry: '${{CODEFRESH_REGISTRY}}'
-        buildkit: true
-        build_arguments:
-        - NOCACHE=${{CF_BUILD_ID}}
-        - CLOUDHARNESS_FRONTEND_BUILD=${{REGISTRY}}/cloud-harness/cloudharness-frontend-build:${{CLOUDHARNESS_FRONTEND_BUILD_TAG}}
-        - CLOUDHARNESS_FLASK=${{REGISTRY}}/cloud-harness/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}
-        image_name: cloud-harness/sampleapp
-        title: Samples
-        working_directory: ./applications/samples
-        tags:
-        - '${{SAMPLES_TAG}}'
-        - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
-        - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
-        when:
-          condition:
-            any:
-              buildDoesNotExist: includes('${{SAMPLES_TAG_EXISTS}}', '{{SAMPLES_TAG_EXISTS}}')
-                == true
-              forceNoCache: includes('${{SAMPLES_TAG_FORCE_BUILD}}', '{{SAMPLES_TAG_FORCE_BUILD}}')
+              forceNoCache: includes('${{VOLUMEMANAGER_TAG_FORCE_BUILD}}', '{{VOLUMEMANAGER_TAG_FORCE_BUILD}}')
                 == false
     title: Build parallel step 3
   build_application_images_3:
@@ -504,13 +509,13 @@ steps:
     commands:
     - kubectl config use-context ${{CLUSTER_NAME}}
     - kubectl config set-context --current --namespace=test-${{NAMESPACE_BASENAME}}
-    - kubectl rollout status deployment/common
-    - kubectl rollout status deployment/volumemanager
-    - kubectl rollout status deployment/accounts
     - kubectl rollout status deployment/workflows
-    - kubectl rollout status deployment/argo-gk
+    - kubectl rollout status deployment/common
     - kubectl rollout status deployment/samples
     - kubectl rollout status deployment/samples-gk
+    - kubectl rollout status deployment/argo-gk
+    - kubectl rollout status deployment/volumemanager
+    - kubectl rollout status deployment/accounts
     - sleep 60
   tests_api:
     stage: qa

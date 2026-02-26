@@ -33,7 +33,10 @@ steps:
     working_directory: .
     commands:
       - bash cloud-harness/install.sh
-      - export HELM_META_ARGS="$( [ -n "${{HARNESS_CHART_NAME}}" ] && printf -- "--name %s " "${{HARNESS_CHART_NAME}}"; [ -n "${{HARNESS_CHART_VERSION}}" ] && printf -- "--chart-version %s " "${{HARNESS_CHART_VERSION}}"; [ -n "${{HARNESS_APP_VERSION}}" ] && printf -- "--app-version %s" "${{HARNESS_APP_VERSION}}" )"
+      - export HELM_NAME_ARG="$( [ -n "${{CHART_NAME}}" ] && printf -- "--name %s" "${{CHART_NAME}}" )"
+      - export HELM_CHART_VERSION_ARG="$( [ -n "${{CHART_VERSION}}" ] && printf -- "--chart-version %s" "${{CHART_VERSION}}" )"
+      - export HELM_APP_VERSION_ARG="$( APP_VERSION_RESOLVED="${{APP_VERSION}}"; [ -z "$APP_VERSION_RESOLVED" ] && APP_VERSION_RESOLVED="${{DEPLOYMENT_TAG}}"; [ -n "$APP_VERSION_RESOLVED" ] && printf -- "--app-version %s" "$APP_VERSION_RESOLVED" )"
+      - export HELM_META_ARGS="$HELM_NAME_ARG $HELM_CHART_VERSION_ARG $HELM_APP_VERSION_ARG"
       - harness-deployment $PATHS -t ${{DEPLOYMENT_TAG}} -d ${{DOMAIN}} -r ${{REGISTRY}} -rsn ${{REGISTRY_SECRET}} -n ${{NAMESPACE}} -e $ENV --no-cd $HELM_META_ARGS $PARAMS
   prepare_deployment_view:
     commands:
