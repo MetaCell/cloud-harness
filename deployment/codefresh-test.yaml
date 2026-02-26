@@ -25,7 +25,7 @@ steps:
       -- "--chart-version %s " "${{HARNESS_CHART_VERSION}}"; [ -n "${{HARNESS_APP_VERSION}}"
       ] && printf -- "--app-version %s" "${{HARNESS_APP_VERSION}}" )"
     - harness-deployment . -n test-${{NAMESPACE_BASENAME}} -d ${{DOMAIN}} -r ${{REGISTRY}}
-      -rs ${{REGISTRY_SECRET}} -e test --write-env --cache-url '${{IMAGE_CACHE_URL}}'
+      -rsn ${{REGISTRY_SECRET}} -e test --write-env --cache-url '${{IMAGE_CACHE_URL}}'
       -N $HELM_META_ARGS -i samples
     - cat deployment/.env >> ${{CF_VOLUME_PATH}}/env_vars_to_export
     - cat ${{CF_VOLUME_PATH}}/env_vars_to_export
@@ -67,24 +67,24 @@ steps:
       accounts:
         type: build
         stage: build
-        dockerfile: Dockerfile
+        dockerfile: infrastructure/base-images/cloudharness-base/Dockerfile
         registry: '${{CODEFRESH_REGISTRY}}'
         buildkit: true
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
-        image_name: cloud-harness/accounts
-        title: Accounts
-        working_directory: ./applications/accounts
+        image_name: cloud-harness/cloudharness-base
+        title: Cloudharness base
+        working_directory: ./.
         tags:
-        - '${{ACCOUNTS_TAG}}'
+        - '${{CLOUDHARNESS_BASE_TAG}}'
         - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
         - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
         when:
           condition:
             any:
-              buildDoesNotExist: includes('${{ACCOUNTS_TAG_EXISTS}}', '{{ACCOUNTS_TAG_EXISTS}}')
+              buildDoesNotExist: includes('${{CLOUDHARNESS_BASE_TAG_EXISTS}}', '{{CLOUDHARNESS_BASE_TAG_EXISTS}}')
                 == true
-              forceNoCache: includes('${{ACCOUNTS_TAG_FORCE_BUILD}}', '{{ACCOUNTS_TAG_FORCE_BUILD}}')
+              forceNoCache: includes('${{CLOUDHARNESS_BASE_TAG_FORCE_BUILD}}', '{{CLOUDHARNESS_BASE_TAG_FORCE_BUILD}}')
                 == false
       test-e2e:
         type: build
@@ -144,12 +144,11 @@ steps:
         buildkit: true
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
-        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        image_name: cloud-harness/workflows-extract-download
-        title: Workflows extract download
-        working_directory: ./applications/workflows/tasks/extract-download
+        image_name: cloud-harness/accounts
+        title: Accounts
+        working_directory: ./applications/accounts
         tags:
-        - '${{WORKFLOWS_EXTRACT_DOWNLOAD_TAG}}'
+        - '${{ACCOUNTS_TAG}}'
         - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
         - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
         when:
@@ -237,11 +236,11 @@ steps:
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
         - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        image_name: cloud-harness/workflows-notify-queue
-        title: Workflows notify queue
-        working_directory: ./applications/workflows/tasks/notify-queue
+        image_name: cloud-harness/cloudharness-flask
+        title: Cloudharness flask
+        working_directory: ./infrastructure/common-images/cloudharness-flask
         tags:
-        - '${{WORKFLOWS_NOTIFY_QUEUE_TAG}}'
+        - '${{CLOUDHARNESS_FLASK_TAG}}'
         - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
         - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
         when:
@@ -372,7 +371,7 @@ steps:
                 == true
               forceNoCache: includes('${{COMMON_TAG_FORCE_BUILD}}', '{{COMMON_TAG_FORCE_BUILD}}')
                 == false
-      volumemanager:
+      samples:
         type: build
         stage: build
         dockerfile: Dockerfile
@@ -380,20 +379,21 @@ steps:
         buildkit: true
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
+        - CLOUDHARNESS_FRONTEND_BUILD=${{REGISTRY}}/cloud-harness/cloudharness-frontend-build:${{CLOUDHARNESS_FRONTEND_BUILD_TAG}}
         - CLOUDHARNESS_FLASK=${{REGISTRY}}/cloud-harness/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}
-        image_name: cloud-harness/volumemanager
-        title: Volumemanager
-        working_directory: ./applications/volumemanager/server
+        image_name: cloud-harness/sampleapp
+        title: Samples
+        working_directory: ./applications/samples
         tags:
-        - '${{VOLUMEMANAGER_TAG}}'
+        - '${{SAMPLES_TAG}}'
         - '${{DEPLOYMENT_PUBLISH_TAG}}-dev'
         - '${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}'
         when:
           condition:
             any:
-              buildDoesNotExist: includes('${{VOLUMEMANAGER_TAG_EXISTS}}', '{{VOLUMEMANAGER_TAG_EXISTS}}')
+              buildDoesNotExist: includes('${{SAMPLES_TAG_EXISTS}}', '{{SAMPLES_TAG_EXISTS}}')
                 == true
-              forceNoCache: includes('${{VOLUMEMANAGER_TAG_FORCE_BUILD}}', '{{VOLUMEMANAGER_TAG_FORCE_BUILD}}')
+              forceNoCache: includes('${{SAMPLES_TAG_FORCE_BUILD}}', '{{SAMPLES_TAG_FORCE_BUILD}}')
                 == false
       workflows:
         type: build

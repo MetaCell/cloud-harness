@@ -400,6 +400,14 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         secret_name = secret.replace("_", "__")
                         arguments["custom_values"].append(
                             "apps_%s_harness_secrets_%s=${{%s}}" % (app_name.replace("_", "__"), secret_name, secret_name.upper()))
+            # Add registry secret value secret if registry secret name is set
+            registry = getattr(helm_values, "registry", None)
+            secret = getattr(registry, "secret", None)
+            registry_secret_name = getattr(secret, "name", None)
+            if registry_secret_name:
+                arguments["custom_values"].append(
+                    "registry_secret_value=${{REGISTRY_SECRET_VALUE}}"
+                )
 
     cmds = codefresh['steps']['prepare_deployment']['commands']
 

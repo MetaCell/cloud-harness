@@ -30,12 +30,12 @@ def deploy(namespace, output_path='./deployment'):
 
 
 def create_helm_chart(root_paths, tag: Union[str, int, None] = 'latest', registry='', local=True, domain=None, exclude=(), secured=True,
-                      output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
+                      output_path='./deployment', include=None, registry_secret_name=None, tls=True, env=None,
                       namespace=None, name=None, chart_version=None, app_version=None) -> HarnessMainConfig:
     if (type(env)) == str:
         env = [env]
     return CloudHarnessHelm(root_paths, tag=tag, registry=registry, local=local, domain=domain, exclude=exclude, secured=secured,
-                            output_path=output_path, include=include, registry_secret=registry_secret, tls=tls, env=env,
+                            output_path=output_path, include=include, registry_secret_name=registry_secret_name, tls=tls, env=env,
                             namespace=namespace, name=name, chart_version=chart_version,
                             app_version=app_version).process_values()
 
@@ -43,10 +43,10 @@ def create_helm_chart(root_paths, tag: Union[str, int, None] = 'latest', registr
 class CloudHarnessHelm(ConfigurationGenerator):
 
     def __init__(self, root_paths, tag: Union[str, int, None] = 'latest', registry='', local=True, domain=None, exclude=(), secured=True,
-                 output_path='./deployment', include=None, registry_secret=None, tls=True, env=None,
+                 output_path='./deployment', include=None, registry_secret_name=None, tls=True, env=None,
                  namespace=None, name=None, chart_version=None, app_version=None):
         super().__init__(root_paths, tag=tag, registry=registry, local=local, domain=domain, exclude=exclude, secured=secured,
-                         output_path=output_path, include=include, registry_secret=registry_secret, tls=tls, env=env,
+                         output_path=output_path, include=include, registry_secret_name=registry_secret_name, tls=tls, env=env,
                          namespace=namespace)
         self.chart_name = name
         self.chart_version = chart_version
@@ -144,6 +144,14 @@ class CloudHarnessHelm(ConfigurationGenerator):
             self.dest_deployment_path, VALUES_MANUAL_PATH))
         self._merge_chart_metadata(helm_values['name'])
         validate_helm_values(merged_values)
+        registry = merged_values.get("registry")
+        if registry is not None:
+            secret = registry.get("secret")
+            if isinstance(secret, dict):
+                if secret.get("name") in (None, "") and secret.get("value") in (None, ""):
+                    registry["secret"] = None
+            elif secret in (None, ""):
+                registry["secret"] = None
         return HarnessMainConfig.from_dict(merged_values)
 
     def _aggregate_task_images(self, values):
@@ -184,10 +192,10 @@ class CloudHarnessHelm(ConfigurationGenerator):
 
         if self.local:
             values['registry']['secret'] = ''
-        if self.registry_secret:
-            logging.info(f"Registry secret set")
         values['registry']['name'] = self.registry
-        values['registry']['secret'] = self.registry_secret
+        if self.registry_secret_name:
+            logging.info(f"Registry secret set")
+            values['registry']['secret']['name'] = self.registry_secret_name
         values['tag'] = self.tag
         values['build_hash'] = get_git_commit_hash(self.root_paths[-1])  # Fix: Call the defined function to get the git commit hash
         if self.namespace:

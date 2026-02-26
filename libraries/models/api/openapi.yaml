@@ -124,6 +124,20 @@ components:
                         Values inside this section have a special meaning to cloudharness (e.g. enabling and
                         configuring automatic deployment)
             additionalProperties: true
+        RegistrySecretConfig:
+            description: ''
+            required:
+                - name
+            type: object
+            properties:
+                name:
+                    description: The name of the secret to create for docker registry credentials
+                    type: string
+                value:
+                    description: >-
+                        The value of the secret to create for docker registry  credentials. This should be the
+                        raw JSON content of the  Google Cloud service account key used for the registry.
+                    type: string
         RegistryConfig:
             description: ''
             required:
@@ -134,8 +148,8 @@ components:
                     $ref: '#/components/schemas/URL'
                     description: The docker registry where built images are pushed
                 secret:
+                    $ref: '#/components/schemas/RegistrySecretConfig'
                     description: Optional secret used for pulling from docker registry.
-                    type: string
         FreeObject:
             description: ''
             type: object
