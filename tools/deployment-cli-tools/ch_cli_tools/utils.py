@@ -84,7 +84,15 @@ def get_parent_app_name(app_relative_path):
     return app_relative_path.split("/")[0] if "/" in app_relative_path else ""
 
 
+def strip_registry_tag(full_image_name, registry_url=""):
+    if not full_image_name:
+        return None
+    return full_image_name.replace(registry_url, "").split(":")[0]
+
+
 def get_image_name(app_name, base_name=None):
+    if not app_name:
+        return None
     return (base_name + '/' + app_name) if base_name else app_name
 
 
@@ -470,14 +478,14 @@ def guess_build_dependencies_from_dockerfile(filename):
     return dependencies
 
 
-def check_response_200(endpoint_url):
-    resp = requests.get(endpoint_url)
+def check_response_200(endpoint_url, headers=None):
+    resp = requests.get(endpoint_url, headers=headers, timeout=5)
     return resp.status_code == 200
 
 
 def check_docker_manifest_exists(registry, image_name, tag):
     api_url = f"https://{registry}/v2/{image_name}/manifests/{tag}"
-    return check_response_200(api_url)
+    return check_response_200(api_url, headers={"Accept": "application/vnd.oci.image.manifest.v1+json"})
 
 
 def check_image_exists_in_registry(registry, image_name, tag, endpoint_url=None):

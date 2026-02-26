@@ -10,7 +10,7 @@ from cloudharness_utils.constants import APPS_PATH, DEPLOYMENT_CONFIGURATION_PAT
     BASE_IMAGES_PATH, STATIC_IMAGES_PATH, HELM_ENGINE, COMPOSE_ENGINE
 from .helm import KEY_APPS, KEY_HARNESS, KEY_DEPLOYMENT, KEY_TASK_IMAGES
 from .utils import get_template, dict_merge, find_dockerfiles_paths, app_name_from_path, yaml, \
-    find_file_paths, guess_build_dependencies_from_dockerfile, get_json_template, get_image_name
+    find_file_paths, guess_build_dependencies_from_dockerfile, get_json_template, clean_image_name
 
 from . import HERE
 
@@ -96,7 +96,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
             context_path = relpath_if(root_path, output_path) if global_context else relpath_if(dockerfile_path, output_path)
 
             builds[app_name] = context_path
-            base_images.add(get_image_name(app_name))
+            base_images.add(clean_image_name(app_name))
 
             artifacts[app_name] = build_artifact(
                 app_name,

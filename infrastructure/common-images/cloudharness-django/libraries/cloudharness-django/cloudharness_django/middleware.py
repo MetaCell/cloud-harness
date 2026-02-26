@@ -4,6 +4,8 @@ import jwt
 from django.contrib.auth.models import User
 from django.contrib.auth import logout
 from django.db import transaction
+from django.core.cache import cache
+from django.conf import settings
 from keycloak.exceptions import KeycloakGetError
 
 from cloudharness.auth.exceptions import InvalidToken
@@ -12,6 +14,9 @@ from .models import Member
 from cloudharness import log
 from cloudharness.auth.keycloak import AuthClient, User as KcUser, get_authentication_token
 from psycopg2.errors import UniqueViolation
+
+
+USER_CACHE_TTL = getattr(settings, "BEARER_TOKEN_USER_CACHE_TTL", 60)
 
 
 def _get_user(kc_user_id: str) -> User:
@@ -46,9 +51,10 @@ def _get_user(kc_user_id: str) -> User:
             user_svc = get_user_service()
             kc_user = user_svc.auth_client.get_current_user()
             try:
-                # sync_kc_user is atomic and guarantees Member creation
-                user = user_svc.sync_kc_user(kc_user)
-                user_svc.sync_kc_user_groups(kc_user)
+                with transaction.atomic():
+                    # sync_kc_user is atomic and guarantees Member creation
+                    user = user_svc.sync_kc_user(kc_user)
+                    user_svc.sync_kc_user_groups(kc_user)
 
                 # SAFETY CHECK: Final verification that Member exists
                 try:
@@ -106,9 +112,8 @@ class BearerTokenMiddleware:
         # One-time configuration and initialization.
         self.get_response = get_response
 
-    @transaction.atomic
     def __call__(self, request):
-        user = getattr(request, "user", None)
+
         authentication_token = get_authentication_token()
         if not authentication_token or authentication_token == 'Bearer undefined':
             return self.get_response(request)
@@ -120,6 +125,16 @@ class BearerTokenMiddleware:
             response = self.get_response(request)
             response.delete_cookie('kc-access')
             return response
+
+        if kc_user_id:
+            cache_key = f"bearer_token_user:{kc_user_id}"
+            cached_user = cache.get(cache_key)
+            if cached_user:
+                request.user = cached_user
+                request._cached_user = cached_user
+                return self.get_response(request)
+
+        user = getattr(request, "user", None)
 
         if kc_user:
             if not user or user.is_anonymous or getattr(user, "member", None) is None or user.member.kc_id != kc_user_id:
@@ -140,7 +155,8 @@ class BearerTokenMiddleware:
                         # Don't assign user - request will remain anonymous
         # elif not request.path.startswith('/admin/'):
         #     logout(request)
-
+        if kc_user_id and user:
+            cache.set(cache_key, user, timeout=USER_CACHE_TTL)
         return self.get_response(request)
 
 

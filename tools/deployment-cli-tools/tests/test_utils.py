@@ -1,5 +1,7 @@
 import shutil
 
+import pytest
+
 
 from ch_cli_tools.utils import *
 
@@ -104,8 +106,8 @@ def test_guess_build_dependencies_from_dockerfile():
 
 
 def test_check_docker_manifest_exists():
-    assert check_docker_manifest_exists("gcr.io/metacellllc", "cloudharness/cloudharness-base", "latest")
-    assert not check_docker_manifest_exists("gcr.io/metacellllc", "cloudharness/cloudharness-base", "RANDOM_TAG")
+    assert check_docker_manifest_exists("quay.io", "keycloak/keycloak", "latest")
+    assert not check_docker_manifest_exists("quay.io", "keycloak/keycloak", "RANDOM_TAG")
 
 
 def test_search_word_in_file():

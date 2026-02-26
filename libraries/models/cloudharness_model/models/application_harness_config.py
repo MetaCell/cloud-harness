@@ -70,8 +70,9 @@ class ApplicationHarnessConfig(CloudHarnessBaseModel):
     dockerfile: Optional[DockerfileConfig] = None
     sentry: Optional[StrictBool] = None
     proxy: Optional[ProxyConf] = None
+    image_name: Optional[StrictStr] = Field(default=None, description="Use this name for the image in place of the default directory name")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["deployment", "service", "subdomain", "aliases", "domain", "dependencies", "secured", "uri_role_mapping", "secrets", "use_services", "database", "resources", "readinessProbe", "startupProbe", "livenessProbe", "sourceRoot", "name", "jupyterhub", "accounts", "test", "quotas", "env", "envmap", "dockerfile", "sentry", "proxy"]
+    __properties: ClassVar[List[str]] = ["deployment", "service", "subdomain", "aliases", "domain", "dependencies", "secured", "uri_role_mapping", "secrets", "use_services", "database", "resources", "readinessProbe", "startupProbe", "livenessProbe", "sourceRoot", "name", "jupyterhub", "accounts", "test", "quotas", "env", "envmap", "dockerfile", "sentry", "proxy", "image_name"]
 
     @field_validator('source_root')
     def source_root_validate_regular_expression(cls, value):
@@ -214,7 +215,8 @@ class ApplicationHarnessConfig(CloudHarnessBaseModel):
             "envmap": obj.get("envmap"),
             "dockerfile": DockerfileConfig.from_dict(obj["dockerfile"]) if obj.get("dockerfile") is not None else None,
             "sentry": obj.get("sentry"),
-            "proxy": ProxyConf.from_dict(obj["proxy"]) if obj.get("proxy") is not None else None
+            "proxy": ProxyConf.from_dict(obj["proxy"]) if obj.get("proxy") is not None else None,
+            "image_name": obj.get("image_name")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():
