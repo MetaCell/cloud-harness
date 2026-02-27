@@ -2,6 +2,7 @@
   {{ $domain := .root.Values.domain }}
   {{ $secured_gatekeepers := and .root.Values.secured_gatekeepers }}
   {{ $app := .app }}
+  {{- $routePattern := default .Values.ingress.route_pattern $app.harness.route_pattern }}
     http:
       paths:
 {{- if and $app.harness.secured $secured_gatekeepers $app.harness.uri_role_mapping }}
@@ -39,7 +40,7 @@
     {{- end }}
   {{- end }}
 {{- end }}
-      - path: /(.*)
+      - path: /{{ $routePattern }}
         pathType: ImplementationSpecific
         backend:
           service:
@@ -52,7 +53,8 @@
   {{ $domain := .root.Values.domain }}
   {{ $secured_gatekeepers := and .root.Values.secured_gatekeepers }}
   {{ $app := get .root.Values.apps  .service_name}}
-      - path: /proxy/{{ $app.harness.service.name }}/(.*)
+  {{- $routePattern := default .Values.ingress.route_pattern $app.harness.route_pattern }}
+      - path: /proxy/{{ $app.harness.service.name }}/{{ $routePattern }}
         pathType: ImplementationSpecific
         backend:
           service:
