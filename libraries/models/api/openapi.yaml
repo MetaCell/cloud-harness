@@ -126,8 +126,6 @@ components:
             additionalProperties: true
         RegistrySecretConfig:
             description: ''
-            required:
-                - name
             type: object
             properties:
                 name:
