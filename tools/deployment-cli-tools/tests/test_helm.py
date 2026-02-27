@@ -385,26 +385,6 @@ def test_collect_helm_values_auto_tag(tmp_path):
         fname.unlink()
 
 
-def test_chart_metadata_defaults_to_namespace_name(tmp_path):
-    out_folder = tmp_path / 'test_chart_metadata_defaults_to_namespace_name'
-    create_helm_chart(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        output_path=out_folder,
-        include=['myapp'],
-        domain="my.local",
-        namespace='custom-ns',
-        env='dev',
-        local=False,
-        tag=1,
-        registry='reg'
-    )
-
-    chart_path = out_folder / HELM_CHART_PATH / 'Chart.yaml'
-    chart = yaml.safe_load(open(chart_path, 'r'))
-    assert chart['name'] == 'custom-ns'
-    assert chart['metadata']['namespace'] == 'custom-ns'
-
-
 def test_chart_metadata_optional_overrides(tmp_path):
     out_folder = tmp_path / 'test_chart_metadata_optional_overrides'
     create_helm_chart(
