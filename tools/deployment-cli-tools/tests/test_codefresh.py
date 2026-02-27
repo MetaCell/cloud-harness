@@ -142,7 +142,7 @@ def test_create_codefresh_configuration():
         assert len(l1_steps[CD_STEP_CLONE_DEPENDENCIES]['steps']) == 3, "3 clone steps should be included as we have 2 dependencies from myapp, plus cloudharness"
 
         publish_base_step = l1_steps[CD_STEP_PUBLISH]['steps']['publish_cloudharness-base']
-        assert publish_base_step['when']['condition']['all']['skipPublish'] == "includes('${{CLOUDHARNESS_BASE_PUBLISH_SKIP}}', '{{CLOUDHARNESS_BASE_PUBLISH_SKIP}}') == false"
+        assert publish_base_step['when']['condition']['all']['skipPublish'] == "includes('${{CLOUDHARNESS_BASE_PUBLISH_SKIP}}', '{{CLOUDHARNESS_BASE_PUBLISH_SKIP}}') == true"
     finally:
         shutil.rmtree(BUILD_MERGE_DIR)
 
@@ -329,6 +329,164 @@ def test_create_codefresh_configuration_nobuild():
 
     assert "publish_myapp" not in l1_steps["publish"]["steps"]
     assert "publish_myapp-mytask" in l1_steps["publish"]["steps"]
+
+
+def test_sort_parallel_steps_alphabetically():
+    """Sub-steps inside parallel steps must be sorted alphabetically by name."""
+    steps = {
+        'build_application_images_0': {
+            'type': 'parallel',
+            'stage': 'build',
+            'steps': {
+                'z-image': {'type': 'build'},
+                'a-image': {'type': 'build'},
+                'm-image': {'type': 'build'},
+                'b-image': {'type': 'build'},
+            }
+        },
+        'build_application_images_1': {
+            'type': 'parallel',
+            'stage': 'build',
+            'steps': {
+                'zz': {'type': 'build'},
+                'aa': {'type': 'build'},
+            }
+        },
+        'not_parallel': {
+            'stage': 'prepare',
+            'title': 'Not parallel',
+        },
+    }
+
+    result = sort_parallel_steps(steps)
+
+    # Parallel sub-steps are sorted alphabetically
+    assert list(result['build_application_images_0']['steps'].keys()) == ['a-image', 'b-image', 'm-image', 'z-image']
+    assert list(result['build_application_images_1']['steps'].keys()) == ['aa', 'zz']
+    # Non-parallel steps are unaffected
+    assert 'not_parallel' in result
+
+
+def test_parallel_build_steps_sorted_alphabetically():
+    """Sub-steps inside generated parallel build steps must be sorted alphabetically."""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['samples', 'myapp', 'workflows'],
+        exclude=['events'],
+        domain='my.local',
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg',
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR,
+        )
+        build_included = [app['harness']['name'] for app in values['apps'].values() if 'harness' in app]
+        cf = create_codefresh_deployment_scripts(
+            root_paths,
+            include=build_included,
+            envs=['dev'],
+            base_image_name=values['name'],
+            helm_values=values,
+            save=False,
+        )
+
+        for step_name, step in cf['steps'].items():
+            if step and isinstance(step, dict) and step.get('type') == 'parallel' and 'steps' in step:
+                sub_step_names = list(step['steps'].keys())
+                assert sub_step_names == sorted(sub_step_names), \
+                    f"Sub-steps of '{step_name}' are not sorted alphabetically: {sub_step_names}"
+    finally:
+        import shutil
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
+def test_order_steps_by_stage():
+    """Steps must be sorted according to the stages list; relative order within each stage is preserved."""
+    stages = ['prepare', 'build', 'unittest', 'deploy', 'qa']
+
+    steps = {
+        'build_step_1': {'stage': 'build', 'title': 'Build 1'},
+        'main_clone': {'stage': 'prepare', 'title': 'Clone'},
+        'prepare_deployment': {'stage': 'prepare', 'title': 'Prepare'},
+        'tests_unit': {'stage': 'unittest', 'title': 'Unit tests'},
+        'build_step_2': {'stage': 'build', 'title': 'Build 2'},
+        'deployment': {'stage': 'deploy', 'title': 'Deploy'},
+        'tests_e2e': {'stage': 'qa', 'title': 'E2E tests'},
+        'no_stage_step': {'title': 'No stage'},
+    }
+
+    result = order_steps_by_stage(steps, stages)
+    step_names = list(result.keys())
+
+    assert step_names.index('main_clone') < step_names.index('build_step_1'), "prepare must precede build"
+    assert step_names.index('prepare_deployment') < step_names.index('build_step_1'), "prepare must precede build"
+    assert step_names.index('build_step_1') < step_names.index('tests_unit'), "build must precede unittest"
+    assert step_names.index('build_step_2') < step_names.index('tests_unit'), "build must precede unittest"
+    assert step_names.index('tests_unit') < step_names.index('deployment'), "unittest must precede deploy"
+    assert step_names.index('deployment') < step_names.index('tests_e2e'), "deploy must precede qa"
+
+    # Relative order within each stage is preserved (stable sort)
+    assert step_names.index('main_clone') < step_names.index('prepare_deployment'), "relative order within prepare preserved"
+    assert step_names.index('build_step_1') < step_names.index('build_step_2'), "relative order within build preserved"
+
+    # Steps without a stage come last
+    assert step_names.index('no_stage_step') == len(step_names) - 1, "steps without a stage go to the end"
+
+
+def test_steps_ordered_by_stage_in_generated_config():
+    """The steps produced by create_codefresh_deployment_scripts must be ordered by stage."""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['samples', 'myapp', 'workflows'],
+        exclude=['events'],
+        domain='my.local',
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg',
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR,
+        )
+        build_included = [app['harness']['name'] for app in values['apps'].values() if 'harness' in app]
+        cf = create_codefresh_deployment_scripts(
+            root_paths,
+            include=build_included,
+            envs=['dev'],
+            base_image_name=values['name'],
+            helm_values=values,
+            save=False,
+        )
+
+        stages = cf.get('stages', [])
+        stage_order = {s: i for i, s in enumerate(stages)}
+        steps = cf['steps']
+
+        step_stage_indices = [
+            stage_order.get(step.get('stage'), len(stages))
+            for step in steps.values()
+            if step and isinstance(step, dict)
+        ]
+
+        assert step_stage_indices == sorted(step_stage_indices), \
+            "Steps are not ordered by stage. Got stages: " + str(
+                [step.get('stage') for step in steps.values() if step and isinstance(step, dict)]
+            )
+    finally:
+        import shutil
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
 
 
 def test_app_depends_on_app():

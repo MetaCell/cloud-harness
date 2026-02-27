@@ -442,6 +442,11 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         # some time to the certificates to settle
         rollout_commands.append("sleep 60")
 
+    codefresh['steps'] = sort_parallel_steps(codefresh['steps'])
+
+    if 'stages' in codefresh:
+        codefresh['steps'] = order_steps_by_stage(codefresh['steps'], codefresh['stages'])
+
     if save:
         codefresh_abs_path = join(
             os.getcwd(), DEPLOYMENT_PATH, out_filename)
@@ -451,6 +456,41 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         with open(codefresh_abs_path, 'w') as f:
             yaml.dump(codefresh, f)
     return codefresh
+
+
+def sort_parallel_steps(steps: dict) -> dict:
+    """Sort the sub-steps of every parallel step alphabetically by name.
+
+    Top-level step order is not affected; only the inner ``steps`` dict of each
+    parallel step is sorted.
+    """
+    result = {}
+    for name, step in steps.items():
+        if step and isinstance(step, dict) and step.get('type') == 'parallel' and 'steps' in step:
+            step = dict(step)
+            step['steps'] = dict(sorted(step['steps'].items()))
+        result[name] = step
+    return result
+
+
+def order_steps_by_stage(steps: dict, stages: list) -> dict:
+    """Re-order a flat steps dict so that steps belonging to earlier stages appear first.
+
+    Relative order within each stage is preserved (stable sort). Steps that have no
+    recognised stage are moved to the end, keeping their relative order.
+    """
+    stage_order = {stage: i for i, stage in enumerate(stages)}
+    no_stage_index = len(stages)
+
+    def stage_key(item):
+        step = item[1]
+        if step and isinstance(step, dict):
+            stage = step.get('stage')
+            if stage is not None:
+                return stage_order.get(stage, no_stage_index)
+        return no_stage_index
+
+    return dict(sorted(steps.items(), key=stage_key))
 
 
 def codefresh_template_spec(template_path, **kwargs):
@@ -541,7 +581,7 @@ def existing_publish_when_condition(skip_publish_variable):
     return {
         "condition": {
             "all": {
-                "skipPublish": "includes('${{%s}}', '{{%s}}') == false" % (
+                "skipPublish": "includes('${{%s}}', '{{%s}}') == true" % (
                     skip_publish_variable, skip_publish_variable
                 ),
             }
