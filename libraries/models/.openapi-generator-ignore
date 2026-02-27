@@ -41,3 +41,4 @@ encoder.py
 requirements.txt
 */encoder.py
 */model_utils.py
+test-requirements.txt
