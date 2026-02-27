@@ -7,7 +7,7 @@ namespace: ch
 mainapp: accounts
 registry:
   name: ''
-  secret: ''
+  secret: {}
 tag: latest
 apps:
   volumemanager:
