@@ -69,3 +69,37 @@ proxy:
 Note that in the case that gatekeepers are enabled, the same configurations are applied
 to the gatekeepers, unless the application override them on `harness.proxy.*`.
 See also the [gatekeepers documentation](./accounts.md#secure-and-enpoint-with-the-gatekeeper).
+
+## Route pattern configuration
+
+Cloud Harness allows customizing which request paths are routed to an application
+via a glob-style regular expression. There are two levels where this can be set:
+
+- **Global**: `ingress.route_pattern` in `deployment-configuration/helm/values.yaml` (applies to all apps by default).
+- **Application**: `harness.route_pattern` in an application's `values.yaml` (overrides the global value for that app).
+
+The Helm ingress template uses the application-level `harness.route_pattern` when present,
+falling back to the global `ingress.route_pattern` otherwise.
+
+Example (global default in `deployment-configuration/helm/values.yaml`):
+
+```yaml
+ingress:
+  # Default regex segment for routes (used in paths like '/(pattern)')
+  route_pattern: "/(.*)"
+```
+
+Example (application override in `applications/<app>/deploy/values.yaml`):
+
+```yaml
+harness:
+  # route_pattern is used to build the Ingress path for the app
+  route_pattern: '/((?!(?:metrics)(?:/)?$).*)' # exclude only '/metrics' and '/metrics/'
+```
+
+Notes:
+- The pattern is inserted into the generated Ingress `path` field. Make sure the regex
+  is valid for your ingress controller and matches the expected path syntax.
+- If you only need to exclude a single exact path (for example `/metrics`), use a
+  negative lookahead like the example above. If you prefer a simpler global default,
+  leave `ingress.route_pattern` as `"/(.*)"` and override per-app when needed.
