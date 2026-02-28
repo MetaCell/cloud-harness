@@ -40,7 +40,7 @@
     {{- end }}
   {{- end }}
 {{- end }}
-      - path: /{{ $routePattern }}
+      - path: {{ $routePattern }}
         pathType: ImplementationSpecific
         backend:
           service:
@@ -54,7 +54,7 @@
   {{ $secured_gatekeepers := and .root.Values.secured_gatekeepers }}
   {{ $app := get .root.Values.apps  .service_name}}
   {{- $routePattern := default .Values.ingress.route_pattern $app.harness.route_pattern }}
-      - path: /proxy/{{ $app.harness.service.name }}/{{ $routePattern }}
+      - path: /proxy/{{ $app.harness.service.name }}{{ $routePattern }}
         pathType: ImplementationSpecific
         backend:
           service:
