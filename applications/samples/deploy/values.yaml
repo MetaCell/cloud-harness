@@ -7,7 +7,7 @@ harness:
   service:
     port: 8080
     auto: true
-    route_pattern: '/(?!\/metrics\/?$)\/.*'
+  route_pattern: '/(?!\/metrics\/?$)\/.*'
   use_services:
     - name: common
   deployment:
