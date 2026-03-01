@@ -39,7 +39,7 @@
     {{- end }}
   {{- end }}
 {{- end }}
-      - path: {{ default .Values.ingress.route_pattern $app.harness.route_pattern }}
+      - path: {{ default .root.Values.ingress.route_pattern $app.harness.route_pattern }}
         pathType: ImplementationSpecific
         backend:
           service:
@@ -52,7 +52,7 @@
   {{ $domain := .root.Values.domain }}
   {{ $secured_gatekeepers := and .root.Values.secured_gatekeepers }}
   {{ $app := get .root.Values.apps  .service_name}}
-  {{ $routePattern := default .Values.ingress.route_pattern $app.harness.route_pattern }}
+  {{ $routePattern := default .root.Values.ingress.route_pattern $app.harness.route_pattern }}
       - path: /proxy/{{ $app.harness.service.name }}{{ $routePattern }}
         pathType: ImplementationSpecific
         backend:
