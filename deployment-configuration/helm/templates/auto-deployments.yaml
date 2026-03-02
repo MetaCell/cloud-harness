@@ -100,9 +100,7 @@ spec:
 {{ end }}
         ports:
           - containerPort: {{ .app.harness.deployment.port | default 8080 }}
-        resources:
-          requests:
-          {{ include "deploy_utils.resources" .app.harness.deployment.resources }}
+        {{- include "deploy_utils.resources" .app.harness.deployment.resources | nindent 8 }}
 
         volumeMounts:
           - name: cloudharness-allvalues
