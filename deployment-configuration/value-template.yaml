@@ -45,7 +45,7 @@ harness:
         cpu: "10m"
       limits:
         memory: "500Mi"
-        cpu: "500m"
+        cpu: null
   # -- Defines automatic service parameters.
   service:
     # -- When true, enables automatic service
@@ -113,7 +113,6 @@ harness:
         cpu: "100m"
       limits:
         memory: "2Gi"
-        cpu: "1000m"
   test:
     unit:
       enabled: true
