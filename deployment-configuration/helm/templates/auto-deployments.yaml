@@ -102,11 +102,7 @@ spec:
           - containerPort: {{ .app.harness.deployment.port | default 8080 }}
         resources:
           requests:
-            memory: {{ .app.harness.deployment.resources.requests.memory | default "32Mi" }}
-            cpu: {{ .app.harness.deployment.resources.requests.cpu | default "25m" }}
-          limits:
-            memory: {{ .app.harness.deployment.resources.limits.memory | default "64Mi" }}
-            cpu: {{ .app.harness.deployment.resources.limits.cpu | default "50m" }}
+          {{ include "deploy_utils.resources" .app.harness.deployment.resources }}
 
         volumeMounts:
           - name: cloudharness-allvalues

@@ -8,9 +8,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  resources:
-    requests:
-      storage: {{ .Values.backup.volumesize }}
+  {{ include "deploy_utils.resources" .Values.backup.resources }}
 ---
 {{- end }}
 {{- define "deploy_utils.database" }}
@@ -22,9 +20,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  resources:
-    requests:
-      storage: {{ .app.harness.database.size }}
+  {{ include "deploy_utils.resources" .app.harness.database.resources }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -65,13 +61,7 @@ spec:
         - name: {{ $port.name }}
           containerPort: {{ $port.port }}
         {{- end }}
-        resources:
-          requests:
-            memory: {{ .app.harness.database.resources.requests.memory | default "32Mi" }}
-            cpu: {{ .app.harness.database.resources.requests.cpu | default "25m" }}
-          limits:
-            memory: {{ .app.harness.database.resources.limits.memory | default "64Mi" }}
-            cpu: {{ .app.harness.database.resources.limits.cpu | default "50m" }}
+        {{ include "deploy_utils.resources" .app.harness.database.resources }}
         volumeMounts:
           - name: {{ .app.harness.database.name | quote }}
             mountPath: /data/db

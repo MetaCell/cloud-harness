@@ -1,6 +1,30 @@
 {{/* vim: set filetype=mustache: */}}
 
 {{/*
+Render resources block for deployment, omitting limits if not set
+Usage: {{ include "deploy_utils.resources" .app.harness.deployment.resources }}
+*/}}
+{{- define "deploy_utils.resources" -}}
+resources:
+  requests:
+    {{- if .requests.memory }}
+    memory: {{ .requests.memory }}
+    {{- end }}
+    {{- if .requests.cpu }}
+    cpu: {{ .requests.cpu }}
+    {{- end }}
+  {{- if or .limits.memory .limits.cpu }}
+  limits:
+    {{- if .limits.memory }}
+    memory: {{ .limits.memory }}
+    {{- end }}
+    {{- if .limits.cpu }}
+    cpu: {{ .limits.cpu }}
+    {{- end }}
+  {{- end }}
+{{- end -}}
+
+{{/*
 Create chart name and version as used by the chart label.
 */}}
 {{- define "deploy_utils.chart" -}}
