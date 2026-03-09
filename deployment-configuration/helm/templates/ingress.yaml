@@ -150,7 +150,7 @@ spec:
       - {{ $domain | quote }}
             {{- end }}
           {{- end }}
-    secretName: tls-secret
+    secretName: {{ printf "tls-secret-%s" $appIngressName }}
       {{- end }}
       {{- if $app.harness.use_services }}
 ---
@@ -209,7 +209,7 @@ spec:
       - {{ $domain | quote }}
                 {{- end }}
               {{- end }}
-    secretName: tls-secret
+    secretName: {{ printf "tls-secret-%s" $appIngressName }}
         {{- end }}
       {{- end }}
     {{- end }}
