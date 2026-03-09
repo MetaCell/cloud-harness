@@ -8,6 +8,8 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **image** | **str** |  | [optional] 
 **replicas** | **int** |  | [optional] 
+**resources** | [**DeploymentResourcesConf**](DeploymentResourcesConf.md) |  | [optional] 
+**secret** | **str** |  | [optional] 
 
 ## Example
 

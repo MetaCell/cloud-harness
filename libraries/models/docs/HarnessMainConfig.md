@@ -20,7 +20,7 @@ Name | Type | Description | Notes
 **name** | **str** | Base name | [optional] 
 **task_images** | **Dict[str, object]** |  | [optional] 
 **build_hash** | **str** |  | [optional] 
-**ingress** | [**IngressGlobalConfig**](IngressGlobalConfig.md) |  | [optional] 
+**ingress** | [**GatewayGlobalConfig**](GatewayGlobalConfig.md) |  | [optional] 
 
 ## Example
 

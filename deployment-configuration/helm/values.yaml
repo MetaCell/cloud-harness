@@ -93,6 +93,7 @@ proxy:
     image: "quay.io/gogatekeeper/gatekeeper:2.14.3"
     # -- Default number of gatekeeper replicas
     replicas: 1
+    secret: ""
     resources:
       requests:
         memory: "32Mi"

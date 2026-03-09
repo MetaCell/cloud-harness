@@ -28,7 +28,6 @@ data:
     enable-default-deny: {{ $noWildcards }}
     listen: 0.0.0.0:8080
     enable-encrypted-token: false
-    encryption-key: {{ .app.harness.secrets.gatekeeper | default (randAlphaNum 20) | quote }}
     enable-refresh-tokens: true
     server-write-timeout: {{ .app.harness.proxy.timeout.send | default .root.Values.proxy.timeout.send | default 180 }}s
     upstream-timeout: {{ .app.harness.proxy.timeout.read | default .root.Values.proxy.timeout.read | default 180 }}s
@@ -101,6 +100,24 @@ data:
     </body>
     </html>
 ---
+{{- $gkSecretName := printf "%s-gk" .subdomain }}
+{{- $existingGkSecret := (lookup "v1" "Secret" .root.Values.namespace $gkSecretName) }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $gkSecretName }}
+  namespace: {{ .root.Values.namespace }}
+  labels:
+    app: {{ $gkSecretName }}
+type: Opaque
+stringData:
+  updated: {{ now | quote }}
+  {{- if .root.Values.proxy.gatekeeper.secret }}
+  encryption-key: {{ .root.Values.proxy.gatekeeper.secret | quote }}
+  {{- else if not (and $existingGkSecret (hasKey $existingGkSecret.data "encryption-key")) }}
+  encryption-key: {{ randAlphaNum 20 | quote }}
+  {{- end }}
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -148,6 +165,11 @@ spec:
           value: /opt/proxy.yml
         - name: PROXY_ENABLE_METRICS
           value: "true"
+        - name: PROXY_ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: "{{ .subdomain }}-gk"
+              key: encryption-key
         volumeMounts:
         - name: "{{ .subdomain  }}-gk-proxy-config"
           mountPath: /opt/proxy.yml

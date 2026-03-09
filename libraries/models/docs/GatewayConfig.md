@@ -6,8 +6,8 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**path_type** | **str** | Ingress path type  | 
-**path** | **str** | Default target path prefix for applications endpoints. To use regular expressions (e.g.&#39;/(pattern)&#39;), also set &#x60;route_type&#x60; to  &#x60;ImplementationSpecific&#x60;.  | 
+**path_type** | **str** | Ingress path type  | [optional] 
+**path** | **str** | Default target path prefix for applications endpoints. To use regular expressions (e.g.&#39;/(pattern)&#39;), also set &#x60;route_type&#x60; to  &#x60;ImplementationSpecific&#x60;.  | [optional] 
 
 ## Example
 

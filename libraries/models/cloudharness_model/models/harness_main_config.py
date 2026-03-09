@@ -27,7 +27,7 @@ from typing import ClassVar, List, Dict, Any, Union, Optional, Annotated
 import importlib
 from cloudharness_model.models.application_config import ApplicationConfig
 from cloudharness_model.models.backup_config import BackupConfig
-from cloudharness_model.models.ingress_global_config import IngressGlobalConfig
+from cloudharness_model.models.gateway_global_config import GatewayGlobalConfig
 from cloudharness_model.models.name_value import NameValue
 from cloudharness_model.models.registry_config import RegistryConfig
 
@@ -49,7 +49,7 @@ class HarnessMainConfig(CloudHarnessBaseModel):
     name: Optional[StrictStr] = Field(default=None, description="Base name")
     task_images: Optional[Dict[str, Any]] = Field(default=None, alias="task-images")
     build_hash: Optional[StrictStr] = None
-    ingress: Optional[IngressGlobalConfig] = None
+    ingress: Optional[GatewayGlobalConfig] = None
     additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["local", "secured_gatekeepers", "domain", "namespace", "mainapp", "registry", "tag", "apps", "env", "privenv", "backup", "name", "task-images", "build_hash", "ingress"]
 
@@ -139,7 +139,7 @@ class HarnessMainConfig(CloudHarnessBaseModel):
             "name": obj.get("name"),
             "task-images": obj.get("task-images"),
             "build_hash": obj.get("build_hash"),
-            "ingress": IngressGlobalConfig.from_dict(obj["ingress"]) if obj.get("ingress") is not None else None
+            "ingress": GatewayGlobalConfig.from_dict(obj["ingress"]) if obj.get("ingress") is not None else None
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

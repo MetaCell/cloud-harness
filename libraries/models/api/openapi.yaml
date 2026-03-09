@@ -588,7 +588,7 @@ components:
                     description: ''
                     type: string
                 ingress:
-                    $ref: '#/components/schemas/IngressGlobalConfig'
+                    $ref: '#/components/schemas/GatewayGlobalConfig'
                     description: ''
             additionalProperties: true
         Organization:
@@ -887,6 +887,12 @@ components:
                 replicas:
                     format: int32
                     type: integer
+                resources:
+                    $ref: '#/components/schemas/DeploymentResourcesConf'
+                    description: ''
+                secret:
+                    description: ''
+                    type: string
             example:
                 image: 'quay.io/gogatekeeper/gatekeeper:2.14.3'
                 replicas: 5
@@ -1018,7 +1024,27 @@ components:
                     $ref: '#/components/schemas/GatewayConfig'
                     description: ''
             additionalProperties: true
-        IngressGlobalConfig:
+        GatewayConfig:
+            description: ''
+            type: object
+            allOf:
+                -
+                    required: []
+                    type: object
+                    properties:
+                        pathType:
+                            description: 'Ingress path type '
+                            type: string
+                            example: '"Prefix"'
+                        path:
+                            description: |
+                                Default target path prefix for applications endpoints.
+                                To use regular expressions (e.g.'/(pattern)'), also set `route_type` to 
+                                `ImplementationSpecific`.
+                            type: string
+                            example: '"/"'
+            additionalProperties: true
+        GatewayGlobalConfig:
             description: ''
             type: object
             allOf:
@@ -1041,26 +1067,4 @@ components:
                     $ref: '#/components/schemas/AutoArtifactSpec'
                 -
                     $ref: '#/components/schemas/GatewayConfig'
-            additionalProperties: true
-        GatewayConfig:
-            description: ''
-            type: object
-            allOf:
-                -
-                    required:
-                        - path
-                        - pathType
-                    type: object
-                    properties:
-                        pathType:
-                            description: 'Ingress path type '
-                            type: string
-                            example: '"Prefix"'
-                        path:
-                            description: |
-                                Default target path prefix for applications endpoints.
-                                To use regular expressions (e.g.'/(pattern)'), also set `route_type` to 
-                                `ImplementationSpecific`.
-                            type: string
-                            example: '"/"'
             additionalProperties: true
