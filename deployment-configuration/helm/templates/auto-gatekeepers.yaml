@@ -27,6 +27,8 @@ data:
     forbidden-page: /templates/access-denied.html.tmpl
     enable-default-deny: {{ $noWildcards }}
     listen: 0.0.0.0:8080
+    enable-encrypted-token: false
+    encryption-key: {{ .app.harness.secrets.gatekeeper | default (randAlphaNum 20) | quote }}
     enable-refresh-tokens: true
     server-write-timeout: {{ .app.harness.proxy.timeout.send | default .root.Values.proxy.timeout.send | default 180 }}s
     upstream-timeout: {{ .app.harness.proxy.timeout.read | default .root.Values.proxy.timeout.read | default 180 }}s
@@ -38,7 +40,6 @@ data:
     tls-cert:
     tls-private-key:
     redirection-url: {{ ternary "https" "http" $tls }}://{{ .subdomain }}.{{ .root.Values.domain }}
-    encryption-key: AgXa7xRcoClDEU0ZDSH4X0XhL5Qy2Z2j
     upstream-url: http://{{ .app.harness.service.name }}.{{ .app.namespace | default .root.Release.Namespace }}:{{ .app.harness.service.port | default 80}}
     {{ if .app.harness.secured }}
       {{ with .app.harness.uri_role_mapping }}
@@ -135,7 +136,7 @@ spec:
 {{ include "deploy_utils.etcHosts" .root | indent 6 }}
       containers:
       - name: {{ .app.harness.service.name | quote }}
-        image: {{ .app.harness.proxy.gatekeeper.image | default .root.Values.proxy.gatekeeper.image | default "quay.io/gogatekeeper/gatekeeper:2.14.3" }}
+        image: {{ .app.harness.proxy.gatekeeper.image | default .root.Values.proxy.gatekeeper.image | default "quay.io/gogatekeeper/gatekeeper:4.6.0" }}
         imagePullPolicy: IfNotPresent
         {{ if .root.Values.local }}
         securityContext:
