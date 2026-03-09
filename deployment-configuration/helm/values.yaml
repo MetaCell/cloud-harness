@@ -35,6 +35,10 @@ ingress:
   enabled: true
   # -- K8s Name of ingress.
   name: cloudharness-ingress
+  # -- The ingress class to use (e.g. "nginx", "traefik").
+  ingressClass: nginx
+  # -- Additional custom annotations to add to the Ingress resource.
+  annotations: {}
   # -- Enables/disables SSL redirect.
   ssl_redirect: true
   letsencrypt:
