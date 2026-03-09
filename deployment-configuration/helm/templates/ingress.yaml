@@ -12,7 +12,7 @@
             {{- $uri := $mapping.uri }}
             {{- if eq $uri "/" }}
       - path: /
-        pathType: {{ $app.harness.gateway.pathType | default $root.Values.ingress.pathType | default "Prefix" }}
+        pathType: Exact
         backend:
           service:
             name: {{ $app.harness.service.name | quote }}
