@@ -27,6 +27,7 @@ from cloudharness_model.models.backup_config import BackupConfig
 from cloudharness_model.models.cdc_event import CDCEvent
 from cloudharness_model.models.cdc_event_meta import CDCEventMeta
 from cloudharness_model.models.cpu_memory_config import CpuMemoryConfig
+from cloudharness_model.models.database_config import DatabaseConfig
 from cloudharness_model.models.database_deployment_config import DatabaseDeploymentConfig
 from cloudharness_model.models.deployment_auto_artifact_config import DeploymentAutoArtifactConfig
 from cloudharness_model.models.deployment_resources_conf import DeploymentResourcesConf
@@ -44,6 +45,7 @@ from cloudharness_model.models.jupyter_hub_config import JupyterHubConfig
 from cloudharness_model.models.name_value import NameValue
 from cloudharness_model.models.named_object import NamedObject
 from cloudharness_model.models.organization import Organization
+from cloudharness_model.models.port_config import PortConfig
 from cloudharness_model.models.proxy_conf import ProxyConf
 from cloudharness_model.models.proxy_payload_conf import ProxyPayloadConf
 from cloudharness_model.models.proxy_timeout_conf import ProxyTimeoutConf

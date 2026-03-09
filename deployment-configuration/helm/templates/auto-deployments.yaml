@@ -140,6 +140,11 @@ spec:
             mountPath: "/opt/cloudharness/resources/secrets/{{ .app.harness.name }}"
             readOnly: true
           {{- end }}
+          {{- if and .app.harness.database .app.harness.database.external_connect_string }}
+          - name: db-external
+            mountPath: "/opt/cloudharness/resources/db"
+            readOnly: true
+          {{- end }}
       volumes:
         - name: cloudharness-allvalues
           configMap:
@@ -168,6 +173,11 @@ spec:
         - name: secrets
           secret:
             secretName: {{ .app.harness.deployment.name }}
+        {{- end }}
+        {{- if and .app.harness.database .app.harness.database.external_connect_string }}
+        - name: db-external
+          secret:
+            secretName: {{ printf "%s-db" .app.harness.deployment.name }}
         {{- end }}
 ---
 {{- end }}

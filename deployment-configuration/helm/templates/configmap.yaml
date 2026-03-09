@@ -20,5 +20,8 @@ data:
 {{- range $key, $val := .Values.apps }}
   {{- $app := get $values_copy.apps $key }}
   {{- $tmp := set $app.harness "secrets" dict }}
+  {{- if $app.harness.database }}
+    {{- $tmp := unset $app.harness.database "external_connect_string" }}
+  {{- end }}
 {{- end }}
 {{ $values_copy | toYaml | indent 4 }}

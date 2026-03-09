@@ -1,3 +1,4 @@
+import os
 from typing import List
 
 from cloudharness.utils.config import CloudharnessConfig, ConfigObject
@@ -36,6 +37,10 @@ class ApplicationConfiguration(ApplicationConfig):
         return self.harness.sentry
 
     def get_db_connection_string(self, **kwargs) -> str:
+        external_connect_string_path = "/opt/cloudharness/resources/db/external_connect_string"
+        if os.path.isfile(external_connect_string_path):
+            with open(external_connect_string_path) as f:
+                return f.read().strip()
         if not self.is_auto_db():
             raise ConfigurationCallException(
                 f"Cannot get configuration string: application {self.name} has no database enabled.")
