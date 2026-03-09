@@ -331,6 +331,40 @@ def test_create_codefresh_configuration_nobuild():
     assert "publish_myapp-mytask" in l1_steps["publish"]["steps"]
 
 
+def test_codefresh_db_external_connect_string_secret():
+    """When an app has database.external_connect_string set to '', a custom_values entry must be added to the deployment step."""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['myapp'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 envs=['dev'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+        custom_values = cf['steps']['deployment']['arguments']['custom_values']
+        expected = "apps_myapp_harness_database_external__connect__string=${{MYAPP_DB_EXTERNAL_CONNECT_STRING}}"
+        assert expected in custom_values, \
+            f"Expected custom_value entry for external_connect_string not found. Got: {custom_values}"
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
 def test_sort_parallel_steps_alphabetically():
     """Sub-steps inside parallel steps must be sorted alphabetically by name."""
     steps = {

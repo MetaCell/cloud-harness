@@ -1,6 +1,10 @@
 harness:
   name: "I'm useless"
   subdomain: mysubdomain
+  database:
+    auto: true
+    type: mongo
+    external_connect_string: ""
   dependencies:
     soft:
       - legacy
