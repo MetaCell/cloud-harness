@@ -114,7 +114,7 @@ stringData:
   updated: {{ now | quote }}
   {{- if .root.Values.proxy.gatekeeper.secret }}
   encryption-key: {{ .root.Values.proxy.gatekeeper.secret | quote }}
-  {{- else if not (and $existingGkSecret (hasKey $existingGkSecret.data "encryption-key")) }}
+  {{- else if not (and (eq (typeOf $existingGkSecret.data) (typeOf dict)) (hasKey $existingGkSecret.data "encryption-key")) }}
   encryption-key: {{ randAlphaNum 20 | quote }}
   {{- end }}
 ---
