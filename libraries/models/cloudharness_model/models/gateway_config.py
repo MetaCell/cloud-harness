@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field, field_validator, StrictStr, StrictBool, S
 from typing import ClassVar, List, Dict, Any, Union, Optional, Annotated
 import importlib
 
-class IngressConfig(CloudHarnessBaseModel):
+class GatewayConfig(CloudHarnessBaseModel):
     """
     
     """ # noqa: E501
@@ -64,7 +64,7 @@ class IngressConfig(CloudHarnessBaseModel):
 
     @classmethod
     def from_dict(cls, obj: Optional[Dict[str, Any]]) -> Optional[Self]:
-        """Create an instance of IngressConfig from a dict"""
+        """Create an instance of GatewayConfig from a dict"""
         if obj is None:
             return None
 

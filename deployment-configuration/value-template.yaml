@@ -149,3 +149,8 @@ harness:
           memory: "32Mi"
         limits:
           memory: "64Mi"
+  gateway:
+    ## -- The path mapped to the current application in the gateway. Default is "/". For regex paths, use the path specified in .Values.ingress.path and set pathType to ImplementationSpecific
+    path: "/"
+    ## -- The pathType for the Ingress path. Default is Prefix. For regex paths, set to ImplementationSpecific
+    pathType: Prefix

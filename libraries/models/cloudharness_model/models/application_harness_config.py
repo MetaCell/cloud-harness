@@ -33,6 +33,7 @@ from cloudharness_model.models.database_deployment_config import DatabaseDeploym
 from cloudharness_model.models.deployment_auto_artifact_config import DeploymentAutoArtifactConfig
 from cloudharness_model.models.dockerfile_config import DockerfileConfig
 from cloudharness_model.models.file_resources_config import FileResourcesConfig
+from cloudharness_model.models.gateway_config import GatewayConfig
 from cloudharness_model.models.jupyter_hub_config import JupyterHubConfig
 from cloudharness_model.models.name_value import NameValue
 from cloudharness_model.models.named_object import NamedObject
@@ -71,8 +72,9 @@ class ApplicationHarnessConfig(CloudHarnessBaseModel):
     sentry: Optional[StrictBool] = None
     proxy: Optional[ProxyConf] = None
     image_name: Optional[StrictStr] = Field(default=None, description="Use this name for the image in place of the default directory name")
+    gateway: Optional[GatewayConfig] = None
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["deployment", "service", "subdomain", "aliases", "domain", "dependencies", "secured", "uri_role_mapping", "secrets", "use_services", "database", "resources", "readinessProbe", "startupProbe", "livenessProbe", "sourceRoot", "name", "jupyterhub", "accounts", "test", "quotas", "env", "envmap", "dockerfile", "sentry", "proxy", "image_name"]
+    __properties: ClassVar[List[str]] = ["deployment", "service", "subdomain", "aliases", "domain", "dependencies", "secured", "uri_role_mapping", "secrets", "use_services", "database", "resources", "readinessProbe", "startupProbe", "livenessProbe", "sourceRoot", "name", "jupyterhub", "accounts", "test", "quotas", "env", "envmap", "dockerfile", "sentry", "proxy", "image_name", "gateway"]
 
     @field_validator('source_root')
     def source_root_validate_regular_expression(cls, value):
@@ -168,6 +170,9 @@ class ApplicationHarnessConfig(CloudHarnessBaseModel):
         # override the default output from pydantic by calling `to_dict()` of proxy
         if self.proxy:
             _dict['proxy'] = self.proxy.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of gateway
+        if self.gateway:
+            _dict['gateway'] = self.gateway.to_dict()
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:
             for _key, _value in self.additional_properties.items():
@@ -216,7 +221,8 @@ class ApplicationHarnessConfig(CloudHarnessBaseModel):
             "dockerfile": DockerfileConfig.from_dict(obj["dockerfile"]) if obj.get("dockerfile") is not None else None,
             "sentry": obj.get("sentry"),
             "proxy": ProxyConf.from_dict(obj["proxy"]) if obj.get("proxy") is not None else None,
-            "image_name": obj.get("image_name")
+            "image_name": obj.get("image_name"),
+            "gateway": GatewayConfig.from_dict(obj["gateway"]) if obj.get("gateway") is not None else None
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

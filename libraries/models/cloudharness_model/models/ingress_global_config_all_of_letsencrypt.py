@@ -26,14 +26,13 @@ from pydantic import BaseModel, Field, field_validator, StrictStr, StrictBool, S
 from typing import ClassVar, List, Dict, Any, Union, Optional, Annotated
 import importlib
 
-class IngressConfig(CloudHarnessBaseModel):
+class IngressGlobalConfigAllOfLetsencrypt(CloudHarnessBaseModel):
     """
     
     """ # noqa: E501
-    path_type: StrictStr = Field(description="Ingress path type ", alias="pathType")
-    path: StrictStr = Field(description="Default target path prefix for applications endpoints. To use regular expressions (e.g.'/(pattern)'), also set `route_type` to  `ImplementationSpecific`. ")
+    email: Optional[StrictStr] = None
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["pathType", "path"]
+    __properties: ClassVar[List[str]] = ["email"]
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the dictionary representation of the model using alias.
@@ -64,7 +63,7 @@ class IngressConfig(CloudHarnessBaseModel):
 
     @classmethod
     def from_dict(cls, obj: Optional[Dict[str, Any]]) -> Optional[Self]:
-        """Create an instance of IngressConfig from a dict"""
+        """Create an instance of IngressGlobalConfigAllOfLetsencrypt from a dict"""
         if obj is None:
             return None
 
@@ -72,8 +71,7 @@ class IngressConfig(CloudHarnessBaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "pathType": obj.get("pathType"),
-            "path": obj.get("path")
+            "email": obj.get("email")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

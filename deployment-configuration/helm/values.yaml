@@ -45,7 +45,9 @@ ingress:
     # -- Email for letsencrypt.
     email: cloudharness@metacell.us
   # -- Default regex segment for routes (used in paths like '/(pattern)').
-  route_pattern: "/(.*)"
+  path: "/"
+  # -- The pathType for the Ingress path. Default is Prefix. For regex paths, set to ImplementationSpecific
+  pathType: Prefix
 backup:
   # -- Flag to enable/disable backups.
   active: false

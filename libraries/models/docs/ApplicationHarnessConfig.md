@@ -33,6 +33,7 @@ Name | Type | Description | Notes
 **sentry** | **bool** |  | [optional] 
 **proxy** | [**ProxyConf**](ProxyConf.md) |  | [optional] 
 **image_name** | **str** | Use this name for the image in place of the default directory name | [optional] 
+**gateway** | [**GatewayConfig**](GatewayConfig.md) |  | [optional] 
 
 ## Example
 

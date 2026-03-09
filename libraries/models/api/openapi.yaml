@@ -126,6 +126,7 @@ components:
             additionalProperties: true
         RegistrySecretConfig:
             description: ''
+            required: []
             type: object
             properties:
                 name:
@@ -587,7 +588,7 @@ components:
                     description: ''
                     type: string
                 ingress:
-                    $ref: '#/components/schemas/IngressConfig'
+                    $ref: '#/components/schemas/IngressGlobalConfig'
                     description: ''
             additionalProperties: true
         Organization:
@@ -876,28 +877,6 @@ components:
             additionalProperties: true
             example:
                 name: a name
-        IngressConfig:
-            description: ''
-            type: object
-            allOf:
-                -
-                    type: object
-                    properties:
-                        ssl_redirect:
-                            description: ''
-                            type: boolean
-                        letsencrypt:
-                            description: ''
-                            type: object
-                            properties:
-                                email:
-                                    type: string
-                        enabled:
-                            description: ''
-                            type: boolean
-                -
-                    $ref: '#/components/schemas/AutoArtifactSpec'
-            additionalProperties: true
         GatekeeperConf:
             title: Root Type for GatekeeperConf
             description: ''
@@ -1035,4 +1014,53 @@ components:
                 image_name:
                     description: Use this name for the image in place of the default directory name
                     type: string
+                gateway:
+                    $ref: '#/components/schemas/GatewayConfig'
+                    description: ''
+            additionalProperties: true
+        IngressGlobalConfig:
+            description: ''
+            type: object
+            allOf:
+                -
+                    type: object
+                    properties:
+                        ssl_redirect:
+                            description: ''
+                            type: boolean
+                        letsencrypt:
+                            description: ''
+                            type: object
+                            properties:
+                                email:
+                                    type: string
+                        enabled:
+                            description: ''
+                            type: boolean
+                -
+                    $ref: '#/components/schemas/AutoArtifactSpec'
+                -
+                    $ref: '#/components/schemas/GatewayConfig'
+            additionalProperties: true
+        GatewayConfig:
+            description: ''
+            type: object
+            allOf:
+                -
+                    required:
+                        - path
+                        - pathType
+                    type: object
+                    properties:
+                        pathType:
+                            description: 'Ingress path type '
+                            type: string
+                            example: '"Prefix"'
+                        path:
+                            description: |
+                                Default target path prefix for applications endpoints.
+                                To use regular expressions (e.g.'/(pattern)'), also set `route_type` to 
+                                `ImplementationSpecific`.
+                            type: string
+                            example: '"/"'
             additionalProperties: true
