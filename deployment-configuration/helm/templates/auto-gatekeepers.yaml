@@ -124,7 +124,7 @@ stringData:
       {{- end }}
     {{- end }}
     {{- if not $hasExisting }}
-  encryption-key: {{ randAlphaNum 20 | quote }}
+  encryption-key: {{ randAlphaNum 32 | quote }}
     {{- end }}
   {{- end }}
 ---
