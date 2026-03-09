@@ -483,7 +483,7 @@ def test_steps_ordered_by_stage_in_generated_config():
         assert step_stage_indices == sorted(step_stage_indices), \
             "Steps are not ordered by stage. Got stages: " + str(
                 [step.get('stage') for step in steps.values() if step and isinstance(step, dict)]
-            )
+        )
     finally:
         import shutil
         shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
