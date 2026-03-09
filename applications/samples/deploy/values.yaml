@@ -18,7 +18,7 @@ harness:
       size: 10Mi
       usenfs: false
     auto: true
-    port: 8080
+    port: 8080 
   proxy:
     gatekeeper:
       replicas: 1
@@ -98,3 +98,6 @@ harness:
   dockerfile:
     buildArgs:
       TEST_ARGUMENT: example value
+  database:
+    type: postgres
+    external_connect_string: "test connection string"

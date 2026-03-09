@@ -15,6 +15,23 @@ tags:
 - description: ""
   name: resource
 paths:
+  /db-connect-string:
+    get:
+      description: Returns the database connection string for the current application.
+      operationId: get_db_connect_string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/get_db_connect_string_200_response'
+          description: Database connection string returned successfully
+        "500":
+          description: Error retrieving database connection string
+      summary: Get database connection string
+      tags:
+      - database
+      x-openapi-router-controller: samples.controllers.database_controller
   /error:
     get:
       operationId: error
@@ -326,6 +343,15 @@ components:
       - a
       title: SampleResource
       type: object
+    get_db_connect_string_200_response:
+      example:
+        connect_string: connect_string
+      properties:
+        connect_string:
+          title: connect_string
+          type: string
+      title: get_db_connect_string_200_response
+      type: object
   securitySchemes:
     bearerAuth:
       bearerFormat: JWT
@@ -336,4 +362,4 @@ components:
       in: cookie
       name: kc-access
       type: apiKey
-      x-apikeyInfoFunc: samples.controllers.security_controller_.info_from_cookieAuth
+      x-apikeyInfoFunc: cloudharness.auth.decode_token

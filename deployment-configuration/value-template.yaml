@@ -77,6 +77,8 @@ harness:
     image_ref:
     # -- expose database to the public with ingress
     expose: false
+    # -- Set to "" to set the set the string in the CI/CD as a secret. Only set the full value for dev/testing
+    external_connect_string:
     # -- settings for mongo database (for type==mongo)
     mongo:
       image: mongo:5
