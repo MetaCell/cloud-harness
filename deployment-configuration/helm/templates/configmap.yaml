@@ -20,7 +20,7 @@ data:
 {{- range $key, $val := .Values.apps }}
   {{- $app := get $values_copy.apps $key }}
   {{- $tmp := set $app.harness "secrets" dict }}
-  {{- if $app.harness.database }}
+  {{- if and $app.harness.database (kindIs "map" $app.harness.database) }}
     {{- $tmp := unset $app.harness.database "external_connect_string" }}
   {{- end }}
 {{- end }}
