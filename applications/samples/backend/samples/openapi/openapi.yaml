@@ -24,7 +24,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/get_db_connect_string_200_response'
+                type: string
           description: Database connection string returned successfully
         "500":
           description: Error retrieving database connection string
@@ -342,15 +342,6 @@ components:
       required:
       - a
       title: SampleResource
-      type: object
-    get_db_connect_string_200_response:
-      example:
-        connect_string: connect_string
-      properties:
-        connect_string:
-          title: connect_string
-          type: string
-      title: get_db_connect_string_200_response
       type: object
   securitySchemes:
     bearerAuth:

@@ -96,10 +96,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  connect_string:
-                    type: string
+                type: string
         "500":
           description: Error retrieving database connection string
   /sampleresources:
