@@ -29,4 +29,3 @@ def info_from_cookieAuth(api_key, required_scopes):
     :rtype: dict | None
     """
     return {'uid': 'user_id'}
-
