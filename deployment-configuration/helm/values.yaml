@@ -90,7 +90,7 @@ proxy:
     max: 250
   gatekeeper:
     # -- Default gatekeeper image
-    image: "quay.io/gogatekeeper/gatekeeper:2.14.3"
+    image: "quay.io/gogatekeeper/gatekeeper:4.6.0"
     # -- Default number of gatekeeper replicas
     replicas: 1
     secret: ""
