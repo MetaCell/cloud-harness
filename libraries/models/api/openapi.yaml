@@ -654,7 +654,7 @@ components:
                         resources:
                             $ref: '#/components/schemas/DeploymentResourcesConf'
                             description: Database deployment resources
-                        external_connect_string:
+                        connect_string:
                             description: >-
                                 Specify if the database is external. If not null, auto deployment if set will
                                 not

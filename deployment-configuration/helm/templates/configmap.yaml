@@ -21,7 +21,7 @@ data:
   {{- $app := get $values_copy.apps $key }}
   {{- $tmp := set $app.harness "secrets" dict }}
   {{- if kindIs "map" $app.harness.database }}
-    {{- $tmp := unset $app.harness.database "external_connect_string" }}
+    {{- $tmp := unset $app.harness.database "connect_string" }}
   {{- end }}
 {{- end }}
 {{ $values_copy | toYaml | indent 4 }}

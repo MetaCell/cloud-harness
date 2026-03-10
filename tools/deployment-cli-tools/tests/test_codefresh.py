@@ -331,8 +331,8 @@ def test_create_codefresh_configuration_nobuild():
     assert "publish_myapp-mytask" in l1_steps["publish"]["steps"]
 
 
-def test_codefresh_db_external_connect_string_secret():
-    """When an app has database.external_connect_string set to '', a custom_values entry must be added to the deployment step."""
+def test_codefresh_db_connect_string_secret():
+    """When an app has database.connect_string set to '', a custom_values entry must be added to the deployment step."""
     values = create_helm_chart(
         [CLOUDHARNESS_ROOT, RESOURCES],
         output_path=OUT,
@@ -340,7 +340,7 @@ def test_codefresh_db_external_connect_string_secret():
         exclude=['events'],
         domain="my.local",
         namespace='test',
-        env='dev',
+        env='connectstring',
         local=False,
         tag=1,
         registry='reg'
@@ -358,9 +358,9 @@ def test_codefresh_db_external_connect_string_secret():
                                                  base_image_name=values['name'],
                                                  helm_values=values, save=False)
         custom_values = cf['steps']['deployment']['arguments']['custom_values']
-        expected = "apps_myapp_harness_database_external__connect__string=${{MYAPP_DB_EXTERNAL_CONNECT_STRING}}"
+        expected = "apps_myapp_harness_database_connect__string=${{MYAPP_DB_CONNECT_STRING}}"
         assert expected in custom_values, \
-            f"Expected custom_value entry for external_connect_string not found. Got: {custom_values}"
+            f"Expected custom_value entry for connect_string not found. Got: {custom_values}"
     finally:
         shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
 

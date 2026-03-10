@@ -42,9 +42,9 @@ class DatabaseDeploymentConfig(CloudHarnessBaseModel):
     postgres: Optional[Dict[str, Any]] = None
     neo4j: Optional[Any] = Field(default=None, description="Neo4j database specific configuration")
     resources: Optional[DeploymentResourcesConf] = None
-    external_connect_string: Optional[StrictStr] = Field(default=None, description="Specify if the database is external. If not null, auto deployment if set will not be used. Leva it as an empty string and the connect string will be provided as  a secret to be provided at CI/CD (recommended)")
+    connect_string: Optional[StrictStr] = Field(default=None, description="Specify if the database is external. If not null, auto deployment if set will not be used. Leva it as an empty string and the connect string will be provided as  a secret to be provided at CI/CD (recommended)")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["auto", "name", "type", "size", "user", "pass", "image_ref", "mongo", "postgres", "neo4j", "resources", "external_connect_string"]
+    __properties: ClassVar[List[str]] = ["auto", "name", "type", "size", "user", "pass", "image_ref", "mongo", "postgres", "neo4j", "resources", "connect_string"]
 
     @field_validator('type')
     def type_validate_regular_expression(cls, value):
@@ -112,7 +112,7 @@ class DatabaseDeploymentConfig(CloudHarnessBaseModel):
             "postgres": obj.get("postgres"),
             "neo4j": obj.get("neo4j"),
             "resources": DeploymentResourcesConf.from_dict(obj["resources"]) if obj.get("resources") is not None else None,
-            "external_connect_string": obj.get("external_connect_string")
+            "connect_string": obj.get("connect_string")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

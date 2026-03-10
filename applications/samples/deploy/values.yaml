@@ -102,4 +102,4 @@ harness:
       TEST_ARGUMENT: example value
   database:
     type: postgres
-    external_connect_string: "test connection string"
+    connect_string: "test connection string"

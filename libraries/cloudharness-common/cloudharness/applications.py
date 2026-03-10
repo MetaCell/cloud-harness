@@ -37,9 +37,9 @@ class ApplicationConfiguration(ApplicationConfig):
         return self.harness.sentry
 
     def get_db_connection_string(self, **kwargs) -> str:
-        external_connect_string_path = "/opt/cloudharness/resources/db/external_connect_string"
-        if os.path.isfile(external_connect_string_path):
-            with open(external_connect_string_path) as f:
+        connect_string_path = "/opt/cloudharness/resources/db/connect_string"
+        if os.path.isfile(connect_string_path):
+            with open(connect_string_path) as f:
                 return f.read().strip()
         if not self.is_auto_db():
             raise ConfigurationCallException(
