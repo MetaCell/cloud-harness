@@ -7,7 +7,6 @@ harness:
   service:
     port: 8080
     auto: true
-  route_pattern: '/(?!\/metrics\/?$)\/.*'
   use_services:
     - name: common
   deployment:
@@ -19,6 +18,9 @@ harness:
       usenfs: false
     auto: true
     port: 8080 
+  gateway:
+    path: /
+    pathType: Prefix
   proxy:
     gatekeeper:
       replicas: 1
