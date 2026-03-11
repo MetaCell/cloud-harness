@@ -118,7 +118,7 @@ def test_create_codefresh_configuration():
             step['working_directory'], os.path.join(CLOUDHARNESS_ROOT, APPS_PATH, "samples"))
 
         step = steps["myapp"]
-        assert step['dockerfile'] == "Dockerfile"
+        assert step['dockerfile'].endswith('dev.Dockerfile'), f"myapp should use dev.Dockerfile but got {step['dockerfile']}"
         assert "testprojectname/" in step['image_name'], f"myapp image should have the project name coming from the chart in its path, is {step['image_name']}"
         for build_argument in step['build_arguments']:
             if build_argument.startswith("CLOUDHARNESS_FLASK="):
@@ -534,3 +534,82 @@ def test_app_depends_on_app():
                                              envs=[],
                                              base_image_name=values['name'],
                                              helm_values=values, save=False)
+
+
+def test_env_dockerfile_codefresh():
+    """When a [env].Dockerfile exists it should be used in the codefresh build step."""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['myapp'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 envs=['dev'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+        # myapp has dev.Dockerfile so it should be used
+        myapp_step = cf['steps'][STEP_2]['steps']['myapp']
+        assert myapp_step['dockerfile'].endswith('dev.Dockerfile'), \
+            f"Expected dev.Dockerfile but got {myapp_step['dockerfile']}"
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
+def test_env_dockerfile_codefresh_fallback():
+    """When no [env].Dockerfile exists the regular Dockerfile should be used."""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['samples'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+
+        # samples has no dev.Dockerfile, so it should fall back to Dockerfile
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 envs=['dev'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+        all_build_steps = {
+            step_name: step
+            for build_step_name in [STEP_0, STEP_1, STEP_2, STEP_3]
+            if build_step_name in cf['steps']
+            for step_name, step in cf['steps'][build_step_name]['steps'].items()
+        }
+        assert 'samples' in all_build_steps, "samples should be in the build steps"
+        samples_step = all_build_steps['samples']
+        assert samples_step['dockerfile'] == 'Dockerfile', \
+            f"Expected Dockerfile but got {samples_step['dockerfile']}"
+        assert not samples_step['dockerfile'].endswith('dev.Dockerfile'), \
+            "samples should not use dev.Dockerfile as it does not have one"
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)

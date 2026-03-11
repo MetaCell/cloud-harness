@@ -29,7 +29,7 @@ def get_all_images(helm_values: HarnessMainConfig) -> dict[str, str]:
     return all_images
 
 
-def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, output_path='.', manage_task_images=True, backend_deploy=HELM_ENGINE):
+def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, output_path='.', manage_task_images=True, backend_deploy=HELM_ENGINE, env=None):
     backend = backend_deploy or HELM_ENGINE
     template_name = 'skaffold-template.yaml'
     skaffold_conf = get_template(template_name, True)
@@ -44,6 +44,15 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
     def get_image_tag(name):
         return remove_tag(all_images[name])
+
+    def resolve_dockerfile_name(dockerfile_dir_rel):
+        """Return the dockerfile filename for the given directory, preferring [env].Dockerfile over Dockerfile."""
+        dockerfile_dir_abs = os.path.abspath(os.path.join(output_path, dockerfile_dir_rel))
+        for env_name in (env or []):
+            env_dockerfile = os.path.join(dockerfile_dir_abs, f'{env_name}.Dockerfile')
+            if os.path.exists(env_dockerfile):
+                return f'{env_name}.Dockerfile'
+        return 'Dockerfile'
 
     builds = {}
 
@@ -67,7 +76,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
             'image': image_name,
             'context': context_path,
             'docker': {
-                'dockerfile': join(dockerfile_path, 'Dockerfile'),
+                'dockerfile': join(dockerfile_path, resolve_dockerfile_name(dockerfile_path)),
                 'buildArgs': build_args,
                 'ssh': 'default'
             }

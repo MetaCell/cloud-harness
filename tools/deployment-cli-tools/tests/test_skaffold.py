@@ -217,6 +217,92 @@ def test_create_skaffold_configuration_nobuild(tmp_path):
     assert 'myapp' not in release['overrides']['apps']
 
 
+def test_env_dockerfile(tmp_path):
+    """When a [env].Dockerfile exists it should be used instead of Dockerfile."""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=tmp_path,
+        include=['samples', 'myapp'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    BUILD_DIR = "/tmp/build"
+    root_paths = preprocess_build_overrides(
+        root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+        helm_values=values,
+        merge_build_path=BUILD_DIR
+    )
+
+    sk = create_skaffold_configuration(
+        root_paths=root_paths,
+        helm_values=values,
+        output_path=tmp_path,
+        env=['dev']
+    )
+
+    myapp_artifact = next(
+        a for a in sk['build']['artifacts'] if a['image'] == f'reg/testprojectname/myapp')
+    # myapp has a dev.Dockerfile so it should be used
+    assert myapp_artifact['docker']['dockerfile'].endswith('dev.Dockerfile'), \
+        f"Expected dev.Dockerfile but got {myapp_artifact['docker']['dockerfile']}"
+
+    # samples has no dev.Dockerfile, so it should fall back to Dockerfile
+    expected_samples_image = values[KEY_APPS]['samples'][KEY_HARNESS][KEY_DEPLOYMENT]['image'].split(':')[0]
+    samples_artifact = next(
+        a for a in sk['build']['artifacts'] if a['image'] == expected_samples_image)
+    assert samples_artifact['docker']['dockerfile'].endswith('Dockerfile'), \
+        f"Expected Dockerfile but got {samples_artifact['docker']['dockerfile']}"
+    assert not samples_artifact['docker']['dockerfile'].endswith('dev.Dockerfile'), \
+        "samples should not use dev.Dockerfile"
+
+    shutil.rmtree(tmp_path)
+    shutil.rmtree(BUILD_DIR)
+
+
+def test_env_dockerfile_fallback(tmp_path):
+    """Without env, or when no env.Dockerfile exists, the regular Dockerfile should be used."""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=tmp_path,
+        include=['myapp'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env='',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    BUILD_DIR = "/tmp/build2"
+    root_paths = preprocess_build_overrides(
+        root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+        helm_values=values,
+        merge_build_path=BUILD_DIR
+    )
+
+    sk = create_skaffold_configuration(
+        root_paths=root_paths,
+        helm_values=values,
+        output_path=tmp_path,
+        env=None
+    )
+
+    myapp_artifact = next(
+        a for a in sk['build']['artifacts'] if a['image'] == f'reg/testprojectname/myapp')
+    assert myapp_artifact['docker']['dockerfile'].endswith('Dockerfile'), \
+        f"Expected Dockerfile but got {myapp_artifact['docker']['dockerfile']}"
+    assert not myapp_artifact['docker']['dockerfile'].endswith('dev.Dockerfile'), \
+        "Should not use dev.Dockerfile when no env is specified"
+
+    shutil.rmtree(tmp_path)
+    shutil.rmtree(BUILD_DIR)
+
+
 def test_app_depends_on_app(tmp_path):
     out_folder = tmp_path / 'test_app_depends_on_app'
 

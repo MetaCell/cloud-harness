@@ -219,6 +219,14 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 build["when"] = when_condition
                 return build
 
+            def resolve_dockerfile_name(dockerfile_dir):
+                """Return the dockerfile filename, preferring [env].Dockerfile over Dockerfile."""
+                for env_name in envs:
+                    env_dockerfile = os.path.join(dockerfile_dir, f'{env_name}.Dockerfile')
+                    if exists(env_dockerfile):
+                        return f'{env_name}.Dockerfile'
+                return 'Dockerfile'
+
             def codefresh_steps_from_base_path(base_path, fixed_context=None, include=build_included, publish=True):
                 found = False
                 for dockerfile_path in find_dockerfiles_paths(base_path):
@@ -251,8 +259,9 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
                     build = None
                     if CD_BUILD_STEP_PARALLEL in steps:
+                        dockerfile_name = resolve_dockerfile_name(dockerfile_path)
                         dependencies = guess_build_dependencies_from_dockerfile(
-                            join(dockerfile_path, "Dockerfile")
+                            join(dockerfile_path, dockerfile_name)
                         )
                         build = codefresh_app_build_spec(
                             app_name=app_name,
@@ -262,7 +271,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                             dockerfile_path=join(
                                 relpath(
                                     dockerfile_path, root_path) if fixed_context else '',
-                                "Dockerfile"),
+                                dockerfile_name),
                             helm_values=helm_values,
                             dependencies=dependencies,
                             additional_tags=('latest',) if not publish else ()
