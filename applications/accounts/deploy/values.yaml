@@ -87,10 +87,12 @@ admin:
 editUsernameAllowed: true
 useEvents: true
 identityProviders:
-- github
-- google
+  - github
+  - google
 theme:
   login: "keycloak"
   account: "keycloak"
   admin: "keycloak"
   email: "keycloak"
+realm:
+  organizationsEnabled: false
