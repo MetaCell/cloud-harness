@@ -1,0 +1,192 @@
+{{/*
+  Renders the HTTPRoute rules for a standard app.
+  Equivalent of deploy_utils.ingress.http but for Gateway API.
+  White-listed URI role mapping paths go to the direct backend; the catch-all
+  rule goes to the gatekeeper when secured_gatekeepers is enabled.
+*/}}
+{{- define "deploy_utils.httproute.rules" }}
+  {{- $app := .app }}
+  {{- $root := .root }}
+  {{- $subdomain := .subdomain }}
+  {{- $secured_gatekeepers := and $root.Values.secured_gatekeepers }}
+  {{- if and $app.harness.secured $secured_gatekeepers $app.harness.uri_role_mapping (eq $app.harness.gateway.pathType "Prefix") }}
+    {{- range $mapping := $app.harness.uri_role_mapping }}
+      {{- if and (hasKey $mapping "white-listed") (index $mapping "white-listed") }}
+        {{- $uri := $mapping.uri }}
+        {{- if eq $uri "/" }}
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: {{ $app.harness.service.name }}
+      port: {{ $app.harness.service.port | default 80 }}
+        {{- else if hasSuffix "/*" $uri }}
+          {{- $cleanPath := trimSuffix "/*" $uri }}
+          {{- $pathWithoutSlash := trimPrefix "/" $cleanPath }}
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /{{ $pathWithoutSlash }}/
+    backendRefs:
+    - name: {{ $app.harness.service.name }}
+      port: {{ $app.harness.service.port | default 80 }}
+        {{- else if (not (contains "*" $uri)) }}
+          {{- $pathWithoutSlash := trimPrefix "/" $uri }}
+  - matches:
+    - path:
+        type: PathPrefix
+        value: {{ printf "%s/%s" $app.harness.gateway.path $pathWithoutSlash }}
+    backendRefs:
+    - name: {{ $app.harness.service.name }}
+      port: {{ $app.harness.service.port | default 80 }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  - matches:
+    - path:
+        type: PathPrefix
+        value: {{ $app.harness.gateway.path | default $root.Values.ingress.path | default "/" }}
+    backendRefs:
+    - name: {{ if (and $app.harness.secured $secured_gatekeepers) }}{{ printf "%s-gk" $subdomain }}{{ else }}{{ $app.harness.service.name }}{{ end }}
+      port: {{ if (and $app.harness.secured $secured_gatekeepers) }}8080{{ else }}{{ $app.harness.service.port | default 80 }}{{ end }}
+{{- end }}
+
+{{/*
+  Renders HTTPRoute rules for proxy (use_services) routes.
+  Equivalent of deploy_utils.ingress.service but for Gateway API.
+  Uses URLRewrite filter to strip /proxy/<service>/ prefix before forwarding.
+*/}}
+{{- define "deploy_utils.httproute.proxy.rules" }}
+  {{- $root := .root }}
+  {{- $secured_gatekeepers := and $root.Values.secured_gatekeepers }}
+  {{- range $service := .use_services }}
+    {{- $svcApp := get $root.Values.apps $service.name }}
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /proxy/{{ $svcApp.harness.service.name }}/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: {{ $svcApp.harness.service.name }}{{- if (and $svcApp.harness.secured $secured_gatekeepers) }}-gk{{- end }}
+      port: {{ if (and $svcApp.harness.secured $secured_gatekeepers) }}8080{{ else }}{{ $svcApp.harness.service.port | default 80 }}{{ end }}
+  {{- end }}
+{{- end }}
+
+{{- if and .Values.ingress.enabled .Values.ingress.useGatewayAPI }}
+  {{- $domain := .Values.domain }}
+  {{- $tls := not (not .Values.tls) }}
+  {{- $mainapp := .Values.mainapp }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.ingress.name | quote }}
+  {{- if and (not .Values.local) $tls }}
+  annotations:
+    cert-manager.io/issuer: {{ printf "%s-%s" "letsencrypt" .Values.namespace }}
+  {{- end }}
+spec:
+  gatewayClassName: {{ .Values.ingress.ingressClass }}
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+  {{- if $tls }}
+  - name: https
+    port: 443
+    protocol: HTTPS
+    hostname: {{ printf "*.%s" $domain | quote }}
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: tls-secret
+    allowedRoutes:
+      namespaces:
+        from: Same
+    {{- if $mainapp }}
+  - name: https-root
+    port: 443
+    protocol: HTTPS
+    hostname: {{ $domain | quote }}
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: tls-secret
+    allowedRoutes:
+      namespaces:
+        from: Same
+    {{- end }}
+  {{- end }}
+  {{- range $app := .Values.apps }}
+    {{- if or $app.harness.subdomain $app.harness.domain $app.harness.aliases (and $mainapp (and $app.harness.name (eq $app.harness.name $mainapp))) }}
+      {{- $appIngressName := default $app.harness.name $app.harness.service.name }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $appIngressName | quote }}
+spec:
+  parentRefs:
+  - name: {{ $.Values.ingress.name }}
+    namespace: {{ $.Values.namespace }}
+  hostnames:
+      {{- if (and $mainapp (and $app.harness.name (eq $app.harness.name $mainapp))) }}
+        {{- if ne $app.harness.subdomain "www" }}
+  - {{ $domain | quote }}
+        {{- end }}
+      {{- end }}
+      {{- if $app.harness.domain }}
+  - {{ $app.harness.domain | quote }}
+      {{- end }}
+      {{- if $app.harness.aliases }}
+        {{- range $alias := $app.harness.aliases }}
+  - {{ printf "%s.%s" $alias $domain | quote }}
+        {{- end }}
+      {{- end }}
+      {{- if $app.harness.subdomain }}
+  - {{ printf "%s.%s" $app.harness.subdomain $domain | quote }}
+        {{- range $subapp := $app }}
+          {{- if contains "map" (typeOf $subapp) }}
+            {{- if and $subapp (hasKey $subapp "harness.subdomain") }}
+  - {{ printf "%s.%s.%s" $subapp.harness.subdomain $app.harness.subdomain $domain | quote }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+  rules:
+      {{ include "deploy_utils.httproute.rules" (dict "root" $ "app" $app "subdomain" $app.harness.subdomain) }}
+      {{- if $app.harness.use_services }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ printf "%s-proxy" $appIngressName | quote }}
+spec:
+  parentRefs:
+  - name: {{ $.Values.ingress.name }}
+    namespace: {{ $.Values.namespace }}
+  hostnames:
+        {{- if (and $mainapp (and $app.harness.name (eq $app.harness.name $mainapp))) }}
+          {{- if ne $app.harness.subdomain "www" }}
+  - {{ $domain | quote }}
+          {{- end }}
+        {{- end }}
+        {{- if $app.harness.subdomain }}
+  - {{ printf "%s.%s" $app.harness.subdomain $domain | quote }}
+        {{- end }}
+  rules:
+        {{ include "deploy_utils.httproute.proxy.rules" (dict "root" $ "use_services" $app.harness.use_services) }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,67 @@
+{{- define "deploy_utils.network_policy" }}
+{{- $hasNetwork := hasKey .app.harness "network" }}
+{{- $allowIngress := and $hasNetwork .app.harness.network.allow_ingress }}
+{{- $allowEgress := and $hasNetwork .app.harness.network.allow_egress }}
+{{- if $hasNetwork }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ printf "%s-network-policy" .app.harness.deployment.name }}
+  namespace: {{ .root.Values.namespace }}
+  labels:
+    app: {{ .app.harness.deployment.name | quote }}
+{{- include "deploy_utils.labels" .root | indent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .app.harness.deployment.name | quote }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Always allow traffic from pods in the same namespace
+    - from:
+        - podSelector: {}
+    {{- if $allowIngress }}
+    {{- if or .app.harness.subdomain .app.harness.domain .app.harness.aliases }}
+    # Allow traffic from the ingress controller (any namespace) when ingress is configured
+    - from:
+        - namespaceSelector: {}
+    {{- end }}
+    {{- end }}
+  egress:
+    # Always allow traffic to pods in the same namespace
+    - to:
+        - podSelector: {}
+    # Always allow DNS queries
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    {{- if $allowEgress }}
+    # Allow traffic to the internet (non-private IPs)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+    {{- end }}
+{{- end }}
+{{- end }}
+
+{{- range $app := .Values.apps }}
+  {{- if and (hasKey $app "port") $app.harness.deployment.auto | default false }}
+    {{- include "deploy_utils.network_policy" (dict "root" $ "app" $app) }}
+  {{- end }}
+  {{- range $subapp := $app }}
+  {{- if contains "map" (typeOf $subapp) }}
+  {{- if hasKey $subapp "harness" }}
+    {{- include "deploy_utils.network_policy" (dict "root" $ "app" $subapp) }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+{{- end }}

@@ -155,3 +155,8 @@ harness:
     path: "/"
     ## -- The pathType for the Ingress path. Default is Prefix. For regex paths, set to ImplementationSpecific
     pathType: Prefix
+  network:
+    # -- If true, creates a network policy allowing ingress traffic to the application service from other services in the same namespace and from the internet if ingress is enabled.
+    allow_ingress: true
+    # -- If true, creates a network policy allowing egress traffic from the application pods to other services in the same namespace and to the internet.
+    allow_egress: true
