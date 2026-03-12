@@ -192,6 +192,8 @@ class CloudHarnessHelm(ConfigurationGenerator):
 
         if self.local:
             values['registry']['secret'] = ''
+        if not values['registry']:
+            values['registry'] = {}
         values['registry']['name'] = self.registry
         if self.registry_secret_name:
             logging.info(f"Registry secret set")
