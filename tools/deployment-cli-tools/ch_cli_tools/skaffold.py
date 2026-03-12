@@ -264,13 +264,15 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
 
 def git_clone_hook(conf: GitDependencyConfig, context_path: str):
+    repo_name = os.path.basename(conf.url).split('.')[0]
+    clone_path = join(context_path, "dependencies", conf.path, repo_name) if conf.path else join(context_path, "dependencies", repo_name)
     return {
         'command': [
             'sh',
             join(os.path.dirname(os.path.dirname(HERE)), 'clone.sh'),
             conf.branch_tag,
             conf.url,
-            join(context_path, "dependencies", (conf.path + "/" if conf.path else "") + os.path.basename(conf.url).split('.')[0])
+            clone_path
         ]
     }
 
