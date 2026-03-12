@@ -46,6 +46,14 @@ harness:
       limits:
         memory: "500Mi"
         cpu: null
+    # -- Network policy configuration for the deployment pod.
+    network:
+      # -- If true, the Ingress policyType is omitted: all incoming traffic is unrestricted.
+      ingress: true
+      # -- If true, the Egress policyType is omitted: all outgoing traffic is unrestricted.
+      egress: true
+      # -- List of namespaces allowed to communicate with this pod (both ingress and egress), regardless of the ingress/egress blocks.
+      allowedNamespaces: [traefik, nginx-ingress, ingress-nginx]
   # -- Defines automatic service parameters.
   service:
     # -- When true, enables automatic service
@@ -115,6 +123,14 @@ harness:
         cpu: "100m"
       limits:
         memory: "2Gi"
+    # -- Network policy configuration for the database pod.
+    network:
+      # -- If true, the Ingress policyType is omitted: all incoming traffic is unrestricted.
+      ingress: false
+      # -- If true, the Egress policyType is omitted: all outgoing traffic is unrestricted.
+      egress: false
+      # -- List of namespaces allowed to communicate with this database pod (both ingress and egress), regardless of the ingress/egress blocks.
+      allowedNamespaces: [traefik]
   test:
     unit:
       enabled: true
@@ -155,8 +171,3 @@ harness:
     path: "/"
     ## -- The pathType for the Ingress path. Default is Prefix. For regex paths, set to ImplementationSpecific
     pathType: Prefix
-  network:
-    # -- If true, creates a network policy allowing ingress traffic to the application service from other services in the same namespace and from the internet if ingress is enabled.
-    allow_ingress: true
-    # -- If true, creates a network policy allowing egress traffic from the application pods to other services in the same namespace and to the internet.
-    allow_egress: true

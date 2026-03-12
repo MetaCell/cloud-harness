@@ -210,7 +210,7 @@ spec:
 ---
     {{ include "deploy_utils.securedservice" (dict "root" $ "app" $app "files" $files "subdomain" $app.harness.subdomain) }}
   {{- end }}
-  {{- if $app.harness.aliases }}
+  {{- if and $app.harness.aliases $app.harness.secured }}
     {{- range $subdomain := $app.harness.aliases }}
       {{ include "deploy_utils.securedservice" (dict "root" $ "app" $app "files" $files "subdomain" $subdomain ) }}
     {{- end }}

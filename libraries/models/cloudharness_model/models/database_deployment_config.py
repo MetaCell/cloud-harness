@@ -42,7 +42,7 @@ class DatabaseDeploymentConfig(CloudHarnessBaseModel):
     postgres: Optional[Dict[str, Any]] = None
     neo4j: Optional[Any] = Field(default=None, description="Neo4j database specific configuration")
     resources: Optional[DeploymentResourcesConf] = None
-    connect_string: Optional[StrictStr] = Field(default=None, description="Specify if the database is external. If not null, auto deployment if set will not be used. Leva it as an empty string and the connect string will be provided as  a secret to be provided at CI/CD (recommended)")
+    connect_string: Optional[StrictStr] = Field(default=None, description="Specify if the database is external. If not null, auto deployment if set will not be used. Leave it as an empty string and the connect string will be provided as  a secret to be provided at CI/CD (recommended)")
     additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["auto", "name", "type", "size", "user", "pass", "image_ref", "mongo", "postgres", "neo4j", "resources", "connect_string"]
 

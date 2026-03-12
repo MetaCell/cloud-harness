@@ -44,6 +44,7 @@ from cloudharness_model.models.harness_main_config import HarnessMainConfig
 from cloudharness_model.models.jupyter_hub_config import JupyterHubConfig
 from cloudharness_model.models.name_value import NameValue
 from cloudharness_model.models.named_object import NamedObject
+from cloudharness_model.models.network_config import NetworkConfig
 from cloudharness_model.models.organization import Organization
 from cloudharness_model.models.port_config import PortConfig
 from cloudharness_model.models.proxy_conf import ProxyConf

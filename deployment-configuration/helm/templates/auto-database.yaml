@@ -14,6 +14,7 @@ spec:
 ---
 {{- end }}
 {{- define "deploy_utils.database" }}
+---
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
@@ -83,7 +84,7 @@ spec:
         name: dshm     
       {{- end }}     
 ---
-{{- if .root.Values.backup.active }}
+{{- if and .root.Values.backup.active (ne .app.harness.database.type "neo4j") }}
 {{- include (print "deploy_utils.database." .app.harness.database.type ".backup") . }}
 {{- end }}
 ---
@@ -105,6 +106,7 @@ spec:
     port: {{ $port.port }}
   {{- end }}
 ---
+{{- include "deploy_utils.database_network_policy" (dict "root" .root "app" .app) }}
 {{ end }}
 {{- range $app := .Values.apps }}
   {{- if  $app.harness.database  }}

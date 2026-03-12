@@ -17,7 +17,7 @@ Name | Type | Description | Notes
 **postgres** | **Dict[str, object]** |  | [optional] 
 **neo4j** | **object** | Neo4j database specific configuration | [optional] 
 **resources** | [**DeploymentResourcesConf**](DeploymentResourcesConf.md) |  | [optional] 
-**connect_string** | **str** | Specify if the database is external. If not null, auto deployment if set will not be used. Leva it as an empty string and the connect string will be provided as  a secret to be provided at CI/CD (recommended) | [optional] 
+**connect_string** | **str** | Specify if the database is external. If not null, auto deployment if set will not be used. Leave it as an empty string and the connect string will be provided as  a secret to be provided at CI/CD (recommended) | [optional] 
 
 ## Example
 

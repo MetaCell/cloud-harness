@@ -27,6 +27,7 @@ from typing import ClassVar, List, Dict, Any, Union, Optional, Annotated
 import importlib
 from cloudharness_model.models.deployment_resources_conf import DeploymentResourcesConf
 from cloudharness_model.models.deployment_volume_spec import DeploymentVolumeSpec
+from cloudharness_model.models.network_config import NetworkConfig
 
 class DeploymentAutoArtifactConfig(CloudHarnessBaseModel):
     """
@@ -39,8 +40,9 @@ class DeploymentAutoArtifactConfig(CloudHarnessBaseModel):
     image: Optional[Annotated[str, Field(strict=True)]] = Field(default=None, description="Image name to use in the deployment. Leave it blank to set from the application's Docker file")
     resources: Optional[DeploymentResourcesConf] = None
     volume: Optional[DeploymentVolumeSpec] = None
+    network: Optional[NetworkConfig] = None
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["auto", "name", "port", "replicas", "image", "resources", "volume"]
+    __properties: ClassVar[List[str]] = ["auto", "name", "port", "replicas", "image", "resources", "volume", "network"]
 
     @field_validator('image')
     def image_validate_regular_expression(cls, value):
@@ -78,6 +80,9 @@ class DeploymentAutoArtifactConfig(CloudHarnessBaseModel):
         # override the default output from pydantic by calling `to_dict()` of volume
         if self.volume:
             _dict['volume'] = self.volume.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of network
+        if self.network:
+            _dict['network'] = self.network.to_dict()
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:
             for _key, _value in self.additional_properties.items():
@@ -106,7 +111,8 @@ class DeploymentAutoArtifactConfig(CloudHarnessBaseModel):
             "replicas": obj.get("replicas"),
             "image": obj.get("image"),
             "resources": DeploymentResourcesConf.from_dict(obj["resources"]) if obj.get("resources") is not None else None,
-            "volume": DeploymentVolumeSpec.from_dict(obj["volume"]) if obj.get("volume") is not None else None
+            "volume": DeploymentVolumeSpec.from_dict(obj["volume"]) if obj.get("volume") is not None else None,
+            "network": NetworkConfig.from_dict(obj["network"]) if obj.get("network") is not None else None
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

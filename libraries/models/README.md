@@ -97,6 +97,7 @@ Class | Method | HTTP request | Description
  - [JupyterHubConfig](docs/JupyterHubConfig.md)
  - [NameValue](docs/NameValue.md)
  - [NamedObject](docs/NamedObject.md)
+ - [NetworkConfig](docs/NetworkConfig.md)
  - [Organization](docs/Organization.md)
  - [PortConfig](docs/PortConfig.md)
  - [ProxyConf](docs/ProxyConf.md)
