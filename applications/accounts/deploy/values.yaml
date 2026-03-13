@@ -7,10 +7,10 @@ harness:
     port: 8080
     resources:
       requests:
-        memory: "512Mi"
+        memory: "800Mi"
         cpu: "10m"
       limits:
-        memory: "1024Mi"
+        memory: "1Gi"
   service:
     auto: true
     port: 8080

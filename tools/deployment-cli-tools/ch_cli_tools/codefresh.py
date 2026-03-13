@@ -283,13 +283,17 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     if CD_STEP_PUBLISH in steps and steps[CD_STEP_PUBLISH] and publish:
                         if not type(steps[CD_STEP_PUBLISH]['steps']) == dict:
                             steps[CD_STEP_PUBLISH]['steps'] = {}
-                        steps[CD_STEP_PUBLISH]['steps']['publish_' + app_name] = codefresh_app_publish_spec(
-                            full_src_image=helm_values.apps[app_name].image if app_name in helm_values.apps else helm_values[KEY_TASK_IMAGES][app_name],
-                            build_tag=build and build['tags'][0],
-                            registry=helm_values.registry.name,
-                            app_name=app_name
-                        )
-                        found = True
+                        image_name = helm_values.apps[app_name].image if app_name in helm_values.apps else helm_values[KEY_TASK_IMAGES].get(app_name, None)
+                        if app_name:
+                            steps[CD_STEP_PUBLISH]['steps']['publish_' + app_name] = codefresh_app_publish_spec(
+                                full_src_image=image_name,
+                                build_tag=build and build['tags'][0],
+                                registry=helm_values.registry.name,
+                                app_name=app_name
+                            )
+                            found = True
+                        else:
+                            logging.warning("Detected image %s which is not part of the deployment", app_name)
 
                     if CD_UNIT_TEST_STEP in steps and app_config:
                         add_unit_test_step(app_config)

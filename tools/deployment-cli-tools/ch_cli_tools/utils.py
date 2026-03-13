@@ -29,6 +29,8 @@ REPLACE_TEXT_FILES_EXTENSIONS = (
     '.js', '.md', '.py', '.js', '.ts', '.tsx', '.txt', 'Dockerfile', 'yaml', 'json', '.ejs'
 )
 
+SKIP_DIRS = ('dependencies', 'node_modules')
+
 
 def image_name_from_dockerfile_path(dockerfile_path, base_name=None):
     return get_image_name(app_name_from_path(dockerfile_path), base_name)
@@ -222,7 +224,8 @@ def copymergedir(source_root_directory: pathlib.Path, destination_root_directory
     """
     logging.info(f'Copying directory {source_root_directory} to {destination_root_directory}')
 
-    for source_directory, _, files in os.walk(source_root_directory):  # source_root_directory.walk() from Python 3.12
+    for source_directory, dirs, files in os.walk(source_root_directory):  # source_root_directory.walk() from Python 3.12
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
         source_directory = pathlib.Path(source_directory)
         destination_directory = destination_root_directory / source_directory.relative_to(source_root_directory)
         destination_directory.mkdir(parents=True, exist_ok=True)

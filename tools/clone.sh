@@ -12,7 +12,7 @@ then
     git clone --branch $BRANCH $REPOSRC $LOCALREPO || echo "Error: failed to clone $REPOSRC"
 else
     cd $LOCALREPO
-    git pull origin $BRANCH || echo "Error: failed to pull $REPOSRC"
+    # git pull origin $BRANCH || echo "Error: failed to pull $REPOSRC"
 fi
 
 # End
