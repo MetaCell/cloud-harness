@@ -29,7 +29,7 @@ REPLACE_TEXT_FILES_EXTENSIONS = (
     '.js', '.md', '.py', '.js', '.ts', '.tsx', '.txt', 'Dockerfile', 'yaml', 'json', '.ejs'
 )
 
-SKIP_DIRS = ('dependencies', 'node_modules')
+SKIP_DIRS = ('node_modules',)
 
 
 def image_name_from_dockerfile_path(dockerfile_path, base_name=None):
