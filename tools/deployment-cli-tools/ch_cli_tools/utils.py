@@ -79,7 +79,7 @@ def find_dockerfiles_paths(base_directory):
         else:
             dockerfiles_without_git.append(dockerfile.replace(os.sep, "/"))
 
-    return tuple(dockerfiles_without_git)
+    return tuple(p for p in dockerfiles_without_git if not re.search(r'(^|/).*dependencies.*/', p + '/'))
 
 
 def get_parent_app_name(app_relative_path):
