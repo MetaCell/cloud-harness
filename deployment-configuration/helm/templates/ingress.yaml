@@ -102,7 +102,7 @@ spec:
   ingressClassName: {{ $.Values.ingress.ingressClass }}
   rules:
       {{- if (and $mainapp (and $app.harness.name (eq $app.harness.name $mainapp))) }}
-        {{- if ne $app.harness.subdomain "www" }}
+        {{- if and $app.harness.subdomain (ne $app.harness.subdomain "www") }}
   - host: {{ $domain | quote }}
     {{ include "deploy_utils.ingress.http" (dict "root" $ "app" $app "subdomain" $app.harness.subdomain) }}
         {{- end }}
@@ -146,7 +146,7 @@ spec:
             {{- end }}
           {{- end }}
           {{- if (and $mainapp (and $app.harness.name (eq $app.harness.name $mainapp))) }}
-            {{- if ne $app.harness.subdomain "www" }}
+            {{- if and $app.harness.subdomain (ne $app.harness.subdomain "www") }}
       - {{ $domain | quote }}
             {{- end }}
           {{- end }}
@@ -181,7 +181,7 @@ spec:
   ingressClassName: {{ $.Values.ingress.ingressClass }}
   rules:
         {{- if (and $mainapp (and $app.harness.name (eq $app.harness.name $mainapp))) }}
-          {{- if ne $app.harness.subdomain "www" }}
+          {{- if and $app.harness.subdomain (ne $app.harness.subdomain "www") }}
   - host: {{ $domain | quote }}
     http:
       paths:
@@ -205,7 +205,7 @@ spec:
       - {{ printf "%s.%s" $app.harness.subdomain $domain | quote }}
               {{- end }}
               {{- if (and $mainapp (and $app.harness.name (eq $app.harness.name $mainapp))) }}
-                {{- if ne $app.harness.subdomain "www" }}
+                {{- if and $app.harness.subdomain (ne $app.harness.subdomain "www") }}
       - {{ $domain | quote }}
                 {{- end }}
               {{- end }}
