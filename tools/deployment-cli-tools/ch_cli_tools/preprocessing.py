@@ -7,7 +7,7 @@ from os.path import join, basename, isabs, relpath
 
 from .helm import KEY_APPS, KEY_TASK_IMAGES
 
-from .utils import app_name_from_path, merge_app_directories, merge_configuration_directories, find_subdirs
+from .utils import app_name_from_path, merge_app_directories, merge_override_directories, symlink_configuration_directories, find_subdirs
 from cloudharness_utils.constants import APPS_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, DEFAULT_MERGE_PATH
 
 
@@ -29,8 +29,7 @@ def preprocess_build_overrides(root_paths, helm_values, merge_build_path=DEFAULT
             merge_build_path,
             relpath(base_path, root_path)
         )
-        merge_configuration_directories(artifacts[app_name], dest_path)
-        merge_configuration_directories(base_path, dest_path)
+        merge_override_directories(artifacts[app_name], base_path, dest_path)
 
     for root_path in root_paths:
 
@@ -41,7 +40,7 @@ def preprocess_build_overrides(root_paths, helm_values, merge_build_path=DEFAULT
             elif app_name in helm_values[KEY_TASK_IMAGES]:
                 libraries_path = join(root_path, 'libraries')
                 if exists(libraries_path):
-                    merge_configuration_directories(
+                    symlink_configuration_directories(
                         libraries_path,
                         join(merge_build_path, 'libraries')
                     )

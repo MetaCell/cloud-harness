@@ -43,4 +43,16 @@ def test_preprocess_build_overrides():
     assert os.path.exists(os.path.join(MERGE_BUILD_DIR, APPS_PATH, "workflows/tasks/notify-queue/new-file"))
     assert os.path.exists(os.path.join(MERGE_BUILD_DIR, APPS_PATH, "workflows/tasks/notify-queue/Dockerfile"))
 
+    # Non-mergeable files or dirs should be symlinks
+    assert os.path.islink(os.path.join(MERGE_BUILD_DIR, BASE_IMAGES_PATH, "cloudharness-base/testfile"))
+    assert os.path.islink(os.path.join(MERGE_BUILD_DIR, BASE_IMAGES_PATH, "cloudharness-base/Dockerfile"))
+    # new-task only exists in override -> entire directory is symlinked
+    assert os.path.islink(os.path.join(MERGE_BUILD_DIR, APPS_PATH, "workflows/tasks/new-task"))
+    # notify-queue exists in both -> recursed, individual files are symlinked
+    assert os.path.islink(os.path.join(MERGE_BUILD_DIR, APPS_PATH, "workflows/tasks/notify-queue/new-file"))
+    assert os.path.islink(os.path.join(MERGE_BUILD_DIR, APPS_PATH, "workflows/tasks/notify-queue/Dockerfile"))
+
+    # Merged yaml files should be real files (not symlinks)
+    assert not os.path.islink(os.path.join(MERGE_BUILD_DIR, APPS_PATH, "accounts/deploy/values.yaml"))
+
     shutil.rmtree(MERGE_BUILD_DIR)

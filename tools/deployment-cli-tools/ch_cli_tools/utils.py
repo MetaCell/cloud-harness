@@ -394,6 +394,143 @@ def _merge_configuration_file(source_file_path: pathlib.Path, destination_file_p
                     pass
 
 
+
+def symlink_configuration_directories(source: Union[str, pathlib.Path], destination: Union[str, pathlib.Path]) -> None:
+    """Recreate the source directory tree under destination using symlinks for top-level children."""
+    source_path = pathlib.Path(source).resolve()
+    destination_path = pathlib.Path(destination)
+
+    if not source_path.exists():
+        logging.warning("Trying to symlink the non-existing directory: %s", source)
+        return
+
+    destination_path.mkdir(parents=True, exist_ok=True)
+    for child in source_path.iterdir():
+        if child.name in EXCLUDE_PATHS or child.name in BUILD_FILENAMES:
+            continue
+        dest_child = destination_path / child.name
+        if not dest_child.exists() and not dest_child.is_symlink():
+            os.symlink(child, dest_child)
+
+
+def merge_override_directories(
+    base: Union[str, pathlib.Path],
+    override: Union[str, pathlib.Path],
+    destination: Union[str, pathlib.Path],
+) -> None:
+    """Merge two directory trees into destination using symlinks where possible.
+
+    Subdirectories only in one source are symlinked as a whole.
+    Subdirectories in both sources are recursed into.
+    Files present in both are merged if their extension supports it (.yaml/.yml/.json),
+    otherwise the override file is symlinked (override wins).
+    """
+    base_path = pathlib.Path(base).resolve()
+    override_path = pathlib.Path(override).resolve()
+    destination_path = pathlib.Path(destination)
+
+    base_exists = base_path.exists()
+    override_exists = override_path.exists()
+
+    if not base_exists and not override_exists:
+        return
+
+    destination_path.mkdir(parents=True, exist_ok=True)
+
+    base_children = {c.name: c for c in base_path.iterdir()} if base_exists else {}
+    override_children = {c.name: c for c in override_path.iterdir()} if override_exists else {}
+
+    all_names = set(base_children) | set(override_children)
+
+    for name in sorted(all_names):
+        if name in EXCLUDE_PATHS or name in BUILD_FILENAMES:
+            continue
+
+        dest_child = destination_path / name
+        dest_exists = dest_child.exists() or dest_child.is_symlink()
+        in_base = name in base_children
+        in_override = name in override_children
+        base_child = base_children.get(name)
+        override_child = override_children.get(name)
+
+        # Both are directories -> recurse
+        if in_base and in_override and base_child.is_dir() and override_child.is_dir():
+            merge_override_directories(base_child, override_child, dest_child)
+            continue
+
+        # Directory only in one source -> symlink the whole directory
+        if in_base and not in_override and base_child.is_dir():
+            if not dest_exists:
+                os.symlink(base_child, dest_child)
+            continue
+        if in_override and not in_base and override_child.is_dir():
+            if dest_exists:
+                if dest_child.is_symlink():
+                    dest_child.unlink()
+                else:
+                    shutil.rmtree(dest_child)
+            os.symlink(override_child, dest_child)
+            continue
+
+        # If one side is a dir and the other a file, override wins
+        if in_override and in_base:
+            if base_child.is_dir() and not override_child.is_dir():
+                # override file replaces base directory
+                if dest_exists:
+                    if dest_child.is_symlink():
+                        dest_child.unlink()
+                    elif dest_child.is_dir():
+                        shutil.rmtree(dest_child)
+                    else:
+                        dest_child.unlink()
+                os.symlink(override_child.resolve(), dest_child)
+                continue
+            if override_child.is_dir() and not base_child.is_dir():
+                # override directory replaces base file
+                if dest_exists:
+                    if dest_child.is_symlink():
+                        dest_child.unlink()
+                    elif dest_child.is_dir():
+                        shutil.rmtree(dest_child)
+                    else:
+                        dest_child.unlink()
+                os.symlink(override_child, dest_child)
+                continue
+
+        # --- File-level handling ---
+        if in_base and not in_override:
+            if not dest_exists:
+                os.symlink(base_child.resolve(), dest_child)
+        elif in_override and not in_base:
+            if dest_exists:
+                dest_child.unlink()
+            os.symlink(override_child.resolve(), dest_child)
+        else:
+            # File exists in both trees
+            ext = pathlib.Path(name).suffix.lower()
+            merge_fn = merge_operations.get(ext)
+            if merge_fn is not None:
+                if not dest_exists:
+                    shutil.copy2(base_child, dest_child)
+                elif dest_child.is_symlink():
+                    real_path = dest_child.resolve()
+                    dest_child.unlink()
+                    shutil.copy2(real_path, dest_child)
+                try:
+                    merge_fn(override_child, dest_child)
+                    logging.info('Merged file content of %s from base and override', dest_child)
+                except Exception:
+                    logging.warning('Merge error: overwriting %s with override %s', dest_child, override_child)
+                    if dest_child.is_symlink():
+                        dest_child.unlink()
+                    shutil.copy2(override_child, dest_child)
+            else:
+                # Non-mergeable: override wins
+                if dest_exists:
+                    dest_child.unlink()
+                os.symlink(override_child.resolve(), dest_child)
+
+
 def dict_merge(dct, merge_dct, add_keys=True):
     """ Recursive dict merge. Inspired by :meth:``dict.update()``, instead of
     updating only top-level keys, dict_merge recurses down into dicts nested
