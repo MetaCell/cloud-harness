@@ -49,6 +49,7 @@ Take the following best practices into account when writing code for the project
 - Handle exceptions only at the higher level; let lower layers raise. NEVER catch exceptions in helpers or services unless you are adding context and re-raising.
 - Cover critical logic with unit tests, especially in helpers and services. Use mocks to isolate units under test.
 - Prefer models classes for helpers and services to ensure data validation and clear interfaces. Use typed dicts for structured data that isn't covered by Schema classes. Use plain dicts only to represent real unstructured data. Avoid returning tuples.
+- Bubble up exceptions to the highest level possible, where they can be handled. Avoid return values to reflect success or failure. Embed library exceptions and untyped exceptions in custom exceptions with clear meaning and context. This allows for better error handling and debugging.
 
 
 ## Important Constraints
