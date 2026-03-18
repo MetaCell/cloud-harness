@@ -29,8 +29,12 @@ def preprocess_build_overrides(root_paths, helm_values, merge_build_path=DEFAULT
             merge_build_path,
             relpath(base_path, root_path)
         )
-        merge_configuration_directories(artifacts[app_key], dest_path, exclude=read_dockerignore(artifacts[app_key]) or tuple(EXCLUDE_PATHS))
-        merge_configuration_directories(base_path, dest_path, exclude=read_dockerignore(base_path) or tuple(EXCLUDE_PATHS))
+        exclude = read_dockerignore(artifacts[app_key])
+        merge_configuration_directories(artifacts[app_key], dest_path, exclude=exclude or tuple(EXCLUDE_PATHS))
+        merge_configuration_directories(
+            base_path, dest_path,
+            exclude=read_dockerignore(base_path) or exclude or tuple(EXCLUDE_PATHS)
+        )
 
     for root_path in root_paths:
 
