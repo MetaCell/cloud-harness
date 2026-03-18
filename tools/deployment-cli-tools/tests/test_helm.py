@@ -399,8 +399,6 @@ def test_network_policy_defaults_from_value_template(tmp_path):
         f"allowedNamespaces from value-template override should contain 'test-namespace', got: {allowed}"
     )
 
-
-
     out_folder = tmp_path / 'test_chart_metadata_optional_overrides'
     create_helm_chart(
         [CLOUDHARNESS_ROOT, RESOURCES],

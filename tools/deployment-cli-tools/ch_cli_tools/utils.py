@@ -293,6 +293,7 @@ def merge_configuration_directories(source: Union[str, pathlib.Path], destinatio
             _rsync_directory(source_path, destination_path, exclude)
         except (FileNotFoundError, subprocess.CalledProcessError) as e:
             logging.debug("rsync failed (%s), falling back to shutil.copytree", e)
+
             def _ignore(directory, contents):
                 rel_dir = pathlib.Path(directory).relative_to(source_path)
                 return [c for c in contents if spec.match_file(str(rel_dir / c)) or spec.match_file(str(rel_dir / c) + '/')]
@@ -415,7 +416,6 @@ def _merge_configuration_file(source_file_path: pathlib.Path, destination_file_p
                     logging.info(f'Merged/overridden file content of {destination_file_path} with {env_specific_file}')
                 except:
                     pass
-
 
 
 def dict_merge(dct, merge_dct, add_keys=True):
