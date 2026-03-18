@@ -252,7 +252,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     if app_config and not helm_values.apps[app_key].get('build', True):
                         continue
 
-                    if app_config and app_config.dependencies and app_config.dependencies.git:
+                    if app_config and app_config.dependencies and app_config.dependencies.git and DEFAULT_MERGE_PATH not in root_path:
                         for dep in app_config.dependencies.git:
                             step_name = f"clone_{basename(dep.url).replace('.', '_')}_{dep.branch_tag}_{basename(dockerfile_relative_to_root).replace('.', '_')}"
                             steps[CD_STEP_CLONE_DEPENDENCIES]['steps'][step_name] = clone_step_spec(dep, dockerfile_relative_to_root)
