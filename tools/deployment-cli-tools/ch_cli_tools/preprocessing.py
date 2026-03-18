@@ -23,14 +23,14 @@ def preprocess_build_overrides(root_paths, helm_values, merge_build_path=DEFAULT
     merged = False
     artifacts = {}
 
-    def merge_appdir(root_path, base_path, exclude):
-        app_name = app_name_from_path(basename(base_path))
+    def merge_appdir(root_path, base_path):
+        app_key = app_name_from_path(basename(base_path))
         dest_path = join(
             merge_build_path,
             relpath(base_path, root_path)
         )
-
-        merge_configuration_directories(base_path, dest_path, exclude=exclude)
+        merge_configuration_directories(artifacts[app_key], dest_path, exclude=read_dockerignore(artifacts[app_key]) or tuple(EXCLUDE_PATHS))
+        merge_configuration_directories(base_path, dest_path, exclude=read_dockerignore(base_path) or tuple(EXCLUDE_PATHS))
 
     for root_path in root_paths:
 
@@ -39,7 +39,7 @@ def preprocess_build_overrides(root_paths, helm_values, merge_build_path=DEFAULT
             exclude = read_dockerignore(base_path) or tuple(EXCLUDE_PATHS)
             if app_name not in artifacts:
                 artifacts[app_name] = base_path
-            if app_name in helm_values[KEY_TASK_IMAGES]:
+            elif app_name in helm_values[KEY_TASK_IMAGES]:
                 libraries_path = join(root_path, 'libraries')
                 if exists(libraries_path):
                     merge_configuration_directories(
@@ -47,27 +47,25 @@ def preprocess_build_overrides(root_paths, helm_values, merge_build_path=DEFAULT
                         join(merge_build_path, 'libraries'),
                         exclude=exclude
                     )
-                merge_appdir(root_path, base_path, exclude)
+                merge_appdir(root_path, base_path)
                 merged = True
 
     for root_path in root_paths:
         for base_path in find_subdirs(join(root_path, STATIC_IMAGES_PATH)):
             app_name = app_name_from_path(basename(base_path))
-            exclude = read_dockerignore(base_path) or tuple(EXCLUDE_PATHS)
             if app_name not in artifacts:
                 artifacts[app_name] = base_path
-            if app_name in helm_values[KEY_TASK_IMAGES]:
-                merge_appdir(root_path, base_path, exclude)
+            elif app_name in helm_values[KEY_TASK_IMAGES]:
+                merge_appdir(root_path, base_path)
                 merged = True
 
     for root_path in root_paths:
         for base_path in find_subdirs(join(root_path, APPS_PATH)):
             app_name = app_name_from_path(basename(base_path))
-            exclude = read_dockerignore(base_path) or tuple(EXCLUDE_PATHS)
             if app_name not in artifacts:
                 artifacts[app_name] = base_path
-            if app_name in helm_values[KEY_APPS]:
-                merge_appdir(root_path, base_path, exclude)
+            elif app_name in helm_values[KEY_APPS]:
+                merge_appdir(root_path, base_path)
                 merged = True
 
     if exists(merge_build_path):
