@@ -488,10 +488,10 @@ def merge_app_directories(root_paths, destination) -> None:
 def read_dockerignore(base_path: Union[str, pathlib.Path]) -> tuple:
     dockerignore = pathlib.Path(base_path) / '.dockerignore'
     if not dockerignore.exists():
-        return tuple(EXCLUDE_PATHS)
+        return None
     with dockerignore.open() as f:
         lines = [line.strip() for line in f if line.strip() and not line.startswith('#')]
-    return tuple(lines) if lines else tuple(EXCLUDE_PATHS)
+    return tuple(lines) if lines else ()
 
 
 def to_python_module(name):
