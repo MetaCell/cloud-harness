@@ -401,34 +401,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                               step['steps'] if 'steps' in step else []))}
 
     # Add custom secrets to the environment of the deployment step
-    deployment_step = codefresh["steps"].get("deployment")
-    if deployment_step:
-        arguments = deployment_step.get("arguments")
-        if arguments:
-            if "custom_values" not in arguments:
-                arguments["custom_values"] = []
-            for app_name, app in helm_values.apps.items():
-                if app.harness.secrets:
-                    for secret in [secret[0] for secret in app.harness.secrets.items() if secret[1] != ""]:
-                        secret_name = secret.replace("_", "__")
-                        arguments["custom_values"].append(
-                            "apps_%s_harness_secrets_%s=${{%s}}" % (app_name.replace("_", "__"), secret_name, secret_name.upper()))
-            # Add connect_string as a secret custom_value for apps that have it set to empty
-            for app_name, app in helm_values.apps.items():
-                if app.harness.database and app.harness.database.get("connect_string") == "":
-                    var_name = f"{app_name.upper().replace('-', '_')}_DB_CONNECT_STRING"
-                    arguments["custom_values"].append(
-                        "apps_%s_harness_database_connect__string=${{%s}}" % (
-                            app_name.replace("_", "__"), var_name)
-                    )
-            # Add registry secret value secret if registry secret name is set
-            registry = getattr(helm_values, "registry", None)
-            secret = getattr(registry, "secret", None)
-            registry_secret_name = getattr(secret, "name", None)
-            if registry_secret_name:
-                arguments["custom_values"].append(
-                    "registry_secret_value=${{REGISTRY_SECRET_VALUE}}"
-                )
+    _add_deployment_secrets(codefresh, helm_values)
 
     cmds = codefresh['steps']['prepare_deployment']['commands']
 
@@ -477,6 +450,75 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         with open(codefresh_abs_path, 'w') as f:
             yaml.dump(codefresh, f)
     return codefresh
+
+
+def _add_deployment_secrets(codefresh: dict, helm_values: HarnessMainConfig):
+    """Populate the deployment step's custom_values with secret references.
+
+    Values are wrapped in double quotes so that Helm ``--set`` does not
+    interpret commas, braces or other special characters inside the
+    resolved Codefresh variable.  See
+    https://codefresh.io/steps/step/helm for the quoting convention.
+    """
+    deployment_step = codefresh["steps"].get("deployment")
+    if not deployment_step:
+        return
+    arguments = deployment_step.get("arguments")
+    if not arguments:
+        return
+
+    if "custom_values" not in arguments:
+        arguments["custom_values"] = []
+    custom_values = arguments["custom_values"]
+
+    def _add(helm_key: str, cf_var: str):
+        """Append a quoted custom_value entry."""
+        custom_values.append(f'{helm_key}="${{{{{cf_var}}}}}"')
+
+    # App-level harness secrets
+    for app_name, app in helm_values.apps.items():
+        if app.harness.secrets:
+            for secret in [secret[0] for secret in app.harness.secrets.items() if secret[1] != ""]:
+                secret_name = secret.replace("_", "__")
+                _add(
+                    "apps_%s_harness_secrets_%s" % (app_name.replace("_", "__"), secret_name),
+                    secret_name.upper())
+
+    # Database connect_string secrets
+    for app_name, app in helm_values.apps.items():
+        if app.harness.database and app.harness.database.get("connect_string") == "":
+            var_name = f"{app_name.upper().replace('-', '_')}_DB_CONNECT_STRING"
+            _add(
+                "apps_%s_harness_database_connect__string" % app_name.replace("_", "__"),
+                var_name)
+
+    # Registry pull secret
+    registry = getattr(helm_values, "registry", None)
+    secret = getattr(registry, "secret", None)
+    if getattr(secret, "name", None):
+        _add("registry_secret_value", "REGISTRY_SECRET_VALUE")
+
+    # Backup offload credentials
+    backup = getattr(helm_values, "backup", None)
+    offload = getattr(backup, "offload", None) if backup else None
+    if offload:
+        mappings = []
+        s3 = getattr(offload, "s3", None)
+        if s3:
+            for attr, var in (("accessKeyId", "BACKUP_S3_ACCESS_KEY_ID"),
+                              ("secretAccessKey", "BACKUP_S3_SECRET_ACCESS_KEY")):
+                cred = getattr(s3, attr, None)
+                if cred and getattr(cred, "name", None):
+                    mappings.append((f"backup_offload_s3_{attr}_value", var))
+        gcs = getattr(offload, "gcs", None)
+        if gcs:
+            cred = getattr(gcs, "applicationCredentials", None)
+            if cred and getattr(cred, "name", None):
+                mappings.append(
+                    ("backup_offload_gcs_applicationCredentials_value",
+                     "BACKUP_GCS_APPLICATION_CREDENTIALS"))
+        for helm_key, cf_var in mappings:
+            _add(helm_key, cf_var)
 
 
 def sort_parallel_steps(steps: dict) -> dict:

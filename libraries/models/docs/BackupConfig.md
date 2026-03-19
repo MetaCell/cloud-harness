@@ -15,6 +15,7 @@ Name | Type | Description | Notes
 **volumesize** | **str** | The volume size for backups (all backups share the same volume) | [optional] 
 **dir** | **str** |  | 
 **resources** | [**DeploymentResourcesConf**](DeploymentResourcesConf.md) |  | 
+**offload** | [**BackupOffloadConfig**](BackupOffloadConfig.md) |  | [optional] 
 
 ## Example
 

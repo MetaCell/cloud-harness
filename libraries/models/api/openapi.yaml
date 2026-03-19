@@ -748,10 +748,10 @@ components:
                     type: string
                 accessKeyId:
                     $ref: '#/components/schemas/NameValue'
-                    description: 'AWS access key ID (name is the key in the secret, value is the credential)'
+                    description: 'AWS access key ID credential (value can be plain or base64-encoded)'
                 secretAccessKey:
                     $ref: '#/components/schemas/NameValue'
-                    description: 'AWS secret access key (name is the key in the secret, value is the credential)'
+                    description: 'AWS secret access key credential (value can be plain or base64-encoded)'
             additionalProperties: true
         BackupGcsConfig:
             description: 'GCS credentials configuration for CNPG Barman backups'
@@ -759,7 +759,7 @@ components:
             properties:
                 applicationCredentials:
                     $ref: '#/components/schemas/NameValue'
-                    description: 'GCS application credentials JSON (name is the key in the secret, value is the credential)'
+                    description: 'GCS application credentials JSON credential (value can be plain or base64-encoded)'
             additionalProperties: true
         CpuMemoryConfig:
             description: ''

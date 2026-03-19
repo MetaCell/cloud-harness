@@ -25,6 +25,7 @@ from cloudharness_model.base_model import CloudHarnessBaseModel
 from pydantic import BaseModel, Field, field_validator, StrictStr, StrictBool, StrictInt, StrictFloat
 from typing import ClassVar, List, Dict, Any, Union, Optional, Annotated
 import importlib
+from cloudharness_model.models.backup_offload_config import BackupOffloadConfig
 from cloudharness_model.models.deployment_resources_conf import DeploymentResourcesConf
 
 class BackupConfig(CloudHarnessBaseModel):
@@ -40,8 +41,9 @@ class BackupConfig(CloudHarnessBaseModel):
     volumesize: Optional[StrictStr] = Field(default=None, description="The volume size for backups (all backups share the same volume)")
     dir: Annotated[str, Field(strict=True)]
     resources: DeploymentResourcesConf
+    offload: Optional[BackupOffloadConfig] = None
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["active", "keep_days", "keep_weeks", "keep_months", "schedule", "suffix", "volumesize", "dir", "resources"]
+    __properties: ClassVar[List[str]] = ["active", "keep_days", "keep_weeks", "keep_months", "schedule", "suffix", "volumesize", "dir", "resources", "offload"]
 
     @field_validator('dir')
     def dir_validate_regular_expression(cls, value):
@@ -73,6 +75,9 @@ class BackupConfig(CloudHarnessBaseModel):
         # override the default output from pydantic by calling `to_dict()` of resources
         if self.resources:
             _dict['resources'] = self.resources.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of offload
+        if self.offload:
+            _dict['offload'] = self.offload.to_dict()
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:
             for _key, _value in self.additional_properties.items():
@@ -113,7 +118,8 @@ class BackupConfig(CloudHarnessBaseModel):
             "suffix": obj.get("suffix"),
             "volumesize": obj.get("volumesize"),
             "dir": obj.get("dir"),
-            "resources": DeploymentResourcesConf.from_dict(obj["resources"]) if obj.get("resources") is not None else None
+            "resources": DeploymentResourcesConf.from_dict(obj["resources"]) if obj.get("resources") is not None else None,
+            "offload": BackupOffloadConfig.from_dict(obj["offload"]) if obj.get("offload") is not None else None
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

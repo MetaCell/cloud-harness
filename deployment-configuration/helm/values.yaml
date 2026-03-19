@@ -91,13 +91,13 @@ backup:
       accessKeyId:
         # -- Key name in the secret
         name:
-        # -- Value (stored as secret)
+        # -- Value (stored as secret). Can be plain text or base64-encoded (auto-detected).
         value: ""
       # -- AWS secret access key
       secretAccessKey:
         # -- Key name in the secret
         name:
-        # -- Value (stored as secret)
+        # -- Value (stored as secret). Can be plain text or base64-encoded (auto-detected).
         value: ""
     # -- GCS configuration
     gcs:
@@ -105,7 +105,7 @@ backup:
       applicationCredentials:
         # -- Key name in the secret
         name:
-        # -- Value (stored as secret)
+        # -- Value (stored as secret). Can be plain text or base64-encoded (auto-detected).
         value: ""
 proxy:
   # -- Set to false to hide remote client headers. Will hide the client IPs in all logs

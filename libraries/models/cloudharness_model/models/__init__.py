@@ -24,6 +24,9 @@ from cloudharness_model.models.application_test_config import ApplicationTestCon
 from cloudharness_model.models.application_user import ApplicationUser
 from cloudharness_model.models.auto_artifact_spec import AutoArtifactSpec
 from cloudharness_model.models.backup_config import BackupConfig
+from cloudharness_model.models.backup_gcs_config import BackupGcsConfig
+from cloudharness_model.models.backup_offload_config import BackupOffloadConfig
+from cloudharness_model.models.backup_s3_config import BackupS3Config
 from cloudharness_model.models.cdc_event import CDCEvent
 from cloudharness_model.models.cdc_event_meta import CDCEventMeta
 from cloudharness_model.models.cpu_memory_config import CpuMemoryConfig

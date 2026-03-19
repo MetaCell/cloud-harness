@@ -358,9 +358,106 @@ def test_codefresh_db_connect_string_secret():
                                                  base_image_name=values['name'],
                                                  helm_values=values, save=False)
         custom_values = cf['steps']['deployment']['arguments']['custom_values']
-        expected = "apps_myapp_harness_database_connect__string=${{MYAPP_DB_CONNECT_STRING}}"
+        expected = 'apps_myapp_harness_database_connect__string="${{MYAPP_DB_CONNECT_STRING}}"'
         assert expected in custom_values, \
             f"Expected custom_value entry for connect_string not found. Got: {custom_values}"
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
+def test_codefresh_backup_offload_s3_secret():
+    """When backup.offload.s3 credentials have a name set, custom_values entries must be added."""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['myapp'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    # Inject backup offload S3 credential configuration
+    values['backup']['offload'] = {
+        'destinationPath': 's3://my-bucket/backups',
+        's3': {
+            'region': 'us-east-1',
+            'accessKeyId': {'name': 'AWS_ACCESS_KEY_ID', 'value': ''},
+            'secretAccessKey': {'name': 'AWS_SECRET_ACCESS_KEY', 'value': ''},
+        },
+        'gcs': {
+            'applicationCredentials': {'name': '', 'value': ''},
+        },
+    }
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 envs=['dev'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+        custom_values = cf['steps']['deployment']['arguments']['custom_values']
+        # S3 credentials should be present
+        assert 'backup_offload_s3_accessKeyId_value="${{BACKUP_S3_ACCESS_KEY_ID}}"' in custom_values
+        assert 'backup_offload_s3_secretAccessKey_value="${{BACKUP_S3_SECRET_ACCESS_KEY}}"' in custom_values
+        # GCS should NOT be present (no name set)
+        assert all("gcs" not in v for v in custom_values), \
+            f"GCS entries should not be present when name is empty. Got: {custom_values}"
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
+def test_codefresh_backup_offload_gcs_secret():
+    """When backup.offload.gcs credentials have a name set, custom_values entries must be added."""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['myapp'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    # Inject backup offload GCS credential configuration
+    values['backup']['offload'] = {
+        'destinationPath': 'gs://my-bucket/backups',
+        's3': {
+            'region': '',
+            'accessKeyId': {'name': '', 'value': ''},
+            'secretAccessKey': {'name': '', 'value': ''},
+        },
+        'gcs': {
+            'applicationCredentials': {'name': 'APPLICATION_CREDENTIALS', 'value': ''},
+        },
+    }
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 envs=['dev'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+        custom_values = cf['steps']['deployment']['arguments']['custom_values']
+        # GCS credentials should be present
+        assert 'backup_offload_gcs_applicationCredentials_value="${{BACKUP_GCS_APPLICATION_CREDENTIALS}}"' in custom_values
+        # S3 should NOT be present (no name set)
+        assert all("s3" not in v for v in custom_values), \
+            f"S3 entries should not be present when name is empty. Got: {custom_values}"
     finally:
         shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
 
