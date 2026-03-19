@@ -60,6 +60,8 @@ spec:
 
   {{- if .app.harness.database.image_ref }}
   imageName: {{ index (index .app "task-images") .app.harness.database.image_ref | default ("Image ref not found!" | quote) }}
+  {{- else if .app.harness.database.postgres.image }}
+  imageName: {{ .app.harness.database.postgres.image | quote }}
   {{- end }}
 ---
 apiVersion: v1
