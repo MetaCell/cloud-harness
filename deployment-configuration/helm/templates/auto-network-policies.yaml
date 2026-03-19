@@ -117,6 +117,15 @@ spec:
           protocol: UDP
         - port: 53
           protocol: TCP
+    {{- if and (eq .app.harness.database.type "postgres") .app.harness.database.postgres.operator }}
+    # Allow access to Kubernetes API server for CNPG operator pods
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - port: 443
+          protocol: TCP
+    {{- end }}
     {{- range $ns := $allowedNamespaces }}
     # Allow traffic to whitelisted namespace
     - to:

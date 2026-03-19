@@ -393,7 +393,7 @@ steps:
       samples:
         type: build
         stage: build
-        dockerfile: Dockerfile
+        dockerfile: test.Dockerfile
         registry: '${{CODEFRESH_REGISTRY}}'
         buildkit: true
         build_arguments:
@@ -522,13 +522,13 @@ steps:
     commands:
     - kubectl config use-context ${{CLUSTER_NAME}}
     - kubectl config set-context --current --namespace=test-${{NAMESPACE_BASENAME}}
+    - kubectl rollout status deployment/workflows
     - kubectl rollout status deployment/samples
     - kubectl rollout status deployment/samples-gk
-    - kubectl rollout status deployment/workflows
-    - kubectl rollout status deployment/common
-    - kubectl rollout status deployment/accounts
     - kubectl rollout status deployment/volumemanager
     - kubectl rollout status deployment/argo-gk
+    - kubectl rollout status deployment/common
+    - kubectl rollout status deployment/accounts
     - sleep 60
   tests_api:
     stage: qa
@@ -539,6 +539,26 @@ steps:
     commands:
     - echo $APP_NAME
     scale:
+      workflows_api_test:
+        title: workflows api test
+        volumes:
+        - '${{CF_REPO_NAME}}/applications/workflows:/home/test'
+        - '${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml'
+        environment:
+        - APP_URL=https://workflows.${{DOMAIN}}/api
+        commands:
+        - st --pre-run cloudharness_test.apitest_init run api/openapi.yaml --base-url
+          https://workflows.${{DOMAIN}}/api -c all
+      common_api_test:
+        title: common api test
+        volumes:
+        - '${{CF_REPO_NAME}}/applications/common:/home/test'
+        - '${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml'
+        environment:
+        - APP_URL=https://common.${{DOMAIN}}/api
+        commands:
+        - st --pre-run cloudharness_test.apitest_init run api/openapi.yaml --base-url
+          https://common.${{DOMAIN}}/api -c all
       samples_api_test:
         title: samples api test
         volumes:
@@ -555,26 +575,6 @@ steps:
           --hypothesis-suppress-health-check=too_slow --hypothesis-deadline=180000
           --request-timeout=180000 --hypothesis-max-examples=2 --show-trace --exclude-checks=ignored_auth
         - pytest -v test/api
-      common_api_test:
-        title: common api test
-        volumes:
-        - '${{CF_REPO_NAME}}/applications/common:/home/test'
-        - '${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml'
-        environment:
-        - APP_URL=https://common.${{DOMAIN}}/api
-        commands:
-        - st --pre-run cloudharness_test.apitest_init run api/openapi.yaml --base-url
-          https://common.${{DOMAIN}}/api -c all
-      workflows_api_test:
-        title: workflows api test
-        volumes:
-        - '${{CF_REPO_NAME}}/applications/workflows:/home/test'
-        - '${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml'
-        environment:
-        - APP_URL=https://workflows.${{DOMAIN}}/api
-        commands:
-        - st --pre-run cloudharness_test.apitest_init run api/openapi.yaml --base-url
-          https://workflows.${{DOMAIN}}/api -c all
     hooks:
       on_fail:
         exec:

@@ -13,24 +13,26 @@
 
 
 from __future__ import annotations
+import pprint
+import re  # noqa: F401
+import json
 
 from typing import Optional, Set
 from typing_extensions import Self
 
 
 from cloudharness_model.base_model import CloudHarnessBaseModel
-from pydantic import Field, StrictStr, StrictBool, StrictInt, StrictFloat
-from typing import ClassVar, List, Dict, Any, Optional, Annotated
-
+from pydantic import BaseModel, Field, field_validator, StrictStr, StrictBool, StrictInt, StrictFloat
+from typing import ClassVar, List, Dict, Any, Union, Optional, Annotated
+import importlib
 from cloudharness_model.models.organization import Organization
 from cloudharness_model.models.user_credential import UserCredential
 from cloudharness_model.models.user_group import UserGroup
 
-
 class User(CloudHarnessBaseModel):
     """
     User
-    """  # noqa: E501
+    """ # noqa: E501
     access: Optional[Dict[str, Any]] = None
     attributes: Optional[Dict[str, Any]] = None
     client_roles: Optional[Dict[str, Any]] = Field(default=None, alias="clientRoles")
@@ -146,3 +148,5 @@ class User(CloudHarnessBaseModel):
                 _obj.additional_properties[_key] = obj.get(_key)
 
         return _obj
+
+

@@ -97,6 +97,10 @@ harness:
     postgres:
       image: postgres:13
       initialdb: cloudharness
+      # -- Use the CloudNative-PG operator instead of a plain Deployment. Requires the CNPG operator to be installed in the cluster.
+      operator: false
+      # -- Number of PostgreSQL instances managed by the CNPG operator (only used when operator is true)
+      instances: 1
       ports:
         - name: http
           port: 5432

@@ -950,6 +950,16 @@ components:
                     type: array
                     items:
                         $ref: '#/components/schemas/PortConfig'
+                operator:
+                    description: 'Use the CloudNative-PG operator instead of a plain Deployment (postgres only)'
+                    type: boolean
+                instances:
+                    description: 'Number of PostgreSQL instances managed by the CNPG operator (only used when operator is true)'
+                    type: integer
+                    minimum: 1
+                initialdb:
+                    description: 'Initial database name (postgres only)'
+                    type: string
             additionalProperties: true
         NetworkConfig:
             title: Root Type for NetworkConfig

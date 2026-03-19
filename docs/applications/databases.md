@@ -84,12 +84,25 @@ harness
     postgres:
       image: postgres:13
       initialdb: cloudharness
+      operator: false
+      instances: 1
       ports:
         - name: http
           port: 5432
 ```
 
 `initialdb` is the default database used
+
+`operator`: When set to `true`, uses the [CloudNative-PG operator](https://github.com/cloudnative-pg/cloudnative-pg) instead of a plain Kubernetes Deployment. This provides advanced features like automated failover, backup management, and cluster management. **Requires the CNPG operator to be pre-installed in the cluster.**
+
+To install the CNPG operator:
+```bash
+helm repo add cloudnative-pg https://cloudnative-pg.github.io/charts
+helm repo update
+helm install cnpg cloudnative-pg/cloudnative-pg
+```
+
+`instances`: Number of PostgreSQL instances (replicas) managed by the CNPG operator. Only used when `operator: true`. Default is 1.
 
 
 #### Neo4j
