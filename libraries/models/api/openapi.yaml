@@ -716,6 +716,51 @@ components:
                 resources:
                     $ref: '#/components/schemas/DeploymentResourcesConf'
                     description: ''
+                offload:
+                    $ref: '#/components/schemas/BackupOffloadConfig'
+                    description: 'CNPG operator backup offload settings (used when postgres.operator is true)'
+        BackupOffloadConfig:
+            description: 'Configuration for CNPG Barman object store backup offloading'
+            type: object
+            properties:
+                retentionPolicy:
+                    description: 'Retention policy for CNPG Barman backups (e.g. 30d)'
+                    type: string
+                destinationPath:
+                    description: 'Barman object store destination (e.g. s3://bucket/path or gs://bucket/path)'
+                    type: string
+                endpointURL:
+                    description: 'Endpoint URL override for S3-compatible stores (e.g. MinIO)'
+                    type: string
+                s3:
+                    $ref: '#/components/schemas/BackupS3Config'
+                    description: 'S3 credentials configuration'
+                gcs:
+                    $ref: '#/components/schemas/BackupGcsConfig'
+                    description: 'GCS credentials configuration'
+            additionalProperties: true
+        BackupS3Config:
+            description: 'S3 credentials configuration for CNPG Barman backups'
+            type: object
+            properties:
+                region:
+                    description: 'AWS region'
+                    type: string
+                accessKeyId:
+                    $ref: '#/components/schemas/NameValue'
+                    description: 'AWS access key ID (name is the key in the secret, value is the credential)'
+                secretAccessKey:
+                    $ref: '#/components/schemas/NameValue'
+                    description: 'AWS secret access key (name is the key in the secret, value is the credential)'
+            additionalProperties: true
+        BackupGcsConfig:
+            description: 'GCS credentials configuration for CNPG Barman backups'
+            type: object
+            properties:
+                applicationCredentials:
+                    $ref: '#/components/schemas/NameValue'
+                    description: 'GCS application credentials JSON (name is the key in the secret, value is the credential)'
+            additionalProperties: true
         CpuMemoryConfig:
             description: ''
             type: object

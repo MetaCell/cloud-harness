@@ -76,6 +76,37 @@ backup:
       memory: "64Mi"
       # -- K8s cpu resource definition.
       cpu: "50m"
+  # -- CNPG operator backup offload settings (used when postgres.operator is true)
+  offload:
+    # -- Retention policy for CNPG Barman backups
+    retentionPolicy: "30d"
+    # -- Barman object store destination (e.g. s3://bucket/path or gs://bucket/path)
+    destinationPath: ""
+    # -- Endpoint URL override for S3-compatible stores (e.g. MinIO)
+    endpointURL: ""
+    # -- S3 configuration
+    s3:
+      region: ""
+      # -- AWS access key ID
+      accessKeyId:
+        # -- Key name in the secret
+        name:
+        # -- Value (stored as secret)
+        value: ""
+      # -- AWS secret access key
+      secretAccessKey:
+        # -- Key name in the secret
+        name:
+        # -- Value (stored as secret)
+        value: ""
+    # -- GCS configuration
+    gcs:
+      # -- GCS application credentials JSON
+      applicationCredentials:
+        # -- Key name in the secret
+        name:
+        # -- Value (stored as secret)
+        value: ""
 proxy:
   # -- Set to false to hide remote client headers. Will hide the client IPs in all logs
   forwardedHeaders: true

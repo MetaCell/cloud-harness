@@ -104,6 +104,51 @@ helm install cnpg cloudnative-pg/cloudnative-pg
 
 `instances`: Number of PostgreSQL instances (replicas) managed by the CNPG operator. Only used when `operator: true`. Default is 1.
 
+##### CNPG Operator Backups
+
+When using the CNPG operator (`operator: true`), backups use the operator's native [Barman](https://pgbarman.org/) integration instead of the CronJob-based backup system. Backups are stored in an object store (S3, GCS, or S3-compatible).
+
+To enable CNPG backups, configure the global `backup` section in `deployment-configuration/helm/values.yaml` (or your override):
+
+```yaml
+backup:
+  active: true
+  schedule: "0 0 0 * * *"             # cron with seconds for CNPG, standard cron for CronJob backups
+  offload:
+    retentionPolicy: "30d"
+    destinationPath: "s3://my-bucket/backups"
+    secretName: "my-backup-credentials"
+    s3:
+      region: "us-east-1"
+      accessKeyId: AWS_ACCESS_KEY_ID
+      secretAccessKey: AWS_SECRET_ACCESS_KEY
+```
+
+Backups are enabled when `backup.active` is `true` and `backup.offload.destinationPath` is set. The same `backup.active` flag controls both CronJob backups (for non-operator databases) and CNPG ScheduledBackup (for operator-managed Postgres).
+
+For GCS:
+
+```yaml
+backup:
+  active: true
+  offload:
+    destinationPath: "gs://my-bucket/backups"
+    secretName: "my-gcs-credentials"
+    gcs:
+      applicationCredentials: APPLICATION_CREDENTIALS
+```
+
+The secret must be created separately in the namespace. For S3:
+
+```bash
+kubectl create secret generic my-backup-credentials \
+  --from-literal=AWS_ACCESS_KEY_ID=<key> \
+  --from-literal=AWS_SECRET_ACCESS_KEY=<secret> \
+  -n <namespace>
+```
+
+> **Note:** The global `backup.active` and `backup.offload.destinationPath` control CNPG operator backups. The same `backup.active` flag also controls CronJob-based backups for non-operator databases. CNPG-specific settings (object store, credentials, retention) live under `backup.offload` to avoid confusion with CronJob backup settings.
+
 
 #### Neo4j
 

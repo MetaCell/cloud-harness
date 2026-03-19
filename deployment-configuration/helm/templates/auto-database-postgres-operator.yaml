@@ -39,6 +39,34 @@ spec:
   storage:
     size: {{ .app.harness.database.size }}
 
+  {{- $backup := .root.Values.backup }}
+  {{- $offload := $backup.offload }}
+  {{- $hasOffload := and $offload $offload.destinationPath }}
+  {{- if and $backup.active $hasOffload }}
+  backup:
+    barmanObjectStore:
+      destinationPath: {{ $offload.destinationPath | quote }}
+      {{- with $offload.endpointURL }}
+      endpointURL: {{ . | quote }}
+      {{- end }}
+      {{- if and $offload.s3.region $offload.s3.accessKeyId.name $offload.s3.secretAccessKey.name }}
+      s3Credentials:
+        accessKeyId:
+          name: backup-offload-credentials
+          key: {{ $offload.s3.accessKeyId.name | default "AWS_ACCESS_KEY_ID" }}
+        secretAccessKey:
+          name: backup-offload-credentials
+          key: {{ $offload.s3.secretAccessKey.name | default "AWS_SECRET_ACCESS_KEY" }}
+        region: {{ $offload.s3.region | quote }}
+      {{- else if $offload.gcs.applicationCredentials.name }}
+      googleCredentials:
+        applicationCredentials:
+          name: backup-offload-credentials
+          key: {{ $offload.gcs.applicationCredentials.name | default "APPLICATION_CREDENTIALS" }}
+      {{- end }}
+    retentionPolicy: {{ $offload.retentionPolicy | default "30d" | quote }}
+  {{- end }}
+
   {{- with .app.harness.database.resources }}
   resources:
     {{- with .requests }}
@@ -81,4 +109,23 @@ spec:
     port: {{ $port.port }}
     targetPort: 5432
   {{- end }}
+{{- if and $backup.active $hasOffload }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: {{ printf "%s-scheduled-backup" .app.harness.database.name | quote }}
+  namespace: {{ .root.Values.namespace }}
+  labels:
+    app: {{ .app.harness.database.name | quote }}
+{{ include "deploy_utils.labels" .root | indent 4 }}
+spec:
+  schedule: {{ $backup.schedule | default "0 0 0 * * *" | quote }}
+  backupOwnerReference: self
+  cluster:
+    name: {{ .app.harness.database.name | quote }}
+{{- else if $backup.active }}
+---
+{{- include "deploy_utils.database.postgres.backup" (dict "root" .root "app" .app "postgresHost" (printf "%s-rw" .app.harness.database.name)) }}
+{{- end }}
 {{- end }}

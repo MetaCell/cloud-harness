@@ -1,4 +1,5 @@
 {{ define "deploy_utils.database.postgres.backup"}}
+{{- $postgresHost := .postgresHost | default .app.harness.database.name }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -32,7 +33,7 @@ spec:
               args: ["-c" , "./backup.sh"]
               env:
                 - name: POSTGRES_HOST
-                  value: {{ .app.harness.database.name | quote }}
+                  value: {{ $postgresHost | quote }}
                 - name: POSTGRES_DB
                   value: {{ (index .app.harness.database .app.harness.database.type).initialdb | quote }}
                 - name: POSTGRES_USER
