@@ -118,7 +118,7 @@ spec:
         - port: 53
           protocol: TCP
     {{- if and (eq .app.harness.database.type "postgres") .app.harness.database.postgres.operator }}
-    # Allow access to Kubernetes API server for CNPG operator pods
+    # Allow access to Kubernetes API server for CNPG cluster instance (database) pods
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
