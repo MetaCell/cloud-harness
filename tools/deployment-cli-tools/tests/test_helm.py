@@ -385,7 +385,20 @@ def test_collect_helm_values_auto_tag(tmp_path):
         fname.unlink()
 
 
-def test_chart_metadata_optional_overrides(tmp_path):
+def test_network_policy_defaults_from_value_template(tmp_path):
+    """Verify that allowedNamespaces set in a root directory's value-template.yaml
+    propagates into app values and is not reset to []."""
+    out_folder = tmp_path / 'test_network_policy_defaults_from_value_template'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
+                               domain="my.local", namespace='test', env='dev', local=False, tag=1)
+
+    network = values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['network']
+    assert network is not None, "network config should be present"
+    allowed = network.get('allowedNamespaces') or []
+    assert 'test-namespace' in allowed, (
+        f"allowedNamespaces from value-template override should contain 'test-namespace', got: {allowed}"
+    )
+
     out_folder = tmp_path / 'test_chart_metadata_optional_overrides'
     create_helm_chart(
         [CLOUDHARNESS_ROOT, RESOURCES],

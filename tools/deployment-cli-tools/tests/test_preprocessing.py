@@ -38,7 +38,7 @@ def test_preprocess_build_overrides():
     assert not os.path.exists(os.path.join(MERGE_BUILD_DIR, BASE_IMAGES_PATH, "cloudharness-base-debian"))
     assert not os.path.exists(os.path.join(MERGE_BUILD_DIR, APPS_PATH, "events"))
 
-    assert os.path.exists(os.path.join(MERGE_BUILD_DIR, APPS_PATH, "accounts/deploy/values.yaml"))
+    assert not os.path.exists(os.path.join(MERGE_BUILD_DIR, APPS_PATH, "accounts/deploy/values.yaml")), "deploy folder is in dockerignore, should not be copied"
     assert os.path.exists(os.path.join(MERGE_BUILD_DIR, APPS_PATH, "workflows/tasks/new-task/Dockerfile"))
     assert os.path.exists(os.path.join(MERGE_BUILD_DIR, APPS_PATH, "workflows/tasks/notify-queue/new-file"))
     assert os.path.exists(os.path.join(MERGE_BUILD_DIR, APPS_PATH, "workflows/tasks/notify-queue/Dockerfile"))

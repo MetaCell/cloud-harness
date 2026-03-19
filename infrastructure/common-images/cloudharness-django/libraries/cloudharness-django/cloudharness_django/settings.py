@@ -92,6 +92,7 @@ DATABASES = {
         "PASSWORD": getattr(current_app.harness.database, "pass", None),
         "HOST": DATABSE_HOST,
         "PORT": DATABASE_PORT,
+        "CONN_MAX_AGE": 600,  # Connection persistent timeouts in seconds (default 0 = close after each request)
         "TEST": {
             "ENGINE": DATABASE_ENGINE or "django.db.backends.sqlite3",
             "NAME": TEST_DATABASE_NAME,

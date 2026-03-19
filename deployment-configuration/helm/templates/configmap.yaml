@@ -14,11 +14,14 @@ data:
 {{- if $registry }}
   {{- $secret := get $registry "secret" }}
   {{- if and (kindIs "map" $secret) (not (empty $secret.value)) }}
-    {{- $tmp := set $registry "secret" nil }}
+    {{- $tmp := unset $secret "value" }}
   {{- end }}
 {{- end }}
 {{- range $key, $val := .Values.apps }}
   {{- $app := get $values_copy.apps $key }}
   {{- $tmp := set $app.harness "secrets" dict }}
+  {{- if kindIs "map" $app.harness.database }}
+    {{- $tmp := unset $app.harness.database "connect_string" }}
+  {{- end }}
 {{- end }}
 {{ $values_copy | toYaml | indent 4 }}

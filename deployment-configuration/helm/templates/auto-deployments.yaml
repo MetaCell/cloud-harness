@@ -140,6 +140,13 @@ spec:
             mountPath: "/opt/cloudharness/resources/secrets/{{ .app.harness.name }}"
             readOnly: true
           {{- end }}
+          {{- if kindIs "map" .app.harness.database }}
+            {{- if and (hasKey .app.harness.database "connect_string") .app.harness.database.connect_string }}
+          - name: db-external
+            mountPath: "/opt/cloudharness/resources/db"
+            readOnly: true
+            {{- end }}
+          {{- end }}
       volumes:
         - name: cloudharness-allvalues
           configMap:
@@ -169,6 +176,13 @@ spec:
           secret:
             secretName: {{ .app.harness.deployment.name }}
         {{- end }}
+        {{- if kindIs "map" .app.harness.database }}
+          {{- if and (hasKey .app.harness.database "connect_string") .app.harness.database.connect_string }}
+        - name: db-external
+          secret:
+            secretName: {{ printf "%s-db" .app.harness.deployment.name }}
+          {{- end }}
+        {{- end }}
 ---
 {{- end }}
 
@@ -196,8 +210,10 @@ data:
   {{- range $subapp := $app }}
   {{- if contains "map" (typeOf $subapp)  }}
   {{- if hasKey $subapp "harness" }}
+  {{- if and (hasKey $subapp "port") $subapp.harness.deployment.auto | default false }}
 ---
       {{- include "deploy_utils.deployment" (dict "root" $ "app" $subapp) }}
+  {{- end }}
   {{- end }}
   {{- end }}
   {{- end }}

@@ -45,7 +45,17 @@ def _get_user(kc_user_id: str) -> User:
                 # Member was deleted between the query and now - return None for safety
                 log.error("User %s found but Member missing. Returning anonymous.", user.id)
                 return None
-
+            with transaction.atomic():
+                try:
+                    user_svc = get_user_service()
+                    kc_user = user_svc.auth_client.get_current_user()
+                    # sync_kc_user is atomic and guarantees Member creation
+                    user = user_svc.sync_kc_user(kc_user)
+                    user_svc.sync_kc_user_groups(kc_user)
+                except Exception as e:
+                    log.exception("Error syncing user %s: %s", user.id, e)
+                    # If sync fails, we still have the original user with Member, so we can continue
+                    pass
         except User.DoesNotExist:
             # User doesn't exist - create it via sync_kc_user
             user_svc = get_user_service()

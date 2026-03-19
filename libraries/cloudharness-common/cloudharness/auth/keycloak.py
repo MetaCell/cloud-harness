@@ -113,6 +113,15 @@ def is_uuid(s):
         return False
 
 
+def _get_public_key_cache_path():
+    try:
+        from django.conf import settings
+        return os.path.join(settings.PERSISTENT_ROOT, "cloudharness_public_key")
+    except Exception:
+        log.exception("Could not get Django settings, using /tmp for public key cache")
+        return "/tmp/cloudharness_public_key"
+
+
 class AuthClient():
     __public_key = None
 
@@ -181,10 +190,23 @@ class AuthClient():
     @classmethod
     def get_public_key(cls):
         if not cls.__public_key:
-            public_key_url = os.path.join(get_server_url(), "realms", get_auth_realm())
-            key_der_base64 = requests.get(public_key_url).json()['public_key']
-            key_der = b64decode(key_der_base64.encode())
-            cls.__public_key = serialization.load_der_public_key(key_der)
+            cache_path = _get_public_key_cache_path()
+            try:
+                with open(cache_path, 'r') as f:
+                    key_der_base64 = f.read().strip()
+                key_der = b64decode(key_der_base64.encode())
+                cls.__public_key = serialization.load_der_public_key(key_der)
+            except Exception:
+                public_key_url = os.path.join(get_server_url(), "realms", get_auth_realm())
+                key_der_base64 = requests.get(public_key_url).json()['public_key']
+                key_der = b64decode(key_der_base64.encode())
+                cls.__public_key = serialization.load_der_public_key(key_der)
+                try:
+                    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+                    with open(cache_path, 'w') as f:
+                        f.write(key_der_base64)
+                except Exception:
+                    log.warning("Could not write public key cache to %s", cache_path)
         return cls.__public_key
 
     @classmethod

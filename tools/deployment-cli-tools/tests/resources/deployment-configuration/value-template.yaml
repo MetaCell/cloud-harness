@@ -1,1 +1,6 @@
 common: True
+harness:
+  deployment:
+    network:
+      allowedNamespaces:
+        - test-namespace

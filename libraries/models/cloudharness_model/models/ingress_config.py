@@ -25,19 +25,15 @@ from cloudharness_model.base_model import CloudHarnessBaseModel
 from pydantic import BaseModel, Field, field_validator, StrictStr, StrictBool, StrictInt, StrictFloat
 from typing import ClassVar, List, Dict, Any, Union, Optional, Annotated
 import importlib
-from cloudharness_model.models.ingress_config_all_of_letsencrypt import IngressConfigAllOfLetsencrypt
 
 class IngressConfig(CloudHarnessBaseModel):
     """
     
     """ # noqa: E501
-    auto: Optional[StrictBool] = Field(default=None, description="When true, enables automatic template")
-    name: Optional[StrictStr] = None
-    ssl_redirect: Optional[StrictBool] = None
-    letsencrypt: Optional[IngressConfigAllOfLetsencrypt] = None
-    enabled: Optional[StrictBool] = None
+    path_type: StrictStr = Field(description="Ingress path type ", alias="pathType")
+    path: StrictStr = Field(description="Default target path prefix for applications endpoints. To use regular expressions (e.g.'/(pattern)'), also set `route_type` to  `ImplementationSpecific`. ")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["auto", "name", "ssl_redirect", "letsencrypt", "enabled"]
+    __properties: ClassVar[List[str]] = ["pathType", "path"]
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the dictionary representation of the model using alias.
@@ -59,9 +55,6 @@ class IngressConfig(CloudHarnessBaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of letsencrypt
-        if self.letsencrypt:
-            _dict['letsencrypt'] = self.letsencrypt.to_dict()
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:
             for _key, _value in self.additional_properties.items():
@@ -79,11 +72,8 @@ class IngressConfig(CloudHarnessBaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "auto": obj.get("auto"),
-            "name": obj.get("name"),
-            "ssl_redirect": obj.get("ssl_redirect"),
-            "letsencrypt": IngressConfigAllOfLetsencrypt.from_dict(obj["letsencrypt"]) if obj.get("letsencrypt") is not None else None,
-            "enabled": obj.get("enabled")
+            "pathType": obj.get("pathType"),
+            "path": obj.get("path")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

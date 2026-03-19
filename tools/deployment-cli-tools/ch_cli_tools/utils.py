@@ -16,6 +16,7 @@ from ruamel.yaml import YAML
 import shutil
 import logging
 import fileinput
+import pathspec
 
 from cloudharness_utils.constants import NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
     APPS_PATH, BUILD_FILENAMES, EXCLUDE_PATHS
@@ -28,6 +29,8 @@ BASE_TEMPLATES_PATH = CH_ROOT
 REPLACE_TEXT_FILES_EXTENSIONS = (
     '.js', '.md', '.py', '.js', '.ts', '.tsx', '.txt', 'Dockerfile', 'yaml', 'json', '.ejs'
 )
+
+SKIP_DIRS = ('node_modules',)
 
 
 def image_name_from_dockerfile_path(dockerfile_path, base_name=None):
@@ -77,7 +80,7 @@ def find_dockerfiles_paths(base_directory):
         else:
             dockerfiles_without_git.append(dockerfile.replace(os.sep, "/"))
 
-    return tuple(dockerfiles_without_git)
+    return tuple(p for p in dockerfiles_without_git if not re.search(r'(^|/).*dependencies.*/', p + '/'))
 
 
 def get_parent_app_name(app_relative_path):
@@ -222,7 +225,8 @@ def copymergedir(source_root_directory: pathlib.Path, destination_root_directory
     """
     logging.info(f'Copying directory {source_root_directory} to {destination_root_directory}')
 
-    for source_directory, _, files in os.walk(source_root_directory):  # source_root_directory.walk() from Python 3.12
+    for source_directory, dirs, files in os.walk(source_root_directory):  # source_root_directory.walk() from Python 3.12
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
         source_directory = pathlib.Path(source_directory)
         destination_directory = destination_root_directory / source_directory.relative_to(source_root_directory)
         destination_directory.mkdir(parents=True, exist_ok=True)
@@ -263,7 +267,16 @@ def movedircontent(root_src_dir, root_dst_dir):
     shutil.rmtree(root_src_dir)
 
 
-def merge_configuration_directories(source: Union[str, pathlib.Path], destination: Union[str, pathlib.Path], envs=()) -> None:
+def _rsync_directory(source: pathlib.Path, destination: pathlib.Path, exclude: tuple) -> None:
+    """Copy source to destination using rsync, honouring the given exclude patterns."""
+    cmd = ['rsync', '-a', '--delete']
+    for pattern in exclude:
+        cmd += ['--exclude', pattern]
+    cmd += [str(source) + '/', str(destination)]
+    subprocess.run(cmd, check=True, capture_output=True)
+
+
+def merge_configuration_directories(source: Union[str, pathlib.Path], destination: Union[str, pathlib.Path], envs=(), exclude=EXCLUDE_PATHS) -> None:
     source_path, destination_path = pathlib.Path(source), pathlib.Path(destination)
 
     if source_path == destination_path and not envs:
@@ -273,13 +286,23 @@ def merge_configuration_directories(source: Union[str, pathlib.Path], destinatio
         logging.warning("Trying to merge the not existing directory: %s", source)
         return
 
+    spec = pathspec.PathSpec.from_lines('gitwildmatch', exclude)
+
     if not destination_path.exists():
-        shutil.copytree(source_path, destination_path, ignore=shutil.ignore_patterns(*EXCLUDE_PATHS))
+        try:
+            _rsync_directory(source_path, destination_path, exclude)
+        except (FileNotFoundError, subprocess.CalledProcessError) as e:
+            logging.debug("rsync failed (%s), falling back to shutil.copytree", e)
+
+            def _ignore(directory, contents):
+                rel_dir = pathlib.Path(directory).relative_to(source_path)
+                return [c for c in contents if spec.match_file(str(rel_dir / c)) or spec.match_file(str(rel_dir / c) + '/')]
+            shutil.copytree(source_path, destination_path, ignore=_ignore)
         if not envs:
             return
 
     for source_directory, _, files in os.walk(source_path):  # source_path.walk() from Python 3.12
-        _merge_configuration_directory(source_path, destination_path, pathlib.Path(source_directory), files, envs)
+        _merge_configuration_directory(source_path, destination_path, pathlib.Path(source_directory), files, envs, spec)
 
 
 def _merge_configuration_directory(
@@ -287,9 +310,13 @@ def _merge_configuration_directory(
         destination: pathlib.Path,
         source_directory: pathlib.Path,
         files: list[str],
-        envs=()
+        envs=(),
+        spec: pathspec.PathSpec = None
 ) -> None:
-    if any(path in str(source_directory) for path in EXCLUDE_PATHS):
+    rel_path = source_directory.relative_to(source)
+    if spec is not None and str(rel_path) != '.' and (
+        spec.match_file(str(rel_path)) or spec.match_file(str(rel_path) + '/')
+    ):
         return
 
     destination_directory = destination / source_directory.relative_to(source)
@@ -456,6 +483,15 @@ def merge_app_directories(root_paths, destination) -> None:
                                         join(destination, 'client'))
         merge_configuration_directories(join(rpath, 'deployment-configuration'),
                                         join(destination, 'deployment-configuration'))
+
+
+def read_dockerignore(base_path: Union[str, pathlib.Path]) -> tuple:
+    dockerignore = pathlib.Path(base_path) / '.dockerignore'
+    if not dockerignore.exists():
+        return None
+    with dockerignore.open() as f:
+        lines = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+    return tuple(lines) if lines else ()
 
 
 def to_python_module(name):

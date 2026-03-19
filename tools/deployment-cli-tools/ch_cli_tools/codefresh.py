@@ -219,6 +219,14 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 build["when"] = when_condition
                 return build
 
+            def resolve_dockerfile_name(dockerfile_dir):
+                """Return the dockerfile filename, preferring [env].Dockerfile over Dockerfile."""
+                for env_name in envs:
+                    env_dockerfile = os.path.join(dockerfile_dir, f'{env_name}.Dockerfile')
+                    if exists(env_dockerfile):
+                        return f'{env_name}.Dockerfile'
+                return 'Dockerfile'
+
             def codefresh_steps_from_base_path(base_path, fixed_context=None, include=build_included, publish=True):
                 found = False
                 for dockerfile_path in find_dockerfiles_paths(base_path):
@@ -244,15 +252,16 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     if app_config and not helm_values.apps[app_key].get('build', True):
                         continue
 
-                    if app_config and app_config.dependencies and app_config.dependencies.git:
+                    if app_config and app_config.dependencies and app_config.dependencies.git and DEFAULT_MERGE_PATH not in root_path:
                         for dep in app_config.dependencies.git:
                             step_name = f"clone_{basename(dep.url).replace('.', '_')}_{dep.branch_tag}_{basename(dockerfile_relative_to_root).replace('.', '_')}"
                             steps[CD_STEP_CLONE_DEPENDENCIES]['steps'][step_name] = clone_step_spec(dep, dockerfile_relative_to_root)
 
                     build = None
                     if CD_BUILD_STEP_PARALLEL in steps:
+                        dockerfile_name = resolve_dockerfile_name(dockerfile_path)
                         dependencies = guess_build_dependencies_from_dockerfile(
-                            join(dockerfile_path, "Dockerfile")
+                            join(dockerfile_path, dockerfile_name)
                         )
                         build = codefresh_app_build_spec(
                             app_name=app_name,
@@ -262,7 +271,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                             dockerfile_path=join(
                                 relpath(
                                     dockerfile_path, root_path) if fixed_context else '',
-                                "Dockerfile"),
+                                dockerfile_name),
                             helm_values=helm_values,
                             dependencies=dependencies,
                             additional_tags=('latest',) if not publish else ()
@@ -274,13 +283,17 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     if CD_STEP_PUBLISH in steps and steps[CD_STEP_PUBLISH] and publish:
                         if not type(steps[CD_STEP_PUBLISH]['steps']) == dict:
                             steps[CD_STEP_PUBLISH]['steps'] = {}
-                        steps[CD_STEP_PUBLISH]['steps']['publish_' + app_name] = codefresh_app_publish_spec(
-                            full_src_image=helm_values.apps[app_name].image if app_name in helm_values.apps else helm_values[KEY_TASK_IMAGES][app_name],
-                            build_tag=build and build['tags'][0],
-                            registry=helm_values.registry.name,
-                            app_name=app_name
-                        )
-                        found = True
+                        image_name = helm_values.apps[app_name].image if app_name in helm_values.apps else helm_values[KEY_TASK_IMAGES].get(app_name, None)
+                        if app_name:
+                            steps[CD_STEP_PUBLISH]['steps']['publish_' + app_name] = codefresh_app_publish_spec(
+                                full_src_image=image_name,
+                                build_tag=build and build['tags'][0],
+                                registry=helm_values.registry.name,
+                                app_name=app_name
+                            )
+                            found = True
+                        else:
+                            logging.warning("Detected image %s which is not part of the deployment", app_name)
 
                     if CD_UNIT_TEST_STEP in steps and app_config:
                         add_unit_test_step(app_config)
@@ -400,6 +413,14 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         secret_name = secret.replace("_", "__")
                         arguments["custom_values"].append(
                             "apps_%s_harness_secrets_%s=${{%s}}" % (app_name.replace("_", "__"), secret_name, secret_name.upper()))
+            # Add connect_string as a secret custom_value for apps that have it set to empty
+            for app_name, app in helm_values.apps.items():
+                if app.harness.database and app.harness.database.get("connect_string") == "":
+                    var_name = f"{app_name.upper().replace('-', '_')}_DB_CONNECT_STRING"
+                    arguments["custom_values"].append(
+                        "apps_%s_harness_database_connect__string=${{%s}}" % (
+                            app_name.replace("_", "__"), var_name)
+                    )
             # Add registry secret value secret if registry secret name is set
             registry = getattr(helm_values, "registry", None)
             secret = getattr(registry, "secret", None)

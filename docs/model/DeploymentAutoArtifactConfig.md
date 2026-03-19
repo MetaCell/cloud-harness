@@ -13,6 +13,7 @@ Name | Type | Description | Notes
 **image** | **str** | Image name to use in the deployment. Leave it blank to set from the application&#39;s Docker file | [optional] 
 **resources** | [**DeploymentResourcesConf**](DeploymentResourcesConf.md) |  | [optional] 
 **volume** | [**DeploymentVolumeSpec**](DeploymentVolumeSpec.md) |  | [optional] 
+**network** | [**NetworkConfig**](NetworkConfig.md) |  | [optional] 
 
 ## Example
 

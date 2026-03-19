@@ -25,6 +25,7 @@ from cloudharness_model.base_model import CloudHarnessBaseModel
 from pydantic import BaseModel, Field, field_validator, StrictStr, StrictBool, StrictInt, StrictFloat
 from typing import ClassVar, List, Dict, Any, Union, Optional, Annotated
 import importlib
+from cloudharness_model.models.deployment_resources_conf import DeploymentResourcesConf
 
 class GatekeeperConf(CloudHarnessBaseModel):
     """
@@ -32,8 +33,10 @@ class GatekeeperConf(CloudHarnessBaseModel):
     """ # noqa: E501
     image: Optional[StrictStr] = None
     replicas: Optional[StrictInt] = None
+    resources: Optional[DeploymentResourcesConf] = None
+    secret: Optional[StrictStr] = None
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["image", "replicas"]
+    __properties: ClassVar[List[str]] = ["image", "replicas", "resources", "secret"]
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the dictionary representation of the model using alias.
@@ -55,6 +58,9 @@ class GatekeeperConf(CloudHarnessBaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of resources
+        if self.resources:
+            _dict['resources'] = self.resources.to_dict()
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:
             for _key, _value in self.additional_properties.items():
@@ -73,7 +79,9 @@ class GatekeeperConf(CloudHarnessBaseModel):
 
         _obj = cls.model_validate({
             "image": obj.get("image"),
-            "replicas": obj.get("replicas")
+            "replicas": obj.get("replicas"),
+            "resources": DeploymentResourcesConf.from_dict(obj["resources"]) if obj.get("resources") is not None else None,
+            "secret": obj.get("secret")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():
