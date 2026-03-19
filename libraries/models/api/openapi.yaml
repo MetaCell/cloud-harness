@@ -957,6 +957,11 @@ components:
                     description: 'Number of PostgreSQL instances managed by the CNPG operator (only used when operator is true)'
                     type: integer
                     minimum: 1
+                apiServerCidr:
+                    description: 'CIDR(s) allowed for CNPG pods to reach the Kubernetes API server (port 443). Override with your cluster API-server or service CIDR.'
+                    type: array
+                    items:
+                        type: string
                 initialdb:
                     description: 'Initial database name (postgres only)'
                     type: string

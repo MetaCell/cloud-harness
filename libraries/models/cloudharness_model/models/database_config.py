@@ -36,9 +36,10 @@ class DatabaseConfig(CloudHarnessBaseModel):
     ports: Optional[List[PortConfig]] = None
     operator: Optional[StrictBool] = Field(default=None, description="Use the CloudNative-PG operator instead of a plain Deployment (postgres only)")
     instances: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Number of PostgreSQL instances managed by the CNPG operator (only used when operator is true)")
+    api_server_cidr: Optional[List[StrictStr]] = Field(default=None, description="CIDR(s) allowed for CNPG pods to reach the Kubernetes API server (port 443). Override with your cluster API-server or service CIDR.", alias="apiServerCidr")
     initialdb: Optional[StrictStr] = Field(default=None, description="Initial database name (postgres only)")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["image", "name", "ports", "operator", "instances", "initialdb"]
+    __properties: ClassVar[List[str]] = ["image", "name", "ports", "operator", "instances", "apiServerCidr", "initialdb"]
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the dictionary representation of the model using alias.
@@ -89,6 +90,7 @@ class DatabaseConfig(CloudHarnessBaseModel):
             "ports": [PortConfig.from_dict(_item) for _item in obj["ports"]] if obj.get("ports") is not None else None,
             "operator": obj.get("operator"),
             "instances": obj.get("instances"),
+            "apiServerCidr": obj.get("apiServerCidr"),
             "initialdb": obj.get("initialdb")
         })
         # store additional fields in additional_properties

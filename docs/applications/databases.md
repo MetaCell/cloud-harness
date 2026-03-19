@@ -86,6 +86,7 @@ harness
       initialdb: cloudharness
       operator: false
       instances: 1
+      apiServerCidr: []
       ports:
         - name: http
           port: 5432
@@ -103,6 +104,8 @@ helm install cnpg cloudnative-pg/cloudnative-pg
 ```
 
 `instances`: Number of PostgreSQL instances (replicas) managed by the CNPG operator. Only used when `operator: true`. Default is 1.
+
+`apiServerCidr`: List of CIDRs allowed for CNPG database pods to reach the Kubernetes API server on port 443. **Resolved automatically at deploy time** by looking up the `kubernetes` Service and Endpoints in the `default` namespace. The explicit list is only used as a fallback when lookup returns nothing (e.g. `helm template` dry-run). Leave empty (`[]`) for auto-detection; set explicitly only for air-gapped or restricted environments.
 
 
 #### Neo4j

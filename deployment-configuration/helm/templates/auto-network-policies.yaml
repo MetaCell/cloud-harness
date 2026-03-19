@@ -118,13 +118,32 @@ spec:
         - port: 53
           protocol: TCP
     {{- if and (eq .app.harness.database.type "postgres") .app.harness.database.postgres.operator }}
-    # Allow access to Kubernetes API server for CNPG cluster instance (database) pods
+    # Allow CNPG pods to reach the Kubernetes API server
+    {{- $apiCidrs := list }}
+    {{- $kubeSvc := (lookup "v1" "Service" "default" "kubernetes") }}
+    {{- $kubeEp := (lookup "v1" "Endpoints" "default" "kubernetes") }}
+    {{- if and $kubeSvc $kubeSvc.spec $kubeSvc.spec.clusterIP }}
+      {{- $apiCidrs = append $apiCidrs (printf "%s/32" $kubeSvc.spec.clusterIP) }}
+    {{- end }}
+    {{- if and $kubeEp $kubeEp.subsets }}
+      {{- range $subset := $kubeEp.subsets }}
+        {{- range $addr := $subset.addresses }}
+          {{- $apiCidrs = append $apiCidrs (printf "%s/32" $addr.ip) }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+    {{- /* Fall back to configured CIDRs when lookup returns nothing (e.g. helm template) */ -}}
+    {{- if not $apiCidrs }}
+      {{- $apiCidrs = .app.harness.database.postgres.apiServerCidr }}
+    {{- end }}
+    {{- range $cidr := $apiCidrs }}
     - to:
         - ipBlock:
-            cidr: 0.0.0.0/0
+            cidr: {{ $cidr }}
       ports:
         - port: 443
           protocol: TCP
+    {{- end }}
     {{- end }}
     {{- range $ns := $allowedNamespaces }}
     # Allow traffic to whitelisted namespace
