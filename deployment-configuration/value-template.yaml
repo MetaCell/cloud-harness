@@ -95,7 +95,7 @@ harness:
           port: 27017
     # -- settings for postgers database (for type==postgres)
     postgres:
-      image: postgres:13
+      image:
       initialdb: cloudharness
       # -- Use the CloudNative-PG operator instead of a plain Deployment. Requires the CNPG operator to be installed in the cluster.
       operator: false
