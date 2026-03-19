@@ -14,7 +14,7 @@ data:
 {{- if $registry }}
   {{- $secret := get $registry "secret" }}
   {{- if and (kindIs "map" $secret) (not (empty $secret.value)) }}
-    {{- $tmp := set $registry "secret" nil }}
+    {{- $tmp := unset $secret "value" }}
   {{- end }}
 {{- end }}
 {{- range $key, $val := .Values.apps }}
