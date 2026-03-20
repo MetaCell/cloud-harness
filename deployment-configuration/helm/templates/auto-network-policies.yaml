@@ -122,8 +122,12 @@ spec:
     {{- $apiCidrs := list }}
     {{- $kubeSvc := (lookup "v1" "Service" "default" "kubernetes") }}
     {{- $kubeEp := (lookup "v1" "Endpoints" "default" "kubernetes") }}
-    {{- if and $kubeSvc $kubeSvc.spec $kubeSvc.spec.clusterIP }}
-      {{- $apiCidrs = append $apiCidrs (printf "%s/32" $kubeSvc.spec.clusterIP) }}
+    {{- if $kubeSvc }}
+      {{- if $kubeSvc.spec }}
+        {{- if $kubeSvc.spec.clusterIP }}
+          {{- $apiCidrs = append $apiCidrs (printf "%s/32" $kubeSvc.spec.clusterIP) }}
+        {{- end }}
+      {{- end }}
     {{- end }}
     {{- if and $kubeEp $kubeEp.subsets }}
       {{- range $subset := $kubeEp.subsets }}
