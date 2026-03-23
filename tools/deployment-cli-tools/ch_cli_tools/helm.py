@@ -191,12 +191,14 @@ class CloudHarnessHelm(ConfigurationGenerator):
             logging.info(f"Registry set: {self.registry}")
 
         if self.local:
-            values['registry']['secret'] = ''
+            values['registry']['secret'] = None
         if not values['registry']:
             values['registry'] = {}
         values['registry']['name'] = self.registry
         if self.registry_secret_name:
             logging.info(f"Registry secret set")
+            if not isinstance(values['registry'].get('secret'), dict):
+                values['registry']['secret'] = {}
             values['registry']['secret']['name'] = self.registry_secret_name
         values['tag'] = self.tag
         values['build_hash'] = get_git_commit_hash(self.root_paths[-1])  # Fix: Call the defined function to get the git commit hash
