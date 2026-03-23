@@ -331,8 +331,12 @@ def test_create_codefresh_configuration_nobuild():
     assert "publish_myapp-mytask" in l1_steps["publish"]["steps"]
 
 
+<<<<<<< HEAD
 def test_codefresh_db_connect_string_secret():
     """When an app has database.connect_string set to '', a custom_values entry must be added to the deployment step."""
+=======
+def test_codefresh_secret_with_quotes():
+>>>>>>> cb52695d5df61aa6f766cbebca386ee45ce95267
     values = create_helm_chart(
         [CLOUDHARNESS_ROOT, RESOURCES],
         output_path=OUT,
@@ -340,7 +344,11 @@ def test_codefresh_db_connect_string_secret():
         exclude=['events'],
         domain="my.local",
         namespace='test',
+<<<<<<< HEAD
         env='connectstring',
+=======
+        env='dev',
+>>>>>>> cb52695d5df61aa6f766cbebca386ee45ce95267
         local=False,
         tag=1,
         registry='reg'
@@ -351,12 +359,24 @@ def test_codefresh_db_connect_string_secret():
             helm_values=values,
             merge_build_path=BUILD_MERGE_DIR
         )
+<<<<<<< HEAD
         build_included = [app['harness']['name']
                           for app in values['apps'].values() if 'harness' in app]
+=======
+
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+
+        values.apps["myapp"].harness.secrets = {
+            "settings_secret": "SECRET_KEY='replace-with-strong-shared-secret'"
+        }
+
+>>>>>>> cb52695d5df61aa6f766cbebca386ee45ce95267
         cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
                                                  envs=['dev'],
                                                  base_image_name=values['name'],
                                                  helm_values=values, save=False)
+<<<<<<< HEAD
         custom_values = cf['steps']['deployment']['arguments']['custom_values']
         expected = "apps_myapp_harness_database_connect__string=${{MYAPP_DB_CONNECT_STRING}}"
         assert expected in custom_values, \
@@ -521,6 +541,22 @@ def test_steps_ordered_by_stage_in_generated_config():
     finally:
         import shutil
         shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+=======
+
+        custom_values = cf['steps']['deployment']['arguments']['custom_values']
+        entry = next(
+            value for value in custom_values
+            if value.startswith("apps_myapp_harness_secrets_settings__secret=")
+        )
+        assert entry == 'apps_myapp_harness_secrets_settings__secret="${{SETTINGS__SECRET}}"'
+        rendered = entry.replace(
+            "${{SETTINGS__SECRET}}",
+            values.apps["myapp"].harness.secrets["settings_secret"]
+        )
+        assert rendered == 'apps_myapp_harness_secrets_settings__secret="SECRET_KEY=\'replace-with-strong-shared-secret\'"'
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR)
+>>>>>>> cb52695d5df61aa6f766cbebca386ee45ce95267
 
 
 def test_app_depends_on_app():

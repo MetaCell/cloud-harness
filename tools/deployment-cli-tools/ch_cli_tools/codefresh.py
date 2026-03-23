@@ -412,13 +412,13 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                     for secret in [secret[0] for secret in app.harness.secrets.items() if secret[1] != ""]:
                         secret_name = secret.replace("_", "__")
                         arguments["custom_values"].append(
-                            "apps_%s_harness_secrets_%s=${{%s}}" % (app_name.replace("_", "__"), secret_name, secret_name.upper()))
-            # Add connect_string as a secret custom_value for apps that have it set to empty
+                            'apps_%s_harness_secrets_%s="${{%s}}"' % (app_name.replace("_", "__"), secret_name, secret_name.upper())
+                        )
             for app_name, app in helm_values.apps.items():
                 if app.harness.database and app.harness.database.get("connect_string") == "":
                     var_name = f"{app_name.upper().replace('-', '_')}_DB_CONNECT_STRING"
                     arguments["custom_values"].append(
-                        "apps_%s_harness_database_connect__string=${{%s}}" % (
+                        "apps_%s_harness_database_connect__string=\"${{%s}}\"" % (
                             app_name.replace("_", "__"), var_name)
                     )
             # Add registry secret value secret if registry secret name is set
@@ -427,7 +427,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
             registry_secret_name = getattr(secret, "name", None)
             if registry_secret_name:
                 arguments["custom_values"].append(
-                    "registry_secret_value=${{REGISTRY_SECRET_VALUE}}"
+                    'registry_secret_value="${{K8S_SA_JSON}}"'
                 )
 
     cmds = codefresh['steps']['prepare_deployment']['commands']
@@ -474,8 +474,22 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         codefresh_dir = dirname(codefresh_abs_path)
         if not exists(codefresh_dir):
             os.makedirs(codefresh_dir)
+        from ruamel.yaml import YAML
+        from ruamel.yaml.scalarstring import SingleQuotedScalarString
+
+        def _quote_values(data):
+            if isinstance(data, dict):
+                return {k: _quote_values(v) for k, v in data.items()}
+            elif isinstance(data, list):
+                return [_quote_values(item) for item in data]
+            elif isinstance(data, str):
+                return SingleQuotedScalarString(data)
+            return data
+
+        ryaml = YAML()
+        ryaml.default_flow_style = False
         with open(codefresh_abs_path, 'w') as f:
-            yaml.dump(codefresh, f)
+            ryaml.dump(_quote_values(codefresh), f)
     return codefresh
 
 
