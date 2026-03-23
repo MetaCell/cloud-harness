@@ -474,22 +474,21 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         codefresh_dir = dirname(codefresh_abs_path)
         if not exists(codefresh_dir):
             os.makedirs(codefresh_dir)
-        from ruamel.yaml import YAML
         from ruamel.yaml.scalarstring import SingleQuotedScalarString
 
-        def _quote_values(data):
-            if isinstance(data, dict):
-                return {k: _quote_values(v) for k, v in data.items()}
-            elif isinstance(data, list):
-                return [_quote_values(item) for item in data]
-            elif isinstance(data, str):
-                return SingleQuotedScalarString(data)
-            return data
+        deployment_step = codefresh.get("steps", {}).get("deployment", {})
+        arguments = deployment_step.get("arguments", {})
+        if "custom_values" in arguments:
+            arguments["custom_values"] = [
+                SingleQuotedScalarString(v) if isinstance(v, str) else v
+                for v in arguments["custom_values"]
+            ]
 
+        from ruamel.yaml import YAML
         ryaml = YAML()
         ryaml.default_flow_style = False
         with open(codefresh_abs_path, 'w') as f:
-            ryaml.dump(_quote_values(codefresh), f)
+            ryaml.dump(codefresh, f)
     return codefresh
 
 
