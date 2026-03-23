@@ -146,9 +146,7 @@ spec:
             {{- end }}
           {{- end }}
           {{- if (and $mainapp (and $app.harness.name (eq $app.harness.name $mainapp))) }}
-            {{- if and $app.harness.subdomain (ne $app.harness.subdomain "www") }}
       - {{ $domain | quote }}
-            {{- end }}
           {{- end }}
     secretName: {{ printf "tls-secret-%s" $appIngressName }}
       {{- end }}
@@ -197,17 +195,6 @@ spec:
             {{- range $service := $app.harness.use_services }}
             {{ include "deploy_utils.ingress.service" (dict "root" $ "service_name" $service.name) }}
             {{- end }}
-        {{- end }}
-        {{- if $tls }}
-  tls:
-  - hosts:
-              {{- if $app.harness.subdomain }}
-      - {{ printf "%s.%s" $app.harness.subdomain $domain | quote }}
-              {{- end }}
-              {{- if (and $mainapp (and $app.harness.name (eq $app.harness.name $mainapp))) }}
-      - {{ $domain | quote }}
-              {{- end }}
-    secretName: {{ printf "tls-secret-%s" $appIngressName }}
         {{- end }}
       {{- end }}
     {{- end }}
