@@ -28,33 +28,34 @@ def test_merge_configuration_directories():
         merge_configuration_directories(os.path.join(basedir, 'conf-source1'), res_path)
         merge_configuration_directories(os.path.join(basedir, 'conf-source2'), res_path)
 
-        assert os.path.exists(os.path.join(res_path, "a.yaml"))
-        assert os.path.exists(os.path.join(res_path, "b.yaml"))
-        assert os.path.exists(os.path.join(res_path, "c.yaml"))
+        deploy = os.path.join(res_path, "deploy")
+        assert os.path.exists(os.path.join(deploy, "a.yaml"))
+        assert os.path.exists(os.path.join(deploy, "b.yaml"))
+        assert os.path.exists(os.path.join(deploy, "c.yaml"))
 
-        assert os.path.exists(os.path.join(res_path, "sub", "a.yaml"))
-        assert os.path.exists(os.path.join(res_path, "sub", "b.yaml"))
-        assert os.path.exists(os.path.join(res_path, "sub", "c.yaml"))
+        assert os.path.exists(os.path.join(deploy, "sub", "a.yaml"))
+        assert os.path.exists(os.path.join(deploy, "sub", "b.yaml"))
+        assert os.path.exists(os.path.join(deploy, "sub", "c.yaml"))
 
-        with open(os.path.join(res_path, "a.yaml")) as f:
+        with open(os.path.join(deploy, "a.yaml")) as f:
             a = yaml.load(f)
         assert a['a'] == 'a1'
         assert a['b']['ba'] == 'ba1'
         assert a['b']['bb'] == 'bb'
         assert a['b']['bc'] == 'bc'
 
-        with open(os.path.join(res_path, "sub", "a.yaml")) as f:
+        with open(os.path.join(deploy, "sub", "a.yaml")) as f:
             a = yaml.load(f)
         assert a['a'] == 'a1'
         assert a['b']['ba'] == 'ba1'
         assert a['b']['bb'] == 'bb'
         assert a['b']['bc'] == 'bc'
 
-        assert os.path.exists(os.path.join(res_path, "a.json"))
-        assert os.path.exists(os.path.join(res_path, "b.json"))
-        assert os.path.exists(os.path.join(res_path, "c.json"))
+        assert os.path.exists(os.path.join(deploy, "a.json"))
+        assert os.path.exists(os.path.join(deploy, "b.json"))
+        assert os.path.exists(os.path.join(deploy, "c.json"))
 
-        with open(os.path.join(res_path, "a.json")) as f:
+        with open(os.path.join(deploy, "a.json")) as f:
             a = json.load(f)
         assert a['a'] == 'a1'
         assert a['b']['ba'] == 'ba1'
@@ -75,20 +76,21 @@ def test_merge_configuration_directories_envs():
         merge_configuration_directories(os.path.join(basedir, 'conf-source1'), res_path, ("dev",))
         #
 
-        assert os.path.exists(os.path.join(res_path, "a.yaml"))
-        assert os.path.exists(os.path.join(res_path, "b.yaml"))
+        deploy = os.path.join(res_path, "deploy")
+        assert os.path.exists(os.path.join(deploy, "a.yaml"))
+        assert os.path.exists(os.path.join(deploy, "b.yaml"))
 
-        assert os.path.exists(os.path.join(res_path, "sub", "a.yaml"))
-        assert os.path.exists(os.path.join(res_path, "sub", "b.yaml"))
+        assert os.path.exists(os.path.join(deploy, "sub", "a.yaml"))
+        assert os.path.exists(os.path.join(deploy, "sub", "b.yaml"))
 
-        with open(os.path.join(res_path, "a.yaml")) as f:
+        with open(os.path.join(deploy, "a.yaml")) as f:
             a = yaml.load(f)
         assert a['a'] == 'dev'
 
         merge_configuration_directories(os.path.join(basedir, 'conf-source2'), res_path)
-        assert os.path.exists(os.path.join(res_path, "c.yaml"))
+        assert os.path.exists(os.path.join(deploy, "c.yaml"))
 
-        with open(os.path.join(res_path, "a.yaml")) as f:
+        with open(os.path.join(deploy, "a.yaml")) as f:
             a = yaml.load(f)
         assert a['a'] == 'a1'
     finally:

@@ -19,7 +19,7 @@ import fileinput
 import pathspec
 
 from cloudharness_utils.constants import NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
-    APPS_PATH, BUILD_FILENAMES, EXCLUDE_PATHS
+    APPS_PATH, EXCLUDE_PATHS
 from . import CH_ROOT
 
 yaml = YAML(typ='safe')
@@ -269,7 +269,7 @@ def movedircontent(root_src_dir, root_dst_dir):
 
 def _rsync_directory(source: pathlib.Path, destination: pathlib.Path, exclude: tuple) -> None:
     """Copy source to destination using rsync, honouring the given exclude patterns."""
-    cmd = ['rsync', '-a', '--delete']
+    cmd = ['rsync', '-a']
     for pattern in exclude:
         cmd += ['--exclude', pattern]
     cmd += [str(source) + '/', str(destination)]
@@ -286,23 +286,40 @@ def merge_configuration_directories(source: Union[str, pathlib.Path], destinatio
         logging.warning("Trying to merge the not existing directory: %s", source)
         return
 
+    merge_roots = ('deploy', 'deployment')
     spec = pathspec.PathSpec.from_lines('gitwildmatch', exclude)
-
-    if not destination_path.exists():
-        try:
-            _rsync_directory(source_path, destination_path, exclude)
-        except (FileNotFoundError, subprocess.CalledProcessError) as e:
+    copy_single_files = False
+    try:
+        logging.info(f'Copying directory {source_path} to {destination_path} using rsync')
+        _rsync_directory(source_path, destination_path, tuple(exclude) + (merge_roots if destination_path.exists() else ()))
+    except (FileNotFoundError, subprocess.CalledProcessError) as e:
+        if not destination_path.exists():
             logging.debug("rsync failed (%s), falling back to shutil.copytree", e)
+            merge_roots_set = set(merge_roots)
 
             def _ignore(directory, contents):
                 rel_dir = pathlib.Path(directory).relative_to(source_path)
-                return [c for c in contents if spec.match_file(str(rel_dir / c)) or spec.match_file(str(rel_dir / c) + '/')]
+                ignored = []
+                for c in contents:
+                    if str(rel_dir) == '.' and c in merge_roots_set:
+                        ignored.append(c)
+                    elif spec.match_file(str(rel_dir / c)) or spec.match_file(str(rel_dir / c) + '/'):
+                        ignored.append(c)
+                return ignored
             shutil.copytree(source_path, destination_path, ignore=_ignore)
+        else:
+            copy_single_files = True
+
+    if not destination_path.exists():
+
         if not envs:
             return
 
-    for source_directory, _, files in os.walk(source_path):  # source_path.walk() from Python 3.12
-        _merge_configuration_directory(source_path, destination_path, pathlib.Path(source_directory), files, envs, spec)
+    for source_directory, dirs, files in os.walk(source_path):  # source_path.walk() from Python 3.12
+        _merge_configuration_directory(
+            source_path, destination_path, pathlib.Path(source_directory),
+            files, envs, spec, copy_single_files=copy_single_files
+        )
 
 
 def _merge_configuration_directory(
@@ -311,7 +328,8 @@ def _merge_configuration_directory(
         source_directory: pathlib.Path,
         files: list[str],
         envs=(),
-        spec: pathspec.PathSpec = None
+        spec: pathspec.PathSpec = None,
+        copy_single_files: bool = False
 ) -> None:
     rel_path = source_directory.relative_to(source)
     if spec is not None and str(rel_path) != '.' and (
@@ -320,15 +338,16 @@ def _merge_configuration_directory(
         return
 
     destination_directory = destination / source_directory.relative_to(source)
+    merge_roots = {'deploy', 'deployment'}
+    if source != destination and not any(destination_directory.is_relative_to(destination / m) for m in merge_roots):
+        return
     destination_directory.mkdir(exist_ok=True)
 
-    non_build_files = (file for file in files if file not in BUILD_FILENAMES)
-
-    for file_name in non_build_files:
+    for file_name in files:
         source_file_path = source_directory / file_name
         destination_file_path = destination_directory / file_name
 
-        _merge_configuration_file(source_file_path, destination_file_path, envs)
+        _merge_configuration_file(source_file_path, destination_file_path, envs, copy_single_files=copy_single_files)
 
 
 def merge_yaml_files(fname, fdest):
@@ -388,7 +407,7 @@ merge_operations = {
 }
 
 
-def _merge_configuration_file(source_file_path: pathlib.Path, destination_file_path: pathlib.Path, envs=()) -> None:
+def _merge_configuration_file(source_file_path: pathlib.Path, destination_file_path: pathlib.Path, envs=(), copy_single_files: bool = False) -> None:
     if not exists(destination_file_path):
         shutil.copy2(source_file_path, destination_file_path)
     ext = source_file_path.suffix.lower()
@@ -402,7 +421,7 @@ def _merge_configuration_file(source_file_path: pathlib.Path, destination_file_p
             except:
                 logging.warning(f'Merge error: overwriting file {destination_file_path} with {source_file_path}')
                 shutil.copy2(source_file_path, destination_file_path)
-        else:
+        elif copy_single_files:
             logging.warning(f'Overwriting file {destination_file_path} with {source_file_path}')
             shutil.copy2(source_file_path, destination_file_path)
 

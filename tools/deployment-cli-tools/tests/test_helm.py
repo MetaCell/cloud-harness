@@ -1,5 +1,6 @@
 from ch_cli_tools.helm import *
 from ch_cli_tools.configurationgenerator import *
+from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
 import pytest
 
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -306,11 +307,20 @@ def test_tag_hash_generation():
 
 def test_collect_helm_values_auto_tag(tmp_path):
     out_folder = str(tmp_path / 'test_collect_helm_values_auto_tag')
+    merge_build_path = str(tmp_path / '.overrides')
+
+    first_pass = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
+                                   exclude=['events'], domain="my.local",
+                                   namespace='test', env='dev', local=False, tag=None, registry='reg')
+    assert first_pass[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/myapp'
 
     def create():
-        return create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
-                                 exclude=['events'], domain="my.local",
-                                 namespace='test', env='dev', local=False, tag=None, registry='reg')
+        values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
+                                   exclude=['events'], domain="my.local",
+                                   namespace='test', env='dev', local=False, tag=None, registry='reg')
+        preprocess_build_overrides([CLOUDHARNESS_ROOT, RESOURCES], values, merge_build_path=merge_build_path)
+        generate_hash_based_image_tags([CLOUDHARNESS_ROOT, RESOURCES], values, merge_build_path=merge_build_path)
+        return values
 
     BASE_KEY = "cloudharness-base"
     values = create()

@@ -36,7 +36,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
 
     def __init__(self, root_paths: List[str], tag: Union[str, int, None] = 'latest', registry='', local=True, domain=None, exclude=(), secured=True,
                  output_path='./deployment', include: List[str] = None, registry_secret_name: str = None, tls: str = True, env: str = None,
-                 namespace: str = None, templates_path: str = HELM_PATH):
+                 namespace: str = None, templates_path: str = HELM_PATH, calculate_hash_tags: bool = False):
         assert domain, 'A domain must be specified'
         self.root_paths = [Path(r) for r in root_paths]
         self.tag = str(tag) if tag else None
@@ -54,6 +54,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         self.tls = tls
         self.env = env or {}
         self.namespace = namespace
+        self.calculate_hash_tags = calculate_hash_tags
 
         # In this tree we will collect the  and their parent dependencies
         self.build_tree: dict[str, list[str]] = {}
@@ -356,29 +357,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
 
     def image_tag(self, image_name, build_context_path=None, dependencies=()):
         tag = self.tag
-        if tag is None and not self.local:
-            logging.info(f"Generating tag for {image_name} from {build_context_path} and {dependencies}")
-            ignore_path = os.path.join(build_context_path, '.dockerignore')
-            ignore = set(DEFAULT_IGNORE)
-            if os.path.exists(ignore_path):
-                with open(ignore_path) as f:
-                    ignore = ignore.union({line.strip() for line in f if line.strip() and not line.startswith('#')})
-            logging.info(f"Ignoring {ignore}")
-            tag = generate_tag_from_content(build_context_path, ignore)
-            logging.info(f"Content hash: {tag}")
-
-            # Get dependencies from build context if not provided
-            dependencies = dependencies or guess_build_dependencies_from_dockerfile(build_context_path)
-
-            # Combine with dependency tags
-            dep_tags = "".join(self.all_images.get(n, '') for n in dependencies)
-            if dep_tags:
-                logging.info(f"Dependency tags: {[(n, self.all_images.get(n, '')) for n in dependencies]}")
-            tag = sha1((tag + dep_tags).encode("utf-8")).hexdigest()
-            logging.info(f"Generated tag (with dependencies): {tag}")
-
-            app_name = image_name.split("/")[-1]  # the image name can have a prefix
-            self.all_images[app_name] = tag
+    
         return self.registry + image_name + (f':{tag}' if tag else '')
 
 

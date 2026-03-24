@@ -9,7 +9,7 @@ from ch_cli_tools.helm import create_helm_chart, deploy
 from ch_cli_tools.configurationgenerator import hosts_info
 from ch_cli_tools.skaffold import create_skaffold_configuration, create_vscode_debug_configuration
 from ch_cli_tools.codefresh import create_codefresh_deployment_scripts, write_env_file
-from ch_cli_tools.preprocessing import preprocess_build_overrides
+from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
 from ch_cli_tools.utils import merge_app_directories
 from ch_cli_tools.migration import perform_migration
 from cloudharness_utils.constants import DEPLOYMENT_PATH, COMPOSE_ENGINE, HELM_ENGINE
@@ -126,10 +126,17 @@ if __name__ == "__main__":
                 app_version=args.app_version,
             ))
 
+
         helm_values = chart_fn(**chart_args)
 
         merged_root_paths = preprocess_build_overrides(
             root_paths=root_paths, helm_values=helm_values)
+
+        # If tags are content hashes (tag omitted in non-local mode), recompute
+        # only image tags after overrides are merged so hashes reflect merged
+        # build contexts without rerunning chart generation.
+        if args.tag is None and not args.local:
+            generate_hash_based_image_tags(root_paths=root_paths, helm_values=helm_values)
 
         if not args.no_cd_gen and envs and not args.docker_compose:
             create_codefresh_deployment_scripts(
