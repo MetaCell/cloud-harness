@@ -196,6 +196,16 @@ spec:
             {{ include "deploy_utils.ingress.service" (dict "root" $ "service_name" $service.name) }}
             {{- end }}
         {{- end }}
+        {{- if $app.harness.aliases }}
+          {{- range $alias := $app.harness.aliases }}
+  - host: {{ printf "%s.%s" $alias $domain | quote }}
+    http:
+      paths:
+            {{- range $service := $app.harness.use_services }}
+            {{ include "deploy_utils.ingress.service" (dict "root" $ "service_name" $service.name) }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
       {{- end }}
     {{- end }}
   {{- end }}
