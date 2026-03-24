@@ -295,8 +295,6 @@ def merge_configuration_directories(source: Union[str, pathlib.Path], destinatio
                     ignored.append(c)
             return ignored
         shutil.copytree(source_path, destination_path, ignore=_ignore)
-        if not envs:
-            return
     else:
         copy_single_files = True
 
