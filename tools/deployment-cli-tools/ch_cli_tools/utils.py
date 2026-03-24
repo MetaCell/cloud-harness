@@ -267,15 +267,6 @@ def movedircontent(root_src_dir, root_dst_dir):
     shutil.rmtree(root_src_dir)
 
 
-def _rsync_directory(source: pathlib.Path, destination: pathlib.Path, exclude: tuple) -> None:
-    """Copy source to destination using rsync, honouring the given exclude patterns."""
-    cmd = ['rsync', '-a']
-    for pattern in exclude:
-        cmd += ['--exclude', pattern]
-    cmd += [str(source) + '/', str(destination)]
-    subprocess.run(cmd, check=True, capture_output=True)
-
-
 def merge_configuration_directories(source: Union[str, pathlib.Path], destination: Union[str, pathlib.Path], envs=(), exclude=EXCLUDE_PATHS) -> None:
     source_path, destination_path = pathlib.Path(source), pathlib.Path(destination)
 
@@ -289,31 +280,25 @@ def merge_configuration_directories(source: Union[str, pathlib.Path], destinatio
     merge_roots = ('deploy', 'deployment')
     spec = pathspec.PathSpec.from_lines('gitwildmatch', exclude)
     copy_single_files = False
-    try:
-        logging.info(f'Copying directory {source_path} to {destination_path} using rsync')
-        _rsync_directory(source_path, destination_path, tuple(exclude) + (merge_roots if destination_path.exists() else ()))
-    except (FileNotFoundError, subprocess.CalledProcessError) as e:
-        if not destination_path.exists():
-            logging.debug("rsync failed (%s), falling back to shutil.copytree", e)
-            merge_roots_set = set(merge_roots)
-
-            def _ignore(directory, contents):
-                rel_dir = pathlib.Path(directory).relative_to(source_path)
-                ignored = []
-                for c in contents:
-                    if str(rel_dir) == '.' and c in merge_roots_set:
-                        ignored.append(c)
-                    elif spec.match_file(str(rel_dir / c)) or spec.match_file(str(rel_dir / c) + '/'):
-                        ignored.append(c)
-                return ignored
-            shutil.copytree(source_path, destination_path, ignore=_ignore)
-        else:
-            copy_single_files = True
-
+    
     if not destination_path.exists():
+        logging.info("Creating merged directory %s from %s", destination, source)
+        merge_roots_set = set(merge_roots)
 
+        def _ignore(directory, contents):
+            rel_dir = pathlib.Path(directory).relative_to(source_path)
+            ignored = []
+            for c in contents:
+                if str(rel_dir) == '.' and c in merge_roots_set:
+                    ignored.append(c)
+                elif spec.match_file(str(rel_dir / c)) or spec.match_file(str(rel_dir / c) + '/'):
+                    ignored.append(c)
+            return ignored
+        shutil.copytree(source_path, destination_path, ignore=_ignore)
         if not envs:
             return
+    else:
+        copy_single_files = True
 
     for source_directory, dirs, files in os.walk(source_path):  # source_path.walk() from Python 3.12
         _merge_configuration_directory(
@@ -339,7 +324,7 @@ def _merge_configuration_directory(
 
     destination_directory = destination / source_directory.relative_to(source)
     merge_roots = {'deploy', 'deployment'}
-    if source != destination and not any(destination_directory.is_relative_to(destination / m) for m in merge_roots):
+    if source != destination and not copy_single_files and not any(destination_directory.is_relative_to(destination / m) for m in merge_roots):
         return
     destination_directory.mkdir(exist_ok=True)
 
