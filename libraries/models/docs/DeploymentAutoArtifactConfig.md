@@ -14,6 +14,7 @@ Name | Type | Description | Notes
 **resources** | [**DeploymentResourcesConf**](DeploymentResourcesConf.md) |  | [optional] 
 **volume** | [**DeploymentVolumeSpec**](DeploymentVolumeSpec.md) |  | [optional] 
 **network** | [**NetworkConfig**](NetworkConfig.md) |  | [optional] 
+**extra_containers** | [**Dict[str, ExtraContainerConfig]**](ExtraContainerConfig.md) | Extra containers (init containers and sidecars) for the deployment. Each key is a container name mapping to an ExtraContainerConfig. | [optional] 
 
 ## Example
 

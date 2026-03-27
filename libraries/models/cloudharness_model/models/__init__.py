@@ -34,6 +34,7 @@ from cloudharness_model.models.deployment_resources_conf import DeploymentResour
 from cloudharness_model.models.deployment_volume_spec import DeploymentVolumeSpec
 from cloudharness_model.models.dockerfile_config import DockerfileConfig
 from cloudharness_model.models.e2_e_tests_config import E2ETestsConfig
+from cloudharness_model.models.extra_container_config import ExtraContainerConfig
 from cloudharness_model.models.file_resources_config import FileResourcesConfig
 from cloudharness_model.models.gatekeeper_conf import GatekeeperConf
 from cloudharness_model.models.gateway_config import GatewayConfig

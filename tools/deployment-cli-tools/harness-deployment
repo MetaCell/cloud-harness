@@ -136,7 +136,7 @@ if __name__ == "__main__":
         # only image tags after overrides are merged so hashes reflect merged
         # build contexts without rerunning chart generation.
         if args.tag is None and not args.local:
-            generate_hash_based_image_tags(root_paths=root_paths, helm_values=helm_values)
+            helm_values = generate_hash_based_image_tags(root_paths=root_paths, helm_values=helm_values)
             # Overwrite the values.yaml saved in the previous step with updated image tags
             templates_path = COMPOSE if args.docker_compose else HELM_PATH
             values_path = os.path.join(args.output_path, templates_path, VALUES_MANUAL_PATH)

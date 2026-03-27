@@ -27,6 +27,7 @@ from typing import ClassVar, List, Dict, Any, Union, Optional, Annotated
 import importlib
 from cloudharness_model.models.deployment_resources_conf import DeploymentResourcesConf
 from cloudharness_model.models.deployment_volume_spec import DeploymentVolumeSpec
+from cloudharness_model.models.extra_container_config import ExtraContainerConfig
 from cloudharness_model.models.network_config import NetworkConfig
 
 class DeploymentAutoArtifactConfig(CloudHarnessBaseModel):
@@ -41,8 +42,9 @@ class DeploymentAutoArtifactConfig(CloudHarnessBaseModel):
     resources: Optional[DeploymentResourcesConf] = None
     volume: Optional[DeploymentVolumeSpec] = None
     network: Optional[NetworkConfig] = None
+    extra_containers: Optional[Dict[str, ExtraContainerConfig]] = Field(default=None, description="Extra containers (init containers and sidecars) for the deployment. Each key is a container name mapping to an ExtraContainerConfig.", alias="extraContainers")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["auto", "name", "port", "replicas", "image", "resources", "volume", "network"]
+    __properties: ClassVar[List[str]] = ["auto", "name", "port", "replicas", "image", "resources", "volume", "network", "extraContainers"]
 
     @field_validator('image')
     def image_validate_regular_expression(cls, value):
@@ -83,6 +85,13 @@ class DeploymentAutoArtifactConfig(CloudHarnessBaseModel):
         # override the default output from pydantic by calling `to_dict()` of network
         if self.network:
             _dict['network'] = self.network.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each value in extra_containers (dict)
+        _field_dict = {}
+        if self.extra_containers:
+            for _key_extra_containers in self.extra_containers:
+                if self.extra_containers[_key_extra_containers]:
+                    _field_dict[_key_extra_containers] = self.extra_containers[_key_extra_containers].to_dict()
+            _dict['extraContainers'] = _field_dict
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:
             for _key, _value in self.additional_properties.items():
@@ -112,7 +121,13 @@ class DeploymentAutoArtifactConfig(CloudHarnessBaseModel):
             "image": obj.get("image"),
             "resources": DeploymentResourcesConf.from_dict(obj["resources"]) if obj.get("resources") is not None else None,
             "volume": DeploymentVolumeSpec.from_dict(obj["volume"]) if obj.get("volume") is not None else None,
-            "network": NetworkConfig.from_dict(obj["network"]) if obj.get("network") is not None else None
+            "network": NetworkConfig.from_dict(obj["network"]) if obj.get("network") is not None else None,
+            "extraContainers": dict(
+                (_k, ExtraContainerConfig.from_dict(_v))
+                for _k, _v in obj["extraContainers"].items()
+            )
+            if obj.get("extraContainers") is not None
+            else None
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

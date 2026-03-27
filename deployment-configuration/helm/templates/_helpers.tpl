@@ -94,6 +94,78 @@ heritage: {{ $.Release.Service | quote }}
 {{- end }}
 
 
+{{/*
+Render volumeMounts block for a container.
+Usage: {{ include "deploy_utils.volumeMounts" (dict "app" .app "root" .root) }}
+*/}}
+{{- define "deploy_utils.volumeMounts" -}}
+volumeMounts:
+  - name: cloudharness-allvalues
+    mountPath: /opt/cloudharness/resources
+    readOnly: true
+  {{- $root := .root }}
+  {{- range $dep := concat .app.harness.dependencies.hard .app.harness.dependencies.soft }}
+  {{- $depApp := index $root.Values.apps $dep }}
+  {{- if $depApp.harness.secrets }}
+  - name: cloudharness-{{ $dep }}
+    mountPath: /opt/cloudharness/resources/secrets/{{ $dep }}
+    readOnly: true
+  {{- end }}
+  {{- end }}
+  {{- if (has  "accounts" .app.harness.dependencies.hard) }}
+  {{/* legacy path for accounts auth resources mount */}}
+  - name: cloudharness-accounts
+    mountPath: /opt/cloudharness/resources/auth
+    readOnly: true
+  {{- end }}
+  {{- if  .app.harness.deployment.volume }}
+  - name: {{ .app.harness.deployment.volume.name }}
+    mountPath: {{ .app.harness.deployment.volume.mountpath }}
+    readOnly: {{ .app.harness.deployment.volume.readonly | default false }}
+  {{- end }}
+  {{- $app := .app}}
+  {{- range $resource := .app.harness.resources }}
+  - name: "{{ $app.harness.deployment.name }}-{{ $resource.name }}"
+    mountPath: {{ $resource.dst }}
+    subPath: {{ base $resource.dst }}
+    readOnly: true
+  {{- end}}
+  {{- if .app.harness.secrets }}
+  - name: secrets
+    mountPath: "/opt/cloudharness/resources/secrets/{{ .app.harness.name }}"
+    readOnly: true
+  {{- end }}
+  {{- if kindIs "map" .app.harness.database }}
+    {{- if and (hasKey .app.harness.database "connect_string") .app.harness.database.connect_string }}
+  - name: db-external
+    mountPath: "/opt/cloudharness/resources/db"
+    readOnly: true
+    {{- end }}
+  {{- end }}
+{{- end -}}
+
+{{/*
+Render a single extra container spec (init container or sidecar).
+Usage: {{ include "deploy_utils.extraContainerSpec" (dict "name" $name "container" $container "app" .app "root" .root) }}
+*/}}
+{{- define "deploy_utils.extraContainerSpec" -}}
+- name: {{ .name | quote }}
+  image: {{ .container.image | default .app.harness.deployment.image }}
+  imagePullPolicy: {{ include "deploy_utils.pullpolicy" .root }}
+  {{- if .container.commands }}
+  command:
+    {{- .container.commands | toYaml | nindent 4 }}
+  {{- end }}
+  {{- if and .container.resources .container.resources.requests }}
+  {{- include "deploy_utils.resources" .container.resources | nindent 2 }}
+  {{- else }}
+  {{- include "deploy_utils.resources" .app.harness.deployment.resources | nindent 2 }}
+  {{- end }}
+  {{- if .container.shareVolume }}
+  {{- include "deploy_utils.volumeMounts" (dict "app" .app "root" .root) | nindent 2 }}
+  {{- end }}
+{{- end -}}
+
 {{/* /etc/hosts */}}
 {{- define "deploy_utils.etcHosts" }}
 {{- if .Values.local }}
