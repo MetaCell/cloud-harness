@@ -471,7 +471,10 @@ class AuthClient():
     def _add_related_to_user(self, user: User, with_details: bool, admin_client):
         user.user_groups = [UserGroup.from_dict(group) for group in admin_client.get_user_groups(user_id=user['id'], brief_representation=not with_details)]
         user.realm_roles = admin_client.get_realm_roles_of_user(user['id'])
-        user.organizations = [Organization.from_dict(org) for org in admin_client.get_user_organizations(user['id'])]
+        if hasattr(admin_client, 'get_user_organizations'):
+            user.organizations = [Organization.from_dict(org) for org in admin_client.get_user_organizations(user['id'])]
+        else:
+            user.organizations = []
         return user
 
     def get_current_user(self) -> User:
