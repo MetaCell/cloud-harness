@@ -127,7 +127,7 @@ class UserService:
 
         # Update user attributes
         user = self._map_kc_user(user, kc_user, is_superuser, delete)
-        self.sync_kc_user_groups(kc_user)
+        self.sync_kc_user_groups(kc_user, user=user)
         user.save()
 
         # FINAL SAFETY CHECK: Verify Member exists before returning
@@ -140,9 +140,10 @@ class UserService:
 
         return user
 
-    def sync_kc_user_groups(self, kc_user: ch_models.User):
+    def sync_kc_user_groups(self, kc_user: ch_models.User, user: User = None):
         # Sync the user usergroups (not organizations) using kc_id for reliable lookups
-        user = get_user_by_kc_id(kc_user.id)
+        if user is None:
+            user = get_user_by_kc_id(kc_user.id)
 
         if user is None:
             raise ValueError(f"Django user not found for Keycloak user {kc_user.id}")
@@ -156,7 +157,7 @@ class UserService:
         user.save()
 
         # Sync organization memberships separately
-        self.sync_kc_user_organizations(kc_user)
+        self.sync_kc_user_organizations(kc_user, user=user)
 
         # Ensure the member relationship exists and is correct
         try:
@@ -201,14 +202,16 @@ class UserService:
                 )
         return org
 
-    def sync_kc_user_organizations(self, kc_user: ch_models.User):
+    def sync_kc_user_organizations(self, kc_user: ch_models.User, user: User = None):
         """
         Sync the user's organization memberships from Keycloak to Django.
         Creates Organization records if they don't exist and manages OrganizationMember relationships.
 
         :param kc_user: Keycloak user object with organizations attribute
+        :param user: Django User instance (optional, looked up by kc_id if not provided)
         """
-        user = get_user_by_kc_id(kc_user.id)
+        if user is None:
+            user = get_user_by_kc_id(kc_user.id)
 
         if user is None:
             raise ValueError(f"Django user not found for Keycloak user {kc_user.id}")
