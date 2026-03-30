@@ -357,7 +357,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
 
     def image_tag(self, image_name, build_context_path=None, dependencies=()):
         tag = self.tag
-    
+
         return self.registry + image_name + (f':{tag}' if tag else '')
 
 
