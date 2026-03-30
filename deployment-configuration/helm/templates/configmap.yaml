@@ -13,8 +13,13 @@ data:
 {{- $registry := get $values_copy "registry" }}
 {{- if $registry }}
   {{- $secret := get $registry "secret" }}
-  {{- if and (kindIs "map" $secret) (not (empty $secret.value)) }}
-    {{- $tmp := unset $secret "value" }}
+  {{- if kindIs "map" $secret }}
+    {{- $secretValue := get $secret "value" }}
+    {{- if not (empty $secretValue) }}
+      {{- $tmp := unset $secret "value" }}
+    {{- end }}
+  {{- else if kindIs "string" $secret }}
+    {{- $tmp := set $registry "secret" "" }}
   {{- end }}
 {{- end }}
 {{- range $key, $val := .Values.apps }}
