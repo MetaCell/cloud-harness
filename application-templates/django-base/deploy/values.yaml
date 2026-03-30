@@ -10,6 +10,28 @@ harness:
     - cloudharness-django
   use_services:
     - name: common
+  deployment:
+    auto: true
+    extraContainers:
+      run-migrations:
+        auto: true
+        initContainer: true
+        commands:
+          - sh
+          - -c
+          - |
+            python manage.py migrate --check 2>/dev/null && echo "No migrations needed" && exit 0
+            if python manage.py dbshell -c "SELECT pg_try_advisory_lock(42)" | grep -q t; then
+              echo "Acquired migration lock, running migrations..."
+              python manage.py migrate
+            else
+              echo "Waiting for migrations to complete..."
+              until python manage.py dbshell -c "SELECT pg_try_advisory_lock(42)" | grep -q t; do
+                sleep 2
+              done
+              echo "Migrations complete"
+            fi
+        shareVolume: false
   uri_role_mapping:
     - uri: /*
       roles:
