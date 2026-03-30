@@ -156,7 +156,7 @@ Usage: {{ include "deploy_utils.extraContainerSpec" (dict "name" $name "containe
   command:
     {{- .container.commands | toYaml | nindent 4 }}
   {{- end }}
-  {{- if and .container.resources .container.resources.requests }}
+  {{- if dig "resources" "requests" nil .container }}
   {{- include "deploy_utils.resources" .container.resources | nindent 2 }}
   {{- else }}
   {{- include "deploy_utils.resources" .app.harness.deployment.resources | nindent 2 }}
