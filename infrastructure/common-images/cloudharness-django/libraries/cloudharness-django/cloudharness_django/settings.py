@@ -74,7 +74,7 @@ if current_app.harness.database.type == "sqlite3":
     DATABASE_NAME = os.path.join(getattr(settings, "PERSISTENT_ROOT", "."), f"{app_name}.sqlite3")
     DATABASE_HOST = None
     DATABASE_PORT = None
-    TEST_DATABASE_NAME = os.path.join(getattr(settings, "PERSISTENT_ROOT", "."), "testdb.sqlite3")
+    TEST_DATABASE_NAME = ":memory:"  # os.path.join(getattr(settings, "PERSISTENT_ROOT", "."), "testdb.sqlite3")
 elif current_app.harness.database.type == "postgres":
     DATABASE_ENGINE = "django.db.backends.postgresql"
     DATABASE_NAME = current_app.harness.database.postgres.initialdb
