@@ -22,12 +22,12 @@ harness:
       init-print:
         auto: true
         initContainer: true
-        commands: ["sh", "-c", "echo Initializing"]
+        command: ["sh", "-c", "echo Initializing"]
         shareVolume: false
       sidecar-print:
         auto: true
         initContainer: false
-        commands: ["sh", "-c", "while true; do echo Sidecar running at $(date); sleep 60; done"]
+        command: ["sh", "-c", "while true; do echo Sidecar running at $(date); sleep 60; done"]
         shareVolume: false
   gateway:
     path: /

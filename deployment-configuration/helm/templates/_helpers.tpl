@@ -152,9 +152,9 @@ Usage: {{ include "deploy_utils.extraContainerSpec" (dict "name" $name "containe
 - name: {{ .name | quote }}
   image: {{ .container.image | default .app.harness.deployment.image }}
   imagePullPolicy: {{ include "deploy_utils.pullpolicy" .root }}
-  {{- if .container.commands }}
+  {{- if .container.command }}
   command:
-    {{- .container.commands | toYaml | nindent 4 }}
+    {{- .container.command | toYaml | nindent 4 }}
   {{- end }}
   {{- if dig "resources" "requests" nil .container }}
   {{- include "deploy_utils.resources" .container.resources | nindent 2 }}

@@ -54,7 +54,7 @@ harness:
       #     auto: true
       #     initContainer: true
       #     image:
-      #     commands: []
+      #     command: []
       #     shareVolume: true
       #     resources: {}
     # -- Network policy configuration for the deployment pod.

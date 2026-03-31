@@ -1128,7 +1128,7 @@ components:
                         Docker image for the extra container. If not specified, defaults to the main
                         application image.
                     type: string
-                commands:
+                command:
                     description: Command to run in the extra container
                     type: array
                     items:

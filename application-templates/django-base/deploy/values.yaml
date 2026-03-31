@@ -16,7 +16,7 @@ harness:
       run-migrations:
         auto: true
         initContainer: true
-        commands:
+        command:
           - python
           - manage.py
           - locked_migrate

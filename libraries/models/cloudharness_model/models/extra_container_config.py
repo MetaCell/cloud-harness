@@ -34,11 +34,11 @@ class ExtraContainerConfig(CloudHarnessBaseModel):
     auto: Optional[StrictBool] = Field(default=None, description="When true, the extra container is included in the deployment")
     init_container: Optional[StrictBool] = Field(default=None, description="When true, the container runs as a Kubernetes init container (before the main container). When false, the container runs as a sidecar (alongside the main container).", alias="initContainer")
     image: Optional[StrictStr] = Field(default=None, description="Docker image for the extra container. If not specified, defaults to the main application image.")
-    commands: Optional[List[StrictStr]] = Field(default=None, description="Command to run in the extra container")
+    command: Optional[List[StrictStr]] = Field(default=None, description="Command to run in the extra container")
     share_volume: Optional[StrictBool] = Field(default=None, description="When true, the extra container shares the same volume mounts as the main container.", alias="shareVolume")
     resources: Optional[DeploymentResourcesConf] = None
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["auto", "initContainer", "image", "commands", "shareVolume", "resources"]
+    __properties: ClassVar[List[str]] = ["auto", "initContainer", "image", "command", "shareVolume", "resources"]
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the dictionary representation of the model using alias.
@@ -83,7 +83,7 @@ class ExtraContainerConfig(CloudHarnessBaseModel):
             "auto": obj.get("auto"),
             "initContainer": obj.get("initContainer"),
             "image": obj.get("image"),
-            "commands": obj.get("commands"),
+            "command": obj.get("command"),
             "shareVolume": obj.get("shareVolume"),
             "resources": DeploymentResourcesConf.from_dict(obj["resources"]) if obj.get("resources") is not None else None
         })
