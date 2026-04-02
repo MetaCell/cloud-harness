@@ -93,6 +93,8 @@ securityContext:
 service:
   type: ClusterIP
   port: 80
+  # In case of service type LoadBalancer, you can specify reserved static IP
+  # loadBalancerIP: 10.11.12.13
   # if you want to force a specific nodePort. Must be use with service.type=NodePort
   # nodePort:
 
@@ -109,6 +111,9 @@ ingress:
 
   # The path for the Ingress
   path: "/"
+
+  # The path type for the Ingress
+  pathType: "Prefix"
 
   # The hostname for the Ingress
   host: ""
