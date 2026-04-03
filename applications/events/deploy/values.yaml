@@ -16,8 +16,11 @@ kafka:
   image: docker.io/apache/kafka:4.0.2
   imagePullPolicy: IfNotPresent
   clusterId: 5L6g3nShT-eMCtK--X86sw
+  logDirs: /var/lib/kafka/data/kraft-combined-logs
   storage: 10Gi
   storageClassName: standard
+  podSecurityContext:
+    fsGroup: 1000
   config:
     auto.create.topics.enable: "true"
     num.partitions: "3"

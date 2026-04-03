@@ -13,6 +13,8 @@ spec:
       labels:
         app: kafka
     spec:
+      securityContext:
+        {{- .Values.apps.events.kafka.podSecurityContext | toYaml | nindent 8 }}
       containers:
       - name: broker
         image: {{ .Values.apps.events.kafka.image | quote }}
@@ -37,7 +39,7 @@ spec:
         - name: KAFKA_CONTROLLER_QUORUM_VOTERS
           value: 1@kafka-0.broker.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.apps.events.kafka.controllerPort }}
         - name: KAFKA_LOG_DIRS
-          value: /var/lib/kafka/data
+          value: {{ .Values.apps.events.kafka.logDirs | quote }}
         - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
           value: "0"
         {{- range $key, $value := .Values.apps.events.kafka.config }}

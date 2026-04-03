@@ -21,6 +21,10 @@ kafka:
 
 The default override set is intentionally small and only keeps the single-node KRaft deployment behavior stable.
 
+Kafka log data is stored by default in `kafka.logDirs: /var/lib/kafka/data/kraft-combined-logs` instead of the PVC root. This avoids startup failures on ext4-backed volumes that expose filesystem directories such as `lost+found` at the mount root.
+
+The default pod security context also sets `fsGroup: 1000` so the broker can write to the mounted volume on common Kubernetes storage classes.
+
 ## Reset local KRaft state
 
 Kafka metadata and log state are stored on the `kafka` PVC. If a local Minikube deployment gets stuck because of stale KRaft state, delete the broker pod and its PVC before redeploying:
