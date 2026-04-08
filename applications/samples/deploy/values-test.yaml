@@ -6,6 +6,7 @@ harness:
       - common
       - jupyterhub
       - volumemanager
+      - nfsserver
     build:
       - cloudharness-flask
       - cloudharness-frontend-build
