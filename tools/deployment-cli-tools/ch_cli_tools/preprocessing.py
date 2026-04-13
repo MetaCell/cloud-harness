@@ -5,7 +5,7 @@ from hashlib import sha1
 
 import shutil
 from glob import glob
-from os.path import join, basename, isabs, relpath
+from os.path import join, basename, dirname, isabs, relpath
 
 from .helm import KEY_APPS, KEY_TASK_IMAGES, KEY_HARNESS, KEY_DEPLOYMENT
 from .configurationgenerator import DEFAULT_IGNORE, generate_tag_from_content
@@ -135,6 +135,18 @@ def get_build_paths(root_paths, helm_values, merge_build_path=DEFAULT_MERGE_PATH
                     merge_build_path,
                     relpath(base_path, root_path)
                 )
+
+            for task_path in find_subdirs(join(base_path, 'tasks')):
+                task_name = app_name_from_path(relpath(task_path, dirname(base_path)))
+                if task_name not in helm_values.get(KEY_TASK_IMAGES, {}):
+                    continue
+                if task_name not in artifacts:
+                    artifacts[task_name] = task_path
+                else:
+                    artifacts[task_name] = join(
+                        merge_build_path,
+                        relpath(task_path, root_path)
+                    )
 
     return artifacts
 
