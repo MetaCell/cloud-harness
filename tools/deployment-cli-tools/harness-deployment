@@ -126,7 +126,6 @@ if __name__ == "__main__":
                 app_version=args.app_version,
             ))
 
-
         helm_values = chart_fn(**chart_args)
 
         merged_root_paths = preprocess_build_overrides(

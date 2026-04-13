@@ -280,7 +280,7 @@ def merge_configuration_directories(source: Union[str, pathlib.Path], destinatio
     merge_roots = ('deploy', 'deployment')
     spec = pathspec.PathSpec.from_lines('gitwildmatch', exclude)
     copy_single_files = False
-    
+
     if not destination_path.exists():
         logging.info("Creating merged directory %s from %s", destination, source)
         merge_roots_set = set(merge_roots)
