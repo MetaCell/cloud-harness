@@ -17,7 +17,18 @@ harness:
       size: 10Mi
       usenfs: false
     auto: true
-    port: 8080 
+    port: 8080
+    extraContainers:
+      init-print:
+        auto: true
+        initContainer: true
+        command: ["sh", "-c", "echo Initializing"]
+        shareVolume: false
+      sidecar-print:
+        auto: true
+        initContainer: false
+        command: ["sh", "-c", "while true; do echo Sidecar running at $(date); sleep 60; done"]
+        shareVolume: false
   gateway:
     path: /
     pathType: Prefix
