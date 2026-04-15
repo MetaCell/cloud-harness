@@ -57,6 +57,16 @@ spec:
           timeoutSeconds: 2
           initialDelaySeconds: 30
           periodSeconds: 30
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - ./bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 --timeout 10000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 15
+          failureThreshold: 3
         resources:
           {{- .Values.apps.events.kafka.resources | toYaml | nindent 10 }}
         volumeMounts:
