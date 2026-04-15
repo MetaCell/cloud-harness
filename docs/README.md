@@ -25,6 +25,7 @@
   - [User workspaces with JupyterHub](./jupyterhub.md)
   - [Send errors to Sentry](./sentry.md)
   - [Use the events queue to send notifications](./notifications.md)
+  - [Network policies](./network-policies.md)
 - [Writing and running automated tests](./testing.md)
 - [Tutorial: Writing a simple webapp with cloud-harness](./tutorials/simple-date-clock-application.adoc)
 

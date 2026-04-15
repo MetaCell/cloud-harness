@@ -9,10 +9,10 @@ LOCALREPO_VC_DIR=$LOCALREPO/.git
 
 if [ ! -d $LOCALREPO_VC_DIR ]
 then
-    git clone --branch $BRANCH $REPOSRC $LOCALREPO
+    git clone --branch $BRANCH $REPOSRC $LOCALREPO || echo "Error: failed to clone $REPOSRC"
 else
     cd $LOCALREPO
-    git pull origin $BRANCH
+    # git pull origin $BRANCH || echo "Error: failed to pull $REPOSRC"
 fi
 
 # End

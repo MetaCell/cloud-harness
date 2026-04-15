@@ -1,5 +1,6 @@
 from ch_cli_tools.helm import *
 from ch_cli_tools.configurationgenerator import *
+from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
 import pytest
 
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -92,6 +93,16 @@ def test_collect_nobuild(tmp_path):
                                namespace='test', env='nobuild', local=False, tag=1, registry='reg')
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'custom-image'
     assert values[KEY_APPS]['myapp']['build'] == False
+
+
+def test_collect_helm_values_harness_image_name_override(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values_harness_image_name_override'
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
+                               domain="my.local", namespace='test', env='imagename', local=False, tag=1, registry='reg')
+
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/custom-myapp:1'
+    assert values[KEY_APPS]['myapp'][KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/testprojectname/custom-myapp-mytask:1'
 
 
 def test_collect_helm_values_noreg_noinclude(tmp_path):
@@ -296,11 +307,20 @@ def test_tag_hash_generation():
 
 def test_collect_helm_values_auto_tag(tmp_path):
     out_folder = str(tmp_path / 'test_collect_helm_values_auto_tag')
+    merge_build_path = str(tmp_path / '.overrides')
+
+    first_pass = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
+                                   exclude=['events'], domain="my.local",
+                                   namespace='test', env='dev', local=False, tag=None, registry='reg')
+    assert first_pass[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/myapp'
 
     def create():
-        return create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
-                                 exclude=['events'], domain="my.local",
-                                 namespace='test', env='dev', local=False, tag=None, registry='reg')
+        values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
+                                   exclude=['events'], domain="my.local",
+                                   namespace='test', env='dev', local=False, tag=None, registry='reg')
+        preprocess_build_overrides([CLOUDHARNESS_ROOT, RESOURCES], values, merge_build_path=merge_build_path)
+        generate_hash_based_image_tags([CLOUDHARNESS_ROOT, RESOURCES], values, merge_build_path=merge_build_path)
+        return values
 
     BASE_KEY = "cloudharness-base"
     values = create()
@@ -373,6 +393,44 @@ def test_collect_helm_values_auto_tag(tmp_path):
         assert v1 != values.apps['myapp'].harness.deployment.image, "2 levels dependency: If a base image dependency is changed, the hash should change"
     finally:
         fname.unlink()
+
+
+def test_network_policy_defaults_from_value_template(tmp_path):
+    """Verify that allowedNamespaces set in a root directory's value-template.yaml
+    propagates into app values and is not reset to []."""
+    out_folder = tmp_path / 'test_network_policy_defaults_from_value_template'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
+                               domain="my.local", namespace='test', env='dev', local=False, tag=1)
+
+    network = values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['network']
+    assert network is not None, "network config should be present"
+    allowed = network.get('allowedNamespaces') or []
+    assert 'test-namespace' in allowed, (
+        f"allowedNamespaces from value-template override should contain 'test-namespace', got: {allowed}"
+    )
+
+    out_folder = tmp_path / 'test_chart_metadata_optional_overrides'
+    create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=out_folder,
+        include=['myapp'],
+        domain="my.local",
+        namespace='custom-ns',
+        name='custom-chart',
+        chart_version='9.8.7',
+        app_version='4.5.6',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+
+    chart_path = out_folder / HELM_CHART_PATH / 'Chart.yaml'
+    chart = yaml.safe_load(open(chart_path, 'r'))
+    assert chart['name'] == 'custom-chart'
+    assert chart['version'] == '9.8.7'
+    assert chart['appVersion'] == '4.5.6'
+    assert chart['metadata']['namespace'] == 'custom-ns'
 
 
 def test_exclude_single_task(tmp_path):

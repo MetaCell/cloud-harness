@@ -10,6 +10,17 @@ harness:
     - cloudharness-django
   use_services:
     - name: common
+  deployment:
+    auto: true
+    extraContainers:
+      run-migrations:
+        auto: true
+        initContainer: true
+        command:
+          - python
+          - manage.py
+          - locked_migrate
+        shareVolume: false
   uri_role_mapping:
     - uri: /*
       roles:

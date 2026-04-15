@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "kafka-ui.fullname" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "kafka-ui.labels" . | nindent 4 }}
 {{- if .Values.service.annotations }}
@@ -10,6 +11,9 @@ metadata:
 {{- end }}
 spec:
   type: {{ .Values.service.type }}
+{{- if and (eq .Values.service.type "LoadBalancer") (.Values.service.loadBalancerIP) }}
+  loadBalancerIP: {{ .Values.service.loadBalancerIP }}
+{{- end }}
   ports:
     - port: {{ .Values.service.port }}
       targetPort: http

@@ -30,6 +30,10 @@ Name | Type | Description | Notes
 **env** | [**List[NameValue]**](NameValue.md) | Environmental variables added to all containers (deprecated, please use envmap) | [optional] 
 **envmap** | **Dict[str, object]** |  | [optional] 
 **dockerfile** | [**DockerfileConfig**](DockerfileConfig.md) |  | [optional] 
+**sentry** | **bool** |  | [optional] 
+**proxy** | [**ProxyConf**](ProxyConf.md) |  | [optional] 
+**image_name** | **str** | Use this name for the image in place of the default directory name | [optional] 
+**gateway** | [**GatewayConfig**](GatewayConfig.md) |  | [optional] 
 
 ## Example
 
@@ -49,5 +53,3 @@ application_harness_config_dict = application_harness_config_instance.to_dict()
 application_harness_config_form_dict = application_harness_config.from_dict(application_harness_config_dict)
 ```
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
-
-

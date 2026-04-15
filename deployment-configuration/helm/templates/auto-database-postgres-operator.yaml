@@ -1,0 +1,86 @@
+{{- define "deploy_utils.database.postgres.operator" }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ printf "%s-credentials" .app.harness.database.name | quote }}
+  namespace: {{ .root.Values.namespace }}
+  labels:
+    app: {{ .app.harness.database.name | quote }}
+{{ include "deploy_utils.labels" .root | indent 4 }}
+type: kubernetes.io/basic-auth
+stringData:
+  username: {{ .app.harness.database.user | quote }}
+  password: {{ .app.harness.database.pass | quote }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .app.harness.database.name | quote }}
+  namespace: {{ .root.Values.namespace }}
+  labels:
+    app: {{ .app.harness.database.name | quote }}
+{{ include "deploy_utils.labels" .root | indent 4 }}
+spec:
+  instances: {{ .app.harness.database.postgres.instances | default 1 }}
+
+  inheritedMetadata:
+    labels:
+      app: {{ .app.harness.database.name | quote }}
+      service: db
+
+  bootstrap:
+    initdb:
+      database: {{ .app.harness.database.postgres.initialdb | quote }}
+      owner: {{ .app.harness.database.user | quote }}
+      secret:
+        name: {{ printf "%s-credentials" .app.harness.database.name | quote }}
+
+  storage:
+    size: {{ .app.harness.database.size }}
+
+  {{- with .app.harness.database.resources }}
+  resources:
+    {{- with .requests }}
+    requests:
+      {{- with .memory }}
+      memory: {{ . | quote }}
+      {{- end }}
+      {{- with .cpu }}
+      cpu: {{ . | quote }}
+      {{- end }}
+    {{- end }}
+    {{- with .limits }}
+    limits:
+      {{- with .memory }}
+      memory: {{ . | quote }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+
+  {{- if .app.harness.database.image_ref }}
+  imageName: {{ index (index .app "task-images") .app.harness.database.image_ref | default ("Image ref not found!" | quote) }}
+  {{- else if .app.harness.database.postgres.image }}
+  imageName: {{ .app.harness.database.postgres.image | quote }}
+  {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .app.harness.database.name | quote }}
+  namespace: {{ .root.Values.namespace }}
+  labels:
+    app: {{ .app.harness.deployment.name | quote }}
+{{ include "deploy_utils.labels" .root | indent 4 }}
+spec:
+  type: {{ if .app.harness.database.expose }}LoadBalancer{{ else }}ClusterIP{{ end }}
+  selector:
+    app: {{ .app.harness.database.name | quote }}
+    cnpg.io/instanceRole: primary
+  ports:
+  {{- range $port := .app.harness.database.postgres.ports }}
+  - name: {{ $port.name }}
+    port: {{ $port.port }}
+    targetPort: 5432
+  {{- end }}
+{{- end }}

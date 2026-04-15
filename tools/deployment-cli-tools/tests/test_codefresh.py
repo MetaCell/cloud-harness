@@ -118,7 +118,7 @@ def test_create_codefresh_configuration():
             step['working_directory'], os.path.join(CLOUDHARNESS_ROOT, APPS_PATH, "samples"))
 
         step = steps["myapp"]
-        assert step['dockerfile'] == "Dockerfile"
+        assert step['dockerfile'].endswith('dev.Dockerfile'), f"myapp should use dev.Dockerfile but got {step['dockerfile']}"
         assert "testprojectname/" in step['image_name'], f"myapp image should have the project name coming from the chart in its path, is {step['image_name']}"
         for build_argument in step['build_arguments']:
             if build_argument.startswith("CLOUDHARNESS_FLASK="):
@@ -140,6 +140,9 @@ def test_create_codefresh_configuration():
             tstep['commands']) == 2, "Unit test commands are not properly loaded from the unit test configuration file"
         assert tstep['commands'][0] == "tox", "Unit test commands are not properly loaded from the unit test configuration file"
         assert len(l1_steps[CD_STEP_CLONE_DEPENDENCIES]['steps']) == 3, "3 clone steps should be included as we have 2 dependencies from myapp, plus cloudharness"
+
+        publish_base_step = l1_steps[CD_STEP_PUBLISH]['steps']['publish_cloudharness-base']
+        assert publish_base_step['when']['condition']['all']['skipPublish'] == "includes('${{CLOUDHARNESS_BASE_PUBLISH_SKIP}}', '{{CLOUDHARNESS_BASE_PUBLISH_SKIP}}') == true"
     finally:
         shutil.rmtree(BUILD_MERGE_DIR)
 
@@ -328,6 +331,245 @@ def test_create_codefresh_configuration_nobuild():
     assert "publish_myapp-mytask" in l1_steps["publish"]["steps"]
 
 
+def test_codefresh_db_connect_string_secret():
+    """When an app has database.connect_string set to '', a custom_values entry must be added to the deployment step."""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['myapp'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env='connectstring',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 envs=['dev'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+        custom_values = cf['steps']['deployment']['arguments']['custom_values']
+        expected = "apps_myapp_harness_database_connect__string=\"${{MYAPP_DB_CONNECT_STRING}}\""
+        assert expected in custom_values, \
+            f"Expected custom_value entry for connect_string not found. Got: {custom_values}"
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
+def test_codefresh_secret_with_quotes():
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['myapp'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+
+        values.apps["myapp"].harness.secrets = {
+            "settings_secret": "SECRET_KEY='replace-with-strong-shared-secret'"
+        }
+
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 envs=['dev'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+
+        custom_values = cf['steps']['deployment']['arguments']['custom_values']
+        entry = next(
+            value for value in custom_values
+            if value.startswith("apps_myapp_harness_secrets_settings__secret=")
+        )
+        assert entry == 'apps_myapp_harness_secrets_settings__secret="${{SETTINGS__SECRET}}"'
+        rendered = entry.replace(
+            "${{SETTINGS__SECRET}}",
+            values.apps["myapp"].harness.secrets["settings_secret"]
+        )
+        assert rendered == 'apps_myapp_harness_secrets_settings__secret="SECRET_KEY=\'replace-with-strong-shared-secret\'"'
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
+def test_sort_parallel_steps_alphabetically():
+    """Sub-steps inside parallel steps must be sorted alphabetically by name."""
+    steps = {
+        'build_application_images_0': {
+            'type': 'parallel',
+            'stage': 'build',
+            'steps': {
+                'z-image': {'type': 'build'},
+                'a-image': {'type': 'build'},
+                'm-image': {'type': 'build'},
+                'b-image': {'type': 'build'},
+            }
+        },
+        'build_application_images_1': {
+            'type': 'parallel',
+            'stage': 'build',
+            'steps': {
+                'zz': {'type': 'build'},
+                'aa': {'type': 'build'},
+            }
+        },
+        'not_parallel': {
+            'stage': 'prepare',
+            'title': 'Not parallel',
+        },
+    }
+
+    result = sort_parallel_steps(steps)
+
+    # Parallel sub-steps are sorted alphabetically
+    assert list(result['build_application_images_0']['steps'].keys()) == ['a-image', 'b-image', 'm-image', 'z-image']
+    assert list(result['build_application_images_1']['steps'].keys()) == ['aa', 'zz']
+    # Non-parallel steps are unaffected
+    assert 'not_parallel' in result
+
+
+def test_parallel_build_steps_sorted_alphabetically():
+    """Sub-steps inside generated parallel build steps must be sorted alphabetically."""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['samples', 'myapp', 'workflows'],
+        exclude=['events'],
+        domain='my.local',
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg',
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR,
+        )
+        build_included = [app['harness']['name'] for app in values['apps'].values() if 'harness' in app]
+        cf = create_codefresh_deployment_scripts(
+            root_paths,
+            include=build_included,
+            envs=['dev'],
+            base_image_name=values['name'],
+            helm_values=values,
+            save=False,
+        )
+
+        for step_name, step in cf['steps'].items():
+            if step and isinstance(step, dict) and step.get('type') == 'parallel' and 'steps' in step:
+                sub_step_names = list(step['steps'].keys())
+                assert sub_step_names == sorted(sub_step_names), \
+                    f"Sub-steps of '{step_name}' are not sorted alphabetically: {sub_step_names}"
+    finally:
+        import shutil
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
+def test_order_steps_by_stage():
+    """Steps must be sorted according to the stages list; relative order within each stage is preserved."""
+    stages = ['prepare', 'build', 'unittest', 'deploy', 'qa']
+
+    steps = {
+        'build_step_1': {'stage': 'build', 'title': 'Build 1'},
+        'main_clone': {'stage': 'prepare', 'title': 'Clone'},
+        'prepare_deployment': {'stage': 'prepare', 'title': 'Prepare'},
+        'tests_unit': {'stage': 'unittest', 'title': 'Unit tests'},
+        'build_step_2': {'stage': 'build', 'title': 'Build 2'},
+        'deployment': {'stage': 'deploy', 'title': 'Deploy'},
+        'tests_e2e': {'stage': 'qa', 'title': 'E2E tests'},
+        'no_stage_step': {'title': 'No stage'},
+    }
+
+    result = order_steps_by_stage(steps, stages)
+    step_names = list(result.keys())
+
+    assert step_names.index('main_clone') < step_names.index('build_step_1'), "prepare must precede build"
+    assert step_names.index('prepare_deployment') < step_names.index('build_step_1'), "prepare must precede build"
+    assert step_names.index('build_step_1') < step_names.index('tests_unit'), "build must precede unittest"
+    assert step_names.index('build_step_2') < step_names.index('tests_unit'), "build must precede unittest"
+    assert step_names.index('tests_unit') < step_names.index('deployment'), "unittest must precede deploy"
+    assert step_names.index('deployment') < step_names.index('tests_e2e'), "deploy must precede qa"
+
+    # Relative order within each stage is preserved (stable sort)
+    assert step_names.index('main_clone') < step_names.index('prepare_deployment'), "relative order within prepare preserved"
+    assert step_names.index('build_step_1') < step_names.index('build_step_2'), "relative order within build preserved"
+
+    # Steps without a stage come last
+    assert step_names.index('no_stage_step') == len(step_names) - 1, "steps without a stage go to the end"
+
+
+def test_steps_ordered_by_stage_in_generated_config():
+    """The steps produced by create_codefresh_deployment_scripts must be ordered by stage."""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['samples', 'myapp', 'workflows'],
+        exclude=['events'],
+        domain='my.local',
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg',
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR,
+        )
+        build_included = [app['harness']['name'] for app in values['apps'].values() if 'harness' in app]
+        cf = create_codefresh_deployment_scripts(
+            root_paths,
+            include=build_included,
+            envs=['dev'],
+            base_image_name=values['name'],
+            helm_values=values,
+            save=False,
+        )
+
+        stages = cf.get('stages', [])
+        stage_order = {s: i for i, s in enumerate(stages)}
+        steps = cf['steps']
+
+        step_stage_indices = [
+            stage_order.get(step.get('stage'), len(stages))
+            for step in steps.values()
+            if step and isinstance(step, dict)
+        ]
+
+        assert step_stage_indices == sorted(step_stage_indices), \
+            "Steps are not ordered by stage. Got stages: " + str(
+                [step.get('stage') for step in steps.values() if step and isinstance(step, dict)]
+        )
+    finally:
+        import shutil
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
 def test_app_depends_on_app():
 
     root_paths = [CLOUDHARNESS_ROOT, RESOURCES]
@@ -339,3 +581,82 @@ def test_app_depends_on_app():
                                              envs=[],
                                              base_image_name=values['name'],
                                              helm_values=values, save=False)
+
+
+def test_env_dockerfile_codefresh():
+    """When a [env].Dockerfile exists it should be used in the codefresh build step."""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['myapp'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 envs=['dev'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+        # myapp has dev.Dockerfile so it should be used
+        myapp_step = cf['steps'][STEP_2]['steps']['myapp']
+        assert myapp_step['dockerfile'].endswith('dev.Dockerfile'), \
+            f"Expected dev.Dockerfile but got {myapp_step['dockerfile']}"
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
+def test_env_dockerfile_codefresh_fallback():
+    """When no [env].Dockerfile exists the regular Dockerfile should be used."""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['samples'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+
+        # samples has no dev.Dockerfile, so it should fall back to Dockerfile
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 envs=['dev'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+        all_build_steps = {
+            step_name: step
+            for build_step_name in [STEP_0, STEP_1, STEP_2, STEP_3]
+            if build_step_name in cf['steps']
+            for step_name, step in cf['steps'][build_step_name]['steps'].items()
+        }
+        assert 'samples' in all_build_steps, "samples should be in the build steps"
+        samples_step = all_build_steps['samples']
+        assert samples_step['dockerfile'] == 'Dockerfile', \
+            f"Expected Dockerfile but got {samples_step['dockerfile']}"
+        assert not samples_step['dockerfile'].endswith('dev.Dockerfile'), \
+            "samples should not use dev.Dockerfile as it does not have one"
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)

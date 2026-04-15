@@ -7,33 +7,29 @@ harness:
     port: 8080
     resources:
       requests:
-        memory: "512Mi"
+        memory: "800Mi"
         cpu: "10m"
       limits:
-        memory: "1024Mi"
-        cpu: "2000m"
+        memory: "1Gi"
   service:
     auto: true
     port: 8080
-  env:
-    - name: KC_BOOTSTRAP_ADMIN_USERNAME
-      value: "admin"
-    - name: KC_BOOTSTRAP_ADMIN_PASSWORD
-      value: "metacell"
-    - name: KC_PROXY_HEADERS
-      value: xforwarded
-    - name: KC_DB
-      value: "postgres"
-    - name: KC_DB_URL_HOST
-      value: "keycloak-postgres"
-    - name: KC_DB_URL_DATABASE
-      value: "auth_db"
-    - name: KC_DB_USERNAME
-      value: "user"
-    - name: KC_DB_PASSWORD
-      value: "password"
-    - name: JAVA_OPTS
-      value: -server -Xms64m -Xmx896m -XX:MetaspaceSize=96M -XX:MaxMetaspaceSize=256m -Djava.net.preferIPv4Stack=true -Djboss.modules.system.pkgs=org.jboss.byteman -Djava.awt.headless=true  --add-exports=java.base/sun.nio.ch=ALL-UNNAMED --add-exports=jdk.unsupported/sun.misc=ALL-UNNAMED --add-exports=jdk.unsupported/sun.reflect=ALL-UNNAMED
+  envmap:
+    KC_BOOTSTRAP_ADMIN_USERNAME: "admin"
+    KC_BOOTSTRAP_ADMIN_PASSWORD: "metacell"
+    KC_PROXY_HEADERS: xforwarded
+    KC_DB: "postgres"
+    KC_DB_URL_HOST: "keycloak-postgres"
+    KC_DB_URL_DATABASE: "auth_db"
+    KC_DB_USERNAME: "user"
+    KC_DB_PASSWORD: "password"
+    KC_HTTP_ENABLED: "true"
+    KC_PROXY: "edge"
+    KC_HOSTNAME_STRICT: "false"
+    KC_HOSTNAME_STRICT_HTTPS: "false"
+    KC_HEALTH_ENABLED: "true"
+    KC_METRICS_ENABLED: "true"
+    JAVA_OPTS: "-server -Xms64m -Xmx896m -XX:MetaspaceSize=96M -XX:MaxMetaspaceSize=256m -Djava.net.preferIPv4Stack=true -Djboss.modules.system.pkgs=org.jboss.byteman -Djava.awt.headless=true  --add-exports=java.base/sun.nio.ch=ALL-UNNAMED --add-exports=jdk.unsupported/sun.misc=ALL-UNNAMED --add-exports=jdk.unsupported/sun.reflect=ALL-UNNAMED"
   database:
     auto: true
     name: keycloak-postgres
@@ -74,12 +70,25 @@ admin:
   user: admin
   role: administrator
 editUsernameAllowed: true
+<<<<<<< HEAD
 useEvents: false
 identityProviders:
 - github
 - google
+=======
+useEvents: true
+identityProviders:
+  - github
+  - google
+>>>>>>> 9f4f35931c012c1aeb753c466f0b5c1164a4ff10
 theme:
   login: "keycloak"
   account: "keycloak"
   admin: "keycloak"
+<<<<<<< HEAD
   email: "keycloak"
+=======
+  email: "keycloak"
+realm:
+  organizationsEnabled: false
+>>>>>>> 9f4f35931c012c1aeb753c466f0b5c1164a4ff10

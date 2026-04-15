@@ -1,3 +1,4 @@
+import os
 from typing import List
 
 from cloudharness.utils.config import CloudharnessConfig, ConfigObject
@@ -34,6 +35,10 @@ class ApplicationConfiguration(ApplicationConfig):
         return self.harness["sentry"]
 
     def get_db_connection_string(self, **kwargs) -> str:
+        connect_string_path = "/opt/cloudharness/resources/db/connect_string"
+        if os.path.isfile(connect_string_path):
+            with open(connect_string_path) as f:
+                return f.read().strip()
         if not self.is_auto_db():
             raise ConfigurationCallException(
                 f"Cannot get configuration string: application {self.name} has no database enabled.")
@@ -87,8 +92,8 @@ class ApplicationConfiguration(ApplicationConfig):
                 f"Cannot get service port for {self.name}: auto service is not enabled")
         return port
 
-    def get_service_address(self) -> str:
-        return f"http://{self.service_name}.{CloudharnessConfig.get_namespace()}:{self.service_port}"
+    def get_service_address(self, prefix="http://") -> str:
+        return f"{prefix}{self.service_name}.{CloudharnessConfig.get_namespace()}:{self.service_port}"
 
     def get_public_address(self) -> str:
 

@@ -1,5 +1,8 @@
 import os
 from typing import List
+from cloudharness.utils.secrets import get_secret
+from cloudharness_model.models.organization import Organization
+from cryptography.hazmat.primitives import serialization
 import jwt
 import json
 import requests
@@ -23,11 +26,8 @@ except:
 
 def get_api_password() -> str:
     name = "api_user_password"
-    AUTH_SECRET_PATH = os.environ.get(
-        "AUTH_SECRET_PATH", "/opt/cloudharness/resources/auth")
     try:
-        with open(os.path.join(AUTH_SECRET_PATH, name)) as fh:
-            return fh.read()
+        return get_secret(name, "accounts")
     except:
         # if no secrets folder or file exists
         raise AuthSecretNotFound(name)
@@ -98,6 +98,15 @@ def is_uuid(s):
         return False
 
 
+def _get_public_key_cache_path():
+    try:
+        from django.conf import settings
+        return os.path.join(settings.PERSISTENT_ROOT, "cloudharness_public_key")
+    except Exception:
+        log.exception("Could not get Django settings, using /tmp for public key cache")
+        return "/tmp/cloudharness_public_key"
+
+
 class AuthClient():
     __public_key = None
 
@@ -166,13 +175,23 @@ class AuthClient():
     @classmethod
     def get_public_key(cls):
         if not cls.__public_key:
-            AUTH_PUBLIC_KEY_URL = os.path.join(
-                get_server_url(), "realms", get_auth_realm())
-
-            KEY = json.loads(requests.get(AUTH_PUBLIC_KEY_URL,
-                                          verify=False).text)['public_key']
-            cls.__public_key = b"-----BEGIN PUBLIC KEY-----\n" + \
-                str.encode(KEY) + b"\n-----END PUBLIC KEY-----"
+            cache_path = _get_public_key_cache_path()
+            try:
+                with open(cache_path, 'r') as f:
+                    key_der_base64 = f.read().strip()
+                key_der = b64decode(key_der_base64.encode())
+                cls.__public_key = serialization.load_der_public_key(key_der)
+            except Exception:
+                public_key_url = os.path.join(get_server_url(), "realms", get_auth_realm())
+                key_der_base64 = requests.get(public_key_url).json()['public_key']
+                key_der = b64decode(key_der_base64.encode())
+                cls.__public_key = serialization.load_der_public_key(key_der)
+                try:
+                    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+                    with open(cache_path, 'w') as f:
+                        f.write(key_der_base64)
+                except Exception:
+                    log.warning("Could not write public key cache to %s", cache_path)
         return cls.__public_key
 
     @classmethod

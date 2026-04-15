@@ -45,7 +45,26 @@ harness:
         cpu: "10m"
       limits:
         memory: "500Mi"
-        cpu: "500m"
+        cpu: null
+    # -- Extra containers (init containers and sidecars) for the deployment.
+    # -- Each key is a container name. If initContainer is true, it runs as an init container; otherwise as a sidecar.
+    extraContainers:
+      # example:
+      #   my-init:
+      #     auto: true
+      #     initContainer: true
+      #     image:
+      #     command: []
+      #     shareVolume: true
+      #     resources: {}
+    # -- Network policy configuration for the deployment pod.
+    network:
+      # -- If true, the Ingress policyType is omitted: all incoming traffic is unrestricted.
+      ingress: true
+      # -- If true, the Egress policyType is omitted: all outgoing traffic is unrestricted.
+      egress: true
+      # -- List of namespaces allowed to communicate with this pod (both ingress and egress), regardless of the ingress/egress blocks.
+      allowedNamespaces: [traefik, nginx-ingress, ingress-nginx]
   # -- Defines automatic service parameters.
   service:
     # -- When true, enables automatic service
@@ -77,6 +96,8 @@ harness:
     image_ref:
     # -- expose database to the public with ingress
     expose: false
+    # -- Set to "" to set the set the string in the CI/CD as a secret. Only set the full value for dev/testing
+    connect_string:
     # -- settings for mongo database (for type==mongo)
     mongo:
       image: mongo:5
@@ -85,8 +106,15 @@ harness:
           port: 27017
     # -- settings for postgers database (for type==postgres)
     postgres:
-      image: postgres:13
+      image:
       initialdb: cloudharness
+      # -- Use the CloudNative-PG operator instead of a plain Deployment. Requires the CNPG operator to be installed in the cluster.
+      operator: false
+      # -- Number of PostgreSQL instances managed by the CNPG operator (only used when operator is true)
+      instances: 1
+      # -- CIDR(s) allowed for CNPG pods to reach the Kubernetes API server (port 443).
+      # -- Resolved automatically at deploy time via cluster lookup. Set explicitly only as a fallback for helm-template or air-gapped use.
+      apiServerCidr: []
       ports:
         - name: http
           port: 5432
@@ -113,7 +141,14 @@ harness:
         cpu: "100m"
       limits:
         memory: "2Gi"
-        cpu: "1000m"
+    # -- Network policy configuration for the database pod.
+    network:
+      # -- If true, the Ingress policyType is omitted: all incoming traffic is unrestricted.
+      ingress: false
+      # -- If true, the Egress policyType is omitted: all outgoing traffic is unrestricted.
+      egress: false
+      # -- List of namespaces allowed to communicate with this database pod (both ingress and egress), regardless of the ingress/egress blocks.
+      allowedNamespaces: [traefik]
   test:
     unit:
       enabled: true
@@ -139,3 +174,18 @@ harness:
     payload:
       # -- Maximum size of payload in MB
       max:
+    gatekeeper:
+      # -- Default gatekeeper image
+      image: "quay.io/gogatekeeper/gatekeeper:4.6.0"
+      # -- Default number of gatekeeper replicas
+      replicas: 1
+      resources:
+        requests:
+          memory: "32Mi"
+        limits:
+          memory: "64Mi"
+  gateway:
+    ## -- The path mapped to the current application in the gateway. Default is "/". For regex paths, use the path specified in .Values.ingress.path and set pathType to ImplementationSpecific
+    path: "/"
+    ## -- The pathType for the Ingress path. Default is Prefix. For regex paths, set to ImplementationSpecific
+    pathType: Prefix

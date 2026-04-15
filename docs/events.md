@@ -1,27 +1,49 @@
 # Events
 
-The events application is created upon a Kafka StatefulSet.
+The events application runs a Kafka `StatefulSet` in KRaft mode.
 
-## Access the Kafka manager
+## Access Kafka UI
 
-The [Kafka Manager](https://github.com/yahoo/CMAK) is preconfigured and accessible at the address https://events.MYDOMAIN.
+The [Kafka UI](https://github.com/provectus/kafka-ui) application is preconfigured and accessible at the address `https://events.MYDOMAIN`.
 
 ## Configure the Kafka parameters
 
-Override the [broker server configuration file](../applications/events/deploy/resources/broker/server.properties) to change most of the relevant configurations.
+Override the `kafka` values in [applications/events/deploy/values.yaml](../applications/events/deploy/values.yaml) to change the relevant broker parameters.
+
+The `kafka.config` map is converted into Kafka `server.properties` settings automatically. For example:
+
+```yaml
+kafka:
+  config:
+    num.partitions: "6"
+    auto.create.topics.enable: "false"
+```
+
+The default override set is intentionally small and only keeps the single-node KRaft deployment behavior stable.
+
+## Reset local KRaft state
+
+Kafka metadata and log state are stored on the `kafka` PVC. If a local Minikube deployment gets stuck because of stale KRaft state, delete the broker pod and its PVC before redeploying:
+
+```bash
+kubectl delete pod -n test kafka-0
+kubectl delete pvc -n test data-kafka-0
+```
+
+Then run `harness-deployment` again to recreate the broker with a fresh volume.
 
 ## Locally test Kafka queue calls
 The following allows to call/test to Kafka locally.
 It is useful to test and debug an application which listens/writes to the queue
 
-Kafka broker to local 9092
+Kafka broker to local `9092`
 ```
-kubectl port-forward --namespace mnp $(kubectl get po -n mnp | grep kafka-0 | \awk '{print $1;}') 9092:9092
+kubectl port-forward --namespace mnp svc/bootstrap 9092:9092
 ```
 
 Also add to your hosts file
 ```
-127.0.0.1      kafka-0.broker.mnp.svc.cluster.local bootstrap.mnp.svc.cluster.local
+127.0.0.1      bootstrap.mnp.svc.cluster.local kafka-0.broker.mnp.svc.cluster.local
 ```
 
 ## Backend library

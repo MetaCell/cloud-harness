@@ -14,6 +14,10 @@ spec:
 ---
 {{- end }}
 {{- define "deploy_utils.database" }}
+{{- if and (eq .app.harness.database.type "postgres") .app.harness.database.postgres.operator }}
+{{- include "deploy_utils.database.postgres.operator" . }}
+{{- else }}
+---
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
@@ -65,13 +69,7 @@ spec:
         - name: {{ $port.name }}
           containerPort: {{ $port.port }}
         {{- end }}
-        resources:
-          requests:
-            memory: {{ .app.harness.database.resources.requests.memory | default "32Mi" }}
-            cpu: {{ .app.harness.database.resources.requests.cpu | default "25m" }}
-          limits:
-            memory: {{ .app.harness.database.resources.limits.memory | default "64Mi" }}
-            cpu: {{ .app.harness.database.resources.limits.cpu | default "50m" }}
+        {{- include "deploy_utils.resources" .app.harness.database.resources | nindent 8 }}
         volumeMounts:
           - name: {{ .app.harness.database.name | quote }}
             mountPath: /data/db
@@ -89,7 +87,7 @@ spec:
         name: dshm     
       {{- end }}     
 ---
-{{- if .root.Values.backup.active }}
+{{- if and .root.Values.backup.active (ne .app.harness.database.type "neo4j") }}
 {{- include (print "deploy_utils.database." .app.harness.database.type ".backup") . }}
 {{- end }}
 ---
@@ -110,7 +108,9 @@ spec:
   - name: {{ $port.name }}
     port: {{ $port.port }}
   {{- end }}
+{{- end }}
 ---
+{{- include "deploy_utils.database_network_policy" (dict "root" .root "app" .app) }}
 {{ end }}
 {{- range $app := .Values.apps }}
   {{- if  $app.harness.database  }}

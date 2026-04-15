@@ -1,0 +1,174 @@
+{{- define "deploy_utils.network_policy" }}
+{{- $hasNetwork := hasKey .app.harness.deployment "network" }}
+{{- $allowIngress := and $hasNetwork .app.harness.deployment.network.ingress }}
+{{- $allowEgress := and $hasNetwork .app.harness.deployment.network.egress }}
+{{- $allowedNamespaces := list }}
+{{- if and $hasNetwork (hasKey .app.harness.deployment.network "allowedNamespaces") }}
+{{- $allowedNamespaces = .app.harness.deployment.network.allowedNamespaces }}
+{{- end }}
+{{- $fullyOpen := and $allowIngress $allowEgress }}
+{{- if and $hasNetwork (not $fullyOpen) }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ printf "%s-network-policy" .app.harness.deployment.name }}
+  namespace: {{ .root.Values.namespace }}
+  labels:
+    app: {{ .app.harness.deployment.name | quote }}
+{{- include "deploy_utils.labels" .root | indent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .app.harness.deployment.name | quote }}
+  policyTypes:
+    {{- if not $allowIngress }}
+    - Ingress
+    {{- end }}
+    {{- if not $allowEgress }}
+    - Egress
+    {{- end }}
+  {{- if not $allowIngress }}
+  ingress:
+    # Always allow traffic from pods in the same namespace
+    - from:
+        - podSelector: {}
+    {{- range $ns := $allowedNamespaces }}
+    # Allow traffic from whitelisted namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $ns }}
+    {{- end }}
+  {{- end }}
+  {{- if not $allowEgress }}
+  egress:
+    # Always allow traffic to pods in the same namespace
+    - to:
+        - podSelector: {}
+    # Always allow DNS queries
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    {{- range $ns := $allowedNamespaces }}
+    # Allow traffic to whitelisted namespace
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $ns }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}
+
+{{- define "deploy_utils.database_network_policy" }}
+{{- $hasNetwork := hasKey .app.harness.database "network" }}
+{{- $allowIngress := and $hasNetwork .app.harness.database.network.ingress }}
+{{- $allowEgress := and $hasNetwork .app.harness.database.network.egress }}
+{{- $allowedNamespaces := list }}
+{{- if and $hasNetwork (hasKey .app.harness.database.network "allowedNamespaces") }}
+{{- $allowedNamespaces = .app.harness.database.network.allowedNamespaces }}
+{{- end }}
+{{- $fullyOpen := and $allowIngress $allowEgress }}
+{{- if not $fullyOpen }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ printf "%s-network-policy" .app.harness.database.name }}
+  namespace: {{ .root.Values.namespace }}
+  labels:
+    app: {{ .app.harness.database.name | quote }}
+{{- include "deploy_utils.labels" .root | indent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .app.harness.database.name | quote }}
+  policyTypes:
+    {{- if not $allowIngress }}
+    - Ingress
+    {{- end }}
+    {{- if not $allowEgress }}
+    - Egress
+    {{- end }}
+  {{- if not $allowIngress }}
+  ingress:
+    # Always allow traffic from pods in the same namespace
+    - from:
+        - podSelector: {}
+    {{- range $ns := $allowedNamespaces }}
+    # Allow traffic from whitelisted namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $ns }}
+    {{- end }}
+  {{- end }}
+  {{- if not $allowEgress }}
+  egress:
+    # Always allow traffic to pods in the same namespace
+    - to:
+        - podSelector: {}
+    # Always allow DNS queries
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    {{- if and (eq .app.harness.database.type "postgres") .app.harness.database.postgres.operator }}
+    # Allow CNPG pods to reach the Kubernetes API server
+    {{- $apiCidrs := list }}
+    {{- $kubeSvc := (lookup "v1" "Service" "default" "kubernetes") }}
+    {{- $kubeEp := (lookup "v1" "Endpoints" "default" "kubernetes") }}
+    {{- if $kubeSvc }}
+      {{- if $kubeSvc.spec }}
+        {{- if $kubeSvc.spec.clusterIP }}
+          {{- $apiCidrs = append $apiCidrs (printf "%s/32" $kubeSvc.spec.clusterIP) }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+    {{- if and $kubeEp $kubeEp.subsets }}
+      {{- range $subset := $kubeEp.subsets }}
+        {{- range $addr := $subset.addresses }}
+          {{- $apiCidrs = append $apiCidrs (printf "%s/32" $addr.ip) }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+    {{- /* Fall back to configured CIDRs when lookup returns nothing (e.g. helm template) */ -}}
+    {{- if not $apiCidrs }}
+      {{- $apiCidrs = .app.harness.database.postgres.apiServerCidr }}
+    {{- end }}
+    {{- range $cidr := $apiCidrs }}
+    - to:
+        - ipBlock:
+            cidr: {{ $cidr }}
+      ports:
+        - port: 443
+          protocol: TCP
+    {{- end }}
+    {{- end }}
+    {{- range $ns := $allowedNamespaces }}
+    # Allow traffic to whitelisted namespace
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $ns }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}
+
+{{- range $app := .Values.apps }}
+  {{- if and (hasKey $app "port") $app.harness.deployment.auto | default false }}
+    {{- include "deploy_utils.network_policy" (dict "root" $ "app" $app) }}
+  {{- end }}
+  {{- range $subapp := $app }}
+  {{- if contains "map" (typeOf $subapp) }}
+  {{- if hasKey $subapp "harness" }}
+    {{- include "deploy_utils.network_policy" (dict "root" $ "app" $subapp) }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+{{- end }}

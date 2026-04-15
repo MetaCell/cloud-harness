@@ -1,9 +1,10 @@
 #!/bin/bash
 
 export API_USERNAME="admin_api"
-export API_PASSWORD=$(cat /opt/cloudharness/resources/auth/api_user_password 2>/dev/null || echo "")
+export API_PASSWORD=$(cat /opt/cloudharness/resources/secrets/accounts/api_user_password 2>/dev/null || echo "")
 export TMP_CLIENT="tmp_api_client"
 export TMP_CLIENT_SECRET="${KC_BOOTSTRAP_ADMIN_USERNAME}"
+export ACCOUNTS_SERVICE_PORT=8080
 
 check_kc_ready() {
     if echo >/dev/tcp/127.0.0.1/${ACCOUNTS_SERVICE_PORT}; then
@@ -77,6 +78,7 @@ if ! api_user_exists; then
 else
     echo "create_api_user: API user $API_USERNAME already exists."
 fi
+set +e
 
 echo "create_api_user: setting password and role."
 set_password_and_roles

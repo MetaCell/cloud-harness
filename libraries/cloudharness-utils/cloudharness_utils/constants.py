@@ -40,7 +40,6 @@ CD_WAIT_STEP = "wait_deployment"
 CD_API_TEST_STEP = 'tests_api'
 CD_E2E_TEST_STEP = 'tests_e2e'
 CD_STEP_PUBLISH = 'publish'
-BUILD_FILENAMES = ('node_modules',)
 CD_STEP_CLONE_DEPENDENCIES = 'post_main_clone'
 
 E2E_TESTS_DIRNAME = 'e2e'

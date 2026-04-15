@@ -10,8 +10,23 @@ metadata:
 data:
   allvalues.yaml: |
 {{- $values_copy := deepCopy .Values }}
+{{- $registry := get $values_copy "registry" }}
+{{- if $registry }}
+  {{- $secret := get $registry "secret" }}
+  {{- if kindIs "map" $secret }}
+    {{- $secretValue := get $secret "value" }}
+    {{- if not (empty $secretValue) }}
+      {{- $tmp := unset $secret "value" }}
+    {{- end }}
+  {{- else if kindIs "string" $secret }}
+    {{- $tmp := set $registry "secret" "" }}
+  {{- end }}
+{{- end }}
 {{- range $key, $val := .Values.apps }}
   {{- $app := get $values_copy.apps $key }}
   {{- $tmp := set $app.harness "secrets" dict }}
+  {{- if kindIs "map" $app.harness.database }}
+    {{- $tmp := unset $app.harness.database "connect_string" }}
+  {{- end }}
 {{- end }}
 {{ $values_copy | toYaml | indent 4 }}

@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "kafka-ui.fullname" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "kafka-ui.labels" . | nindent 4 }}
   {{- with .Values.annotations }}
@@ -53,7 +54,7 @@ spec:
               {{- toYaml . | nindent 12 }}
             {{- end }}
             {{- if or .Values.yamlApplicationConfig .Values.yamlApplicationConfigConfigMap}}
-            - name: SPRING_CONFIG_LOCATION
+            - name: SPRING_CONFIG_ADDITIONAL-LOCATION
               {{- if .Values.yamlApplicationConfig }}
               value: /kafka-ui/config.yml
               {{- else if .Values.yamlApplicationConfigConfigMap }}

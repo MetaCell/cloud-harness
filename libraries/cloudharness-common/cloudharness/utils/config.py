@@ -70,7 +70,7 @@ class CloudharnessConfig:
 
     @classmethod
     def get_registry_secret(cls):
-        return cls.get_configuration()['registry']['secret']
+        return cls.get_configuration()['registry'].get('secret', {}).get('name', '')
 
     @classmethod
     def is_secured(cls):

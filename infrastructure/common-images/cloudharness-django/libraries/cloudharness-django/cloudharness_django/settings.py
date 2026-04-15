@@ -72,14 +72,14 @@ except:
 if current_app.harness.database.type == "sqlite3":
     DATABASE_ENGINE = "django.db.backends.sqlite3"
     DATABASE_NAME = os.path.join(getattr(settings, "PERSISTENT_ROOT", "."), f"{app_name}.sqlite3")
-    DATABSE_HOST = None
+    DATABASE_HOST = None
     DATABASE_PORT = None
-    TEST_DATABASE_NAME = os.path.join(getattr(settings, "PERSISTENT_ROOT", "."), "testdb.sqlite3")
+    TEST_DATABASE_NAME = ":memory:"  # os.path.join(getattr(settings, "PERSISTENT_ROOT", "."), "testdb.sqlite3")
 elif current_app.harness.database.type == "postgres":
     DATABASE_ENGINE = "django.db.backends.postgresql"
     DATABASE_NAME = current_app.harness.database.postgres.initialdb
     TEST_DATABASE_NAME = f"test_{DATABASE_NAME}"
-    DATABSE_HOST = current_app.harness.database.name
+    DATABASE_HOST = current_app.harness.database.name
     DATABASE_PORT = current_app.harness.database.postgres.ports[0].port
 
 # Database
@@ -90,8 +90,9 @@ DATABASES = {
         "NAME": DATABASE_NAME,
         "USER": getattr(current_app.harness.database, "user", None),
         "PASSWORD": getattr(current_app.harness.database, "pass", None),
-        "HOST": DATABSE_HOST,
+        "HOST": DATABASE_HOST,
         "PORT": DATABASE_PORT,
+        "CONN_MAX_AGE": 600,  # Connection persistent timeouts in seconds (default 0 = close after each request)
         "TEST": {
             "ENGINE": DATABASE_ENGINE or "django.db.backends.sqlite3",
             "NAME": TEST_DATABASE_NAME,

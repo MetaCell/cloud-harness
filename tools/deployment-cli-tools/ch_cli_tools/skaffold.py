@@ -10,7 +10,7 @@ from cloudharness_utils.constants import APPS_PATH, DEPLOYMENT_CONFIGURATION_PAT
     BASE_IMAGES_PATH, STATIC_IMAGES_PATH, HELM_ENGINE, COMPOSE_ENGINE
 from .helm import KEY_APPS, KEY_HARNESS, KEY_DEPLOYMENT, KEY_TASK_IMAGES
 from .utils import get_template, dict_merge, find_dockerfiles_paths, app_name_from_path, yaml, \
-    find_file_paths, guess_build_dependencies_from_dockerfile, get_json_template, get_image_name
+    find_file_paths, guess_build_dependencies_from_dockerfile, get_json_template, clean_image_name
 
 from . import HERE
 
@@ -29,7 +29,7 @@ def get_all_images(helm_values: HarnessMainConfig) -> dict[str, str]:
     return all_images
 
 
-def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, output_path='.', manage_task_images=True, backend_deploy=HELM_ENGINE):
+def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, output_path='.', manage_task_images=True, backend_deploy=HELM_ENGINE, env=None):
     backend = backend_deploy or HELM_ENGINE
     template_name = 'skaffold-template.yaml'
     skaffold_conf = get_template(template_name, True)
@@ -44,6 +44,15 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
     def get_image_tag(name):
         return remove_tag(all_images[name])
+
+    def resolve_dockerfile_name(dockerfile_dir_rel):
+        """Return the dockerfile filename for the given directory, preferring [env].Dockerfile over Dockerfile."""
+        dockerfile_dir_abs = os.path.abspath(os.path.join(output_path, dockerfile_dir_rel))
+        for env_name in (env or []):
+            env_dockerfile = os.path.join(dockerfile_dir_abs, f'{env_name}.Dockerfile')
+            if os.path.exists(env_dockerfile):
+                return f'{env_name}.Dockerfile'
+        return 'Dockerfile'
 
     builds = {}
 
@@ -67,7 +76,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
             'image': image_name,
             'context': context_path,
             'docker': {
-                'dockerfile': join(dockerfile_path, 'Dockerfile'),
+                'dockerfile': join(dockerfile_path, resolve_dockerfile_name(dockerfile_path)),
                 'buildArgs': build_args,
                 'ssh': 'default'
             }
@@ -96,7 +105,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
             context_path = relpath_if(root_path, output_path) if global_context else relpath_if(dockerfile_path, output_path)
 
             builds[app_name] = context_path
-            base_images.add(get_image_name(app_name))
+            base_images.add(clean_image_name(app_name))
 
             artifacts[app_name] = build_artifact(
                 app_name,
@@ -255,13 +264,15 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
 
 
 def git_clone_hook(conf: GitDependencyConfig, context_path: str):
+    repo_name = os.path.basename(conf.url).split('.')[0]
+    clone_path = join(context_path, "dependencies", conf.path, repo_name) if conf.path else join(context_path, "dependencies", repo_name)
     return {
         'command': [
             'sh',
             join(os.path.dirname(os.path.dirname(HERE)), 'clone.sh'),
             conf.branch_tag,
             conf.url,
-            join(context_path, "dependencies", conf.path or os.path.basename(conf.url).split('.')[0])
+            clone_path
         ]
     }
 

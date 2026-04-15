@@ -13,6 +13,10 @@ registry:
   name: "localhost:5000"
   # -- Optional secret used for pulling from docker registry.
   secret:
+    # -- Secret name used for pulling from docker registry.
+    name: null
+    # -- Value of the secret used for pulling from docker registry in json encoded format.
+    value: null
 # -- Docker tag used to pull images.
 tag: latest
 # -- List of applications.
@@ -31,11 +35,19 @@ ingress:
   enabled: true
   # -- K8s Name of ingress.
   name: cloudharness-ingress
+  # -- The ingress class to use (e.g. "nginx", "traefik").
+  ingressClass: nginx
+  # -- Additional custom annotations to add to the Ingress resource.
+  annotations: {}
   # -- Enables/disables SSL redirect.
   ssl_redirect: true
   letsencrypt:
     # -- Email for letsencrypt.
     email: cloudharness@metacell.us
+  # -- Default regex segment for routes (used in paths like '/(pattern)').
+  path: "/"
+  # -- The pathType for the Ingress path. Default is Prefix. For regex paths, set to ImplementationSpecific
+  pathType: Prefix
 backup:
   # -- Flag to enable/disable backups.
   active: false
@@ -76,3 +88,14 @@ proxy:
   payload:
     # -- Maximum size of payload in MB
     max: 250
+  gatekeeper:
+    # -- Default gatekeeper image
+    image: "quay.io/gogatekeeper/gatekeeper:4.6.0"
+    # -- Default number of gatekeeper replicas
+    replicas: 1
+    secret: ""
+    resources:
+      requests:
+        memory: "32Mi"
+      limits:
+        memory: "64Mi"

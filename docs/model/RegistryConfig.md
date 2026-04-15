@@ -7,7 +7,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **name** | **str** |  | 
-**secret** | **str** | Optional secret used for pulling from docker registry. | [optional] 
+**secret** | [**RegistrySecretConfig**](RegistrySecretConfig.md) |  | [optional] 
 
 ## Example
 
