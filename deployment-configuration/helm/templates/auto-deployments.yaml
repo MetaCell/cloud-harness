@@ -15,7 +15,6 @@ spec:
   selector:
     matchLabels:
       app: {{ .app.harness.deployment.name| quote }}
-{{- include "deploy_utils.labels" .root | indent 6 }}
   template:
     metadata:
       {{- if .app.harvest }}
