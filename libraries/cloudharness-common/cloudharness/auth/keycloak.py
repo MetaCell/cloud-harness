@@ -650,6 +650,8 @@ class AuthClient():
             {
                 'attributes': attributes,
                 'username': user.username,
+                'firstName': user.first_name,
+                'lastName': user.last_name,
                 'email': user.email,
             }
         )
@@ -673,6 +675,8 @@ class AuthClient():
                 {
                     'attributes': attributes,
                     'username': user.username,
+                    'firstName': user.first_name,
+                    'lastName': user.last_name,
                     'email': user.email,
                 })
             return True
