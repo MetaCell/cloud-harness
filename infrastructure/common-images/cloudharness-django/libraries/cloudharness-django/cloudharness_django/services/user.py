@@ -8,7 +8,7 @@ from cloudharness import models as ch_models
 
 def get_user_by_kc_id(kc_id) -> User:
     try:
-        return Member.objects.using("default").get(kc_id=kc_id).user
+        return Member.objects.using("default").select_related("user").get(kc_id=kc_id).user
     except Member.DoesNotExist:
         return None
 
