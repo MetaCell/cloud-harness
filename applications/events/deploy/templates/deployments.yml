@@ -13,6 +13,24 @@ spec:
       labels:
         app: kafka
     spec:
+      initContainers:
+      - name: prepare-kafka-data-dir
+        image: {{ .Values.apps.events.kafka.image | quote }}
+        imagePullPolicy: {{ .Values.apps.events.kafka.imagePullPolicy }}
+        command:
+        - /bin/sh
+        - -ec
+        - |
+          mkdir -p /var/lib/kafka/data
+          if [ -z "$(find /var/lib/kafka/data -mindepth 1 -maxdepth 1 2>/dev/null)" ]; then
+            find /var/lib/kafka -mindepth 1 -maxdepth 1 \
+              ! -name lost+found \
+              ! -name data \
+              -exec mv {} /var/lib/kafka/data/ \;
+          fi
+        volumeMounts:
+        - mountPath: /var/lib/kafka
+          name: data
       containers:
       - name: broker
         image: {{ .Values.apps.events.kafka.image | quote }}
@@ -37,7 +55,7 @@ spec:
         - name: KAFKA_CONTROLLER_QUORUM_VOTERS
           value: 1@kafka-0.broker.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.apps.events.kafka.controllerPort }}
         - name: KAFKA_LOG_DIRS
-          value: /var/lib/kafka/data
+          value: /var/lib/kafka/data/kraft-combined-logs
         - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
           value: "0"
         {{- range $key, $value := .Values.apps.events.kafka.config }}
@@ -81,7 +99,7 @@ spec:
         resources:
           {{- .Values.apps.events.kafka.resources | toYaml | nindent 10 }}
         volumeMounts:
-        - mountPath: /var/lib/kafka/data
+        - mountPath: /var/lib/kafka
           name: data
       terminationGracePeriodSeconds: 30
   updateStrategy:
