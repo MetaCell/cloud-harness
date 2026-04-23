@@ -62,9 +62,7 @@ replace (
 	github.com/sirupsen/logrus => github.com/sirupsen/logrus v1.9.3
 	golang.org/x/crypto => golang.org/x/crypto v0.45.0
 	golang.org/x/image => golang.org/x/image v0.18.0
-	golang.org/x/net => golang.org/x/net v0.38.0
 	golang.org/x/oauth2 => golang.org/x/oauth2 v0.27.0
-	golang.org/x/text => golang.org/x/text v0.3.8
 	google.golang.org/grpc => google.golang.org/grpc v1.79.3
 	gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api => k8s.io/api v0.23.17
