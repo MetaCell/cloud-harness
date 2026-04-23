@@ -15,7 +15,7 @@ harness:
       mountpath: /tmp/myvolume
       auto: true
       size: 10Mi
-      usenfs: true
+      usenfs: false
     auto: true
     port: 8080
     extraContainers:
