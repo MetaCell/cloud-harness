@@ -80,11 +80,15 @@ spec:
           periodSeconds: 15
           timeoutSeconds: 5
         livenessProbe:
-          tcpSocket:
-            port: client
-          initialDelaySeconds: 30
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - timeout 10 /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092
+          initialDelaySeconds: 60
           periodSeconds: 30
-          timeoutSeconds: 5
+          timeoutSeconds: 15
+          failureThreshold: 3
         lifecycle:
           preStop:
             exec:

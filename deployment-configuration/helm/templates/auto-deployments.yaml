@@ -49,6 +49,22 @@ spec:
               topologyKey: "kubernetes.io/hostname"
       {{- end }}
       {{- end }}
+      {{- if .app.harness.deployment.extraContainers }}
+      {{- $hasInit := false }}
+      {{- range $name, $container := .app.harness.deployment.extraContainers }}
+      {{- if and $container.auto $container.initContainer }}
+      {{- $hasInit = true }}
+      {{- end }}
+      {{- end }}
+      {{- if $hasInit }}
+      initContainers:
+      {{- range $name, $container := .app.harness.deployment.extraContainers }}
+      {{- if and $container.auto $container.initContainer }}
+      {{- include "deploy_utils.extraContainerSpec" (dict "name" $name "container" $container "app" $.app "root" $.root) | nindent 6 }}
+      {{- end }}
+      {{- end }}
+      {{- end }}
+      {{- end }}
       containers:
       - name: {{ .app.harness.deployment.name| default "cloudharness-docs" | quote }}
         image: {{ .app.harness.deployment.image }}
@@ -102,51 +118,14 @@ spec:
           - containerPort: {{ .app.harness.deployment.port | default 8080 }}
         {{- include "deploy_utils.resources" .app.harness.deployment.resources | nindent 8 }}
 
-        volumeMounts:
-          - name: cloudharness-allvalues
-            mountPath: /opt/cloudharness/resources
-            readOnly: true
-          {{- $root := .root }}
-          {{- range $dep := concat .app.harness.dependencies.hard .app.harness.dependencies.soft }}
-          {{- $depApp := index $root.Values.apps $dep }}
-          {{- if $depApp.harness.secrets }}
-          - name: cloudharness-{{ $dep }}
-            mountPath: /opt/cloudharness/resources/secrets/{{ $dep }}
-            readOnly: true
-          {{- end }}
-          
-          
-          {{- end }}
-          {{- if (has  "accounts" .app.harness.dependencies.hard) }} 
-          {{/* legacy path for accounts auth resources mount */}}
-          - name: cloudharness-accounts
-            mountPath: /opt/cloudharness/resources/auth
-            readOnly: true
-          {{- end }}
-          {{- if  .app.harness.deployment.volume }}
-          - name: {{ .app.harness.deployment.volume.name }}
-            mountPath: {{ .app.harness.deployment.volume.mountpath }}
-            readOnly: {{ .app.harness.deployment.volume.readonly | default false }}
-          {{- end }}
-          {{- $app := .app}}
-          {{- range $resource := .app.harness.resources }}
-          - name: "{{ $app.harness.deployment.name }}-{{ $resource.name }}"
-            mountPath: {{ $resource.dst }}
-            subPath: {{ base $resource.dst }}
-            readOnly: true
-          {{- end}}
-          {{- if .app.harness.secrets }}
-          - name: secrets
-            mountPath: "/opt/cloudharness/resources/secrets/{{ .app.harness.name }}"
-            readOnly: true
-          {{- end }}
-          {{- if kindIs "map" .app.harness.database }}
-            {{- if and (hasKey .app.harness.database "connect_string") .app.harness.database.connect_string }}
-          - name: db-external
-            mountPath: "/opt/cloudharness/resources/db"
-            readOnly: true
-            {{- end }}
-          {{- end }}
+        {{- include "deploy_utils.volumeMounts" (dict "app" .app "root" .root) | nindent 8 }}
+      {{- if .app.harness.deployment.extraContainers }}
+      {{- range $name, $container := .app.harness.deployment.extraContainers }}
+      {{- if and $container.auto (not $container.initContainer) }}
+      {{- include "deploy_utils.extraContainerSpec" (dict "name" $name "container" $container "app" $.app "root" $.root) | nindent 6 }}
+      {{- end }}
+      {{- end }}
+      {{- end }}
       volumes:
         - name: cloudharness-allvalues
           configMap:

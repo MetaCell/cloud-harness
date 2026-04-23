@@ -46,6 +46,17 @@ harness:
       limits:
         memory: "500Mi"
         cpu: null
+    # -- Extra containers (init containers and sidecars) for the deployment.
+    # -- Each key is a container name. If initContainer is true, it runs as an init container; otherwise as a sidecar.
+    extraContainers:
+      # example:
+      #   my-init:
+      #     auto: true
+      #     initContainer: true
+      #     image:
+      #     command: []
+      #     shareVolume: true
+      #     resources: {}
     # -- Network policy configuration for the deployment pod.
     network:
       # -- If true, the Ingress policyType is omitted: all incoming traffic is unrestricted.

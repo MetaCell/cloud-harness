@@ -1111,6 +1111,38 @@ components:
                     $ref: '#/components/schemas/GatewayConfig'
                     description: ''
             additionalProperties: true
+        ExtraContainerConfig:
+            description: Configuration for an extra container (init container or sidecar) in a deployment
+            type: object
+            properties:
+                auto:
+                    description: When true, the extra container is included in the deployment
+                    type: boolean
+                initContainer:
+                    description: >-
+                        When true, the container runs as a Kubernetes init container (before the main container).
+                        When false, the container runs as a sidecar (alongside the main container).
+                    type: boolean
+                image:
+                    description: >-
+                        Docker image for the extra container. If not specified, defaults to the main
+                        application image.
+                    type: string
+                command:
+                    description: Command to run in the extra container
+                    type: array
+                    items:
+                        type: string
+                shareVolume:
+                    description: >-
+                        When true, the extra container shares the same volume mounts as the main container.
+                    type: boolean
+                resources:
+                    $ref: '#/components/schemas/DeploymentResourcesConf'
+                    description: >-
+                        Resource requests and limits for the extra container. If not specified,
+                        inherits the main container resources.
+            additionalProperties: true
         DeploymentAutoArtifactConfig:
             description: ''
             type: object
@@ -1140,5 +1172,12 @@ components:
                         network:
                             $ref: '#/components/schemas/NetworkConfig'
                             description: Define the network policy for the deployment
+                        extraContainers:
+                            description: >-
+                                Extra containers (init containers and sidecars) for the deployment.
+                                Each key is a container name mapping to an ExtraContainerConfig.
+                            type: object
+                            additionalProperties:
+                                $ref: '#/components/schemas/ExtraContainerConfig'
                 -
                     $ref: '#/components/schemas/AutoArtifactSpec'

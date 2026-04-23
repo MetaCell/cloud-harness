@@ -87,6 +87,7 @@ Class | Method | HTTP request | Description
  - [DeploymentVolumeSpec](docs/DeploymentVolumeSpec.md)
  - [DockerfileConfig](docs/DockerfileConfig.md)
  - [E2ETestsConfig](docs/E2ETestsConfig.md)
+ - [ExtraContainerConfig](docs/ExtraContainerConfig.md)
  - [FileResourcesConfig](docs/FileResourcesConfig.md)
  - [GatekeeperConf](docs/GatekeeperConf.md)
  - [GatewayConfig](docs/GatewayConfig.md)
