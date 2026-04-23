@@ -46,7 +46,7 @@ def run_e2e_tests(root_paths, helm_values, base_domain, included_applications=[]
             artifacts[appkey], "test", E2E_TESTS_DIRNAME)
 
         if not app_config.domain and not app_config.subdomain:
-            logging.warn(
+            logging.warning(
                 "Application %s has a test folder but no subdomain/domain is specified", appname)
             continue
 
@@ -56,14 +56,17 @@ def run_e2e_tests(root_paths, helm_values, base_domain, included_applications=[]
         env = get_app_environment(app_config, app_domain)
         if not headless and os.environ.get('DISPLAY'):
             env["PUPPETEER_DISPLAY"] = "display"
-        if os.path.exists(tests_dir):
+        if not os.path.exists(tests_dir):
+            logging.info("Skipping E2E tests for %s: no test directory at %s",
+                         appname, tests_dir)
+            continue
 
-            app_node_modules_path = os.path.join(tests_dir, "node_modules")
-            if not os.path.exists(app_node_modules_path):
-                logging.info("Linking tests libraries to  %s",
-                             app_node_modules_path)
-                os.symlink(node_modules_path, app_node_modules_path)
-            env["APP"] = artifacts[appkey]
+        app_node_modules_path = os.path.join(tests_dir, "node_modules")
+        if not os.path.exists(app_node_modules_path):
+            logging.info("Linking tests libraries to  %s",
+                         app_node_modules_path)
+            os.symlink(node_modules_path, app_node_modules_path)
+        env["APP"] = tests_dir
 
         logging.info(
             "Running tests for application %s on domain %s", appname, app_domain)

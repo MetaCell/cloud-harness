@@ -3,3 +3,4 @@
 .vscode
 .coverage
 *.DS_Store
+build
