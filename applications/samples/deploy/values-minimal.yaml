@@ -1,8 +1,8 @@
 harness:
   secured: false
   dependencies:
-    soft: []
-    hard: []
+    soft: 
+      - common
   use_services: []
   dockerfile:
     buildArgs:
