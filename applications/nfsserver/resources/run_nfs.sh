@@ -16,8 +16,10 @@
 
 function start()
 {
-    # run pre startup script
-    bash -c "/usr/local/bin/pre-startup.sh"
+    # Mount all existing PVC volumes in parallel, then start the watchdog.
+    /usr/local/bin/nfsvol mount-all
+    /usr/local/bin/nfsvol watchdog &
+
     bash -c "/usr/local/bin/start_provisioner.sh&"
 
     unset gid
@@ -36,14 +38,14 @@ function start()
        /usr/sbin/rpcbind -w
     fi
 
-    mount -t nfsd nfds /proc/fs/nfsd
+    mount -t nfsd nfsd /proc/fs/nfsd
 
-    # -V 3: enable NFSv3
-    /usr/sbin/rpc.mountd -N 2 -V 3 -V 4
+    # -V 3: enable NFSv3 (matches client mount options elsewhere).
+    /usr/sbin/rpc.mountd -V 3
 
     /usr/sbin/exportfs -r
     # -G 10 to reduce grace time to 10 seconds (the lowest allowed)
-    /usr/sbin/rpc.nfsd -G 10 -N 2 -V 3 -V 4
+    /usr/sbin/rpc.nfsd -G 10 -V 3
     /usr/sbin/rpc.statd --no-notify
     echo "NFS started"
 }
@@ -62,6 +64,9 @@ function stop()
     exit 0
 }
 
+
+# rpc.statd has issues with very high ulimits
+ulimit -n 65535
 
 trap stop TERM
 
