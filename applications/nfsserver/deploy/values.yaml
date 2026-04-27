@@ -84,6 +84,14 @@ leaderElection:
   # When set to false leader election will be disabled
   enabled: true
 
+# PodDisruptionBudget guardrail against accidental evictions.
+# Off by default — enabling it blocks `kubectl drain` of the NFS server's
+# node until the operator terminates the pod manually (RWO PVC means there
+# is no surge pod that could satisfy minAvailable=1 while the old one runs).
+# Does NOT help with ungraceful node loss (force-detach path).
+podDisruptionBudget:
+  enabled: false
+
 ## For RBAC support:
 rbac:
   # Specifies whether RBAC resources should be created
