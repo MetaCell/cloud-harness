@@ -32,8 +32,15 @@ nfs:
   useDNS: true
   path: /exports     # /exports
   mountOptions:
+  # `soft` overrides the Linux client default (`hard`). Without it, applications
+  # block in uninterruptible sleep when the NFS server is unreachable. With
+  # `soft`, I/O returns EIO after a few retries — applications stay alive and
+  # can retry. This matches the availability-over-integrity tradeoff.
+  - soft
   - nolock
   - local_lock=all
+  - timeo=50         # 5 s per retry
+  - retrans=2        # 2 retries → ~15 s before EIO during server downtime
   volumeName: nfs-subdir-external-provisioner-root
   # Reclaim policy for the main nfs volume
   reclaimPolicy: Retain

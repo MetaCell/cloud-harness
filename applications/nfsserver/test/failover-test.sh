@@ -224,15 +224,29 @@ wait_for 180 sh -c "
 NEW_NFS_POD=$(k get pod -l app=nfs-server -o jsonpath='{.items[0].metadata.name}')
 log "new nfs-server pod: $NEW_NFS_POD"
 
+# After Ready, give NFS userland (rpcbind, rpc.nfsd, exportfs) a moment to be
+# fully serving — the readiness probe only checks the watchdog's healthz.
+sleep 15
+
 # Under stable-fsid clients keep reading the same file handles; with unstable
-# fsids the first read after restart would return ESTALE/EIO.
-# Retry briefly to absorb the NFS client's reconnect window.
+# fsids the read after restart would return ESTALE permanently.
+#
+# Each attempt: ls to force the NFS client to revalidate the directory handle
+# (which also clears any cached stale child handles), then cat to read.
+# Both calls are time-bounded so a hard-mount hang during the recovery
+# window (~30 s) does not stall the loop.
 verify_read() {
     local pod=$1 file=$2 expected=$3
+    local dir
+    dir=$(dirname "$file")
     local attempt=0
-    while [ $attempt -lt 10 ]; do
-        got=$(k exec "$pod" -- cat "$file" 2>/dev/null || true)
-        [ "$got" = "$expected" ] && return 0
+    local got
+    while [ $attempt -lt 30 ]; do
+        timeout 10 kubectl -n "$NAMESPACE" exec "$pod" -- ls "$dir" >/dev/null 2>&1 || true
+        got=$(timeout 15 kubectl -n "$NAMESPACE" exec "$pod" -- cat "$file" 2>/dev/null || true)
+        if [ "$got" = "$expected" ]; then
+            return 0
+        fi
         sleep 3
         attempt=$((attempt + 1))
     done
@@ -296,18 +310,24 @@ log "test 7: PVC delete cleans up /etc/exports.d/ fragment"
 
 k delete pod "$WRITER_A" "$WRITER_B" --grace-period=10 --wait=true
 
-# Confirm the exports fragment exists before deletion (sanity)
 NFS_POD=$(k get pod -l app=nfs-server -o jsonpath='{.items[0].metadata.name}')
-BEFORE=$(k exec "$NFS_POD" -- sh -c "ls /etc/exports.d/ 2>/dev/null | grep -c '$PV_NAME'" || true)
-if [ "${BEFORE:-0}" = "0" ]; then
-    log "WARN: exports fragment for $PV_NAME was already absent before PVC delete — skipping test 7"
+
+# The fragment file is named <pvName>.exports where pvName is the
+# mountpoint basename (which contains $PV_NAME inside it). Find it by listing.
+FRAGMENT=$(k exec "$NFS_POD" -- sh -c "ls /etc/exports.d/ 2>/dev/null" | grep -F "$PV_NAME" | head -1 || true)
+
+if [ -z "$FRAGMENT" ]; then
+    log "WARN: no exports fragment for $PV_NAME before PVC delete — skipping test 7"
 else
+    log "fragment found: $FRAGMENT — deleting PVC and waiting for it to disappear"
     k delete pvc "$PVC" --wait=true
     # Provisioner delete is async; allow a brief settling window.
-    wait_for 30 sh -c "
-        [ \"\$(kubectl -n $NAMESPACE exec $NFS_POD -- sh -c \"ls /etc/exports.d/ 2>/dev/null | grep -c '$PV_NAME'\" || echo 999)\" = '0' ]
-    " || fail "exports fragment for $PV_NAME not removed after PVC delete"
-    pass "exports fragment removed on PVC delete"
+    fragment_gone() {
+        ! k exec "$NFS_POD" -- test -f "/etc/exports.d/$FRAGMENT"
+    }
+    wait_for 30 fragment_gone \
+        || fail "exports fragment $FRAGMENT not removed after PVC delete"
+    pass "exports fragment $FRAGMENT removed on PVC delete"
 fi
 
 log "ALL TESTS PASSED"
