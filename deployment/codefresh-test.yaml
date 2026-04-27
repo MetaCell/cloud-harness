@@ -126,6 +126,28 @@ steps:
                 '{{CLOUDHARNESS_FRONTEND_BUILD_TAG_EXISTS}}') == true
               forceNoCache: includes('${{CLOUDHARNESS_FRONTEND_BUILD_TAG_FORCE_BUILD}}',
                 '{{CLOUDHARNESS_FRONTEND_BUILD_TAG_FORCE_BUILD}}') == false
+      nfsserver:
+        type: build
+        stage: build
+        dockerfile: Dockerfile
+        registry: ${{CODEFRESH_REGISTRY}}
+        buildkit: true
+        build_arguments:
+        - NOCACHE=${{CF_BUILD_ID}}
+        image_name: cloud-harness/nfsserver
+        title: Nfsserver
+        working_directory: ./applications/nfsserver
+        tags:
+        - ${{NFSSERVER_TAG}}
+        - ${{DEPLOYMENT_PUBLISH_TAG}}-dev
+        - ${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}
+        when:
+          condition:
+            any:
+              buildDoesNotExist: includes('${{NFSSERVER_TAG_EXISTS}}', '{{NFSSERVER_TAG_EXISTS}}')
+                == true
+              forceNoCache: includes('${{NFSSERVER_TAG_FORCE_BUILD}}', '{{NFSSERVER_TAG_FORCE_BUILD}}')
+                == false
       test-e2e:
         type: build
         stage: build
@@ -524,12 +546,37 @@ steps:
     - kubectl config set-context --current --namespace=test-${{NAMESPACE_BASENAME}}
     - kubectl rollout status deployment/workflows
     - kubectl rollout status deployment/accounts
-    - kubectl rollout status deployment/samples
-    - kubectl rollout status deployment/samples-gk
     - kubectl rollout status deployment/volumemanager
+    - kubectl rollout status deployment/samples
     - kubectl rollout status deployment/common
-    - kubectl rollout status deployment/argo-gk
     - sleep 60
+  tests_nfs_failover:
+    stage: qa
+    title: NFS server failover & multi-node tests
+    image: codefresh/kubectl
+    working_directory: ./${{CF_REPO_NAME}}
+    fail_fast: false
+    commands:
+    - kubectl config use-context ${{CLUSTER_NAME}}
+    - export NAMESPACE=test-${{NAMESPACE_BASENAME}}
+    - export STORAGE_CLASS=${NAMESPACE}-nfs-client
+    - bash applications/nfsserver/test/failover-test.sh
+    hooks:
+      on_finish:
+        exec:
+          image: codefresh/kubectl
+          commands:
+          - kubectl config use-context ${{CLUSTER_NAME}}
+          - export NAMESPACE=test-${{NAMESPACE_BASENAME}}
+          - kubectl -n $NAMESPACE delete pod -l app=nfs-failover-test --ignore-not-found
+            --grace-period=0 --force --wait=false 2>/dev/null || true
+          - kubectl -n $NAMESPACE delete pvc -l app=nfs-failover-test --ignore-not-found
+            --wait=false 2>/dev/null || true
+      on_fail:
+        exec:
+          image: alpine
+          commands:
+          - cf_export  FAILED=failed
   tests_api:
     stage: qa
     title: Api tests
@@ -549,6 +596,16 @@ steps:
         commands:
         - st --pre-run cloudharness_test.apitest_init run api/openapi.yaml --base-url
           https://workflows.${{DOMAIN}}/api -c all
+      common_api_test:
+        title: common api test
+        volumes:
+        - ${{CF_REPO_NAME}}/applications/common:/home/test
+        - ${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml
+        environment:
+        - APP_URL=https://common.${{DOMAIN}}/api
+        commands:
+        - st --pre-run cloudharness_test.apitest_init run api/openapi.yaml --base-url
+          https://common.${{DOMAIN}}/api -c all
       samples_api_test:
         title: samples api test
         volumes:
@@ -565,16 +622,6 @@ steps:
           --hypothesis-suppress-health-check=too_slow --hypothesis-deadline=180000
           --request-timeout=180000 --hypothesis-max-examples=2 --show-trace --exclude-checks=ignored_auth
         - pytest -v test/api
-      common_api_test:
-        title: common api test
-        volumes:
-        - ${{CF_REPO_NAME}}/applications/common:/home/test
-        - ${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml
-        environment:
-        - APP_URL=https://common.${{DOMAIN}}/api
-        commands:
-        - st --pre-run cloudharness_test.apitest_init run api/openapi.yaml --base-url
-          https://common.${{DOMAIN}}/api -c all
     hooks:
       on_fail:
         exec:
