@@ -76,7 +76,7 @@ steps:
       kube_context: ${{CLUSTER_NAME}}
       namespace: test-${{NAMESPACE_BASENAME}}
       chart_version: ${{CF_SHORT_REVISION}}
-      cmd_ps: --timeout 600s --create-namespace
+      cmd_ps: "--timeout 600s --create-namespace"
       custom_value_files:
         - ./deployment/helm/values.yaml
   build_test_images:
@@ -91,6 +91,31 @@ steps:
     commands:
       - kubectl config use-context ${{CLUSTER_NAME}}
       - kubectl config set-context --current --namespace=test-${{NAMESPACE_BASENAME}}
+  tests_nfs_failover:
+    stage: qa
+    title: NFS server failover & multi-node tests
+    image: codefresh/kubectl
+    working_directory: ./${{CF_REPO_NAME}}
+    fail_fast: false
+    commands:
+      - kubectl config use-context ${{CLUSTER_NAME}}
+      - export NAMESPACE=test-${{NAMESPACE_BASENAME}}
+      - export STORAGE_CLASS=${NAMESPACE}-nfs-client
+      - bash applications/nfsserver/test/failover-test.sh
+    hooks:
+      on_finish:
+        exec:
+          image: codefresh/kubectl
+          commands:
+            - kubectl config use-context ${{CLUSTER_NAME}}
+            - export NAMESPACE=test-${{NAMESPACE_BASENAME}}
+            - kubectl -n $NAMESPACE delete pod -l app=nfs-failover-test --ignore-not-found --grace-period=0 --force --wait=false 2>/dev/null || true
+            - kubectl -n $NAMESPACE delete pvc -l app=nfs-failover-test --ignore-not-found --wait=false 2>/dev/null || true
+      on_fail:
+        exec:
+          image: alpine
+          commands:
+            - cf_export  FAILED=failed
   tests_api:
     stage: qa
     title: Api tests
