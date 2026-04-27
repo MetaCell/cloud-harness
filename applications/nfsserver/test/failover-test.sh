@@ -65,6 +65,9 @@
 #   - STORAGE_CLASS env var (defaults to "<namespace>-nfs-client")
 #
 # The script cleans up all fixtures on EXIT (including on failure) via trap.
+#
+# Example:
+# NAMESPACE=test-ch bash ./failover-test.sh 2>&1
 
 set -u -o pipefail
 
