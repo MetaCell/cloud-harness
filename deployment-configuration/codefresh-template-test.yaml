@@ -95,7 +95,7 @@ steps:
     stage: qa
     title: NFS server failover & multi-node tests
     image: codefresh/kubectl
-    working_directory: ./${{CF_REPO_NAME}}
+    working_directory: .
     fail_fast: false
     commands:
       - kubectl config use-context ${{CLUSTER_NAME}}
