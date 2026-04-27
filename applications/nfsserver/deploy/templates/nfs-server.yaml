@@ -19,6 +19,11 @@ metadata:
     app: nfs-server
     usesvolume: nfs-exports
 spec:
+  # Recreate strategy: with an RWO PVC, a surge pod can never attach while the
+  # old pod holds nfs-exports, so RollingUpdate would deadlock. Single-replica
+  # by design.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: nfs-server

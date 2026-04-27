@@ -69,6 +69,11 @@ func MountAll(exportsDir string) error {
 	}
 	if len(quotaFiles) == 0 {
 		log.Println("mount-all: no quota files found")
+		// Still regenerate /etc/exports.d/ so any stale fragments from a
+		// previous incarnation are cleaned up.
+		if err := RegenerateExportsFromQuotas(exportsDir); err != nil {
+			log.Printf("mount-all: regenerate exports: %v", err)
+		}
 		return nil
 	}
 	log.Printf("mount-all: mounting %d volumes", len(quotaFiles))
@@ -119,6 +124,14 @@ func MountAll(exportsDir string) error {
 			log.Printf("mount-all: OK %s", r.path)
 		}
 	}
+	// Regenerate exports.d deterministically from the quota files we just
+	// processed. This provides stable fsids even after a node reschedule.
+	// run_nfs.sh will call `exportfs -r` a few lines later, so no explicit
+	// reload needed here.
+	if err := RegenerateExportsFromQuotas(exportsDir); err != nil {
+		log.Printf("mount-all: regenerate exports: %v", err)
+	}
+
 	if failed > 0 {
 		return fmt.Errorf("%d of %d mounts failed", failed, len(quotaFiles))
 	}
@@ -143,7 +156,13 @@ func Create(mountpoint string, sizeBytes int64) error {
 		return fmt.Errorf("mkfs.ext4: %w\n%s", err, out)
 	}
 
-	return mountOne(mountpoint)
+	if err := mountOne(mountpoint); err != nil {
+		return err
+	}
+	if err := WriteExport(mountpoint); err != nil {
+		return fmt.Errorf("write export for %s: %w", mountpoint, err)
+	}
+	return ReloadExports()
 }
 
 // Delete unmounts the loop-backed directory and renames the quota file to the
@@ -169,6 +188,13 @@ func Delete(mountpoint string) error {
 			log.Printf("delete: rename %s → %s: %v", quotaFile, mountpoint, err)
 		}
 	}
+
+	if err := RemoveExport(mountpoint); err != nil {
+		log.Printf("delete: remove export for %s: %v", mountpoint, err)
+	}
+	if err := ReloadExports(); err != nil {
+		log.Printf("delete: exportfs -r: %v", err)
+	}
 	return nil
 }
 
@@ -183,7 +209,16 @@ func RemountIfStale(mountpoint string) error {
 		return nil
 	}
 	log.Printf("watchdog: stale mount at %s, remounting", mountpoint)
-	return mountOne(mountpoint)
+	if err := mountOne(mountpoint); err != nil {
+		return err
+	}
+	// Re-assert the exports fragment — the fsid is deterministic from the
+	// PV name, so clients will keep using the same file handles; but we
+	// refresh the fragment in case /etc/exports.d/ lost it somehow.
+	if err := WriteExport(mountpoint); err != nil {
+		log.Printf("watchdog: write export for %s: %v", mountpoint, err)
+	}
+	return ReloadExports()
 }
 
 func createQuotaFile(path string, size int64) error {
