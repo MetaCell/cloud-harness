@@ -116,6 +116,10 @@ steps:
           image: alpine
           commands:
             - cf_export  FAILED=failed
+    when:
+      condition:
+        all:
+          nfs_test_enabled: '"${{TEST_NFS_FAILOVER}}" == "true"'
   tests_api:
     stage: qa
     title: Api tests
