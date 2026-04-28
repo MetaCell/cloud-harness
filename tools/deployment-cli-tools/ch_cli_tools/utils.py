@@ -119,7 +119,7 @@ def get_cluster_ip(local=False):
         try:
             # Get current kubectl context to extract minikube profile
             context = subprocess.check_output(['kubectl', 'config', 'current-context'], timeout=5).decode("utf-8").strip()
-            
+
             # Try with profile if context looks like minikube
             if 'minikube' in context.lower():
                 profile = context  # Context name is often the profile name
@@ -129,14 +129,14 @@ def get_cluster_ip(local=False):
                         return out
                 except:
                     pass
-            
+
             # Try without profile (default minikube)
             out = subprocess.check_output(['minikube', 'ip'], timeout=5).decode("utf-8").strip()
             if out:
                 return out
         except:
             pass
-        
+
         # Try kubectl cluster-info
         try:
             out = subprocess.check_output(
@@ -146,7 +146,7 @@ def get_cluster_ip(local=False):
                 return ips[0]
         except:
             pass
-    
+
     # Fallback to host address (used for non-local deployments)
     return get_host_address()
 
