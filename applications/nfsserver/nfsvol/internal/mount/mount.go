@@ -76,6 +76,13 @@ func MountAll(exportsDir string) error {
 		}
 		return nil
 	}
+
+	// Detach ALL loop devices pointing to quota files in a single O(loop_count)
+	// pass. This clears stale devices accumulated from prior crash-loop restarts
+	// without the O(loop_count × quota_count) cost of per-file DetachByBacking.
+	log.Printf("mount-all: cleaning stale loop devices for %d quota files", len(quotaFiles))
+	loop.CleanByFiles(quotaFiles)
+
 	log.Printf("mount-all: mounting %d volumes", len(quotaFiles))
 
 	workers := runtime.NumCPU() * 2

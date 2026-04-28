@@ -16,9 +16,10 @@
 
 function start()
 {
-    # Mount all existing PVC volumes in parallel, then start the watchdog.
-    /usr/local/bin/nfsvol mount-all
-    /usr/local/bin/nfsvol watchdog &
+    # Start the HTTP liveness server immediately, then run mount-all inside the
+    # watchdog process. /healthz returns 200 at once (liveness probe satisfied);
+    # /ready returns 200 only once mount-all finishes (readiness gate).
+    /usr/local/bin/nfsvol watchdog -mount-first &
 
     bash -c "/usr/local/bin/start_provisioner.sh&"
 

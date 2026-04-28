@@ -73,18 +73,23 @@ spec:
           containerPort: 111
         - name: healthz
           containerPort: 8080
-        readinessProbe:
+        startupProbe:
           httpGet:
             path: /healthz
             port: 8080
-          initialDelaySeconds: 10
+          initialDelaySeconds: 15
+          periodSeconds: 30
+          failureThreshold: 240
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
           periodSeconds: 15
           failureThreshold: 3
         livenessProbe:
           httpGet:
             path: /healthz
             port: 8080
-          initialDelaySeconds: 30
           periodSeconds: 30
           failureThreshold: 5
         securityContext:

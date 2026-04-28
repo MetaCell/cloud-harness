@@ -86,8 +86,8 @@ func Detach(loopPath string) error {
 	return nil
 }
 
-// FindByBacking returns the loop device path for the given backing file by scanning
-// /sys/block/loop*/loop/backing_file. Returns "" if none is found.
+// FindByBacking returns the first loop device path backed by the given file,
+// or "" if none is found.
 func FindByBacking(backingFile string) (string, error) {
 	abs, err := filepath.Abs(backingFile)
 	if err != nil {
@@ -103,10 +103,8 @@ func FindByBacking(backingFile string) (string, error) {
 			continue
 		}
 		backing := strings.TrimSpace(string(data))
-		// The kernel appends " (deleted)" for files still open but unlinked.
 		backing = strings.TrimSuffix(backing, " (deleted)")
 		if backing == abs {
-			// /sys/block/loop7/loop/backing_file → /dev/loop7
 			parts := strings.Split(entry, "/")
 			return "/dev/" + parts[3], nil
 		}
@@ -114,14 +112,27 @@ func FindByBacking(backingFile string) (string, error) {
 	return "", nil
 }
 
-// DetachByBacking finds and detaches the loop device backing the given file.
+// DetachByBacking finds and detaches ALL loop devices backing the given file.
 // It is a no-op if no loop device is associated with the file.
 func DetachByBacking(backingFile string) error {
-	loopPath, err := FindByBacking(backingFile)
-	if err != nil || loopPath == "" {
-		return err
+	abs, err := filepath.Abs(backingFile)
+	if err != nil {
+		abs = backingFile
 	}
-	return Detach(loopPath)
+	entries, _ := filepath.Glob("/sys/block/loop*/loop/backing_file")
+	for _, entry := range entries {
+		data, err := os.ReadFile(entry)
+		if err != nil {
+			continue
+		}
+		backing := strings.TrimSpace(string(data))
+		backing = strings.TrimSuffix(backing, " (deleted)")
+		if backing == abs {
+			parts := strings.Split(entry, "/")
+			_ = Detach("/dev/" + parts[3])
+		}
+	}
+	return nil
 }
 
 // CleanStale detaches all loop devices whose kernel-reported backing file is marked deleted.
@@ -133,6 +144,34 @@ func CleanStale() {
 			continue
 		}
 		if strings.Contains(string(data), "(deleted)") {
+			parts := strings.Split(entry, "/")
+			_ = Detach("/dev/" + parts[3])
+		}
+	}
+}
+
+// CleanByFiles detaches ALL loop devices whose backing file is in the given set.
+// It builds the loop→backing index exactly once (O(total_loop_devices)), making
+// it efficient for bulk cleanup at startup regardless of how many files are passed.
+func CleanByFiles(backingFiles []string) {
+	want := make(map[string]bool, len(backingFiles))
+	for _, f := range backingFiles {
+		abs, err := filepath.Abs(f)
+		if err != nil {
+			abs = f
+		}
+		want[abs] = true
+	}
+
+	entries, _ := filepath.Glob("/sys/block/loop*/loop/backing_file")
+	for _, entry := range entries {
+		data, err := os.ReadFile(entry)
+		if err != nil {
+			continue
+		}
+		backing := strings.TrimSpace(string(data))
+		backing = strings.TrimSuffix(backing, " (deleted)")
+		if want[backing] {
 			parts := strings.Split(entry, "/")
 			_ = Detach("/dev/" + parts[3])
 		}
