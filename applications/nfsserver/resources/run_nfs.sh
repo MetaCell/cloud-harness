@@ -41,11 +41,14 @@ function start()
 
     mount -t nfsd nfsd /proc/fs/nfsd
 
-    # -V 3: enable NFSv3 (matches client mount options elsewhere).
-    /usr/sbin/rpc.mountd -V 3
+    # rpc.mountd: no -V flag — let it register all mount protocol versions (1,2,3).
+    # Adding -V 3 here incorrectly restricts registration to version 1 only,
+    # which causes "Permission denied" on NFSv3 client mounts.
+    /usr/sbin/rpc.mountd
 
     /usr/sbin/exportfs -r
-    # -G 10 to reduce grace time to 10 seconds (the lowest allowed)
+    # -G 10 to reduce grace time to 10 seconds (the lowest allowed).
+    # -V 3: enable NFSv3 (matches client mount options).
     /usr/sbin/rpc.nfsd -G 10 -V 3
     /usr/sbin/rpc.statd --no-notify
     echo "NFS started"
@@ -68,6 +71,13 @@ function stop()
 
 # rpc.statd has issues with very high ulimits
 ulimit -n 65535
+
+# Each loop device creates inotify watches inside the container. On deployments
+# with thousands of PVCs the kernel default (8192–12288) is exhausted, which
+# causes rpc.mountd to fail with "No space left on device". Raise the limit
+# proactively; the pod is privileged so this sysctl is allowed.
+sysctl -w fs.inotify.max_user_watches=1048576 >/dev/null 2>&1 || true
+sysctl -w fs.inotify.max_user_instances=8192   >/dev/null 2>&1 || true
 
 trap stop TERM
 
