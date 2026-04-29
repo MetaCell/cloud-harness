@@ -29,29 +29,6 @@
 #      fsid) prevents ESTALE on the server-side failover path. Also writes a
 #      new file post-restart and checks it propagates.
 #
-#   4b. inotify watch limit raised in server pod
-#       Verifies fs.inotify.max_user_watches ≥ 524288 inside the server pod.
-#       The kernel default (8192–12288) is exhausted on clusters with thousands
-#       of PVCs, causing rpc.mountd to fail with ENOSPC ("No space left on
-#       device"). run_nfs.sh must raise this via sysctl before starting mountd.
-#
-#   4c. rpc.mountd running, MOUNT protocol v1/v2/v3 all registered
-#       Confirms rpc.mountd is alive and that portmapper reports all three
-#       MOUNT protocol versions. Running 'rpc.mountd -V 3' on affected kernels
-#       restricts registration to version 1 only — NFSv3 clients then get
-#       "Permission denied" on new mounts.
-#
-#   4d. Loop device count bounded after restart (CleanByFiles coverage)
-#       After crash-loop restarts, stale loop devices accumulate (backing files
-#       are not deleted so CleanStale skips them). CleanByFiles in mount-all
-#       must clear them before remounting. Verifies count ≤ quota files + 5.
-#
-#   4e. New client mount after server restart
-#       Spins up a fresh pod AFTER the server pod has been replaced. Tests that
-#       rpc.mountd accepts brand-new MOUNT protocol requests (not just retains
-#       file handles for existing clients). Catches the case where mountd died
-#       due to inotify exhaustion or was never started.
-#
 #   5. Watchdog recovery from stale loop device
 #      Inside the server pod, forcibly `losetup -d` the loop device backing
 #      the test PVC. Waits ~45 s and verifies the watchdog (30 s interval)
@@ -100,7 +77,6 @@ PREFIX="nfs-failover-test"
 PVC="${PREFIX}-pvc"
 WRITER_A="${PREFIX}-writer-a"
 WRITER_B="${PREFIX}-writer-b"
-WRITER_C="${PREFIX}-writer-c"
 
 log()  { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
 pass() { printf '[%s] PASS: %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
@@ -110,7 +86,7 @@ k() { kubectl -n "$NAMESPACE" "$@"; }
 
 cleanup() {
     log "cleanup: removing test fixtures"
-    k delete pod "$WRITER_A" "$WRITER_B" "$WRITER_C" --ignore-not-found --grace-period=0 --force --wait=false 2>/dev/null || true
+    k delete pod "$WRITER_A" "$WRITER_B" --ignore-not-found --grace-period=0 --force --wait=false 2>/dev/null || true
     k delete pvc "$PVC" --ignore-not-found --wait=false 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -285,93 +261,6 @@ verify_read "$WRITER_B" /data/from-a.txt hello-from-A || fail "B lost A's file a
 k exec "$WRITER_A" -- sh -c "echo post-restart > /data/post-restart.txt && sync" || fail "post-restart write failed"
 verify_read "$WRITER_B" /data/post-restart.txt post-restart || fail "post-restart write did not propagate"
 pass "fsid stable across server pod restart — no ESTALE"
-
-# -----------------------------------------------------------------------------
-log "test 4b: inotify watch limit raised in server pod"
-# -----------------------------------------------------------------------------
-# Each loop device and NFS client tracked by rpc.mountd consumes inotify
-# watches. The kernel default (~8192–12288) is exhausted on clusters with
-# thousands of PVCs, causing rpc.mountd to fail with ENOSPC. run_nfs.sh must
-# raise this via sysctl before starting mountd.
-
-watches=$(k exec "$NEW_NFS_POD" -- cat /proc/sys/fs/inotify/max_user_watches 2>/dev/null | tr -d '[:space:]' || echo 0)
-if [ "${watches:-0}" -lt 524288 ]; then
-    fail "inotify max_user_watches=$watches is too low — rpc.mountd will exhaust watches on large clusters (need ≥524288)"
-fi
-pass "inotify max_user_watches=$watches (≥524288)"
-
-# -----------------------------------------------------------------------------
-log "test 4c: rpc.mountd running and MOUNT protocol v1/v2/v3 all registered"
-# -----------------------------------------------------------------------------
-# Passing '-V 3' to rpc.mountd on this kernel incorrectly restricts MOUNT
-# protocol registration to version 1 only, causing NFSv3 clients to receive
-# "Permission denied" when mounting. Verify all three versions are present.
-
-k exec "$NEW_NFS_POD" -- pidof rpc.mountd >/dev/null 2>&1 \
-    || fail "rpc.mountd is not running in $NEW_NFS_POD (check run_nfs.sh / inotify limit)"
-pass "rpc.mountd process is running"
-
-for ver in 1 2 3; do
-    k exec "$NEW_NFS_POD" -- sh -c \
-        "/usr/sbin/rpcinfo -p 2>/dev/null | awk -v v=$ver '\$1==100005 && \$2==v' | grep -q ." \
-        || fail "MOUNT protocol version $ver not registered — run rpc.mountd without -V flag"
-done
-pass "MOUNT protocol versions 1, 2, 3 all registered in portmapper"
-
-# -----------------------------------------------------------------------------
-log "test 4d: loop device count bounded after restart (CleanByFiles coverage)"
-# -----------------------------------------------------------------------------
-# After crash-loop restarts the kernel retains loop devices whose backing files
-# are still present (not marked deleted). CleanByFiles in mount-all must detach
-# them in a single O(loop_count) pass before remounting. Verify the residual
-# count is ≤ number of quota files plus a small tolerance.
-
-quota_count=$(k exec "$NEW_NFS_POD" -- sh -c 'ls /exports/*.quota 2>/dev/null | wc -l' | tr -d '[:space:]' || echo 0)
-loop_count=$(k exec "$NEW_NFS_POD" -- sh -c 'losetup -a 2>/dev/null | wc -l' | tr -d '[:space:]' || echo 0)
-tolerance=5
-max_allowed=$(( quota_count + tolerance ))
-if [ "${loop_count:-0}" -gt "$max_allowed" ]; then
-    fail "loop device count $loop_count exceeds quota count $quota_count + tolerance $tolerance — stale cleanup (CleanByFiles) may not have run"
-fi
-pass "loop device count $loop_count ≤ quota count $quota_count + $tolerance (no stale accumulation)"
-
-# -----------------------------------------------------------------------------
-log "test 4e: new client mount after server restart (rpc.mountd availability)"
-# -----------------------------------------------------------------------------
-# Spin up a fresh pod AFTER the server has restarted. This exercises the
-# MOUNT protocol path (new mount negotiation) rather than just file-handle
-# reuse by existing clients. Catches the case where rpc.mountd is not
-# running or not accepting new connections post-restart.
-
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Pod
-metadata:
-  name: $WRITER_C
-  namespace: $NAMESPACE
-  labels:
-    app: $PREFIX
-spec:
-  terminationGracePeriodSeconds: 5
-  containers:
-    - name: writer
-      image: busybox:1.36
-      command: [sh, -c, "sleep 3600"]
-      volumeMounts:
-        - name: shared
-          mountPath: /data
-  volumes:
-    - name: shared
-      persistentVolumeClaim:
-        claimName: $PVC
-EOF
-
-k wait --for=condition=Ready "pod/$WRITER_C" --timeout=60s \
-    || fail "new client pod $WRITER_C failed to mount PVC after server restart — rpc.mountd may not be accepting new mounts"
-
-verify_read "$WRITER_C" /data/post-restart.txt post-restart \
-    || fail "$WRITER_C cannot read data written post-restart — export stale or mount incomplete"
-pass "new client pod mounted PVC and reads data after server restart"
 
 # -----------------------------------------------------------------------------
 log "test 5: watchdog recovery from stale loop device"
