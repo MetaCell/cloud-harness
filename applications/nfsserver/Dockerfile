@@ -17,12 +17,13 @@ RUN go mod tidy && go build -o /usr/local/bin/nfsvol .
 # Upstream continuation of the old k8s.gcr.io/volume-nfs:0.8 image, maintained
 # by the Kubernetes project at test/images/volume/nfs. CentOS Stream 9 base
 # with nfs-utils already installed; we only need to add e2fsprogs for mkfs.ext4.
-FROM registry.k8s.io/e2e-test-images/volume/nfs:1.6.0
+FROM rockylinux/rockylinux:10.1-minimal
 
-RUN dnf install -y \
-    e2fsprogs \
-    && dnf clean all \
-    && rm -rf /var/cache/dnf
+RUN microdnf install -y \
+  e2fsprogs \
+  rpcbind \
+  nfs-utils \
+  && microdnf clean all
 
 COPY --from=provisioner /usr/src/app/bin/nfs-subdir-external-provisioner /usr/local/bin/nfs-subdir-external-provisioner
 COPY --from=nfsvol /usr/local/bin/nfsvol /usr/local/bin/nfsvol
