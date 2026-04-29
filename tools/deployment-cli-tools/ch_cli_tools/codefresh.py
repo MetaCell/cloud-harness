@@ -1,4 +1,5 @@
 import os
+import re
 from os.path import join, relpath, exists, dirname, basename, abspath
 from cloudharness_model.models.git_dependency_config import GitDependencyConfig
 
@@ -32,6 +33,11 @@ def literal_presenter(dumper, data):
 
 
 yaml.add_representer(str, literal_presenter)
+
+
+def clean_step_key(s: str) -> str:
+    """Normalize a string to a valid Codefresh step key (alphanumeric + underscore)."""
+    return re.sub(r'[^a-zA-Z0-9_]', '_', s)
 
 
 def get_main_domain(url):
@@ -254,7 +260,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
                     if app_config and app_config.dependencies and app_config.dependencies.git and DEFAULT_MERGE_PATH not in root_path:
                         for dep in app_config.dependencies.git:
-                            step_name = f"clone_{basename(dep.url).replace('.', '_')}_{dep.branch_tag}_{basename(dockerfile_relative_to_root).replace('.', '_')}"
+                            step_name = clean_step_key(f"clone_{basename(dep.url)}_{dep.branch_tag}_{basename(dockerfile_relative_to_root)}")
                             steps[CD_STEP_CLONE_DEPENDENCIES]['steps'][step_name] = clone_step_spec(dep, dockerfile_relative_to_root)
 
                     build = None
