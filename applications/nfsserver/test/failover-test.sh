@@ -352,6 +352,11 @@ spec:
         claimName: $PVC
 EOF
 
+# Wait for the pod object to be visible across all API server instances before
+# watching its conditions -- GKE's HA control plane can serve a NotFound from
+# a replica that hasn't replicated the create yet.
+wait_for 10 k get pod "$WRITER_C" -o name \
+    || fail "new client pod $WRITER_C never appeared in the API server"
 k wait --for=condition=Ready "pod/$WRITER_C" --timeout=60s \
     || fail "new client pod $WRITER_C failed to mount PVC after server restart -- rpc.mountd may not be accepting new mounts"
 
