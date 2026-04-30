@@ -113,6 +113,11 @@ func FindByBacking(backingFile string) (string, error) {
 }
 
 // DetachByBacking finds and detaches ALL loop devices backing the given file.
+// The NFS server pod shares the host mount namespace; if the previous pod was
+// killed without graceful shutdown the loop device may still be mounted in the
+// host namespace, causing LOOP_CLR_FD to fail with EBUSY. A lazy unmount of
+// the associated mountpoint (backing path without ".quota" suffix) is attempted
+// first so LOOP_CLR_FD can succeed.
 // It is a no-op if no loop device is associated with the file.
 func DetachByBacking(backingFile string) error {
 	abs, err := filepath.Abs(backingFile)
@@ -128,6 +133,10 @@ func DetachByBacking(backingFile string) error {
 		backing := strings.TrimSpace(string(data))
 		backing = strings.TrimSuffix(backing, " (deleted)")
 		if backing == abs {
+			// Lazy-unmount the mountpoint so the loop device is no longer
+			// "in use" before calling LOOP_CLR_FD.
+			mountpoint := strings.TrimSuffix(abs, ".quota")
+			_ = unix.Unmount(mountpoint, unix.MNT_DETACH)
 			parts := strings.Split(entry, "/")
 			_ = Detach("/dev/" + parts[3])
 		}
@@ -151,8 +160,10 @@ func CleanStale() {
 }
 
 // CleanByFiles detaches ALL loop devices whose backing file is in the given set.
-// It builds the loop→backing index exactly once (O(total_loop_devices)), making
+// It builds the loop->backing index exactly once (O(total_loop_devices)), making
 // it efficient for bulk cleanup at startup regardless of how many files are passed.
+// A lazy unmount of each associated mountpoint is attempted before LOOP_CLR_FD so
+// that zombie mounts left by a killed previous pod do not block the detach.
 func CleanByFiles(backingFiles []string) {
 	want := make(map[string]bool, len(backingFiles))
 	for _, f := range backingFiles {
@@ -172,6 +183,11 @@ func CleanByFiles(backingFiles []string) {
 		backing := strings.TrimSpace(string(data))
 		backing = strings.TrimSuffix(backing, " (deleted)")
 		if want[backing] {
+			// Lazy-unmount the mountpoint before detaching. The NFS server pod
+			// shares the host mount namespace; zombie mounts from the previous
+			// pod keep the loop device in-use and cause LOOP_CLR_FD to fail.
+			mountpoint := strings.TrimSuffix(backing, ".quota")
+			_ = unix.Unmount(mountpoint, unix.MNT_DETACH)
 			parts := strings.Split(entry, "/")
 			_ = Detach("/dev/" + parts[3])
 		}

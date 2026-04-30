@@ -62,8 +62,17 @@ function stop()
     /usr/sbin/exportfs -au
     /usr/sbin/exportfs -f
 
-    kill $( pidof rpc.mountd )
+    kill $( pidof rpc.mountd ) 2>/dev/null || true
     umount /proc/fs/nfsd
+
+    # Lazy-unmount all loop-backed exports before exiting. The pod shares the
+    # host mount namespace, so any mount left alive here persists after the
+    # container dies. The next pod's LOOP_CLR_FD then fails with EBUSY and
+    # cannot reuse the loop device.
+    for mp in /exports/*/; do
+        umount -l "$mp" 2>/dev/null || true
+    done
+
     echo > /etc/exports
     exit 0
 }
@@ -73,11 +82,12 @@ function stop()
 ulimit -n 65535
 
 # Each loop device creates inotify watches inside the container. On deployments
-# with thousands of PVCs the kernel default (8192–12288) is exhausted, which
-# causes rpc.mountd to fail with "No space left on device". Raise the limit
-# proactively; the pod is privileged so this sysctl is allowed.
-sysctl -w fs.inotify.max_user_watches=1048576 >/dev/null 2>&1 || true
-sysctl -w fs.inotify.max_user_instances=8192   >/dev/null 2>&1 || true
+# with thousands of PVCs the kernel default (8192-12288) is exhausted, which
+# causes rpc.mountd to fail with "No space left on device". Write directly to
+# /proc/sys rather than using sysctl(8), which is not installed in this image.
+# The pod is privileged so the write is permitted.
+echo 1048576 > /proc/sys/fs/inotify/max_user_watches  2>/dev/null || true
+echo 8192    > /proc/sys/fs/inotify/max_user_instances 2>/dev/null || true
 
 trap stop TERM
 
