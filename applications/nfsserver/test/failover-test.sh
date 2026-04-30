@@ -292,7 +292,8 @@ log "test 4c: rpc.mountd running and MOUNT protocol v1/v2/v3 all registered"
 # protocol registration to version 1 only, causing NFSv3 clients to receive
 # "Permission denied" when mounting. Verify all three versions are present.
 
-k exec "$NEW_NFS_POD" -- pidof rpc.mountd >/dev/null 2>&1 \
+k exec "$NEW_NFS_POD" -- sh -c \
+    "ls /proc/[0-9]*/exe 2>/dev/null | xargs readlink 2>/dev/null | grep -q 'rpc\.mountd'" \
     || fail "rpc.mountd is not running in $NEW_NFS_POD (check run_nfs.sh / inotify limit)"
 pass "rpc.mountd process is running"
 
