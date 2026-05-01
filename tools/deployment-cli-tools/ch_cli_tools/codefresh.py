@@ -40,6 +40,24 @@ def clean_step_key(s: str) -> str:
     return re.sub(r'[^a-zA-Z0-9_]', '_', s)
 
 
+def dockerfile_selector_candidates(base_path: str, dockerfile_path: str) -> set[str]:
+    """Return stable identifiers that may be used with include/exclude selectors."""
+    relative_to_base = get_app_relative_to_base_path(base_path, dockerfile_path)
+    parent_name = relative_to_base.split("/")[0] if relative_to_base else ""
+    return {
+        candidate for candidate in (
+            relative_to_base,
+            app_name_from_path(relative_to_base),
+            parent_name,
+        ) if candidate
+    }
+
+
+def path_contains_excluded_segment(path: str, excluded_segments) -> bool:
+    normalized_path = f"/{path.replace(os.path.sep, '/')}/"
+    return any(f"/{segment}/" in normalized_path for segment in excluded_segments)
+
+
 def get_main_domain(url):
     try:
         url = url.split("//")[1].split("/")[0]
@@ -238,6 +256,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 for dockerfile_path in find_dockerfiles_paths(base_path):
                     dockerfile_relative_to_root = relpath(dockerfile_path, '.')
                     dockerfile_relative_to_base = get_app_relative_to_base_path(base_path, dockerfile_path)
+                    selector_candidates = dockerfile_selector_candidates(base_path, dockerfile_path)
                     app_name = app_name_from_path(dockerfile_relative_to_base)
                     app_key = app_name
                     app_config: ApplicationHarnessConfig = app_key in helm_values.apps and helm_values.apps[app_key].harness
@@ -245,13 +264,15 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         else helm_values[KEY_TASK_IMAGES][app_key] if app_key in helm_values[KEY_TASK_IMAGES]\
                         else f"{base_name}/{app_name}"
 
-                    if include and not any(
-                            f"/{inc}/" in os.path.relpath(dockerfile_path, root_path) or dockerfile_path.endswith(f"/{inc}") for inc in include
-                    ):
+                    if include and not any(inc in selector_candidates for inc in include):
                         # Skip not included apps
                         continue
 
-                    if any(inc in dockerfile_path for inc in (list(exclude) + EXCLUDE_PATHS)):
+                    if any(ex in selector_candidates for ex in exclude):
+                        # Skip explicitly excluded apps/images
+                        continue
+
+                    if path_contains_excluded_segment(dockerfile_relative_to_root, EXCLUDE_PATHS):
                         # Skip excluded apps
                         continue
 
