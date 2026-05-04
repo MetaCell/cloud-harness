@@ -104,15 +104,19 @@ def env_variable(name, value):
 
 
 def get_cluster_ip(local=False):
+    print("Getting cluster IP...")
     if local:
-        # Try to get LoadBalancer IP from ingress-nginx first (preferred for local dev with minikube tunnel)
         try:
-            out = subprocess.check_output([
-                'kubectl', '-n', 'ingress-nginx', 'get', 'svc', 'ingress-nginx-controller',
-                '-o', 'jsonpath={.status.loadBalancer.ingress[0].ip}'
-            ], timeout=5).decode("utf-8").strip()
-            if out and out != '<no value>':
-                return out
+            # Check if ingress-nginx is installed by trying to get its pods
+            errcode, out = subprocess.getstatusoutput("kubectl -n ingress-nginx get pods")
+            if errcode==0 and out and out != 'No resources found in ingress-nginx namespace.':
+                # Try to get LoadBalancer IP from ingress-nginx first (preferred for local dev with minikube tunnel)
+                out = subprocess.check_output([
+                    'kubectl', '-n', 'ingress-nginx', 'get', 'svc', 'ingress-nginx-controller',
+                    '-o', 'jsonpath={.status.loadBalancer.ingress[0].ip}',
+                ], timeout=5).decode("utf-8").strip()
+                if out and out != '<no value>':
+                    return out
         except:
             pass
         # Try minikube with profile detection for local development
@@ -131,24 +135,19 @@ def get_cluster_ip(local=False):
                     pass
 
             # Try without profile (default minikube)
-            out = subprocess.check_output(['minikube', 'ip'], timeout=5).decode("utf-8").strip()
-            if out:
-                return out
+            err_code, out = subprocess.getstatusoutput(['minikube ip'])
+            if err_code == 0:
+                # If minikube is running, this should return the IP
+                out = subprocess.check_output(['minikube', 'ip'], timeout=5).decode("utf-8").strip()
+                if out:
+                    return out
         except:
             pass
 
-        # Try kubectl cluster-info
-        try:
-            out = subprocess.check_output(
-                ['kubectl', 'cluster-info'], timeout=10).decode("utf-8")
-            ips = re.findall(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", out)
-            if ips:
-                return ips[0]
-        except:
-            pass
-
-    # Fallback to host address (used for non-local deployments)
-    return get_host_address()
+    out = subprocess.check_output(
+        ['kubectl', 'cluster-info'], timeout=10).decode("utf-8")
+    ips = re.findall(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", out)
+    return ips[0] if ips else get_host_address()
 
 
 def get_host_address():
