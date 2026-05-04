@@ -10,7 +10,7 @@ if setup_infrastructure:
     # setup ingress
     print("Installing ingress controller")
     # local("cd infrastructure/cluster-configuration && source cluster-init.sh")
-    local("kubectl get namespace ingress-nginx 2>/dev/null 1>/dev/null || bash -c 'helm upgrade --install ingress-nginx ingress-nginx --repo https://kubernetes.github.io/ingress-nginx --namespace ingress-nginx --create-namespace --version v4.2.5 --wait --wait-for-jobs")
+    local("kubectl get namespace ingress-nginx 2>/dev/null 1>/dev/null || bash -c 'helm upgrade --install ingress-nginx ingress-nginx --repo https://kubernetes.github.io/ingress-nginx --namespace ingress-nginx --create-namespace --version v4.2.5 --wait --wait-for-jobs'")
     # print("Let's wait a few seconds...")
     # local("sleep 30")
 else:
