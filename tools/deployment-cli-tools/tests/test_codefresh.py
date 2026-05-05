@@ -290,6 +290,11 @@ def test_create_codefresh_configuration_tests():
         assert CD_API_TEST_STEP not in l1_steps, "Api steps are not included in any app"
         assert CD_E2E_TEST_STEP not in l1_steps, "E2E steps are not included in any app"
 
+        all_build_steps = {k: v for k, v in l1_steps.items() if k.startswith(STEP_0[:-1])}
+        built_images = {name for step in all_build_steps.values() for name in step.get("steps", {})}
+        assert "test-e2e" not in built_images, "test-e2e image should not be built when no e2e tests are configured"
+        assert "test-api" not in built_images, "test-api image should not be built when no api tests are configured"
+
     finally:
         shutil.rmtree(BUILD_MERGE_DIR)
 
