@@ -665,3 +665,134 @@ def test_env_dockerfile_codefresh_fallback():
             "samples should not use dev.Dockerfile as it does not have one"
     finally:
         shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
+def test_codefresh_paths_use_cloned_cloud_harness():
+    """When cloud-harness root is outside the current directory (e.g. ../cloud-harness),
+    paths in the generated codefresh YAML should use ./cloud-harness (the cloned location
+    inside the pipeline working directory), not ../cloud-harness."""
+    import tempfile
+
+    # Create a sibling directory to simulate running from a different project
+    with tempfile.TemporaryDirectory(dir=os.path.dirname(CLOUDHARNESS_ROOT)) as tmp_project_dir:
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_project_dir)
+
+            # Sanity check: cloud-harness is indeed above the current directory
+            assert os.path.relpath(CLOUDHARNESS_ROOT, '.').startswith('..'), \
+                "Test setup issue: cloud-harness should be outside the current directory"
+
+            values = create_helm_chart(
+                [CLOUDHARNESS_ROOT, RESOURCES],
+                output_path=OUT,
+                include=['samples'],
+                domain="my.local",
+                namespace='test',
+                env='dev',
+                local=False,
+                tag=1,
+                registry='reg'
+            )
+
+            root_paths = preprocess_build_overrides(
+                root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+                helm_values=values,
+                merge_build_path=BUILD_MERGE_DIR
+            )
+
+            build_included = [app['harness']['name']
+                              for app in values['apps'].values() if 'harness' in app]
+
+            cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                     envs=['dev'],
+                                                     base_image_name=values['name'],
+                                                     helm_values=values, save=False)
+
+            # harness-deployment command must use ./cloud-harness, not ../cloud-harness
+            cmds = cf['steps']['prepare_deployment']['commands']
+            harness_cmd = next(cmd for cmd in cmds if 'harness-deployment' in cmd)
+            assert '../cloud-harness' not in harness_cmd, (
+                f"harness-deployment command should not reference ../cloud-harness; got: {harness_cmd}"
+            )
+            assert ' cloud-harness' in harness_cmd or harness_cmd.startswith('harness-deployment cloud-harness'), (
+                f"harness-deployment command should reference cloud-harness (the cloned location); got: {harness_cmd}"
+            )
+
+            # working_directory in all build steps must not escape above the current directory
+            all_build_steps = {}
+            for step_name in [STEP_0, STEP_1, STEP_2, STEP_3]:
+                if step_name in cf['steps']:
+                    all_build_steps.update(cf['steps'][step_name]['steps'])
+
+            for step_name, step in all_build_steps.items():
+                wd = step.get('working_directory', '')
+                assert not wd.startswith('../'), (
+                    f"Build step '{step_name}' working_directory must not start with '../'; got: {wd}"
+                )
+                assert not wd.startswith('./../'), (
+                    f"Build step '{step_name}' working_directory must not start with './../'; got: {wd}"
+                )
+        finally:
+            os.chdir(old_cwd)
+            shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
+def test_codefresh_working_directory_uses_cloned_cloud_harness():
+    """The working_directory for build steps that source images from cloud-harness must
+    use ./cloud-harness/... when cloud-harness is a sibling directory of the project."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory(dir=os.path.dirname(CLOUDHARNESS_ROOT)) as tmp_project_dir:
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_project_dir)
+
+            values = create_helm_chart(
+                [CLOUDHARNESS_ROOT, RESOURCES],
+                output_path=OUT,
+                include=['samples'],
+                domain="my.local",
+                namespace='test',
+                env='dev',
+                local=False,
+                tag=1,
+                registry='reg'
+            )
+
+            root_paths = preprocess_build_overrides(
+                root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+                helm_values=values,
+                merge_build_path=BUILD_MERGE_DIR
+            )
+
+            build_included = [app['harness']['name']
+                              for app in values['apps'].values() if 'harness' in app]
+
+            cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                     envs=['dev'],
+                                                     base_image_name=values['name'],
+                                                     helm_values=values, save=False)
+
+            # cloudharness-base-images and common images come from the cloud-harness root;
+            # their working_directory must start with ./cloud-harness, not ./../cloud-harness
+            all_build_steps = {}
+            for step_name in [STEP_0, STEP_1, STEP_2, STEP_3]:
+                if step_name in cf['steps']:
+                    all_build_steps.update(cf['steps'][step_name]['steps'])
+
+            ch_steps = {
+                name: step for name, step in all_build_steps.items()
+                if 'cloudharness' in name or name == 'samples'
+            }
+            assert ch_steps, "Expected at least one cloud-harness image build step"
+
+            for step_name, step in ch_steps.items():
+                wd = step.get('working_directory', '')
+                assert not wd.startswith('../') and './../' not in wd, (
+                    f"Cloud-harness build step '{step_name}' working_directory must not "
+                    f"escape the current directory with '../'; got: {wd}"
+                )
+        finally:
+            os.chdir(old_cwd)
+            shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
