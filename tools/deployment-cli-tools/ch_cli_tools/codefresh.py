@@ -21,6 +21,18 @@ logging.getLogger().setLevel(logging.INFO)
 CLOUD_HARNESS_PATH = "cloud-harness"
 ROLLOUT_CMD_TPL = "kubectl rollout status deployment/%s"
 
+
+def _to_codefresh_path(rel_path: str) -> str:
+    """Rewrite a relative path that escapes the current directory to use ./cloud-harness.
+
+    In Codefresh pipelines cloud-harness is always cloned into ./cloud-harness.
+    Any path of the form '../<dirname>/...' must become 'cloud-harness/...'.
+    """
+    parts = rel_path.replace('\\', '/').split('/')
+    if parts[0] == '..':
+        return '/'.join([CLOUD_HARNESS_PATH] + parts[2:])
+    return rel_path
+
 # Codefresh variables may need quotes: adjust yaml dump accordingly
 
 
@@ -179,7 +191,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         full_image_name, helm_values.registry.name
                     ),
                     title=title,
-                    working_directory='./' + app_context_path,
+                    working_directory='./' + _to_codefresh_path(app_context_path),
                     dockerfile=dockerfile_path)
 
                 tag = app_specific_tag_variable(app_name)
@@ -446,8 +458,9 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
     for i in range(len(cmds)):
         cmds[i] = cmds[i].replace("$ENV", "-".join(envs))
         cmds[i] = cmds[i].replace("$PARAMS", " ".join(params))
-        cmds[i] = cmds[i].replace("$PATHS", " ".join(os.path.relpath(
-            root_path, '.') for root_path in root_paths if DEFAULT_MERGE_PATH not in root_path))
+        cmds[i] = cmds[i].replace("$PATHS", " ".join(
+            _to_codefresh_path(os.path.relpath(root_path, '.'))
+            for root_path in root_paths if DEFAULT_MERGE_PATH not in root_path))
 
     steps = codefresh["steps"]
     if CD_E2E_TEST_STEP in steps and not steps[CD_E2E_TEST_STEP]["scale"]:

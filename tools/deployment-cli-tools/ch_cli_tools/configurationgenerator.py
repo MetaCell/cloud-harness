@@ -526,7 +526,7 @@ def generate_tag_from_content(content_path, ignore=()):
                     else:
                         logging.warning(f"Could not get git commit hash for repo at {subdir}")
 
-    content_hash = dirhash(content_path, 'sha1', ignore=ignore)
+    content_hash = dirhash(content_path, 'sha1', ignore=ignore, allow_cyclic_links=True)
 
     if git_hashes:
         return sha1((content_hash + ''.join(git_hashes)).encode('utf-8')).hexdigest()
