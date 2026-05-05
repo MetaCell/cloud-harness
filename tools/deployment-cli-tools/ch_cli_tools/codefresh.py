@@ -203,7 +203,9 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 build['dependencies'] = dependencies
 
                 def get_other_image_name(app_name):
-                    full_image_name = helm_values.apps[app_name].image if app_name in helm_values.apps else helm_values[KEY_TASK_IMAGES][app_name]
+                    full_image_name = helm_values.apps[app_name].image if app_name in helm_values.apps \
+                        else helm_values[KEY_TASK_IMAGES][app_name] if app_name in helm_values[KEY_TASK_IMAGES] \
+                        else f"{base_name}/{app_name}"
                     return image_tag_with_variables(full_image_name, helm_values.registry.name, app_specific_tag_variable(app_name))
 
                 def add_arg_dependencies(dependencies):
@@ -364,12 +366,12 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 codefresh_steps_from_base_path(join(root_path, APPS_PATH), include=helm_values[KEY_TASK_IMAGES].keys())
                 codefresh_steps_from_base_path(join(root_path, APPS_PATH), include=build_included)
 
-            if CD_E2E_TEST_STEP in steps:
+            if CD_E2E_TEST_STEP in steps and steps[CD_E2E_TEST_STEP].get("scale"):
                 name = "test-e2e"
                 if codefresh_steps_from_base_path(join(root_path, TEST_IMAGES_PATH), include=(name,), publish=False):
                     steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(f"{base_name}/{name}", helm_values.registry.name, app_specific_tag_variable(name))
 
-            if CD_API_TEST_STEP in steps:
+            if CD_API_TEST_STEP in steps and steps[CD_API_TEST_STEP].get("scale"):
                 name = "test-api"
                 if codefresh_steps_from_base_path(join(root_path, TEST_IMAGES_PATH), include=(name,), fixed_context=relpath(root_path, os.getcwd()), publish=False):
                     steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(f"{base_name}/{name}", helm_values.registry.name, app_specific_tag_variable(name))
