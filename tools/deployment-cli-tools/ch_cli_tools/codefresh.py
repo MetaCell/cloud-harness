@@ -203,7 +203,9 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 build['dependencies'] = dependencies
 
                 def get_other_image_name(app_name):
-                    full_image_name = helm_values.apps[app_name].image if app_name in helm_values.apps else helm_values[KEY_TASK_IMAGES][app_name]
+                    full_image_name = helm_values.apps[app_name].image if app_name in helm_values.apps \
+                        else helm_values[KEY_TASK_IMAGES][app_name] if app_name in helm_values[KEY_TASK_IMAGES] \
+                        else f"{base_name}/{app_name}"
                     return image_tag_with_variables(full_image_name, helm_values.registry.name, app_specific_tag_variable(app_name))
 
                 def add_arg_dependencies(dependencies):
