@@ -1,0 +1,21 @@
+{{- if .Values.apps.nfsserver.podDisruptionBudget.enabled }}
+# A PDB with minAvailable: 1 on a single-replica RWO-PVC-backed Deployment
+# blocks kubectl drain / automated node-group rotations — by design. It is a
+# guardrail forcing the operator to consciously migrate the NFS server pod
+# (terminate → wait for PVC detach → new pod attaches on target node) rather
+# than letting tooling evict it blindly.
+#
+# This does NOT help with ungraceful node loss (which goes via the ~6-minute
+# force-detach path, not the voluntary-disruption path).
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: nfs-server
+  labels:
+    app: nfs-server
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: nfs-server
+{{- end }}

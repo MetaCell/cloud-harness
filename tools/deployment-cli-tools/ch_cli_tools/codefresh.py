@@ -22,16 +22,26 @@ CLOUD_HARNESS_PATH = "cloud-harness"
 ROLLOUT_CMD_TPL = "kubectl rollout status deployment/%s"
 
 
-def _to_codefresh_path(rel_path: str) -> str:
-    """Rewrite a relative path that escapes the current directory to use ./cloud-harness.
+def _to_codefresh_path(path: str) -> str:
+    """Return the Codefresh-friendly path for any path pointing into the cloud-harness tree.
 
     In Codefresh pipelines cloud-harness is always cloned into ./cloud-harness.
-    Any path of the form '../<dirname>/...' must become 'cloud-harness/...'.
+    Resolves *path* to a relative path from CWD, then skips over any leading '..'
+    components. If the first real directory name after those is 'cloud-harness',
+    the path is rewritten to start with 'cloud-harness/' — regardless of how many
+    levels up cloud-harness lives or whether an absolute path was passed.
+    All other paths are returned unchanged (as their relpath from CWD).
     """
-    parts = rel_path.replace('\\', '/').split('/')
-    if parts[0] == '..':
-        return '/'.join([CLOUD_HARNESS_PATH] + parts[2:])
-    return rel_path
+    rel = os.path.relpath(os.path.abspath(path), '.')
+    parts = rel.replace('\\', '/').split('/')
+    # Skip all leading '..' components
+    i = 0
+    while i < len(parts) and parts[i] == '..':
+        i += 1
+    # If we crossed at least one '..' and the next component is cloud-harness, rewrite
+    if i > 0 and i < len(parts) and parts[i] == CLOUD_HARNESS_PATH:
+        return '/'.join([CLOUD_HARNESS_PATH] + parts[i + 1:])
+    return rel
 
 # Codefresh variables may need quotes: adjust yaml dump accordingly
 
@@ -459,7 +469,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         cmds[i] = cmds[i].replace("$ENV", "-".join(envs))
         cmds[i] = cmds[i].replace("$PARAMS", " ".join(params))
         cmds[i] = cmds[i].replace("$PATHS", " ".join(
-            _to_codefresh_path(os.path.relpath(root_path, '.'))
+            _to_codefresh_path(root_path)
             for root_path in root_paths if DEFAULT_MERGE_PATH not in root_path))
 
     steps = codefresh["steps"]
