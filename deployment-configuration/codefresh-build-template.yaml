@@ -1,7 +1,8 @@
 type: build
 stage: build
 dockerfile: Dockerfile
-registry: '${{CODEFRESH_REGISTRY}}'
+registry: "${{CODEFRESH_REGISTRY}}"
 buildkit: true
+no_cf_cache: true
 build_arguments:
   - NOCACHE=${{CF_BUILD_ID}}
