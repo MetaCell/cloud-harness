@@ -117,6 +117,8 @@ def _get_public_key_cache_path():
     try:
         from django.conf import settings
         return os.path.join(settings.PERSISTENT_ROOT, "cloudharness_public_key")
+    except ImportError:
+        return "/tmp/cloudharness_public_key" 
     except Exception:
         log.exception("Could not get Django settings, using /tmp for public key cache")
         return "/tmp/cloudharness_public_key"
