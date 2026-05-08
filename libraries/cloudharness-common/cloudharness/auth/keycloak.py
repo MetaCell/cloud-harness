@@ -496,7 +496,16 @@ class AuthClient():
         user.user_groups = [UserGroup.from_dict(group) for group in admin_client.get_user_groups(user_id=user['id'], brief_representation=not with_details)]
         user.realm_roles = admin_client.get_realm_roles_of_user(user['id'])
         if hasattr(admin_client, 'get_user_organizations'):
-            user.organizations = [Organization.from_dict(org) for org in admin_client.get_user_organizations(user['id'])]
+            try:
+                user.organizations = [Organization.from_dict(org) for org in admin_client.get_user_organizations(user['id'])]
+            except KeycloakGetError as e:
+                # Newer Keycloak/admin-client combinations may expose the organizations
+                # endpoint even when organizations are disabled for the realm.
+                # In that case, keep backwards-compatible behavior and return no orgs.
+                if e.response_code == 404:
+                    user.organizations = []
+                else:
+                    raise
         else:
             user.organizations = []
         return user
