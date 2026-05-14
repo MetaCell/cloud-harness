@@ -102,7 +102,7 @@ def _get_user(kc_user_id: str) -> User:
             return user
 
         except Exception as e:
-            log.exception("User sync error, %s", kc_user.email)
+            log.exception("User sync error for kc_id %s", kc_user_id)
             return None
 
         return user
