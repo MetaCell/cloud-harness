@@ -386,7 +386,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 codefresh_steps_from_base_path(join(root_path, STATIC_IMAGES_PATH),
                                                include=helm_values[KEY_TASK_IMAGES].keys())
                 codefresh_steps_from_base_path(join(root_path, APPS_PATH), include=helm_values[KEY_TASK_IMAGES].keys())
-                codefresh_steps_from_base_path(join(root_path, APPS_PATH), include=build_included)
+            codefresh_steps_from_base_path(join(root_path, APPS_PATH), include=build_included)
 
             if CD_E2E_TEST_STEP in steps and steps[CD_E2E_TEST_STEP].get("scale"):
                 name = "test-e2e"

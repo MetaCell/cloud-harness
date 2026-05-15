@@ -299,6 +299,51 @@ def test_create_codefresh_configuration_tests():
         shutil.rmtree(BUILD_MERGE_DIR)
 
 
+def test_create_codefresh_configuration_app_without_base_build_dependency():
+    """An app that has a Dockerfile but no build dependencies on task images must still
+    be included in the build steps. Previously the apps directory was iterated only if
+    task-images was non-empty, so apps with no base build dependency were silently skipped."""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['accounts'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+
+        assert values.get('task-images') == {} or 'task-images' not in values, \
+            "Precondition: accounts must not pull in any task images for this test to be meaningful"
+
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 envs=['dev'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+
+        all_build_steps = {}
+        for step_name in [STEP_0, STEP_1, STEP_2, STEP_3]:
+            if step_name in cf['steps']:
+                all_build_steps.update(cf['steps'][step_name].get('steps', {}))
+
+        assert 'accounts' in all_build_steps, \
+            f"accounts must be included in the build steps even when no base build dependency is specified. Got: {list(all_build_steps.keys())}"
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
 def test_create_codefresh_configuration_nobuild():
     values = create_helm_chart(
         [RESOURCES],
