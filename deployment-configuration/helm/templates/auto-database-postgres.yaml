@@ -4,6 +4,12 @@
         {{- else }}
         image: {{ .app.harness.database.postgres.image }}
         {{- end }}
+        {{- with .app.harness.database.postgres.args }}
+        args:
+          {{- range . }}
+          - {{ . | quote }}
+          {{- end }}
+        {{- end }}
         env:
           - name: POSTGRES_DB
             value: {{ .app.harness.database.postgres.initialdb | quote }}
