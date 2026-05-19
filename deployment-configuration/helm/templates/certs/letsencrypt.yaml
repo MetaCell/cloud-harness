@@ -1,4 +1,16 @@
-{{- if and (not .Values.local) (not (not .Values.tls)) }}
+{{- $le := .Values.ingress.letsencrypt }}
+{{- if and (not .Values.local) (not (not .Values.tls)) (ne $le.enabled false) }}
+{{- range $name, $data := $le.secrets }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace }}
+type: Opaque
+stringData:
+{{ toYaml $data | indent 2 }}
+---
+{{- end }}
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
@@ -6,11 +18,15 @@ metadata:
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
-    email:  {{ .Values.ingress.letsencrypt.email }}
+    email:  {{ $le.email }}
     privateKeySecretRef:
-      name: tls-secret-issuer
+      name: {{ $le.privateKeySecretName | default "tls-secret-issuer" }}
     solvers:
+{{- if $le.solvers }}
+{{ toYaml $le.solvers | indent 4 }}
+{{- else }}
     - http01:
         ingress:
           class: {{ .Values.ingress.ingressClass }}
+{{- end }}
 {{ end }}

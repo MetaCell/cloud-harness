@@ -30,9 +30,13 @@ class GatewayGlobalConfigAllOfLetsencrypt(CloudHarnessBaseModel):
     """
     
     """ # noqa: E501
+    enabled: Optional[StrictBool] = Field(default=None, description="Whether to provision a cert-manager ACME Issuer for Let's Encrypt. Set to false to use externally provided TLS Secrets without ACME (e.g. ACM/ALB, commercial wildcards, internal CAs, air-gapped clusters). ")
     email: Optional[StrictStr] = None
+    private_key_secret_name: Optional[StrictStr] = Field(default=None, description="Name of the Secret cert-manager uses to store the ACME account private key. Defaults to `tls-secret-issuer`. ", alias="privateKeySecretName")
+    solvers: Optional[List[Dict[str, Any]]] = Field(default=None, description="ACME solvers passed through to the cert-manager Issuer. Defaults to an http01 solver using the configured ingressClass. Set to a dns01 solver list to obtain certificates for non-public domains. ")
+    secrets: Optional[Dict[str, Dict[str, StrictStr]]] = Field(default=None, description="Credential Secrets created in the namespace alongside the Issuer. Map of `<secret-name>` to a `<key>: <value>` map rendered as `stringData`. Reference these from `solvers`. ")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["email"]
+    __properties: ClassVar[List[str]] = ["enabled", "email", "privateKeySecretName", "solvers", "secrets"]
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the dictionary representation of the model using alias.
@@ -71,7 +75,11 @@ class GatewayGlobalConfigAllOfLetsencrypt(CloudHarnessBaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "email": obj.get("email")
+            "enabled": obj.get("enabled"),
+            "email": obj.get("email"),
+            "privateKeySecretName": obj.get("privateKeySecretName"),
+            "solvers": obj.get("solvers"),
+            "secrets": obj.get("secrets")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():
