@@ -111,3 +111,133 @@ harness:
 Customization notes:
 - The pattern is inserted into the generated Ingress `path` field. Make sure the regex
   is valid for your ingress controller and matches the expected path syntax.
+
+## TLS and Let's Encrypt
+
+TLS is enabled by default for non-local deployments. Cloud Harness provisions a
+`cert-manager` ACME `Issuer` named `letsencrypt-<namespace>` and annotates every
+generated Ingress (and Gateway, when using the Gateway API) so that certificates
+are obtained and renewed automatically.
+
+All configuration lives under `ingress.letsencrypt` in
+`deployment-configuration/helm/values.yaml`:
+
+```yaml
+ingress:
+  letsencrypt:
+    enabled: true                       # provision the ACME Issuer
+    email: cloudharness@metacell.us     # ACME account email
+    privateKeySecretName: tls-secret-issuer  # ACME account private-key Secret
+    solvers: []                         # solver list; empty = http01 default
+    secrets: {}                         # credential Secrets created in-namespace
+```
+
+### Default — public domains via http01
+
+For publicly reachable domains, the defaults are sufficient. Set `email` and
+leave the rest untouched:
+
+```yaml
+ingress:
+  letsencrypt:
+    email: ops@example.com
+```
+
+This renders a single `http01` solver bound to the configured `ingressClass`.
+
+### DNS01 — Cloudflare (non-public domains)
+
+DNS01 challenges work for any domain — including domains that aren't reachable
+from the internet — as long as cert-manager can update the zone's TXT records.
+
+```yaml
+ingress:
+  letsencrypt:
+    email: ops@example.com
+    secrets:
+      cloudflare-api-token:
+        api-token: ${CLOUDFLARE_API_TOKEN}
+    solvers:
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token
+```
+
+The `secrets:` map materializes a `Secret` per entry in the release namespace.
+Skip it if you provision credentials out-of-band (sealed-secrets, External
+Secrets, manual `kubectl create secret`, etc.) — only the `solvers` entry is
+required in that case.
+
+### Multiple solvers (mixed http01 + DNS01)
+
+Selectors route hostnames to the matching solver. Default solver applies to
+anything that doesn't match a selector:
+
+```yaml
+ingress:
+  letsencrypt:
+    email: ops@example.com
+    secrets:
+      cloudflare-api-token: { api-token: ${CLOUDFLARE_API_TOKEN} }
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef: { name: cloudflare-api-token, key: api-token }
+        selector:
+          dnsZones: ["internal.example.com"]
+```
+
+### Other DNS providers
+
+Any provider supported by `cert-manager` works — the `solvers[*].dns01` block
+is passed through verbatim. Common shapes:
+
+```yaml
+# Route 53
+solvers:
+  - dns01:
+      route53:
+        region: us-east-1
+        accessKeyID: AKIA...
+        secretAccessKeySecretRef: { name: route53-credentials, key: secret-access-key }
+
+# Google Cloud DNS
+solvers:
+  - dns01:
+      cloudDNS:
+        project: my-gcp-project
+        serviceAccountSecretRef: { name: clouddns-sa, key: key.json }
+
+# DigitalOcean
+solvers:
+  - dns01:
+      digitalocean:
+        tokenSecretRef: { name: digitalocean-dns, key: access-token }
+```
+
+See the [cert-manager DNS01 reference](https://cert-manager.io/docs/configuration/acme/dns01/)
+for the full per-provider schema.
+
+### Bring your own certificates (no ACME)
+
+Set `enabled: false` to skip the ACME Issuer and the `cert-manager.io/issuer`
+annotation on every generated Ingress/Gateway. TLS is still wired through —
+each app's Ingress references a Secret named `tls-secret-<appName>` which you
+must populate yourself (cloud load-balancer integration, sealed-secrets, an
+internal CA, ESO, etc.):
+
+```yaml
+ingress:
+  letsencrypt:
+    enabled: false
+```
+
+### Disabling TLS entirely
+
+For local or development deployments, set `tls: false` at the root of the
+values file. This is what `harness-deployment ... -dtls -l` does for you.
