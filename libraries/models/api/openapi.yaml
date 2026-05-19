@@ -908,6 +908,27 @@ components:
                         ssl_redirect:
                             description: ''
                             type: boolean
+                        tls:
+                            description: |
+                                BYO TLS certificate configuration. Used when
+                                `letsencrypt.enabled` is false or `local` is true.
+                                Per-app entries override the file-based shared cert
+                                at `resources/certs/tls.crt|key`.
+                            type: object
+                            properties:
+                                certs:
+                                    description: |
+                                        Map of `<appName>` to `{crt, key}` PEM strings.
+                                        Materializes one `tls-secret-<appName>` Secret per entry
+                                        of type `kubernetes.io/tls`.
+                                    type: object
+                                    additionalProperties:
+                                        type: object
+                                        properties:
+                                            crt:
+                                                type: string
+                                            key:
+                                                type: string
                         letsencrypt:
                             description: ''
                             type: object

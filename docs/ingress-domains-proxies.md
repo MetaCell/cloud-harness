@@ -312,17 +312,66 @@ for the full per-provider schema (Azure DNS, RFC2136, AcmeDNS, webhook, …).
 
 ### Bring your own certificates (no ACME)
 
-Set `enabled: false` to skip the ACME Issuer and the `cert-manager.io/issuer`
-annotation on every generated Ingress/Gateway. TLS is still wired through —
-each app's Ingress references a Secret named `tls-secret-<appName>` which you
-must populate yourself (cloud load-balancer integration, sealed-secrets, an
-internal CA, ESO, etc.):
+Set `letsencrypt.enabled: false` to skip the ACME Issuer and the
+`cert-manager.io/issuer` annotation on every generated Ingress/Gateway. Each
+app's Ingress still references a Secret named `tls-secret-<appName>`, and
+Cloud Harness can populate that Secret for you in two ways (used together).
+
+**Option 1 — file-based shared cert.** Drop a PEM cert pair at
+`resources/certs/tls.crt|key` inside the Helm chart. It is applied to every
+app that has a `subdomain`, `domain`, or `aliases`, useful when a single
+wildcard cert covers the whole base domain. Same files that already drive
+local-mode TLS.
 
 ```yaml
 ingress:
   letsencrypt:
     enabled: false
 ```
+
+```
+deployment-configuration/helm/resources/certs/
+├── tls.crt   # PEM-encoded cert (or chain)
+└── tls.key   # PEM-encoded private key
+```
+
+**Option 2 — per-app inline certs.** Map each app to its own PEM cert/key
+under `ingress.tls.certs`. Each entry materializes as one
+`tls-secret-<appName>` of type `kubernetes.io/tls`. Per-app entries override
+the file-based shared cert for that app — apps without an entry fall back to
+the shared cert. Use env-variable interpolation to keep raw PEM out of
+committed YAML:
+
+```yaml
+ingress:
+  letsencrypt:
+    enabled: false
+  tls:
+    certs:
+      myapp:
+        crt: ${MYAPP_TLS_CRT}
+        key: ${MYAPP_TLS_KEY}
+      analytics:
+        crt: ${ANALYTICS_TLS_CRT}
+        key: ${ANALYTICS_TLS_KEY}
+```
+
+**Option 3 — fully out-of-band.** Leave `ingress.tls.certs` empty and don't
+stage cert files. No `Secret` is rendered by the chart, and you create each
+`tls-secret-<appName>` separately with whatever tooling you already use
+(`kubectl create secret tls`, sealed-secrets, External Secrets Operator, a CI
+job, cloud LB integration, …). The app key must match `harness.name` /
+`harness.service.name` so the Ingress reference resolves.
+
+```bash
+kubectl -n ch create secret tls tls-secret-myapp \
+  --cert=path/to/myapp.crt --key=path/to/myapp.key
+```
+
+> **Gateway-API mode.** When deploying via `Gateway` + `HTTPRoute` instead of
+> Ingress, the gateway uses a single shared `tls-secret` Secret (not per-app).
+> Per-app `ingress.tls.certs` entries don't apply in that mode — provide the
+> shared cert via the file-based path or out-of-band.
 
 ### Disabling TLS entirely
 

@@ -25,23 +25,15 @@ from cloudharness_model.base_model import CloudHarnessBaseModel
 from pydantic import BaseModel, Field, field_validator, StrictStr, StrictBool, StrictInt, StrictFloat
 from typing import ClassVar, List, Dict, Any, Union, Optional, Annotated
 import importlib
-from cloudharness_model.models.gateway_global_config_all_of_letsencrypt import GatewayGlobalConfigAllOfLetsencrypt
-from cloudharness_model.models.gateway_global_config_all_of_tls import GatewayGlobalConfigAllOfTls
+from cloudharness_model.models.gateway_global_config_all_of_tls_certs import GatewayGlobalConfigAllOfTlsCerts
 
-class GatewayGlobalConfig(CloudHarnessBaseModel):
+class GatewayGlobalConfigAllOfTls(CloudHarnessBaseModel):
     """
-    
+    BYO TLS certificate configuration. Used when `letsencrypt.enabled` is false or `local` is true. Per-app entries override the file-based shared cert at `resources/certs/tls.crt|key`. 
     """ # noqa: E501
-    auto: Optional[StrictBool] = Field(default=None, description="When true, enables automatic template")
-    name: Optional[StrictStr] = None
-    path_type: Optional[StrictStr] = Field(default=None, description="Ingress path type ", alias="pathType")
-    path: Optional[StrictStr] = Field(default=None, description="Default target path prefix for applications endpoints. To use regular expressions (e.g.'/(pattern)'), also set `route_type` to  `ImplementationSpecific`. ")
-    ssl_redirect: Optional[StrictBool] = None
-    tls: Optional[GatewayGlobalConfigAllOfTls] = None
-    letsencrypt: Optional[GatewayGlobalConfigAllOfLetsencrypt] = None
-    enabled: Optional[StrictBool] = None
+    certs: Optional[Dict[str, GatewayGlobalConfigAllOfTlsCerts]] = Field(default=None, description="Map of `<appName>` to `{crt, key}` PEM strings. Materializes one `tls-secret-<appName>` Secret per entry of type `kubernetes.io/tls`. ")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["auto", "name", "pathType", "path", "ssl_redirect", "tls", "letsencrypt", "enabled"]
+    __properties: ClassVar[List[str]] = ["certs"]
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the dictionary representation of the model using alias.
@@ -63,12 +55,13 @@ class GatewayGlobalConfig(CloudHarnessBaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of tls
-        if self.tls:
-            _dict['tls'] = self.tls.to_dict()
-        # override the default output from pydantic by calling `to_dict()` of letsencrypt
-        if self.letsencrypt:
-            _dict['letsencrypt'] = self.letsencrypt.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each value in certs (dict)
+        _field_dict = {}
+        if self.certs:
+            for _key_certs in self.certs:
+                if self.certs[_key_certs]:
+                    _field_dict[_key_certs] = self.certs[_key_certs].to_dict()
+            _dict['certs'] = _field_dict
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:
             for _key, _value in self.additional_properties.items():
@@ -78,7 +71,7 @@ class GatewayGlobalConfig(CloudHarnessBaseModel):
 
     @classmethod
     def from_dict(cls, obj: Optional[Dict[str, Any]]) -> Optional[Self]:
-        """Create an instance of GatewayGlobalConfig from a dict"""
+        """Create an instance of GatewayGlobalConfigAllOfTls from a dict"""
         if obj is None:
             return None
 
@@ -86,14 +79,12 @@ class GatewayGlobalConfig(CloudHarnessBaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "auto": obj.get("auto"),
-            "name": obj.get("name"),
-            "pathType": obj.get("pathType"),
-            "path": obj.get("path"),
-            "ssl_redirect": obj.get("ssl_redirect"),
-            "tls": GatewayGlobalConfigAllOfTls.from_dict(obj["tls"]) if obj.get("tls") is not None else None,
-            "letsencrypt": GatewayGlobalConfigAllOfLetsencrypt.from_dict(obj["letsencrypt"]) if obj.get("letsencrypt") is not None else None,
-            "enabled": obj.get("enabled")
+            "certs": dict(
+                (_k, GatewayGlobalConfigAllOfTlsCerts.from_dict(_v))
+                for _k, _v in obj["certs"].items()
+            )
+            if obj.get("certs") is not None
+            else None
         })
         # store additional fields in additional_properties
         for _key in obj.keys():
