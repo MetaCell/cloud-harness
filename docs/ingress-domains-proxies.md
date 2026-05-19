@@ -144,6 +144,82 @@ ingress:
 ```
 
 This renders a single `http01` solver bound to the configured `ingressClass`.
+HTTP01 requires no credentials, so the rest of this section only applies to
+DNS01 setups.
+
+### Defining credential secrets
+
+Every DNS01 solver references its provider credentials through a `*SecretRef`
+block (the exact field name depends on the provider — `apiTokenSecretRef`,
+`tokenSecretRef`, `secretAccessKeySecretRef`, `serviceAccountSecretRef`,
+`clientSecretSecretRef`, `tsigSecretSecretRef`, …). All of them have the same
+shape:
+
+```yaml
+someProviderSecretRef:
+  name: <kubernetes-secret-name>   # name of the Secret in the release namespace
+  key:  <data-key-inside-secret>   # which field of the Secret holds the credential
+```
+
+You have two options for providing the referenced Secret:
+
+**Option 1 — declare it inline (Cloud Harness creates it):** add an entry under
+`ingress.letsencrypt.secrets`. The top-level key becomes the `Secret`'s name;
+the nested map becomes its `stringData`. Each inner key is one credential
+field, and the `*SecretRef.key` in the solver must match one of those inner
+keys exactly.
+
+```yaml
+ingress:
+  letsencrypt:
+    secrets:
+      cloudflare-api-token:        # → Secret/cloudflare-api-token
+        api-token: s3cr3t          # → stringData.api-token = "s3cr3t"
+      route53-credentials:         # → Secret/route53-credentials
+        secret-access-key: AKIA... # → stringData.secret-access-key = "AKIA..."
+```
+
+A single Secret can hold multiple keys, so you can group related credentials
+together (e.g. an `accessKey` and a `secretAccessKey`) and reference each by
+its own key. Names you choose for both the Secret and its keys are arbitrary —
+the only constraint is that the `*SecretRef.name`/`key` in the solver match.
+
+Because `values.yaml` is committed to source control, prefer injecting real
+secrets via environment-variable interpolation at deploy time:
+
+```yaml
+ingress:
+  letsencrypt:
+    secrets:
+      cloudflare-api-token:
+        api-token: ${CLOUDFLARE_API_TOKEN}   # resolved by harness-deployment
+```
+
+**Option 2 — provision the Secret out-of-band:** create the `Secret` with any
+external tool (`kubectl create secret`, sealed-secrets, External Secrets
+Operator, a CI/CD pipeline secret, etc.) in the same namespace as the Issuer.
+Leave `ingress.letsencrypt.secrets` empty and just reference the existing
+Secret from the solver.
+
+```bash
+kubectl -n ch create secret generic cloudflare-api-token \
+  --from-literal=api-token="$CLOUDFLARE_API_TOKEN"
+```
+
+```yaml
+ingress:
+  letsencrypt:
+    # secrets: {}  ← intentionally omitted; the Secret already exists
+    solvers:
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token
+```
+
+Both options are interchangeable from cert-manager's perspective — pick the
+one that matches how you manage other secrets in the cluster.
 
 ### DNS01 — Cloudflare (non-public domains)
 
@@ -195,10 +271,15 @@ ingress:
 ### Other DNS providers
 
 Any provider supported by `cert-manager` works — the `solvers[*].dns01` block
-is passed through verbatim. Common shapes:
+is passed through verbatim. Each provider expects credentials via a
+`*SecretRef` (see [Defining credential secrets](#defining-credential-secrets)).
+Common shapes:
 
 ```yaml
-# Route 53
+# --- Route 53 ---
+secrets:
+  route53-credentials:
+    secret-access-key: ${AWS_SECRET_ACCESS_KEY}
 solvers:
   - dns01:
       route53:
@@ -206,14 +287,20 @@ solvers:
         accessKeyID: AKIA...
         secretAccessKeySecretRef: { name: route53-credentials, key: secret-access-key }
 
-# Google Cloud DNS
+# --- Google Cloud DNS ---
+secrets:
+  clouddns-sa:
+    key.json: ${GCP_SERVICE_ACCOUNT_JSON}   # entire JSON service-account file
 solvers:
   - dns01:
       cloudDNS:
         project: my-gcp-project
         serviceAccountSecretRef: { name: clouddns-sa, key: key.json }
 
-# DigitalOcean
+# --- DigitalOcean ---
+secrets:
+  digitalocean-dns:
+    access-token: ${DO_TOKEN}
 solvers:
   - dns01:
       digitalocean:
@@ -221,7 +308,7 @@ solvers:
 ```
 
 See the [cert-manager DNS01 reference](https://cert-manager.io/docs/configuration/acme/dns01/)
-for the full per-provider schema.
+for the full per-provider schema (Azure DNS, RFC2136, AcmeDNS, webhook, …).
 
 ### Bring your own certificates (no ACME)
 
