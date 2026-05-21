@@ -24,7 +24,7 @@
               {{- else if (not (contains "*" $uri)) }}
                 {{- $pathWithoutSlash := trimPrefix "/" $uri }}
       - path: {{ printf "%s%s" $app.harness.gateway.path $pathWithoutSlash }}
-        pathType: Exact
+        pathType: ImplementationSpecific
         backend:
           service:
             name: {{ $app.harness.service.name | quote }}
