@@ -7,7 +7,7 @@ domain: ${{DOMAIN}}
 # -- The K8s namespace.
 namespace: ch
 # -- Name of mainapp, routes incoming traffic of root `domaim` to this app.
-mainapp: accounts
+mainapp: samples
 registry:
   # -- The docker registry.
   name: "localhost:5000"
