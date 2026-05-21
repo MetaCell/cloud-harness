@@ -94,6 +94,8 @@ harness
 
 `initialdb` is the default database used
 
+`args`: Optional list of additional command-line arguments passed to the PostgreSQL server process (e.g. `["-c", "max_connections=200"]`).
+
 `operator`: When set to `true`, uses the [CloudNative-PG operator](https://github.com/cloudnative-pg/cloudnative-pg) instead of a plain Kubernetes Deployment. This provides advanced features like automated failover and cluster management. **Backups are not configured by default by this chart; you must define CNPG backup resources (for example, `Backup` and/or `ScheduledBackup` objects) or use another backup mechanism separately.** **Requires the CNPG operator to be pre-installed in the cluster.**
 
 To install the CNPG operator:

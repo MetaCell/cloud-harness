@@ -9,7 +9,7 @@ Name | Type | Description | Notes
 **auto** | **bool** | When true, the extra container is included in the deployment | [optional] 
 **init_container** | **bool** | When true, the container runs as a Kubernetes init container (before the main container). When false, the container runs as a sidecar (alongside the main container). | [optional] 
 **image** | **str** | Docker image for the extra container. If not specified, defaults to the main application image. | [optional] 
-**commands** | **List[str]** | Command to run in the extra container | [optional] 
+**command** | **List[str]** | Command to run in the extra container | [optional] 
 **share_volume** | **bool** | When true, the extra container shares the same volume mounts as the main container. | [optional] 
 **resources** | [**DeploymentResourcesConf**](DeploymentResourcesConf.md) |  | [optional] 
 
