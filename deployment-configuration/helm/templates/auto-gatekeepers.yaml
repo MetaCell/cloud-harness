@@ -109,7 +109,7 @@ data:
           window.location.replace('/');
         } else {
           sessionStorage.removeItem(retryKey);
-          document.getElementById('error-template').style.display = 'block';
+          setTimeout(() => document.getElementById('error-template').style.display = 'block', 200);
         }
       </script>
     </body>
