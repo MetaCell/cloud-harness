@@ -106,10 +106,12 @@ data:
 
         if (retryCount < 1) {
           sessionStorage.setItem(retryKey, String(retryCount + 1));
-          window.location.replace('/');
+          setTimeout(function() {
+            window.location.replace('/');
+          }, 100);
         } else {
           sessionStorage.removeItem(retryKey);
-          setTimeout(() => document.getElementById('error-template').style.display = 'block', 200);
+          document.getElementById('error-template').style.display = 'block';
         }
       </script>
     </body>
