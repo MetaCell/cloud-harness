@@ -37,10 +37,11 @@ class DatabaseConfig(CloudHarnessBaseModel):
     operator: Optional[StrictBool] = Field(default=None, description="Use the CloudNative-PG operator instead of a plain Deployment (postgres only)")
     instances: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Number of PostgreSQL instances managed by the CNPG operator (only used when operator is true)")
     api_server_cidr: Optional[List[StrictStr]] = Field(default=None, description="CIDR(s) allowed for CNPG pods to reach the Kubernetes API server (port 443). Override with your cluster API-server or service CIDR.", alias="apiServerCidr")
+    parameters: Optional[Dict[str, StrictStr]] = Field(default=None, description="PostgreSQL configuration parameters passed to CloudNative-PG as spec.postgresql.parameters (postgres operator only). Values must be strings.")
     initialdb: Optional[StrictStr] = Field(default=None, description="Initial database name (postgres only)")
     args: Optional[List[StrictStr]] = Field(default=None, description="Additional command-line arguments passed to the database server process (postgres only)")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["image", "name", "ports", "operator", "instances", "apiServerCidr", "initialdb", "args"]
+    __properties: ClassVar[List[str]] = ["image", "name", "ports", "operator", "instances", "apiServerCidr", "parameters", "initialdb", "args"]
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the dictionary representation of the model using alias.
@@ -92,6 +93,7 @@ class DatabaseConfig(CloudHarnessBaseModel):
             "operator": obj.get("operator"),
             "instances": obj.get("instances"),
             "apiServerCidr": obj.get("apiServerCidr"),
+            "parameters": obj.get("parameters"),
             "initialdb": obj.get("initialdb"),
             "args": obj.get("args")
         })
