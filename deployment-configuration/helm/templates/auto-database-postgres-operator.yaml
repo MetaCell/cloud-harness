@@ -27,7 +27,9 @@ spec:
   {{- with .app.harness.database.postgres.parameters }}
   postgresql:
     parameters:
-{{ toYaml . | nindent 6 }}
+{{- range $key, $value := . }}
+      {{ $key }}: {{ $value | quote }}
+{{- end }}
   {{- end }}
 
   inheritedMetadata:

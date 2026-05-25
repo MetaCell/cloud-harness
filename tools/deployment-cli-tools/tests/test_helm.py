@@ -327,8 +327,12 @@ def test_cnpg_postgres_parameters_render_only_when_set(tmp_path):
     postgres = values['apps']['myapp']['harness']['database']['postgres']
     postgres['operator'] = True
     postgres['parameters'] = {
+        # Simulate generated YAML values where on/off can be parsed as booleans before Helm renders the chart.
+        'autovacuum': True,
         'max_connections': '200',
         'shared_buffers': '1GB',
+        'synchronous_commit': True,
+        'track_io_timing': False,
     }
     with open(values_path, 'w') as values_file:
         yaml.safe_dump(values, values_file)
@@ -337,8 +341,11 @@ def test_cnpg_postgres_parameters_render_only_when_set(tmp_path):
     db_name = values['apps']['myapp']['harness']['database']['name']
     cluster = find_manifest(manifests, 'Cluster', db_name)
     assert cluster['spec']['postgresql']['parameters'] == {
+        'autovacuum': 'true',
         'max_connections': '200',
         'shared_buffers': '1GB',
+        'synchronous_commit': 'true',
+        'track_io_timing': 'false',
     }
 
     postgres['parameters'] = {}
