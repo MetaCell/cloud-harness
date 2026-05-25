@@ -21,23 +21,30 @@ version = 'v1alpha1'
 # --- Api functions ---    `
 
 
+def get_configuration():
+    configuration = kubernetes.client.Configuration()
+
+    try:
+        kubernetes.config.load_incluster_config(client_configuration=configuration)
+        return configuration
+
+    except Exception:
+        log.warning("Kubernetes cluster configuration not found. Trying local configuration")
+
+    try:
+        kubernetes.config.load_kube_config(client_configuration=configuration)
+        return configuration
+
+    except Exception:
+        log.warning("Kubernetes local configuration not found. Using localhost proxy")
+
+    return kubernetes.client.Configuration()
+
+
 def get_api_client():
     configuration = get_configuration()
-    api_instance = kubernetes.client.CoreV1Api(kubernetes.client.ApiClient(get_configuration()))
-    return api_instance
 
-
-def get_configuration():
-    try:
-        configuration = kubernetes.config.load_incluster_config()
-    except:
-        log.warning('Kubernetes cluster configuration not found. Trying local configuration')
-        try:
-            configuration = kubernetes.config.load_kube_config()
-        except:
-            log.warning('Kubernetes local configuration not found. Using localhost proxy')
-            configuration = kubernetes.client.configuration.Configuration()
-    return configuration
+    return kubernetes.client.CoreV1Api(kubernetes.client.ApiClient(configuration))
 
 
 api_instance = get_api_client()
