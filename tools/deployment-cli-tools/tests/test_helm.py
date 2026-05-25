@@ -197,9 +197,35 @@ def test_collect_helm_values_wrong_dependencies_validate(tmp_path):
     with pytest.raises(ValuesValidationException):
         create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
                           namespace='test', env='prod', local=False, tag=1, include=["wrong-build"])
-    with pytest.raises(ValuesValidationException):
+    try:
         create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
                           namespace='test', env='prod', local=False, tag=1, include=["wrong-services"])
+    except ValuesValidationException:
+        pytest.fail("Should not error because of missing use_services dependency")
+
+
+def test_validate_dependencies_accepts_app_local_build_images():
+    values = {
+        KEY_APPS: {
+            'portal': {
+                KEY_HARNESS: {
+                    'dependencies': {
+                        'soft': [],
+                        'hard': [],
+                        'build': ['cloudharness-base', 'cloudharness-django'],
+                    },
+                    'use_services': [],
+                },
+                KEY_TASK_IMAGES: {
+                    'cloudharness-base': 'reg/project/cloudharness-base:1',
+                    'cloudharness-django': 'reg/project/cloudharness-django:1',
+                },
+            }
+        },
+        KEY_TASK_IMAGES: {},
+    }
+
+    validate_dependencies(values)
 
 
 def test_collect_helm_values_build_dependencies(tmp_path):
@@ -441,13 +467,12 @@ def test_exclude_single_task(tmp_path):
 
     assert "myapp-mytask" not in values["task-images"], "myapp-mytask has been excluded, so should not appear in the task images"
 
-    try:
-        values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                                   env='fulldep', local=False, include=["dependantapp"], exclude=["myapp-mytask"])
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               env='fulldep', local=False, include=["dependantapp"], exclude=["myapp-mytask"])
 
-        assert False, "myapp-mytask has been excluded, but also declared as a dependency, so should not be excluded"
-    except ValuesValidationException as e:
-        pass
+    assert "myapp-mytask" in values[KEY_TASK_IMAGES], (
+        "myapp-mytask is excluded but still required by dependantapp, so it should be kept"
+    )
 
 
 def test_app_depends_on_app(tmp_path):
