@@ -40,7 +40,7 @@ class UserService:
         user.last_name = kc_user.last_name or ""
         user.email = kc_user.email or ""
 
-        user.is_active = kc_user.get("enabled", delete)
+        user.is_active = kc_user.get("enabled", not delete)
         return user
 
     def create_team(self, group_name):

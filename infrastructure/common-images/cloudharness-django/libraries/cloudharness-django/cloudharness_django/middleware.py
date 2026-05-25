@@ -19,6 +19,15 @@ from psycopg2.errors import UniqueViolation
 USER_CACHE_TTL = getattr(settings, "BEARER_TOKEN_USER_CACHE_TTL", 60)
 
 
+def _get_bearer_cache_key(kc_user_id: str) -> str:
+    return f"bearer_token_user:{kc_user_id}"
+
+
+def invalidate_user_cache(kc_user_id: str) -> None:
+    """Remove a user from the bearer-token cache (e.g. after deletion/deactivation)."""
+    cache.delete(_get_bearer_cache_key(kc_user_id))
+
+
 def _get_user(kc_user_id: str) -> User:
     """
     Get or create a Django user for the given Keycloak user ID.
@@ -137,7 +146,7 @@ class BearerTokenMiddleware:
             return response
 
         if kc_user_id:
-            cache_key = f"bearer_token_user:{kc_user_id}"
+            cache_key = _get_bearer_cache_key(kc_user_id)
             cached_user = cache.get(cache_key)
             if cached_user:
                 request.user = cached_user
@@ -166,7 +175,7 @@ class BearerTokenMiddleware:
         # elif not request.path.startswith('/admin/'):
         #     logout(request)
         if kc_user_id and user:
-            cache.set(cache_key, user, timeout=USER_CACHE_TTL)
+            cache.set(_get_bearer_cache_key(kc_user_id), user, timeout=USER_CACHE_TTL)
         return self.get_response(request)
 
 
