@@ -2,6 +2,8 @@ from ch_cli_tools.helm import *
 from ch_cli_tools.configurationgenerator import *
 from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
 import pytest
+import shutil
+import subprocess
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')
@@ -10,6 +12,24 @@ CLOUDHARNESS_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 
 def exists(path):
     return path.exists()
+
+
+def render_helm_chart(chart_path):
+    completed = subprocess.run(
+        ["helm", "template", str(chart_path)],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    return [manifest for manifest in yaml.safe_load_all(completed.stdout) if manifest]
+
+
+def find_manifest(manifests, kind, name):
+    for manifest in manifests:
+        if manifest.get("kind") == kind and manifest.get("metadata", {}).get("name") == name:
+            return manifest
+    raise AssertionError(f"Could not find {kind}/{name}")
 
 
 def test_collect_helm_values(tmp_path):
@@ -292,6 +312,57 @@ def test_clear_unused_dbconfig(tmp_path):
     assert db_config['neo4j'] is None
 
     assert db_config['postgres'] is None
+
+
+def test_cnpg_postgres_parameters_render_only_when_set(tmp_path):
+    out_folder = tmp_path / 'test_cnpg_postgres_parameters_render_only_when_set'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                      env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
+
+    helm_path = out_folder / HELM_CHART_PATH
+    shutil.rmtree(helm_path / 'charts')
+    values_path = helm_path / 'values.yaml'
+    with open(values_path, 'r') as values_file:
+        values = yaml.safe_load(values_file)
+    postgres = values['apps']['myapp']['harness']['database']['postgres']
+    postgres['operator'] = True
+    postgres['parameters'] = {
+        # Simulate generated YAML values where on/off can be parsed as booleans before Helm renders the chart.
+        'autovacuum': True,
+        'max_connections': '200',
+        'shared_buffers': '1GB',
+        'synchronous_commit': True,
+        'track_io_timing': False,
+    }
+    with open(values_path, 'w') as values_file:
+        yaml.safe_dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    db_name = values['apps']['myapp']['harness']['database']['name']
+    cluster = find_manifest(manifests, 'Cluster', db_name)
+    assert cluster['spec']['postgresql']['parameters'] == {
+        'autovacuum': 'true',
+        'max_connections': '200',
+        'shared_buffers': '1GB',
+        'synchronous_commit': 'true',
+        'track_io_timing': 'false',
+    }
+
+    postgres['parameters'] = {}
+    with open(values_path, 'w') as values_file:
+        yaml.safe_dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    cluster = find_manifest(manifests, 'Cluster', db_name)
+    assert 'postgresql' not in cluster['spec']
+
+    postgres.pop('parameters')
+    with open(values_path, 'w') as values_file:
+        yaml.safe_dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    cluster = find_manifest(manifests, 'Cluster', db_name)
+    assert 'postgresql' not in cluster['spec']
 
 
 def test_clear_all_dbconfig_if_nodb(tmp_path):

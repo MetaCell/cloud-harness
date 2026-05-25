@@ -115,6 +115,8 @@ harness:
       # -- CIDR(s) allowed for CNPG pods to reach the Kubernetes API server (port 443).
       # -- Resolved automatically at deploy time via cluster lookup. Set explicitly only as a fallback for helm-template or air-gapped use.
       apiServerCidr: []
+      # -- PostgreSQL configuration parameters for CloudNative-PG clusters (operator: true). Values must be strings.
+      parameters: {}
       ports:
         - name: http
           port: 5432

@@ -962,6 +962,11 @@ components:
                     type: array
                     items:
                         type: string
+                parameters:
+                    description: 'PostgreSQL configuration parameters passed to CloudNative-PG as spec.postgresql.parameters (postgres operator only). Values must be strings.'
+                    type: object
+                    additionalProperties:
+                        type: string
                 initialdb:
                     description: 'Initial database name (postgres only)'
                     type: string

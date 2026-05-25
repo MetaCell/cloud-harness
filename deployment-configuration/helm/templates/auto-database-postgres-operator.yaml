@@ -24,6 +24,14 @@ metadata:
 spec:
   instances: {{ .app.harness.database.postgres.instances | default 1 }}
 
+  {{- with .app.harness.database.postgres.parameters }}
+  postgresql:
+    parameters:
+{{- range $key, $value := . }}
+      {{ $key }}: {{ $value | quote }}
+{{- end }}
+  {{- end }}
+
   inheritedMetadata:
     labels:
       app: {{ .app.harness.database.name | quote }}
