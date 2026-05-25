@@ -109,7 +109,7 @@ def get_cluster_ip(local=False):
         try:
             # Check if ingress-nginx is installed by trying to get its pods
             errcode, out = subprocess.getstatusoutput("kubectl -n ingress-nginx get pods")
-            if errcode==0 and out and out != 'No resources found in ingress-nginx namespace.':
+            if errcode == 0 and out and out != 'No resources found in ingress-nginx namespace.':
                 # Try to get LoadBalancer IP from ingress-nginx first (preferred for local dev with minikube tunnel)
                 out = subprocess.check_output([
                     'kubectl', '-n', 'ingress-nginx', 'get', 'svc', 'ingress-nginx-controller',
