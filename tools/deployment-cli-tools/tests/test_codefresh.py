@@ -226,7 +226,7 @@ def test_create_codefresh_configuration_tests():
 
         assert "samples_e2e_test" in e2e_steps, "samples e2e test step must be included"
         test_step = e2e_steps["samples_e2e_test"]
-        assert "APP_URL=https://samples.${{DOMAIN}}" in test_step[
+        assert "APP_URL=https://www.${{DOMAIN}}" in test_step[
             'environment'], "APP_URL must be provided as environment variable"
         assert len(test_step['volumes']) == 1
 
@@ -235,7 +235,7 @@ def test_create_codefresh_configuration_tests():
         assert "test-api" in l1_steps[STEP_1]["steps"]["test-api"]["dockerfile"], "test-api image must be built from root context"
         api_steps = l1_steps['tests_api']['scale']
         test_step = api_steps["samples_api_test"]
-        assert "APP_URL=https://samples.${{DOMAIN}}/api" in test_step[
+        assert "APP_URL=https://www.${{DOMAIN}}/api" in test_step[
             'environment'], "APP_URL must be provided as environment variable"
         assert len(test_step['volumes']) == 2
 

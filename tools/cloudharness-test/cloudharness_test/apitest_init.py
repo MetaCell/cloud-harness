@@ -10,7 +10,7 @@ st.experimental.OPEN_API_3_1.enable()
 
 if "APP_URL" or "APP_SCHEMA_FILE" in os.environ:
     app_schema = os.environ.get("APP_SCHEMA_FILE", None)
-    app_url = os.environ.get("APP_URL", "http://samples.ch.local/api")
+    app_url = os.environ.get("APP_URL", "http://www.ch.local/api")
 
     parsed_url = urlparse(app_url)
     base_url = f"{parsed_url.scheme}://{parsed_url.netloc}".rstrip("/")
