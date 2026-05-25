@@ -183,23 +183,25 @@ def test_collect_compose_values_multiple_envs(tmp_path):
 
 
 def test_collect_compose_values_wrong_dependencies_validate(tmp_path):
-    out_folder = tmp_path / 'test_collect_compose_values_wrong_dependencies_validate'
+    out_folder = tmp_path / 'test_collect_helm_values_wrong_dependencies_validate'
     with pytest.raises(ValuesValidationException):
         create_docker_compose_configuration([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-                                            namespace='test', env='prod', local=False, tag=1, include=["wrong-hard"])
+                          namespace='test', env='prod', local=False, tag=1, include=["wrong-hard"])
     try:
         create_docker_compose_configuration([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-                                            namespace='test', env='prod', local=False, tag=1, include=["wrong-soft"])
+                          namespace='test', env='prod', local=False, tag=1, include=["wrong-soft"])
 
     except ValuesValidationException as e:
         pytest.fail("Should not error because of wrong soft dependency")
 
     with pytest.raises(ValuesValidationException):
         create_docker_compose_configuration([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-                                            namespace='test', env='prod', local=False, tag=1, include=["wrong-build"])
-    with pytest.raises(ValuesValidationException):
+                          namespace='test', env='prod', local=False, tag=1, include=["wrong-build"])
+    try:
         create_docker_compose_configuration([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-                                            namespace='test', env='prod', local=False, tag=1, include=["wrong-services"])
+                          namespace='test', env='prod', local=False, tag=1, include=["wrong-services"])
+    except ValuesValidationException:
+        pytest.fail("Should not error because of missing use_services dependency")
 
 
 def test_collect_compose_values_build_dependencies(tmp_path):
