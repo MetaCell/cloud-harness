@@ -2,7 +2,7 @@ import os
 
 from os.path import join, relpath, basename
 from jinja2 import Environment, PackageLoader, select_autoescape
-from cloudharness_model import ApplicationTestConfig, HarnessMainConfig, GitDependencyConfig
+from cloudharness_model import HarnessMainConfig, GitDependencyConfig
 
 from cloudharness_utils.constants import APPS_PATH, BASE_IMAGES_PATH, \
     STATIC_IMAGES_PATH
@@ -136,7 +136,6 @@ def create_tilt_configuration(root_paths, helm_values: HarnessMainConfig, manage
         for dockerfile_path in base_dockerfiles:
             process_build_dockerfile(dockerfile_path, root_path, global_context=True)
 
-    static_images = set()
     for root_path in root_paths:
         static_dockerfiles = find_dockerfiles_paths(
             join(root_path, STATIC_IMAGES_PATH))

@@ -10,17 +10,10 @@
         {{- range $mapping := $app.harness.uri_role_mapping }}
           {{- if and (hasKey $mapping "white-listed") (index $mapping "white-listed") }}
             {{- $uri := $mapping.uri }}
-            {{- if eq $uri "/" }}
-      - path: /
-        pathType: Exact
-        backend:
-          service:
-            name: {{ $app.harness.service.name | quote }}
-            port:
-              number: {{ $app.harness.service.port | default 80 }}
-            {{- else if hasSuffix "/*" $uri }}
-              {{- $cleanPath := trimSuffix "/*" $uri }}
-              {{- $pathWithoutSlash := trimPrefix "/" $cleanPath }}
+            {{- if and (ne $uri "/") (ne $uri "/*") }}
+              {{- if hasSuffix "/*" $uri }}
+                {{- $cleanPath := trimSuffix "/*" $uri }}
+                {{- $pathWithoutSlash := trimPrefix "/" $cleanPath }}
       - path: {{ printf "%s%s" $app.harness.gateway.path $pathWithoutSlash }}
         pathType: Prefix
         backend:
@@ -28,15 +21,16 @@
             name: {{ $app.harness.service.name | quote }}
             port:
               number: {{ $app.harness.service.port | default 80 }}
-            {{- else if (not (contains "*" $uri)) }}
-              {{- $pathWithoutSlash := trimPrefix "/" $uri }}
+              {{- else if (not (contains "*" $uri)) }}
+                {{- $pathWithoutSlash := trimPrefix "/" $uri }}
       - path: {{ printf "%s%s" $app.harness.gateway.path $pathWithoutSlash }}
-        pathType: Exact
+        pathType: ImplementationSpecific
         backend:
           service:
             name: {{ $app.harness.service.name | quote }}
             port:
               number: {{ $app.harness.service.port | default 80 }}
+              {{- end }}
             {{- end }}
           {{- end }}
         {{- end }}
@@ -68,7 +62,7 @@
   {{- $mainapp := .Values.mainapp }}
   {{- range $app := .Values.apps }}
     {{- if or $app.harness.subdomain $app.harness.domain $app.harness.aliases (and $mainapp (and $app.harness.name (eq $app.harness.name $mainapp))) }}
-      {{- $appIngressName := default $app.harness.name $app.harness.service.name }}
+      {{- $appIngressName := default $app.harness.service.name $app.harness.name }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress

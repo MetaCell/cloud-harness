@@ -16,8 +16,11 @@
 
 function start()
 {
-    # run pre startup script
-    bash -c "/usr/local/bin/pre-startup.sh"
+    # Start the HTTP liveness server immediately, then run mount-all inside the
+    # watchdog process. /healthz returns 200 at once (liveness probe satisfied);
+    # /ready returns 200 only once mount-all finishes (readiness gate).
+    /usr/local/bin/nfsvol watchdog -mount-first &
+
     bash -c "/usr/local/bin/start_provisioner.sh&"
 
     unset gid
@@ -36,14 +39,17 @@ function start()
        /usr/sbin/rpcbind -w
     fi
 
-    mount -t nfsd nfds /proc/fs/nfsd
+    mount -t nfsd nfsd /proc/fs/nfsd
 
-    # -V 3: enable NFSv3
-    /usr/sbin/rpc.mountd -N 2 -V 3 -V 4
+    # rpc.mountd: no -V flag — let it register all mount protocol versions (1,2,3).
+    # Adding -V 3 here incorrectly restricts registration to version 1 only,
+    # which causes "Permission denied" on NFSv3 client mounts.
+    /usr/sbin/rpc.mountd
 
     /usr/sbin/exportfs -r
-    # -G 10 to reduce grace time to 10 seconds (the lowest allowed)
-    /usr/sbin/rpc.nfsd -G 10 -N 2 -V 3 -V 4
+    # -G 10 to reduce grace time to 10 seconds (the lowest allowed).
+    # -V 3: enable NFSv3 (matches client mount options).
+    /usr/sbin/rpc.nfsd -G 10 -V 3
     /usr/sbin/rpc.statd --no-notify
     echo "NFS started"
 }
@@ -56,12 +62,32 @@ function stop()
     /usr/sbin/exportfs -au
     /usr/sbin/exportfs -f
 
-    kill $( pidof rpc.mountd )
+    kill $( pidof rpc.mountd ) 2>/dev/null || true
     umount /proc/fs/nfsd
+
+    # Lazy-unmount all loop-backed exports before exiting. The pod shares the
+    # host mount namespace, so any mount left alive here persists after the
+    # container dies. The next pod's LOOP_CLR_FD then fails with EBUSY and
+    # cannot reuse the loop device.
+    for mp in /exports/*/; do
+        umount -l "$mp" 2>/dev/null || true
+    done
+
     echo > /etc/exports
     exit 0
 }
 
+
+# rpc.statd has issues with very high ulimits
+ulimit -n 65535
+
+# Each loop device creates inotify watches inside the container. On deployments
+# with thousands of PVCs the kernel default (8192-12288) is exhausted, which
+# causes rpc.mountd to fail with "No space left on device". Write directly to
+# /proc/sys rather than using sysctl(8), which is not installed in this image.
+# The pod is privileged so the write is permitted.
+echo 1048576 > /proc/sys/fs/inotify/max_user_watches  2>/dev/null || true
+echo 8192    > /proc/sys/fs/inotify/max_user_instances 2>/dev/null || true
 
 trap stop TERM
 

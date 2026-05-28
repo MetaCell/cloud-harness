@@ -170,6 +170,8 @@ class CloudHarnessHelm(ConfigurationGenerator):
                 if image:
                     values[KEY_TASK_IMAGES][dep_name] = image
                 app_name = dep_name
+            elif dep_name in self.base_images:
+                values[KEY_TASK_IMAGES][dep_name] = self.base_images[dep_name]
             elif prefix in apps:
                 app_name = prefix
                 values[KEY_TASK_IMAGES][dep_name] = apps[app_name][KEY_TASK_IMAGES][dep_name]
@@ -178,10 +180,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
                     if key in included_builds or app_name in self.include:
                         values[KEY_TASK_IMAGES][key] = apps[app_name][KEY_TASK_IMAGES][key]
 
-        for ex in self.exclude:
-            if ex in values[KEY_TASK_IMAGES]:
-                logging.info(f"Excluding {ex} from build")
-                del values[KEY_TASK_IMAGES][ex]
+        self._prune_excluded_task_images(values)
 
     def __finish_helm_values(self, values, defer_task_images=False):
         """
@@ -279,6 +278,8 @@ class CloudHarnessHelm(ConfigurationGenerator):
                         if image:
                             values[KEY_TASK_IMAGES][dep_name] = image
                         app_name = dep_name
+                    elif dep_name in self.base_images:
+                        values[KEY_TASK_IMAGES][dep_name] = self.base_images[dep_name]
                     elif prefix in apps:  # build dependency within an application that is not part of the deployment
                         app_name = prefix
                         values[KEY_TASK_IMAGES][dep_name] = apps[app_name][KEY_TASK_IMAGES][dep_name]
@@ -294,10 +295,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
                 values[KEY_TASK_IMAGES].update(apps[v][KEY_TASK_IMAGES])
 
         if not defer_task_images:
-            for ex in self.exclude:
-                if ex in values[KEY_TASK_IMAGES]:
-                    logging.info(f"Excluding {ex} from build")
-                    del values[KEY_TASK_IMAGES][ex]
+            self._prune_excluded_task_images(values)
         create_env_variables(values)
         return values, self.include
 

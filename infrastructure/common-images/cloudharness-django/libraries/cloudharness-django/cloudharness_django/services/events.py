@@ -9,6 +9,7 @@ from cloudharness import log
 from cloudharness.events.client import EventClient
 
 from cloudharness_django.exceptions import KeycloakOIDCNoProjectError
+from cloudharness_django.middleware import invalidate_user_cache
 from cloudharness_django.services import init_services, get_user_service, get_auth_service
 
 
@@ -39,6 +40,8 @@ class KeycloakMessageService:
                     return
                 if resource == "USER":
                     kc_user = auth_client.get_user(resource_path[1])
+                    # invalidate the user cache to force the user to be reloaded
+                    invalidate_user_cache(kc_user.id)
                     user_service.sync_kc_user(kc_user, delete=operation == "DELETE")
                     return
                 if resource == "CLIENT_ROLE_MAPPING":

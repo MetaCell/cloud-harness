@@ -8,7 +8,7 @@ from cloudharness import models as ch_models
 
 def get_user_by_kc_id(kc_id) -> User:
     try:
-        return Member.objects.get(kc_id=kc_id).user
+        return Member.objects.using("default").select_related("user").get(kc_id=kc_id).user
     except Member.DoesNotExist:
         return None
 
@@ -40,7 +40,7 @@ class UserService:
         user.last_name = kc_user.last_name or ""
         user.email = kc_user.email or ""
 
-        user.is_active = kc_user.get("enabled", delete)
+        user.is_active = kc_user.get("enabled", not delete)
         return user
 
     def create_team(self, group_name):
@@ -111,12 +111,13 @@ class UserService:
             if not username:
                 raise ValueError(f"Keycloak user {kc_user.id} has no username or email")
 
-            # Create user and member atomically
-            user, user_created = User.objects.get_or_create(username=username)
+            # Create user and member atomically. Pin to the primary DB so lookups
+            # see our own uncommitted writes when a read replica is configured.
+            user, user_created = User.objects.using("default").get_or_create(username=username)
 
             # CRITICAL: Ensure Member exists before proceeding
             try:
-                member = Member.objects.get(user=user)
+                member = Member.objects.using("default").get(user=user)
                 # Member exists but might have wrong kc_id
                 if member.kc_id != kc_user.id:
                     member.kc_id = kc_user.id
@@ -133,8 +134,8 @@ class UserService:
         # FINAL SAFETY CHECK: Verify Member exists before returning
         # This ensures we never return a user without a Member
         try:
-            _ = user.member  # Access member to trigger DoesNotExist if missing
-        except:
+            _ = Member.objects.using("default").get(user=user)
+        except Member.DoesNotExist:
             # This should never happen, but if it does, create Member immediately
             Member.objects.create(kc_id=kc_user.id, user=user)
 
@@ -159,9 +160,10 @@ class UserService:
         # Sync organization memberships separately
         self.sync_kc_user_organizations(kc_user, user=user)
 
-        # Ensure the member relationship exists and is correct
+        # Ensure the member relationship exists and is correct. Use the primary
+        # DB so we see our own uncommitted writes when a read replica is configured.
         try:
-            member = user.member
+            member = Member.objects.using("default").get(user=user)
             if member.kc_id != kc_user.id:
                 member.kc_id = kc_user.id
                 member.save()
@@ -180,9 +182,10 @@ class UserService:
         """
         org = None
 
-        # First try to find by kc_id
+        # First try to find by kc_id. Pin to the primary DB so lookups see our
+        # own uncommitted writes when a read replica is configured.
         try:
-            org = Organization.objects.get(kc_id=kc_org.id)
+            org = Organization.objects.using("default").get(kc_id=kc_org.id)
             # Update name if changed
             if org.name != kc_org.name:
                 org.name = kc_org.name
@@ -190,7 +193,7 @@ class UserService:
         except Organization.DoesNotExist:
             # Try to find by name (for organizations created without kc_id)
             try:
-                org = Organization.objects.get(name=kc_org.name, kc_id__isnull=True)
+                org = Organization.objects.using("default").get(name=kc_org.name, kc_id__isnull=True)
                 # Update with kc_id from Keycloak
                 org.kc_id = kc_org.id
                 org.save()
@@ -224,14 +227,15 @@ class UserService:
             org = self.sync_kc_organization(kc_org)
             current_org_ids.add(org.id)
 
-            # Create membership if it doesn't exist
-            OrganizationMember.objects.get_or_create(
-                user=user,
-                organization=org
-            )
+            # Create membership if it doesn't exist. Pin to primary so the
+            # existence check sees writes from earlier in this transaction.
+            try:
+                OrganizationMember.objects.using("default").get(user=user, organization=org)
+            except OrganizationMember.DoesNotExist:
+                OrganizationMember.objects.create(user=user, organization=org)
 
         # Remove memberships that no longer exist in Keycloak
-        OrganizationMember.objects.filter(user=user).exclude(
+        OrganizationMember.objects.using("default").filter(user=user).exclude(
             organization_id__in=current_org_ids
         ).delete()
 

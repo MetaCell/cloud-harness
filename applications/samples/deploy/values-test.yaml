@@ -6,6 +6,8 @@ harness:
       - common
       - jupyterhub
       - volumemanager
+    hard:
+      - nfsserver
     build:
       - cloudharness-flask
       - cloudharness-frontend-build
@@ -29,4 +31,6 @@ harness:
       - role1
       realmRoles:
       - offline_access
-
+  deployment:
+    volume:
+      usenfs: true

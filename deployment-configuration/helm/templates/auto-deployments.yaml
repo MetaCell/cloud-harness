@@ -15,7 +15,6 @@ spec:
   selector:
     matchLabels:
       app: {{ .app.harness.deployment.name| quote }}
-{{- include "deploy_utils.labels" .root | indent 6 }}
   template:
     metadata:
       {{- if .app.harvest }}
@@ -30,7 +29,7 @@ spec:
         {{- end }}
 {{- include "deploy_utils.labels" .root | indent 8 }}
     spec:
-      {{- if and .root.Values.registry.secret (contains .root.Values.registry.name .app.harness.deployment.image) }}
+      {{- if and .root.Values.registry.secret .root.Values.registry.secret.name (contains .root.Values.registry.name .app.harness.deployment.image) }}
       imagePullSecrets:
       - name: {{ .root.Values.registry.secret.name }}
       {{- end }}

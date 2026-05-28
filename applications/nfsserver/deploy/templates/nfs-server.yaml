@@ -19,6 +19,11 @@ metadata:
     app: nfs-server
     usesvolume: nfs-exports
 spec:
+  # Recreate strategy: with an RWO PVC, a surge pod can never attach while the
+  # old pod holds nfs-exports, so RollingUpdate would deadlock. Single-replica
+  # by design.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: nfs-server
@@ -29,6 +34,7 @@ spec:
         app: nfs-server
         usesvolume: nfs-exports
     spec:
+      serviceAccountName: {{ template "nfs-subdir-external-provisioner.serviceAccountName" . }}
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -53,6 +59,11 @@ spec:
           value: {{ .Values.apps.nfsserver.nfs.path }}
         - name: PROVISIONER_NAME
           value: {{ printf "%s-nfs-provisioner" .Values.namespace }}
+        # Single-replica Deployment backed by an RWO PVC — only one pod can
+        # ever mount /exports, so leader election is unnecessary and would
+        # otherwise need v1 Endpoints RBAC (deprecated in k8s 1.33+).
+        - name: ENABLE_LEADER_ELECTION
+          value: "false"
         ports:
         - name: nfs
           containerPort: 2049
@@ -60,6 +71,27 @@ spec:
           containerPort: 20048
         - name: rpcbind
           containerPort: 111
+        - name: healthz
+          containerPort: 8080
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 30
+          failureThreshold: 240
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          periodSeconds: 15
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          periodSeconds: 30
+          failureThreshold: 5
         securityContext:
           privileged: true
         volumeMounts:

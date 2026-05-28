@@ -1,0 +1,32 @@
+name: Test
+
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          pip install tox
+
+      - name: Run tox - models
+        run: tox -c libraries/models/
+
+      - name: Run tox - cloudharness-common
+        run: tox -c libraries/cloudharness-common/
+
+      - name: Run tox - deployment-cli-tools
+        run: tox -c tools/deployment-cli-tools

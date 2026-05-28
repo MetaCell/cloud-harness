@@ -1,5 +1,7 @@
 harness:
-  subdomain: samples
+  subdomain: www
+  aliases:
+    - samples
   image_name: sampleapp
   secured: true
   sentry: true

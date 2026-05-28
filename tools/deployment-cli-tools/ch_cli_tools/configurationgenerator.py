@@ -204,12 +204,15 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
                 )
 
     def _assign_static_build_dependencies(self, helm_values):
+        static_consumers = {}
         for static_img_dockerfile in self.static_images:
             key = os.path.basename(static_img_dockerfile)
             if key in helm_values[KEY_TASK_IMAGES]:
                 dependencies = guess_build_dependencies_from_dockerfile(
                     f"{static_img_dockerfile}")
                 for dep in dependencies:
+                    if dep in self.exclude and dep in helm_values[KEY_TASK_IMAGES] and key not in self.exclude:
+                        static_consumers.setdefault(dep, set()).add(key)
                     if dep in self.base_images and dep not in helm_values[KEY_TASK_IMAGES]:
                         helm_values[KEY_TASK_IMAGES][dep] = self.base_images[dep]
                         # helm_values.setdefault(KEY_TASK_IMAGES_BUILD, {})[dep] = {
@@ -217,10 +220,48 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
                         #     'dockerfile': 'Dockerfile',
                         # }
 
-        for image_name in list(helm_values[KEY_TASK_IMAGES].keys()):
-            if image_name in self.exclude:
-                del helm_values[KEY_TASK_IMAGES][image_name]
-                # del helm_values[KEY_TASK_IMAGES_BUILD][image_name]
+        self._prune_excluded_task_images(helm_values, extra_consumers=static_consumers)
+
+    def _get_excluded_task_image_consumers(self, values):
+        """Return reverse dependencies for excluded task images from app build deps."""
+        task_images = values.get(KEY_TASK_IMAGES, {})
+        apps = values.get(KEY_APPS, {})
+        consumers = {}
+
+        for app_name, app_values in apps.items():
+            if app_name in self.exclude:
+                continue
+            build_dependencies = app_values.get(KEY_HARNESS, {}).get('dependencies', {}).get('build', [])
+            if not build_dependencies:
+                continue
+            for dep in build_dependencies:
+                if dep in self.exclude and dep in task_images:
+                    consumers.setdefault(dep, set()).add(app_name)
+
+        return consumers
+
+    def _prune_excluded_task_images(self, values, extra_consumers=None):
+        """Exclude task images only when no non-excluded image still depends on them."""
+        task_images = values.get(KEY_TASK_IMAGES, {})
+        if not task_images:
+            return
+
+        consumers = self._get_excluded_task_image_consumers(values)
+        if extra_consumers:
+            for image_name, image_consumers in extra_consumers.items():
+                consumers.setdefault(image_name, set()).update(image_consumers)
+
+        for image_name in list(task_images.keys()):
+            if image_name not in self.exclude:
+                continue
+            used_by = sorted(consumers.get(image_name, set()))
+            if used_by:
+                logging.warning(
+                    "Image %s was excluded but is still required by non-excluded builds: %s. Keeping it.",
+                    image_name, ", ".join(used_by)
+                )
+                continue
+            del task_images[image_name]
 
     def _init_base_images(self, base_image_name):
         """Initialize base images (infrastructure/base-images/) with root context."""
@@ -526,7 +567,7 @@ def generate_tag_from_content(content_path, ignore=()):
                     else:
                         logging.warning(f"Could not get git commit hash for repo at {subdir}")
 
-    content_hash = dirhash(content_path, 'sha1', ignore=ignore)
+    content_hash = dirhash(content_path, 'sha1', ignore=ignore, allow_cyclic_links=True)
 
     if git_hashes:
         return sha1((content_hash + ''.join(git_hashes)).encode('utf-8')).hexdigest()
@@ -601,6 +642,7 @@ def validate_dependencies(values):
     all_apps = {a for a in values["apps"]}
     for app in all_apps:
         app_values = values["apps"][app]
+        app_task_images = set(app_values.get(KEY_TASK_IMAGES, {}))
         if 'dependencies' in app_values[KEY_HARNESS]:
             soft_dependencies = {
                 d for d in app_values[KEY_HARNESS]['dependencies']['soft']}
@@ -618,9 +660,9 @@ def validate_dependencies(values):
             build_dependencies = {
                 d for d in app_values[KEY_HARNESS]['dependencies']['build']}
 
+            available_builds = set(values.get(KEY_TASK_IMAGES, {})) | all_apps | app_task_images
             not_found = {
-                d for d in build_dependencies if d not in values[KEY_TASK_IMAGES]}
-            not_found = {d for d in not_found if d not in all_apps}
+                d for d in build_dependencies if d not in available_builds}
             if not_found:
                 raise ValuesValidationException(
                     f"Bad build dependencies specified for application {app}: {','.join(not_found)} not found as built image")
@@ -630,8 +672,10 @@ def validate_dependencies(values):
 
             not_found = {d for d in service_dependencies if d not in all_apps}
             if not_found:
-                raise ValuesValidationException(
-                    f"Bad service application dependencies specified for application {app}: {','.join(not_found)}")
+                logging.warning(
+                    f"Service proxy (use_services) dependencies for application {app} are not deployed: "
+                    f"{','.join(not_found)}. Proxies to these services will not be created."
+                )
 
 
 def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_path=HELM_PATH, exclude=(), include=None, envs=()):

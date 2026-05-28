@@ -17,7 +17,6 @@ kafka:
   imagePullPolicy: IfNotPresent
   clusterId: 5L6g3nShT-eMCtK--X86sw
   storage: 10Gi
-  storageClassName: standard
   config:
     auto.create.topics.enable: "true"
     num.partitions: "3"

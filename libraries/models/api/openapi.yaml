@@ -965,6 +965,11 @@ components:
                 initialdb:
                     description: 'Initial database name (postgres only)'
                     type: string
+                args:
+                    description: 'Additional command-line arguments passed to the database server process (postgres only)'
+                    type: array
+                    items:
+                        type: string
             additionalProperties: true
         NetworkConfig:
             title: Root Type for NetworkConfig

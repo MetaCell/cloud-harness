@@ -1,4 +1,5 @@
 import os
+import re
 from os.path import join, relpath, exists, dirname, basename, abspath
 from cloudharness_model.models.git_dependency_config import GitDependencyConfig
 
@@ -20,6 +21,28 @@ logging.getLogger().setLevel(logging.INFO)
 CLOUD_HARNESS_PATH = "cloud-harness"
 ROLLOUT_CMD_TPL = "kubectl rollout status deployment/%s"
 
+
+def _to_codefresh_path(path: str) -> str:
+    """Return the Codefresh-friendly path for any path pointing into the cloud-harness tree.
+
+    In Codefresh pipelines cloud-harness is always cloned into ./cloud-harness.
+    Resolves *path* to a relative path from CWD, then skips over any leading '..'
+    components. If the first real directory name after those is 'cloud-harness',
+    the path is rewritten to start with 'cloud-harness/' — regardless of how many
+    levels up cloud-harness lives or whether an absolute path was passed.
+    All other paths are returned unchanged (as their relpath from CWD).
+    """
+    rel = os.path.relpath(os.path.abspath(path), '.')
+    parts = rel.replace('\\', '/').split('/')
+    # Skip all leading '..' components
+    i = 0
+    while i < len(parts) and parts[i] == '..':
+        i += 1
+    # If we crossed at least one '..' and the next component is cloud-harness, rewrite
+    if i > 0 and i < len(parts) and parts[i] == CLOUD_HARNESS_PATH:
+        return '/'.join([CLOUD_HARNESS_PATH] + parts[i + 1:])
+    return rel
+
 # Codefresh variables may need quotes: adjust yaml dump accordingly
 
 
@@ -32,6 +55,29 @@ def literal_presenter(dumper, data):
 
 
 yaml.add_representer(str, literal_presenter)
+
+
+def clean_step_key(s: str) -> str:
+    """Normalize a string to a valid Codefresh step key (alphanumeric + underscore)."""
+    return re.sub(r'[^a-zA-Z0-9_]', '_', s)
+
+
+def dockerfile_selector_candidates(base_path: str, dockerfile_path: str) -> set[str]:
+    """Return stable identifiers that may be used with include/exclude selectors."""
+    relative_to_base = get_app_relative_to_base_path(base_path, dockerfile_path)
+    parent_name = relative_to_base.split("/")[0] if relative_to_base else ""
+    return {
+        candidate for candidate in (
+            relative_to_base,
+            app_name_from_path(relative_to_base),
+            parent_name,
+        ) if candidate
+    }
+
+
+def path_contains_excluded_segment(path: str, excluded_segments) -> bool:
+    normalized_path = f"/{path.replace(os.path.sep, '/')}/"
+    return any(f"/{segment}/" in normalized_path for segment in excluded_segments)
 
 
 def get_main_domain(url):
@@ -173,7 +219,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         full_image_name, helm_values.registry.name
                     ),
                     title=title,
-                    working_directory='./' + app_context_path,
+                    working_directory='./' + _to_codefresh_path(app_context_path),
                     dockerfile=dockerfile_path)
 
                 tag = app_specific_tag_variable(app_name)
@@ -197,7 +243,9 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 build['dependencies'] = dependencies
 
                 def get_other_image_name(app_name):
-                    full_image_name = helm_values.apps[app_name].image if app_name in helm_values.apps else helm_values[KEY_TASK_IMAGES][app_name]
+                    full_image_name = helm_values.apps[app_name].image if app_name in helm_values.apps \
+                        else helm_values[KEY_TASK_IMAGES][app_name] if app_name in helm_values[KEY_TASK_IMAGES] \
+                        else f"{base_name}/{app_name}"
                     return image_tag_with_variables(full_image_name, helm_values.registry.name, app_specific_tag_variable(app_name))
 
                 def add_arg_dependencies(dependencies):
@@ -232,6 +280,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 for dockerfile_path in find_dockerfiles_paths(base_path):
                     dockerfile_relative_to_root = relpath(dockerfile_path, '.')
                     dockerfile_relative_to_base = get_app_relative_to_base_path(base_path, dockerfile_path)
+                    selector_candidates = dockerfile_selector_candidates(base_path, dockerfile_path)
                     app_name = app_name_from_path(dockerfile_relative_to_base)
                     app_key = app_name
                     app_config: ApplicationHarnessConfig = app_key in helm_values.apps and helm_values.apps[app_key].harness
@@ -239,13 +288,15 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         else helm_values[KEY_TASK_IMAGES][app_key] if app_key in helm_values[KEY_TASK_IMAGES]\
                         else f"{base_name}/{app_name}"
 
-                    if include and not any(
-                            f"/{inc}/" in os.path.relpath(dockerfile_path, root_path) or dockerfile_path.endswith(f"/{inc}") for inc in include
-                    ):
+                    if include and not any(inc in selector_candidates for inc in include):
                         # Skip not included apps
                         continue
 
-                    if any(inc in dockerfile_path for inc in (list(exclude) + EXCLUDE_PATHS)):
+                    if any(ex in selector_candidates for ex in exclude):
+                        # Skip explicitly excluded apps/images
+                        continue
+
+                    if path_contains_excluded_segment(dockerfile_relative_to_root, EXCLUDE_PATHS):
                         # Skip excluded apps
                         continue
 
@@ -254,7 +305,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
                     if app_config and app_config.dependencies and app_config.dependencies.git and DEFAULT_MERGE_PATH not in root_path:
                         for dep in app_config.dependencies.git:
-                            step_name = f"clone_{basename(dep.url).replace('.', '_')}_{dep.branch_tag}_{basename(dockerfile_relative_to_root).replace('.', '_')}"
+                            step_name = clean_step_key(f"clone_{basename(dep.url)}_{dep.branch_tag}_{basename(dockerfile_relative_to_root)}")
                             steps[CD_STEP_CLONE_DEPENDENCIES]['steps'][step_name] = clone_step_spec(dep, dockerfile_relative_to_root)
 
                     build = None
@@ -356,14 +407,14 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 codefresh_steps_from_base_path(join(root_path, STATIC_IMAGES_PATH),
                                                include=helm_values[KEY_TASK_IMAGES].keys())
                 codefresh_steps_from_base_path(join(root_path, APPS_PATH), include=helm_values[KEY_TASK_IMAGES].keys())
-                codefresh_steps_from_base_path(join(root_path, APPS_PATH), include=build_included)
+            codefresh_steps_from_base_path(join(root_path, APPS_PATH), include=build_included)
 
-            if CD_E2E_TEST_STEP in steps:
+            if CD_E2E_TEST_STEP in steps and steps[CD_E2E_TEST_STEP].get("scale"):
                 name = "test-e2e"
                 if codefresh_steps_from_base_path(join(root_path, TEST_IMAGES_PATH), include=(name,), publish=False):
                     steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(f"{base_name}/{name}", helm_values.registry.name, app_specific_tag_variable(name))
 
-            if CD_API_TEST_STEP in steps:
+            if CD_API_TEST_STEP in steps and steps[CD_API_TEST_STEP].get("scale"):
                 name = "test-api"
                 if codefresh_steps_from_base_path(join(root_path, TEST_IMAGES_PATH), include=(name,), fixed_context=relpath(root_path, os.getcwd()), publish=False):
                     steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(f"{base_name}/{name}", helm_values.registry.name, app_specific_tag_variable(name))
@@ -438,8 +489,9 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
     for i in range(len(cmds)):
         cmds[i] = cmds[i].replace("$ENV", "-".join(envs))
         cmds[i] = cmds[i].replace("$PARAMS", " ".join(params))
-        cmds[i] = cmds[i].replace("$PATHS", " ".join(os.path.relpath(
-            root_path, '.') for root_path in root_paths if DEFAULT_MERGE_PATH not in root_path))
+        cmds[i] = cmds[i].replace("$PATHS", " ".join(
+            _to_codefresh_path(root_path)
+            for root_path in root_paths if DEFAULT_MERGE_PATH not in root_path))
 
     steps = codefresh["steps"]
     if CD_E2E_TEST_STEP in steps and not steps[CD_E2E_TEST_STEP]["scale"]:

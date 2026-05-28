@@ -226,7 +226,7 @@ def test_create_codefresh_configuration_tests():
 
         assert "samples_e2e_test" in e2e_steps, "samples e2e test step must be included"
         test_step = e2e_steps["samples_e2e_test"]
-        assert "APP_URL=https://samples.${{DOMAIN}}" in test_step[
+        assert "APP_URL=https://www.${{DOMAIN}}" in test_step[
             'environment'], "APP_URL must be provided as environment variable"
         assert len(test_step['volumes']) == 1
 
@@ -235,7 +235,7 @@ def test_create_codefresh_configuration_tests():
         assert "test-api" in l1_steps[STEP_1]["steps"]["test-api"]["dockerfile"], "test-api image must be built from root context"
         api_steps = l1_steps['tests_api']['scale']
         test_step = api_steps["samples_api_test"]
-        assert "APP_URL=https://samples.${{DOMAIN}}/api" in test_step[
+        assert "APP_URL=https://www.${{DOMAIN}}/api" in test_step[
             'environment'], "APP_URL must be provided as environment variable"
         assert len(test_step['volumes']) == 2
 
@@ -290,8 +290,58 @@ def test_create_codefresh_configuration_tests():
         assert CD_API_TEST_STEP not in l1_steps, "Api steps are not included in any app"
         assert CD_E2E_TEST_STEP not in l1_steps, "E2E steps are not included in any app"
 
+        all_build_steps = {k: v for k, v in l1_steps.items() if k.startswith(STEP_0[:-1])}
+        built_images = {name for step in all_build_steps.values() for name in step.get("steps", {})}
+        assert "test-e2e" not in built_images, "test-e2e image should not be built when no e2e tests are configured"
+        assert "test-api" not in built_images, "test-api image should not be built when no api tests are configured"
+
     finally:
         shutil.rmtree(BUILD_MERGE_DIR)
+
+
+def test_create_codefresh_configuration_app_without_base_build_dependency():
+    """An app that has a Dockerfile but no build dependencies on task images must still
+    be included in the build steps. Previously the apps directory was iterated only if
+    task-images was non-empty, so apps with no base build dependency were silently skipped."""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['accounts'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+
+        assert values.get('task-images') == {} or 'task-images' not in values, \
+            "Precondition: accounts must not pull in any task images for this test to be meaningful"
+
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 envs=['dev'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+
+        all_build_steps = {}
+        for step_name in [STEP_0, STEP_1, STEP_2, STEP_3]:
+            if step_name in cf['steps']:
+                all_build_steps.update(cf['steps'][step_name].get('steps', {}))
+
+        assert 'accounts' in all_build_steps, \
+            f"accounts must be included in the build steps even when no base build dependency is specified. Got: {list(all_build_steps.keys())}"
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
 
 
 def test_create_codefresh_configuration_nobuild():
@@ -329,6 +379,50 @@ def test_create_codefresh_configuration_nobuild():
 
     assert "publish_myapp" not in l1_steps["publish"]["steps"]
     assert "publish_myapp-mytask" in l1_steps["publish"]["steps"]
+
+
+def test_excluding_common_app_does_not_skip_common_images_dependencies():
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['myapp'],
+        exclude=['common'],
+        domain='my.local',
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    try:
+        values[KEY_TASK_IMAGES]['my-common'] = 'reg/testprojectname/my-common:1'
+
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 exclude=['common'],
+                                                 envs=['dev'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+
+        all_build_steps = {
+            step_name: step
+            for build_step_name in [STEP_0, STEP_1, STEP_2, STEP_3]
+            if build_step_name in cf['steps']
+            for step_name, step in cf['steps'][build_step_name]['steps'].items()
+        }
+
+        assert 'my-common' in all_build_steps, \
+            'Excluding app "common" must not skip the my-common image under infrastructure/common-images'
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
 
 
 def test_codefresh_db_connect_string_secret():
@@ -660,3 +754,146 @@ def test_env_dockerfile_codefresh_fallback():
             "samples should not use dev.Dockerfile as it does not have one"
     finally:
         shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
+def test_codefresh_paths_use_cloned_cloud_harness():
+    """When cloud-harness root is outside the current directory (e.g. ../cloud-harness or
+    an absolute path), paths in the generated codefresh YAML should use cloud-harness
+    (the cloned location inside the pipeline working directory), not ../cloud-harness."""
+    import tempfile
+
+    for ch_root in [CLOUDHARNESS_ROOT, os.path.abspath(CLOUDHARNESS_ROOT)]:
+        # Create a sibling directory to simulate running from a different project
+        with tempfile.TemporaryDirectory(dir=os.path.dirname(CLOUDHARNESS_ROOT)) as tmp_project_dir:
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(tmp_project_dir)
+
+                values = create_helm_chart(
+                    [ch_root, RESOURCES],
+                    output_path=OUT,
+                    include=['samples'],
+                    domain="my.local",
+                    namespace='test',
+                    env='dev',
+                    local=False,
+                    tag=1,
+                    registry='reg'
+                )
+
+                root_paths = preprocess_build_overrides(
+                    root_paths=[ch_root, RESOURCES],
+                    helm_values=values,
+                    merge_build_path=BUILD_MERGE_DIR
+                )
+
+                build_included = [app['harness']['name']
+                                  for app in values['apps'].values() if 'harness' in app]
+
+                cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                         envs=['dev'],
+                                                         base_image_name=values['name'],
+                                                         helm_values=values, save=False)
+
+                # harness-deployment command must use cloud-harness, not the original path
+                cmds = cf['steps']['prepare_deployment']['commands']
+                harness_cmd = next(cmd for cmd in cmds if 'harness-deployment' in cmd)
+                assert '../cloud-harness' not in harness_cmd, (
+                    f"harness-deployment command should not reference ../cloud-harness "
+                    f"(ch_root={ch_root!r}); got: {harness_cmd}"
+                )
+                assert os.path.abspath(ch_root) not in harness_cmd, (
+                    f"harness-deployment command should not contain the absolute path "
+                    f"(ch_root={ch_root!r}); got: {harness_cmd}"
+                )
+                assert 'cloud-harness' in harness_cmd, (
+                    f"harness-deployment command should reference cloud-harness "
+                    f"(ch_root={ch_root!r}); got: {harness_cmd}"
+                )
+
+                # working_directory in all build steps must not escape cwd or use absolute paths
+                all_build_steps = {}
+                for step_name in [STEP_0, STEP_1, STEP_2, STEP_3]:
+                    if step_name in cf['steps']:
+                        all_build_steps.update(cf['steps'][step_name]['steps'])
+
+                for step_name, step in all_build_steps.items():
+                    wd = step.get('working_directory', '')
+                    assert not wd.startswith('../'), (
+                        f"Build step '{step_name}' working_directory must not start with '../' "
+                        f"(ch_root={ch_root!r}); got: {wd}"
+                    )
+                    assert not wd.startswith('./../'), (
+                        f"Build step '{step_name}' working_directory must not start with './../' "
+                        f"(ch_root={ch_root!r}); got: {wd}"
+                    )
+                    assert not os.path.isabs(wd), (
+                        f"Build step '{step_name}' working_directory must not be absolute "
+                        f"(ch_root={ch_root!r}); got: {wd}"
+                    )
+            finally:
+                os.chdir(old_cwd)
+                shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
+def test_codefresh_working_directory_uses_cloned_cloud_harness():
+    """The working_directory for build steps that source images from cloud-harness must
+    use ./cloud-harness/... for any form of input path (relative, absolute, with ..)."""
+    import tempfile
+
+    for ch_root in [CLOUDHARNESS_ROOT, os.path.abspath(CLOUDHARNESS_ROOT)]:
+        with tempfile.TemporaryDirectory(dir=os.path.dirname(CLOUDHARNESS_ROOT)) as tmp_project_dir:
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(tmp_project_dir)
+
+                values = create_helm_chart(
+                    [ch_root, RESOURCES],
+                    output_path=OUT,
+                    include=['samples'],
+                    domain="my.local",
+                    namespace='test',
+                    env='dev',
+                    local=False,
+                    tag=1,
+                    registry='reg'
+                )
+
+                root_paths = preprocess_build_overrides(
+                    root_paths=[ch_root, RESOURCES],
+                    helm_values=values,
+                    merge_build_path=BUILD_MERGE_DIR
+                )
+
+                build_included = [app['harness']['name']
+                                  for app in values['apps'].values() if 'harness' in app]
+
+                cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                         envs=['dev'],
+                                                         base_image_name=values['name'],
+                                                         helm_values=values, save=False)
+
+                all_build_steps = {}
+                for step_name in [STEP_0, STEP_1, STEP_2, STEP_3]:
+                    if step_name in cf['steps']:
+                        all_build_steps.update(cf['steps'][step_name]['steps'])
+
+                ch_steps = {
+                    name: step for name, step in all_build_steps.items()
+                    if 'cloudharness' in name or name == 'samples'
+                }
+                assert ch_steps, "Expected at least one cloud-harness image build step"
+
+                for step_name, step in ch_steps.items():
+                    wd = step.get('working_directory', '')
+                    assert not wd.startswith('../') and './../' not in wd, (
+                        f"Cloud-harness build step '{step_name}' working_directory must not "
+                        f"escape the current directory with '../' (ch_root={ch_root!r}); got: {wd}"
+                    )
+                    assert not os.path.isabs(wd), (
+                        f"Cloud-harness build step '{step_name}' working_directory must not "
+                        f"be absolute (ch_root={ch_root!r}); got: {wd}"
+                    )
+            finally:
+                os.chdir(old_cwd)
+                shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)

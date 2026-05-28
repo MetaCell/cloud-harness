@@ -1,14 +1,4 @@
 #!/bin/bash
-
-# remount
-losetup -D
-for lodev in `losetup -a|grep deleted|awk '{print $1}'|cut -f 1 -d :`
-do
-    losetup -d ${lodev}
-done
-
-for qf in `ls /exports/*.quota`
-do
-    mountpoint=${qf%.*}
-    mklimdir.sh -m ${mountpoint} --mountonly
-done
+# Thin wrapper — implementation moved to nfsvol mount-all.
+# Kept for backward compatibility with any external callers.
+exec /usr/local/bin/nfsvol mount-all
