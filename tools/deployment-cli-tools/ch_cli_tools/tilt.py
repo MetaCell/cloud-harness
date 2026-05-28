@@ -1,17 +1,14 @@
 import os
-import logging
-import json
-import time
 
-from os.path import join, relpath, basename, exists, abspath
+from os.path import join, relpath, basename
 from jinja2 import Environment, PackageLoader, select_autoescape
 from cloudharness_model import ApplicationTestConfig, HarnessMainConfig, GitDependencyConfig
 
-from cloudharness_utils.constants import APPS_PATH, DEPLOYMENT_CONFIGURATION_PATH, \
-    BASE_IMAGES_PATH, STATIC_IMAGES_PATH, HELM_ENGINE, COMPOSE_ENGINE
-from .helm import KEY_APPS, KEY_HARNESS, KEY_DEPLOYMENT, KEY_TASK_IMAGES
-from .utils import get_template, dict_merge, find_dockerfiles_paths, app_name_from_path, yaml, \
-    find_file_paths, guess_build_dependencies_from_dockerfile, get_json_template, get_image_name
+from cloudharness_utils.constants import APPS_PATH, BASE_IMAGES_PATH, \
+    STATIC_IMAGES_PATH
+from .helm import KEY_TASK_IMAGES
+from .utils import find_dockerfiles_paths, app_name_from_path, get_image_name, \
+    guess_build_dependencies_from_dockerfile
 
 from . import HERE, CH_ROOT
 

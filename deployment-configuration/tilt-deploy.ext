@@ -53,7 +53,7 @@ def deploy(name, namespace, extra_env, watch):
                 if deployment_name in extra_env and len(extra_env[deployment_name]) > 0:
                     print("Adding tasks images dependencies to env ", deployment_name)
                     for env in extra_env[deployment_name]:
-                        container["env"].append({
+                        container.setdefault("env", []).append({
                             "name": env, "value": env
                         })
 
