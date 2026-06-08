@@ -409,15 +409,21 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
             codefresh_steps_from_base_path(join(root_path, APPS_PATH), include=helm_values[KEY_TASK_IMAGES].keys())
         codefresh_steps_from_base_path(join(root_path, APPS_PATH), include=build_included)
 
-        if CD_E2E_TEST_STEP in steps and steps[CD_E2E_TEST_STEP].get("scale"):
-            name = "test-e2e"
+    # Search all root_paths for test images after scale is fully populated from all apps.
+    # Test images (test-e2e, test-api) may live in a different root_path than the apps that use them.
+    if CD_E2E_TEST_STEP in steps and steps[CD_E2E_TEST_STEP].get("scale"):
+        name = "test-e2e"
+        for root_path in root_paths:
             if codefresh_steps_from_base_path(join(root_path, TEST_IMAGES_PATH), include=(name,), publish=False):
-                steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(f"{base_name}/{name}", helm_values.registry.name, app_specific_tag_variable(name))
+                steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(
+                    f"{base_image_name}/{name}", helm_values.registry.name, app_specific_tag_variable(name))
 
-        if CD_API_TEST_STEP in steps and steps[CD_API_TEST_STEP].get("scale"):
-            name = "test-api"
+    if CD_API_TEST_STEP in steps and steps[CD_API_TEST_STEP].get("scale"):
+        name = "test-api"
+        for root_path in root_paths:
             if codefresh_steps_from_base_path(join(root_path, TEST_IMAGES_PATH), include=(name,), fixed_context=relpath(root_path, os.getcwd()), publish=False):
-                steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(f"{base_name}/{name}", helm_values.registry.name, app_specific_tag_variable(name))
+                steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(
+                    f"{base_image_name}/{name}", helm_values.registry.name, app_specific_tag_variable(name))
 
     if build_steps:
 

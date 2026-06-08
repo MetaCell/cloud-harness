@@ -188,6 +188,60 @@ def test_create_codefresh_configuration_multienv():
         shutil.rmtree(BUILD_MERGE_DIR)
 
 
+def test_test_images_built_only_when_tests_exist_in_project_apps():
+    """Test images are built iff the corresponding test type is enabled on at least one app.
+
+    Positive case: app in RESOURCES (not CH) with e2e enabled → test-e2e must be built even
+    though the test image lives in cloud-harness (root_paths[0]).
+
+    Negative case: same app without e2e enabled → test-e2e must NOT be built.
+
+    Regression: the test image search was done per root_path, so if the apps with tests are in
+    root_path[1] (project) and the test images are in root_path[0] (cloud-harness), the images
+    were never found because scale was empty when root_path[0] was scanned.
+    """
+    def _build_steps(e2e_enabled):
+        values = create_helm_chart(
+            [CLOUDHARNESS_ROOT, RESOURCES],
+            output_path=OUT,
+            include=['myapp'],
+            exclude=['events'],
+            domain="my.local",
+            namespace='test',
+            env=['dev', 'test'],
+            local=False,
+            tag=1,
+            registry='reg'
+        )
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+        values.apps["myapp"].harness.test.e2e.enabled = e2e_enabled
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 envs=['dev', 'test'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+        l1_steps = cf['steps']
+        return {name: step for build_step in [STEP_0, STEP_1, STEP_2, STEP_3]
+                if build_step in l1_steps
+                for name, step in l1_steps[build_step]['steps'].items()}
+
+    try:
+        with_tests = _build_steps(e2e_enabled=True)
+        assert "test-e2e" in with_tests, \
+            "test-e2e image must be built when a project app has e2e tests, even if the image lives in cloud-harness"
+
+        without_tests = _build_steps(e2e_enabled=False)
+        assert "test-e2e" not in without_tests, \
+            "test-e2e image must NOT be built when no app has e2e tests enabled"
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
 def test_create_codefresh_configuration_tests():
     values = create_helm_chart(
         [CLOUDHARNESS_ROOT, RESOURCES],
