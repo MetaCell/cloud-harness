@@ -323,8 +323,43 @@ def test_app_depends_on_app(tmp_path):
     )
     releases = sk['deploy']['helm']['releases']
 
-    assert len(sk['build']['artifacts']) == 6, "There should be 6 build artifacts (base+common, dependantapp plus its 2 tasks, myapp)"
+    artifact_images = [a['image'] for a in sk['build']['artifacts']]
+    assert len(artifact_images) == 7, \
+        "There should be 7 build artifacts (base+common, dependantapp plus its 2 tasks, myapp, myapp-mytask)"
+    # myapp-mytask is a build dependency of dependantapp, so it must be built even though
+    # its owner app (myapp) is not deployed.
+    assert any(img.endswith('myapp-mytask') for img in artifact_images), \
+        "the cross-app task image myapp-mytask must have a build artifact"
     assert len(releases) == 1  # Ensure we only found 1 deployment (for myapp)
 
     release = releases[0]
     assert 'myapp' not in release['overrides']['apps'], "myapp should not be included in the overrides because it's a build only dependency"
+
+
+def test_skaffold_builds_cross_app_task_image(tmp_path):
+    out_folder = tmp_path / 'test_skaffold_builds_cross_app_task_image'
+
+    # taskdep depends on myapp-mytask (a task image owned by myapp, which is not deployed).
+    # Skaffold must still emit a build artifact for the task image.
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               env='', local=False, include=["taskdep"], exclude=[])
+
+    BUILD_DIR = "/tmp/build_cross_app_task"
+    root_paths = preprocess_build_overrides(
+        root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+        helm_values=values,
+        merge_build_path=BUILD_DIR
+    )
+
+    sk = create_skaffold_configuration(
+        root_paths=root_paths,
+        helm_values=values,
+        output_path=tmp_path
+    )
+
+    artifact_images = [a['image'] for a in sk['build']['artifacts']]
+    assert any(img.endswith('myapp-mytask') for img in artifact_images), \
+        "the cross-app task image myapp-mytask must have a build artifact"
+
+    shutil.rmtree(tmp_path)
+    shutil.rmtree(BUILD_DIR)

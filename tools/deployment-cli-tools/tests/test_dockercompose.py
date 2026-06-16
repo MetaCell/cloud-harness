@@ -94,6 +94,20 @@ def test_collect_compose_values(tmp_path):
     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES]
 
 
+def test_compose_app_depends_on_task_only(tmp_path):
+    out_folder = tmp_path / 'test_compose_app_depends_on_task_only'
+
+    # taskdep depends on myapp-mytask, a task image owned by another app (myapp) that is
+    # not listed as a dependency itself. The owner app must be pulled in to build the task
+    # image, but must not be deployed.
+    values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder,
+                                                 include=['taskdep'], domain="my.local",
+                                                 env='', local=False, tag=1, registry='reg')
+
+    assert 'myapp-mytask' in values[KEY_TASK_IMAGES], "cross-app task image must be built"
+    assert 'myapp' not in values[KEY_APPS], "owner app must be built but not deployed"
+
+
 def test_collect_compose_values_noreg_noinclude(tmp_path):
     out_path = tmp_path / 'test_collect_compose_values_noreg_noinclude'
     values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, domain="my.local",

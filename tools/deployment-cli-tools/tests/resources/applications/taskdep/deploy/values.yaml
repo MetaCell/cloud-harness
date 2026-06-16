@@ -1,0 +1,10 @@
+harness:
+  subdomain: taskdep
+  deployment:
+    auto: true
+  service:
+    auto: true
+  dependencies:
+    build:
+    - cloudharness-flask
+    - myapp-mytask

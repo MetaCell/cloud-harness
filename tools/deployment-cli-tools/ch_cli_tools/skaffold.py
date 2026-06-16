@@ -167,7 +167,10 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
                         app_relative_to_base.split('/tasks')[0])
                     parent_app_key = parent_app_name
 
-                    if parent_app_key in apps:
+                    # Build the task image when its parent app is deployed, or when the
+                    # task image itself is a required build (e.g. another app depends on
+                    # it via dependencies.build) even though the parent app is not deployed.
+                    if parent_app_key in apps or app_name in helm_values[KEY_TASK_IMAGES]:
                         artifacts[app_key] = build_artifact(app_name, app_relative_to_skaffold,
                                                             guess_build_dependencies_from_dockerfile(dockerfile_path))
                 elif app_name in helm_values[KEY_TASK_IMAGES]:

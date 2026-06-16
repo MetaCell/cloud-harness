@@ -562,3 +562,18 @@ def test_app_depends_on_app(tmp_path):
 
     assert "myapp" in values["task-images"], "myapp should be included as a task image because it is a dependency of dependantapp"
     assert "myapp-mytask" in values["task-images"], "tasks should be also included as build dependencies, when explicitly included as build dependencies"
+
+
+def test_app_depends_on_task_only(tmp_path):
+    out_folder = tmp_path / 'test_app_depends_on_task_only'
+
+    # taskdep depends on a base image (cloudharness-flask, which its Dockerfile uses) and
+    # on myapp-mytask, a task image owned by another app (myapp) that is not listed as a
+    # dependency itself. The owner app must be pulled in to build the task image, but must
+    # not be deployed.
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               env='', local=False, include=["taskdep"], exclude=[])
+
+    assert "myapp-mytask" in values[KEY_TASK_IMAGES], "cross-app task image must be built"
+    assert "cloudharness-flask" in values[KEY_TASK_IMAGES], "declared base-image build dep must be kept"
+    assert "myapp" not in values[KEY_APPS], "owner app must be built but not deployed"

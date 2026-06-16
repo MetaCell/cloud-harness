@@ -15,7 +15,7 @@ from .utils import get_cluster_ip, get_git_commit_hash, get_image_name, image_na
 
 from .models import HarnessMainConfig
 
-from .configurationgenerator import ConfigurationGenerator, get_included_builds, validate_helm_values, \
+from .configurationgenerator import ConfigurationGenerator, get_included_builds, validate_helm_values, resolve_task_image_owner, \
     KEY_HARNESS, KEY_SERVICE, KEY_DATABASE, KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES, KEY_DEPLOYMENT, DEFAULT_IGNORE, \
     values_from_legacy, values_set_legacy, get_included_applications, create_env_variables, collect_apps_helm_templates, generate_tag_from_content, guess_build_dependencies_from_dockerfile
 
@@ -161,7 +161,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
 
         for dep_name in included_builds:
             app_name = None
-            prefix = dep_name.split("-")[0] if "-" in dep_name else None
+            owner = resolve_task_image_owner(dep_name, set(apps))
             if dep_name in self.include and dep_name in apps:
                 app_name = dep_name
             elif dep_name in apps:
@@ -172,8 +172,8 @@ class CloudHarnessHelm(ConfigurationGenerator):
                 app_name = dep_name
             elif dep_name in self.base_images:
                 values[KEY_TASK_IMAGES][dep_name] = self.base_images[dep_name]
-            elif prefix in apps:
-                app_name = prefix
+            elif owner in apps:
+                app_name = owner
                 values[KEY_TASK_IMAGES][dep_name] = apps[app_name][KEY_TASK_IMAGES][dep_name]
             if app_name:
                 for key in apps[app_name].get(KEY_TASK_IMAGES, {}):
@@ -263,12 +263,19 @@ class CloudHarnessHelm(ConfigurationGenerator):
                     elif dep_name in apps:
                         # Keep build-only deps in apps so finalize can process them
                         included_apps[dep_name] = apps[dep_name]
+                    else:
+                        # A build dep may be a task image owned by another app
+                        # (e.g. 'workflows-notify-queue'). Keep the owner app so finalize
+                        # tags the task image; the owner is dropped from the deployment later.
+                        owner = resolve_task_image_owner(dep_name, set(apps))
+                        if owner and owner in apps:
+                            included_apps[owner] = apps[owner]
                 values[KEY_APPS] = included_apps
             else:
                 # Original single-pass mode: filter apps and aggregate task images
                 for dep_name in included_builds:
                     app_name = None
-                    prefix = dep_name.split("-")[0] if "-" in dep_name else None
+                    owner = resolve_task_image_owner(dep_name, set(apps))
                     if dep_name in self.include and dep_name in apps:  # application is part of the deployment
                         app_name = dep_name
                         included_apps[app_name] = apps[app_name]
@@ -280,8 +287,8 @@ class CloudHarnessHelm(ConfigurationGenerator):
                         app_name = dep_name
                     elif dep_name in self.base_images:
                         values[KEY_TASK_IMAGES][dep_name] = self.base_images[dep_name]
-                    elif prefix in apps:  # build dependency within an application that is not part of the deployment
-                        app_name = prefix
+                    elif owner in apps:  # task image owned by an application that is not part of the deployment
+                        app_name = owner
                         values[KEY_TASK_IMAGES][dep_name] = apps[app_name][KEY_TASK_IMAGES][dep_name]
                     if app_name:
                         # Include the relevant build images for the application

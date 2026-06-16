@@ -17,7 +17,7 @@ from .utils import get_cluster_ip, image_name_from_dockerfile_path, get_template
 from .models import HarnessMainConfig
 
 from .configurationgenerator import ConfigurationGenerator, \
-    validate_helm_values, values_from_legacy, values_set_legacy, get_included_applications, create_env_variables, collect_apps_helm_templates, \
+    validate_helm_values, values_from_legacy, values_set_legacy, get_included_applications, get_included_builds, resolve_task_image_owner, create_env_variables, collect_apps_helm_templates, \
     KEY_HARNESS, KEY_SERVICE, KEY_DATABASE, KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES, KEY_DEPLOYMENT
 
 
@@ -77,6 +77,12 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
 
             # Now aggregate task images from the finalized included apps
             self._aggregate_task_images(helm_values)
+
+            # Remove build-only deps from apps — they were finalized to build their
+            # images/task-images but must not be deployed.
+            build_only = set(helm_values[KEY_APPS].keys()) - self.include
+            for name in build_only:
+                del helm_values[KEY_APPS][name]
         else:
             # Original single-pass: process all apps fully
             self._init_base_images(base_image_name)
@@ -222,12 +228,24 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
             values_set_legacy(v)
 
         if self.include:
+            # Resolve the build closure so build-only dependencies (other apps and
+            # their task images) survive finalization even though they are not deployed.
+            included_builds = get_included_builds(values, set(self.include))
             self.include = get_included_applications(
                 values, set(self.include))
             logging.info('Selecting included applications')
 
+            keep = set(self.include)
+            for dep_name in included_builds:
+                if dep_name in apps:
+                    keep.add(dep_name)
+                else:
+                    owner = resolve_task_image_owner(dep_name, set(apps))
+                    if owner and owner in apps:
+                        keep.add(owner)
+
             for v in [v for v in apps]:
-                if apps[v]['harness']['name'] not in self.include:
+                if apps[v]['harness']['name'] not in keep:
                     del apps[v]
                     continue
                 if not defer_task_images:

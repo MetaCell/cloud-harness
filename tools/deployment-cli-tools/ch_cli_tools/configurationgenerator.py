@@ -420,6 +420,13 @@ def get_included_applications(values, include):
     return get_included_applications(values, dependent)
 
 
+def resolve_task_image_owner(dep_name, app_names):
+    """Map a task-image build-dependency (e.g. 'workflows-notify-queue') to its owning app
+    by longest app-name prefix. Returns None if dep_name is itself an app or unmatched."""
+    candidates = [a for a in app_names if dep_name != a and dep_name.startswith(a + "-")]
+    return max(candidates, key=len) if candidates else None
+
+
 def get_included_builds(values, include):
     app_values = values['apps'].values()
     directly_included = [app for app in app_values if any(
@@ -659,7 +666,10 @@ def validate_dependencies(values):
             build_dependencies = {
                 d for d in app_values[KEY_HARNESS]['dependencies']['build']}
 
-            available_builds = set(values.get(KEY_TASK_IMAGES, {})) | all_apps | app_task_images
+            all_task_images = set()
+            for a in all_apps:
+                all_task_images |= set(values["apps"][a].get(KEY_TASK_IMAGES, {}))
+            available_builds = set(values.get(KEY_TASK_IMAGES, {})) | all_apps | app_task_images | all_task_images
             not_found = {
                 d for d in build_dependencies if d not in available_builds}
             if not_found:
