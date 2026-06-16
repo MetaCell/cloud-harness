@@ -70,7 +70,7 @@ metadata:
   name: {{ $appIngressName | quote }}
   annotations:
     kubernetes.io/ingress.class: {{ $.Values.ingress.ingressClass }} # Deprecated by Kubernetes, however still required for GKE
-    {{- if and (not $.Values.local) $tls }}
+    {{- if and (not $.Values.local) $tls (ne $.Values.ingress.letsencrypt.enabled false) }}
     kubernetes.io/tls-acme: 'true'
     cert-manager.io/issuer: {{ printf "%s-%s" "letsencrypt" $.Values.namespace }}
     {{- end }}
@@ -152,7 +152,7 @@ metadata:
   name: {{ printf "%s-proxy" $appIngressName | quote }}
   annotations:
     kubernetes.io/ingress.class: {{ $.Values.ingress.ingressClass }} # Deprecated by Kubernetes, however still required for GKE
-    {{- if and (not $.Values.local) $tls }}
+    {{- if and (not $.Values.local) $tls (ne $.Values.ingress.letsencrypt.enabled false) }}
     kubernetes.io/tls-acme: 'true'
     cert-manager.io/issuer: {{ printf "%s-%s" "letsencrypt" $.Values.namespace }}
     {{- end }}

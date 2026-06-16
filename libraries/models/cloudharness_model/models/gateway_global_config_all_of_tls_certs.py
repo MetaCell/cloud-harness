@@ -26,17 +26,14 @@ from pydantic import BaseModel, Field, field_validator, StrictStr, StrictBool, S
 from typing import ClassVar, List, Dict, Any, Union, Optional, Annotated
 import importlib
 
-class GatewayGlobalConfigAllOfLetsencrypt(CloudHarnessBaseModel):
+class GatewayGlobalConfigAllOfTlsCerts(CloudHarnessBaseModel):
     """
-    
+    GatewayGlobalConfigAllOfTlsCerts
     """ # noqa: E501
-    enabled: Optional[StrictBool] = Field(default=None, description="Whether to provision a cert-manager ACME Issuer for Let's Encrypt. Set to false to use externally provided TLS Secrets without ACME (e.g. ACM/ALB, commercial wildcards, internal CAs, air-gapped clusters). ")
-    email: Optional[StrictStr] = None
-    private_key_secret_name: Optional[StrictStr] = Field(default=None, description="Name of the Secret cert-manager uses to store the ACME account private key. Defaults to `tls-secret-issuer`. ", alias="privateKeySecretName")
-    solvers: Optional[List[Dict[str, Any]]] = Field(default=None, description="ACME solvers passed through to the cert-manager Issuer. Defaults to an http01 solver using the configured ingressClass. Set to a dns01 solver list to obtain certificates for non-public domains. ")
-    secrets: Optional[Dict[str, Dict[str, StrictStr]]] = Field(default=None, description="Credential Secrets created in the namespace alongside the Issuer. Map of `<secret-name>` to a `<key>: <value>` map rendered as `stringData`. Reference these from `solvers`. ")
+    crt: Optional[StrictStr] = None
+    key: Optional[StrictStr] = None
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["enabled", "email", "privateKeySecretName", "solvers", "secrets"]
+    __properties: ClassVar[List[str]] = ["crt", "key"]
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the dictionary representation of the model using alias.
@@ -67,7 +64,7 @@ class GatewayGlobalConfigAllOfLetsencrypt(CloudHarnessBaseModel):
 
     @classmethod
     def from_dict(cls, obj: Optional[Dict[str, Any]]) -> Optional[Self]:
-        """Create an instance of GatewayGlobalConfigAllOfLetsencrypt from a dict"""
+        """Create an instance of GatewayGlobalConfigAllOfTlsCerts from a dict"""
         if obj is None:
             return None
 
@@ -75,11 +72,8 @@ class GatewayGlobalConfigAllOfLetsencrypt(CloudHarnessBaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "enabled": obj.get("enabled"),
-            "email": obj.get("email"),
-            "privateKeySecretName": obj.get("privateKeySecretName"),
-            "solvers": obj.get("solvers"),
-            "secrets": obj.get("secrets")
+            "crt": obj.get("crt"),
+            "key": obj.get("key")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

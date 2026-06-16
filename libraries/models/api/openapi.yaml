@@ -908,12 +908,65 @@ components:
                         ssl_redirect:
                             description: ''
                             type: boolean
+                        tls:
+                            description: |
+                                BYO TLS certificate configuration. Used when
+                                `letsencrypt.enabled` is false or `local` is true.
+                                Per-app entries override the file-based shared cert
+                                at `resources/certs/tls.crt|key`.
+                            type: object
+                            properties:
+                                certs:
+                                    description: |
+                                        Map of `<appName>` to `{crt, key}` PEM strings.
+                                        Materializes one `tls-secret-<appName>` Secret per entry
+                                        of type `kubernetes.io/tls`.
+                                    type: object
+                                    additionalProperties:
+                                        type: object
+                                        properties:
+                                            crt:
+                                                type: string
+                                            key:
+                                                type: string
                         letsencrypt:
                             description: ''
                             type: object
                             properties:
+                                enabled:
+                                    description: |
+                                        Whether to provision a cert-manager ACME Issuer for
+                                        Let's Encrypt. Set to false to use externally provided
+                                        TLS Secrets without ACME (e.g. ACM/ALB, commercial
+                                        wildcards, internal CAs, air-gapped clusters).
+                                    type: boolean
                                 email:
                                     type: string
+                                privateKeySecretName:
+                                    description: |
+                                        Name of the Secret cert-manager uses to store the ACME
+                                        account private key. Defaults to `tls-secret-issuer`.
+                                    type: string
+                                solvers:
+                                    description: |
+                                        ACME solvers passed through to the cert-manager Issuer.
+                                        Defaults to an http01 solver using the configured
+                                        ingressClass. Set to a dns01 solver list to obtain
+                                        certificates for non-public domains.
+                                    type: array
+                                    items:
+                                        type: object
+                                        additionalProperties: true
+                                secrets:
+                                    description: |
+                                        Credential Secrets created in the namespace alongside the
+                                        Issuer. Map of `<secret-name>` to a `<key>: <value>` map
+                                        rendered as `stringData`. Reference these from `solvers`.
+                                    type: object
+                                    additionalProperties:
+                                        type: object
+                                        additionalProperties:
+                                            type: string
                         enabled:
                             description: ''
                             type: boolean

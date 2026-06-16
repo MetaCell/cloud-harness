@@ -93,6 +93,8 @@ Class | Method | HTTP request | Description
  - [GatewayConfig](docs/GatewayConfig.md)
  - [GatewayGlobalConfig](docs/GatewayGlobalConfig.md)
  - [GatewayGlobalConfigAllOfLetsencrypt](docs/GatewayGlobalConfigAllOfLetsencrypt.md)
+ - [GatewayGlobalConfigAllOfTls](docs/GatewayGlobalConfigAllOfTls.md)
+ - [GatewayGlobalConfigAllOfTlsCerts](docs/GatewayGlobalConfigAllOfTlsCerts.md)
  - [GitDependencyConfig](docs/GitDependencyConfig.md)
  - [HarnessMainConfig](docs/HarnessMainConfig.md)
  - [JupyterHubConfig](docs/JupyterHubConfig.md)

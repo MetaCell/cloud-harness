@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field, field_validator, StrictStr, StrictBool, S
 from typing import ClassVar, List, Dict, Any, Union, Optional, Annotated
 import importlib
 from cloudharness_model.models.gateway_global_config_all_of_letsencrypt import GatewayGlobalConfigAllOfLetsencrypt
+from cloudharness_model.models.gateway_global_config_all_of_tls import GatewayGlobalConfigAllOfTls
 
 class GatewayGlobalConfig(CloudHarnessBaseModel):
     """
@@ -36,10 +37,11 @@ class GatewayGlobalConfig(CloudHarnessBaseModel):
     path_type: Optional[StrictStr] = Field(default=None, description="Ingress path type ", alias="pathType")
     path: Optional[StrictStr] = Field(default=None, description="Default target path prefix for applications endpoints. To use regular expressions (e.g.'/(pattern)'), also set `route_type` to  `ImplementationSpecific`. ")
     ssl_redirect: Optional[StrictBool] = None
+    tls: Optional[GatewayGlobalConfigAllOfTls] = None
     letsencrypt: Optional[GatewayGlobalConfigAllOfLetsencrypt] = None
     enabled: Optional[StrictBool] = None
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["auto", "name", "pathType", "path", "ssl_redirect", "letsencrypt", "enabled"]
+    __properties: ClassVar[List[str]] = ["auto", "name", "pathType", "path", "ssl_redirect", "tls", "letsencrypt", "enabled"]
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the dictionary representation of the model using alias.
@@ -61,6 +63,9 @@ class GatewayGlobalConfig(CloudHarnessBaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of tls
+        if self.tls:
+            _dict['tls'] = self.tls.to_dict()
         # override the default output from pydantic by calling `to_dict()` of letsencrypt
         if self.letsencrypt:
             _dict['letsencrypt'] = self.letsencrypt.to_dict()
@@ -86,6 +91,7 @@ class GatewayGlobalConfig(CloudHarnessBaseModel):
             "pathType": obj.get("pathType"),
             "path": obj.get("path"),
             "ssl_redirect": obj.get("ssl_redirect"),
+            "tls": GatewayGlobalConfigAllOfTls.from_dict(obj["tls"]) if obj.get("tls") is not None else None,
             "letsencrypt": GatewayGlobalConfigAllOfLetsencrypt.from_dict(obj["letsencrypt"]) if obj.get("letsencrypt") is not None else None,
             "enabled": obj.get("enabled")
         })

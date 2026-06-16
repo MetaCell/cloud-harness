@@ -42,8 +42,53 @@ ingress:
   # -- Enables/disables SSL redirect.
   ssl_redirect: true
   letsencrypt:
+    # -- Whether to provision a cert-manager ACME Issuer for Let's Encrypt. Set to
+    # false to use externally provided TLS certificates (e.g. ACM/ALB, commercial
+    # wildcard, internal CA, air-gapped) — the per-app `tls-secret-<name>` Secrets
+    # must then exist in the namespace.
+    enabled: true
     # -- Email for letsencrypt.
     email: cloudharness@metacell.us
+    # -- Name of the Secret cert-manager uses to store the ACME account private key.
+    privateKeySecretName: tls-secret-issuer
+    # -- ACME solvers passed through to the cert-manager Issuer. If empty, defaults to
+    # an http01 solver using `ingress.ingressClass`. Override with one or more dns01
+    # solvers to obtain certificates for non-public domains. See `secrets` below to
+    # declare any credential Secrets referenced by `*SecretRef` here.
+    # Example (Cloudflare):
+    #   solvers:
+    #     - dns01:
+    #         cloudflare:
+    #           apiTokenSecretRef:
+    #             name: cloudflare-api-token
+    #             key: api-token
+    solvers: []
+    # -- Credential Secrets created in the namespace alongside the Issuer. Each entry
+    # becomes a Kubernetes Secret named after the key, with the inner map rendered as
+    # `stringData`. Reference these from `solvers` above. Leave empty if you create
+    # provider credential secrets out-of-band (e.g. with sealed-secrets / external
+    # secrets / `kubectl create secret`).
+    # Example:
+    #   secrets:
+    #     cloudflare-api-token:
+    #       api-token: ${CLOUDFLARE_API_TOKEN}
+    secrets: {}
+  # -- BYO TLS certificates (used when `letsencrypt.enabled` is false, or for local
+  # deployments). Two paths, used together:
+  #   1. File-based shared cert: drop PEM at `resources/certs/tls.crt|key` and it is
+  #      applied to every app that needs TLS.
+  #   2. Per-app overrides: `tls.certs.<appName>.{crt,key}` (PEM strings) materialize
+  #      a `tls-secret-<appName>` of type `kubernetes.io/tls` and override the
+  #      file-based shared cert for that app.
+  # Use `${VAR}` interpolation to keep raw PEM out of committed values files.
+  tls:
+    # -- Map of `<appName>` to `{crt, key}` PEM strings.
+    # Example:
+    #   certs:
+    #     myapp:
+    #       crt: ${MYAPP_TLS_CRT}
+    #       key: ${MYAPP_TLS_KEY}
+    certs: {}
   # -- Default regex segment for routes (used in paths like '/(pattern)').
   path: "/"
   # -- The pathType for the Ingress path. Default is Prefix. For regex paths, set to ImplementationSpecific
