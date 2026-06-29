@@ -132,13 +132,15 @@ ingress:
   succeedingPaths: []
 
 resources:
-  {}
-  # limits:
-  #   cpu: 200m
-  #   memory: 512Mi
-  # requests:
-  #   cpu: 200m
-  #   memory: 256Mi
+  # kafka-ui is a Spring Boot JVM. With no requests it ran BestEffort and could
+  # never win enough CPU to finish booting on a contended node, so it sat in
+  # CrashLoopBackOff (liveness-killed mid-startup). Give it a guaranteed slice.
+  requests:
+    cpu: 10m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
 
 autoscaling:
   enabled: false

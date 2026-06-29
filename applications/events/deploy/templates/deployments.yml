@@ -84,11 +84,15 @@ spec:
             command:
             - /bin/sh
             - -c
-            - timeout 10 /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092
-          initialDelaySeconds: 60
-          periodSeconds: 30
-          timeoutSeconds: 15
-          failureThreshold: 3
+            - timeout 18 /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092
+          # This probe spawns a fresh JVM every period; under any CPU contention
+          # the JVM cold-start alone can exceed a tight window, so a single slow
+          # check used to kill an otherwise-healthy broker. Widen the window and
+          # require several consecutive failures before restarting.
+          initialDelaySeconds: 90
+          periodSeconds: 60
+          timeoutSeconds: 20
+          failureThreshold: 6
         lifecycle:
           preStop:
             exec:

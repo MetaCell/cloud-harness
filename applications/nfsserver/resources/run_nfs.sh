@@ -89,11 +89,32 @@ ulimit -n 65535
 echo 1048576 > /proc/sys/fs/inotify/max_user_watches  2>/dev/null || true
 echo 8192    > /proc/sys/fs/inotify/max_user_instances 2>/dev/null || true
 
+# Self-heal: the kernel nfsd can die (threads -> 0) while rpcbind, mountd, the
+# export table and the provisioner all stay up — leaving NFS silently not
+# serving on :2049 with the watchdog's /healthz still green. (Observed: the pod
+# sat 0/1 for ~42h with nfsd threads=0 while everything else looked fine.)
+# Restart nfsd IN PLACE: the exports and the thousands of volume mounts are
+# still intact, so this recovers in seconds — far cheaper than a pod restart,
+# which would remount every volume. The liveness probe on :2049 is the backstop
+# if this ever fails to bring nfsd back.
+function ensure_nfsd()
+{
+    local threads
+    threads=$(cat /proc/fs/nfsd/threads 2>/dev/null || echo 0)
+    if [ "${threads:-0}" -eq 0 ]; then
+        echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ'): nfsd down (threads=0) — restarting in place"
+        /usr/sbin/exportfs -r
+        /usr/sbin/rpc.nfsd -G 10 -V 3
+    fi
+}
+
 trap stop TERM
 
 start "$@"
 
-# Ugly hack to do nothing and wait for SIGTERM
+# Keep the container alive and self-heal nfsd. Short sleeps keep SIGTERM (trap
+# stop) responsive while still checking nfsd roughly every 15s.
 while true; do
-    sleep 5
+    ensure_nfsd
+    sleep 15
 done

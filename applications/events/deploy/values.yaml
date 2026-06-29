@@ -28,8 +28,8 @@ kafka:
     transaction.state.log.min.isr: "1"
   resources:
     limits:
-      cpu: 500m
-      memory: 1Gi
+      cpu: 
+      memory: 750Gi
     requests:
-      cpu: 50m
-      memory: 100Mi
+      cpu: 10m
+      memory: 512Mi

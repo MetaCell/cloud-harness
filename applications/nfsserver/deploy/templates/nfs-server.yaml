@@ -81,17 +81,41 @@ spec:
           periodSeconds: 30
           failureThreshold: 240
         readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8080
+          # Probe the NFS port directly rather than the watchdog's /ready: with
+          # thousands of provisioned volumes the watchdog stays in "starting"
+          # (HTTP 503) long after nfsd is actually serving, so /ready gave a
+          # permanent false-negative and the pod never joined the Service.
+          # A listening 2049 is the true "NFS is serving" signal.
+          tcpSocket:
+            port: 2049
           periodSeconds: 15
-          failureThreshold: 3
+          timeoutSeconds: 5
+          failureThreshold: 6
         livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8080
+          # Watch nfsd directly (not the watchdog's /healthz, which stays 200
+          # even when the kernel nfsd has died). If nfsd stops serving on 2049
+          # for a sustained period, restart the pod so run_nfs.sh brings nfsd
+          # back. Tolerant threshold (6 x 30s = 3min) so a transient blip does
+          # not trigger an expensive remount of all volumes. The in-pod self-heal
+          # in run_nfs.sh handles the common case faster, in place; this is the
+          # backstop if that fails.
+          tcpSocket:
+            port: 2049
+          initialDelaySeconds: 120
           periodSeconds: 30
-          failureThreshold: 5
+          timeoutSeconds: 10
+          failureThreshold: 6
+        resources:
+          # nfs-server does real CPU work mounting/serving thousands of volumes
+          # (the mount-all pass spikes to ~0.5 CPU). Without a request it ran as
+          # BestEffort and was the first thing starved under node pressure,
+          # which made even its own watchdog probe time out.
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: "1"
+            memory: 512Mi
         securityContext:
           privileged: true
         volumeMounts:
