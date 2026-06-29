@@ -84,8 +84,15 @@ class EventClient:
             Return:
                 True if the message was published correctly, False otherwise.
         '''
+        # Bound how long producer construction/sending may block. The default
+        # max_block_ms is 60s, so when the broker is unreachable a single
+        # produce() call would hang the calling thread for a full minute — which
+        # is how a Kafka outage stalls API workers. Fail fast instead; callers
+        # treat publishing as best-effort.
         producer = KafkaProducer(bootstrap_servers=self._get_bootstrap_servers(),
-                                 value_serializer=lambda x: dumps(x).encode('utf-8'))
+                                 value_serializer=lambda x: dumps(x).encode('utf-8'),
+                                 max_block_ms=5000,
+                                 reconnect_backoff_max_ms=5000)
         try:
             return producer.send(self.topic_id, value=message)
         except KafkaTimeoutError as e:
@@ -101,7 +108,9 @@ class EventClient:
             log.error(f"Error produce to topic {self.topic_id} --> {e}", exc_info=True)
             raise EventGeneralException from e
         finally:
-            producer.close()
+            # Bounded close so flushing buffered records can't hang the thread
+            # when the broker is unreachable.
+            producer.close(timeout=5)
 
     def gen_topic_id(topic_type, message_type):
         return f"{CURRENT_APP_NAME}.{topic_type}.{message_type}"
@@ -162,24 +171,39 @@ class EventClient:
                     # keyword argument can't be serialized
                     pass
 
-            # send the message
-            ec.produce(
-                CDCEvent.from_dict({
-                    "meta": {
-                        "app_name": CURRENT_APP_NAME,
-                        "user": user,
-                        "func": str(func_name),
-                        "args": fargs,
-                        "kwargs": fkwargs,
-                        "description": f"{message_type} - {resource_id}",
-                    },
-                    "message_type": message_type,
-                    "operation": operation,
-                    "uid": resource_id,
-                    "resource": resource
-                })
-            )
-            log.info(f"sent cdc event {message_type} - {operation} - {resource_id}")
+            # Build the event on the caller thread (it needs request context for
+            # the current user), but publish it on a background daemon thread.
+            # Producing connects to Kafka, which blocks when the broker is down;
+            # doing it inline would stall the API request (and, under load, every
+            # worker — which is exactly how a Kafka outage crash-looped consumers
+            # of this decorator). CDC events are best-effort and can catch up, so
+            # losing one during an outage is acceptable.
+            event = CDCEvent.from_dict({
+                "meta": {
+                    "app_name": CURRENT_APP_NAME,
+                    "user": user,
+                    "func": str(func_name),
+                    "args": fargs,
+                    "kwargs": fkwargs,
+                    "description": f"{message_type} - {resource_id}",
+                },
+                "message_type": message_type,
+                "operation": operation,
+                "uid": resource_id,
+                "resource": resource
+            })
+
+            def _publish():
+                try:
+                    ec.produce(event)
+                    log.info(f"sent cdc event {message_type} - {operation} - {resource_id}")
+                except Exception:
+                    # Best-effort: a failed publish must never affect the request.
+                    log.error('send_event publish error.', exc_info=True)
+
+            threading.Thread(
+                target=_publish, daemon=True,
+                name=f"cdc-produce-{topic_id}").start()
         except Exception as e:
             log.error('send_event error.', exc_info=True)
 
