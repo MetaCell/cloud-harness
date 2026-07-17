@@ -31,8 +31,11 @@ class UserService:
         user_auth_level = self.auth_service.get_auth_level(kc_user)
         if user_auth_level == AuthorizationLevel.ADMIN:
             is_superuser = True
+        # Privileged users (e.g. managers) get staff access to the Django admin
+        # site without full superuser rights; admins remain superusers.
+        is_staff = is_superuser or user_auth_level == AuthorizationLevel.PRIVILEGED
         # update the superuser and staff status of the user
-        user.is_staff = is_superuser
+        user.is_staff = is_staff
         user.is_superuser = is_superuser
 
         user.username = kc_user.username or kc_user.email
