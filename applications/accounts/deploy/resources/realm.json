@@ -105,6 +105,7 @@
                 ],
                 "standardFlowEnabled": true,
                 "directAccessGrantsEnabled": true,
+                "serviceAccountsEnabled": true,
                 "protocol": "openid-connect",
                 "attributes": {
                     "access.token.lifespan": "3600"

@@ -230,6 +230,34 @@ class AuthClient():
             raise InvalidToken(e) from e
         return decoded
 
+    def get_user_token(self, user_id: str, audience: str = "web-client") -> str:
+        """
+        Obtain a fresh access token acting as the given Keycloak user, via OIDC token
+        exchange (RFC 8693), without needing that user's own credentials.
+
+        Requires the app's own confidential client (CH_ACCOUNTS_CLIENT_ID/SECRET) to have
+        serviceAccountsEnabled and token-exchange/impersonation permission granted in the realm.
+
+        :param user_id: Keycloak user id (sub) to obtain a token for
+        :param audience: Client audience the exchanged token should carry, so it validates
+            against AuthClient.decode_token's default `audience="web-client"` check
+        :return: A fresh access token for the given user
+        """
+        oidc = KeycloakOpenID(
+            server_url=get_server_url(),
+            realm_name=get_auth_realm(),
+            client_id=os.environ["CH_ACCOUNTS_CLIENT_ID"],
+            client_secret_key=os.environ["CH_ACCOUNTS_CLIENT_SECRET"],
+        )
+        actor_token = oidc.token(grant_type="client_credentials")["access_token"]
+        exchanged = oidc.exchange_token(
+            token=actor_token,
+            audience=audience,
+            subject=user_id,
+            requested_token_type="urn:ietf:params:oauth:token-type:access_token",
+        )
+        return exchanged["access_token"]
+
     @with_refreshtoken
     def get_client(self, client_name):
         """
