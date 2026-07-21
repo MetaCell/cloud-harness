@@ -9,7 +9,7 @@ import six
 
 from cloudharness import log as logging
 from cloudharness.applications import get_current_configuration
-from cloudharness.middleware.flask import middleware
+from cloudharness.middleware.asgi import AuthMiddleware
 
 app = None
 
@@ -123,8 +123,11 @@ def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_enco
     if obj_config:
         app.config.from_object(obj_config)
     app.json = json_encoder(app)
-    # activate the CH middleware
-    app.wsgi_app = middleware(app.wsgi_app)
+    # activate the CH middleware. Connexion 3 is ASGI based and captures the
+    # Flask wsgi_app at construction time, so wrapping app.wsgi_app has no
+    # effect; the token middleware must be added to the ASGI stack instead.
+    from connexion.middleware.main import MiddlewarePosition
+    connexion_app.add_middleware(AuthMiddleware, position=MiddlewarePosition.BEFORE_CONTEXT)
 
     with app.app_context():
         # setup logging
