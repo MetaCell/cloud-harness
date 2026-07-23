@@ -354,7 +354,7 @@ class AuthClient():
                 user.update(
                     {'userGroups': admin_client.get_user_groups(user['id'], brief_representation=not with_details)})
                 user.update(
-                    {'realmRoles': admin_client.get_realm_roles_of_user(user['id'])})
+                    {'realmRoles': [role['name'] for role in admin_client.get_realm_roles_of_user(user['id'])]})
             group.update({'members': members})
         return UserGroup.from_dict(group)
 
@@ -522,7 +522,9 @@ class AuthClient():
 
     def _add_related_to_user(self, user: User, with_details: bool, admin_client):
         user.user_groups = [UserGroup.from_dict(group) for group in admin_client.get_user_groups(user_id=user['id'], brief_representation=not with_details)]
-        user.realm_roles = admin_client.get_realm_roles_of_user(user['id'])
+        # The model expects role names (List[str]); Keycloak returns role
+        # representations (dicts), so extract the names.
+        user.realm_roles = [role['name'] for role in admin_client.get_realm_roles_of_user(user['id'])]
         if hasattr(admin_client, 'get_user_organizations'):
             try:
                 user.organizations = [Organization.from_dict(org) for org in admin_client.get_user_organizations(user['id'])]
