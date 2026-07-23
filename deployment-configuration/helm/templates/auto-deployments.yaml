@@ -11,6 +11,14 @@ metadata:
     {{- end }}
 {{- include "deploy_utils.labels" .root | indent 4 }}
 spec:
+  {{- if and .app.harness.deployment.volume (or (not (hasKey .app.harness.deployment.volume "usenfs")) (not .app.harness.deployment.volume.usenfs)) }}
+  # A ReadWriteOnce volume attaches to a single node and the pod is pinned to the
+  # volume's node via podAffinity (see below). Recreate terminates the old pod
+  # before starting the new one, avoiding an unschedulable pod when the node can't
+  # fit both. NFS (ReadWriteMany) volumes have no pinning and can roll normally.
+  strategy:
+    type: Recreate
+  {{- end }}
   replicas: {{ .app.harness.deployment.replicas | default 1 }}
   selector:
     matchLabels:

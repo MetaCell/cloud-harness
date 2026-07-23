@@ -38,6 +38,11 @@ metadata:
   labels:
     usesvolume: {{ .app.harness.database.name }}-{{ .root.Values.namespace }}
 spec:
+  # The database's ReadWriteOnce volume attaches to a single node and the pod is
+  # pinned to it via podAffinity. Recreate terminates the old pod before starting
+  # the new one, avoiding an unschedulable pod when the node can't fit both.
+  strategy:
+    type: Recreate
   replicas: 1
   selector:
     matchLabels:
