@@ -875,9 +875,18 @@ components:
                 secret:
                     description: ''
                     type: string
+                configuration:
+                    description: >-
+                        Native Gatekeeper proxy.yml settings, keyed by the kebab-case names from
+                        the Gatekeeper configuration reference. Application values override global
+                        values and CloudHarness-generated defaults.
+                    type: object
+                    additionalProperties: true
             example:
                 image: 'quay.io/gogatekeeper/gatekeeper:2.14.3'
                 replicas: 5
+                configuration:
+                    same-site-cookie: Lax
         GatewayConfig:
             description: ''
             type: object

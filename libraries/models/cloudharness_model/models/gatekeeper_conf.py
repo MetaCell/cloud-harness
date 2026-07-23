@@ -35,8 +35,9 @@ class GatekeeperConf(CloudHarnessBaseModel):
     replicas: Optional[StrictInt] = None
     resources: Optional[DeploymentResourcesConf] = None
     secret: Optional[StrictStr] = None
+    configuration: Optional[Dict[str, Any]] = Field(default=None, description="Native Gatekeeper proxy.yml settings, keyed by the kebab-case names from the Gatekeeper configuration reference. Application values override global values and CloudHarness-generated defaults.")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["image", "replicas", "resources", "secret"]
+    __properties: ClassVar[List[str]] = ["image", "replicas", "resources", "secret", "configuration"]
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the dictionary representation of the model using alias.
@@ -81,7 +82,8 @@ class GatekeeperConf(CloudHarnessBaseModel):
             "image": obj.get("image"),
             "replicas": obj.get("replicas"),
             "resources": DeploymentResourcesConf.from_dict(obj["resources"]) if obj.get("resources") is not None else None,
-            "secret": obj.get("secret")
+            "secret": obj.get("secret"),
+            "configuration": obj.get("configuration")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():
@@ -89,5 +91,4 @@ class GatekeeperConf(CloudHarnessBaseModel):
                 _obj.additional_properties[_key] = obj.get(_key)
 
         return _obj
-
 
