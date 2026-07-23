@@ -1,0 +1,112 @@
+{{/* Volume migration: copies the data of a legacy (pre-statefulset) PVC into the statefulset
+     volumes. The job mounts only the legacy volume and streams the data through the Kubernetes
+     API (tar over kubectl exec, as kubectl cp does) into the volume-migration init container of
+     each statefulset pod, which mounts only its own volume: the two volumes are never mounted by
+     the same pod, so the migration also works when they end up in different zones (multi-zone
+     and multi-region clusters). Rendered only while the legacy PVC exists: delete it to end the
+     migration. */}}
+{{- define "deploy_utils.volumeMigration" }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ printf "%s-volume-migration" .name | quote }}
+  namespace: {{ .root.Values.namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ printf "%s-volume-migration" .name | quote }}
+  namespace: {{ .root.Values.namespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ printf "%s-volume-migration" .name | quote }}
+  namespace: {{ .root.Values.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ printf "%s-volume-migration" .name | quote }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ printf "%s-volume-migration" .name | quote }}
+    namespace: {{ .root.Values.namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # The release revision suffix makes each upgrade create a fresh job (job specs are immutable);
+  # completed jobs clean themselves up via ttlSecondsAfterFinished.
+  name: {{ printf "%s-volume-migration-r%v" .name .root.Release.Revision | quote }}
+  namespace: {{ .root.Values.namespace }}
+  labels:
+    app: {{ printf "%s-volume-migration" .name | quote }}
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 20
+  template:
+    metadata:
+      labels:
+        app: {{ printf "%s-volume-migration" .name | quote }}
+    spec:
+      serviceAccountName: {{ printf "%s-volume-migration" .name | quote }}
+      restartPolicy: OnFailure
+      containers:
+        - name: volume-migration
+          # Fully open source kubectl image (alpine-based: provides sh and tar), see
+          # https://github.com/alpine-docker/k8s
+          image: alpine/k8s:1.34.9
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              name={{ .name | quote }}
+              ns={{ .root.Values.namespace | quote }}
+              marker=.cloudharness-volume-migrated
+              replicas=$(kubectl -n $ns get statefulset $name -o jsonpath='{.spec.replicas}')
+              for i in $(seq 0 $((replicas - 1))); do
+                pod=$name-$i
+                echo "waiting for pod $pod"
+                until kubectl -n $ns get pod $pod > /dev/null 2>&1; do sleep 5; done
+                while true; do
+                  phase=$(kubectl -n $ns get pod $pod -o jsonpath='{.status.phase}')
+                  running=$(kubectl -n $ns get pod $pod -o jsonpath='{.status.initContainerStatuses[?(@.name=="volume-migration")].state.running}')
+                  if [ -n "$running" ] || [ "$phase" = "Running" ]; then break; fi
+                  sleep 5
+                done
+                if [ "$phase" = "Running" ]; then
+                  echo "$pod is already running: nothing to do"
+                  continue
+                fi
+                if kubectl -n $ns exec $pod -c volume-migration -- test -f /migration/target/$marker; then
+                  echo "$pod is already migrated"
+                  continue
+                fi
+                echo "copying the legacy volume data to $pod"
+                tar cf - -C /migration/legacy . | kubectl -n $ns exec -i $pod -c volume-migration -- tar xf - -C /migration/target
+                kubectl -n $ns exec $pod -c volume-migration -- touch /migration/target/$marker
+                echo "$pod migrated"
+              done
+              echo "volume migration of $name completed"
+          volumeMounts:
+            - name: legacy
+              mountPath: /migration/legacy
+              readOnly: true
+      volumes:
+        - name: legacy
+          persistentVolumeClaim:
+            claimName: {{ .pvc | quote }}
+            readOnly: true
+{{- end }}

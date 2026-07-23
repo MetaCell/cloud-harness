@@ -32,9 +32,10 @@ class UriRoleMappingConfig(CloudHarnessBaseModel):
     """ # noqa: E501
     uri: Annotated[str, Field(strict=True)]
     roles: Optional[List[StrictStr]] = Field(default=None, description="Roles allowed to access the present uri")
+    methods: Optional[List[StrictStr]] = Field(default=None, description="HTTP methods (uppercase) the mapping applies to. Empty means all methods. Passed through to the gatekeeper resource when `secured` is true. When `deployment.statefulset` is true, uris declaring a write method (POST/PUT/PATCH/DELETE) are also routed through the ingress to the leader service (pod 0).")
     white_listed: Optional[StrictBool] = Field(default=None, alias="white-listed")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["uri", "roles", "white-listed"]
+    __properties: ClassVar[List[str]] = ["uri", "roles", "methods", "white-listed"]
 
     @field_validator('uri')
     def uri_validate_regular_expression(cls, value):
@@ -82,6 +83,7 @@ class UriRoleMappingConfig(CloudHarnessBaseModel):
         _obj = cls.model_validate({
             "uri": obj.get("uri"),
             "roles": obj.get("roles"),
+            "methods": obj.get("methods"),
             "white-listed": obj.get("white-listed")
         })
         # store additional fields in additional_properties

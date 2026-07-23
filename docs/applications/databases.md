@@ -38,6 +38,15 @@ harness:
 `expose`: This option allows you to expose the database port through a load balancer.
 Do not use on production!
 
+`statefulset`: When true, the database is rendered as a Kubernetes `StatefulSet` instead of a
+`Deployment`, removing the need for the `Recreate` strategy and podAffinity pinning normally
+used to work around the ReadWriteOnce volume. The volume is provisioned through
+`volumeClaimTemplates`; if a database PVC from a previous Deployment exists in the cluster, it
+is kept (never deleted by Helm) and its data is copied into the statefulset volume by a
+migration job — delete the legacy PVC once migrated (see
+[Volumes](./volumes.md#deploying-as-a-statefulset)). Ignored when `postgres.operator: true`,
+since the CNPG operator manages its own workloads.
+
 
 ### Specific database settings
 

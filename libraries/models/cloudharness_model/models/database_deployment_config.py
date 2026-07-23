@@ -38,13 +38,14 @@ class DatabaseDeploymentConfig(CloudHarnessBaseModel):
     user: Optional[StrictStr] = Field(default=None, description="database username")
     var_pass: Optional[StrictStr] = Field(default=None, description="Database password", alias="pass")
     image_ref: Optional[StrictStr] = Field(default=None, description="Used for referencing images from the build")
+    statefulset: Optional[StrictBool] = Field(default=None, description="When true, the auto-generated database is rendered as a StatefulSet instead of a Deployment, provisioning its volume through volumeClaimTemplates. The data of a pre-existing database PVC is copied into the statefulset volume by a migration job (delete the legacy PVC once migrated). Ignored when postgres.operator is true.")
     mongo: Optional[Dict[str, Any]] = None
     postgres: Optional[Dict[str, Any]] = None
     neo4j: Optional[Any] = Field(default=None, description="Neo4j database specific configuration")
     resources: Optional[DeploymentResourcesConf] = None
     connect_string: Optional[StrictStr] = Field(default=None, description="Specify if the database is external. If not null, auto deployment if set will not be used. Leave it as an empty string and the connect string will be provided as  a secret to be provided at CI/CD (recommended)")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["auto", "name", "type", "size", "user", "pass", "image_ref", "mongo", "postgres", "neo4j", "resources", "connect_string"]
+    __properties: ClassVar[List[str]] = ["auto", "name", "type", "size", "user", "pass", "image_ref", "statefulset", "mongo", "postgres", "neo4j", "resources", "connect_string"]
 
     @field_validator('type')
     def type_validate_regular_expression(cls, value):
@@ -108,6 +109,7 @@ class DatabaseDeploymentConfig(CloudHarnessBaseModel):
             "user": obj.get("user"),
             "pass": obj.get("pass"),
             "image_ref": obj.get("image_ref"),
+            "statefulset": obj.get("statefulset"),
             "mongo": obj.get("mongo"),
             "postgres": obj.get("postgres"),
             "neo4j": obj.get("neo4j"),

@@ -13,6 +13,7 @@ Name | Type | Description | Notes
 **user** | **str** | database username | [optional] 
 **var_pass** | **str** | Database password | [optional] 
 **image_ref** | **str** | Used for referencing images from the build | [optional] 
+**statefulset** | **bool** | When true, the auto-generated database is rendered as a StatefulSet instead of a Deployment, provisioning its volume through volumeClaimTemplates. The data of a pre-existing database PVC is copied into the statefulset volume by a migration job (delete the legacy PVC once migrated). Ignored when postgres.operator is true. | [optional] 
 **mongo** | **Dict[str, object]** |  | [optional] 
 **postgres** | **Dict[str, object]** |  | [optional] 
 **neo4j** | **object** | Neo4j database specific configuration | [optional] 

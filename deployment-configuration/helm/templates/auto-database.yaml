@@ -17,32 +17,55 @@ spec:
 {{- if and (eq .app.harness.database.type "postgres") .app.harness.database.postgres.operator }}
 {{- include "deploy_utils.database.postgres.operator" . }}
 {{- else }}
+{{- $isStatefulSet := .app.harness.database.statefulset | default false }}
+{{- /* A statefulset database owns its volume through volumeClaimTemplates. A PVC named after the
+      database is the leftover of a previous Deployment: it is kept (never deleted by helm) and
+      its data is copied into the statefulset volume by a migration job (see
+      auto-volume-migration.yaml). Delete the legacy PVC once migrated. */}}
+{{- $legacyClaim := false }}
+{{- if $isStatefulSet }}
+{{- if lookup "v1" "PersistentVolumeClaim" .root.Values.namespace .app.harness.database.name }}
+{{- $legacyClaim = true }}
+{{- end }}
+{{- end }}
+{{- if or (not $isStatefulSet) $legacyClaim }}
 ---
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
   name: {{ .app.harness.database.name | quote }}
   namespace: {{ .root.Values.namespace }}
+  {{- if $legacyClaim }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: {{ .app.harness.database.size }}
+{{- end }}
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: {{ ternary "StatefulSet" "Deployment" $isStatefulSet }}
 metadata:
   name: {{ .app.harness.database.name | quote }}
   namespace: {{ .root.Values.namespace }}
   labels:
     usesvolume: {{ .app.harness.database.name }}-{{ .root.Values.namespace }}
 spec:
+  {{- if $isStatefulSet }}
+  # StatefulSet updates terminate the old pod before creating its replacement, so no
+  # Recreate strategy or node pinning is needed.
+  serviceName: {{ .app.harness.database.name | quote }}
+  {{- else }}
   # The database's ReadWriteOnce volume attaches to a single node and the pod is
   # pinned to it via podAffinity. Recreate terminates the old pod before starting
   # the new one, avoiding an unschedulable pod when the node can't fit both.
   strategy:
     type: Recreate
+  {{- end }}
   replicas: 1
   selector:
     matchLabels:
@@ -54,6 +77,7 @@ spec:
         service: db
         usesvolume: {{ .app.harness.database.name }}-{{ .root.Values.namespace }}
     spec:
+      {{- if not $isStatefulSet }}
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -65,6 +89,18 @@ spec:
                       - {{ .app.harness.database.name }}-{{ .root.Values.namespace }}
                       - {{ .app.harness.database.name }} # Obsolete, kept for backwards compatability, to be removed at a later date
               topologyKey: "kubernetes.io/hostname"
+      {{- end }}
+      {{- if $legacyClaim }}
+      initContainers:
+      # Holds the pod until the volume-migration job has copied the legacy volume data into
+      # the statefulset volume. Delete the legacy PVC after verifying the migration.
+      - name: volume-migration
+        image: busybox:1.36
+        command: ['sh', '-c', 'until [ -f /migration/target/.cloudharness-volume-migrated ]; do echo "waiting for the volume migration job"; sleep 5; done']
+        volumeMounts:
+          - name: {{ .app.harness.database.name | quote }}
+            mountPath: /migration/target
+      {{- end }}
       containers:
       - name: {{ .app.harness.database.name | quote }}
         imagePullPolicy: IfNotPresent
@@ -82,15 +118,33 @@ spec:
           - mountPath: /dev/shm
             name: dshm  
           {{- end }}  
+      {{- if or (not $isStatefulSet) (eq .app.harness.database.type "postgres") }}
       volumes:
+      {{- if not $isStatefulSet }}
       - name: {{ .app.harness.database.name | quote }}
         persistentVolumeClaim:
           claimName: {{ .app.harness.database.name | quote }}
+      {{- end }}
       {{- if eq .app.harness.database.type "postgres" }}
       - emptyDir:
           medium: Memory
-        name: dshm     
-      {{- end }}     
+        name: dshm
+      {{- end }}
+      {{- end }}
+  {{- if $isStatefulSet }}
+  volumeClaimTemplates:
+    - metadata:
+        name: {{ .app.harness.database.name | quote }}
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .app.harness.database.size }}
+  {{- end }}
+  {{- if $legacyClaim }}
+  {{- include "deploy_utils.volumeMigration" (dict "root" .root "name" .app.harness.database.name "pvc" .app.harness.database.name) }}
+  {{- end }}
 ---
 {{- if and .root.Values.backup.active (ne .app.harness.database.type "neo4j") }}
 {{- include (print "deploy_utils.database." .app.harness.database.type ".backup") . }}

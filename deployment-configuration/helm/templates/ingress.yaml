@@ -35,6 +35,38 @@
           {{- end }}
         {{- end }}
       {{- end }}
+      {{- /* uri_role_mapping entries declaring a write method are routed to the leader (pod 0)
+            service. Skipped for gatekeeper-secured apps, as routing straight to the service would
+            bypass authentication: those must forward writes at the application level. */}}
+      {{- if and $app.harness.deployment.statefulset $app.harness.uri_role_mapping (not (and $app.harness.secured $secured_gatekeepers)) (eq $app.harness.gateway.pathType "Prefix") }}
+        {{- range $mapping := $app.harness.uri_role_mapping }}
+          {{- if and $mapping.methods (or (has "POST" $mapping.methods) (has "PUT" $mapping.methods) (has "PATCH" $mapping.methods) (has "DELETE" $mapping.methods)) }}
+            {{- $uri := $mapping.uri }}
+            {{- if and (ne $uri "/") (ne $uri "/*") }}
+              {{- if hasSuffix "/*" $uri }}
+                {{- $cleanPath := trimSuffix "/*" $uri }}
+                {{- $pathWithoutSlash := trimPrefix "/" $cleanPath }}
+      - path: {{ printf "%s%s" $app.harness.gateway.path $pathWithoutSlash }}
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ printf "%s-rw" $app.harness.service.name | quote }}
+            port:
+              number: {{ $app.harness.service.port | default 80 }}
+              {{- else if (not (contains "*" $uri)) }}
+                {{- $pathWithoutSlash := trimPrefix "/" $uri }}
+      - path: {{ printf "%s%s" $app.harness.gateway.path $pathWithoutSlash }}
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{ printf "%s-rw" $app.harness.service.name | quote }}
+            port:
+              number: {{ $app.harness.service.port | default 80 }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
       - path: {{ $app.harness.gateway.path | default $root.Values.ingress.path | default "/" }}
         pathType: {{ $app.harness.gateway.pathType | default $root.Values.ingress.pathType | default "Prefix" }}
         backend:

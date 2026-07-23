@@ -15,7 +15,7 @@ harness:
     build: []
   # -- When true, the application is shielded with a getekeeper
   secured: false
-  # -- Uri/Role mapping for the gatekeeper
+  # -- Uri/Role mapping for the gatekeeper. Entries can also specify `methods`: on secured applications they restrict the gatekeeper resource to those methods; on statefulset deployments, uris declaring a write method (POST/PUT/PATCH/DELETE) are routed through the ingress to the leader service (pod 0).
   uri_role_mapping:
     - uri: /*
       roles:
@@ -38,6 +38,8 @@ harness:
     port: 8080
     # -- volume specification
     volume:
+    # -- When true, the deployment is rendered as a StatefulSet instead of a Deployment. Recommended for deployments with a (non-nfs) volume: updates terminate the old pod before creating the new one. The volume is provisioned per replica through volumeClaimTemplates; data of a pre-existing PVC named after the volume is copied into each statefulset volume by a migration job (delete the legacy PVC once migrated).
+    statefulset: false
     # -- Deployment resources.
     resources:
       requests:
@@ -96,6 +98,8 @@ harness:
     image_ref:
     # -- expose database to the public with ingress
     expose: false
+    # -- When true, the database is rendered as a StatefulSet instead of a Deployment, provisioning its volume through volumeClaimTemplates. Data of a pre-existing database PVC is copied into the statefulset volume by a migration job (delete the legacy PVC once migrated). Ignored when postgres.operator is true.
+    statefulset: false
     # -- Set to "" to set the set the string in the CI/CD as a secret. Only set the full value for dev/testing
     connect_string:
     # -- settings for mongo database (for type==mongo)

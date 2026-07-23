@@ -1,9 +1,29 @@
 {{- define "deploy_utils.pvolume" }}
-{{- if or (not (hasKey .app.harness.deployment.volume "auto")) .app.harness.deployment.volume.auto }}
+{{- $volume := .app.harness.deployment.volume }}
+{{- $isStatefulSet := .app.harness.deployment.statefulset | default false }}
+{{- $ownVolume := false }}
+{{- if and (or (not (hasKey $volume "usenfs")) (not $volume.usenfs)) (or (not (hasKey $volume "auto")) $volume.auto) }}
+{{- $ownVolume = true }}
+{{- end }}
+{{- /* Statefulsets own their (non-nfs) volume through volumeClaimTemplates: the standalone PVC
+      is only kept while a legacy one exists, so that its data can be migrated. Delete the legacy
+      PVC once migrated. */}}
+{{- $legacyClaim := false }}
+{{- if and $isStatefulSet $ownVolume }}
+{{- if lookup "v1" "PersistentVolumeClaim" .root.Values.namespace $volume.name }}
+{{- $legacyClaim = true }}
+{{- end }}
+{{- end }}
+{{- if and (or (not (hasKey $volume "auto")) $volume.auto) (or (not (and $isStatefulSet $ownVolume)) $legacyClaim) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ .app.harness.deployment.volume.name }}
+  name: {{ $volume.name }}
+  {{- if $legacyClaim }}
+  annotations:
+    # Legacy volume pending migration to the statefulset volumes: never deleted by helm.
+    helm.sh/resource-policy: keep
+  {{- end }}
   labels:
     app: {{ .app.harness.deployment.name| quote }}
 spec:

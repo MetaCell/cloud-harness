@@ -643,6 +643,14 @@ components:
                             description: Used for referencing images from the build
                             type: string
                             example: 'image_ref: myownpgimage'
+                        statefulset:
+                            description: >-
+                                When true, the auto-generated database is rendered as a StatefulSet instead
+                                of a Deployment, provisioning its volume through volumeClaimTemplates. The
+                                data of a pre-existing database PVC is copied into the statefulset volume by
+                                a migration job (delete the legacy PVC once migrated). Ignored when
+                                postgres.operator is true.
+                            type: boolean
                         mongo:
                             $ref: '#/components/schemas/FreeObject'
                             description: Mongo db specific configuration
@@ -678,6 +686,16 @@ components:
                     description: Path to secure
                 roles:
                     description: Roles allowed to access the present uri
+                    type: array
+                    items:
+                        type: string
+                methods:
+                    description: >-
+                        HTTP methods (uppercase) the mapping applies to. Empty means all methods.
+                        Passed through to the gatekeeper resource when `secured` is true. When
+                        `deployment.statefulset` is true, uris declaring a write method
+                        (POST/PUT/PATCH/DELETE) are also routed through the ingress to the leader
+                        service (pod 0).
                     type: array
                     items:
                         type: string
@@ -1232,6 +1250,19 @@ components:
                         volume:
                             $ref: '#/components/schemas/DeploymentVolumeSpec'
                             description: Volume specification
+                        statefulset:
+                            description: >-
+                                When true, the workload is rendered as a Kubernetes StatefulSet instead of a
+                                Deployment. Recommended for deployments with a ReadWriteOnce volume: updates
+                                terminate the old pod before creating the new one, so no Recreate strategy or
+                                node pinning is needed. The volume, unless nfs-shared or externally managed
+                                (auto false), is provisioned per replica through volumeClaimTemplates. A
+                                pre-existing PVC named after the volume (left over from a previous Deployment)
+                                is migrated automatically: a migration job streams its data into each
+                                statefulset volume through the Kubernetes API, so the volumes are never
+                                mounted by the same pod (works on multi-zone clusters); delete the legacy PVC
+                                once migrated.
+                            type: boolean
                         network:
                             $ref: '#/components/schemas/NetworkConfig'
                             description: Define the network policy for the deployment

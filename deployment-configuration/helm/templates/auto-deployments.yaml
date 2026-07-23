@@ -1,6 +1,25 @@
 {{- define "deploy_utils.deployment" }}
+{{- $isStatefulSet := .app.harness.deployment.statefulset | default false }}
+{{- $volume := .app.harness.deployment.volume }}
+{{- /* Shared (nfs) volumes and externally managed volumes (auto: false) are always mounted from
+      their common PVC. Statefulsets own any other volume through volumeClaimTemplates. */}}
+{{- $ownVolume := false }}
+{{- if and $volume (or (not (hasKey $volume "usenfs")) (not $volume.usenfs)) (or (not (hasKey $volume "auto")) $volume.auto) }}
+{{- $ownVolume = true }}
+{{- end }}
+{{- $useClaimTemplate := and $isStatefulSet $ownVolume }}
+{{- /* A PVC named after the volume is the leftover of a previous Deployment: a migration job
+      (see auto-volume-migration.yaml) copies its data into each statefulset volume, and an init
+      container holds each pod until its volume has been migrated. Delete the legacy PVC once
+      migrated to end the migration. */}}
+{{- $legacyClaim := false }}
+{{- if $useClaimTemplate }}
+{{- if lookup "v1" "PersistentVolumeClaim" .root.Values.namespace $volume.name }}
+{{- $legacyClaim = true }}
+{{- end }}
+{{- end }}
 apiVersion: apps/v1
-kind: Deployment
+kind: {{ ternary "StatefulSet" "Deployment" $isStatefulSet }}
 metadata:
   name: {{ .app.harness.deployment.name| quote }}
   namespace: {{ .root.Values.namespace }}
@@ -11,7 +30,11 @@ metadata:
     {{- end }}
 {{- include "deploy_utils.labels" .root | indent 4 }}
 spec:
-  {{- if and .app.harness.deployment.volume (or (not (hasKey .app.harness.deployment.volume "usenfs")) (not .app.harness.deployment.volume.usenfs)) }}
+  {{- if $isStatefulSet }}
+  # StatefulSet updates terminate the old pod before creating its replacement, so no
+  # Recreate strategy or node pinning is needed even for ReadWriteOnce volumes.
+  serviceName: {{ .app.harness.service.name | quote }}
+  {{- else if and .app.harness.deployment.volume (or (not (hasKey .app.harness.deployment.volume "usenfs")) (not .app.harness.deployment.volume.usenfs)) }}
   # A ReadWriteOnce volume attaches to a single node and the pod is pinned to the
   # volume's node via podAffinity (see below). Recreate terminates the old pod
   # before starting the new one, avoiding an unschedulable pod when the node can't
@@ -42,7 +65,7 @@ spec:
       imagePullSecrets:
       - name: {{ .root.Values.registry.secret.name }}
       {{- end }}
-      {{- if and .app.harness.deployment.volume }}
+      {{- if and .app.harness.deployment.volume (not $isStatefulSet) }}
       {{- if or (not (hasKey .app.harness.deployment.volume "usenfs")) (not .app.harness.deployment.volume.usenfs) }}
       affinity:
         podAffinity:
@@ -57,8 +80,7 @@ spec:
               topologyKey: "kubernetes.io/hostname"
       {{- end }}
       {{- end }}
-      {{- if .app.harness.deployment.extraContainers }}
-      {{- $hasInit := false }}
+      {{- $hasInit := $legacyClaim }}
       {{- range $name, $container := .app.harness.deployment.extraContainers }}
       {{- if and $container.auto $container.initContainer }}
       {{- $hasInit = true }}
@@ -66,10 +88,19 @@ spec:
       {{- end }}
       {{- if $hasInit }}
       initContainers:
+      {{- if $legacyClaim }}
+      # Holds the pod until the volume-migration job has copied the legacy volume data into
+      # this pod's volume. Delete the legacy PVC after verifying the migration to drop this gate.
+      - name: volume-migration
+        image: busybox:1.36
+        command: ['sh', '-c', 'until [ -f /migration/target/.cloudharness-volume-migrated ]; do echo "waiting for the volume migration job"; sleep 5; done']
+        volumeMounts:
+          - name: {{ $volume.name }}
+            mountPath: /migration/target
+      {{- end }}
       {{- range $name, $container := .app.harness.deployment.extraContainers }}
       {{- if and $container.auto $container.initContainer }}
       {{- include "deploy_utils.extraContainerSpec" (dict "name" $name "container" $container "app" $.app "root" $.root) | nindent 6 }}
-      {{- end }}
       {{- end }}
       {{- end }}
       {{- end }}
@@ -147,7 +178,7 @@ spec:
             secretName: {{ $dep }}
         {{- end }}
         {{- end }}
-        {{- if .app.harness.deployment.volume }}
+        {{- if and .app.harness.deployment.volume (not $useClaimTemplate) }}
         - name: {{ .app.harness.deployment.volume.name }}
           persistentVolumeClaim:
             claimName: {{ .app.harness.deployment.volume.name }}
@@ -170,6 +201,21 @@ spec:
             secretName: {{ printf "%s-db" .app.harness.deployment.name }}
           {{- end }}
         {{- end }}
+  {{- if $useClaimTemplate }}
+  volumeClaimTemplates:
+    - metadata:
+        name: {{ $volume.name }}
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: standard
+        resources:
+          requests:
+            storage: {{ $volume.size }}
+  {{- end }}
+  {{- if $legacyClaim }}
+  {{- include "deploy_utils.volumeMigration" (dict "root" .root "name" .app.harness.deployment.name "pvc" $volume.name) }}
+  {{- end }}
 ---
 {{- end }}
 
