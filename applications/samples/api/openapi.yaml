@@ -43,6 +43,42 @@ paths:
       operationId: ping
       summary: test the application is up
       x-openapi-router-controller: samples.controllers.test_controller
+
+  /write-file:
+    post:
+      tags:
+        - test
+      requestBody:
+        description: Optional content of the file to write.
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  filename:
+                    type: string
+                  path:
+                    type: string
+                  hostname:
+                    type: string
+          description: The file was written on the application volume
+      operationId: write_file
+      summary: writes a file on the application volume
+      description: >-
+        Writes a timestamped file on the application volume and returns the name of the pod
+        that handled the request. On a statefulset deployment, route this endpoint to the
+        leader service to have all writes land on pod 0.
+      x-openapi-router-controller: samples.controllers.test_controller
   /valid:
     get:
       tags:
