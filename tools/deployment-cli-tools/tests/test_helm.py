@@ -489,6 +489,7 @@ def test_statefulset_leader_service(tmp_path):
     harness['uri_role_mapping'] = harness.get('uri_role_mapping', []) + [
         {'uri': '/api/edit/*', 'methods': ['POST', 'PUT', 'PATCH']},
         {'uri': '/upload', 'methods': ['POST']},
+        {'uri': '/api/remove', 'methods': ['DELETE']},
         {'uri': '/readonly', 'methods': ['GET']},
     ]
     with open(values_path, 'w') as values_file:
@@ -513,9 +514,10 @@ def test_statefulset_leader_service(tmp_path):
 
     paths = ingress_paths(manifests)
     rw_paths = {p['path']: p for p in paths if p['backend']['service']['name'] == rw_name}
-    # wildcard uris map to Prefix rules, plain uris to ImplementationSpecific; entries without
-    # write methods (the default catch-all, /readonly) are not routed to the leader
-    assert set(rw_paths) == {'/api/edit', '/upload'}
+    # wildcard uris map to Prefix rules, plain uris to ImplementationSpecific; any write method
+    # (POST/PUT/PATCH/DELETE) triggers leader routing, while entries without one (the default
+    # catch-all, /readonly) are not routed to the leader
+    assert set(rw_paths) == {'/api/edit', '/upload', '/api/remove'}
     assert rw_paths['/api/edit']['pathType'] == 'Prefix'
     assert rw_paths['/upload']['pathType'] == 'ImplementationSpecific'
     # the catch-all still routes to the normal service

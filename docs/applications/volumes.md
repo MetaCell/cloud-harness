@@ -137,7 +137,7 @@ Writes can be routed to the leader in two ways:
       replicas: 3
     uri_role_mapping:
       - uri: /api/edit/*
-        methods: [POST, PUT, PATCH]
+        methods: [POST, PUT, PATCH, DELETE]
       - uri: /api/upload
         methods: [POST]
   ```
