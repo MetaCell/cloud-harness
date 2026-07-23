@@ -1,11 +1,20 @@
 {{- define "deploy_utils.deployment" }}
 {{- $isStatefulSet := .app.harness.deployment.statefulset | default false }}
 {{- $volume := .app.harness.deployment.volume }}
-{{- /* Shared (nfs) volumes and externally managed volumes (auto: false) are always mounted from
-      their common PVC. Statefulsets own any other volume through volumeClaimTemplates. */}}
+{{- /* $rwoVolume: a ReadWriteOnce (non-nfs) volume pins the pod to a single node — it drives both
+      the Recreate strategy and the podAffinity. $ownVolume additionally requires the PVC to be
+      managed here (auto), which a statefulset turns into a volumeClaimTemplate. The checks are
+      nested so hasKey/index never runs on a nil volume: helm < 3.10 (go < 1.18) does not
+      short-circuit 'and'/'or', so a flat expression would fail for volume-less apps. */}}
+{{- $rwoVolume := false }}
 {{- $ownVolume := false }}
-{{- if and $volume (or (not (hasKey $volume "usenfs")) (not $volume.usenfs)) (or (not (hasKey $volume "auto")) $volume.auto) }}
+{{- if $volume }}
+{{- if or (not (hasKey $volume "usenfs")) (not $volume.usenfs) }}
+{{- $rwoVolume = true }}
+{{- if or (not (hasKey $volume "auto")) $volume.auto }}
 {{- $ownVolume = true }}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- $useClaimTemplate := and $isStatefulSet $ownVolume }}
 {{- /* A PVC named after the volume is the leftover of a previous Deployment: a migration job
@@ -34,7 +43,7 @@ spec:
   # StatefulSet updates terminate the old pod before creating its replacement, so no
   # Recreate strategy or node pinning is needed even for ReadWriteOnce volumes.
   serviceName: {{ .app.harness.service.name | quote }}
-  {{- else if and .app.harness.deployment.volume (or (not (hasKey .app.harness.deployment.volume "usenfs")) (not .app.harness.deployment.volume.usenfs)) }}
+  {{- else if $rwoVolume }}
   # A ReadWriteOnce volume attaches to a single node and the pod is pinned to the
   # volume's node via podAffinity (see below). Recreate terminates the old pod
   # before starting the new one, avoiding an unschedulable pod when the node can't
@@ -46,7 +55,6 @@ spec:
   selector:
     matchLabels:
       app: {{ .app.harness.deployment.name| quote }}
-{{- include "deploy_utils.labels" .root | indent 6 }}
   template:
     metadata:
       {{- if .app.harvest }}
@@ -61,12 +69,13 @@ spec:
         {{- end }}
 {{- include "deploy_utils.labels" .root | indent 8 }}
     spec:
-      {{- if and .root.Values.registry.secret .root.Values.registry.secret.name (contains .root.Values.registry.name .app.harness.deployment.image) }}
+      {{- if .root.Values.registry.secret }}
+      {{- if and .root.Values.registry.secret.name (contains .root.Values.registry.name .app.harness.deployment.image) }}
       imagePullSecrets:
       - name: {{ .root.Values.registry.secret.name }}
       {{- end }}
-      {{- if and .app.harness.deployment.volume (not $isStatefulSet) }}
-      {{- if or (not (hasKey .app.harness.deployment.volume "usenfs")) (not .app.harness.deployment.volume.usenfs) }}
+      {{- end }}
+      {{- if and $rwoVolume (not $isStatefulSet) }}
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -78,7 +87,6 @@ spec:
                       - {{ .app.harness.deployment.volume.name }}-{{ .root.Values.namespace }}
                       - {{ .app.harness.deployment.volume.name }} # Obsolete, kept for backwards compatability, to be removed at a later date
               topologyKey: "kubernetes.io/hostname"
-      {{- end }}
       {{- end }}
       {{- $hasInit := $legacyClaim }}
       {{- range $name, $container := .app.harness.deployment.extraContainers }}
