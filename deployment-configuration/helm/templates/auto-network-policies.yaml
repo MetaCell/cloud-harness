@@ -64,6 +64,7 @@ spec:
 {{- end }}
 
 {{- define "deploy_utils.database_network_policy" }}
+{{- $postgres := .app.harness.database.postgres | default dict }}
 {{- $hasNetwork := hasKey .app.harness.database "network" }}
 {{- $allowIngress := and $hasNetwork .app.harness.database.network.ingress }}
 {{- $allowEgress := and $hasNetwork .app.harness.database.network.egress }}
@@ -117,7 +118,7 @@ spec:
           protocol: UDP
         - port: 53
           protocol: TCP
-    {{- if and (eq .app.harness.database.type "postgres") .app.harness.database.postgres.operator }}
+    {{- if and (eq .app.harness.database.type "postgres") $postgres.operator }}
     # Allow CNPG pods to reach the Kubernetes API server
     {{- $apiCidrs := list }}
     {{- $kubeSvc := (lookup "v1" "Service" "default" "kubernetes") }}
