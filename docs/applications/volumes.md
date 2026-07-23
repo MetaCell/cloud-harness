@@ -144,9 +144,11 @@ Writes can be routed to the leader in two ways:
 
   Routing granularity is the uri, not the method (plain Kubernetes Ingress cannot match methods),
   so all requests to those uris — including GETs — go to pod 0. On secured applications the same
-  `methods` field restricts the gatekeeper resource to those methods, but leader routing is
-  skipped, since routing around the auth proxy would bypass authentication: secured applications
-  must forward writes at the application level.
+  `methods` field restricts the gatekeeper resource to those methods, and leader routing applies
+  only to `white-listed` uris (which bypass the gatekeeper by design): routing a secured uri
+  around the auth proxy would bypass authentication, so non-white-listed write endpoints must
+  forward writes at the application level. See the samples application `/api/write-file`
+  endpoint for a working example.
 
 Note that pod 0 restarts last during rolling updates, but while it restarts write requests fail:
 clients should retry. Also mind that after a write, replicas may briefly serve stale reads (see

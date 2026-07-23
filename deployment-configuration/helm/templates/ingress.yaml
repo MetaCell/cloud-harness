@@ -9,6 +9,10 @@
       {{- if and $app.harness.secured $secured_gatekeepers $app.harness.uri_role_mapping (eq $app.harness.gateway.pathType "Prefix") }}
         {{- range $mapping := $app.harness.uri_role_mapping }}
           {{- if and (hasKey $mapping "white-listed") (index $mapping "white-listed") }}
+            {{- /* White-listed uris bypass the gatekeeper; the ones declaring a write method are
+                  routed to the leader (pod 0) service of a statefulset deployment. */}}
+            {{- $isWrite := and $app.harness.deployment.statefulset $mapping.methods (or (has "POST" $mapping.methods) (has "PUT" $mapping.methods) (has "PATCH" $mapping.methods) (has "DELETE" $mapping.methods)) }}
+            {{- $backendService := ternary (printf "%s-rw" $app.harness.service.name) $app.harness.service.name (not (not $isWrite)) }}
             {{- $uri := $mapping.uri }}
             {{- if and (ne $uri "/") (ne $uri "/*") }}
               {{- if hasSuffix "/*" $uri }}
@@ -18,7 +22,7 @@
         pathType: Prefix
         backend:
           service:
-            name: {{ $app.harness.service.name | quote }}
+            name: {{ $backendService | quote }}
             port:
               number: {{ $app.harness.service.port | default 80 }}
               {{- else if (not (contains "*" $uri)) }}
@@ -27,7 +31,7 @@
         pathType: ImplementationSpecific
         backend:
           service:
-            name: {{ $app.harness.service.name | quote }}
+            name: {{ $backendService | quote }}
             port:
               number: {{ $app.harness.service.port | default 80 }}
               {{- end }}
