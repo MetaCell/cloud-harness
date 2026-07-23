@@ -24,8 +24,11 @@ def get_dsn(appname):
         dsn = get_dsn('notifications')
     """
     url = get_common_service_cluster_address() + f'/api/sentry/getdsn/{appname}'
-    response = requests.get(url, verify=False).json()
-    dsn = response['dsn']
+    try:
+        response = requests.get(url, verify=False, timeout=5).json()
+        dsn = response.get('dsn')
+    except Exception:
+        return None
     if dsn and len(dsn) > 0:
         return dsn
     else:

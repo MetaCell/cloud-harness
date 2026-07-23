@@ -14,8 +14,7 @@ spec:
 ---
 {{- end }}
 {{- define "deploy_utils.database" }}
-{{- $postgres := .app.harness.database.postgres | default dict }}
-{{- if and (eq .app.harness.database.type "postgres") $postgres.operator }}
+{{- if and (eq .app.harness.database.type "postgres") (dig "postgres" "operator" false .app.harness.database) }}
 {{- include "deploy_utils.database.postgres.operator" . }}
 {{- else }}
 ---
