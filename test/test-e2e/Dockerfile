@@ -8,8 +8,8 @@ WORKDIR /home/test
 RUN npx puppeteer browsers install chrome 
 
 USER pptruser
-COPY package.json . 
-COPY yarn.lock . 
+COPY --chown=pptruser package.json .
+COPY --chown=pptruser yarn.lock .
 RUN yarn install --timeout 99999999
 
 COPY --chown=pptruser . . 
