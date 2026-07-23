@@ -1,0 +1,67 @@
+load('ext://namespace', 'namespace_create', "namespace_inject")
+
+
+def deploy(name, namespace, extra_env, watch):
+
+    # create namespaces
+    namespace_create(namespace)
+
+    # load helm chart
+    yaml = decode_yaml_stream(helm(
+        "deployment/helm",
+        # The release name, equivalent to helm --name
+        name=name,
+        # The namespace to install in, equivalent to helm --namespace
+        namespace=namespace,
+        # The values file to substitute into the chart.
+        values=["deployment/helm/values.yaml"],
+        # Values to set from the command-line
+        set=["service.port=1234", "ingress.enabled=true"]
+        )
+    )
+
+    source_root = os.path.abspath(os.getcwd())
+    # modify deployments
+    for r in yaml:
+        if r.get("kind") == "Deployment":
+            deployment_name = r["metadata"]["name"]
+            print("+ patching deployment:", deployment_name)
+            r["spec"]["template"]["spec"].setdefault("volumes", []).append({
+                "name": name + "-root",
+                "hostPath": {
+                    "path": source_root
+                }
+            })
+            for container in r["spec"]["template"]["spec"]["containers"]:
+                print("  + modifying container:", container["name"])
+                print("    - add " + name + " root folder")
+                container.setdefault("volumeMounts", []).append({
+                    "mountPath": "/usr/src/" + name,
+                    "name": name + "-root"
+                })
+                if "resources" in container:
+                    print("    - modifying resource requests and limits")
+                    if "limits" not in container["resources"]:
+                        container["resources"]["limits"] = {}
+                    if "requests" not in container["resources"]:
+                        container["resources"]["requests"] = {}
+                        container["resources"]["requests"]["cpu"] = "100m"
+                        container["resources"]["requests"]["memory"] = "256Mi"
+                    container["resources"]["limits"]["cpu"] = "8000m"
+                    container["resources"]["limits"]["memory"] = "4096Mi"
+
+                if deployment_name in extra_env and len(extra_env[deployment_name]) > 0:
+                    print("Adding tasks images dependencies to env ", deployment_name)
+                    for env in extra_env[deployment_name]:
+                        container["env"].append({
+                            "name": env, "value": env
+                        })
+
+    if not watch:
+        # don't watch mnp folder
+        watch_settings(ignore=source_root)
+    else:
+        print("Watching for file changes")
+
+    # install applications
+    k8s_yaml(namespace_inject(encode_yaml_stream(yaml), namespace))

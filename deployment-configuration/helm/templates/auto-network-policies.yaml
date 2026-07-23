@@ -117,7 +117,7 @@ spec:
           protocol: UDP
         - port: 53
           protocol: TCP
-    {{- if and (eq .app.harness.database.type "postgres") .app.harness.database.postgres.operator }}
+    {{- if and (eq .app.harness.database.type "postgres") (dig "postgres" "operator" false .app.harness.database) }}
     # Allow CNPG pods to reach the Kubernetes API server
     {{- $apiCidrs := list }}
     {{- $kubeSvc := (lookup "v1" "Service" "default" "kubernetes") }}

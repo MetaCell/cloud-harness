@@ -105,6 +105,8 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/kafka
           name: data
+      securityContext:
+        fsGroup: 1000
       terminationGracePeriodSeconds: 30
   updateStrategy:
     type: RollingUpdate

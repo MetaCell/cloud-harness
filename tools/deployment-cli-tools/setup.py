@@ -28,6 +28,7 @@ REQUIREMENTS = [
     'cloudharness_model',
     'cloudharness_utils',
     'dirhash',
+    'jinja2',
     "StrEnum ; python_version < '3.11'",
 ]
 
