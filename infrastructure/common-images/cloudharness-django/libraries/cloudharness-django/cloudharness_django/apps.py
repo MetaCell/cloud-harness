@@ -42,6 +42,21 @@ class cloudharness_djangoConfig(AppConfig):
         if os.environ.get("CLOUDHARNESS_DISABLE_EVENT_LISTENER", "").lower() in ("1", "true", "yes"):
             return
 
+        # Only start the listener when the events (Kafka) service is part of the
+        # deployment. Without it there is no broker, so the listener would just
+        # crash-loop on NoBrokersAvailable. Treat a missing (or undeterminable)
+        # events app as "events disabled" and skip startup entirely.
+        try:
+            from cloudharness.applications import get_configuration
+            get_configuration("events")
+        except Exception:
+            from cloudharness import log
+            log.info(
+                "Events service is not part of the deployment; "
+                "skipping the Kafka event listener."
+            )
+            return
+
         if cloudharness_djangoConfig._listener_started:
             return
         cloudharness_djangoConfig._listener_started = True
