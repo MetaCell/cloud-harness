@@ -11,11 +11,22 @@ metadata:
     {{- end }}
 {{- include "deploy_utils.labels" .root | indent 4 }}
 spec:
+  {{- if .app.harness.deployment.volume }}
+  {{- if or (not (hasKey .app.harness.deployment.volume "usenfs")) (not .app.harness.deployment.volume.usenfs) }}
+  # A ReadWriteOnce volume attaches to a single node and the pod is pinned to the
+  # volume's node via podAffinity (see below). Recreate terminates the old pod
+  # before starting the new one, avoiding an unschedulable pod when the node can't
+  # fit both. NFS (ReadWriteMany) volumes have no pinning and can roll normally.
+  # Nested ifs (not a flat 'and'): helm < 3.10 (go < 1.18) does not short-circuit,
+  # so hasKey must not run on a nil volume.
+  strategy:
+    type: Recreate
+  {{- end }}
+  {{- end }}
   replicas: {{ .app.harness.deployment.replicas | default 1 }}
   selector:
     matchLabels:
       app: {{ .app.harness.deployment.name| quote }}
-{{- include "deploy_utils.labels" .root | indent 6 }}
   template:
     metadata:
       {{- if .app.harvest }}
@@ -30,9 +41,11 @@ spec:
         {{- end }}
 {{- include "deploy_utils.labels" .root | indent 8 }}
     spec:
-      {{- if and .root.Values.registry.secret .root.Values.registry.secret.name (contains .root.Values.registry.name .app.harness.deployment.image) }}
+      {{- if .root.Values.registry.secret }}
+      {{- if and .root.Values.registry.secret.name (contains .root.Values.registry.name .app.harness.deployment.image) }}
       imagePullSecrets:
       - name: {{ .root.Values.registry.secret.name }}
+      {{- end }}
       {{- end }}
       {{- if and .app.harness.deployment.volume }}
       {{- if or (not (hasKey .app.harness.deployment.volume "usenfs")) (not .app.harness.deployment.volume.usenfs) }}

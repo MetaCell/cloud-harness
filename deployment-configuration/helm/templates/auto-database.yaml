@@ -14,7 +14,7 @@ spec:
 ---
 {{- end }}
 {{- define "deploy_utils.database" }}
-{{- if and (eq .app.harness.database.type "postgres") .app.harness.database.postgres.operator }}
+{{- if and (eq .app.harness.database.type "postgres") (dig "postgres" "operator" false .app.harness.database) }}
 {{- include "deploy_utils.database.postgres.operator" . }}
 {{- else }}
 ---
@@ -38,6 +38,11 @@ metadata:
   labels:
     usesvolume: {{ .app.harness.database.name }}-{{ .root.Values.namespace }}
 spec:
+  # The database's ReadWriteOnce volume attaches to a single node and the pod is
+  # pinned to it via podAffinity. Recreate terminates the old pod before starting
+  # the new one, avoiding an unschedulable pod when the node can't fit both.
+  strategy:
+    type: Recreate
   replicas: 1
   selector:
     matchLabels:

@@ -365,6 +365,66 @@ def test_cnpg_postgres_parameters_render_only_when_set(tmp_path):
     assert 'postgresql' not in cluster['spec']
 
 
+def test_gatekeeper_native_configuration_rendering_and_checksum(tmp_path):
+    out_folder = tmp_path / 'test_gatekeeper_native_configuration'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                      local=False, tls=True, include=["myapp", "accounts"], exclude=["legacy"])
+
+    helm_path = out_folder / HELM_CHART_PATH
+    shutil.rmtree(helm_path / 'charts')
+    values_path = helm_path / 'values.yaml'
+    with open(values_path, 'r') as values_file:
+        values = yaml.safe_load(values_file)
+
+    app_harness = values['apps']['myapp']['harness']
+    app_harness['secured'] = True
+    app_harness['proxy']['gatekeeper']['configuration'] = {
+        'same-site-cookie': 'None',
+        'enable-pkce': False,
+        'http-only-cookie': True,
+        'cors-exposed-headers': ['X-Request-ID', 'X-Trace-ID'],
+    }
+    values['proxy']['gatekeeper']['configuration'] = {
+        'same-site-cookie': 'Strict',
+        'enable-pkce': True,
+        'max-token-size': 65536,
+    }
+
+    def render_gatekeeper():
+        with open(values_path, 'w') as values_file:
+            yaml.safe_dump(values, values_file)
+        manifests = render_helm_chart(helm_path)
+        config = find_manifest(manifests, 'ConfigMap', 'mysubdomain-gk')
+        deployment = find_manifest(manifests, 'Deployment', 'mysubdomain-gk')
+        return (
+            yaml.safe_load(config['data']['proxy.yml']),
+            deployment['spec']['template']['metadata']['annotations']['checksum/config'],
+        )
+
+    tls_config, tls_checksum = render_gatekeeper()
+    assert tls_config['secure-cookie'] is True
+    assert tls_config['same-site-cookie'] == 'None'
+    assert tls_config['enable-pkce'] is False
+    assert tls_config['http-only-cookie'] is True
+    assert tls_config['max-token-size'] == 65536
+    assert tls_config['cors-exposed-headers'] == ['X-Request-ID', 'X-Trace-ID']
+
+    values['tls'] = False
+    non_tls_config, non_tls_checksum = render_gatekeeper()
+    assert non_tls_config['secure-cookie'] is False
+    assert non_tls_config['same-site-cookie'] == 'Lax'
+    assert non_tls_config['enable-pkce'] is False
+    assert non_tls_config['max-token-size'] == 65536
+    assert non_tls_checksum != tls_checksum
+
+    values['tls'] = True
+    app_harness['proxy']['gatekeeper']['configuration'].pop('same-site-cookie')
+    inherited_config, inherited_checksum = render_gatekeeper()
+    assert inherited_config['same-site-cookie'] == 'Strict'
+    assert inherited_config['enable-pkce'] is False
+    assert inherited_checksum != tls_checksum
+
+
 def test_clear_all_dbconfig_if_nodb(tmp_path):
     out_folder = tmp_path / 'test_clear_all_dbconfig_if_nodb'
 

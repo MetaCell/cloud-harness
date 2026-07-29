@@ -41,7 +41,7 @@ steps:
     environment:
       - ACTION=auth
       - KUBE_CONTEXT=${{NAMESPACE}}
-    image: codefresh/cfstep-helm:3.6.2
+    image: codefresh/cfstep-helm:3.14.4
     stage: prepare
     title: "View helm chart"
   deployment:
@@ -50,7 +50,7 @@ steps:
     working_directory: ./${{CF_REPO_NAME}}
     title: Installing chart
     arguments:
-      helm_version: 3.6.2
+      helm_version: 3.14.4
       chart_name: deployment/helm
       release_name: ${{NAMESPACE}}
       kube_context: ${{CLUSTER_NAME}}
