@@ -36,11 +36,114 @@ Secret editing/maintenance alternatives:
 * Using Helm to set/overwrite the secret's value `helm ... --set apps.<appname>.harness.secrets.<secret>=<value>`
 * Using kubernetes secret edit `kubectl edit secret <secret>`
 
+## Secret managers
+
+The values above are managed by CloudHarness itself. A secret can instead be delegated to a
+secret manager, by replacing the plain value with a definition object:
+
+```yaml
+harness:
+  secrets:
+    mySecret:
+      manager: onepassword
+      default: "a value"
+      path: vaults/my-vault/items/my-item
+```
+
+* `manager` selects who provides the value. When the key is missing, or is set to
+  `cloudharness`, everything works exactly as described above, so the two forms are
+  interchangeable: `mySecret: 'a value'` and `mySecret: {default: 'a value'}` are equivalent.
+* `manager` set explicitly to null means **unmanaged**: CloudHarness renders nothing at all
+  and assumes the secret entry already exists. Create it out of band, for instance with
+  `kubectl edit secret <appname>`. The application secret is mounted as optional in that
+  case, so a missing entry surfaces as a `SecretNotFound` at runtime rather than blocking
+  the pod from starting.
+* `default` is the value used by the `cloudharness` manager, and the fallback used when the
+  secret manager is not available, as in local docker compose deployments. It follows the
+  same conventions as a plain value, including `""` and `?`.
+* Any other entry is manager specific: 1Password needs the item `path`, AWS needs the
+  secret `arn`, and so on.
+
+Whatever the manager, all the secrets of an application are exposed as files in the same
+directory, so `get_secret` keeps working unchanged.
+
+When moving an existing secret from `cloudharness` to another manager, delete the entry from
+the application secret (`kubectl edit secret <appname>`) as part of the upgrade. CloudHarness
+stops rendering the entry but does not remove the value already stored in the cluster, and
+having it both in the application secret and in the one created by the manager makes the pod
+fail to mount its secrets directory.
+
+Secrets handled by a manager other than `cloudharness` are never exported as Codefresh
+pipeline variables: their value does not come from the pipeline.
+
+### Built-in managers
+
+**`onepassword`** — through the
+[1Password Kubernetes Operator](https://developer.1password.com/docs/k8s/k8s-operator/),
+which must be installed in the cluster.
+
+```yaml
+harness:
+  secrets:
+    mySecret:
+      manager: onepassword
+      # full item path, or just the item name when a default vault is configured
+      path: vaults/my-vault/items/my-item
+      # item field holding the value, `password` when not set
+      field: password
+```
+
+**`aws`** — AWS Secrets Manager, through the
+[External Secrets Operator](https://external-secrets.io/), which must be installed in the
+cluster together with a store pointing to AWS.
+
+```yaml
+harness:
+  secrets:
+    mySecret:
+      manager: aws
+      arn: arn:aws:secretsmanager:eu-west-1:123456789012:secret:my-secret
+      # optional json property of the remote secret
+      property: password
+```
+
+Settings shared by all the secrets of a manager are configured once for the whole
+deployment in the `secretmanagers` section of the root `values.yaml`, and can be overridden
+secret by secret. This section is plain deployment configuration and ends up in the
+`cloudharness-allvalues` config map: never put credentials in it, the manager authenticates
+through its own operator configuration.
+
+```yaml
+secretmanagers:
+  onepassword:
+    vault: my-vault
+  aws:
+    store: aws-secrets-manager
+    storeKind: ClusterSecretStore
+    refreshInterval: 1h
+```
+
+### Adding a secret manager
+
+A manager named `X` is defined by two Helm templates, which can be added by CloudHarness or
+by any application in its `deploy/templates` folder:
+
+* `deploy_utils.secretmanager.X.resource` renders the Kubernetes resources materializing
+  the secret.
+* `deploy_utils.secretmanager.X.ref` outputs `<kubernetes secret name>/<key>`, telling
+  CloudHarness where the value ends up, so that it can be mounted with the other secrets of
+  the application.
+
+Both are called once per secret with the context
+`(dict "root" $ "app" $app "name" <secret name> "spec" <secret definition> "resourceName" <name to use for the resource>)`.
+See `deployment-configuration/helm/templates/_secrets.tpl` for the built-in
+implementations.
+
 ## Secrets in Codefresh pipelines
 
-Secrets defined under `harness.secrets` are also exported as deployment variables in the automatically
-generated Codefresh pipeline.  When the deployment step is assembled, each secret name is transformed
-before being referenced in the pipeline:
+Secrets defined under `harness.secrets` and handled by the `cloudharness` manager are also exported as
+deployment variables in the automatically generated Codefresh pipeline. When the deployment step is
+assembled, each secret name is transformed before being referenced in the pipeline:
 
 - Any underscore (`_`) in the secret name is replaced by a double underscore (`__`).
 - The resulting string is converted to upper case to form the environment variable name.
@@ -54,6 +157,9 @@ custom_values:
 ```
 
 The same underscore replacement is applied to the application name in the `custom_values` entry.
+
+Secrets declared in the rich form have their value nested under `default`, so the entry becomes
+`apps_<appname>_harness_secrets_db__password_default=${{DB__PASSWORD}}`.
 
 ## Secret usage in Python backend apps
 

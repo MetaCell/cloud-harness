@@ -18,6 +18,7 @@ from cloudharness_utils.constants import TEST_IMAGES_PATH, HELM_CHART_PATH, APPS
 from .utils import get_cluster_ip, env_variable, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
     get_template, merge_configuration_directories, dict_merge, app_name_from_path, \
     find_dockerfiles_paths, get_git_commit_hash
+from .secrets import secret_definition_error
 
 
 KEY_HARNESS = 'harness'
@@ -643,6 +644,20 @@ class ValuesValidationException(Exception):
 
 def validate_helm_values(values):
     validate_dependencies(values)
+    validate_secrets(values)
+
+
+def validate_secrets(values):
+    for app, app_values in values["apps"].items():
+        secrets = app_values[KEY_HARNESS].get("secrets") or {}
+        if not isinstance(secrets, dict):
+            raise ValuesValidationException(
+                f"Bad secrets specified for application {app}: expected a map of secret definitions")
+        for name, definition in secrets.items():
+            error = secret_definition_error(definition)
+            if error:
+                raise ValuesValidationException(
+                    f"Bad definition for secret {name} of application {app}: {error}")
 
 
 def validate_dependencies(values):

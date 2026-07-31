@@ -3,6 +3,7 @@ from ch_cli_tools.preprocessing import preprocess_build_overrides
 from ch_cli_tools.helm import *
 from ch_cli_tools.configurationgenerator import *
 from ch_cli_tools.codefresh import *
+from ch_cli_tools.secrets import is_cloudharness_managed, is_secret_config, secret_manager, secret_value
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')
@@ -951,3 +952,80 @@ def test_codefresh_working_directory_uses_cloned_cloud_harness():
             finally:
                 os.chdir(old_cwd)
                 shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
+def test_codefresh_secret_managers():
+    """Only the secrets handled by CloudHarness are exported as pipeline variables"""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['myapp'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+
+        values.apps["myapp"].harness.secrets = {
+            "plain_secret": None,
+            "static_random": "",
+            "rich_secret": {"default": None},
+            "rich_static_random": {"manager": "cloudharness", "default": ""},
+            "op_secret": {"manager": "onepassword", "path": "vaults/v/items/i"},
+            "unmanaged_secret": {"manager": None},
+        }
+
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 envs=['dev'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+
+        custom_values = [value for value in cf['steps']['deployment']['arguments']['custom_values']
+                         if value.startswith("apps_myapp_harness_secrets_")]
+        assert custom_values == [
+            'apps_myapp_harness_secrets_plain__secret="${{PLAIN__SECRET}}"',
+            # the rich form nests the value under `default`
+            'apps_myapp_harness_secrets_rich__secret_default="${{RICH__SECRET}}"',
+        ]
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
+def test_codefresh_secret_managers_from_parsed_values():
+    """Secrets read back from a parsed configuration are wrapped in the generated
+    SecretDefinition union model: the helpers must see through it, or a manager delegated
+    secret would be exported to the pipeline and overwritten by its value"""
+    harness = ApplicationHarnessConfig.from_dict({
+        'name': 'myapp',
+        'secrets': {
+            'plain_secret': None,
+            'static_random': '',
+            'rich_secret': {'default': None},
+            'op_secret': {'manager': 'onepassword', 'path': 'vaults/v/items/i'},
+            'unmanaged_secret': {'manager': None},
+        },
+    })
+
+    definitions = harness.secrets
+    assert type(definitions['op_secret']).__name__ == 'SecretDefinition', \
+        "the test must exercise the wrapped form, not raw values"
+
+    assert secret_manager(definitions['op_secret']) == 'onepassword'
+    assert secret_manager(definitions['unmanaged_secret']) is None
+    assert secret_manager(definitions['plain_secret']) == 'cloudharness'
+    assert not is_cloudharness_managed(definitions['op_secret'])
+    assert is_secret_config(definitions['rich_secret'])
+    assert not is_secret_config(definitions['plain_secret'])
+    assert secret_value(definitions['static_random']) == ''

@@ -407,3 +407,18 @@ def test_collect_compose_values_auto_tag(tmp_path):
         assert v1 != values.apps['myapp'].harness.deployment.image, "2 levels dependency: If a base image dependency is changed, the hash should change"
     finally:
         fname.unlink()
+
+
+@pytest.mark.skipif(not HELM_IS_INSTALLED, reason="helm is not installed")
+def test_compose_secrets_use_local_defaults(tmp_path):
+    """Secret managers are not available locally: compose falls back to the secret defaults"""
+    out_folder = tmp_path / 'test_compose_secrets_use_local_defaults'
+    create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder,
+                                        include=['myapp'], exclude=['events', 'legacy'], domain="my.local",
+                                        namespace='test', env='secrets', local=False, tag=1, registry='reg')
+
+    generated = out_folder / COMPOSE_PATH / 'resources' / 'generated' / 'auth'
+    assert (generated / 'plainSecret').read_text() == 'a value'
+    assert (generated / 'richSecret').read_text() == 'a local value'
+    # nothing is known locally about an unmanaged secret: a random value is generated
+    assert len((generated / 'unmanagedSecret').read_text()) == 20
