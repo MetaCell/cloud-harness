@@ -1,17 +1,29 @@
 name: Test
 
 on:
+  # develop itself, so the state after a merge is tested
   push:
     branches: [ develop ]
+  # Pull requests targeting develop. This also covers every push to the branch of an open
+  # pull request, through the `synchronize` event, so branches without one are not tested.
   pull_request:
     branches: [ develop ]
+
+# Supersede in-flight runs of the same branch or pull request
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
     steps:
+      # On a pull request, check out the branch as it was pushed. The default is the merge
+      # commit with the base branch, which tests a tree that exists nowhere else.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - uses: actions/setup-python@v5
         with:
