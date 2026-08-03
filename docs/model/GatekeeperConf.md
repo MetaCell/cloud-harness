@@ -10,6 +10,7 @@ Name | Type | Description | Notes
 **replicas** | **int** |  | [optional] 
 **resources** | [**DeploymentResourcesConf**](DeploymentResourcesConf.md) |  | [optional] 
 **secret** | **str** |  | [optional] 
+**configuration** | **Dict[str, Any]** | Native Gatekeeper proxy.yml settings, keyed by the kebab-case names from the Gatekeeper configuration reference. Application values override global values and CloudHarness-generated defaults. | [optional]
 
 ## Example
 
@@ -29,5 +30,3 @@ gatekeeper_conf_dict = gatekeeper_conf_instance.to_dict()
 gatekeeper_conf_from_dict = GatekeeperConf.from_dict(gatekeeper_conf_dict)
 ```
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
-
-
