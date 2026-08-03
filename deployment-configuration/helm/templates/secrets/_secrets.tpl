@@ -34,9 +34,24 @@ A secret manager named `X` is implemented by defining two templates:
     CloudHarness where the value ends up so that it can be mounted with the application secrets.
 
 Both are called with the context
+
   (dict "root" $ "app" $app "name" <secret name> "spec" <secret definition> "resourceName" <sanitized name>)
 
-Managers can be added by CloudHarness or by any application: templates defined in
+where `spec` is the secret definition, holding the manager specific settings, and
+`resourceName` is a name safe to give to the resources materializing the secret.
+`deploy_utils.secretManagerSetting` reads a setting from the definition, falling back to
+the manager's deployment wide configuration under `secretmanagers.X` in the root values.
+
+The manager is looked up by name at render time, so an unknown manager fails with
+`no template "deploy_utils.secretmanager.X.resource"`.
+
+One file per manager lives in `managers/`, each documenting its cluster prerequisites, its
+settings and what it renders:
+
+  * `managers/onepassword.tpl`: 1Password, through the 1Password Kubernetes Operator
+  * `managers/aws.tpl`: AWS Secrets Manager, through the External Secrets Operator
+
+Managers can equally be added by any application: templates under
 `<application>/deploy/templates` are collected into the same chart and therefore share the
 same template namespace.
 */}}
@@ -205,109 +220,4 @@ Usage: {{ include "deploy_utils.secretManagerResources" (dict "root" $root "app"
 {{ include (printf "deploy_utils.secretmanager.%s.resource" $manager) $context }}
   {{- end }}
 {{- end }}
-{{- end -}}
-
-{{/*
-Built-in manager: 1Password, through the 1Password Kubernetes Operator.
-
-  harness:
-    secrets:
-      mySecret:
-        manager: onepassword
-        # full item path, or just the item name when `secretmanagers.onepassword.vault` is set
-        path: vaults/my-vault/items/my-item
-        # item field holding the value, `password` when not set
-        field: password
-
-The operator creates one Secret per OnePasswordItem, named after it, with the item fields as keys.
-*/}}
-{{- define "deploy_utils.secretmanager.onepassword.resource" -}}
-{{- $conf := dict -}}
-{{- if kindIs "map" .root.Values.secretmanagers -}}
-  {{- if kindIs "map" (index .root.Values.secretmanagers "onepassword") -}}
-    {{- $conf = index .root.Values.secretmanagers "onepassword" -}}
-  {{- end -}}
-{{- end -}}
-{{- $path := include "deploy_utils.secretManagerSetting" (dict "spec" .spec "conf" dict "key" "path" "default" "") -}}
-{{- if not $path -}}
-  {{- fail (printf "Secret %s of application %s: the onepassword manager requires a 'path'" .name .app.harness.name) -}}
-{{- end -}}
-{{- if not (contains "/" $path) -}}
-  {{- $vault := include "deploy_utils.secretManagerSetting" (dict "spec" .spec "conf" $conf "key" "vault" "default" "") -}}
-  {{- if not $vault -}}
-    {{- fail (printf "Secret %s of application %s: the onepassword 'path' must be a full item path, or 'secretmanagers.onepassword.vault' must be set" .name .app.harness.name) -}}
-  {{- end -}}
-  {{- $path = printf "vaults/%s/items/%s" $vault $path -}}
-{{- end -}}
-apiVersion: {{ include "deploy_utils.secretManagerSetting" (dict "spec" .spec "conf" $conf "key" "apiVersion" "default" "onepassword.com/v1") }}
-kind: OnePasswordItem
-metadata:
-  name: {{ .resourceName }}
-  namespace: {{ .root.Values.namespace }}
-  labels:
-    app: {{ .app.harness.deployment.name }}
-spec:
-  itemPath: {{ $path | quote }}
-{{- end -}}
-
-{{- define "deploy_utils.secretmanager.onepassword.ref" -}}
-{{- printf "%s/%s" .resourceName (include "deploy_utils.secretManagerSetting" (dict "spec" .spec "conf" dict "key" "field" "default" "password")) -}}
-{{- end -}}
-
-{{/*
-Built-in manager: AWS Secrets Manager, through the External Secrets Operator.
-
-  harness:
-    secrets:
-      mySecret:
-        manager: aws
-        arn: arn:aws:secretsmanager:eu-west-1:123456789012:secret:my-secret
-        # optional json property of the remote secret
-        property: password
-
-The store is normally shared by the whole deployment and set in
-`secretmanagers.aws.store` / `secretmanagers.aws.storeKind`.
-*/}}
-{{- define "deploy_utils.secretmanager.aws.resource" -}}
-{{- $conf := dict -}}
-{{- if kindIs "map" .root.Values.secretmanagers -}}
-  {{- if kindIs "map" (index .root.Values.secretmanagers "aws") -}}
-    {{- $conf = index .root.Values.secretmanagers "aws" -}}
-  {{- end -}}
-{{- end -}}
-{{- $arn := include "deploy_utils.secretManagerSetting" (dict "spec" .spec "conf" dict "key" "arn" "default" "") -}}
-{{- if not $arn -}}
-  {{- fail (printf "Secret %s of application %s: the aws manager requires an 'arn'" .name .app.harness.name) -}}
-{{- end -}}
-{{- $store := include "deploy_utils.secretManagerSetting" (dict "spec" .spec "conf" $conf "key" "store" "default" "") -}}
-{{- if not $store -}}
-  {{- fail (printf "Secret %s of application %s: the aws manager requires a 'store', set it in 'secretmanagers.aws.store'" .name .app.harness.name) -}}
-{{- end -}}
-{{- $property := include "deploy_utils.secretManagerSetting" (dict "spec" .spec "conf" dict "key" "property" "default" "") -}}
-apiVersion: {{ include "deploy_utils.secretManagerSetting" (dict "spec" .spec "conf" $conf "key" "apiVersion" "default" "external-secrets.io/v1beta1") }}
-kind: ExternalSecret
-metadata:
-  name: {{ .resourceName }}
-  namespace: {{ .root.Values.namespace }}
-  labels:
-    app: {{ .app.harness.deployment.name }}
-spec:
-  refreshInterval: {{ include "deploy_utils.secretManagerSetting" (dict "spec" .spec "conf" $conf "key" "refreshInterval" "default" "1h") | quote }}
-  secretStoreRef:
-    name: {{ $store }}
-    kind: {{ include "deploy_utils.secretManagerSetting" (dict "spec" .spec "conf" $conf "key" "storeKind" "default" "ClusterSecretStore") }}
-  target:
-    name: {{ .resourceName }}
-    creationPolicy: Owner
-  data:
-    - secretKey: value
-      remoteRef:
-        key: {{ $arn | quote }}
-        {{- if $property }}
-        property: {{ $property | quote }}
-        {{- end }}
-{{- end -}}
-
-{{- define "deploy_utils.secretmanager.aws.ref" -}}
-{{- printf "%s/value" .resourceName -}}
 {{- end -}}

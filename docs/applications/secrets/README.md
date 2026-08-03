@@ -78,33 +78,24 @@ pipeline variables: their value does not come from the pipeline.
 
 ### Built-in managers
 
-**`onepassword`** — through the
-[1Password Kubernetes Operator](https://developer.1password.com/docs/k8s/k8s-operator/),
-which must be installed in the cluster.
+Every manager relies on an operator running in the cluster: CloudHarness renders the custom
+resources, the operator is what reaches the external service. Each manager has its own page
+covering the cluster setup, its settings and what it renders.
+
+| Manager | Reads from | Needs | Page |
+| --- | --- | --- | --- |
+| `onepassword` | 1Password | [1Password Kubernetes Operator](https://developer.1password.com/docs/k8s/k8s-operator/) | [managers/onepassword.md](./managers/onepassword.md) |
+| `aws` | AWS Secrets Manager | [External Secrets Operator](https://external-secrets.io/) | [managers/aws.md](./managers/aws.md) |
 
 ```yaml
 harness:
   secrets:
-    mySecret:
+    fromOnePassword:
       manager: onepassword
-      # full item path, or just the item name when a default vault is configured
       path: vaults/my-vault/items/my-item
-      # item field holding the value, `password` when not set
-      field: password
-```
-
-**`aws`** — AWS Secrets Manager, through the
-[External Secrets Operator](https://external-secrets.io/), which must be installed in the
-cluster together with a store pointing to AWS.
-
-```yaml
-harness:
-  secrets:
-    mySecret:
+    fromAws:
       manager: aws
       arn: arn:aws:secretsmanager:eu-west-1:123456789012:secret:my-secret
-      # optional json property of the remote secret
-      property: password
 ```
 
 Settings shared by all the secrets of a manager are configured once for the whole
@@ -135,9 +126,17 @@ by any application in its `deploy/templates` folder:
   the application.
 
 Both are called once per secret with the context
-`(dict "root" $ "app" $app "name" <secret name> "spec" <secret definition> "resourceName" <name to use for the resource>)`.
-See `deployment-configuration/helm/templates/_secrets.tpl` for the built-in
-implementations.
+`(dict "root" $ "app" $app "name" <secret name> "spec" <secret definition> "resourceName" <name to use for the resource>)`,
+where `spec` carries the manager specific settings and `resourceName` is a name safe to
+give to the rendered resources. Use `deploy_utils.secretManagerSetting` to read a setting
+from the secret, falling back to the manager's `secretmanagers.X` section.
+
+Each built-in manager lives in its own file under
+`deployment-configuration/helm/templates/secrets/managers/`, documenting its cluster
+prerequisites, its settings and what it renders — `onepassword.tpl` and `aws.tpl` are the
+two to copy from, with [managers/onepassword.md](./managers/onepassword.md) and
+[managers/aws.md](./managers/aws.md) as the matching pages. The framework itself is in
+`deployment-configuration/helm/templates/secrets/_secrets.tpl`.
 
 ## Secrets in Codefresh pipelines
 
