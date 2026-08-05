@@ -30,6 +30,9 @@ Per secret settings
 -------------------
   arn        required. ARN, or plain name, of the secret in AWS Secrets Manager. Becomes
              the operator's `remoteRef.key`.
+  version    optional. Pins the secret to a `VersionStage` (e.g. `AWSCURRENT`,
+             `AWSPREVIOUS`), or to a `VersionId` when prefixed with `uuid/`. Without it,
+             the operator resolves `AWSCURRENT`.
   property   optional. Key to extract when the AWS secret holds a JSON document. Without
              it, the whole remote value is used.
   store      optional here, normally set deployment wide (see below).
@@ -84,6 +87,7 @@ Rendering fails when `arn` is missing, and when no store is configured.
 {{- if not $store -}}
   {{- fail (printf "Secret %s of application %s: the aws manager requires a 'store', set it in 'secretmanagers.aws.store'" .name .app.harness.name) -}}
 {{- end -}}
+{{- $version := include "deploy_utils.secretManagerSetting" (dict "spec" .spec "conf" dict "key" "version" "default" "") -}}
 {{- $property := include "deploy_utils.secretManagerSetting" (dict "spec" .spec "conf" dict "key" "property" "default" "") -}}
 apiVersion: {{ include "deploy_utils.secretManagerSetting" (dict "spec" .spec "conf" $conf "key" "apiVersion" "default" "external-secrets.io/v1beta1") }}
 kind: ExternalSecret
@@ -104,6 +108,9 @@ spec:
     - secretKey: value
       remoteRef:
         key: {{ $arn | quote }}
+        {{- if $version }}
+        version: {{ $version | quote }}
+        {{- end }}
         {{- if $property }}
         property: {{ $property | quote }}
         {{- end }}

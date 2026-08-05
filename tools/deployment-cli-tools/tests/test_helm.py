@@ -794,6 +794,19 @@ def test_secrets_aws_manager(tmp_path):
     }
 
 
+def test_secrets_aws_manager_version(tmp_path):
+    """A `version` setting pins the secret to a VersionStage or VersionId"""
+    manifests = render_with_secrets(tmp_path, 'test_secrets_aws_manager_version', {
+        'awsSecret': {'manager': 'aws', 'arn': 'arn:aws:secretsmanager:eu-west-1:1:secret:mine', 'version': 'AWSPREVIOUS'},
+    }, secretmanagers={'aws': {'store': 'aws-store'}})
+
+    external = find_manifest(manifests, 'ExternalSecret', 'myapp-awssecret')
+    assert external['spec']['data'] == [{
+        'secretKey': 'value',
+        'remoteRef': {'key': 'arn:aws:secretsmanager:eu-west-1:1:secret:mine', 'version': 'AWSPREVIOUS'},
+    }]
+
+
 def test_secrets_mixed_managers(tmp_path):
     """CloudHarness and externally managed secrets are exposed in the same directory"""
     manifests = render_with_secrets(tmp_path, 'test_secrets_mixed_managers', {

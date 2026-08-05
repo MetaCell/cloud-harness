@@ -115,6 +115,7 @@ harness:
 | Setting | Required | Default | Meaning |
 | --- | --- | --- | --- |
 | `arn` | yes | — | ARN, or plain name, of the secret in AWS Secrets Manager. Becomes the operator's `remoteRef.key`. |
+| `version` | no | `AWSCURRENT` | Pins the secret to a `VersionStage` (e.g. `AWSPREVIOUS`), or to a `VersionId` when prefixed with `uuid/`. |
 | `property` | no | — | Key to extract when the AWS secret holds a JSON document. Without it the whole remote value is used. |
 | `store` | no | from `secretmanagers.aws` | Overrides the deployment wide store for this one secret. |
 | `default` | no | — | Value used for local docker compose deployments, where no operator exists. |
@@ -180,8 +181,9 @@ fixed `value` key. CloudHarness projects it into
 * **The store must exist before the release.** An `ExternalSecret` pointing at a missing
   store never produces its Secret, and the pod waits on the missing file. `kubectl describe
   externalsecret myapp-mysecret` reports the reason.
-* **Versioned secrets.** `remoteRef.key` resolves to the current version. Pin a stage or
-  version through the store or the ARN if you need a fixed one.
+* **Versioned secrets.** Without `version`, the operator resolves `AWSCURRENT`. Set
+  `version: AWSPREVIOUS` to pin a stage, or `version: uuid/<VersionId>` to pin an
+  immutable version.
 * **Moving an existing secret to this manager.** Delete the old entry from the application
   secret (`kubectl edit secret myapp`) as part of the upgrade, otherwise the same file is
   claimed twice and the pod fails to mount its secrets directory.
