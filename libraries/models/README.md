@@ -108,6 +108,8 @@ Class | Method | HTTP request | Description
  - [ProxyTimeoutConf](docs/ProxyTimeoutConf.md)
  - [RegistryConfig](docs/RegistryConfig.md)
  - [RegistrySecretConfig](docs/RegistrySecretConfig.md)
+ - [SecretConfig](docs/SecretConfig.md)
+ - [SecretDefinition](docs/SecretDefinition.md)
  - [ServiceAutoArtifactConfig](docs/ServiceAutoArtifactConfig.md)
  - [UnitTestsConfig](docs/UnitTestsConfig.md)
  - [UriRoleMappingConfig](docs/UriRoleMappingConfig.md)

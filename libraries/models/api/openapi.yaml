@@ -487,6 +487,57 @@ components:
             description: ''
             type: object
             additionalProperties: true
+        SecretsMap:
+            description: 'Application secrets, by name'
+            type: object
+            additionalProperties:
+                $ref: '#/components/schemas/SecretDefinition'
+            example:
+                unsecureSecret: a value
+                randomSecret: ''
+                managedSecret:
+                    manager: onepassword
+                    path: vaults/my-vault/items/my-item
+        SecretDefinition:
+            description: >-
+                An application secret, defined either as a plain value or as a secret
+                configuration object. A `string` (or null) is the secret value itself: empty or
+                null generates a random value, `?` generates a new random value at every
+                deployment. A `SecretConfig` object instead delegates the secret to a secret
+                manager, and carries the settings that manager needs.
+            anyOf:
+                - type: string
+                - $ref: '#/components/schemas/SecretConfig'
+        SecretConfig:
+            title: Root Type for SecretConfig
+            description: >-
+                Rich definition of an application secret, used in place of a plain value to
+                delegate the secret to a secret manager. Manager specific settings (e.g. `path`
+                for onepassword, `arn` for aws) are added next to the properties below.
+            type: object
+            properties:
+                manager:
+                    description: >-
+                        Name of the secret manager handling the secret. Defaults to `cloudharness`,
+                        which creates the value in the application secret. Set explicitly to null to
+                        leave the secret unmanaged: nothing is created and the secret is assumed to
+                        exist already.
+                    type: string
+                    nullable: true
+                    example: onepassword
+                default:
+                    description: >-
+                        Value used by the `cloudharness` manager and as a fallback when the secret
+                        manager is not available, as in local docker compose deployments. Follows the
+                        same conventions as a plain secret value: null or empty generates a random
+                        value once, `?` generates a new random value at every deployment.
+                    type: string
+                    nullable: true
+            additionalProperties: true
+            example:
+                manager: onepassword
+                default: a-value
+                path: vaults/my-vault/items/my-item
         Quota:
             description: ''
             type: object
@@ -1092,7 +1143,7 @@ components:
                     items:
                         $ref: '#/components/schemas/UriRoleMappingConfig'
                 secrets:
-                    $ref: '#/components/schemas/SimpleMap'
+                    $ref: '#/components/schemas/SecretsMap'
                     description: |-
                         Define secrets will be mounted in the deployment
 
@@ -1104,7 +1155,19 @@ components:
 
                         ```
 
-                        Values if left empty are randomly generated
+                        Values if left empty are randomly generated.
+
+                        A secret can also be defined in the rich form, to delegate it to a secret
+                        manager (see `SecretConfig`)
+
+                        ```yaml
+                        secrets:
+                            secret_name:
+                                manager: onepassword
+                                default: 'value'
+                                path: vaults/my-vault/items/my-item
+
+                        ```
                 use_services:
                     description: >-
                         Specify which services this application uses in the frontend to create proxy

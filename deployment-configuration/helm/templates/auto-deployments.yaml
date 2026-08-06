@@ -147,9 +147,7 @@ spec:
         {{- range $dep := concat .app.harness.dependencies.hard .app.harness.dependencies.soft }}
         {{- $depApp := index $root.Values.apps $dep }}
         {{- if $depApp.harness.secrets }}
-        - name: cloudharness-{{ $dep }}
-          secret:
-            secretName: {{ $dep }}
+        {{- include "deploy_utils.secretsVolume" (dict "root" $root "app" $depApp "name" (printf "cloudharness-%s" $dep) "secretName" $dep) | nindent 8 }}
         {{- end }}
         {{- end }}
         {{- if .app.harness.deployment.volume }}
@@ -164,9 +162,7 @@ spec:
             name: "{{ $app.harness.deployment.name }}-{{ $resource.name }}"
         {{- end }}
         {{- if .app.harness.secrets }}
-        - name: secrets
-          secret:
-            secretName: {{ .app.harness.deployment.name }}
+        {{- include "deploy_utils.secretsVolume" (dict "root" .root "app" .app "name" "secrets" "secretName" .app.harness.deployment.name) | nindent 8 }}
         {{- end }}
         {{- if kindIs "map" .app.harness.database }}
           {{- if and (hasKey .app.harness.database "connect_string") .app.harness.database.connect_string }}

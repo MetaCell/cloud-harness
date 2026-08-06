@@ -55,6 +55,8 @@ from cloudharness_model.models.proxy_payload_conf import ProxyPayloadConf
 from cloudharness_model.models.proxy_timeout_conf import ProxyTimeoutConf
 from cloudharness_model.models.registry_config import RegistryConfig
 from cloudharness_model.models.registry_secret_config import RegistrySecretConfig
+from cloudharness_model.models.secret_config import SecretConfig
+from cloudharness_model.models.secret_definition import SecretDefinition
 from cloudharness_model.models.service_auto_artifact_config import ServiceAutoArtifactConfig
 from cloudharness_model.models.unit_tests_config import UnitTestsConfig
 from cloudharness_model.models.uri_role_mapping_config import UriRoleMappingConfig

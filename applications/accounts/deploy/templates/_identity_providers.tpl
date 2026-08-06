@@ -14,8 +14,8 @@
         "firstBrokerLoginFlowAlias": "first broker login",
         "config": {
             "syncMode": "IMPORT",
-            "clientSecret": {{ .app.harness.secrets.github_clientSecret | default "<github_clientSecret>" | quote }},
-            "clientId": {{ .app.harness.secrets.github_clientId | default "<github_clientId>" | quote }},
+            "clientSecret": {{ include "deploy_utils.secretValue" (dict "spec" .app.harness.secrets.github_clientSecret) | default "<github_clientSecret>" | quote }},
+            "clientId": {{ include "deploy_utils.secretValue" (dict "spec" .app.harness.secrets.github_clientId) | default "<github_clientId>" | quote }},
             "useJwksUrl": "true"
             }
     }
@@ -36,8 +36,8 @@
         "firstBrokerLoginFlowAlias": "first broker login",
         "config": {
             "syncMode": "IMPORT",
-            "clientSecret": {{ .app.harness.secrets.google_clientSecret | default "<google_clientSecret>" | quote }},
-            "clientId": {{ .app.harness.secrets.google_clientId | default "<google_clientId>" | quote }},
+            "clientSecret": {{ include "deploy_utils.secretValue" (dict "spec" .app.harness.secrets.google_clientSecret) | default "<google_clientSecret>" | quote }},
+            "clientId": {{ include "deploy_utils.secretValue" (dict "spec" .app.harness.secrets.google_clientId) | default "<google_clientId>" | quote }},
             "useJwksUrl": "true"
         }
     }

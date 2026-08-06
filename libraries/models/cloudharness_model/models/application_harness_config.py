@@ -38,6 +38,7 @@ from cloudharness_model.models.jupyter_hub_config import JupyterHubConfig
 from cloudharness_model.models.name_value import NameValue
 from cloudharness_model.models.named_object import NamedObject
 from cloudharness_model.models.proxy_conf import ProxyConf
+from cloudharness_model.models.secret_definition import SecretDefinition
 from cloudharness_model.models.service_auto_artifact_config import ServiceAutoArtifactConfig
 from cloudharness_model.models.uri_role_mapping_config import UriRoleMappingConfig
 
@@ -53,7 +54,7 @@ class ApplicationHarnessConfig(CloudHarnessBaseModel):
     dependencies: Optional[ApplicationDependenciesConfig] = None
     secured: Optional[Any] = Field(default=None, description="When true, the application is shielded with a getekeeper")
     uri_role_mapping: Optional[List[UriRoleMappingConfig]] = Field(default=None, description="Map uri/roles to secure with the Gatekeeper (if `secured: true`)")
-    secrets: Optional[Dict[str, Any]] = None
+    secrets: Optional[Dict[str, SecretDefinition]] = Field(default=None, description="Application secrets, by name")
     use_services: Optional[List[NamedObject]] = Field(default=None, description="Specify which services this application uses in the frontend to create proxy ingresses. e.g.  ``` - name: samples ```")
     database: Optional[DatabaseDeploymentConfig] = None
     resources: Optional[List[FileResourcesConfig]] = Field(default=None, description="Application file resources. Maps from deploy/resources folder and mounts as configmaps")
@@ -122,6 +123,13 @@ class ApplicationHarnessConfig(CloudHarnessBaseModel):
                 if _item_uri_role_mapping:
                     _items.append(_item_uri_role_mapping.to_dict())
             _dict['uri_role_mapping'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each value in secrets (dict)
+        _field_dict = {}
+        if self.secrets:
+            for _key_secrets in self.secrets:
+                if self.secrets[_key_secrets]:
+                    _field_dict[_key_secrets] = self.secrets[_key_secrets].to_dict()
+            _dict['secrets'] = _field_dict
         # override the default output from pydantic by calling `to_dict()` of each item in use_services (list)
         _items = []
         if self.use_services:
@@ -203,7 +211,12 @@ class ApplicationHarnessConfig(CloudHarnessBaseModel):
             "dependencies": ApplicationDependenciesConfig.from_dict(obj["dependencies"]) if obj.get("dependencies") is not None else None,
             "secured": obj.get("secured"),
             "uri_role_mapping": [UriRoleMappingConfig.from_dict(_item) for _item in obj["uri_role_mapping"]] if obj.get("uri_role_mapping") is not None else None,
-            "secrets": obj.get("secrets"),
+            "secrets": dict(
+                (_k, SecretDefinition.from_dict(_v))
+                for _k, _v in obj["secrets"].items()
+            )
+            if obj.get("secrets") is not None
+            else None,
             "use_services": [NamedObject.from_dict(_item) for _item in obj["use_services"]] if obj.get("use_services") is not None else None,
             "database": DatabaseDeploymentConfig.from_dict(obj["database"]) if obj.get("database") is not None else None,
             "resources": [FileResourcesConfig.from_dict(_item) for _item in obj["resources"]] if obj.get("resources") is not None else None,
