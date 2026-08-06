@@ -8,6 +8,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **uri** | **str** |  | 
 **roles** | **List[str]** | Roles allowed to access the present uri | [optional] 
+**methods** | **List[str]** | HTTP methods (uppercase) the mapping applies to. Empty means all methods. Passed through to the gatekeeper resource when &#x60;secured&#x60; is true. When &#x60;deployment.statefulset&#x60; is true, uris declaring a write method (POST/PUT/PATCH/DELETE) are also routed through the ingress to the leader service (pod 0). | [optional] 
 **white_listed** | **bool** |  | [optional] 
 
 ## Example

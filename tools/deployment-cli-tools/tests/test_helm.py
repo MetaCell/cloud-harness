@@ -365,6 +365,166 @@ def test_cnpg_postgres_parameters_render_only_when_set(tmp_path):
     assert 'postgresql' not in cluster['spec']
 
 
+def test_statefulset_option(tmp_path):
+    out_folder = tmp_path / 'test_statefulset_option'
+    # nfsserver is included to provide the storage class values needed by the usenfs case
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                      env='withpostgres', local=False, include=["myapp", "nfsserver"], exclude=["legacy"])
+
+    helm_path = out_folder / HELM_CHART_PATH
+    shutil.rmtree(helm_path / 'charts')
+    values_path = helm_path / 'values.yaml'
+    with open(values_path, 'r') as values_file:
+        values = yaml.safe_load(values_file)
+
+    myapp = values['apps']['myapp']
+    harness = myapp['harness']
+    dep_name = harness['deployment']['name']
+    db_name = harness['database']['name']
+    service_name = harness['service']['name']
+
+    harness['deployment']['auto'] = True
+    harness['deployment']['volume'] = {
+        'name': 'myapp-data', 'mountpath': '/data', 'size': '1Gi', 'auto': True,
+    }
+    with open(values_path, 'w') as values_file:
+        yaml.safe_dump(values, values_file)
+
+    # Default: Deployments with the Recreate/affinity workaround and a standalone PVC
+    manifests = render_helm_chart(helm_path)
+    dep = find_manifest(manifests, 'Deployment', dep_name)
+    assert dep['spec']['strategy']['type'] == 'Recreate'
+    assert 'affinity' in dep['spec']['template']['spec']
+    find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    db_dep = find_manifest(manifests, 'Deployment', db_name)
+    assert db_dep['spec']['strategy']['type'] == 'Recreate'
+    assert 'affinity' in db_dep['spec']['template']['spec']
+    find_manifest(manifests, 'PersistentVolumeClaim', db_name)
+
+    # Opt in to StatefulSets: volumes are provisioned via volumeClaimTemplates. The legacy
+    # volume migration (job copying a pre-existing PVC found by `lookup` into the statefulset
+    # volumes) cannot be exercised here: `helm template` runs without a cluster, so `lookup`
+    # finds nothing.
+    harness['deployment']['statefulset'] = True
+    harness['database']['statefulset'] = True
+    with open(values_path, 'w') as values_file:
+        yaml.safe_dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    sts = find_manifest(manifests, 'StatefulSet', dep_name)
+    assert sts['spec']['serviceName'] == service_name
+    assert 'strategy' not in sts['spec']
+    assert 'affinity' not in sts['spec']['template']['spec']
+    assert 'initContainers' not in sts['spec']['template']['spec']
+    claims = [v['persistentVolumeClaim']['claimName']
+              for v in sts['spec']['template']['spec']['volumes'] if 'persistentVolumeClaim' in v]
+    assert 'myapp-data' not in claims
+    assert sts['spec']['volumeClaimTemplates'][0]['metadata']['name'] == 'myapp-data'
+    assert not any(m for m in manifests
+                  if m.get('kind') == 'PersistentVolumeClaim' and m.get('metadata', {}).get('name') == 'myapp-data')
+
+    db_sts = find_manifest(manifests, 'StatefulSet', db_name)
+    assert db_sts['spec']['serviceName'] == db_name
+    assert 'strategy' not in db_sts['spec']
+    assert 'affinity' not in db_sts['spec']['template']['spec']
+    assert 'initContainers' not in db_sts['spec']['template']['spec']
+    assert db_sts['spec']['volumeClaimTemplates'][0]['metadata']['name'] == db_name
+    assert not any(m for m in manifests
+                  if m.get('kind') == 'PersistentVolumeClaim' and m.get('metadata', {}).get('name') == db_name)
+    find_manifest(manifests, 'Service', db_name)
+    # without a legacy PVC no migration resources are rendered
+    assert not any(m for m in manifests if 'volume-migration' in m.get('metadata', {}).get('name', ''))
+
+    # nfs (shared) volumes are never per-replica: the statefulset keeps mounting the common
+    # PVC by claimName and no volumeClaimTemplates are created.
+    harness['deployment']['volume']['usenfs'] = True
+    with open(values_path, 'w') as values_file:
+        yaml.safe_dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    sts = find_manifest(manifests, 'StatefulSet', dep_name)
+    assert 'volumeClaimTemplates' not in sts['spec']
+    claims = [v['persistentVolumeClaim']['claimName']
+              for v in sts['spec']['template']['spec']['volumes'] if 'persistentVolumeClaim' in v]
+    assert 'myapp-data' in claims
+    shared_pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    assert shared_pvc['spec']['accessModes'] == ['ReadWriteMany']
+
+    # volume.auto: false means the PVC is managed externally: always reference it by
+    # claimName, never via volumeClaimTemplates.
+    harness['deployment']['volume']['usenfs'] = False
+    harness['deployment']['volume']['auto'] = False
+    with open(values_path, 'w') as values_file:
+        yaml.safe_dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    sts = find_manifest(manifests, 'StatefulSet', dep_name)
+    assert 'volumeClaimTemplates' not in sts['spec']
+    claims = [v['persistentVolumeClaim']['claimName']
+              for v in sts['spec']['template']['spec']['volumes'] if 'persistentVolumeClaim' in v]
+    assert 'myapp-data' in claims
+
+
+def test_statefulset_leader_service(tmp_path):
+    out_folder = tmp_path / 'test_statefulset_leader_service'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                      env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
+
+    helm_path = out_folder / HELM_CHART_PATH
+    shutil.rmtree(helm_path / 'charts')
+    values_path = helm_path / 'values.yaml'
+    with open(values_path, 'r') as values_file:
+        values = yaml.safe_load(values_file)
+
+    harness = values['apps']['myapp']['harness']
+    dep_name = harness['deployment']['name']
+    service_name = harness['service']['name']
+    rw_name = f"{service_name}-rw"
+
+    def ingress_paths(manifests):
+        ingress = find_manifest(manifests, 'Ingress', 'myapp')
+        return [path for rule in ingress['spec']['rules'] for path in rule['http']['paths']]
+
+    # write methods in uri_role_mapping without statefulset: no leader service, no leader routing
+    harness['uri_role_mapping'] = harness.get('uri_role_mapping', []) + [
+        {'uri': '/api/edit/*', 'methods': ['POST', 'PUT', 'PATCH']},
+        {'uri': '/upload', 'methods': ['POST']},
+        {'uri': '/api/remove', 'methods': ['DELETE']},
+        {'uri': '/readonly', 'methods': ['GET']},
+    ]
+    with open(values_path, 'w') as values_file:
+        yaml.safe_dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    assert not any(m for m in manifests
+                  if m.get('kind') == 'Service' and m.get('metadata', {}).get('name') == rw_name)
+    assert not any(p for p in ingress_paths(manifests)
+                  if p['backend']['service']['name'] == rw_name)
+
+    harness['deployment']['statefulset'] = True
+    with open(values_path, 'w') as values_file:
+        yaml.safe_dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    rw_service = find_manifest(manifests, 'Service', rw_name)
+    assert rw_service['spec']['selector']['app'] == dep_name
+    assert rw_service['spec']['selector']['statefulset.kubernetes.io/pod-name'] == f"{dep_name}-0"
+    main_service = find_manifest(manifests, 'Service', service_name)
+    assert rw_service['spec']['ports'] == main_service['spec']['ports']
+
+    paths = ingress_paths(manifests)
+    rw_paths = {p['path']: p for p in paths if p['backend']['service']['name'] == rw_name}
+    # wildcard uris map to Prefix rules, plain uris to ImplementationSpecific; any write method
+    # (POST/PUT/PATCH/DELETE) triggers leader routing, while entries without one (the default
+    # catch-all, /readonly) are not routed to the leader
+    assert set(rw_paths) == {'/api/edit', '/upload', '/api/remove'}
+    assert rw_paths['/api/edit']['pathType'] == 'Prefix'
+    assert rw_paths['/upload']['pathType'] == 'ImplementationSpecific'
+    # the catch-all still routes to the normal service
+    assert any(p for p in paths
+               if p['path'] == '/' and p['backend']['service']['name'] == service_name)
+
+
 def test_gatekeeper_native_configuration_rendering_and_checksum(tmp_path):
     out_folder = tmp_path / 'test_gatekeeper_native_configuration'
     create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",

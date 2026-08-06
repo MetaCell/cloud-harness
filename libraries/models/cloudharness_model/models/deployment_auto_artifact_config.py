@@ -41,10 +41,11 @@ class DeploymentAutoArtifactConfig(CloudHarnessBaseModel):
     image: Optional[Annotated[str, Field(strict=True)]] = Field(default=None, description="Image name to use in the deployment. Leave it blank to set from the application's Docker file")
     resources: Optional[DeploymentResourcesConf] = None
     volume: Optional[DeploymentVolumeSpec] = None
+    statefulset: Optional[StrictBool] = Field(default=None, description="When true, the workload is rendered as a Kubernetes StatefulSet instead of a Deployment. Recommended for deployments with a ReadWriteOnce volume: updates terminate the old pod before creating the new one, so no Recreate strategy or node pinning is needed. The volume, unless nfs-shared or externally managed (auto false), is provisioned per replica through volumeClaimTemplates. A pre-existing PVC named after the volume (left over from a previous Deployment) is migrated automatically: a migration job streams its data into each statefulset volume through the Kubernetes API, so the volumes are never mounted by the same pod (works on multi-zone clusters); delete the legacy PVC once migrated.")
     network: Optional[NetworkConfig] = None
     extra_containers: Optional[Dict[str, ExtraContainerConfig]] = Field(default=None, description="Extra containers (init containers and sidecars) for the deployment. Each key is a container name mapping to an ExtraContainerConfig.", alias="extraContainers")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["auto", "name", "port", "replicas", "image", "resources", "volume", "network", "extraContainers"]
+    __properties: ClassVar[List[str]] = ["auto", "name", "port", "replicas", "image", "resources", "volume", "statefulset", "network", "extraContainers"]
 
     @field_validator('image')
     def image_validate_regular_expression(cls, value):
@@ -121,6 +122,7 @@ class DeploymentAutoArtifactConfig(CloudHarnessBaseModel):
             "image": obj.get("image"),
             "resources": DeploymentResourcesConf.from_dict(obj["resources"]) if obj.get("resources") is not None else None,
             "volume": DeploymentVolumeSpec.from_dict(obj["volume"]) if obj.get("volume") is not None else None,
+            "statefulset": obj.get("statefulset"),
             "network": NetworkConfig.from_dict(obj["network"]) if obj.get("network") is not None else None,
             "extraContainers": dict(
                 (_k, ExtraContainerConfig.from_dict(_v))

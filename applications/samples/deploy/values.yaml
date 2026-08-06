@@ -12,6 +12,8 @@ harness:
   use_services:
     - name: common
   deployment:
+    replicas: 2
+    statefulset: true
     volume:
       name: my-shared-volume
       mountpath: /tmp/myvolume
@@ -47,6 +49,9 @@ harness:
     - uri: /api/operation_sync_results
       white-listed: true
     - uri: /api/ping
+      white-listed: true
+    - uri: /api/write-file
+      methods: [POST]
       white-listed: true
     - uri: /api/openapi.json
       white-listed: true

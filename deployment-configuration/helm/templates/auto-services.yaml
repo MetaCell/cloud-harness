@@ -16,6 +16,25 @@ spec:
       targetPort: {{ .app.harness.deployment.port }}
       name: http
 ---
+{{- if .app.harness.deployment.statefulset }}
+{{/* Leader service: always resolves to pod 0 of the statefulset, to be used for write requests */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ printf "%s-rw" .app.harness.service.name | quote }}
+  labels:
+    app: {{ .app.harness.deployment.name | quote }}
+{{ include "deploy_utils.labels" .root | indent 4 }}
+spec:
+  selector:
+    app: {{ .app.harness.deployment.name| quote }}
+    statefulset.kubernetes.io/pod-name: {{ printf "%s-0" .app.harness.deployment.name | quote }}
+  ports:
+    - port: {{ .app.harness.service.port }}
+      targetPort: {{ .app.harness.deployment.port }}
+      name: http
+---
+{{- end }}
 {{- end }}
 {{- range $app := .Values.apps }}
   {{- if $app.harness.service.auto  }}
