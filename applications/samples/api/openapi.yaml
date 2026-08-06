@@ -83,6 +83,22 @@ paths:
       description: |
         Check if the token is valid
       x-openapi-router-controller: samples.controllers.auth_controller
+  /db-connect-string:
+    get:
+      tags:
+        - database
+      summary: Get database connection string
+      operationId: get_db_connect_string
+      description: Returns the database connection string for the current application.
+      responses:
+        "200":
+          description: Database connection string returned successfully
+          content:
+            application/json:
+              schema:
+                type: string
+        "500":
+          description: Error retrieving database connection string
   /sampleresources:
     summary: Path used to manage the list of sampleresources.
     description: >-

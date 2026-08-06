@@ -4,6 +4,12 @@
         {{- else }}
         image: {{ .app.harness.database.postgres.image }}
         {{- end }}
+        {{- with .app.harness.database.postgres.args }}
+        args:
+          {{- range . }}
+          - {{ . | quote }}
+          {{- end }}
+        {{- end }}
         env:
           - name: POSTGRES_DB
             value: {{ .app.harness.database.postgres.initialdb | quote }}
@@ -13,4 +19,26 @@
             value: {{ .app.harness.database.pass | quote }}
           - name: PGDATA
             value: /data/db/pgdata
+        livenessProbe:
+          exec:
+            command:
+              - pg_isready
+              - -U
+              - {{ .app.harness.database.user | quote }}
+              - -d
+              - {{ .app.harness.database.postgres.initialdb | quote }}
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 6
+        readinessProbe:
+          exec:
+            command:
+              - pg_isready
+              - -U
+              - {{ .app.harness.database.user | quote }}
+              - -d
+              - {{ .app.harness.database.postgres.initialdb | quote }}
+          initialDelaySeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 6
 {{- end }}

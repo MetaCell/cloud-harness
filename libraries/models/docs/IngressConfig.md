@@ -6,11 +6,8 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**auto** | **bool** | When true, enables automatic template | [optional] 
-**name** | **str** |  | [optional] 
-**ssl_redirect** | **bool** |  | [optional] 
-**letsencrypt** | [**IngressConfigAllOfLetsencrypt**](IngressConfigAllOfLetsencrypt.md) |  | [optional] 
-**enabled** | **bool** |  | [optional] 
+**path_type** | **str** | Ingress path type  | 
+**path** | **str** | Default target path prefix for applications endpoints. To use regular expressions (e.g.&#39;/(pattern)&#39;), also set &#x60;route_type&#x60; to  &#x60;ImplementationSpecific&#x60;.  | 
 
 ## Example
 

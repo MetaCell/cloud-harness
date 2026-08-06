@@ -1,0 +1,45 @@
+{{- if and .Values.ingress.enabled (eq .Values.ingress.ingressClass "traefik") }}
+{{ $tls := not (not .Values.tls) }}
+# Rewrite target: equivalent of nginx.ingress.kubernetes.io/rewrite-target: /$1
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: ch-rewrite-target
+spec:
+  replacePathRegex:
+    regex: "^/[^/]+(.*)"
+    replacement: "/$1"
+---
+# Proxy rewrite: strips /proxy/<service> prefix for use_services proxy routes
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: ch-proxy-rewrite
+spec:
+  replacePathRegex:
+    regex: "^/proxy/[^/]+(.*)"
+    replacement: "$1"
+---
+# Body size / buffering: equivalent of nginx proxy-body-size, proxy-buffer-size
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: ch-body-size
+spec:
+  buffering:
+    maxRequestBodyBytes: {{ mul .Values.proxy.payload.max 1048576 }}
+    memRequestBodyBytes: 131072
+    memResponseBodyBytes: 131072
+{{- if and $tls .Values.ingress.ssl_redirect }}
+---
+# SSL redirect: equivalent of nginx.ingress.kubernetes.io/ssl-redirect
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: ch-ssl-redirect
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
+{{- end }}
+{{- end }}

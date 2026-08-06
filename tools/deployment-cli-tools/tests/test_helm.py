@@ -1,6 +1,9 @@
 from ch_cli_tools.helm import *
 from ch_cli_tools.configurationgenerator import *
+from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
 import pytest
+import shutil
+import subprocess
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')
@@ -9,6 +12,24 @@ CLOUDHARNESS_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 
 def exists(path):
     return path.exists()
+
+
+def render_helm_chart(chart_path):
+    completed = subprocess.run(
+        ["helm", "template", str(chart_path)],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    return [manifest for manifest in yaml.safe_load_all(completed.stdout) if manifest]
+
+
+def find_manifest(manifests, kind, name):
+    for manifest in manifests:
+        if manifest.get("kind") == kind and manifest.get("metadata", {}).get("name") == name:
+            return manifest
+    raise AssertionError(f"Could not find {kind}/{name}")
 
 
 def test_collect_helm_values(tmp_path):
@@ -92,6 +113,16 @@ def test_collect_nobuild(tmp_path):
                                namespace='test', env='nobuild', local=False, tag=1, registry='reg')
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'custom-image'
     assert values[KEY_APPS]['myapp']['build'] == False
+
+
+def test_collect_helm_values_harness_image_name_override(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values_harness_image_name_override'
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
+                               domain="my.local", namespace='test', env='imagename', local=False, tag=1, registry='reg')
+
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/custom-myapp:1'
+    assert values[KEY_APPS]['myapp'][KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/testprojectname/custom-myapp-mytask:1'
 
 
 def test_collect_helm_values_noreg_noinclude(tmp_path):
@@ -186,9 +217,35 @@ def test_collect_helm_values_wrong_dependencies_validate(tmp_path):
     with pytest.raises(ValuesValidationException):
         create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
                           namespace='test', env='prod', local=False, tag=1, include=["wrong-build"])
-    with pytest.raises(ValuesValidationException):
+    try:
         create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
                           namespace='test', env='prod', local=False, tag=1, include=["wrong-services"])
+    except ValuesValidationException:
+        pytest.fail("Should not error because of missing use_services dependency")
+
+
+def test_validate_dependencies_accepts_app_local_build_images():
+    values = {
+        KEY_APPS: {
+            'portal': {
+                KEY_HARNESS: {
+                    'dependencies': {
+                        'soft': [],
+                        'hard': [],
+                        'build': ['cloudharness-base', 'cloudharness-django'],
+                    },
+                    'use_services': [],
+                },
+                KEY_TASK_IMAGES: {
+                    'cloudharness-base': 'reg/project/cloudharness-base:1',
+                    'cloudharness-django': 'reg/project/cloudharness-django:1',
+                },
+            }
+        },
+        KEY_TASK_IMAGES: {},
+    }
+
+    validate_dependencies(values)
 
 
 def test_collect_helm_values_build_dependencies(tmp_path):
@@ -257,6 +314,57 @@ def test_clear_unused_dbconfig(tmp_path):
     assert db_config['postgres'] is None
 
 
+def test_cnpg_postgres_parameters_render_only_when_set(tmp_path):
+    out_folder = tmp_path / 'test_cnpg_postgres_parameters_render_only_when_set'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                      env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
+
+    helm_path = out_folder / HELM_CHART_PATH
+    shutil.rmtree(helm_path / 'charts')
+    values_path = helm_path / 'values.yaml'
+    with open(values_path, 'r') as values_file:
+        values = yaml.safe_load(values_file)
+    postgres = values['apps']['myapp']['harness']['database']['postgres']
+    postgres['operator'] = True
+    postgres['parameters'] = {
+        # Simulate generated YAML values where on/off can be parsed as booleans before Helm renders the chart.
+        'autovacuum': True,
+        'max_connections': '200',
+        'shared_buffers': '1GB',
+        'synchronous_commit': True,
+        'track_io_timing': False,
+    }
+    with open(values_path, 'w') as values_file:
+        yaml.safe_dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    db_name = values['apps']['myapp']['harness']['database']['name']
+    cluster = find_manifest(manifests, 'Cluster', db_name)
+    assert cluster['spec']['postgresql']['parameters'] == {
+        'autovacuum': 'true',
+        'max_connections': '200',
+        'shared_buffers': '1GB',
+        'synchronous_commit': 'true',
+        'track_io_timing': 'false',
+    }
+
+    postgres['parameters'] = {}
+    with open(values_path, 'w') as values_file:
+        yaml.safe_dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    cluster = find_manifest(manifests, 'Cluster', db_name)
+    assert 'postgresql' not in cluster['spec']
+
+    postgres.pop('parameters')
+    with open(values_path, 'w') as values_file:
+        yaml.safe_dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    cluster = find_manifest(manifests, 'Cluster', db_name)
+    assert 'postgresql' not in cluster['spec']
+
+
 def test_clear_all_dbconfig_if_nodb(tmp_path):
     out_folder = tmp_path / 'test_clear_all_dbconfig_if_nodb'
 
@@ -296,11 +404,20 @@ def test_tag_hash_generation():
 
 def test_collect_helm_values_auto_tag(tmp_path):
     out_folder = str(tmp_path / 'test_collect_helm_values_auto_tag')
+    merge_build_path = str(tmp_path / '.overrides')
+
+    first_pass = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
+                                   exclude=['events'], domain="my.local",
+                                   namespace='test', env='dev', local=False, tag=None, registry='reg')
+    assert first_pass[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/myapp'
 
     def create():
-        return create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
-                                 exclude=['events'], domain="my.local",
-                                 namespace='test', env='dev', local=False, tag=None, registry='reg')
+        values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
+                                   exclude=['events'], domain="my.local",
+                                   namespace='test', env='dev', local=False, tag=None, registry='reg')
+        preprocess_build_overrides([CLOUDHARNESS_ROOT, RESOURCES], values, merge_build_path=merge_build_path)
+        generate_hash_based_image_tags([CLOUDHARNESS_ROOT, RESOURCES], values, merge_build_path=merge_build_path)
+        return values
 
     BASE_KEY = "cloudharness-base"
     values = create()
@@ -375,6 +492,44 @@ def test_collect_helm_values_auto_tag(tmp_path):
         fname.unlink()
 
 
+def test_network_policy_defaults_from_value_template(tmp_path):
+    """Verify that allowedNamespaces set in a root directory's value-template.yaml
+    propagates into app values and is not reset to []."""
+    out_folder = tmp_path / 'test_network_policy_defaults_from_value_template'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
+                               domain="my.local", namespace='test', env='dev', local=False, tag=1)
+
+    network = values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['network']
+    assert network is not None, "network config should be present"
+    allowed = network.get('allowedNamespaces') or []
+    assert 'test-namespace' in allowed, (
+        f"allowedNamespaces from value-template override should contain 'test-namespace', got: {allowed}"
+    )
+
+    out_folder = tmp_path / 'test_chart_metadata_optional_overrides'
+    create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=out_folder,
+        include=['myapp'],
+        domain="my.local",
+        namespace='custom-ns',
+        name='custom-chart',
+        chart_version='9.8.7',
+        app_version='4.5.6',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+
+    chart_path = out_folder / HELM_CHART_PATH / 'Chart.yaml'
+    chart = yaml.safe_load(open(chart_path, 'r'))
+    assert chart['name'] == 'custom-chart'
+    assert chart['version'] == '9.8.7'
+    assert chart['appVersion'] == '4.5.6'
+    assert chart['metadata']['namespace'] == 'custom-ns'
+
+
 def test_exclude_single_task(tmp_path):
     out_folder = tmp_path / 'test_exclude_single_task'
 
@@ -383,13 +538,12 @@ def test_exclude_single_task(tmp_path):
 
     assert "myapp-mytask" not in values["task-images"], "myapp-mytask has been excluded, so should not appear in the task images"
 
-    try:
-        values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                                   env='fulldep', local=False, include=["dependantapp"], exclude=["myapp-mytask"])
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               env='fulldep', local=False, include=["dependantapp"], exclude=["myapp-mytask"])
 
-        assert False, "myapp-mytask has been excluded, but also declared as a dependency, so should not be excluded"
-    except ValuesValidationException as e:
-        pass
+    assert "myapp-mytask" in values[KEY_TASK_IMAGES], (
+        "myapp-mytask is excluded but still required by dependantapp, so it should be kept"
+    )
 
 
 def test_app_depends_on_app(tmp_path):
@@ -408,3 +562,18 @@ def test_app_depends_on_app(tmp_path):
 
     assert "myapp" in values["task-images"], "myapp should be included as a task image because it is a dependency of dependantapp"
     assert "myapp-mytask" in values["task-images"], "tasks should be also included as build dependencies, when explicitly included as build dependencies"
+
+
+def test_app_depends_on_task_only(tmp_path):
+    out_folder = tmp_path / 'test_app_depends_on_task_only'
+
+    # taskdep depends on a base image (cloudharness-flask, which its Dockerfile uses) and
+    # on myapp-mytask, a task image owned by another app (myapp) that is not listed as a
+    # dependency itself. The owner app must be pulled in to build the task image, but must
+    # not be deployed.
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               env='', local=False, include=["taskdep"], exclude=[])
+
+    assert "myapp-mytask" in values[KEY_TASK_IMAGES], "cross-app task image must be built"
+    assert "cloudharness-flask" in values[KEY_TASK_IMAGES], "declared base-image build dep must be kept"
+    assert "myapp" not in values[KEY_APPS], "owner app must be built but not deployed"

@@ -1,3 +1,5 @@
+import time
+
 from cloudharness.applications import ConfigurationCallException
 
 from django.conf import settings
@@ -7,6 +9,7 @@ from cloudharness import log
 from cloudharness.events.client import EventClient
 
 from cloudharness_django.exceptions import KeycloakOIDCNoProjectError
+from cloudharness_django.middleware import invalidate_user_cache
 from cloudharness_django.services import init_services, get_user_service, get_auth_service
 
 
@@ -26,6 +29,7 @@ class KeycloakMessageService:
         log.info(f"{event_client} {message}")
         if resource in ["CLIENT_ROLE_MAPPING", "GROUP", "USER", "GROUP_MEMBERSHIP", "ORGANIZATION_MEMBERSHIP"]:
             try:
+                time.sleep(1)  # wait a bit to make sure the transaction is committed in Keycloak before trying to fetch the updated data
                 init_services()
                 user_service = get_user_service()
                 auth_client = get_auth_service().get_auth_client()
@@ -33,19 +37,25 @@ class KeycloakMessageService:
                 if resource == "GROUP":
                     kc_group = auth_client.get_group(resource_path[1])
                     user_service.sync_kc_group(kc_group)
+                    return
                 if resource == "USER":
                     kc_user = auth_client.get_user(resource_path[1])
+                    # invalidate the user cache to force the user to be reloaded
+                    invalidate_user_cache(kc_user.id)
                     user_service.sync_kc_user(kc_user, delete=operation == "DELETE")
+                    return
                 if resource == "CLIENT_ROLE_MAPPING":
                     # adding/deleting user client roles
                     # set/user user is_superuser
                     kc_user = auth_client.get_user(resource_path[1])
                     user_service.sync_kc_user(kc_user)
+                    return
                 if resource == "GROUP_MEMBERSHIP" or resource == "ORGANIZATION_MEMBERSHIP":
                     # adding / deleting users from groups, update the user
                     # updating the user will also update the user groups
                     kc_user = auth_client.get_user(resource_path[1])
                     user_service.sync_kc_user(kc_user)
+                    return
             except Exception as e:
                 log.error(e)
                 raise e
@@ -91,26 +101,24 @@ def init_listener():
     if not hasattr(settings, "PROJECT_NAME"):
         raise KeycloakOIDCNoProjectError("Project name not found, please set PROJECT_NAME in your settings module")
 
+    kafka_group_id = settings.PROJECT_NAME.lower()
     global _message_service_singleton
     if _message_service_singleton is None:
-        _message_service_singleton = KeycloakMessageService(settings.PROJECT_NAME)
-
+        _message_service_singleton = KeycloakMessageService(kafka_group_id)
     _message_service_singleton.setup_event_service()
 
 
 def init_listener_in_background():
     import threading
-    import time
     from cloudharness import log
 
     def background_operation():
-        listener_initialized = False
 
-        while not listener_initialized:
+        while True:
             try:
                 init_listener()
                 log.info('User sync events listener started')
-                listener_initialized = True
+                break
             except:
                 log.exception('Error initializing event queue. Retrying in 5 seconds...')
                 time.sleep(5)

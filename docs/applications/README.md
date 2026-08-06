@@ -92,10 +92,17 @@ The most important configuration entries are the following:
   - `domain`: creates an entry to ingress on [domain]
   - `secured`: if set to true, shields the access to the application requiring login
   - `uri_role_mapping` (`{uri, roles}[]`): if secured is true, used to map application urls to authenticated required roles
-  - `deployment`: creates a deployment
+  - `deployment`: creates a deployment — see [Auto Deployments](./deployment.md)
     - `auto`: if true, creates the deployment automatically
-    - `resources`: define cpu and memory limits
-    - `volume`: application persistent volume
+    - `replicas`: number of pod replicas
+    - `image`: pre-built image (leave blank to build from Dockerfile)
+    - `port`: container port
+    - `command` / `args`: override container entrypoint and arguments
+    - `resources`: CPU and memory requests/limits
+    - `volume`: persistent volume — see [Volumes](./volumes.md)
+    - `network`: network policy — see [Network Policies](../network-policies.md)
+    - `extraContainers`: init containers and sidecars — see [Auto Deployments § Extra containers](./deployment.md#extra-containers)
+  - `livenessProbe` / `readinessProbe` / `startupProbe`: HTTP health probes — see [Auto Deployments § Health probes](./deployment.md#health-probes)
   - `service`:
     - `auto`: if true, creates the service automatically
   - `dependencies`: lists of applications/images this application depends from

@@ -12,6 +12,7 @@
         "rememberMe": true,
         "verifyEmail": false,
         "loginWithEmailAllowed": true,
+        "organizationsEnabled": {{ .Values.apps.accounts.realm.organizationsEnabled | default false }},
         "duplicateEmailsAllowed": false,
         "resetPasswordAllowed": true,
         "editUsernameAllowed": {{ .Values.apps.accounts.editUsernameAllowed }},
@@ -104,6 +105,7 @@
                 ],
                 "standardFlowEnabled": true,
                 "directAccessGrantsEnabled": true,
+                "serviceAccountsEnabled": true,
                 "protocol": "openid-connect",
                 "attributes": {
                     "access.token.lifespan": "3600"

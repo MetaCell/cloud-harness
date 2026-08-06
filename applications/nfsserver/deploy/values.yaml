@@ -4,7 +4,7 @@ harness:
     auto: false
   deployment:
     auto: false
-    image: gcr.io/metacellllc/cloudharness/nfsserver:1.0
+    # image: gcr.io/metacellllc/cloudharness/nfsserver:1.0
 
 
 # nfs server pvc disk size (/exports)
@@ -32,8 +32,15 @@ nfs:
   useDNS: true
   path: /exports     # /exports
   mountOptions:
+  # `soft` overrides the Linux client default (`hard`). Without it, applications
+  # block in uninterruptible sleep when the NFS server is unreachable. With
+  # `soft`, I/O returns EIO after a few retries — applications stay alive and
+  # can retry. This matches the availability-over-integrity tradeoff.
+  - soft
   - nolock
   - local_lock=all
+  - timeo=50         # 5 s per retry
+  - retrans=2        # 2 retries → ~15 s before EIO during server downtime
   volumeName: nfs-subdir-external-provisioner-root
   # Reclaim policy for the main nfs volume
   reclaimPolicy: Retain
@@ -83,6 +90,14 @@ storageClass:
 leaderElection:
   # When set to false leader election will be disabled
   enabled: true
+
+# PodDisruptionBudget guardrail against accidental evictions.
+# Off by default — enabling it blocks `kubectl drain` of the NFS server's
+# node until the operator terminates the pod manually (RWO PVC means there
+# is no surge pod that could satisfy minAvailable=1 while the old one runs).
+# Does NOT help with ungraceful node loss (force-detach path).
+podDisruptionBudget:
+  enabled: false
 
 ## For RBAC support:
 rbac:

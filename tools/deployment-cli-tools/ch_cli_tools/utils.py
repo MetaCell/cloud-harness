@@ -16,9 +16,10 @@ from ruamel.yaml import YAML
 import shutil
 import logging
 import fileinput
+import pathspec
 
 from cloudharness_utils.constants import NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
-    APPS_PATH, BUILD_FILENAMES, EXCLUDE_PATHS
+    APPS_PATH, EXCLUDE_PATHS
 from . import CH_ROOT
 
 yaml = YAML(typ='safe')
@@ -28,6 +29,8 @@ BASE_TEMPLATES_PATH = CH_ROOT
 REPLACE_TEXT_FILES_EXTENSIONS = (
     '.js', '.md', '.py', '.js', '.ts', '.tsx', '.txt', 'Dockerfile', 'yaml', 'json', '.ejs'
 )
+
+SKIP_DIRS = ('node_modules',)
 
 
 def image_name_from_dockerfile_path(dockerfile_path, base_name=None):
@@ -77,14 +80,22 @@ def find_dockerfiles_paths(base_directory):
         else:
             dockerfiles_without_git.append(dockerfile.replace(os.sep, "/"))
 
-    return tuple(dockerfiles_without_git)
+    return tuple(p for p in dockerfiles_without_git if not re.search(r'(^|/).*dependencies.*/', p + '/'))
 
 
 def get_parent_app_name(app_relative_path):
     return app_relative_path.split("/")[0] if "/" in app_relative_path else ""
 
 
+def strip_registry_tag(full_image_name, registry_url=""):
+    if not full_image_name:
+        return None
+    return full_image_name.replace(registry_url, "").split(":")[0]
+
+
 def get_image_name(app_name, base_name=None):
+    if not app_name:
+        return None
     return (base_name + '/' + app_name) if base_name else app_name
 
 
@@ -92,11 +103,52 @@ def env_variable(name, value):
     return {'name': f"{name}".upper(), 'value': str(value)}
 
 
-def get_cluster_ip():
-    out = subprocess.check_output(
-        ['kubectl', 'cluster-info'], timeout=10).decode("utf-8")
-    ips = re.findall(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", out)
-    return ips[0] if ips else get_host_address()
+def get_cluster_ip(local=False):
+    if local:
+        # Try to get LoadBalancer IP from ingress-nginx first (preferred for local dev with minikube tunnel)
+        try:
+            out = subprocess.check_output([
+                'kubectl', '-n', 'ingress-nginx', 'get', 'svc', 'ingress-nginx-controller',
+                '-o', 'jsonpath={.status.loadBalancer.ingress[0].ip}'
+            ], timeout=5).decode("utf-8").strip()
+            if out and out != '<no value>':
+                return out
+        except:
+            pass
+        # Try minikube with profile detection for local development
+        try:
+            # Get current kubectl context to extract minikube profile
+            context = subprocess.check_output(['kubectl', 'config', 'current-context'], timeout=5).decode("utf-8").strip()
+
+            # Try with profile if context looks like minikube
+            if 'minikube' in context.lower():
+                profile = context  # Context name is often the profile name
+                try:
+                    out = subprocess.check_output(['minikube', '-p', profile, 'ip'], timeout=5).decode("utf-8").strip()
+                    if out:
+                        return out
+                except:
+                    pass
+
+            # Try without profile (default minikube)
+            out = subprocess.check_output(['minikube', 'ip'], timeout=5).decode("utf-8").strip()
+            if out:
+                return out
+        except:
+            pass
+
+        # Try kubectl cluster-info
+        try:
+            out = subprocess.check_output(
+                ['kubectl', 'cluster-info'], timeout=10).decode("utf-8")
+            ips = re.findall(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", out)
+            if ips:
+                return ips[0]
+        except:
+            pass
+
+    # Fallback to host address (used for non-local deployments)
+    return get_host_address()
 
 
 def get_host_address():
@@ -214,7 +266,8 @@ def copymergedir(source_root_directory: pathlib.Path, destination_root_directory
     """
     logging.info(f'Copying directory {source_root_directory} to {destination_root_directory}')
 
-    for source_directory, _, files in os.walk(source_root_directory):  # source_root_directory.walk() from Python 3.12
+    for source_directory, dirs, files in os.walk(source_root_directory):  # source_root_directory.walk() from Python 3.12
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
         source_directory = pathlib.Path(source_directory)
         destination_directory = destination_root_directory / source_directory.relative_to(source_root_directory)
         destination_directory.mkdir(parents=True, exist_ok=True)
@@ -255,7 +308,7 @@ def movedircontent(root_src_dir, root_dst_dir):
     shutil.rmtree(root_src_dir)
 
 
-def merge_configuration_directories(source: Union[str, pathlib.Path], destination: Union[str, pathlib.Path], envs=()) -> None:
+def merge_configuration_directories(source: Union[str, pathlib.Path], destination: Union[str, pathlib.Path], envs=(), exclude=EXCLUDE_PATHS) -> None:
     source_path, destination_path = pathlib.Path(source), pathlib.Path(destination)
 
     if source_path == destination_path and not envs:
@@ -265,13 +318,32 @@ def merge_configuration_directories(source: Union[str, pathlib.Path], destinatio
         logging.warning("Trying to merge the not existing directory: %s", source)
         return
 
-    if not destination_path.exists():
-        shutil.copytree(source_path, destination_path, ignore=shutil.ignore_patterns(*EXCLUDE_PATHS))
-        if not envs:
-            return
+    merge_roots = ('deploy', 'deployment')
+    spec = pathspec.PathSpec.from_lines('gitwildmatch', exclude)
+    copy_single_files = False
 
-    for source_directory, _, files in os.walk(source_path):  # source_path.walk() from Python 3.12
-        _merge_configuration_directory(source_path, destination_path, pathlib.Path(source_directory), files, envs)
+    if not destination_path.exists():
+        logging.info("Creating merged directory %s from %s", destination, source)
+        merge_roots_set = set(merge_roots)
+
+        def _ignore(directory, contents):
+            rel_dir = pathlib.Path(directory).relative_to(source_path)
+            ignored = []
+            for c in contents:
+                if str(rel_dir) == '.' and c in merge_roots_set:
+                    ignored.append(c)
+                elif spec.match_file(str(rel_dir / c)) or spec.match_file(str(rel_dir / c) + '/'):
+                    ignored.append(c)
+            return ignored
+        shutil.copytree(source_path, destination_path, ignore=_ignore)
+    else:
+        copy_single_files = True
+
+    for source_directory, dirs, files in os.walk(source_path):  # source_path.walk() from Python 3.12
+        _merge_configuration_directory(
+            source_path, destination_path, pathlib.Path(source_directory),
+            files, envs, spec, copy_single_files=copy_single_files
+        )
 
 
 def _merge_configuration_directory(
@@ -279,21 +351,27 @@ def _merge_configuration_directory(
         destination: pathlib.Path,
         source_directory: pathlib.Path,
         files: list[str],
-        envs=()
+        envs=(),
+        spec: pathspec.PathSpec = None,
+        copy_single_files: bool = False
 ) -> None:
-    if any(path in str(source_directory) for path in EXCLUDE_PATHS):
+    rel_path = source_directory.relative_to(source)
+    if spec is not None and str(rel_path) != '.' and (
+        spec.match_file(str(rel_path)) or spec.match_file(str(rel_path) + '/')
+    ):
         return
 
     destination_directory = destination / source_directory.relative_to(source)
+    merge_roots = {'deploy', 'deployment'}
+    if source != destination and not copy_single_files and not any(destination_directory.is_relative_to(destination / m) for m in merge_roots):
+        return
     destination_directory.mkdir(exist_ok=True)
 
-    non_build_files = (file for file in files if file not in BUILD_FILENAMES)
-
-    for file_name in non_build_files:
+    for file_name in files:
         source_file_path = source_directory / file_name
         destination_file_path = destination_directory / file_name
 
-        _merge_configuration_file(source_file_path, destination_file_path, envs)
+        _merge_configuration_file(source_file_path, destination_file_path, envs, copy_single_files=copy_single_files)
 
 
 def merge_yaml_files(fname, fdest):
@@ -353,7 +431,7 @@ merge_operations = {
 }
 
 
-def _merge_configuration_file(source_file_path: pathlib.Path, destination_file_path: pathlib.Path, envs=()) -> None:
+def _merge_configuration_file(source_file_path: pathlib.Path, destination_file_path: pathlib.Path, envs=(), copy_single_files: bool = False) -> None:
     if not exists(destination_file_path):
         shutil.copy2(source_file_path, destination_file_path)
     ext = source_file_path.suffix.lower()
@@ -367,7 +445,7 @@ def _merge_configuration_file(source_file_path: pathlib.Path, destination_file_p
             except:
                 logging.warning(f'Merge error: overwriting file {destination_file_path} with {source_file_path}')
                 shutil.copy2(source_file_path, destination_file_path)
-        else:
+        elif copy_single_files:
             logging.warning(f'Overwriting file {destination_file_path} with {source_file_path}')
             shutil.copy2(source_file_path, destination_file_path)
 
@@ -450,6 +528,15 @@ def merge_app_directories(root_paths, destination) -> None:
                                         join(destination, 'deployment-configuration'))
 
 
+def read_dockerignore(base_path: Union[str, pathlib.Path]) -> tuple:
+    dockerignore = pathlib.Path(base_path) / '.dockerignore'
+    if not dockerignore.exists():
+        return None
+    with dockerignore.open() as f:
+        lines = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+    return tuple(lines) if lines else ()
+
+
 def to_python_module(name):
     return name.replace('-', '_')
 
@@ -470,14 +557,14 @@ def guess_build_dependencies_from_dockerfile(filename):
     return dependencies
 
 
-def check_response_200(endpoint_url):
-    resp = requests.get(endpoint_url)
+def check_response_200(endpoint_url, headers=None):
+    resp = requests.get(endpoint_url, headers=headers, timeout=5)
     return resp.status_code == 200
 
 
 def check_docker_manifest_exists(registry, image_name, tag):
     api_url = f"https://{registry}/v2/{image_name}/manifests/{tag}"
-    return check_response_200(api_url)
+    return check_response_200(api_url, headers={"Accept": "application/vnd.oci.image.manifest.v1+json"})
 
 
 def check_image_exists_in_registry(registry, image_name, tag, endpoint_url=None):

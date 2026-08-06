@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -42,12 +41,16 @@ import (
 
 const (
 	provisionerNameKey = "PROVISIONER_NAME"
+	annotationPrefix   = "k8s-sigs.io"
 )
 
 type nfsProvisioner struct {
-	client kubernetes.Interface
-	server string
-	path   string
+	client      kubernetes.Interface
+	server      string
+	path        string
+	defaultMode os.FileMode
+	defaultUid  int
+	defaultGid  int
 }
 
 type pvcMetadata struct {
@@ -85,8 +88,6 @@ func (p *nfsProvisioner) Provision(ctx context.Context, options controller.Provi
 		return nil, controller.ProvisioningFinished, fmt.Errorf("claim Selector is not supported")
 	}
 	glog.V(4).Infof("nfs provisioner: VolumeOptions %v", options)
-	capacity := options.PVC.Spec.Resources.Requests[v1.ResourceName(v1.ResourceStorage)]
-	requestBytes := capacity.Value()
 
 	pvcNamespace := options.PVC.Namespace
 	pvcName := options.PVC.Name
@@ -114,20 +115,15 @@ func (p *nfsProvisioner) Provision(ctx context.Context, options controller.Provi
 		}
 	}
 
+	// Retrieve requested storage size for the quota-backed loopback filesystem.
+	capacity := options.PVC.Spec.Resources.Requests[v1.ResourceName(v1.ResourceStorage)]
+	requestBytes := capacity.Value()
 
-	// glog.V(4).Infof("creating path %s", fullPath)
-	// if err := os.MkdirAll(fullPath, 0o777); err != nil {
-	// 	return nil, controller.ProvisioningFinished, errors.New("unable to create directory to provision new pv: " + err.Error())
-	// }
-	
-	// if err := os.Chmod(fullPath, 0o777); err != nil {
-	// 	return nil, "", err
-	// }
-
-	cmd := exec.Command("/usr/local/bin/mklimdir.sh", "-m", fullPath, "-s", strconv.FormatInt(requestBytes, 10))
-	if err := cmd.Run(); err != nil {
-		return nil, controller.ProvisioningFinished, errors.New("unable to create directory to provision new pv: " + err.Error())
-    }
+	glog.V(4).Infof("creating quota-backed path %s (%d bytes)", fullPath, requestBytes)
+	cmd := exec.Command("/usr/local/bin/nfsvol", "create", "-m", fullPath, "-s", strconv.FormatInt(requestBytes, 10))
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return nil, controller.ProvisioningFinished, fmt.Errorf("unable to create directory to provision new pv: %w\n%s", err, out)
+	}
 
 	pv := &v1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -155,22 +151,25 @@ func (p *nfsProvisioner) Provision(ctx context.Context, options controller.Provi
 func (p *nfsProvisioner) Delete(ctx context.Context, volume *v1.PersistentVolume) error {
 	path := volume.Spec.PersistentVolumeSource.NFS.Path
 	basePath := filepath.Base(path)
-	oldPath := filepath.Join(mountPath, basePath)
+	// Derive the local path by substituting the NFS export root with the local mount path.
+	oldPath := strings.Replace(path, p.path, mountPath, 1)
 
 	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
 		glog.Warningf("path %s does not exist, deletion skipped", oldPath)
 		return nil
 	}
+
 	// Get the storage class for this volume.
 	storageClass, err := p.getClassForVolume(ctx, volume)
 	if err != nil {
 		return err
 	}
 
-	// delete the loop back device
-	cmd := exec.Command("/usr/local/bin/rmlimdir.sh", "-m", oldPath)
-	if err := cmd.Run(); err != nil {
-		return err
+	// Unmount the quota-backed loopback and rename the .quota file to the mountpoint path,
+	// leaving a plain file that can be archived or removed by the logic below.
+	cmd := exec.Command("/usr/local/bin/nfsvol", "delete", "-m", oldPath)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("nfsvol delete: %w\n%s", err, out)
 	}
 
 	// Determine if the "onDelete" parameter exists.
@@ -220,20 +219,46 @@ func (p *nfsProvisioner) getClassForVolume(ctx context.Context, pv *v1.Persisten
 	return class, nil
 }
 
+func getModeFromString(mode string) (os.FileMode, error) {
+	if mode == "" {
+		return os.FileMode(0o777), nil
+	}
+	modeInt, err := strconv.ParseInt(mode, 8, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid mode %s: %v", mode, err)
+	}
+	if modeInt < 0 || modeInt > 0o777 {
+		return 0, fmt.Errorf("mode must be between 0 and 0777, got %s", mode)
+	}
+	return os.FileMode(modeInt), nil
+}
+
+func getIdFromString(id string) (int, error) {
+	if id == "" {
+		return 0, nil
+	}
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		return 0, fmt.Errorf("invalid id %s: %v", id, err)
+	}
+	if idInt < 0 || idInt > 65535 {
+		return 0, fmt.Errorf("id must be between 0 and 65535, got %s", id)
+	}
+	return idInt, nil
+}
+
 func main() {
 	flag.Parse()
 	flag.Set("logtostderr", "true")
 
 	server := os.Getenv("NFS_SERVER")
 	if server == "" {
-		// 2022-11-04 ZS: use the internal K8s service host env variable
-		//                for getting the ip address of the nfs server
+		// Fall back to the in-cluster service host env variable injected by Kubernetes.
 		server = os.Getenv("NFS_SERVER_SERVICE_HOST")
 		if server == "" {
 			glog.Fatal("NFS_SERVER and NFS_SERVER_SERVICE_HOST are both not set")
-		} else {
-			glog.Infof("Using NFS Server: %s", server)
 		}
+		glog.Infof("NFS_SERVER not set, using NFS_SERVER_SERVICE_HOST: %s", server)
 	}
 	path := os.Getenv("NFS_PATH")
 	if path == "" {
@@ -243,20 +268,28 @@ func main() {
 	if provisionerName == "" {
 		glog.Fatalf("environment variable %s is not set! Please set it.", provisionerNameKey)
 	}
+
+	mode, err := getModeFromString(os.Getenv("NFS_DEFAULT_MODE"))
+	if err != nil {
+		glog.Fatalf("Failed to parse NFS_DEFAULT_MODE: %v", err)
+	}
+	uid, err := getIdFromString(os.Getenv("NFS_DEFAULT_UID"))
+	if err != nil {
+		glog.Fatalf("Failed to parse NFS_DEFAULT_UID: %v", err)
+	}
+	gid, err := getIdFromString(os.Getenv("NFS_DEFAULT_GID"))
+	if err != nil {
+		glog.Fatalf("Failed to parse NFS_DEFAULT_GID: %v", err)
+	}
+
 	kubeconfig := os.Getenv("KUBECONFIG")
 	var config *rest.Config
 	if kubeconfig != "" {
-		// Create an OutOfClusterConfig and use it to create a client for the controller
-		// to use to communicate with Kubernetes
-		var err error
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
 			glog.Fatalf("Failed to create kubeconfig: %v", err)
 		}
 	} else {
-		// Create an InClusterConfig and use it to create a client for the controller
-		// to use to communicate with Kubernetes
-		var err error
 		config, err = rest.InClusterConfig()
 		if err != nil {
 			glog.Fatalf("Failed to create config: %v", err)
@@ -284,12 +317,14 @@ func main() {
 	}
 
 	clientNFSProvisioner := &nfsProvisioner{
-		client: clientset,
-		server: server,
-		path:   path,
+		client:      clientset,
+		server:      server,
+		path:        path,
+		defaultMode: mode,
+		defaultUid:  uid,
+		defaultGid:  gid,
 	}
-	// Start the provision controller which will dynamically provision efs NFS
-	// PVs
+	// Start the provision controller which will dynamically provision NFS PVs.
 	pc := controller.NewProvisionController(clientset,
 		provisionerName,
 		clientNFSProvisioner,

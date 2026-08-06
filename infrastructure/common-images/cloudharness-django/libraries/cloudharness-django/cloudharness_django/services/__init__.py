@@ -1,29 +1,36 @@
-from typing import List
+import threading
+import time
+from contextvars import ContextVar
+from typing import List, Optional
 
 from django.conf import settings
 from .auth import AuthService
 from .user import UserService
 from cloudharness_django.exceptions import \
     KeycloakOIDCAuthServiceNotInitError, \
-    KeycloakOIDUserServiceNotInitError, \
     KeycloakOIDUserServiceNotInitError
 
-_auth_service = None
-_user_service = None
+# Per-context (per-thread / per-coroutine) service references.
+# Each execution context lazy-initialises its own instances on first access,
+# so no locking is required.
+_auth_service: ContextVar[Optional[AuthService]] = ContextVar('cloudharness_auth_service', default=None)
+_user_service: ContextVar[Optional[UserService]] = ContextVar('cloudharness_user_service', default=None)
 
 
 def get_auth_service() -> AuthService:
-    global _auth_service
-    if not _auth_service:
+    svc = _auth_service.get()
+    if svc is None:
         init_services()
-    return _auth_service
+        svc = _auth_service.get()
+    return svc
 
 
 def get_user_service() -> UserService:
-    global _user_service
-    if not _user_service:
+    svc = _user_service.get()
+    if svc is None:
         init_services()
-    return _user_service
+        svc = _user_service.get()
+    return svc
 
 
 def init_services(
@@ -33,16 +40,15 @@ def init_services(
         admin_role: str = settings.KC_ADMIN_ROLE,
         default_user_role: str = settings.KC_DEFAULT_USER_ROLE
 ):
-
-    global _auth_service, _user_service
-    _auth_service = AuthService(
+    auth_svc = AuthService(
         client_name=client_name,
         client_roles=client_roles,
         default_user_role=default_user_role,
         privileged_roles=privileged_roles,
         admin_role=admin_role)
-    _user_service = UserService(_auth_service)
-    return _auth_service
+    _auth_service.set(auth_svc)
+    _user_service.set(UserService(auth_svc))
+    return auth_svc
 
 
 def init_services_in_background(
@@ -52,8 +58,6 @@ def init_services_in_background(
         admin_role: str = settings.KC_ADMIN_ROLE,
         default_user_role: str = settings.KC_DEFAULT_USER_ROLE
 ):
-    import threading
-    import time
     from cloudharness import log
 
     def background_operation():
@@ -63,8 +67,8 @@ def init_services_in_background(
             try:
                 init_services(client_name, client_roles, privileged_roles, admin_role, default_user_role)
                 services_initialized = True
-            except:
+            except Exception:
                 log.exception("Error initializing services. Retrying in 5 seconds...")
                 time.sleep(5)
 
-    threading.Thread(target=background_operation).start()
+    threading.Thread(target=background_operation, daemon=True).start()

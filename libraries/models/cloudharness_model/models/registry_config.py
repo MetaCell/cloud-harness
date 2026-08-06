@@ -25,13 +25,14 @@ from cloudharness_model.base_model import CloudHarnessBaseModel
 from pydantic import BaseModel, Field, field_validator, StrictStr, StrictBool, StrictInt, StrictFloat
 from typing import ClassVar, List, Dict, Any, Union, Optional, Annotated
 import importlib
+from cloudharness_model.models.registry_secret_config import RegistrySecretConfig
 
 class RegistryConfig(CloudHarnessBaseModel):
     """
     
     """ # noqa: E501
     name: StrictStr
-    secret: Optional[StrictStr] = Field(default=None, description="Optional secret used for pulling from docker registry.")
+    secret: Optional[RegistrySecretConfig] = None
     additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["name", "secret"]
 
@@ -55,6 +56,9 @@ class RegistryConfig(CloudHarnessBaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of secret
+        if self.secret:
+            _dict['secret'] = self.secret.to_dict()
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:
             for _key, _value in self.additional_properties.items():
@@ -73,7 +77,7 @@ class RegistryConfig(CloudHarnessBaseModel):
 
         _obj = cls.model_validate({
             "name": obj.get("name"),
-            "secret": obj.get("secret")
+            "secret": RegistrySecretConfig.from_dict(obj["secret"]) if obj.get("secret") is not None else None
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

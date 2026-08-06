@@ -11,11 +11,22 @@ metadata:
     {{- end }}
 {{- include "deploy_utils.labels" .root | indent 4 }}
 spec:
+  {{- if .app.harness.deployment.volume }}
+  {{- if or (not (hasKey .app.harness.deployment.volume "usenfs")) (not .app.harness.deployment.volume.usenfs) }}
+  # A ReadWriteOnce volume attaches to a single node and the pod is pinned to the
+  # volume's node via podAffinity (see below). Recreate terminates the old pod
+  # before starting the new one, avoiding an unschedulable pod when the node can't
+  # fit both. NFS (ReadWriteMany) volumes have no pinning and can roll normally.
+  # Nested ifs (not a flat 'and'): helm < 3.10 (go < 1.18) does not short-circuit,
+  # so hasKey must not run on a nil volume.
+  strategy:
+    type: Recreate
+  {{- end }}
+  {{- end }}
   replicas: {{ .app.harness.deployment.replicas | default 1 }}
   selector:
     matchLabels:
       app: {{ .app.harness.deployment.name| quote }}
-{{- include "deploy_utils.labels" .root | indent 6 }}
   template:
     metadata:
       {{- if .app.harvest }}
@@ -30,9 +41,11 @@ spec:
         {{- end }}
 {{- include "deploy_utils.labels" .root | indent 8 }}
     spec:
-      {{- if and .root.Values.registry.secret (contains .root.Values.registry.name .app.harness.deployment.image) }}
+      {{- if .root.Values.registry.secret }}
+      {{- if and .root.Values.registry.secret.name (contains .root.Values.registry.name .app.harness.deployment.image) }}
       imagePullSecrets:
-      - name: {{ .root.Values.registry.secret }}
+      - name: {{ .root.Values.registry.secret.name }}
+      {{- end }}
       {{- end }}
       {{- if and .app.harness.deployment.volume }}
       {{- if or (not (hasKey .app.harness.deployment.volume "usenfs")) (not .app.harness.deployment.volume.usenfs) }}
@@ -47,6 +60,22 @@ spec:
                       - {{ .app.harness.deployment.volume.name }}-{{ .root.Values.namespace }}
                       - {{ .app.harness.deployment.volume.name }} # Obsolete, kept for backwards compatability, to be removed at a later date
               topologyKey: "kubernetes.io/hostname"
+      {{- end }}
+      {{- end }}
+      {{- if .app.harness.deployment.extraContainers }}
+      {{- $hasInit := false }}
+      {{- range $name, $container := .app.harness.deployment.extraContainers }}
+      {{- if and $container.auto $container.initContainer }}
+      {{- $hasInit = true }}
+      {{- end }}
+      {{- end }}
+      {{- if $hasInit }}
+      initContainers:
+      {{- range $name, $container := .app.harness.deployment.extraContainers }}
+      {{- if and $container.auto $container.initContainer }}
+      {{- include "deploy_utils.extraContainerSpec" (dict "name" $name "container" $container "app" $.app "root" $.root) | nindent 6 }}
+      {{- end }}
+      {{- end }}
       {{- end }}
       {{- end }}
       containers:
@@ -100,52 +129,16 @@ spec:
 {{ end }}
         ports:
           - containerPort: {{ .app.harness.deployment.port | default 8080 }}
-        resources:
-          requests:
-            memory: {{ .app.harness.deployment.resources.requests.memory | default "32Mi" }}
-            cpu: {{ .app.harness.deployment.resources.requests.cpu | default "25m" }}
-          limits:
-            memory: {{ .app.harness.deployment.resources.limits.memory | default "64Mi" }}
-            cpu: {{ .app.harness.deployment.resources.limits.cpu | default "50m" }}
+        {{- include "deploy_utils.resources" .app.harness.deployment.resources | nindent 8 }}
 
-        volumeMounts:
-          - name: cloudharness-allvalues
-            mountPath: /opt/cloudharness/resources
-            readOnly: true
-          {{- $root := .root }}
-          {{- range $dep := concat .app.harness.dependencies.hard .app.harness.dependencies.soft }}
-          {{- $depApp := index $root.Values.apps $dep }}
-          {{- if $depApp.harness.secrets }}
-          - name: cloudharness-{{ $dep }}
-            mountPath: /opt/cloudharness/resources/secrets/{{ $dep }}
-            readOnly: true
-          {{- end }}
-          
-          
-          {{- end }}
-          {{- if (has  "accounts" .app.harness.dependencies.hard) }} 
-          {{/* legacy path for accounts auth resources mount */}}
-          - name: cloudharness-accounts
-            mountPath: /opt/cloudharness/resources/auth
-            readOnly: true
-          {{- end }}
-          {{- if  .app.harness.deployment.volume }}
-          - name: {{ .app.harness.deployment.volume.name }}
-            mountPath: {{ .app.harness.deployment.volume.mountpath }}
-            readOnly: {{ .app.harness.deployment.volume.readonly | default false }}
-          {{- end }}
-          {{- $app := .app}}
-          {{- range $resource := .app.harness.resources }}
-          - name: "{{ $app.harness.deployment.name }}-{{ $resource.name }}"
-            mountPath: {{ $resource.dst }}
-            subPath: {{ base $resource.dst }}
-            readOnly: true
-          {{- end}}
-          {{- if .app.harness.secrets }}
-          - name: secrets
-            mountPath: "/opt/cloudharness/resources/secrets/{{ .app.harness.name }}"
-            readOnly: true
-          {{- end }}
+        {{- include "deploy_utils.volumeMounts" (dict "app" .app "root" .root) | nindent 8 }}
+      {{- if .app.harness.deployment.extraContainers }}
+      {{- range $name, $container := .app.harness.deployment.extraContainers }}
+      {{- if and $container.auto (not $container.initContainer) }}
+      {{- include "deploy_utils.extraContainerSpec" (dict "name" $name "container" $container "app" $.app "root" $.root) | nindent 6 }}
+      {{- end }}
+      {{- end }}
+      {{- end }}
       volumes:
         - name: cloudharness-allvalues
           configMap:
@@ -175,6 +168,13 @@ spec:
           secret:
             secretName: {{ .app.harness.deployment.name }}
         {{- end }}
+        {{- if kindIs "map" .app.harness.database }}
+          {{- if and (hasKey .app.harness.database "connect_string") .app.harness.database.connect_string }}
+        - name: db-external
+          secret:
+            secretName: {{ printf "%s-db" .app.harness.deployment.name }}
+          {{- end }}
+        {{- end }}
 ---
 {{- end }}
 
@@ -202,8 +202,10 @@ data:
   {{- range $subapp := $app }}
   {{- if contains "map" (typeOf $subapp)  }}
   {{- if hasKey $subapp "harness" }}
+  {{- if and (hasKey $subapp "port") $subapp.harness.deployment.auto | default false }}
 ---
       {{- include "deploy_utils.deployment" (dict "root" $ "app" $subapp) }}
+  {{- end }}
   {{- end }}
   {{- end }}
   {{- end }}

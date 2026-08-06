@@ -3,7 +3,6 @@ kind: StatefulSet
 metadata:
   name: kafka
 spec:
-  podManagementPolicy: Parallel
   replicas: 1
   selector:
     matchLabels:
@@ -11,96 +10,104 @@ spec:
   serviceName: broker
   template:
     metadata:
-      annotations: null
       labels:
         app: kafka
     spec:
-      serviceAccountName: kafka
+      initContainers:
+      - name: prepare-kafka-data-dir
+        image: {{ .Values.apps.events.kafka.image | quote }}
+        imagePullPolicy: {{ .Values.apps.events.kafka.imagePullPolicy }}
+        command:
+        - /bin/sh
+        - -ec
+        - |
+          mkdir -p /var/lib/kafka/data
+          if [ -z "$(find /var/lib/kafka/data -mindepth 1 -maxdepth 1 2>/dev/null)" ]; then
+            find /var/lib/kafka -mindepth 1 -maxdepth 1 \
+              ! -name lost+found \
+              ! -name data \
+              -exec mv {} /var/lib/kafka/data/ \;
+          fi
+        volumeMounts:
+        - mountPath: /var/lib/kafka
+          name: data
       containers:
-      - command:
-        - ./bin/kafka-server-start.sh
-        - /etc/kafka/server.properties
-        - --override
-        - default.replication.factor=1
-        - --override
-        - min.insync.replicas=1
-        - --override
-        - offsets.topic.replication.factor=1
-        - --override
-        - offsets.topic.num.partitions=1
+      - name: broker
+        image: {{ .Values.apps.events.kafka.image | quote }}
+        imagePullPolicy: {{ .Values.apps.events.kafka.imagePullPolicy }}
         env:
-        - name: CLASSPATH
-          value: /opt/kafka/libs/extensions/*
-        - name: KAFKA_LOG4J_OPTS
-          value: -Dlog4j.configuration=file:/etc/kafka/log4j.properties
-        - name: JMX_PORT
-          value: "5555"
-        image: solsson/kafka:2.3.0@sha256:b59603a8c0645f792fb54e9571500e975206352a021d6a116b110945ca6c3a1d
+        - name: CLUSTER_ID
+          value: {{ .Values.apps.events.kafka.clusterId | quote }}
+        - name: KAFKA_NODE_ID
+          value: "1"
+        - name: KAFKA_PROCESS_ROLES
+          value: controller,broker
+        - name: KAFKA_CONTROLLER_LISTENER_NAMES
+          value: CONTROLLER
+        - name: KAFKA_LISTENERS
+          value: PLAINTEXT://:{{ .Values.apps.events.kafka.port }},CONTROLLER://:{{ .Values.apps.events.kafka.controllerPort }}
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: PLAINTEXT://kafka-0.broker.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.apps.events.kafka.port }}
+        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+        - name: KAFKA_INTER_BROKER_LISTENER_NAME
+          value: PLAINTEXT
+        - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+          value: 1@kafka-0.broker.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.apps.events.kafka.controllerPort }}
+        - name: KAFKA_LOG_DIRS
+          value: /var/lib/kafka/data/kraft-combined-logs
+        - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
+          value: "0"
+        {{- range $key, $value := .Values.apps.events.kafka.config }}
+        - name: KAFKA_{{ $key | upper | replace "." "_" | replace "-" "_" }}
+          value: {{ $value | quote }}
+        {{- end }}
+        ports:
+        - containerPort: {{ .Values.apps.events.kafka.port }}
+          name: client
+        - containerPort: {{ .Values.apps.events.kafka.controllerPort }}
+          name: controller
+        startupProbe:
+          tcpSocket:
+            port: client
+          failureThreshold: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          tcpSocket:
+            port: client
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          timeoutSeconds: 5
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - timeout 18 /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092
+          # This probe spawns a fresh JVM every period; under any CPU contention
+          # the JVM cold-start alone can exceed a tight window, so a single slow
+          # check used to kill an otherwise-healthy broker. Widen the window and
+          # require several consecutive failures before restarting.
+          initialDelaySeconds: 90
+          periodSeconds: 60
+          timeoutSeconds: 20
+          failureThreshold: 6
         lifecycle:
           preStop:
             exec:
               command:
-              - sh
-              - -ce
-              - kill -s TERM 1; while $(kill -0 1 2>/dev/null); do sleep 1; done
-        name: broker
-        ports:
-        - containerPort: 9092
-          name: inside
-        - containerPort: 9094
-          name: outside
-        - containerPort: 5555
-          name: jmx
-        readinessProbe:
-          tcpSocket:
-            port: 9092
-          timeoutSeconds: 2
-          initialDelaySeconds: 30
-          periodSeconds: 30
+              - /bin/sh
+              - -ec
+              - /opt/kafka/bin/kafka-server-stop.sh
         resources:
           {{- .Values.apps.events.kafka.resources | toYaml | nindent 10 }}
         volumeMounts:
-        - mountPath: /etc/kafka
-          name: config
-        - mountPath: /var/lib/kafka/data
+        - mountPath: /var/lib/kafka
           name: data
-        - mountPath: /opt/kafka/libs/extensions
-          name: extensions
-      initContainers:
-      - command:
-        - /bin/bash
-        - /etc/kafka-configmap/init.sh
-        env:
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        image: solsson/kafka-initutils@sha256:f6d9850c6c3ad5ecc35e717308fddb47daffbde18eb93e98e031128fe8b899ef
-        name: init-config
-        volumeMounts:
-        - mountPath: /etc/kafka-configmap
-          name: configmap
-        - mountPath: /etc/kafka
-          name: config
-        - mountPath: /opt/kafka/libs/extensions
-          name: extensions
+      securityContext:
+        fsGroup: 1000
       terminationGracePeriodSeconds: 30
-      volumes:
-      - configMap:
-          name: broker-config
-        name: configmap
-      - emptyDir: {}
-        name: config
-      - emptyDir: {}
-        name: extensions
   updateStrategy:
     type: RollingUpdate
   volumeClaimTemplates:
@@ -112,219 +119,4 @@ spec:
       resources:
         requests:
           storage: {{ .Values.apps.events.kafka.storage }}
-      storageClassName: standard
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: pzoo
-spec:
-  podManagementPolicy: Parallel
-  replicas: 1
-  selector:
-    matchLabels:
-      app: zookeeper
-      storage: persistent
-  serviceName: pzoo
-  template:
-    metadata:
-      annotations: null
-      labels:
-        app: zookeeper
-        storage: persistent
-    spec:
-      serviceAccountName: kafka
-      containers:
-      - command:
-        - ./bin/zookeeper-server-start.sh
-        - /etc/kafka/zookeeper.properties
-        env:
-        - name: KAFKA_LOG4J_OPTS
-          value: -Dlog4j.configuration=file:/etc/kafka/log4j.properties
-        image: solsson/kafka:2.3.0@sha256:b59603a8c0645f792fb54e9571500e975206352a021d6a116b110945ca6c3a1d
-        lifecycle:
-          preStop:
-            exec:
-              command:
-              - sh
-              - -ce
-              - kill -s TERM 1; while $(kill -0 1 2>/dev/null); do sleep 1; done
-        name: zookeeper
-        ports:
-        - containerPort: 2181
-          name: client
-        - containerPort: 2888
-          name: peer
-        - containerPort: 3888
-          name: leader-election
-        readinessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - '[ "imok" = "$(echo ruok | nc -w 1 -q 1 127.0.0.1 2181)" ]'
-          timeoutSeconds: 3
-          initialDelaySeconds: 30
-          periodSeconds: 30
-        livenessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - '[ "imok" = "$(echo ruok | nc -w 1 -q 1 127.0.0.1 2181)" ]'
-          timeoutSeconds: 3
-          initialDelaySeconds: 12
-          periodSeconds: 60
-        resources:
-          {{- .Values.apps.events.pzoo.resources | toYaml | nindent 10 }}
-        volumeMounts:
-        - mountPath: /etc/kafka
-          name: config
-        - mountPath: /var/lib/zookeeper
-          name: data
-      initContainers:
-      - command:
-        - /bin/bash
-        - /etc/kafka-configmap/init.sh
-        env:
-        - name: PZOO_REPLICAS
-          value: "1"
-        - name: ZOO_REPLICAS
-          value: "0"
-        image: solsson/kafka-initutils@sha256:f6d9850c6c3ad5ecc35e717308fddb47daffbde18eb93e98e031128fe8b899ef
-        name: init-config
-        volumeMounts:
-        - mountPath: /etc/kafka-configmap
-          name: configmap
-        - mountPath: /etc/kafka
-          name: config
-        - mountPath: /var/lib/zookeeper
-          name: data
-      terminationGracePeriodSeconds: 10
-      volumes:
-      - configMap:
-          name: zookeeper-config
-        name: configmap
-      - emptyDir: {}
-        name: config
-  updateStrategy:
-    type: RollingUpdate
-  volumeClaimTemplates:
-  - metadata:
-      name: data
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      resources:
-        requests:
-          storage: {{ .Values.apps.events.pzoo.storage }}
-      storageClassName: standard
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: zoo
-spec:
-  podManagementPolicy: Parallel
-  replicas: 0
-  selector:
-    matchLabels:
-      app: zookeeper
-      storage: persistent-regional
-  serviceName: zoo
-  template:
-    metadata:
-      annotations: null
-      labels:
-        app: zookeeper
-        storage: persistent-regional
-    spec:
-      serviceAccountName: kafka
-      containers:
-      - command:
-        - ./bin/zookeeper-server-start.sh
-        - /etc/kafka/zookeeper.properties
-        env:
-        - name: KAFKA_LOG4J_OPTS
-          value: -Dlog4j.configuration=file:/etc/kafka/log4j.properties
-        image: solsson/kafka:2.3.0@sha256:b59603a8c0645f792fb54e9571500e975206352a021d6a116b110945ca6c3a1d
-        lifecycle:
-          preStop:
-            exec:
-              command:
-              - sh
-              - -ce
-              - kill -s TERM 1; while $(kill -0 1 2>/dev/null); do sleep 1; done
-        name: zookeeper
-        ports:
-        - containerPort: 2181
-          name: client
-        - containerPort: 2888
-          name: peer
-        - containerPort: 3888
-          name: leader-election
-        readinessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - '[ "imok" = "$(echo ruok | nc -w 1 -q 1 127.0.0.1 2181)" ]'
-          timeoutSeconds: 3
-          initialDelaySeconds: 30
-          periodSeconds: 30
-        livenessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - '[ "imok" = "$(echo ruok | nc -w 1 -q 1 127.0.0.1 2181)" ]'
-          timeoutSeconds: 3
-          initialDelaySeconds: 12
-          periodSeconds: 60
-
-        resources:
-          {{- .Values.apps.events.zoo.resources | toYaml | nindent 10 }}
-        volumeMounts:
-        - mountPath: /etc/kafka
-          name: config
-        - mountPath: /var/lib/zookeeper
-          name: data
-      initContainers:
-      - command:
-        - /bin/bash
-        - /etc/kafka-configmap/init.sh
-        env:
-        - name: PZOO_REPLICAS
-          value: "1"
-        - name: ZOO_REPLICAS
-          value: "0"
-        - name: ID_OFFSET
-          value: "2"
-        image: solsson/kafka-initutils@sha256:f6d9850c6c3ad5ecc35e717308fddb47daffbde18eb93e98e031128fe8b899ef
-        name: init-config
-        volumeMounts:
-        - mountPath: /etc/kafka-configmap
-          name: configmap
-        - mountPath: /etc/kafka
-          name: config
-        - mountPath: /var/lib/zookeeper
-          name: data
-      terminationGracePeriodSeconds: 10
-      volumes:
-      - configMap:
-          name: zookeeper-config
-        name: configmap
-      - emptyDir: {}
-        name: config
-  updateStrategy:
-    type: RollingUpdate
-  volumeClaimTemplates:
-  - metadata:
-      name: data
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      resources:
-        requests:
-          storage: {{ .Values.apps.events.zoo.storage }}
-      storageClassName: standard
+      storageClassName: {{ .Values.apps.events.kafka.storageClassName }}

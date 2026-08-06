@@ -27,6 +27,7 @@ data:
     forbidden-page: /templates/access-denied.html.tmpl
     enable-default-deny: {{ $noWildcards }}
     listen: 0.0.0.0:8080
+    enable-encrypted-token: false
     enable-refresh-tokens: true
     server-write-timeout: {{ .app.harness.proxy.timeout.send | default .root.Values.proxy.timeout.send | default 180 }}s
     upstream-timeout: {{ .app.harness.proxy.timeout.read | default .root.Values.proxy.timeout.read | default 180 }}s
@@ -38,7 +39,6 @@ data:
     tls-cert:
     tls-private-key:
     redirection-url: {{ ternary "https" "http" $tls }}://{{ .subdomain }}.{{ .root.Values.domain }}
-    encryption-key: AgXa7xRcoClDEU0ZDSH4X0XhL5Qy2Z2j
     upstream-url: http://{{ .app.harness.service.name }}.{{ .app.namespace | default .root.Release.Namespace }}:{{ .app.harness.service.port | default 80}}
     {{ if .app.harness.secured }}
       {{ with .app.harness.uri_role_mapping }}
@@ -69,9 +69,8 @@ data:
     <head>
       <meta charset="UTF-8">
       <title>403 - Access Forbidden</title>
-      <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
-      <script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
-      <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+      <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
       <style>
         .oops {
           font-size: 9em;
@@ -80,25 +79,71 @@ data:
         .message {
           font-size: 3em;
         }
+        .error-template {
+          display: none;
+        }
       </style>
     </head>
     <body>
       <div class="container text-center">
         <div class="row vcenter" style="margin-top: 20%;">
           <div class="col-md-12">
-            <div class="error-template">
+            <div class="error-template" id="error-template">
               <h1 class="oops">Oops!</h1>
               <h2 class="message">403 Permission Denied</h2>
               <div class="error-details">
                 Sorry, you do not have access to this page, please contact your administrator.
-                If you are authorized to see this page, please try <a href="/">reload</a> or <a href="/oauth/logout?redirect=/">login again</a>.
+                If you are authorized to see this page, please try <a href="/">reload</a>
+                or <a href="/oauth/logout?redirect=/">login again</a>.
               </div>
             </div>
           </div>
         </div>
-    </div>
+      </div>
+      <script>
+        var retryKey = 'gk_403_retry';
+        var retryCount = parseInt(sessionStorage.getItem(retryKey) || '0', 10);
+
+        if (retryCount < 1) {
+          sessionStorage.setItem(retryKey, String(retryCount + 1));
+          setTimeout(function() {
+            window.location.replace('/');
+          }, 100);
+        } else {
+          sessionStorage.removeItem(retryKey);
+          document.getElementById('error-template').style.display = 'block';
+        }
+      </script>
     </body>
     </html>
+---
+{{- $gkSecretName := printf "%s-gk" .subdomain }}
+{{- $existingGkSecret := (lookup "v1" "Secret" .root.Values.namespace $gkSecretName) }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $gkSecretName }}
+  namespace: {{ .root.Values.namespace }}
+  labels:
+    app: {{ $gkSecretName }}
+type: Opaque
+stringData:
+  updated: {{ now | quote }}
+  {{- if .root.Values.proxy.gatekeeper.secret }}
+  encryption-key: {{ .root.Values.proxy.gatekeeper.secret | quote }}
+  {{- else }}
+    {{- $hasExisting := false }}
+    {{- if $existingGkSecret }}
+      {{- if eq (typeOf $existingGkSecret.data) (typeOf dict) }}
+        {{- if hasKey $existingGkSecret.data "encryption-key" }}
+          {{- $hasExisting = true }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+    {{- if not $hasExisting }}
+  encryption-key: {{ randAlphaNum 32 | quote }}
+    {{- end }}
+  {{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -135,7 +180,7 @@ spec:
 {{ include "deploy_utils.etcHosts" .root | indent 6 }}
       containers:
       - name: {{ .app.harness.service.name | quote }}
-        image: {{ .app.harness.proxy.gatekeeper.image | default .root.Values.proxy.gatekeeper.image | default "quay.io/gogatekeeper/gatekeeper:2.14.3" }}
+        image: {{ .app.harness.proxy.gatekeeper.image | default .root.Values.proxy.gatekeeper.image | default "quay.io/gogatekeeper/gatekeeper:4.6.0" }}
         imagePullPolicy: IfNotPresent
         {{ if .root.Values.local }}
         securityContext:
@@ -147,6 +192,11 @@ spec:
           value: /opt/proxy.yml
         - name: PROXY_ENABLE_METRICS
           value: "true"
+        - name: PROXY_ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: "{{ .subdomain }}-gk"
+              key: encryption-key
         volumeMounts:
         - name: "{{ .subdomain  }}-gk-proxy-config"
           mountPath: /opt/proxy.yml
@@ -177,7 +227,7 @@ spec:
 ---
     {{ include "deploy_utils.securedservice" (dict "root" $ "app" $app "files" $files "subdomain" $app.harness.subdomain) }}
   {{- end }}
-  {{- if $app.harness.aliases }}
+  {{- if and $app.harness.aliases $app.harness.secured }}
     {{- range $subdomain := $app.harness.aliases }}
       {{ include "deploy_utils.securedservice" (dict "root" $ "app" $app "files" $files "subdomain" $subdomain ) }}
     {{- end }}

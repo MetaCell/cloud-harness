@@ -1,5 +1,6 @@
 from ch_cli_tools.dockercompose import *
 from ch_cli_tools.configurationgenerator import *
+from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
 import pytest
 import shutil
 
@@ -93,6 +94,20 @@ def test_collect_compose_values(tmp_path):
     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES]
 
 
+def test_compose_app_depends_on_task_only(tmp_path):
+    out_folder = tmp_path / 'test_compose_app_depends_on_task_only'
+
+    # taskdep depends on myapp-mytask, a task image owned by another app (myapp) that is
+    # not listed as a dependency itself. The owner app must be pulled in to build the task
+    # image, but must not be deployed.
+    values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder,
+                                                 include=['taskdep'], domain="my.local",
+                                                 env='', local=False, tag=1, registry='reg')
+
+    assert 'myapp-mytask' in values[KEY_TASK_IMAGES], "cross-app task image must be built"
+    assert 'myapp' not in values[KEY_APPS], "owner app must be built but not deployed"
+
+
 def test_collect_compose_values_noreg_noinclude(tmp_path):
     out_path = tmp_path / 'test_collect_compose_values_noreg_noinclude'
     values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, domain="my.local",
@@ -182,7 +197,7 @@ def test_collect_compose_values_multiple_envs(tmp_path):
 
 
 def test_collect_compose_values_wrong_dependencies_validate(tmp_path):
-    out_folder = tmp_path / 'test_collect_compose_values_wrong_dependencies_validate'
+    out_folder = tmp_path / 'test_collect_helm_values_wrong_dependencies_validate'
     with pytest.raises(ValuesValidationException):
         create_docker_compose_configuration([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
                                             namespace='test', env='prod', local=False, tag=1, include=["wrong-hard"])
@@ -196,9 +211,11 @@ def test_collect_compose_values_wrong_dependencies_validate(tmp_path):
     with pytest.raises(ValuesValidationException):
         create_docker_compose_configuration([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
                                             namespace='test', env='prod', local=False, tag=1, include=["wrong-build"])
-    with pytest.raises(ValuesValidationException):
+    try:
         create_docker_compose_configuration([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
                                             namespace='test', env='prod', local=False, tag=1, include=["wrong-services"])
+    except ValuesValidationException:
+        pytest.fail("Should not error because of missing use_services dependency")
 
 
 def test_collect_compose_values_build_dependencies(tmp_path):
@@ -304,11 +321,20 @@ def test_tag_hash_generation():
 
 def test_collect_compose_values_auto_tag(tmp_path):
     out_folder = tmp_path / 'test_collect_compose_values_auto_tag'
+    merge_build_path = str(tmp_path / '.overrides')
+
+    first_pass = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
+                                                     exclude=['events'], domain="my.local",
+                                                     namespace='test', env='dev', local=False, tag=None, registry='reg')
+    assert first_pass[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/myapp'
 
     def create():
-        return create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
-                                                   exclude=['events'], domain="my.local",
-                                                   namespace='test', env='dev', local=False, tag=None, registry='reg')
+        values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
+                                                     exclude=['events'], domain="my.local",
+                                                     namespace='test', env='dev', local=False, tag=None, registry='reg')
+        preprocess_build_overrides([CLOUDHARNESS_ROOT, RESOURCES], values, merge_build_path=merge_build_path)
+        generate_hash_based_image_tags([CLOUDHARNESS_ROOT, RESOURCES], values, merge_build_path=merge_build_path)
+        return values
 
     BASE_KEY = "cloudharness-base"
     values = create()

@@ -113,6 +113,17 @@ def is_uuid(s):
         return False
 
 
+def _get_public_key_cache_path():
+    try:
+        from django.conf import settings
+        return os.path.join(settings.PERSISTENT_ROOT, "cloudharness_public_key")
+    except ImportError:
+        return "/tmp/cloudharness_public_key"
+    except Exception:
+        log.exception("Could not get Django settings, using /tmp for public key cache")
+        return "/tmp/cloudharness_public_key"
+
+
 class AuthClient():
     __public_key = None
 
@@ -181,10 +192,23 @@ class AuthClient():
     @classmethod
     def get_public_key(cls):
         if not cls.__public_key:
-            public_key_url = os.path.join(get_server_url(), "realms", get_auth_realm())
-            key_der_base64 = requests.get(public_key_url).json()['public_key']
-            key_der = b64decode(key_der_base64.encode())
-            cls.__public_key = serialization.load_der_public_key(key_der)
+            cache_path = _get_public_key_cache_path()
+            try:
+                with open(cache_path, 'r') as f:
+                    key_der_base64 = f.read().strip()
+                key_der = b64decode(key_der_base64.encode())
+                cls.__public_key = serialization.load_der_public_key(key_der)
+            except Exception:
+                public_key_url = os.path.join(get_server_url(), "realms", get_auth_realm())
+                key_der_base64 = requests.get(public_key_url).json()['public_key']
+                key_der = b64decode(key_der_base64.encode())
+                cls.__public_key = serialization.load_der_public_key(key_der)
+                try:
+                    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+                    with open(cache_path, 'w') as f:
+                        f.write(key_der_base64)
+                except Exception:
+                    log.warning("Could not write public key cache to %s", cache_path)
         return cls.__public_key
 
     @classmethod
@@ -205,6 +229,34 @@ class AuthClient():
         except jwt.exceptions.InvalidTokenError as e:
             raise InvalidToken(e) from e
         return decoded
+
+    def get_user_token(self, user_id: str, audience: str = "web-client") -> str:
+        """
+        Obtain a fresh access token acting as the given Keycloak user, via OIDC token
+        exchange (RFC 8693), without needing that user's own credentials.
+
+        Requires the app's own confidential client (CH_ACCOUNTS_CLIENT_ID/SECRET) to have
+        serviceAccountsEnabled and token-exchange/impersonation permission granted in the realm.
+
+        :param user_id: Keycloak user id (sub) to obtain a token for
+        :param audience: Client audience the exchanged token should carry, so it validates
+            against AuthClient.decode_token's default `audience="web-client"` check
+        :return: A fresh access token for the given user
+        """
+        oidc = KeycloakOpenID(
+            server_url=get_server_url(),
+            realm_name=get_auth_realm(),
+            client_id=os.environ["CH_ACCOUNTS_CLIENT_ID"],
+            client_secret_key=os.environ["CH_ACCOUNTS_CLIENT_SECRET"],
+        )
+        actor_token = oidc.token(grant_type="client_credentials")["access_token"]
+        exchanged = oidc.exchange_token(
+            token=actor_token,
+            audience=audience,
+            subject=user_id,
+            requested_token_type="urn:ietf:params:oauth:token-type:access_token",
+        )
+        return exchanged["access_token"]
 
     @with_refreshtoken
     def get_client(self, client_name):
@@ -302,7 +354,7 @@ class AuthClient():
                 user.update(
                     {'userGroups': admin_client.get_user_groups(user['id'], brief_representation=not with_details)})
                 user.update(
-                    {'realmRoles': admin_client.get_realm_roles_of_user(user['id'])})
+                    {'realmRoles': [role['name'] for role in admin_client.get_realm_roles_of_user(user['id'])]})
             group.update({'members': members})
         return UserGroup.from_dict(group)
 
@@ -470,8 +522,22 @@ class AuthClient():
 
     def _add_related_to_user(self, user: User, with_details: bool, admin_client):
         user.user_groups = [UserGroup.from_dict(group) for group in admin_client.get_user_groups(user_id=user['id'], brief_representation=not with_details)]
-        user.realm_roles = admin_client.get_realm_roles_of_user(user['id'])
-        user.organizations = [Organization.from_dict(org) for org in admin_client.get_user_organizations(user['id'])]
+        # The model expects role names (List[str]); Keycloak returns role
+        # representations (dicts), so extract the names.
+        user.realm_roles = [role['name'] for role in admin_client.get_realm_roles_of_user(user['id'])]
+        if hasattr(admin_client, 'get_user_organizations'):
+            try:
+                user.organizations = [Organization.from_dict(org) for org in admin_client.get_user_organizations(user['id'])]
+            except KeycloakGetError as e:
+                # Newer Keycloak/admin-client combinations may expose the organizations
+                # endpoint even when organizations are disabled for the realm.
+                # In that case, keep backwards-compatible behavior and return no orgs.
+                if e.response_code == 404:
+                    user.organizations = []
+                else:
+                    raise
+        else:
+            user.organizations = []
         return user
 
     def get_current_user(self) -> User:
@@ -614,6 +680,8 @@ class AuthClient():
             {
                 'attributes': attributes,
                 'username': user.username,
+                'firstName': user.first_name,
+                'lastName': user.last_name,
                 'email': user.email,
             }
         )
@@ -637,6 +705,8 @@ class AuthClient():
                 {
                     'attributes': attributes,
                     'username': user.username,
+                    'firstName': user.first_name,
+                    'lastName': user.last_name,
                     'email': user.email,
                 })
             return True

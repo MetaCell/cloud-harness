@@ -1,2 +1,6 @@
 harness:
-  database: {auto: true, type: postgres}
+  database: 
+    auto: true
+    type: postgres
+    postgres:
+      image: postgres:17

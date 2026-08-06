@@ -12,7 +12,7 @@ Closes [CH-X](https://metacell.atlassian.net/browse/CH-X)
 - [ ] The pull request is explicitly linked to the relevant issue(s)
 - [ ] The issue is well described: clearly states the problem and the general proposed solution(s)
 - [ ] In this PR it is explicitly stated how to test the current change
-- [ ] The labels in the issue set the scope and the type of issue (bug, feature, etc.)
+- [ ] The issue seta the scope and the type of issue (bug, story, task, etc.)
 - [ ] The relevant components are indicated in the issue (if any)
 - [ ] All the automated test checks are passing
 - [ ] All the linked issues are included in one Sprint
