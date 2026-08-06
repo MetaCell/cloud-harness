@@ -115,7 +115,7 @@ the volume detaches and reattaches.
 
 ### Routing writes to a single pod (leader service)
 
-For a StatefulSet, an additional service named `<service-name>-rw` is automatically created that
+For a StatefulSet (with `harness.service.auto: true`), an additional service named `<service-name>-rw` is automatically created that
 always resolves to pod 0. This supports a single-writer pattern when running multiple replicas
 over a shared volume: any pod can serve reads, but write requests are handled only by pod 0.
 
