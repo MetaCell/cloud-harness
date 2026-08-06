@@ -18,23 +18,27 @@ class JSONEncoder(DefaultJSONProvider):
     include_nulls = False
 
     def default(self, o):
-        # Check if object has a to_dict method (preferred for OpenAPI models)
+        # Connexion/openapi-generator models: their `to_dict()` keys are the
+        # *Python* attribute names (snake_case), so serializing through it would
+        # break every camelCase property in the spec. `attribute_map` holds the
+        # JSON names, so use it — this branch must come first, since these models
+        # also define `to_dict()`.
+        if hasattr(o, 'openapi_types') and hasattr(o, 'attribute_map'):
+            dikt = {}
+            for attr, _ in six.iteritems(o.openapi_types):
+                value = getattr(o, attr)
+                if value is None and not self.include_nulls:
+                    continue
+                dikt[o.attribute_map[attr]] = value
+            return dikt
+        # Pydantic models (e.g. cloudharness_model): to_dict() already
+        # serializes by alias, so the JSON names are correct.
         if hasattr(o, 'to_dict') and callable(getattr(o, 'to_dict')):
             result = o.to_dict()
             if not self.include_nulls:
                 # Filter out None values if include_nulls is False
                 result = {k: v for k, v in result.items() if v is not None}
             return result
-        # Fallback to openapi_types handling for backwards compatibility
-        if hasattr(o, 'openapi_types'):
-            dikt = {}
-            for attr, _ in six.iteritems(o.openapi_types):
-                value = getattr(o, attr)
-                if value is None and not self.include_nulls:
-                    continue
-                attr = o.attribute_map[attr]
-                dikt[attr] = value
-            return dikt
         return super().default(o)
 
     def dumps(self, obj, **kwargs):

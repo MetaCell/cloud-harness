@@ -42,41 +42,51 @@
 
 {{- define "securedservice.deploy.resources" }}
 {{- $tls := not (not .root.Values.tls) }}
+{{- $scheme := ternary "https" "http" $tls }}
+{{- $readTimeout := .app.harness.proxy.timeout.read | default .root.Values.proxy.timeout.read | default 180 }}
+{{- $sendTimeout := .app.harness.proxy.timeout.send | default .root.Values.proxy.timeout.send | default 180 }}
+{{- $keepaliveTimeout := .app.harness.proxy.timeout.keepalive | default .root.Values.proxy.timeout.keepalive | default 180 }}
+{{- $generatedGatekeeperConfiguration := dict
+  "verbose" .root.Values.debug
+  "discovery-url" (printf "%s://%s.%s/realms/%s" $scheme .root.Values.apps.accounts.harness.subdomain .root.Values.domain .root.Values.namespace)
+  "client-id" .root.Values.apps.accounts.webclient.id
+  "client-secret" .root.Values.apps.accounts.webclient.secret
+  "secure-cookie" $tls
+  "forbidden-page" "/templates/access-denied.html.tmpl"
+  "enable-default-deny" (eq (.app.harness.secured | toString) "true")
+  "listen" "0.0.0.0:8080"
+  "enable-refresh-tokens" true
+  "server-write-timeout" (printf "%vs" $sendTimeout)
+  "upstream-timeout" (printf "%vs" $readTimeout)
+  "upstream-response-header-timeout" (printf "%vs" $readTimeout)
+  "upstream-expect-continue-timeout" (printf "%vs" $readTimeout)
+  "server-read-timeout" (printf "%vs" $readTimeout)
+  "upstream-keepalive-timeout" (printf "%vs" $keepaliveTimeout)
+  "http-only-cookie" false
+  "tls-cert" ""
+  "tls-private-key" ""
+  "redirection-url" (printf "%s://%s.%s" $scheme .app.harness.subdomain .root.Values.domain)
+  "encryption-key" "AgXa7xRcoClDEU0ZDSH4X0XhL5Qy2Z2j"
+  "upstream-url" (printf "http://%s.%s:%v" .app.harness.service.name (.app.namespace | default .root.Release.Namespace) (.app.harness.service.port | default 80))
+}}
+{{- if and .app.harness.secured .app.harness.uri_role_mapping }}
+{{- $_ := set $generatedGatekeeperConfiguration "resources" .app.harness.uri_role_mapping }}
+{{- end }}
+{{- if or .root.Values.local (not $tls) }}
+{{- $_ := set $generatedGatekeeperConfiguration "skip-openid-provider-tls-verify" true }}
+{{- $_ := set $generatedGatekeeperConfiguration "skip-upstream-tls-verify" true }}
+{{- end }}
+{{- $globalGatekeeperConfiguration := deepCopy (.root.Values.proxy.gatekeeper.configuration | default dict) }}
+{{- $applicationGatekeeperConfiguration := deepCopy (.app.harness.proxy.gatekeeper.configuration | default dict) }}
+{{- $gatekeeperConfiguration := mergeOverwrite $generatedGatekeeperConfiguration $globalGatekeeperConfiguration $applicationGatekeeperConfiguration }}
+{{- if and (not $tls) (eq ((get $gatekeeperConfiguration "same-site-cookie") | toString) "None") }}
+{{- $_ := set $gatekeeperConfiguration "same-site-cookie" "Lax" }}
+{{- end }}
 cloudharness-metadata:
   path: resources/generated/{{ .app.harness.service.name }}-gk/proxy.yml
 
 data: |-
-    verbose: {{ .root.Values.debug }}
-    discovery-url: {{ ternary "https" "http" $tls}}://{{ .root.Values.apps.accounts.harness.subdomain }}.{{ .root.Values.domain }}/realms/{{ .root.Values.namespace }}
-    client-id: {{ .root.Values.apps.accounts.webclient.id | quote }}
-    client-secret: {{ .root.Values.apps.accounts.webclient.secret }}
-    secure-cookie: {{ $tls }}
-    forbidden-page: /templates/access-denied.html.tmpl
-    enable-default-deny:  {{ eq (.app.harness.secured | toString) "true" }}
-    listen: 0.0.0.0:8080
-    enable-refresh-tokens: true
-    server-write-timeout: {{ .app.harness.proxy.timeout.send | default .root.Values.proxy.timeout.send | default 180 }}s
-    upstream-timeout: {{ .app.harness.proxy.timeout.read | default .root.Values.proxy.timeout.read | default 180 }}s
-    upstream-response-header-timeout:   {{ .app.harness.proxy.timeout.read | default .root.Values.proxy.timeout.read | default 180 }}s
-    upstream-expect-continue-timeout:  {{ .app.harness.proxy.timeout.read | default .root.Values.proxy.timeout.read | default 180 }}s
-    server-read-timeout:  {{ .app.harness.proxy.timeout.read | default .root.Values.proxy.timeout.read | default 180 }}s
-    upstream-keepalive-timeout:  {{ .app.harness.proxy.timeout.keepalive | default .root.Values.proxy.timeout.keepalive | default 180 }}s
-    http-only-cookie: false
-    tls-cert:
-    tls-private-key:
-    redirection-url: {{ ternary "https" "http" $tls }}://{{ .app.harness.subdomain }}.{{ .root.Values.domain }}
-    encryption-key: AgXa7xRcoClDEU0ZDSH4X0XhL5Qy2Z2j
-    upstream-url: http://{{ .app.harness.service.name }}.{{ .app.namespace | default .root.Release.Namespace }}:{{ .app.harness.service.port | default 80}}
-    {{ if .app.harness.secured }}
-      {{ with .app.harness.uri_role_mapping }}
-    resources:
-    {{. | toYaml | nindent 4 }}
-      {{- end }}
-    {{- end }}
-    {{ if or .root.Values.local (not $tls) }}
-    skip-openid-provider-tls-verify: true
-    skip-upstream-tls-verify: true
-    {{- end }}
+{{ $gatekeeperConfiguration | toYaml | nindent 4 }}
 ---
 cloudharness-metadata:
   path: resources/generated/{{ .app.harness.service.name }}-gk/cacert.crt

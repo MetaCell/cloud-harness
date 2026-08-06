@@ -14,7 +14,7 @@ Name | Type | Description | Notes
 **dependencies** | [**ApplicationDependenciesConfig**](ApplicationDependenciesConfig.md) |  | [optional] 
 **secured** | **object** | When true, the application is shielded with a getekeeper | [optional] 
 **uri_role_mapping** | [**List[UriRoleMappingConfig]**](UriRoleMappingConfig.md) | Map uri/roles to secure with the Gatekeeper (if &#x60;secured: true&#x60;) | [optional] 
-**secrets** | **Dict[str, object]** |  | [optional] 
+**secrets** | [**Dict[str, SecretDefinition]**](SecretDefinition.md) | Application secrets, by name | [optional] 
 **use_services** | [**List[NamedObject]**](NamedObject.md) | Specify which services this application uses in the frontend to create proxy ingresses. e.g.  &#x60;&#x60;&#x60; - name: samples &#x60;&#x60;&#x60; | [optional] 
 **database** | [**DatabaseDeploymentConfig**](DatabaseDeploymentConfig.md) |  | [optional] 
 **resources** | [**List[FileResourcesConfig]**](FileResourcesConfig.md) | Application file resources. Maps from deploy/resources folder and mounts as configmaps | [optional] 

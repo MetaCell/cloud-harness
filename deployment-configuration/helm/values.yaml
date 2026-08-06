@@ -93,6 +93,22 @@ ingress:
   path: "/"
   # -- The pathType for the Ingress path. Default is Prefix. For regex paths, set to ImplementationSpecific
   pathType: Prefix
+# -- Deployment wide configuration of the secret managers referenced by `harness.secrets`.
+# Each entry is keyed by manager name and holds the settings shared by all the secrets
+# handled by that manager. Settings can be overridden secret by secret. This is plain
+# configuration and is exposed in the allvalues config map: never put credentials here.
+# @default -- Empty, no secret manager configured.
+secretmanagers: {}
+  # onepassword:
+  #   # -- Vault used when a secret only specifies the item name instead of the full item path.
+  #   vault: my-vault
+  # aws:
+  #   # -- Name of the External Secrets Operator store pointing to AWS Secrets Manager.
+  #   store: aws-secrets-manager
+  #   # -- SecretStore or ClusterSecretStore.
+  #   storeKind: ClusterSecretStore
+  #   # -- How often the value is refreshed from AWS.
+  #   refreshInterval: 1h
 backup:
   # -- Flag to enable/disable backups.
   active: false

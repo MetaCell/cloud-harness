@@ -166,6 +166,10 @@ spec:
               subPath: allvalues.yaml
             {{- if .Values.apps.accounts }}
             - name: cloudharness-kc-accounts
+              mountPath: /opt/cloudharness/resources/secrets/accounts
+              readOnly: true
+            {{- /* legacy path for accounts auth resources mount */}}
+            - name: cloudharness-kc-accounts
               mountPath: /opt/cloudharness/resources/auth
               readOnly: true
             {{- end }}  # EDIT: CLOUDHARNESS END

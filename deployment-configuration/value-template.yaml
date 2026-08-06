@@ -75,7 +75,10 @@ harness:
     name:
     # -- Service port.
     port: 80
-  # -- Auto generated secrets key-value pairs. If no value is provided, a random hash is generated
+  # -- Auto generated secrets key-value pairs. If no value is provided, a random hash is generated.
+  # A secret can also be delegated to a secret manager with the rich form
+  # `mySecret: {manager: onepassword, default: a value, path: vaults/my-vault/items/my-item}`.
+  # Set `manager` explicitly to null to leave the secret unmanaged, i.e. created out of band.
   secrets: {}
   # -- Specify which services this application uses in the frontend to create proxy ingresses. e.g. - name: mnp-checkout
   use_services: []
@@ -185,6 +188,9 @@ harness:
       image: "quay.io/gogatekeeper/gatekeeper:4.6.0"
       # -- Default number of gatekeeper replicas
       replicas: 1
+      # -- Native Gatekeeper proxy.yml settings. Kebab-case keys follow the
+      # Gatekeeper configuration reference and override global/generated values.
+      configuration: {}
       resources:
         requests:
           memory: "32Mi"

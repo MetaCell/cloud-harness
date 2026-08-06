@@ -1,8 +1,7 @@
-import pytest
 from os.path import join, dirname as dn, realpath
 import oyaml as yaml
 
-from cloudharness_model import HarnessMainConfig, ApplicationConfig, User, ApplicationHarnessConfig, CDCEvent, ApplicationTestConfig, DatabaseConfig
+from cloudharness_model import HarnessMainConfig, ApplicationConfig, User, ApplicationHarnessConfig, CDCEvent, ApplicationTestConfig, DatabaseConfig, GatekeeperConf
 
 HERE = dn(realpath(__file__))
 
@@ -56,6 +55,20 @@ def test_database_config_parameters_round_trip():
         "max_connections": "200",
         "shared_buffers": "1GB",
     }
+
+
+def test_gatekeeper_native_configuration_round_trip():
+    native_configuration = {
+        "same-site-cookie": "None",
+        "enable-pkce": True,
+        "max-token-size": 65536,
+        "cors-exposed-headers": ["X-Request-ID", "X-Trace-ID"],
+    }
+
+    config = GatekeeperConf.from_dict({"configuration": native_configuration})
+
+    assert config.configuration == native_configuration
+    assert config.to_dict()["configuration"] == native_configuration
 
 
 def test_robustness():

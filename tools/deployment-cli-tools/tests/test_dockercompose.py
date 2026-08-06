@@ -3,6 +3,8 @@ from ch_cli_tools.configurationgenerator import *
 from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
 import pytest
 import shutil
+import subprocess
+import yaml
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')
@@ -92,6 +94,72 @@ def test_collect_compose_values(tmp_path):
     assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/testprojectname/myapp-mytask:1'
     # Not indicated as a build dependency
     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES]
+
+
+def test_compose_gatekeeper_native_configuration_rendering(tmp_path):
+    out_folder = tmp_path / 'test_compose_gatekeeper_native_configuration'
+    create_docker_compose_configuration(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=out_folder,
+        include=['samples'],
+        domain="my.local",
+        local=False,
+        tls=True,
+    )
+
+    compose_path = out_folder / COMPOSE_PATH
+    values_path = compose_path / 'values.yaml'
+    with open(values_path, 'r') as values_file:
+        values = yaml.safe_load(values_file)
+
+    values['apps']['samples']['harness']['proxy']['gatekeeper']['configuration'] = {
+        'same-site-cookie': 'None',
+        'enable-pkce': False,
+        'http-only-cookie': True,
+        'cors-exposed-headers': ['X-Request-ID', 'X-Trace-ID'],
+    }
+    values['proxy']['gatekeeper']['configuration'] = {
+        'same-site-cookie': 'Strict',
+        'enable-pkce': True,
+        'max-token-size': 65536,
+    }
+
+    def render_proxy_config():
+        with open(values_path, 'w') as values_file:
+            yaml.safe_dump(values, values_file)
+        completed = subprocess.run(
+            ['helm', 'template', str(compose_path)],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        for document in yaml.safe_load_all(completed.stdout):
+            metadata = (document or {}).get('cloudharness-metadata', {})
+            if metadata.get('path') == 'resources/generated/samples-gk/proxy.yml':
+                return yaml.safe_load(document['data'])
+        raise AssertionError('Could not find the samples Gatekeeper proxy configuration')
+
+    tls_config = render_proxy_config()
+    assert tls_config['secure-cookie'] is True
+    assert tls_config['same-site-cookie'] == 'None'
+    assert tls_config['enable-pkce'] is False
+    assert tls_config['http-only-cookie'] is True
+    assert tls_config['max-token-size'] == 65536
+    assert tls_config['cors-exposed-headers'] == ['X-Request-ID', 'X-Trace-ID']
+
+    values['tls'] = False
+    non_tls_config = render_proxy_config()
+    assert non_tls_config['secure-cookie'] is False
+    assert non_tls_config['same-site-cookie'] == 'Lax'
+    assert non_tls_config['enable-pkce'] is False
+    assert non_tls_config['max-token-size'] == 65536
+
+    values['tls'] = True
+    values['apps']['samples']['harness']['proxy']['gatekeeper']['configuration'].pop('same-site-cookie')
+    inherited_config = render_proxy_config()
+    assert inherited_config['same-site-cookie'] == 'Strict'
+    assert inherited_config['enable-pkce'] is False
 
 
 def test_compose_app_depends_on_task_only(tmp_path):
@@ -407,3 +475,18 @@ def test_collect_compose_values_auto_tag(tmp_path):
         assert v1 != values.apps['myapp'].harness.deployment.image, "2 levels dependency: If a base image dependency is changed, the hash should change"
     finally:
         fname.unlink()
+
+
+@pytest.mark.skipif(not HELM_IS_INSTALLED, reason="helm is not installed")
+def test_compose_secrets_use_local_defaults(tmp_path):
+    """Secret managers are not available locally: compose falls back to the secret defaults"""
+    out_folder = tmp_path / 'test_compose_secrets_use_local_defaults'
+    create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder,
+                                        include=['myapp'], exclude=['events', 'legacy'], domain="my.local",
+                                        namespace='test', env='secrets', local=False, tag=1, registry='reg')
+
+    generated = out_folder / COMPOSE_PATH / 'resources' / 'generated' / 'auth'
+    assert (generated / 'plainSecret').read_text() == 'a value'
+    assert (generated / 'richSecret').read_text() == 'a local value'
+    # nothing is known locally about an unmanaged secret: a random value is generated
+    assert len((generated / 'unmanagedSecret').read_text()) == 20

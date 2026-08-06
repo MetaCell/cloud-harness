@@ -25,19 +25,15 @@ from cloudharness_model.base_model import CloudHarnessBaseModel
 from pydantic import BaseModel, Field, field_validator, StrictStr, StrictBool, StrictInt, StrictFloat
 from typing import ClassVar, List, Dict, Any, Union, Optional, Annotated
 import importlib
-from cloudharness_model.models.deployment_resources_conf import DeploymentResourcesConf
 
-class GatekeeperConf(CloudHarnessBaseModel):
+class SecretConfig(CloudHarnessBaseModel):
     """
-    
+    Rich definition of an application secret, used in place of a plain value to delegate the secret to a secret manager. Manager specific settings (e.g. `path` for onepassword, `arn` for aws) are added next to the properties below.
     """ # noqa: E501
-    image: Optional[StrictStr] = None
-    replicas: Optional[StrictInt] = None
-    resources: Optional[DeploymentResourcesConf] = None
-    secret: Optional[StrictStr] = None
-    configuration: Optional[Dict[str, Any]] = Field(default=None, description="Native Gatekeeper proxy.yml settings, keyed by the kebab-case names from the Gatekeeper configuration reference. Application values override global values and CloudHarness-generated defaults.")
+    manager: Optional[StrictStr] = Field(default=None, description="Name of the secret manager handling the secret. Defaults to `cloudharness`, which creates the value in the application secret. Set explicitly to null to leave the secret unmanaged: nothing is created and the secret is assumed to exist already.")
+    default: Optional[StrictStr] = Field(default=None, description="Value used by the `cloudharness` manager and as a fallback when the secret manager is not available, as in local docker compose deployments. Follows the same conventions as a plain secret value: null or empty generates a random value once, `?` generates a new random value at every deployment.")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["image", "replicas", "resources", "secret", "configuration"]
+    __properties: ClassVar[List[str]] = ["manager", "default"]
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the dictionary representation of the model using alias.
@@ -59,19 +55,26 @@ class GatekeeperConf(CloudHarnessBaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of resources
-        if self.resources:
-            _dict['resources'] = self.resources.to_dict()
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:
             for _key, _value in self.additional_properties.items():
                 _dict[_key] = _value
 
+        # set to None if manager (nullable) is None
+        # and model_fields_set contains the field
+        if self.manager is None and "manager" in self.model_fields_set:
+            _dict['manager'] = None
+
+        # set to None if default (nullable) is None
+        # and model_fields_set contains the field
+        if self.default is None and "default" in self.model_fields_set:
+            _dict['default'] = None
+
         return _dict
 
     @classmethod
     def from_dict(cls, obj: Optional[Dict[str, Any]]) -> Optional[Self]:
-        """Create an instance of GatekeeperConf from a dict"""
+        """Create an instance of SecretConfig from a dict"""
         if obj is None:
             return None
 
@@ -79,11 +82,8 @@ class GatekeeperConf(CloudHarnessBaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "image": obj.get("image"),
-            "replicas": obj.get("replicas"),
-            "resources": DeploymentResourcesConf.from_dict(obj["resources"]) if obj.get("resources") is not None else None,
-            "secret": obj.get("secret"),
-            "configuration": obj.get("configuration")
+            "manager": obj.get("manager"),
+            "default": obj.get("default")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

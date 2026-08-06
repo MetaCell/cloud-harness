@@ -10,6 +10,7 @@ Name | Type | Description | Notes
 **replicas** | **int** |  | [optional] 
 **resources** | [**DeploymentResourcesConf**](DeploymentResourcesConf.md) |  | [optional] 
 **secret** | **str** |  | [optional] 
+**configuration** | **Dict[str, object]** | Native Gatekeeper proxy.yml settings, keyed by the kebab-case names from the Gatekeeper configuration reference. Application values override global values and CloudHarness-generated defaults. | [optional] 
 
 ## Example
 

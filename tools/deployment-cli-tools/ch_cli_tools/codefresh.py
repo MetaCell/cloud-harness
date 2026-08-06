@@ -12,6 +12,7 @@ from cloudharness_utils.testing.util import get_app_environment
 from .models import HarnessMainConfig, ApplicationTestConfig, ApplicationHarnessConfig
 from cloudharness_utils.constants import *
 from .configurationgenerator import KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES
+from .secrets import is_cloudharness_managed, is_secret_config, secret_value
 from .utils import check_image_exists_in_registry, find_dockerfiles_paths, get_app_relative_to_base_path, guess_build_dependencies_from_dockerfile, \
     get_template, dict_merge, app_name_from_path, clean_path, strip_registry_tag
 from cloudharness_utils.testing.api import get_api_filename, get_schemathesis_command, get_urls_from_api_file
@@ -466,10 +467,17 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 arguments["custom_values"] = []
             for app_name, app in helm_values.apps.items():
                 if app.harness.secrets:
-                    for secret in [secret[0] for secret in app.harness.secrets.items() if secret[1] != ""]:
+                    # Secrets handled by a manager other than CloudHarness must not be overridden:
+                    # their value doesn't come from the pipeline, and setting it would replace the
+                    # manager definition with a plain string
+                    for secret, definition in app.harness.secrets.items():
+                        if not is_cloudharness_managed(definition) or secret_value(definition) == "":
+                            continue
                         secret_name = secret.replace("_", "__")
+                        # the rich form nests the value under `default`
+                        value_path = f"{secret_name}_default" if is_secret_config(definition) else secret_name
                         arguments["custom_values"].append(
-                            'apps_%s_harness_secrets_%s="${{%s}}"' % (app_name.replace("_", "__"), secret_name, secret_name.upper())
+                            'apps_%s_harness_secrets_%s="${{%s}}"' % (app_name.replace("_", "__"), value_path, secret_name.upper())
                         )
             for app_name, app in helm_values.apps.items():
                 if app.harness.database and app.harness.database.get("connect_string") == "":
