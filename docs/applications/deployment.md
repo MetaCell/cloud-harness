@@ -160,7 +160,7 @@ harness:
         auto: true           # Required: set to true to include this container
         initContainer: true  # true = init container, false = sidecar
         image:               # Optional: defaults to the application image
-        commands: []         # Optional: command to run in the container
+        command: []          # Optional: command to run in the container
         shareVolume: false   # Optional: share the main container's volume mounts
         resources: {}        # Optional: defaults to the main container resources
 ```
@@ -172,13 +172,15 @@ harness:
 | `auto` | bool | — | Must be `true` for the container to be included |
 | `initContainer` | bool | — | `true` for init container, `false` for sidecar |
 | `image` | string | Main app image | Docker image to use |
-| `commands` | list | `[]` | Container command (overrides image `CMD`/`ENTRYPOINT`) |
+| `command` | list | `[]` | Container command (overrides image `CMD`/`ENTRYPOINT`) |
 | `shareVolume` | bool | `false` | Mount the same volumes as the main container |
 | `resources` | object | Main container resources | CPU/memory requests and limits |
 
 If `image` is omitted, the extra container uses the same image as the main application container — the most common setup for init containers that run a different command against the same codebase.
 
 If `resources` is omitted, the extra container inherits the main container's resource requests and limits.
+
+Extra containers always receive the same environment variables as the main application container (`CH_CURRENT_APP_NAME`, the CloudHarness `CH_*` variables, deployment secrets and the application's `env`/`envmap` entries). Set `shareVolume: true` when the container also needs the CloudHarness configuration and secrets mounts (e.g. anything reading the application configuration, such as Django `manage.py` commands).
 
 ### Init containers
 
@@ -191,7 +193,7 @@ harness:
       run-migrations:
         auto: true
         initContainer: true
-        commands: ["python", "manage.py", "migrate"]
+        command: ["python", "manage.py", "migrate"]
         shareVolume: true
 ```
 
@@ -209,7 +211,7 @@ harness:
       run-migrations:
         auto: true
         initContainer: true
-        commands:
+        command:
           - sh
           - -c
           - |
@@ -265,7 +267,7 @@ harness:
       seed-data:
         auto: true
         initContainer: true
-        commands: ["sh", "-c", "cp -r /defaults/* /data/"]
+        command: ["sh", "-c", "cp -r /defaults/* /data/"]
         shareVolume: true
 ```
 
@@ -294,12 +296,12 @@ harness:
       run-migrations:
         auto: true
         initContainer: true
-        commands: ["python", "manage.py", "migrate"]
+        command: ["python", "manage.py", "migrate"]
         shareVolume: false
       beat-scheduler:
         auto: true
         initContainer: false
-        commands: ["python", "-m", "celery", "-A", "myapp", "beat"]
+        command: ["python", "-m", "celery", "-A", "myapp", "beat"]
         shareVolume: false
         resources:
           requests:
