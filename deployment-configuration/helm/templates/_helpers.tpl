@@ -156,6 +156,18 @@ Usage: {{ include "deploy_utils.extraContainerSpec" (dict "name" $name "containe
   command:
     {{- .container.command | toYaml | nindent 4 }}
   {{- end }}
+  env:
+  - name: CH_CURRENT_APP_NAME
+    value: {{ .app.harness.name | quote }}
+    {{- include "deploy_utils.env" .root | nindent 2 }}
+    {{- include "deploy_utils.privenv" .root | nindent 2 }}
+    {{- if .app.harness.env }}
+    {{- .app.harness.env | toYaml | nindent 2 }}
+    {{- end }}
+    {{- range $name, $value := .app.harness.envmap }}
+  - name: {{ $name | quote }}
+    value: {{ $value | quote }}
+    {{- end }}
   {{- if dig "resources" "requests" nil .container }}
   {{- include "deploy_utils.resources" .container.resources | nindent 2 }}
   {{- else }}
