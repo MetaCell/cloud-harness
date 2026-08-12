@@ -1,0 +1,7 @@
+harness:
+  deployment:
+    requests:
+      cpu: 10m
+  database:
+    requests:
+      cpu: 10m

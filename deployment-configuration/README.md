@@ -8,6 +8,8 @@ Those files are used by the script `harness-deployment` script.
   elements not defined as a CloudHarness application (e.g. a new database)
 - `value-template.yaml`: base for cloudharness application configuration inside `values.yaml`. Prefer adding a
   custom `values.yaml` to your application over changing this file.
+- `values-template-[env].yaml` / `value-template-[env].yaml`: environment specific overrides of the above, loaded
+  when the environment is selected with `harness-deployment -e [env]`. See [environments](../docs/build-deploy/environments.md)
 - `codefresh-template-[dev|prod].yaml`: base for `codefresh/codefresh-[dev|prod].yaml`. Modify this file if you want to
   change the build steps inside codefresh
 - `codefresh-build-template.yaml`: base for a single build entry in `codefresh.yaml`
