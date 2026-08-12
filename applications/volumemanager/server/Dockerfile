@@ -10,8 +10,8 @@ ENV PORT=8080
 COPY requirements.txt /usr/src/app/
 
 RUN --mount=type=cache,target=/root/.cache python -m pip install --upgrade pip &&\
-    pip3 install --no-cache-dir -r requirements.txt  --prefer-binary
+    pip3 install --uploaded-prior-to=P7D --no-cache-dir -r requirements.txt  --prefer-binary
 
 COPY . /usr/src/app
 
-RUN pip3 install -e .
+RUN pip3 install --uploaded-prior-to=P7D -e .

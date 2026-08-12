@@ -26,10 +26,10 @@ ENV PORT=8080
 COPY backend/requirements.txt /usr/src/app/
 
 RUN --mount=type=cache,target=/root/.cache python -m pip install --upgrade pip &&\
-    pip3 install -r requirements.txt  --prefer-binary
+    pip3 install --uploaded-prior-to=P7D -r requirements.txt  --prefer-binary
 
 COPY backend/ /usr/src/app
 
 COPY --from=frontend app/dist/ /usr/src/app/www
 
-RUN pip3 install -e .
+RUN pip3 install --uploaded-prior-to=P7D -e .

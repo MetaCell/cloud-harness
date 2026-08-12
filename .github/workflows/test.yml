@@ -32,7 +32,8 @@ jobs:
       - name: Install dependencies
         run: |
           curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-          pip install tox
+          python -m pip install --upgrade pip
+          pip install --uploaded-prior-to=P7D tox
 
       - name: Run tox - models
         run: tox -c libraries/models/

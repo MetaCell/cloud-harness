@@ -13,7 +13,7 @@ WORKDIR $DIR
 RUN pip install --upgrade pip
 COPY ./requirements.txt requirements.txt
 RUN --mount=type=cache,target=/root/.cache python -m pip install --upgrade pip &&\
-    pip install --prefer-binary -r requirements.txt --default-timeout=1000
+    pip install --uploaded-prior-to=P7D --prefer-binary -r requirements.txt --default-timeout=1000
 
 EXPOSE $PORT
 

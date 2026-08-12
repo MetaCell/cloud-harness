@@ -15,8 +15,8 @@ RUN  python3 -m pip install --upgrade pip
 COPY libraries/cloudharness-django/requirements.txt /tmp
 
 RUN  --mount=type=cache,target=/root/.cache python -m pip install --upgrade pip &&\
-     python3 -m pip install -r /tmp/requirements.txt --prefer-binary && \
+     python3 -m pip install --uploaded-prior-to=P7D -r /tmp/requirements.txt --prefer-binary && \
      rm /tmp/requirements.txt
 
 COPY libraries/cloudharness-django /libraries/cloudharness-django
-RUN  python3 -m pip install -e /libraries/cloudharness-django --no-cache-dir --upgrade
+RUN  python3 -m pip install --uploaded-prior-to=P7D -e /libraries/cloudharness-django --no-cache-dir --upgrade

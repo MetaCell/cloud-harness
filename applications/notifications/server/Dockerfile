@@ -8,10 +8,10 @@ COPY requirements.txt /usr/src/app/
 
 WORKDIR /usr/src/app
 
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install --uploaded-prior-to=P7D --no-cache-dir -r requirements.txt
 
 COPY . /usr/src/app
 
-RUN pip install -e .
+RUN pip install --uploaded-prior-to=P7D -e .
 
 ENTRYPOINT python3 -m notifications

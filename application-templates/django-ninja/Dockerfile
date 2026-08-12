@@ -22,10 +22,10 @@ RUN mkdir -p ${APP_DIR}/static/www
 
 COPY backend/requirements.txt ${APP_DIR}
 RUN --mount=type=cache,target=/root/.cache python -m pip install --upgrade pip &&\
-    pip3 install --no-cache-dir -r requirements.txt --prefer-binary
+    pip3 install --uploaded-prior-to=P7D --no-cache-dir -r requirements.txt --prefer-binary
 
 COPY backend/requirements.txt backend/setup.py ${APP_DIR}
-RUN python3 -m pip install -e .
+RUN python3 -m pip install --uploaded-prior-to=P7D -e .
 
 COPY backend ${APP_DIR}
 RUN python3 manage.py collectstatic --noinput

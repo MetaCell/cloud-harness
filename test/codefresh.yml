@@ -27,7 +27,8 @@ steps:
     commands:
       - curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
       - bash get_helm.sh
-      - pip install tox
+      - python -m pip install --upgrade pip
+      - pip install --uploaded-prior-to=P7D tox
       - rm -rf libraries/models/.tox
       - rm -rf libraries/cloudharness-common/.tox
       - rm -rf tools/deployment-cli-tools/.tox
