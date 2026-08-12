@@ -6,6 +6,11 @@
     "ts-jest": "^29.2.5",
     "typescript": "^4.6.4"
   },
+  "dependenciesMeta": {
+    "puppeteer": {
+      "built": true
+    }
+  },
   "description": "Puppeteer end-to-end test automation base.",
   "devDependencies": {
     "@types/jest": "^29.5.12",
@@ -47,6 +52,7 @@
     ]
   },
   "name": "cloudharness-e2e-test",
+  "packageManager": "yarn@4.18.0",
   "scripts": {
     "lint": "npx tslint -c tslint.json './__tests__/*.ts'",
     "pretty": "npx prettier --no-config './__tests__/*.{js,ts}' --write",

@@ -8,7 +8,7 @@ ARG APP_DIR=/app
 WORKDIR ${APP_DIR}
 COPY frontend/package.json .
 COPY frontend/yarn.lock .
-RUN yarn install --timeout 60000
+RUN yarn install --immutable
 
 COPY frontend .
 RUN yarn build

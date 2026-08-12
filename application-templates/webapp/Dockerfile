@@ -8,7 +8,7 @@ ENV APP_DIR=/app
 WORKDIR ${APP_DIR}
 COPY frontend/package.json ${APP_DIR}
 COPY frontend/yarn.lock ${APP_DIR}
-RUN yarn install --frozen-lockfile --timeout 60000
+RUN yarn install --immutable
 
 COPY frontend ${APP_DIR}
 RUN yarn build

@@ -1,5 +1,6 @@
 {
   "name": "__APP_NAME__",
+  "packageManager": "yarn@4.18.0",
   "scripts": {
     "dev": "vite",
     "start": "DOMAIN=http://localhost:5000 vite",
