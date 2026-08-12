@@ -2,6 +2,7 @@
 Utilities to create a helm chart from a CloudHarness directory structure
 """
 from typing import List, Union
+import copy
 import yaml
 import os
 import shutil
@@ -118,7 +119,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
             root_path = self.root_paths[i]
             base_name = base_image_name
             app_values = init_app_values(
-                root_path, exclude=self.exclude, values=helm_values[KEY_APPS])
+                root_path, exclude=self.exclude, values=helm_values[KEY_APPS], env=self.env)
             helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS],
                                                app_values)
 
@@ -137,7 +138,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         """
         for root_path in self.root_paths:
             app_values = init_app_values(
-                root_path, exclude=self.exclude, values=helm_values[KEY_APPS])
+                root_path, exclude=self.exclude, values=helm_values[KEY_APPS], env=self.env)
             helm_values[KEY_APPS] = dict_merge(helm_values[KEY_APPS], app_values)
 
             app_base_path = root_path / APPS_PATH
@@ -485,13 +486,32 @@ def collect_helm_values(deployment_root, env=()):
     return values
 
 
-def init_app_values(deployment_root, exclude, values=None):
+def collect_app_defaults(root, env=()):
+    """
+    Collects the application default values (value-template.yaml) of a cloudharness
+    deployment scaffolding, overridden by the environment specific ones.
+    """
+    defaults_path = os.path.join(
+        root, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
+    defaults = get_template(defaults_path)
+
+    for e in env:
+        env_defaults_path = os.path.join(
+            root, DEPLOYMENT_CONFIGURATION_PATH, f'value-template-{e}.yaml')
+        if os.path.exists(env_defaults_path):
+            logging.info(
+                "Specific environment application values template found: " + env_defaults_path)
+            defaults = dict_merge(defaults, get_template(env_defaults_path))
+    return defaults
+
+
+def init_app_values(deployment_root, exclude, values=None, env=()):
     values = values if values is not None else {}
     app_base_path = os.path.join(deployment_root, APPS_PATH)
-    overridden_template_path = os.path.join(
-        deployment_root, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
-    default_values_path = os.path.join(
-        CH_ROOT, DEPLOYMENT_CONFIGURATION_PATH, 'value-template.yaml')
+    # Base defaults come from cloudharness, then are overridden by the current scaffolding.
+    # Both are read once: they are the same for every application.
+    default_values = collect_app_defaults(CH_ROOT, env=env)
+    overridden_defaults = collect_app_defaults(deployment_root, env=env)
 
     for app_path in get_sub_paths(app_base_path):
 
@@ -501,9 +521,7 @@ def init_app_values(deployment_root, exclude, values=None):
             continue
         app_key = app_name
         if app_key not in values:
-            default_values = get_template(default_values_path)
-            values[app_key] = default_values
-        overridden_defaults = get_template(overridden_template_path)
+            values[app_key] = copy.deepcopy(default_values)
         values[app_key] = dict_merge(values[app_key], overridden_defaults)
 
     return values

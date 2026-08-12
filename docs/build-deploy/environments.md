@@ -21,6 +21,7 @@ harness-deployment cloud-harness . -e dev
 the following configuration files are potentially loaded (if they exist):
 
 - `deployment-configuration/values-template-dev.yaml`
+- `deployment-configuration/value-template-dev.yaml` (defaults applied to every application)
 - `deployment-configuration/codefresh-template-dev.yaml`
 
 And for each application:

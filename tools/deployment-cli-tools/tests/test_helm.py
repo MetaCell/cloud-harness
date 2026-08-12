@@ -1,5 +1,6 @@
 from ch_cli_tools.helm import *
 from ch_cli_tools.configurationgenerator import *
+from ch_cli_tools import configurationgenerator
 from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
 import pytest
 import shutil
@@ -200,6 +201,64 @@ def test_collect_helm_values_multiple_envs(tmp_path):
     assert values[KEY_APPS]['myapp']['test'] is True, 'values-test not loaded'
     assert values[KEY_APPS]['myapp']['dev'] is True, 'values-dev not loaded'
     assert values[KEY_APPS]['myapp']['a'] == 'test', 'values-test not overriding'
+
+
+def test_collect_app_defaults_env_specific(tmp_path):
+    """value-template-[env].yaml overrides value-template.yaml application defaults"""
+    conf_path = tmp_path / DEPLOYMENT_CONFIGURATION_PATH
+    conf_path.mkdir(parents=True)
+    (conf_path / 'value-template.yaml').write_text('base: 1\nenv-defaults: base\n')
+    (conf_path / 'value-template-dev.yaml').write_text('env-defaults: dev\n')
+
+    assert collect_app_defaults(tmp_path, env=('dev',)) == {
+        'base': 1, 'env-defaults': 'dev'}
+    assert collect_app_defaults(tmp_path, env=('other',)) == {
+        'base': 1, 'env-defaults': 'base'}, 'value-template-dev.yaml loaded for the wrong environment'
+    assert collect_app_defaults(tmp_path) == {
+        'base': 1, 'env-defaults': 'base'}, 'value-template-dev.yaml loaded without environment'
+
+
+def test_init_app_values_env_specific_defaults(tmp_path, monkeypatch):
+    """Cloudharness application defaults, including the environment specific ones,
+    apply to the applications of any root, and are overridden by the current root"""
+    ch_root = tmp_path / 'cloudharness'
+    (ch_root / DEPLOYMENT_CONFIGURATION_PATH).mkdir(parents=True)
+    (ch_root / DEPLOYMENT_CONFIGURATION_PATH /
+     'value-template.yaml').write_text('ch-defaults: base\nenv-defaults: ch-base\n')
+    (ch_root / DEPLOYMENT_CONFIGURATION_PATH /
+     'value-template-dev.yaml').write_text('ch-env-defaults: ch-dev\nenv-defaults: ch-dev\n')
+
+    deployment_root = tmp_path / 'deployment'
+    (deployment_root / APPS_PATH / 'myapp').mkdir(parents=True)
+    (deployment_root / DEPLOYMENT_CONFIGURATION_PATH).mkdir(parents=True)
+    (deployment_root / DEPLOYMENT_CONFIGURATION_PATH /
+     'value-template-dev.yaml').write_text('env-defaults: root-dev\n')
+
+    monkeypatch.setattr(configurationgenerator, 'CH_ROOT', str(ch_root))
+
+    values = init_app_values(deployment_root, exclude=(), env=('dev',))
+    assert values['myapp']['ch-defaults'] == 'base'
+    assert values['myapp']['ch-env-defaults'] == 'ch-dev', 'cloudharness value-template-dev.yaml not applied'
+    assert values['myapp']['env-defaults'] == 'root-dev', 'current root must take precedence'
+
+    values = init_app_values(deployment_root, exclude=(), env=())
+    assert 'ch-env-defaults' not in values['myapp']
+    assert values['myapp']['env-defaults'] == 'ch-base'
+
+
+def test_collect_app_defaults_env_specific_chart(tmp_path):
+    """The deployment root value-template-[env].yaml lands in the generated chart values"""
+    out_folder = tmp_path / 'test_collect_app_defaults_env_specific_chart'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               namespace='test', env='dev', local=False, tag=1, include=["myapp"])
+
+    assert values[KEY_APPS]['myapp']['env-defaults'] == 'resources-dev'
+
+    out_folder = tmp_path / 'test_collect_app_defaults_no_env_chart'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               namespace='test', local=False, tag=1, include=["myapp"])
+
+    assert 'env-defaults' not in values[KEY_APPS]['myapp']
 
 
 def test_collect_helm_values_wrong_dependencies_validate(tmp_path):
