@@ -4,11 +4,11 @@ FROM $CLOUDHARNESS_BASE
 
 ENV MODULE_NAME=notifications
 
-COPY requirements.txt /usr/src/app/
+COPY pylock.toml /usr/src/app/
 
 WORKDIR /usr/src/app
 
-RUN pip3 install --uploaded-prior-to=P7D --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir -r pylock.toml
 
 COPY . /usr/src/app
 

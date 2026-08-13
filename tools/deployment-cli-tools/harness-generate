@@ -56,7 +56,9 @@ def update_js_dependencies(root_path: pathlib.Path, args: 'CommandLineArguments'
 
     try:
         unresolved = update_dependencies(root_path, upgrade=args.upgrade, audit_only=args.audit_only,
-                                         should_update=should_update)
+                                         should_update=should_update,
+                                         registry=args.registry, tag=args.tag,
+                                         cooldown_days=args.cooldown_days)
     except UpdateError as e:
         logging.error(e)
         sys.exit(1)
@@ -70,7 +72,9 @@ def update_js_dependencies(root_path: pathlib.Path, args: 'CommandLineArguments'
         else:
             logging.error('An in-range update cannot reach these. A direct dependency needs '
                           '--upgrade to raise its range; a transitive one needs a `resolutions` '
-                          'entry in package.json.')
+                          'entry in package.json; and a fix published within the cooldown '
+                          'window stays quarantined - rerun once it is 7 days old, or exempt '
+                          'the package with npmPreapprovedPackages in .yarnrc.yml.')
         sys.exit(1)
 
     logging.info('All lock files are up to date and no vulnerabilities were reported.')
@@ -99,6 +103,9 @@ class CommandLineArguments:
     client_types: ClientType = ClientType.all()
     upgrade: bool = False
     audit_only: bool = False
+    registry: str = ''
+    tag: str = 'latest'
+    cooldown_days: Optional[int] = None
 
     @property
     def generate_models(self):
@@ -173,6 +180,16 @@ def get_command_line_arguments() -> CommandLineArguments:
                                      help='Only report vulnerabilities, without touching any lock file.')
     dependencies_parser.add_argument('-i', '--interactive', dest='is_interactive', action='store_true',
                                      help='Asks before handling each project.')
+    dependencies_parser.add_argument('--registry', dest='registry', action='store', default='',
+                                     help='Docker registry prefix of the base images the python locks '
+                                          'are generated in. Defaults to locally built images.')
+    dependencies_parser.add_argument('--tag', dest='tag', action='store', default='latest',
+                                     help='Tag of the base images the python locks are generated in.')
+    dependencies_parser.add_argument('--cooldown-days', dest='cooldown_days', action='store',
+                                     type=int, default=None,
+                                     help='Ignore package versions published fewer than this many days '
+                                          'ago. Defaults to 7 days for python and to the '
+                                          'npmMinimalAgeGate configured in .yarnrc.yml for JavaScript.')
     dependencies_parser.set_defaults(generation_mode=GenerationMode.DEPENDENCIES)
 
     args = parser.parse_args()

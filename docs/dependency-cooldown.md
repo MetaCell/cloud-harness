@@ -29,7 +29,59 @@ RUN python -m pip install --upgrade pip &&\
     pip install --uploaded-prior-to=P7D -r requirements.txt --prefer-binary
 ```
 
-Requirements:
+### Application lock files
+
+Each application that installs a `requirements.txt` also carries a
+[PEP 751](https://peps.python.org/pep-0751/) `pylock.toml` beside it, pinning the whole
+resolved tree with hashes. Regenerate them with
+[`harness-generate dependencies`](./applications/harness-generate.md#update-dependencies-and-lock-files).
+
+The lock is generated inside a **throwaway container from the application's own base
+image** — `cloudharness-flask` for a flask application, resolved from the `FROM` line of
+its Dockerfile. The known base images are scanned from the `infrastructure` folders of
+the repository and of a `cloud-harness` checkout beside it, so images a downstream
+repository defines itself are covered without configuration. The requirements are installed there first and the freeze of that
+environment constrains the lock, so resolution happens on top of the packages the base
+image really provides instead of from an empty environment, and the pinned wheels match
+the deploy platform by construction. The cooldown applies at both steps; nothing of the
+lock toolchain ends up in a deploy image.
+
+Generating locks therefore needs Docker and the base images built: run
+`harness-deployment` to generate the build configuration, then `skaffold build`. The
+built images are named through the generated `skaffold.yaml` (harness-deployment
+prefixes them with the deployment name, e.g. `cloud-harness/cloudharness-flask`), and
+the lock generation resolves through the same file, so the names always agree. Point
+`--registry`/`--tag` at existing images to use those instead.
+
+**Only applications are locked.** Base images, `libraries/` and `tools/` install into the
+base images and stay unlocked on purpose, so every application keeps inheriting their
+updates instead of pinning a copy of them.
+
+The application Dockerfiles install from the lock rather than from `requirements.txt`:
+
+```dockerfile
+COPY ./pylock.toml /usr/src/app/
+RUN pip3 install --no-cache-dir -r pylock.toml
+```
+
+**Do not add `--uploaded-prior-to` to a lock install.** pip treats the lock as the index,
+and an index with no upload-time metadata cannot answer the cooldown question, so the
+install fails outright with *"Index pylock.toml does not provide upload-time metadata"*.
+The window was already applied when the lock was written, which is the whole point: this
+is the second deliberate exception to the flag, after `pip install --upgrade pip`. The
+`pip install -e .` that follows still carries it, because that one does resolve.
+
+Two properties of these files are worth knowing:
+
+- **They are single-platform.** `pip lock` records no `environments` or markers, and pins
+  the concrete wheels of the image it ran in — amd64, CPython 3.12. Building an
+  application image on another platform will fail rather than silently resolve something
+  else, and a lock generated from a different base image would pin different wheels.
+- **A stale lock silently pins old versions.** Editing `requirements.txt` no longer
+  changes what an image installs until the lock is regenerated. Run
+  `harness-generate dependencies` and commit both files together.
+
+### Requirements
 
 - The `P7D` duration form needs **pip >= 26.1**, which needs **Python >= 3.10**.
   (`--uploaded-prior-to` first appeared in pip 26.0, accepting only absolute datetimes.)

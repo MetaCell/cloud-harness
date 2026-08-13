@@ -88,14 +88,25 @@ harness-generate all -i
 harness-generate dependencies
 ```
 
-Every JavaScript project below the current path is discovered by the lock file sitting
-next to its `package.json`, then audited and refreshed:
+JavaScript projects are discovered anywhere below the current path, by the lock file
+sitting next to their `package.json`. Python applications are discovered under
+`./applications` only, by a `requirements.txt` that a Dockerfile actually installs.
+Each is then audited and refreshed:
 
 - **yarn projects** are re-resolved against the version ranges already declared in
   `package.json`, which is what picks up a patched release. Yarn has no `audit fix`
   equivalent, and a plain `yarn install` will not move a resolution that still satisfies
   its range, so the lock file is discarded and rebuilt.
 - **npm projects** additionally get `npm audit fix`.
+- **Python applications** are locked to a [PEP 751](https://peps.python.org/pep-0751/)
+  `pylock.toml`, generated with `pip lock` inside a throwaway container from the
+  application's own base image so the resolution matches what the deployed image really
+  provides. This needs Docker and the base images built locally (`harness-deployment`
+  then `skaffold build`); the image names are resolved through the generated
+  `skaffold.yaml`, and `--registry`/`--tag` point at existing images instead. pip has no audit command, so python projects are
+  refreshed without a vulnerability report, and `--upgrade` does not apply: widening a
+  `requirements.txt` range is a manual edit. Base images, libraries and tools are never
+  locked — see [dependency cooldown](../dependency-cooldown.md#application-lock-files).
 
 `package.json` is left untouched, and the
 [dependency cooldown](../dependency-cooldown.md) applies throughout, so no version
@@ -103,8 +114,11 @@ published in the last 7 days is picked up. A directory holding both a `yarn.lock
 `package-lock.json` is updated once per package manager.
 
 The command exits non-zero when vulnerabilities are still reported afterwards. Those
-need a change an in-range update cannot make: `--upgrade` for a direct dependency, or a
-`resolutions` entry in `package.json` for a transitive one.
+need a change an in-range update cannot make: `--upgrade` for a direct dependency, a
+`resolutions` entry in `package.json` for a transitive one — or patience, when the fixed
+version was published inside the [cooldown window](../dependency-cooldown.md) and is
+still quarantined: rerun once it is 7 days old, or exempt the package with
+`npmPreapprovedPackages`.
 
 Report vulnerabilities without writing anything:
 
@@ -117,6 +131,14 @@ and introduce breaking changes, so review the resulting diff:
 
 ```sh
 harness-generate dependencies --upgrade
+```
+
+Change the cooldown window for this run — the default stays 7 days for python and the
+`npmMinimalAgeGate` configured in `.yarnrc.yml` for JavaScript, so the repository
+configuration rules unless explicitly overridden:
+
+```sh
+harness-generate dependencies --cooldown-days 3
 ```
 
 Confirm each project before it is touched, which is the way to update one application
@@ -147,7 +169,7 @@ to ask at. See [developer setup](../dependency-cooldown.md#developer-setup).
 - The `models` mode is a special flag used when regenerating only model libraries (deprecated).
 - The tool supports interactive mode to confirm before generating clients.
 - Use either `-t` or `-p`, but not both simultaneously.
-- The `dependencies` mode takes `-i/--interactive`, `--upgrade` and `--audit-only`; the other generation options do not apply to it.
+- The `dependencies` mode takes `-i/--interactive`, `--upgrade`, `--audit-only`, `--registry`, `--tag` and `--cooldown-days`; the other generation options do not apply to it.
 
 For further details, run:
 

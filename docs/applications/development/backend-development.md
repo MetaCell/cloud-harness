@@ -33,6 +33,11 @@ Every `pip install`, in Dockerfiles and setup scripts alike, carries
 ignored. Keep the flag when you add an install line, and see the
 [dependency cooldown](../../dependency-cooldown.md) for the one exception.
 
+Declare your dependencies in `backend/requirements.txt` as usual, but note that the image
+installs the `pylock.toml` beside it, not the requirements file. After editing
+`requirements.txt`, run `harness-generate dependencies` to refresh the lock and commit
+both — until you do, the image keeps installing the previously locked versions.
+
 ### Base libraries and images
 
 The simplest way to use the shared CloudHarness functionality in an 

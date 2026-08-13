@@ -23,10 +23,10 @@ ENV MODULE_NAME=samples
 ENV WORKERS=2
 ENV PORT=8080
 
-COPY backend/requirements.txt /usr/src/app/
+COPY backend/pylock.toml /usr/src/app/
 
 RUN --mount=type=cache,target=/root/.cache python -m pip install --upgrade pip &&\
-    pip3 install --uploaded-prior-to=P7D -r requirements.txt  --prefer-binary
+    pip3 install -r pylock.toml  --prefer-binary
 
 COPY backend/ /usr/src/app
 
