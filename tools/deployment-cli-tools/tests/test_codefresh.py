@@ -1003,6 +1003,59 @@ def test_codefresh_secret_managers():
         shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
 
 
+def test_wait_deployment_uses_the_workload_kind():
+    """The wait step must roll out statefulset/<name> for apps rendered as StatefulSets and
+    deployment/<name> for the others: `kubectl rollout status deployment/x` fails outright
+    when x is a StatefulSet. Gatekeepers are always Deployments."""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['samples', 'myapp'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env=['dev', 'test'],
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+
+        values.apps["samples"].harness.deployment.statefulset = True
+        values.apps["accounts"].harness.deployment.statefulset = False
+        values.apps["myapp"].harness.secured = True
+        values.secured_gatekeepers = True
+
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 envs=['dev', 'test'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+
+        commands = cf['steps'][CD_WAIT_STEP]['commands']
+
+        samples = values.apps["samples"].harness.deployment.name
+        accounts = values.apps["accounts"].harness.deployment.name
+        assert f"kubectl rollout status statefulset/{samples}" in commands, \
+            f"a statefulset app must be waited on as a statefulset. Got: {commands}"
+        assert f"kubectl rollout status deployment/{samples}" not in commands, \
+            f"a statefulset app must not be waited on as a deployment. Got: {commands}"
+        assert f"kubectl rollout status deployment/{accounts}" in commands, \
+            f"a non statefulset app must be waited on as a deployment. Got: {commands}"
+
+        gk = f"{values.apps['myapp'].harness.subdomain}-gk"
+        assert f"kubectl rollout status deployment/{gk}" in commands, \
+            f"the gatekeeper is always a deployment. Got: {commands}"
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)
+
+
 def test_codefresh_secret_managers_from_parsed_values():
     """Secrets read back from a parsed configuration are wrapped in the generated
     SecretDefinition union model: the helpers must see through it, or a manager delegated
