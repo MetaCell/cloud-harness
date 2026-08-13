@@ -138,15 +138,16 @@ def test_base_images_are_scanned_like_the_generators_do(tmp_path):
 def test_the_last_python_stage_wins_in_a_multistage_build(tmp_path):
     # samples builds its frontend first; the python base is the later stage,
     # even though the frontend build image is part of the dependency chain too.
-    backend = write_python_app(tmp_path, "samples/backend", dockerfile_in_parent=True,
-                               dockerfile_body=(
-        "ARG CLOUDHARNESS_FRONTEND_BUILD\n"
-        "ARG CLOUDHARNESS_FLASK\n"
-        "FROM $CLOUDHARNESS_FRONTEND_BUILD as frontend\n"
-        "RUN yarn build\n"
-        "FROM $CLOUDHARNESS_FLASK\n"
-        "RUN pip3 install -r pylock.toml\n"
-    ))
+    backend = write_python_app(
+        tmp_path, "samples/backend", dockerfile_in_parent=True,
+        dockerfile_body=(
+            "ARG CLOUDHARNESS_FRONTEND_BUILD\n"
+            "ARG CLOUDHARNESS_FLASK\n"
+            "FROM $CLOUDHARNESS_FRONTEND_BUILD as frontend\n"
+            "RUN yarn build\n"
+            "FROM $CLOUDHARNESS_FLASK\n"
+            "RUN pip3 install -r pylock.toml\n"
+        ))
 
     assert find_python_projects(tmp_path) == [
         Project(backend, PackageManager.PIP, "cloudharness-flask")]
