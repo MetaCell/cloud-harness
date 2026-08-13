@@ -49,4 +49,11 @@ Usage:
 harness-generate .
 ```
 
+It also audits JavaScript dependencies and refreshes every lock file, within the
+7 day [dependency cooldown](../../docs/dependency-cooldown.md):
+
+```bash
+harness-generate dependencies
+```
+
 For more info, `harness-generate --help`

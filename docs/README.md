@@ -9,6 +9,7 @@
     - [Setting up Minikube](./build-deploy/local-deploy/minikube.md)
 - [Create and configure applications](./applications)
   - [Generate a new application](./applications/harness-application.md)
+  - [Generate server and client stubs](./applications/harness-generate.md)
   - [Override applications values and files](./applications/overridings.md)
   - [Configure a database](./applications/databases.md)
   - [Add configuration files to your application](./applications/resources.md)
@@ -30,5 +31,6 @@
   - [Network policies](./network-policies.md)
   - [Ingress, domains, proxies and TLS](./ingress-domains-proxies.md)
 - [Writing and running automated tests](./testing.md)
+- [Dependency cooldown](./dependency-cooldown.md)
 - [Tutorial: Writing a simple webapp with cloud-harness](./tutorials/simple-date-clock-application.adoc)
 

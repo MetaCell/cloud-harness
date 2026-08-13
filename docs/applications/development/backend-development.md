@@ -26,6 +26,13 @@ The application entry point is `backend/__main__.py`: it can be run as
 a simple Python script or module to debug locally.
 
 
+### Installing dependencies
+
+Every `pip install`, in Dockerfiles and setup scripts alike, carries
+`--uploaded-prior-to=P7D` so that package versions published in the last 7 days are
+ignored. Keep the flag when you add an install line, and see the
+[dependency cooldown](../../dependency-cooldown.md) for the one exception.
+
 ### Base libraries and images
 
 The simplest way to use the shared CloudHarness functionality in an 

@@ -7,15 +7,16 @@ import functools
 import operator
 import pathlib
 import logging
+import sys
 from typing import Optional
 
 from ch_cli_tools.openapi import LIB_NAME, ClientType, generate_clients, generate_models, generate_servers, get_dependencies
+from ch_cli_tools.update import UpdateError, update_dependencies
 from ch_cli_tools.utils import confirm
 
 
 def main():
     args = get_command_line_arguments()
-    get_dependencies()
 
     root_path = args.path.absolute() if args.path else pathlib.Path.cwd().absolute()
     app_name = root_path.name if args.path else args.app_name
@@ -29,6 +30,12 @@ def main():
             return
         root_path = root_path.parent
 
+    # Dependency updates need neither java nor the openapi generator.
+    if args.update_dependencies:
+        return update_js_dependencies(root_path, args)
+
+    get_dependencies()
+
     should_generate = should_generate_interactive if args.is_interactive else lambda _: True
 
     if args.generate_models:
@@ -41,24 +48,57 @@ def main():
         generate_clients(root_path, should_generate, app_name, args.client_name, args.client_types)
 
 
+def update_js_dependencies(root_path: pathlib.Path, args: 'CommandLineArguments') -> None:
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s %(message)s', force=True)
+
+    action = 'audit' if args.audit_only else 'update'
+    should_update = should_update_interactive(action) if args.is_interactive else lambda _: True
+
+    try:
+        unresolved = update_dependencies(root_path, upgrade=args.upgrade, audit_only=args.audit_only,
+                                         should_update=should_update)
+    except UpdateError as e:
+        logging.error(e)
+        sys.exit(1)
+
+    if unresolved:
+        logging.error('Vulnerabilities reported in:\n  %s',
+                      '\n  '.join(str(project) for project in unresolved))
+        if args.audit_only:
+            logging.error('Rerun without --audit-only to refresh the lock files, which resolves '
+                          'anything fixable within the ranges already declared.')
+        else:
+            logging.error('An in-range update cannot reach these. A direct dependency needs '
+                          '--upgrade to raise its range; a transitive one needs a `resolutions` '
+                          'entry in package.json.')
+        sys.exit(1)
+
+    logging.info('All lock files are up to date and no vulnerabilities were reported.')
+
+
 class GenerationMode(enum.Flag):
     CLIENTS = enum.auto()
     MODELS = enum.auto()
     SERVERS = enum.auto()
+    DEPENDENCIES = enum.auto()
 
     @classmethod
     def all(cls):
+        # Dependency updates are deliberately left out: `all` regenerates
+        # checked in code, it should not also move third party versions.
         return functools.reduce(operator.or_, [cls.CLIENTS, cls.SERVERS])
 
 
 @dataclass(frozen=True)
 class CommandLineArguments:
     path: pathlib.Path
-    app_name: Optional[str]
-    is_interactive: bool
     generation_mode: GenerationMode
+    app_name: Optional[str] = None
+    is_interactive: bool = False
     client_name: Optional[str] = None
     client_types: ClientType = ClientType.all()
+    upgrade: bool = False
+    audit_only: bool = False
 
     @property
     def generate_models(self):
@@ -71,6 +111,10 @@ class CommandLineArguments:
     @property
     def generate_clients(self):
         return GenerationMode.CLIENTS in self.generation_mode
+
+    @property
+    def update_dependencies(self):
+        return GenerationMode.DEPENDENCIES in self.generation_mode
 
 
 def get_command_line_arguments() -> CommandLineArguments:
@@ -112,6 +156,25 @@ def get_command_line_arguments() -> CommandLineArguments:
                                           help='Special flag, used to regenerate only model libraries')
     models_parser.set_defaults(generation_mode=GenerationMode.MODELS)
 
+    dependencies_parser = subparsers.add_parser(
+        'dependencies',
+        help='Audit JavaScript dependencies and refresh every lock file',
+        description='Audit JavaScript dependencies and refresh every lock file. Yarn projects are '
+                    're-resolved against the ranges already in package.json; npm projects also get '
+                    '`npm audit fix`, which yarn has no equivalent for. The release age cooldown '
+                    'configured in .yarnrc.yml applies throughout, so no version published inside '
+                    'the cooldown window is picked up.')
+    dependencies_parser.add_argument('path', metavar='path', nargs='?', default=None, type=pathlib.Path,
+                                     help='Base path to update. Defaults to the current directory.')
+    dependencies_parser.add_argument('-u', '--upgrade', dest='upgrade', action='store_true',
+                                     help='Also raise the version ranges declared in package.json. '
+                                          'This can cross major versions and introduce breaking changes.')
+    dependencies_parser.add_argument('--audit-only', dest='audit_only', action='store_true',
+                                     help='Only report vulnerabilities, without touching any lock file.')
+    dependencies_parser.add_argument('-i', '--interactive', dest='is_interactive', action='store_true',
+                                     help='Asks before handling each project.')
+    dependencies_parser.set_defaults(generation_mode=GenerationMode.DEPENDENCIES)
+
     args = parser.parse_args()
 
     return CommandLineArguments(**args.__dict__)
@@ -119,6 +182,12 @@ def get_command_line_arguments() -> CommandLineArguments:
 
 def should_generate_interactive(resource: str) -> bool:
     return confirm(f'Do you want to generate {resource}?')
+
+
+def should_update_interactive(action: str):
+    def should_update(project: str) -> bool:
+        return confirm(f'Do you want to {action} {project}?')
+    return should_update
 
 
 if __name__ == "__main__":

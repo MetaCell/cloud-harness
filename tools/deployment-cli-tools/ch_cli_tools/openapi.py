@@ -64,7 +64,8 @@ def generate_flask_server(app_path: pathlib.Path, overrides_folder: Optional[pat
 
 def generate_fastapi_server(app_path: pathlib.Path) -> None:
     # Install the fastapi code generator here as it comes with potential problematic dependencies
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "fastapi-code-generator"])
+    subprocess.check_call([sys.executable, "-m", "pip", "install",
+                           "--uploaded-prior-to=P7D", "fastapi-code-generator"])
     api_directory = app_path / 'api'
     backend_directory = app_path / 'backend'
     temp_directory = api_directory / 'app'
