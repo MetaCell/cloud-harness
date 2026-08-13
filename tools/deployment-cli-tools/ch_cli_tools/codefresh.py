@@ -20,7 +20,7 @@ from cloudharness_utils.testing.api import get_api_filename, get_schemathesis_co
 logging.getLogger().setLevel(logging.INFO)
 
 CLOUD_HARNESS_PATH = "cloud-harness"
-ROLLOUT_CMD_TPL = "kubectl rollout status deployment/%s"
+ROLLOUT_CMD_TPL = "kubectl rollout status %s/%s"
 
 
 def _to_codefresh_path(path: str) -> str:
@@ -521,11 +521,13 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         for app_key in helm_values[KEY_APPS]:
             app: ApplicationHarnessConfig = helm_values[KEY_APPS][app_key].harness
             if app.deployment.auto:
+                kind = "statefulset" if app.deployment.statefulset else "deployment"
                 rollout_commands.append(
-                    ROLLOUT_CMD_TPL % app.deployment.name)
+                    ROLLOUT_CMD_TPL % (kind, app.deployment.name))
             if app.secured and helm_values.secured_gatekeepers:
+                # gatekeepers are always rendered as deployments
                 rollout_commands.append(
-                    ROLLOUT_CMD_TPL % app.subdomain + "-gk")
+                    ROLLOUT_CMD_TPL % ("deployment", f"{app.subdomain}-gk"))
         # some time to the certificates to settle
         rollout_commands.append("sleep 60")
 
