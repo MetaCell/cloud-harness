@@ -1,5 +1,5 @@
 # compile provisioner
-FROM golang:1.26.2 AS provisioner
+FROM golang:1.26 AS provisioner
 
 WORKDIR /usr/src/app
 COPY nfs-subdir-external-provisioner ./
@@ -7,7 +7,7 @@ COPY nfs-subdir-external-provisioner ./
 RUN go mod tidy && make
 
 # compile nfsvol (mount manager / watchdog)
-FROM golang:1.26.2 AS nfsvol
+FROM golang:1.26 AS nfsvol
 
 WORKDIR /usr/src/nfsvol
 COPY nfsvol/ ./
