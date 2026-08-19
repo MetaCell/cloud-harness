@@ -1,4 +1,5 @@
-FROM quay.io/keycloak/keycloak:26.5
+ARG CLOUDHARNESS_BASE=quay.io/keycloak/keycloak:26.5
+FROM $CLOUDHARNESS_BASE
 
 EXPOSE 9000
 EXPOSE 8080

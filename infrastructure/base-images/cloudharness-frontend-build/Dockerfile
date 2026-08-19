@@ -1,3 +1,2 @@
-FROM node:22-alpine
-
-
+ARG CLOUDHARNESS_BASE=node:22-alpine
+FROM $CLOUDHARNESS_BASE

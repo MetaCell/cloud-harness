@@ -1,5 +1,5 @@
-ARG PARENT=python:3.12-slim-trixie
-FROM ${PARENT}
+ARG CLOUDHARNESS_BASE=python:3.12-slim-trixie
+FROM $CLOUDHARNESS_BASE
 
 RUN apt update && apt install -y --no-install-recommends \
     gcc \
