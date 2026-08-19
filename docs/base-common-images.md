@@ -60,3 +60,78 @@ libraries or to provide new libraries to share within all applications.
 
 To override cloudharness-base, create a directory `MY_SOLUTION/infrastructure/base-images/cloudharness-base`
 then run `harness-deployment cloudharness MY_SOLUTION`
+
+
+## Change the base image of any application (`FROM [xxx]`)
+
+It's possible to change the image each dockerfile inherits by using the `FROM` directive.
+Depending on the kind of application, changing the base image is done in two different ways.
+There is basically two main situations:
+
+. your application has a `Dockerfile` (e.g: Keycloak, the app you're building);
+. your application doesn't have a `Dockerfile` (e.g: gogatekeeper, Kafka, etc), and the image is directly injected inside the helm chart when the helm chart is generated.
+
+In both situations, the modification is done in the `value-template.yaml` of your CloudHarness projects, but the YAML path to modify depends on the app your targetting then.
+
+### Change the base image for applications with a `Dockerfile`
+
+Changing the base image for your application or applications which have a `Dockerfile` is done through the `source-images` entry of your `value-template.yaml` file. 
+This entry defines a mapping between the `ARG` of your `Dockerfile` and the value you want to inject. 
+Here is an example of a declared mapping for two applications:
+
+```yaml
+# value-template.yaml
+image-sources:
+  myapp: "mybaseimg:14.5"
+  samples:
+    CLOUDHARNESS_FRONTEND_BUILD: "myfrontendbaseimg:15.6"
+```
+
+The first entry for `myapp` will change the base image for `mybaseimg:14.5`. 
+As nothing is given as detail for the base image key inside the `Dockerfile`, by convention, CloudHarness is going to set `CLOUDHARNESS_ROOT_BASE` to `mybaseimg:14.5`. 
+If your `Dockerfile` doesn't use the `CLOUDHARNESS_ROOT_BASE` `ARG` as variable for your `FROM ...` directive, you can precise the name of the variable which needs to be changed by declaring it and the value it needs to have as a YAML dictionnary.
+The second entry is in this situation, the base `ARG` which is used in the `Dockerfile` for the `FROM ...` directive is `CLOUDHARNESS_FRONTEND_BUILD`.
+
+### Change the base image for applications which inject their image in the helm chart
+
+Those applications are not providing a Dockerfile, but directly an image which is injcted in the helm chart from the helm template.
+Each of those applications considers a specific path from the helm configuration (i.e: `values.yaml` or `value-template.yaml`).
+To change the base image for those, you need to know this path and change it in the `value-template.yaml` by redefining it.
+The redefinition will override the base value from the sub-`values.yaml` files on configuration merging.
+Here is an example for the gatekeeper and the Argo controller:
+
+```yaml
+# value-template.yaml
+harness:
+  proxy:
+    gatekeeper:
+      image: YOUR_NEW_IMG
+        
+# or, depending on your application
+argo:
+  controller:
+    image:
+      registry: YOUR_REG
+      tag: YOUR TAG
+```
+
+Here is a table of the identified applications inside of CloudHarness which do not own a `Dockerfile`.
+
+| Application | Image path |
+| --- | --- |
+| gatekeeper | harness.proxy.gatekeeper.image |
+| Argo controller | argo.controller.image.{repository, tag} |
+| Argo executor | argo.executor.image.{repository, tag} |
+| Argo server | argo.server.image.{repository, tag} |
+| Elasticsearch | elasticsearch.image |
+| Events | events.image.{repository, tag, nullPolicy} |
+| Events kafka | events.kafka.image |
+| JupyterHub | jupyterhub.singleuser.image.{pullSecrets, name, tag} |
+| JupyterHub proxy | jupyterhub.proxy.chp.image.{name, tag, pullPolicy} |
+| JupyterHub scheduling | jupyterhub.scheduling.userPlaceHolder.image.{name, pullPolicy, tag} |
+| NFS server | nfsserver.harness.deployment.image |
+| Sentry redis | sentry.redis.image |
+| MongoDB | harness.database.mongo.image |
+| Neo4J | harness.database.neo4j.image |
+| Neo4J reverseProxy | neo4j.reverseProxy.image |
+| Postgres | harness.database.postgres.image |
