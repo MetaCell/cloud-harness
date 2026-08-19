@@ -1,5 +1,5 @@
 # compile provisioner
-ARG CLOUDHARNESS_BASE_GOLANG=golang:1.26.2
+ARG CLOUDHARNESS_BASE_GOLANG=golang:1.26
 ARG CLOUDHARNESS_BASE_ROCKYLINUX=golang:rockylinux/rockylinux:10.1-minimal
 FROM $CLOUDHARNESS_BASE_GOLANG AS provisioner
 
@@ -9,7 +9,7 @@ COPY nfs-subdir-external-provisioner ./
 RUN go mod tidy && make
 
 # compile nfsvol (mount manager / watchdog)
-FROM golang:1.26.2 AS nfsvol
+FROM golang:1.26 AS nfsvol
 
 WORKDIR /usr/src/nfsvol
 COPY nfsvol/ ./
