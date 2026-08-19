@@ -363,3 +363,77 @@ def test_skaffold_builds_cross_app_task_image(tmp_path):
 
     shutil.rmtree(tmp_path)
     shutil.rmtree(BUILD_DIR)
+
+
+def test_skaffold_imgarg_retrieval(tmp_path):
+    out_folder = tmp_path / "test_skaffold_imgarg_retrieval"
+
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=out_folder,
+        include=["samples", "myapp"],
+        domain="my.local",
+        namespace="test",
+        env="nreg",
+        local=False,
+        tag=1,
+        registry="reg",
+    )
+
+    assert values.get("events").kafka.image == "nodocker.io/apache/kafka:4.0.2"
+
+    # Ensure in the test that the Helm is well formed
+    source_images = values.get("source-images")
+    assert len(source_images) == 2
+    assert source_images["myapp"] == "myregistry.myapp:15.3"
+    assert source_images["samples"] == {"BASEIMAGE": "myother.image:14"}
+
+    assert get_image_source(values, "myapp") == {CH_BASE_IMAGE_CONVENTIONAL_KEY: "myregistry.myapp:15.3"}
+    assert get_image_source(values, "samples") == {"BASEIMAGE": "myother.image:14"}
+    assert get_image_source(values, "events") == {}
+
+
+def test_skaffold_imgarg(tmp_path):
+    out_folder = tmp_path / "test_skaffold_imgarg"
+
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=out_folder,
+        include=["samples", "myapp"],
+        domain="my.local",
+        namespace="test",
+        env="nreg",
+        local=False,
+        tag=1,
+        registry="reg",
+    )
+
+    assert values.get("events").kafka.image == "nodocker.io/apache/kafka:4.0.2"
+
+    BUILD_DIR = "/tmp/build"
+    root_paths = preprocess_build_overrides(
+        root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+        helm_values=values,
+        merge_build_path=BUILD_DIR,
+    )
+
+    sk = create_skaffold_configuration(
+        root_paths=root_paths, helm_values=values, output_path=out_folder
+    )
+
+    # Look in sk
+    sk.get("build").get("artifacts")
+
+    def get_buildargs(name) -> dict[str, str]:
+        f = [e["docker"]["buildArgs"] for e in sk["build"]["artifacts"] if f"applications/{name}" in e["context"]]
+        if len(f) > 0:
+            return f[0]
+        return {}
+
+    samples_buildargs = get_buildargs("samples")
+    assert "BASEIMAGE" in samples_buildargs
+    assert samples_buildargs["BASEIMAGE"] == "myother.image:14"
+
+    myapp_buildargs = get_buildargs("myapp")
+    assert CH_BASE_IMAGE_CONVENTIONAL_KEY in myapp_buildargs
+    assert myapp_buildargs[CH_BASE_IMAGE_CONVENTIONAL_KEY] == "myregistry.myapp:15.3"
