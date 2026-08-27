@@ -11,7 +11,7 @@ ENV APP_DIR=/app
 WORKDIR ${APP_DIR}
 COPY frontend/package.json ${APP_DIR}
 COPY frontend/yarn.lock ${APP_DIR}
-RUN yarn install --frozen-lockfile --timeout 60000
+RUN yarn install --immutable
 
 COPY frontend ${APP_DIR}
 RUN yarn build
@@ -23,13 +23,13 @@ ENV MODULE_NAME=samples
 ENV WORKERS=2
 ENV PORT=8080
 
-COPY backend/requirements.txt /usr/src/app/
+COPY backend/pylock.toml /usr/src/app/
 
 RUN --mount=type=cache,target=/root/.cache python -m pip install --upgrade pip &&\
-    pip3 install -r requirements.txt  --prefer-binary
+    pip3 install -r pylock.toml  --prefer-binary
 
 COPY backend/ /usr/src/app
 
 COPY --from=frontend app/dist/ /usr/src/app/www
 
-RUN pip3 install -e .
+RUN pip3 install --uploaded-prior-to=P7D -e .

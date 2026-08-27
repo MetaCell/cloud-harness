@@ -480,7 +480,7 @@ def test_statefulset_option(tmp_path):
     assert 'myapp-data' not in claims
     assert sts['spec']['volumeClaimTemplates'][0]['metadata']['name'] == 'myapp-data'
     assert not any(m for m in manifests
-                  if m.get('kind') == 'PersistentVolumeClaim' and m.get('metadata', {}).get('name') == 'myapp-data')
+                   if m.get('kind') == 'PersistentVolumeClaim' and m.get('metadata', {}).get('name') == 'myapp-data')
 
     db_sts = find_manifest(manifests, 'StatefulSet', db_name)
     assert db_sts['spec']['serviceName'] == db_name
@@ -489,7 +489,7 @@ def test_statefulset_option(tmp_path):
     assert 'initContainers' not in db_sts['spec']['template']['spec']
     assert db_sts['spec']['volumeClaimTemplates'][0]['metadata']['name'] == db_name
     assert not any(m for m in manifests
-                  if m.get('kind') == 'PersistentVolumeClaim' and m.get('metadata', {}).get('name') == db_name)
+                   if m.get('kind') == 'PersistentVolumeClaim' and m.get('metadata', {}).get('name') == db_name)
     find_manifest(manifests, 'Service', db_name)
     # without a legacy PVC no migration resources are rendered
     assert not any(m for m in manifests if 'volume-migration' in m.get('metadata', {}).get('name', ''))
@@ -556,9 +556,9 @@ def test_statefulset_leader_service(tmp_path):
 
     manifests = render_helm_chart(helm_path)
     assert not any(m for m in manifests
-                  if m.get('kind') == 'Service' and m.get('metadata', {}).get('name') == rw_name)
+                   if m.get('kind') == 'Service' and m.get('metadata', {}).get('name') == rw_name)
     assert not any(p for p in ingress_paths(manifests)
-                  if p['backend']['service']['name'] == rw_name)
+                   if p['backend']['service']['name'] == rw_name)
 
     harness['deployment']['statefulset'] = True
     with open(values_path, 'w') as values_file:

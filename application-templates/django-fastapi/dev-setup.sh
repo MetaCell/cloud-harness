@@ -29,23 +29,23 @@ pip install --upgrade pip || pip_upgrade_error
 # Install pip dependencies from cloudharness-base-debian image
 
 if $INSTALL_PYTEST; then
-    pip install pytest || install_error pytest
+    pip install --uploaded-prior-to=P7D pytest || install_error pytest
 fi
 
-pip install -r "$CH_DIRECTORY/libraries/models/requirements.txt" || install_error "models requirements"
-pip install -r "$CH_DIRECTORY/libraries/cloudharness-common/requirements.txt" || install_error "cloudharness-common requirements"
-pip install -r "$CH_DIRECTORY/libraries/client/cloudharness_cli/requirements.txt" || install_error "cloudharness_cli requirements"
+pip install --uploaded-prior-to=P7D -r "$CH_DIRECTORY/libraries/models/requirements.txt" || install_error "models requirements"
+pip install --uploaded-prior-to=P7D -r "$CH_DIRECTORY/libraries/cloudharness-common/requirements.txt" || install_error "cloudharness-common requirements"
+pip install --uploaded-prior-to=P7D -r "$CH_DIRECTORY/libraries/client/cloudharness_cli/requirements.txt" || install_error "cloudharness_cli requirements"
 
-pip install -e "$CH_DIRECTORY/libraries/models" || install_error models
-pip install -e "$CH_DIRECTORY/libraries/cloudharness-common" || install_error cloudharness-common
-pip install -e "$CH_DIRECTORY/libraries/client/cloudharness_cli" || install_error cloudharness_cli
+pip install --uploaded-prior-to=P7D -e "$CH_DIRECTORY/libraries/models" || install_error models
+pip install --uploaded-prior-to=P7D -e "$CH_DIRECTORY/libraries/cloudharness-common" || install_error cloudharness-common
+pip install --uploaded-prior-to=P7D -e "$CH_DIRECTORY/libraries/client/cloudharness_cli" || install_error cloudharness_cli
 
 # Install pip dependencies from cloudharness-django image
 
-pip install -r "$CH_DIRECTORY/infrastructure/common-images/cloudharness-django/libraries/fastapi/requirements.txt" || install_error "cloudharness-django fastapi requirements"
-pip install -e "$CH_DIRECTORY/infrastructure/common-images/cloudharness-django/libraries/cloudharness-django" || install_error cloudharness-django
+pip install --uploaded-prior-to=P7D -r "$CH_DIRECTORY/infrastructure/common-images/cloudharness-django/libraries/fastapi/requirements.txt" || install_error "cloudharness-django fastapi requirements"
+pip install --uploaded-prior-to=P7D -e "$CH_DIRECTORY/infrastructure/common-images/cloudharness-django/libraries/cloudharness-django" || install_error cloudharness-django
 
 # Install application
 
-pip install -r "$CURRENT_DIRECTORY/backend/requirements.txt" || install_error "$APP_NAME dependencies"
-pip install -e "$CURRENT_DIRECTORY/backend" || install_error "$APP_NAME"
+pip install --uploaded-prior-to=P7D -r "$CURRENT_DIRECTORY/backend/requirements.txt" || install_error "$APP_NAME dependencies"
+pip install --uploaded-prior-to=P7D -e "$CURRENT_DIRECTORY/backend" || install_error "$APP_NAME"

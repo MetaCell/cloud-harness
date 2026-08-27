@@ -27,3 +27,7 @@ tools/deployment-cli-tools/tests/resources/migration.bak
 /.venv
 .history
 Tiltfile
+# yarn 4 local install metadata
+**/.yarn/install-state.gz
+**/.yarn/cache
+**/.pnp.*

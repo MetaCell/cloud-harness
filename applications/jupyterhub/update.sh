@@ -1,7 +1,8 @@
 git clone -n git@github.com:jupyterhub/zero-to-jupyterhub-k8s.git
 git checkout jupyterhub
 git checkout chartpress.yaml
-pip install chartpress
+python -m pip install --upgrade pip
+pip install --uploaded-prior-to=P7D chartpress
 cd zero-to-jupyterhub-k8s
 chartpress -t $1 
 cd ..

@@ -9,10 +9,10 @@ ENV PORT=8080
 COPY requirements.txt /usr/src/app/
 
 RUN --mount=type=cache,target=/root/.cache python -m pip install --upgrade pip &&\
-    pip3 install --no-cache-dir -r requirements.txt
+    pip3 install --uploaded-prior-to=P7D --no-cache-dir -r requirements.txt
 
 COPY . /usr/src/app
 
-RUN pip3 install -e .
+RUN pip3 install --uploaded-prior-to=P7D -e .
 
 ENTRYPOINT gunicorn --workers=$WORKERS --bind=0.0.0.0:$PORT $MODULE_NAME.__main__:app

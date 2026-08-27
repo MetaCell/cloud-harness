@@ -42,11 +42,12 @@ steps:
 
   prepare_deployment:
     title: "Prepare helm chart"
-    image: python:3.7
+    image: python:3.12
     stage: deploy
     working_directory: .
     commands:
-      - pip install -r cloud-harness/requirements.txt
+      - python -m pip install --upgrade pip
+      - pip install --uploaded-prior-to=P7D -r cloud-harness/requirements.txt
       - harness-deployment . cloud-harness -t ${{CF_REVISION}} -d ${{DOMAIN}}
 
   prepare_deployment_view:

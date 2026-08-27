@@ -189,7 +189,7 @@ deployment.
 In order to use `harness-test` install the library with
 
 ```
-pip install -e tools/cloudharness-test
+pip install --uploaded-prior-to=P7D -e tools/cloudharness-test
 ```
 
 In order to run tests against an existing deployment based on a domain (say, my.domain), run:

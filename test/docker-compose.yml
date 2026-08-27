@@ -1,12 +1,13 @@
 version: "3"
 services:
   tests:
-    image: python:3.9
+    image: python:3.12
     command:
       - /bin/sh
       - -c
       - |
-        pip install tox
+        python -m pip install --upgrade pip
+        pip install --uploaded-prior-to=P7D tox
         rm -rf /ch/libraries/models/.tox
         rm -rf /ch/libraries/cloudharness-common/.tox
         rm -rf /ch/tools/deployment-cli-tools/.tox

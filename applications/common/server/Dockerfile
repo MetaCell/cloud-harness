@@ -8,12 +8,12 @@ ENV WORKERS=2
 ENV PORT=8080
 RUN apt update && apt install -y postgresql
 
-COPY ./requirements.txt /usr/src/app/
+COPY ./pylock.toml /usr/src/app/
 
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir -r pylock.toml
 
 COPY . /usr/src/app
 
 ENV FLASK_ENV=production
 ENV APP_SETTINGS=common.config.ProductionConfig
-RUN pip3 install -e /usr/src/app
+RUN pip3 install --uploaded-prior-to=P7D -e /usr/src/app
