@@ -1,4 +1,6 @@
 """Notice, this test needs a fully operating kubernetes with argo environment in the container running the test"""
+from unittest.mock import patch
+
 from cloudharness.utils.config import CloudharnessConfig
 from cloudharness.workflows import argo_service
 from cloudharness import set_debug
@@ -24,6 +26,67 @@ def check_wf(wf):
 
     assert wf["kind"] == "Workflow"
     assert "spec" in wf
+
+
+def test_null_registry_secret_is_not_configured():
+    with patch.object(
+        CloudharnessConfig,
+        "get_configuration",
+        return_value={"registry": {"name": "", "secret": None}},
+    ):
+        assert CloudharnessConfig.get_registry_secret() == ""
+
+
+def test_workflow_omits_unconfigured_image_pull_secret():
+    task = tasks.CustomTask('local-task', 'busybox')
+    operation = operations.SingleTaskOperation('local-operation-', task)
+
+    with patch.object(CloudharnessConfig, "get_registry_secret", return_value=""):
+        workflow = operation.to_workflow()
+
+    assert "imagePullSecrets" not in workflow["spec"]
+
+
+def test_workflow_preserves_configured_image_pull_secret():
+    task = tasks.CustomTask('private-task', 'busybox')
+    operation = operations.SingleTaskOperation('private-operation-', task)
+
+    with patch.object(
+        CloudharnessConfig,
+        "get_registry_secret",
+        return_value="private-registry",
+    ):
+        workflow = operation.to_workflow()
+
+    assert workflow["spec"]["imagePullSecrets"] == [
+        {"name": "private-registry"}
+    ]
+
+
+def test_custom_task_supports_secret_environment_entries():
+    secret_environment = {
+        "name": "DB_PASS",
+        "valueFrom": {
+            "secretKeyRef": {
+                "name": "database-credentials",
+                "key": "password",
+            }
+        },
+    }
+    task = tasks.CustomTask(
+        'secret-task',
+        'busybox',
+        secret_envs=[secret_environment],
+        DB_HOST='database',
+    )
+
+    environment = {
+        item['name']: item
+        for item in task.spec()['container']['env']
+    }
+
+    assert environment['DB_HOST']['value'] == 'database'
+    assert environment['DB_PASS'] == secret_environment
 
 
 def test_volume_affinity_check():

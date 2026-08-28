@@ -104,6 +104,30 @@ def test_on_exit_notify_with_queue_and_payload():
     print("✓ Test passed: Backward compatibility works correctly")
 
 
+def test_on_exit_notify_supports_command_override():
+    """A custom exit image can replace its default command without subclassing."""
+
+    task = tasks.CustomTask('test-task', 'busybox')
+    command = ['python', '-m', 'example.notifier']
+    op = operations.PipelineOperation(
+        'test-command-exit',
+        [task],
+        on_exit_notify={
+            'image': 'application-image',
+            'command': command,
+        },
+    )
+
+    workflow = op.to_workflow()
+    exit_template = next(
+        template
+        for template in workflow['spec']['templates']
+        if template['name'] == 'exit-handler'
+    )
+
+    assert exit_template['container']['command'] == command
+
+
 def test_on_exit_notify_mixed_usage():
     """Test mixed usage with some optional parameters"""
     print("Testing on_exit_notify with mixed usage (queue but no payload)...")

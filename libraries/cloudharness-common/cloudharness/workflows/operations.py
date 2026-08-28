@@ -120,13 +120,13 @@ class ContainerizedOperation(ManagedOperation):
         }
 
     def spec(self):
+        registry_secret = config.CloudharnessConfig.get_registry_secret()
         spec = {
             'entrypoint': self.entrypoint,
             'ttlStrategy': self.ttl_strategy,
             'templates': [self.modify_template(template) for template in self.templates],
             'tolerations': [V1Toleration(key='cloudharness/temporary-job', operator='Equal', value='true').to_dict()],
             'serviceAccountName': SERVICE_ACCOUNT,
-            'imagePullSecrets': [{'name': config.CloudharnessConfig.get_registry_secret()}],
             'podGC': self.pod_gc or {
                 'strategy': 'OnWorkflowSuccess',
                 'deleteDelayDuration': self.ttl_strategy['secondsAfterSuccess'] if self.ttl_strategy else "600s",
@@ -139,6 +139,9 @@ class ContainerizedOperation(ManagedOperation):
                 }
             }]
         }
+
+        if registry_secret:
+            spec['imagePullSecrets'] = [{'name': registry_secret}]
 
         if is_accounts_present():
             spec['volumes'].append({
@@ -181,6 +184,7 @@ class ContainerizedOperation(ManagedOperation):
         exit_task = CustomTask(
             name="exit-handler",
             image_name=self.on_exit_notify.get('image', 'workflows-notify-queue'),
+            command=self.on_exit_notify.get('command'),
             **env_args
         )
         spec['onExit'] = 'exit-handler'

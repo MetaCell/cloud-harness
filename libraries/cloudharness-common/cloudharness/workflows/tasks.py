@@ -176,10 +176,16 @@ class BashTask(InlinedTask):
 
 
 class CustomTask(ContainerizedTask):
-    def __init__(self, name, image_name, resources={}, image_pull_policy='IfNotPresent', command=None, **env_args):
+    def __init__(self, name, image_name, resources={}, image_pull_policy='IfNotPresent', command=None,
+                 secret_envs=None, **env_args):
+        self.secret_envs = list(secret_envs or ())
         super().__init__(name, resources=resources,
                          image_pull_policy=image_pull_policy, command=command, **env_args)
         self.__image_name = get_image_full_tag(image_name)
+
+    @property
+    def envs(self):
+        return super().envs + self.secret_envs
 
     @property
     def image_name(self):
