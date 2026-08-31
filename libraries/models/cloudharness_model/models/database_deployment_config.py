@@ -35,7 +35,7 @@ class DatabaseDeploymentConfig(CloudHarnessBaseModel):
     name: Optional[StrictStr] = None
     type: Optional[Annotated[str, Field(strict=True)]] = Field(default=None, description="Define the database type.  One of (mongo, postgres, neo4j, sqlite3)")
     size: Optional[StrictStr] = Field(default=None, description="Specify database disk size")
-    storage_class: Optional[StrictStr] = Field(default=None, description="Storage class of the database volume claim, `standard` by default.  Set it to null to omit the storage class from the claim, so that the cluster default storage class is used.", alias="storageClass")
+    storage_class: Optional[StrictStr] = Field(default=None, description="Storage class of the database volume claim.  When not set, the claim carries no storage class, so that the cluster default storage class is used.", alias="storageClass")
     user: Optional[StrictStr] = Field(default=None, description="database username")
     var_pass: Optional[StrictStr] = Field(default=None, description="Database password", alias="pass")
     image_ref: Optional[StrictStr] = Field(default=None, description="Used for referencing images from the build")

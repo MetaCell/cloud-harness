@@ -106,8 +106,11 @@ harness:
     # -- supported db types: mongo, postgres, neo4j
     type:
     size: 1Gi
-    # -- Storage class of the database volume claim. Set to null to use the cluster default storage class.
-    storageClass: standard
+    # -- Storage class of the database volume claim. Left null, the claim carries no storage class and
+    # the cluster default one is used, which is what pre-existing database volumes were created with:
+    # the storage class is immutable on an existing claim, so setting it on a live database requires
+    # deleting and recreating the claim.
+    storageClass:
     # -- database username
     user: mnp
     # -- database password

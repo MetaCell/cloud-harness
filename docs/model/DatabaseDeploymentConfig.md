@@ -10,7 +10,7 @@ Name | Type | Description | Notes
 **name** | **str** |  | [optional] 
 **type** | **str** | Define the database type.  One of (mongo, postgres, neo4j, sqlite3) | [optional] 
 **size** | **str** | Specify database disk size | [optional] 
-**storage_class** | **str** | Storage class of the database volume claim, &#x60;standard&#x60; by default.  Set it to null to omit the storage class from the claim, so that the cluster default storage class is used. | [optional] 
+**storage_class** | **str** | Storage class of the database volume claim.  When not set, the claim carries no storage class, so that the cluster default storage class is used. | [optional] 
 **user** | **str** | database username | [optional] 
 **var_pass** | **str** | Database password | [optional] 
 **image_ref** | **str** | Used for referencing images from the build | [optional] 

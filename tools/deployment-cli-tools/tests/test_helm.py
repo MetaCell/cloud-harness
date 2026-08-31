@@ -722,13 +722,10 @@ def test_database_storage_class(tmp_path):
             yaml.safe_dump(values, values_file)
         return render_helm_chart(helm_path)
 
-    # `standard` is the default, coming from the application values
-    assert database['storageClass'] == 'standard'
-    manifests = render()
-    assert find_manifest(manifests, 'PersistentVolumeClaim', db_name)['spec']['storageClassName'] == 'standard'
-
-    # only an explicit null omits the storage class, so that the cluster default one is used
-    database['storageClass'] = None
+    # not set by default: the claim carries no storage class, so the cluster default one is used.
+    # The storage class is immutable on an existing claim, hence never set implicitly: database
+    # volumes of existing deployments must keep rendering without it.
+    assert database['storageClass'] is None
     manifests = render()
     assert 'storageClassName' not in find_manifest(manifests, 'PersistentVolumeClaim', db_name)['spec']
 

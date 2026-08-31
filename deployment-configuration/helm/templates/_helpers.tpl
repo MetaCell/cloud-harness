@@ -117,9 +117,9 @@ Usage: {{ include "deploy_utils.volumeStorageClass" (dict "root" .root "volume" 
 {{- end -}}
 
 {{/*
-Storage class of a database volume claim: harness.database.storageClass (`standard` by default,
-see value-template.yaml). Renders nothing when it is set to null, leaving the claim to the cluster
-default storage class.
+Storage class of a database volume claim: harness.database.storageClass. Renders nothing when it
+is not set (the default), leaving the claim to the cluster default storage class: that is how the
+database volumes of existing deployments were created, and the storage class is immutable.
 Usage: {{ include "deploy_utils.databaseStorageClass" .app.harness.database }}
 */}}
 {{- define "deploy_utils.databaseStorageClass" -}}

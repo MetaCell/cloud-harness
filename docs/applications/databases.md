@@ -31,17 +31,14 @@ harness:
 
 `size`: Size of the persistent volume that the database container mounts, default is set to `1Gi`
 
-`storageClass`: Storage class of the database volume claim, `standard` by default. It applies to the
-plain and statefulset database volumes as well as to the storage of a `postgres.operator` cluster.
-Set it to null to omit the storage class from the claim, so that the cluster default storage class
-is used.
+`storageClass`: Storage class of the database volume claim, applied to the plain and statefulset
+database volumes as well as to the storage of a `postgres.operator` cluster. Not set by default:
+the claim then carries no storage class and Kubernetes provisions it on the cluster default one,
+which is how the database volumes of existing deployments were created.
 
-Note that the storage class is immutable on an existing claim: on a cluster whose default storage
-class is not `standard`, a database volume created before this setting existed carries the cluster
-default class (Kubernetes records it on the claim), and `helm upgrade` is rejected when the values
-ask for a different one. Set `harness.database.storageClass` to the class of the existing claim, or
-to null, before upgrading — in a deployment scaffolding this can be done once for all applications
-in `deployment-configuration/value-template.yaml`.
+Note that the storage class is immutable on an existing claim (Kubernetes records the class it was
+provisioned with, e.g. `metacell`): setting or changing this value on a live database makes
+`helm upgrade` fail, and requires deleting and recreating the claim — the data is not migrated.
 
 `resources`: Set the database pod resources
 
