@@ -1,11 +1,16 @@
 {{- define "deploy_utils.pvolume" }}
 {{- $volume := .app.harness.deployment.volume }}
 {{- $isStatefulSet := .app.harness.deployment.statefulset | default false }}
+{{- /* ReadWriteMany volumes are shared by all the pods using them: they are never provisioned
+      per replica through volumeClaimTemplates, hence never owned by a statefulset. */}}
+{{- $writeMany := include "deploy_utils.volumeWriteMany" $volume }}
 {{- $ownVolume := false }}
-{{- if and (or (not (hasKey $volume "usenfs")) (not $volume.usenfs)) (or (not (hasKey $volume "auto")) $volume.auto) }}
+{{- if not $writeMany }}
+{{- if or (not (hasKey $volume "auto")) $volume.auto }}
 {{- $ownVolume = true }}
 {{- end }}
-{{- /* Statefulsets own their (non-nfs) volume through volumeClaimTemplates: the standalone PVC
+{{- end }}
+{{- /* Statefulsets own their (ReadWriteOnce) volume through volumeClaimTemplates: the standalone PVC
       is only kept while a legacy one exists, so that its data can be migrated. Delete the legacy
       PVC once migrated. */}}
 {{- $legacyClaim := false }}
@@ -27,18 +32,7 @@ metadata:
   labels:
     app: {{ .app.harness.deployment.name| quote }}
 spec:
-  resources:
-    requests:
-      storage: {{ .app.harness.deployment.volume.size }}
-
-  accessModes:
-{{- if or (not (hasKey .app.harness.deployment.volume "usenfs")) (not .app.harness.deployment.volume.usenfs) }}
-  - ReadWriteOnce
-  storageClassName: standard
-{{- else }}
-  - ReadWriteMany
-  storageClassName: {{ printf "%s-%s" .root.Values.namespace .root.Values.apps.nfsserver.storageClass.name }}
-{{- end }}
+  {{- include "deploy_utils.volumeClaimSpec" (dict "root" .root "deployment" .app.harness.deployment) | nindent 2 }}
 {{- end }}
 ---
 {{- end }}

@@ -95,6 +95,56 @@ heritage: {{ $.Release.Service | quote }}
 
 
 {{/*
+Tells whether a harness.deployment.volume is ReadWriteMany: nfs volumes (legacy `usenfs` flag)
+always are, otherwise `writeMany` decides. Renders "true" or nothing, so the result can be used
+directly in a condition. Accepts a nil volume.
+Usage: {{ if include "deploy_utils.volumeWriteMany" $volume }}
+*/}}
+{{- define "deploy_utils.volumeWriteMany" -}}
+{{- if . }}{{ if .usenfs }}true{{ else if .writeMany }}true{{ end }}{{ end }}
+{{- end -}}
+
+{{/*
+Storage class of a harness.deployment.volume claim: nfs volumes always use the class created by
+the nfsserver application, otherwise the volume `storageClass` wins on the deployment default
+(harness.deployment.storageClass). A null default renders nothing, leaving the claim to the
+cluster default storage class; `standard` is used when the deployment does not declare the key
+at all (values generated before the setting existed).
+Usage: {{ include "deploy_utils.volumeStorageClass" (dict "root" .root "deployment" $deployment) }}
+*/}}
+{{- define "deploy_utils.volumeStorageClass" -}}
+{{- $volume := .deployment.volume -}}
+{{- if $volume.usenfs }}{{ printf "%s-%s" .root.Values.namespace .root.Values.apps.nfsserver.storageClass.name }}{{ else if $volume.storageClass }}{{ $volume.storageClass }}{{ else if .deployment.storageClass }}{{ .deployment.storageClass }}{{ else if not (hasKey .deployment "storageClass") }}standard{{ end }}
+{{- end -}}
+
+{{/*
+Storage class of a database volume claim: harness.database.storageClass. A null value renders
+nothing, leaving the claim to the cluster default storage class; `standard` is used when the
+database does not declare the key at all (values generated before the setting existed).
+Usage: {{ include "deploy_utils.databaseStorageClass" .app.harness.database }}
+*/}}
+{{- define "deploy_utils.databaseStorageClass" -}}
+{{- if .storageClass }}{{ .storageClass }}{{ else if not (hasKey . "storageClass") }}standard{{ end }}
+{{- end -}}
+
+{{/*
+Render the spec of a claim (PersistentVolumeClaim or statefulset volumeClaimTemplate) for a
+harness.deployment.volume.
+Usage: {{ include "deploy_utils.volumeClaimSpec" (dict "root" .root "deployment" $deployment) | nindent 2 }}
+*/}}
+{{- define "deploy_utils.volumeClaimSpec" -}}
+{{- $storageClass := include "deploy_utils.volumeStorageClass" (dict "root" .root "deployment" .deployment) -}}
+accessModes:
+  - {{ if include "deploy_utils.volumeWriteMany" .deployment.volume }}ReadWriteMany{{ else }}ReadWriteOnce{{ end }}
+{{- if $storageClass }}
+storageClassName: {{ $storageClass }}
+{{- end }}
+resources:
+  requests:
+    storage: {{ .deployment.volume.size }}
+{{- end -}}
+
+{{/*
 Render volumeMounts block for a container.
 Usage: {{ include "deploy_utils.volumeMounts" (dict "app" .app "root" .root) }}
 */}}

@@ -31,6 +31,15 @@ def test_volume_affinity_check():
     assert utils.volume_requires_affinity("a:b")
     assert utils.volume_requires_affinity("a:b:ro")
     assert not utils.volume_requires_affinity("a:b:rwx")
+    # ReadWriteMany application volumes are recognized from the configuration
+    assert utils.volume_requires_affinity("my-shared-volume:/tmp/myvolume")
+    assert not utils.volume_requires_affinity("volumemanager-files:/tmp/myvolume")
+
+
+def test_volume_is_write_many():
+    assert not utils.volume_is_write_many("unknown-volume")
+    assert not utils.volume_is_write_many("my-shared-volume")
+    assert utils.volume_is_write_many("volumemanager-files")
 
 
 def test_sync_workflow():
@@ -198,6 +207,31 @@ def test_single_task_shared_rwx():
     assert len(wf['spec']['templates'][0]['container']['volumeMounts']) == 2 + accounts_offset
 
     assert not 'affinity' in wf['spec'], "Pod affinity should not be added for rwx volumes"
+
+
+def test_single_task_shared_application_rwx_volume():
+    """A ReadWriteMany application volume attaches to any node: no pinning, no `rwx` marker needed"""
+    shared_directory = 'volumemanager-files:/mnt/shared'
+    task_write = operations.CustomTask('download-file', 'workflows-extract-download',
+                                       url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
+    op = operations.SingleTaskOperation('test-custom-connected-op-', task_write,
+                                       shared_directory=shared_directory, shared_volume_size=100)
+    wf = op.to_workflow()
+
+    accounts_offset = 1 if is_accounts_present() else 0
+    assert wf['spec']['volumes'][1 + accounts_offset]['persistentVolumeClaim']['claimName'] == 'volumemanager-files'
+    assert 'affinity' not in wf['spec'], "Pod affinity should not be added for ReadWriteMany volumes"
+    assert 'usesvolume' not in wf['spec']['templates'][0]['metadata']['labels']
+
+
+def test_task_volume_mount_application_rwx_volume():
+    """Task level volume mounts of a ReadWriteMany application volume are not pinned either"""
+    task = operations.CustomTask('download-file', 'workflows-extract-download',
+                                 volume_mounts=["volumemanager-files:/mnt/shared", "my-shared-volume:/mnt/other"],
+                                 url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
+    assert task.external_volumes == ["my-shared-volume"]
+    assert task.metadata_spec()['labels']['usesvolume'] == 'my-shared-volume'
+    assert 'usesvolume-volumemanager-files' not in task.metadata_spec()['labels']
 
 
 def test_single_task_volume_notshared():

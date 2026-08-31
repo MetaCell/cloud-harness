@@ -41,11 +41,12 @@ class DeploymentAutoArtifactConfig(CloudHarnessBaseModel):
     image: Optional[Annotated[str, Field(strict=True)]] = Field(default=None, description="Image name to use in the deployment. Leave it blank to set from the application's Docker file")
     resources: Optional[DeploymentResourcesConf] = None
     volume: Optional[DeploymentVolumeSpec] = None
-    statefulset: Optional[StrictBool] = Field(default=None, description="When true, the workload is rendered as a Kubernetes StatefulSet instead of a Deployment. Recommended for deployments with a ReadWriteOnce volume: updates terminate the old pod before creating the new one, so no Recreate strategy or node pinning is needed. The volume, unless nfs-shared or externally managed (auto false), is provisioned per replica through volumeClaimTemplates. A pre-existing PVC named after the volume (left over from a previous Deployment) is migrated automatically: a migration job streams its data into each statefulset volume through the Kubernetes API, so the volumes are never mounted by the same pod (works on multi-zone clusters); delete the legacy PVC once migrated.")
+    storage_class: Optional[StrictStr] = Field(default=None, description="Default storage class of the deployment volume claim, used when the volume does not define its own `storageClass`.  Set to null to omit the storage class from the claim, so that the cluster default storage class is used.", alias="storageClass")
+    statefulset: Optional[StrictBool] = Field(default=None, description="When true, the workload is rendered as a Kubernetes StatefulSet instead of a Deployment. Recommended for deployments with a ReadWriteOnce volume: updates terminate the old pod before creating the new one, so no Recreate strategy or node pinning is needed. The volume, unless ReadWriteMany or externally managed (auto false), is provisioned per replica through volumeClaimTemplates. A pre-existing PVC named after the volume (left over from a previous Deployment) is migrated automatically: a migration job streams its data into each statefulset volume through the Kubernetes API, so the volumes are never mounted by the same pod (works on multi-zone clusters); delete the legacy PVC once migrated.")
     network: Optional[NetworkConfig] = None
     extra_containers: Optional[Dict[str, ExtraContainerConfig]] = Field(default=None, description="Extra containers (init containers and sidecars) for the deployment. Each key is a container name mapping to an ExtraContainerConfig.", alias="extraContainers")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["auto", "name", "port", "replicas", "image", "resources", "volume", "statefulset", "network", "extraContainers"]
+    __properties: ClassVar[List[str]] = ["auto", "name", "port", "replicas", "image", "resources", "volume", "storageClass", "statefulset", "network", "extraContainers"]
 
     @field_validator('image')
     def image_validate_regular_expression(cls, value):
@@ -83,6 +84,10 @@ class DeploymentAutoArtifactConfig(CloudHarnessBaseModel):
         # override the default output from pydantic by calling `to_dict()` of volume
         if self.volume:
             _dict['volume'] = self.volume.to_dict()
+        # set to None if storage_class (nullable) is None
+        # and model_fields_set contains the field
+        if self.storage_class is None and "storage_class" in self.model_fields_set:
+            _dict['storageClass'] = None
         # override the default output from pydantic by calling `to_dict()` of network
         if self.network:
             _dict['network'] = self.network.to_dict()
@@ -122,6 +127,7 @@ class DeploymentAutoArtifactConfig(CloudHarnessBaseModel):
             "image": obj.get("image"),
             "resources": DeploymentResourcesConf.from_dict(obj["resources"]) if obj.get("resources") is not None else None,
             "volume": DeploymentVolumeSpec.from_dict(obj["volume"]) if obj.get("volume") is not None else None,
+            "storageClass": obj.get("storageClass"),
             "statefulset": obj.get("statefulset"),
             "network": NetworkConfig.from_dict(obj["network"]) if obj.get("network") is not None else None,
             "extraContainers": dict(

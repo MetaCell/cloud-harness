@@ -663,6 +663,27 @@ class ValuesValidationException(Exception):
 def validate_helm_values(values):
     validate_dependencies(values)
     validate_secrets(values)
+    validate_volumes(values)
+
+
+def validate_volumes(values):
+    """Warns when a volume configuration collides with the nfs server settings.
+
+    On an `usenfs` volume the nfs server storage class and its ReadWriteMany access mode always
+    prevail: any storage class or access mode set on the volume itself is ignored.
+    """
+    for app, app_values in values["apps"].items():
+        volume = (app_values[KEY_HARNESS].get(KEY_DEPLOYMENT) or {}).get("volume") or {}
+        if not volume.get("usenfs"):
+            continue
+        if volume.get("storageClass"):
+            logging.warning(
+                f"Volume {volume.get('name')} of application {app} sets usenfs and storageClass "
+                f"{volume['storageClass']}: the nfs server storage class prevails.")
+        if volume.get("writeMany") is False:
+            logging.warning(
+                f"Volume {volume.get('name')} of application {app} sets usenfs and writeMany false: "
+                "nfs volumes are always mounted ReadWriteMany.")
 
 
 def validate_secrets(values):

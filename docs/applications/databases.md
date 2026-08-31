@@ -31,6 +31,13 @@ harness:
 
 `size`: Size of the persistent volume that the database container mounts, default is set to `1Gi`
 
+`storageClass`: Storage class of the database volume claim, default is set to `standard`. Set it to
+null to omit the storage class from the claim, so that the cluster default storage class is used.
+It applies to the plain and statefulset database volumes as well as to the storage of a
+`postgres.operator` cluster. Note that the storage class is immutable on an existing claim: on a
+cluster whose default class is not `standard`, set this value (or null) before upgrading a release
+that already has a database volume.
+
 `resources`: Set the database pod resources
 
 `image_ref`: Optional setting, used for referencing a base/static image from the build. The complete image name with tag will automagically being generated from the values.yaml file. This setting overrides the `image` setting specific for the database type (e.g. postgres/image). Note: the referenced image must be included as a build dependency in order to be built by the pipelines.

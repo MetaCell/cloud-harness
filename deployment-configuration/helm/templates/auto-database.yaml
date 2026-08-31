@@ -42,6 +42,10 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
+  {{- $storageClass := include "deploy_utils.databaseStorageClass" .app.harness.database }}
+  {{- if $storageClass }}
+  storageClassName: {{ $storageClass }}
+  {{- end }}
   resources:
     requests:
       storage: {{ .app.harness.database.size }}
@@ -138,6 +142,10 @@ spec:
       spec:
         accessModes:
           - ReadWriteOnce
+        {{- $storageClass := include "deploy_utils.databaseStorageClass" .app.harness.database }}
+        {{- if $storageClass }}
+        storageClassName: {{ $storageClass }}
+        {{- end }}
         resources:
           requests:
             storage: {{ .app.harness.database.size }}

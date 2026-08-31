@@ -2,6 +2,7 @@ from ch_cli_tools.helm import *
 from ch_cli_tools.configurationgenerator import *
 from ch_cli_tools import configurationgenerator
 from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
+import logging
 import pytest
 import shutil
 import subprocess
@@ -522,6 +523,215 @@ def test_statefulset_option(tmp_path):
     claims = [v['persistentVolumeClaim']['claimName']
               for v in sts['spec']['template']['spec']['volumes'] if 'persistentVolumeClaim' in v]
     assert 'myapp-data' in claims
+
+
+def test_volume_write_many(tmp_path):
+    out_folder = tmp_path / 'test_volume_write_many'
+    # nfsserver is deliberately not included: a ReadWriteMany volume must not rely on it
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                      env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
+
+    helm_path = out_folder / HELM_CHART_PATH
+    shutil.rmtree(helm_path / 'charts')
+    values_path = helm_path / 'values.yaml'
+    with open(values_path, 'r') as values_file:
+        values = yaml.safe_load(values_file)
+
+    harness = values['apps']['myapp']['harness']
+    dep_name = harness['deployment']['name']
+
+    harness['deployment']['auto'] = True
+    volume = {'name': 'myapp-data', 'mountpath': '/data', 'size': '1Gi', 'auto': True}
+    harness['deployment']['volume'] = volume
+
+    def render():
+        with open(values_path, 'w') as values_file:
+            yaml.safe_dump(values, values_file)
+        return render_helm_chart(helm_path)
+
+    # `standard` is the deployment default, coming from the application values
+    assert harness['deployment']['storageClass'] == 'standard'
+    manifests = render()
+    pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    assert pvc['spec']['storageClassName'] == 'standard'
+
+    # a null default omits the storage class, so the cluster default one is used
+    harness['deployment']['storageClass'] = None
+    manifests = render()
+    pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    assert 'storageClassName' not in pvc['spec']
+
+    # the deployment default applies to the volume claim of every deployment volume
+    harness['deployment']['storageClass'] = 'gp2'
+    manifests = render()
+    pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    assert pvc['spec']['storageClassName'] == 'gp2'
+
+    # the volume storage class overrides the deployment default; ReadWriteOnce volumes keep
+    # the node pinning
+    volume['storageClass'] = 'gp3'
+    manifests = render()
+    pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    assert pvc['spec']['accessModes'] == ['ReadWriteOnce']
+    assert pvc['spec']['storageClassName'] == 'gp3'
+    dep = find_manifest(manifests, 'Deployment', dep_name)
+    assert dep['spec']['strategy']['type'] == 'Recreate'
+    assert 'affinity' in dep['spec']['template']['spec']
+
+    # writeMany without a volume storage class inherits the deployment default (`gp2` here), and
+    # the pod is neither pinned to a node nor recreated on update
+    volume.pop('storageClass')
+    volume['writeMany'] = True
+    manifests = render()
+    pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    assert pvc['spec']['accessModes'] == ['ReadWriteMany']
+    assert pvc['spec']['storageClassName'] == 'gp2'
+    dep = find_manifest(manifests, 'Deployment', dep_name)
+    assert 'strategy' not in dep['spec']
+    assert 'affinity' not in dep['spec']['template']['spec']
+
+    # writeMany with an explicit ReadWriteMany capable storage class
+    volume['storageClass'] = 'efs-sc'
+    manifests = render()
+    pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    assert pvc['spec']['accessModes'] == ['ReadWriteMany']
+    assert pvc['spec']['storageClassName'] == 'efs-sc'
+
+    # a null deployment default omits the storage class from a ReadWriteMany claim too
+    volume.pop('storageClass')
+    harness['deployment']['storageClass'] = None
+    manifests = render()
+    pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    assert 'storageClassName' not in pvc['spec']
+    harness['deployment']['storageClass'] = 'standard'
+    volume['storageClass'] = 'efs-sc'
+
+    # ReadWriteMany volumes are shared: a statefulset keeps mounting the common PVC by
+    # claimName instead of provisioning one per replica
+    harness['deployment']['statefulset'] = True
+    manifests = render()
+    sts = find_manifest(manifests, 'StatefulSet', dep_name)
+    assert 'volumeClaimTemplates' not in sts['spec']
+    claims = [v['persistentVolumeClaim']['claimName']
+              for v in sts['spec']['template']['spec']['volumes'] if 'persistentVolumeClaim' in v]
+    assert 'myapp-data' in claims
+    pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    assert pvc['spec']['accessModes'] == ['ReadWriteMany']
+
+    # the storage class of a per-replica statefulset volume is configurable too
+    volume['writeMany'] = False
+    volume['storageClass'] = 'gp3'
+    manifests = render()
+    sts = find_manifest(manifests, 'StatefulSet', dep_name)
+    claim_template = sts['spec']['volumeClaimTemplates'][0]
+    assert claim_template['metadata']['name'] == 'myapp-data'
+    assert claim_template['spec']['accessModes'] == ['ReadWriteOnce']
+    assert claim_template['spec']['storageClassName'] == 'gp3'
+
+
+def test_volume_usenfs_prevails(tmp_path):
+    out_folder = tmp_path / 'test_volume_usenfs_prevails'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                      env='withpostgres', local=False, include=["myapp", "nfsserver"], exclude=["legacy"])
+
+    helm_path = out_folder / HELM_CHART_PATH
+    shutil.rmtree(helm_path / 'charts')
+    values_path = helm_path / 'values.yaml'
+    with open(values_path, 'r') as values_file:
+        values = yaml.safe_load(values_file)
+
+    harness = values['apps']['myapp']['harness']
+    harness['deployment']['auto'] = True
+    # colliding settings: the nfs server storage class and access mode prevail
+    harness['deployment']['storageClass'] = 'gp2'
+    harness['deployment']['volume'] = {
+        'name': 'myapp-data', 'mountpath': '/data', 'size': '1Gi', 'auto': True,
+        'usenfs': True, 'writeMany': False, 'storageClass': 'efs-sc',
+    }
+    with open(values_path, 'w') as values_file:
+        yaml.safe_dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    nfs_class = f"{values['namespace']}-{values['apps']['nfsserver']['storageClass']['name']}"
+    assert pvc['spec']['storageClassName'] == nfs_class
+    assert pvc['spec']['accessModes'] == ['ReadWriteMany']
+    dep = find_manifest(manifests, 'Deployment', harness['deployment']['name'])
+    assert 'affinity' not in dep['spec']['template']['spec']
+
+
+def test_validate_volumes_warns_on_nfs_collisions(caplog):
+    volume = {'name': 'myapp-data', 'usenfs': True, 'writeMany': False, 'storageClass': 'efs-sc'}
+    values = {'apps': {'myapp': {KEY_HARNESS: {'deployment': {'volume': volume}}}}}
+
+    with caplog.at_level(logging.WARNING):
+        validate_volumes(values)
+    assert 'the nfs server storage class prevails' in caplog.text
+    assert 'always mounted ReadWriteMany' in caplog.text
+
+    # no collision: nothing to warn about
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        validate_volumes({'apps': {'myapp': {KEY_HARNESS: {'deployment': {'volume': {
+            'name': 'myapp-data', 'usenfs': True, 'writeMany': True}}}}}})
+        validate_volumes({'apps': {'myapp': {KEY_HARNESS: {'deployment': {'volume': {
+            'name': 'myapp-data', 'storageClass': 'efs-sc', 'writeMany': True}}}}}})
+        validate_volumes({'apps': {'myapp': {KEY_HARNESS: {'deployment': {}}}}})
+    assert not caplog.text
+
+
+def test_database_storage_class(tmp_path):
+    out_folder = tmp_path / 'test_database_storage_class'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                      env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
+
+    helm_path = out_folder / HELM_CHART_PATH
+    shutil.rmtree(helm_path / 'charts')
+    values_path = helm_path / 'values.yaml'
+    with open(values_path, 'r') as values_file:
+        values = yaml.safe_load(values_file)
+
+    database = values['apps']['myapp']['harness']['database']
+    db_name = database['name']
+
+    def render():
+        with open(values_path, 'w') as values_file:
+            yaml.safe_dump(values, values_file)
+        return render_helm_chart(helm_path)
+
+    # `standard` is the default, coming from the application values
+    assert database['storageClass'] == 'standard'
+    manifests = render()
+    assert find_manifest(manifests, 'PersistentVolumeClaim', db_name)['spec']['storageClassName'] == 'standard'
+
+    # a null storage class is omitted, so the cluster default one is used
+    database['storageClass'] = None
+    manifests = render()
+    assert 'storageClassName' not in find_manifest(manifests, 'PersistentVolumeClaim', db_name)['spec']
+
+    database['storageClass'] = 'gp3'
+    manifests = render()
+    assert find_manifest(manifests, 'PersistentVolumeClaim', db_name)['spec']['storageClassName'] == 'gp3'
+
+    # statefulset databases provision their volume through volumeClaimTemplates
+    database['statefulset'] = True
+    manifests = render()
+    sts = find_manifest(manifests, 'StatefulSet', db_name)
+    assert sts['spec']['volumeClaimTemplates'][0]['spec']['storageClassName'] == 'gp3'
+    database['storageClass'] = None
+    manifests = render()
+    sts = find_manifest(manifests, 'StatefulSet', db_name)
+    assert 'storageClassName' not in sts['spec']['volumeClaimTemplates'][0]['spec']
+
+    # the postgres operator cluster storage honours the same setting
+    database['statefulset'] = False
+    database['postgres']['operator'] = True
+    database['storageClass'] = 'gp3'
+    manifests = render()
+    assert find_manifest(manifests, 'Cluster', db_name)['spec']['storage']['storageClass'] == 'gp3'
+    database['storageClass'] = None
+    manifests = render()
+    assert 'storageClass' not in find_manifest(manifests, 'Cluster', db_name)['spec']['storage']
 
 
 def test_statefulset_leader_service(tmp_path):

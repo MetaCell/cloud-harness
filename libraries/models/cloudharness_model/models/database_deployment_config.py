@@ -35,6 +35,7 @@ class DatabaseDeploymentConfig(CloudHarnessBaseModel):
     name: Optional[StrictStr] = None
     type: Optional[Annotated[str, Field(strict=True)]] = Field(default=None, description="Define the database type.  One of (mongo, postgres, neo4j, sqlite3)")
     size: Optional[StrictStr] = Field(default=None, description="Specify database disk size")
+    storage_class: Optional[StrictStr] = Field(default=None, description="Storage class of the database volume claim.  Set to null to omit the storage class from the claim, so that the cluster default storage class is used.", alias="storageClass")
     user: Optional[StrictStr] = Field(default=None, description="database username")
     var_pass: Optional[StrictStr] = Field(default=None, description="Database password", alias="pass")
     image_ref: Optional[StrictStr] = Field(default=None, description="Used for referencing images from the build")
@@ -45,7 +46,7 @@ class DatabaseDeploymentConfig(CloudHarnessBaseModel):
     resources: Optional[DeploymentResourcesConf] = None
     connect_string: Optional[StrictStr] = Field(default=None, description="Specify if the database is external. If not null, auto deployment if set will not be used. Leave it as an empty string and the connect string will be provided as  a secret to be provided at CI/CD (recommended)")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["auto", "name", "type", "size", "user", "pass", "image_ref", "statefulset", "mongo", "postgres", "neo4j", "resources", "connect_string"]
+    __properties: ClassVar[List[str]] = ["auto", "name", "type", "size", "storageClass", "user", "pass", "image_ref", "statefulset", "mongo", "postgres", "neo4j", "resources", "connect_string"]
 
     @field_validator('type')
     def type_validate_regular_expression(cls, value):
@@ -85,6 +86,11 @@ class DatabaseDeploymentConfig(CloudHarnessBaseModel):
             for _key, _value in self.additional_properties.items():
                 _dict[_key] = _value
 
+        # set to None if storage_class (nullable) is None
+        # and model_fields_set contains the field
+        if self.storage_class is None and "storage_class" in self.model_fields_set:
+            _dict['storageClass'] = None
+
         # set to None if neo4j (nullable) is None
         # and model_fields_set contains the field
         if self.neo4j is None and "neo4j" in self.model_fields_set:
@@ -106,6 +112,7 @@ class DatabaseDeploymentConfig(CloudHarnessBaseModel):
             "name": obj.get("name"),
             "type": obj.get("type"),
             "size": obj.get("size"),
+            "storageClass": obj.get("storageClass"),
             "user": obj.get("user"),
             "pass": obj.get("pass"),
             "image_ref": obj.get("image_ref"),

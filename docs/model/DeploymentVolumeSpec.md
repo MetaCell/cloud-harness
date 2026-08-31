@@ -10,7 +10,9 @@ Name | Type | Description | Notes
 **name** | **str** |  | [optional] 
 **mountpath** | **str** | The mount path for the volume | 
 **size** | **object** | The volume size.   E.g. 5Gi | [optional] 
-**usenfs** | **bool** | Set to &#x60;true&#x60; to use the nfs on the created volume and mount as ReadWriteMany. | [optional] 
+**usenfs** | **bool** | Deprecated: use &#x60;writeMany&#x60; with the nfs storage class instead.  Set to &#x60;true&#x60; to use the nfs on the created volume and mount as ReadWriteMany. | [optional] 
+**write_many** | **bool** | Set to &#x60;true&#x60; to create and mount the volume as ReadWriteMany.  ReadWriteMany volumes attach to several nodes at once, hence pods using them are not pinned to the volume&#39;s node. Requires a storage class supporting ReadWriteMany: set &#x60;storageClass&#x60;, unless the cluster default one supports it. | [optional] 
+**storage_class** | **str** | The storage class used to create the volume claim.  Overrides the deployment default (&#x60;harness.deployment.storageClass&#x60;). | [optional] 
 
 ## Example
 
