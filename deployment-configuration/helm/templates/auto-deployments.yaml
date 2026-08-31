@@ -212,7 +212,7 @@ spec:
     - metadata:
         name: {{ $volume.name }}
       spec:
-        {{- include "deploy_utils.volumeClaimSpec" (dict "root" .root "deployment" .app.harness.deployment) | nindent 8 }}
+        {{- include "deploy_utils.volumeClaimSpec" (dict "root" .root "volume" $volume) | nindent 8 }}
   {{- end }}
   {{- if $legacyClaim }}
   {{- include "deploy_utils.volumeMigration" (dict "root" .root "name" .app.harness.deployment.name "pvc" $volume.name) }}

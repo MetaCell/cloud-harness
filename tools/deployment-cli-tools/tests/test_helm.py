@@ -549,26 +549,18 @@ def test_volume_write_many(tmp_path):
             yaml.safe_dump(values, values_file)
         return render_helm_chart(helm_path)
 
-    # `standard` is the deployment default, coming from the application values
-    assert harness['deployment']['storageClass'] == 'standard'
+    # `standard` when the volume does not specify a storage class
     manifests = render()
     pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
     assert pvc['spec']['storageClassName'] == 'standard'
 
-    # a null default omits the storage class, so the cluster default one is used
-    harness['deployment']['storageClass'] = None
+    # a null storage class is omitted, so the cluster default one is used
+    volume['storageClass'] = None
     manifests = render()
     pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
     assert 'storageClassName' not in pvc['spec']
 
-    # the deployment default applies to the volume claim of every deployment volume
-    harness['deployment']['storageClass'] = 'gp2'
-    manifests = render()
-    pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
-    assert pvc['spec']['storageClassName'] == 'gp2'
-
-    # the volume storage class overrides the deployment default; ReadWriteOnce volumes keep
-    # the node pinning
+    # a storage class can be set on a ReadWriteOnce volume, which keeps the node pinning
     volume['storageClass'] = 'gp3'
     manifests = render()
     pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
@@ -578,14 +570,14 @@ def test_volume_write_many(tmp_path):
     assert dep['spec']['strategy']['type'] == 'Recreate'
     assert 'affinity' in dep['spec']['template']['spec']
 
-    # writeMany without a volume storage class inherits the deployment default (`gp2` here), and
+    # writeMany without a storage class gets the `standard` default like any other volume, and
     # the pod is neither pinned to a node nor recreated on update
     volume.pop('storageClass')
     volume['writeMany'] = True
     manifests = render()
     pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
     assert pvc['spec']['accessModes'] == ['ReadWriteMany']
-    assert pvc['spec']['storageClassName'] == 'gp2'
+    assert pvc['spec']['storageClassName'] == 'standard'
     dep = find_manifest(manifests, 'Deployment', dep_name)
     assert 'strategy' not in dep['spec']
     assert 'affinity' not in dep['spec']['template']['spec']
@@ -597,13 +589,11 @@ def test_volume_write_many(tmp_path):
     assert pvc['spec']['accessModes'] == ['ReadWriteMany']
     assert pvc['spec']['storageClassName'] == 'efs-sc'
 
-    # a null deployment default omits the storage class from a ReadWriteMany claim too
-    volume.pop('storageClass')
-    harness['deployment']['storageClass'] = None
+    # a null storage class is omitted from a ReadWriteMany claim too
+    volume['storageClass'] = None
     manifests = render()
     pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
     assert 'storageClassName' not in pvc['spec']
-    harness['deployment']['storageClass'] = 'standard'
     volume['storageClass'] = 'efs-sc'
 
     # ReadWriteMany volumes are shared: a statefulset keeps mounting the common PVC by
@@ -643,7 +633,6 @@ def test_volume_usenfs_prevails(tmp_path):
     harness = values['apps']['myapp']['harness']
     harness['deployment']['auto'] = True
     # colliding settings: the nfs server storage class and access mode prevail
-    harness['deployment']['storageClass'] = 'gp2'
     harness['deployment']['volume'] = {
         'name': 'myapp-data', 'mountpath': '/data', 'size': '1Gi', 'auto': True,
         'usenfs': True, 'writeMany': False, 'storageClass': 'efs-sc',

@@ -106,21 +106,20 @@ Usage: {{ if include "deploy_utils.volumeWriteMany" $volume }}
 
 {{/*
 Storage class of a harness.deployment.volume claim: nfs volumes always use the class created by
-the nfsserver application, otherwise the volume `storageClass` wins on the deployment default
-(harness.deployment.storageClass). A null default renders nothing, leaving the claim to the
-cluster default storage class; `standard` is used when the deployment does not declare the key
-at all (values generated before the setting existed).
-Usage: {{ include "deploy_utils.volumeStorageClass" (dict "root" .root "deployment" $deployment) }}
+the nfsserver application, otherwise the volume `storageClass`, `standard` when the volume does
+not specify it. A null `storageClass` renders nothing, leaving the claim to the cluster default
+storage class.
+Usage: {{ include "deploy_utils.volumeStorageClass" (dict "root" .root "volume" $volume) }}
 */}}
 {{- define "deploy_utils.volumeStorageClass" -}}
-{{- $volume := .deployment.volume -}}
-{{- if $volume.usenfs }}{{ printf "%s-%s" .root.Values.namespace .root.Values.apps.nfsserver.storageClass.name }}{{ else if $volume.storageClass }}{{ $volume.storageClass }}{{ else if .deployment.storageClass }}{{ .deployment.storageClass }}{{ else if not (hasKey .deployment "storageClass") }}standard{{ end }}
+{{- $volume := .volume -}}
+{{- if $volume.usenfs }}{{ printf "%s-%s" .root.Values.namespace .root.Values.apps.nfsserver.storageClass.name }}{{ else if $volume.storageClass }}{{ $volume.storageClass }}{{ else if not (hasKey $volume "storageClass") }}standard{{ end }}
 {{- end -}}
 
 {{/*
-Storage class of a database volume claim: harness.database.storageClass. A null value renders
-nothing, leaving the claim to the cluster default storage class; `standard` is used when the
-database does not declare the key at all (values generated before the setting existed).
+Storage class of a database volume claim: harness.database.storageClass, `standard` when the
+database does not specify it. A null value renders nothing, leaving the claim to the cluster
+default storage class.
 Usage: {{ include "deploy_utils.databaseStorageClass" .app.harness.database }}
 */}}
 {{- define "deploy_utils.databaseStorageClass" -}}
@@ -130,18 +129,18 @@ Usage: {{ include "deploy_utils.databaseStorageClass" .app.harness.database }}
 {{/*
 Render the spec of a claim (PersistentVolumeClaim or statefulset volumeClaimTemplate) for a
 harness.deployment.volume.
-Usage: {{ include "deploy_utils.volumeClaimSpec" (dict "root" .root "deployment" $deployment) | nindent 2 }}
+Usage: {{ include "deploy_utils.volumeClaimSpec" (dict "root" .root "volume" $volume) | nindent 2 }}
 */}}
 {{- define "deploy_utils.volumeClaimSpec" -}}
-{{- $storageClass := include "deploy_utils.volumeStorageClass" (dict "root" .root "deployment" .deployment) -}}
+{{- $storageClass := include "deploy_utils.volumeStorageClass" (dict "root" .root "volume" .volume) -}}
 accessModes:
-  - {{ if include "deploy_utils.volumeWriteMany" .deployment.volume }}ReadWriteMany{{ else }}ReadWriteOnce{{ end }}
+  - {{ if include "deploy_utils.volumeWriteMany" .volume }}ReadWriteMany{{ else }}ReadWriteOnce{{ end }}
 {{- if $storageClass }}
 storageClassName: {{ $storageClass }}
 {{- end }}
 resources:
   requests:
-    storage: {{ .deployment.volume.size }}
+    storage: {{ .volume.size }}
 {{- end -}}
 
 {{/*

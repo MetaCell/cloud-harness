@@ -32,7 +32,7 @@ metadata:
   labels:
     app: {{ .app.harness.deployment.name| quote }}
 spec:
-  {{- include "deploy_utils.volumeClaimSpec" (dict "root" .root "deployment" .app.harness.deployment) | nindent 2 }}
+  {{- include "deploy_utils.volumeClaimSpec" (dict "root" .root "volume" $volume) | nindent 2 }}
 {{- end }}
 ---
 {{- end }}

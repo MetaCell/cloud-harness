@@ -36,12 +36,12 @@ harness:
     name:
     # -- Deployment port.
     port: 8080
-    # -- Default storage class of the deployment volume claim. Set to null to use the cluster default storage class.
-    storageClass: standard
     # -- volume specification.
     # `writeMany: true` creates and mounts the volume as ReadWriteMany: the volume attaches to several
-    # nodes at once, hence pods using it are not pinned to the volume's node. Requires a storage class
-    # supporting ReadWriteMany, set through the volume `storageClass` (which overrides the deployment default).
+    # nodes at once, hence pods using it are not pinned to the volume's node. It requires a storage class
+    # supporting ReadWriteMany, set through `storageClass`.
+    # `storageClass` is the storage class of the volume claim, `standard` when not specified. Set it to
+    # null to use the cluster default storage class.
     volume:
       # example:
       #   name: my-volume

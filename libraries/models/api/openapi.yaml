@@ -837,10 +837,13 @@ components:
                             type: boolean
                         storageClass:
                             description: |-
-                                The storage class used to create the volume claim.
+                                The storage class used to create the volume claim. Defaults to `standard`
+                                when not specified.
 
-                                Overrides the deployment default (`harness.deployment.storageClass`).
+                                Set it to null to omit the storage class from the claim, so that the
+                                cluster default storage class is used.
                             type: string
+                            nullable: true
                 -
                     $ref: '#/components/schemas/AutoArtifactSpec'
             example:
@@ -1349,15 +1352,6 @@ components:
                         volume:
                             $ref: '#/components/schemas/DeploymentVolumeSpec'
                             description: Volume specification
-                        storageClass:
-                            description: |-
-                                Default storage class of the deployment volume claim, used when the volume
-                                does not define its own `storageClass`.
-
-                                Set to null to omit the storage class from the claim, so that the cluster
-                                default storage class is used.
-                            type: string
-                            nullable: true
                         statefulset:
                             description: >-
                                 When true, the workload is rendered as a Kubernetes StatefulSet instead of a

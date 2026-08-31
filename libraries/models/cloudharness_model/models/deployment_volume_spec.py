@@ -36,7 +36,7 @@ class DeploymentVolumeSpec(CloudHarnessBaseModel):
     size: Optional[Any] = Field(default=None, description="The volume size.   E.g. 5Gi")
     usenfs: Optional[StrictBool] = Field(default=None, description="Deprecated: use `writeMany` with the nfs storage class instead.  Set to `true` to use the nfs on the created volume and mount as ReadWriteMany.")
     write_many: Optional[StrictBool] = Field(default=None, description="Set to `true` to create and mount the volume as ReadWriteMany.  ReadWriteMany volumes attach to several nodes at once, hence pods using them are not pinned to the volume's node. Requires a storage class supporting ReadWriteMany: set `storageClass`, unless the cluster default one supports it.", alias="writeMany")
-    storage_class: Optional[StrictStr] = Field(default=None, description="The storage class used to create the volume claim.  Overrides the deployment default (`harness.deployment.storageClass`).", alias="storageClass")
+    storage_class: Optional[StrictStr] = Field(default=None, description="The storage class used to create the volume claim. Defaults to `standard` when not specified.  Set it to null to omit the storage class from the claim, so that the cluster default storage class is used.", alias="storageClass")
     additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["auto", "name", "mountpath", "size", "usenfs", "writeMany", "storageClass"]
 
@@ -69,6 +69,11 @@ class DeploymentVolumeSpec(CloudHarnessBaseModel):
         # and model_fields_set contains the field
         if self.size is None and "size" in self.model_fields_set:
             _dict['size'] = None
+
+        # set to None if storage_class (nullable) is None
+        # and model_fields_set contains the field
+        if self.storage_class is None and "storage_class" in self.model_fields_set:
+            _dict['storageClass'] = None
 
         return _dict
 

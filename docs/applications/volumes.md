@@ -43,28 +43,25 @@ one node is available on the cluster and other affinity rules or taints are pres
 
 ### Storage class
 
-The storage class of the volume claim is `harness.deployment.storageClass`, which defaults to
-`standard`. Set it to null to omit the storage class from the claim, so that the cluster default
-storage class is used:
+The volume `storageClass` sets the storage class of the claim; when not specified, `standard` is
+used. Set it to null to omit the storage class from the claim, so that the cluster default storage
+class provisions the volume:
 
 ```yaml
 harness:
   ...
   deployment:
-    # the cluster default storage class provisions the volume
-    storageClass: null
+    ...
     volume:
       name: my-volume
       mountpath: /usr/src/app/myvolume
       auto: true
       size: 5Gi
+      storageClass: null   # or e.g. gp3
 ```
 
-The volume's own `storageClass` overrides the deployment default, and takes precedence for both
-ReadWriteOnce and ReadWriteMany volumes. A null on the volume means "not set", hence inherits the
-deployment default: use the deployment `storageClass: null` to provision the volume on the cluster
-default class. The same setting is available for database volumes as
-`harness.database.storageClass` (see [databases](databases.md)).
+The same setting is available for database volumes as `harness.database.storageClass` (see
+[databases](databases.md)).
 
 ### ReadWriteMany volumes
 
@@ -73,9 +70,9 @@ attaches to several nodes at the same time, hence the pods using it are not pinn
 node: no podAffinity is added, and deployments roll normally instead of being recreated.
 
 ReadWriteMany requires a storage class supporting it (e.g. AWS EFS, Azure Files, CephFS,
-the nfs provisioner). The class is resolved as above — `standard` is normally ReadWriteOnce only,
-so set the volume `storageClass`, or the deployment default, to a ReadWriteMany capable class
-(or to null when the cluster default one supports ReadWriteMany).
+the nfs provisioner). The default `standard` class is normally ReadWriteOnce only, so set
+`storageClass` to a ReadWriteMany capable class (or to null when the cluster default one supports
+ReadWriteMany).
 
 ```yaml
 harness:
