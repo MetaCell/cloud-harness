@@ -215,7 +215,7 @@ def test_single_task_shared_application_rwx_volume():
     task_write = operations.CustomTask('download-file', 'workflows-extract-download',
                                        url='https://raw.githubusercontent.com/openworm/org.geppetto/master/README.md')
     op = operations.SingleTaskOperation('test-custom-connected-op-', task_write,
-                                       shared_directory=shared_directory, shared_volume_size=100)
+                                        shared_directory=shared_directory, shared_volume_size=100)
     wf = op.to_workflow()
 
     accounts_offset = 1 if is_accounts_present() else 0
