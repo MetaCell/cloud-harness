@@ -549,11 +549,6 @@ def test_volume_write_many(tmp_path):
             yaml.safe_dump(values, values_file)
         return render_helm_chart(helm_path)
 
-    # `standard` when the volume does not specify a storage class
-    manifests = render()
-    pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
-    assert pvc['spec']['storageClassName'] == 'standard'
-
     # a null storage class is omitted, so the cluster default one is used
     volume['storageClass'] = None
     manifests = render()
@@ -570,14 +565,13 @@ def test_volume_write_many(tmp_path):
     assert dep['spec']['strategy']['type'] == 'Recreate'
     assert 'affinity' in dep['spec']['template']['spec']
 
-    # writeMany without a storage class gets the `standard` default like any other volume, and
-    # the pod is neither pinned to a node nor recreated on update
-    volume.pop('storageClass')
+    # a writeMany volume keeps its storage class, and its pod is neither pinned to a node nor
+    # recreated on update
     volume['writeMany'] = True
     manifests = render()
     pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
     assert pvc['spec']['accessModes'] == ['ReadWriteMany']
-    assert pvc['spec']['storageClassName'] == 'standard'
+    assert pvc['spec']['storageClassName'] == 'gp3'
     dep = find_manifest(manifests, 'Deployment', dep_name)
     assert 'strategy' not in dep['spec']
     assert 'affinity' not in dep['spec']['template']['spec']
@@ -595,6 +589,9 @@ def test_volume_write_many(tmp_path):
     pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
     assert 'storageClassName' not in pvc['spec']
     volume['storageClass'] = 'efs-sc'
+    manifests = render()
+    assert find_manifest(manifests, 'PersistentVolumeClaim',
+                         'myapp-data')['spec']['storageClassName'] == 'efs-sc'
 
     # ReadWriteMany volumes are shared: a statefulset keeps mounting the common PVC by
     # claimName instead of provisioning one per replica
@@ -617,6 +614,43 @@ def test_volume_write_many(tmp_path):
     assert claim_template['metadata']['name'] == 'myapp-data'
     assert claim_template['spec']['accessModes'] == ['ReadWriteOnce']
     assert claim_template['spec']['storageClassName'] == 'gp3'
+
+
+def test_volume_storage_class_default(tmp_path):
+    out_folder = tmp_path / 'test_volume_storage_class_default'
+    # samples declares a volume, myapp does not
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               env='withpostgres', local=False, include=["samples", "myapp"], exclude=["legacy"])
+
+    # the value-template default applies to the volume declared by the application
+    volume = values[KEY_APPS]['samples'][KEY_HARNESS]['deployment']['volume']
+    assert volume['mountpath']
+    assert volume['storageClass'] == 'standard'
+
+    # ... and the defaults alone do not make a volume: a volume-less application has none
+    assert not values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment'].get('volume')
+
+    helm_path = out_folder / HELM_CHART_PATH
+    shutil.rmtree(helm_path / 'charts')
+    manifests = render_helm_chart(helm_path)
+    sts = find_manifest(manifests, 'StatefulSet', values[KEY_APPS]['samples'][KEY_HARNESS]['deployment']['name'])
+    assert sts['spec']['volumeClaimTemplates'][0]['spec']['storageClassName'] == 'standard'
+
+
+def test_volume_without_mountpath_is_rejected():
+    harness = {'name': 'myapp', KEY_DEPLOYMENT: {'volume': {'name': 'myapp-data', 'size': '1Gi'}}}
+    with pytest.raises(ValuesValidationException):
+        clear_unused_volume_configuration(harness)
+
+    # the defaults alone are dropped, a declared volume is kept
+    harness = {'name': 'myapp', KEY_DEPLOYMENT: {'volume': {'storageClass': 'standard'}}}
+    clear_unused_volume_configuration(harness)
+    assert 'volume' not in harness[KEY_DEPLOYMENT]
+
+    volume = {'name': 'myapp-data', 'mountpath': '/data', 'storageClass': 'standard'}
+    harness = {'name': 'myapp', KEY_DEPLOYMENT: {'volume': volume}}
+    clear_unused_volume_configuration(harness)
+    assert harness[KEY_DEPLOYMENT]['volume'] == volume
 
 
 def test_volume_usenfs_prevails(tmp_path):
@@ -693,7 +727,7 @@ def test_database_storage_class(tmp_path):
     manifests = render()
     assert find_manifest(manifests, 'PersistentVolumeClaim', db_name)['spec']['storageClassName'] == 'standard'
 
-    # a null storage class is omitted, so the cluster default one is used
+    # only an explicit null omits the storage class, so that the cluster default one is used
     database['storageClass'] = None
     manifests = render()
     assert 'storageClassName' not in find_manifest(manifests, 'PersistentVolumeClaim', db_name)['spec']

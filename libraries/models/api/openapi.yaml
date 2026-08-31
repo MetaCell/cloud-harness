@@ -686,10 +686,10 @@ components:
                             example: 1Gi
                         storageClass:
                             description: |-
-                                Storage class of the database volume claim.
+                                Storage class of the database volume claim, `standard` by default.
 
-                                Set to null to omit the storage class from the claim, so that the cluster
-                                default storage class is used.
+                                Set it to null to omit the storage class from the claim, so that the
+                                cluster default storage class is used.
                             type: string
                             nullable: true
                         user:
@@ -837,8 +837,7 @@ components:
                             type: boolean
                         storageClass:
                             description: |-
-                                The storage class used to create the volume claim. Defaults to `standard`
-                                when not specified.
+                                The storage class used to create the volume claim, `standard` by default.
 
                                 Set it to null to omit the storage class from the claim, so that the
                                 cluster default storage class is used.

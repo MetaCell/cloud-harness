@@ -106,24 +106,24 @@ Usage: {{ if include "deploy_utils.volumeWriteMany" $volume }}
 
 {{/*
 Storage class of a harness.deployment.volume claim: nfs volumes always use the class created by
-the nfsserver application, otherwise the volume `storageClass`, `standard` when the volume does
-not specify it. A null `storageClass` renders nothing, leaving the claim to the cluster default
-storage class.
+the nfsserver application, otherwise the volume `storageClass` (`standard` by default, see
+value-template.yaml). Renders nothing when it is set to null, leaving the claim to the cluster
+default storage class.
 Usage: {{ include "deploy_utils.volumeStorageClass" (dict "root" .root "volume" $volume) }}
 */}}
 {{- define "deploy_utils.volumeStorageClass" -}}
 {{- $volume := .volume -}}
-{{- if $volume.usenfs }}{{ printf "%s-%s" .root.Values.namespace .root.Values.apps.nfsserver.storageClass.name }}{{ else if $volume.storageClass }}{{ $volume.storageClass }}{{ else if not (hasKey $volume "storageClass") }}standard{{ end }}
+{{- if $volume.usenfs }}{{ printf "%s-%s" .root.Values.namespace .root.Values.apps.nfsserver.storageClass.name }}{{ else if $volume.storageClass }}{{ $volume.storageClass }}{{ end }}
 {{- end -}}
 
 {{/*
-Storage class of a database volume claim: harness.database.storageClass, `standard` when the
-database does not specify it. A null value renders nothing, leaving the claim to the cluster
+Storage class of a database volume claim: harness.database.storageClass (`standard` by default,
+see value-template.yaml). Renders nothing when it is set to null, leaving the claim to the cluster
 default storage class.
 Usage: {{ include "deploy_utils.databaseStorageClass" .app.harness.database }}
 */}}
 {{- define "deploy_utils.databaseStorageClass" -}}
-{{- if .storageClass }}{{ .storageClass }}{{ else if not (hasKey . "storageClass") }}standard{{ end }}
+{{- if .storageClass }}{{ .storageClass }}{{ end }}
 {{- end -}}
 
 {{/*

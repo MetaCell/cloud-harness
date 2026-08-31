@@ -43,9 +43,9 @@ one node is available on the cluster and other affinity rules or taints are pres
 
 ### Storage class
 
-The volume `storageClass` sets the storage class of the claim; when not specified, `standard` is
-used. Set it to null to omit the storage class from the claim, so that the cluster default storage
-class provisions the volume:
+The volume `storageClass` sets the storage class of the claim, and defaults to `standard` (see
+`deployment-configuration/value-template.yaml`). Set it to null to omit the storage class from the
+claim, so that the cluster default storage class provisions the volume:
 
 ```yaml
 harness:

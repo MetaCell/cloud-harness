@@ -12,7 +12,7 @@ Name | Type | Description | Notes
 **size** | **object** | The volume size.   E.g. 5Gi | [optional] 
 **usenfs** | **bool** | Deprecated: use &#x60;writeMany&#x60; with the nfs storage class instead.  Set to &#x60;true&#x60; to use the nfs on the created volume and mount as ReadWriteMany. | [optional] 
 **write_many** | **bool** | Set to &#x60;true&#x60; to create and mount the volume as ReadWriteMany.  ReadWriteMany volumes attach to several nodes at once, hence pods using them are not pinned to the volume&#39;s node. Requires a storage class supporting ReadWriteMany: set &#x60;storageClass&#x60;, unless the cluster default one supports it. | [optional] 
-**storage_class** | **str** | The storage class used to create the volume claim. Defaults to &#x60;standard&#x60; when not specified.  Set it to null to omit the storage class from the claim, so that the cluster default storage class is used. | [optional] 
+**storage_class** | **str** | The storage class used to create the volume claim, &#x60;standard&#x60; by default.  Set it to null to omit the storage class from the claim, so that the cluster default storage class is used. | [optional] 
 
 ## Example
 

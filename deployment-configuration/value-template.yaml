@@ -36,13 +36,14 @@ harness:
     name:
     # -- Deployment port.
     port: 8080
-    # -- volume specification.
+    # -- volume specification. `mountpath` is what defines a volume: without it these values are
+    # dropped and the deployment has no volume.
     # `writeMany: true` creates and mounts the volume as ReadWriteMany: the volume attaches to several
-    # nodes at once, hence pods using it are not pinned to the volume's node. It requires a storage class
-    # supporting ReadWriteMany, set through `storageClass`.
-    # `storageClass` is the storage class of the volume claim, `standard` when not specified. Set it to
-    # null to use the cluster default storage class.
+    # nodes at once, hence pods using it are not pinned to the volume's node. It requires a storage
+    # class supporting ReadWriteMany, set through `storageClass`.
     volume:
+      # -- Storage class of the volume claim. Set to null to use the cluster default storage class.
+      storageClass: standard
       # example:
       #   name: my-volume
       #   mountpath: /usr/src/app/myvolume
