@@ -369,6 +369,7 @@ components:
       title: SampleResource
       type: object
     write_file_request:
+      nullable: true
       properties:
         content:
           title: content
