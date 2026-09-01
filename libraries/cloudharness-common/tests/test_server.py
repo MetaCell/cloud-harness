@@ -4,7 +4,7 @@ import uuid
 
 import flask
 
-from cloudharness.utils.server import JSONEncoder
+from cloudharness.utils.flask_server import JSONEncoder
 
 
 class ConnexionStyleModel:

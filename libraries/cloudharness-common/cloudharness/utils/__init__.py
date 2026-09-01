@@ -1,5 +1,14 @@
 import collections
-import flask_server as server # Backwards compatibility
+
+
+def __getattr__(name):
+    # Backwards compatibility: cloudharness.utils.server was renamed to
+    # flask_server. Import lazily - flask_server pulls in flask/connexion and
+    # cloudharness.applications, which would be a circular import here.
+    if name == "server":
+        from . import flask_server
+        return flask_server
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 def dict_merge(dct, merge_dct, add_keys=True, merge_none=True):
     """ Recursive dict merge. Inspired by :meth:``dict.update()``, instead of
