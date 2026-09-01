@@ -5,6 +5,8 @@ import pytest
 
 from ch_cli_tools.utils import *
 
+from pathlib import Path
+
 
 HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, '/')
 
@@ -191,3 +193,55 @@ class TestReplaceInDict:
             'c': 'xxxbar',
             'e': ['xxx', 'bar', 'xxxbar']
         }
+
+
+def test__get_dockerfile_baseimg_args__no_file():
+    resources = Path(HERE) / "resources"
+
+    # no file
+    args = get_dockerfile_baseimg_args(resources / "doesnotexist" / "Dockerfile")
+    assert args == {}
+
+    # no file from folder
+    args = get_dockerfile_baseimg_args(resources / "doesnotexist")
+    assert args == {}
+
+
+def test__get_dockerfile_baseimg_args__no_dep():
+    resources = Path(HERE) / "resources"
+
+    # no real base dependance
+    nodep_dockerfile = resources / "applications" / "dependantapp" / "Dockerfile"
+
+    args = get_dockerfile_baseimg_args(nodep_dockerfile)
+    assert args == {}
+
+    # no real base dependance from folder
+    nodep_dockerfile = resources / "applications" / "dependantapp"
+
+    args = get_dockerfile_baseimg_args(nodep_dockerfile)
+    assert args == {}
+
+
+def test__get_dockerfile_baseimg_args__with_deps():
+    resources = Path(HERE) / "resources"
+
+    # with deps
+    dockerfile = resources / "applications" / "newapp1" / "Dockerfile"
+
+    args = get_dockerfile_baseimg_args(dockerfile)
+    assert "mybase" in args
+    assert args["mybase"] == "foo:bar"
+    assert "mybase2" in args
+    assert args["mybase2"] == "spam:egg"
+    assert "mybase3" not in args
+
+    # with deps from folder
+    dockerfile = resources / "applications" / "newapp1"
+
+    args = get_dockerfile_baseimg_args(dockerfile)
+    assert "mybase" in args
+    assert args["mybase"] == "foo:bar"
+    assert "mybase2" in args
+    assert args["mybase2"] == "spam:egg"
+    assert "mybase3" not in args
