@@ -10,6 +10,7 @@ def __getattr__(name):
         return flask_server
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
+
 def dict_merge(dct, merge_dct, add_keys=True, merge_none=True):
     """ Recursive dict merge. Inspired by :meth:``dict.update()``, instead of
     updating only top-level keys, dict_merge recurses down into dicts nested
