@@ -1,6 +1,6 @@
 # compile provisioner
 ARG GOLANG=golang:1.26
-ARG ROCKYLINUX=golang:rockylinux/rockylinux:10.1-minimal
+ARG ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
 FROM $GOLANG AS provisioner
 
 WORKDIR /usr/src/app

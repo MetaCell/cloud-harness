@@ -190,7 +190,7 @@ def test_collect_helm_values_noreg_noinclude(tmp_path):
     # KEYCLOAK is overriden and mybase and mybase2 should appear as they have been collected
     assert values["source_images"] == {
         "GOLANG": "golang:1.26",
-        "ROCKYLINUX": "golang:rockylinux/rockylinux:10.1-minimal",
+        "ROCKYLINUX": "rockylinux/rockylinux:10.1-minimal",
         "SENTRY": "sentry:9.1.2",
         "KEYCLOAK": "myregistry.mykeycloak:99.9",
         "mybase": "foo:bar",
