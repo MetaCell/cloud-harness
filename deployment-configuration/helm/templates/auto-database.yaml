@@ -42,6 +42,10 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
+  {{- $storageClass := include "deploy_utils.databaseStorageClass" .app.harness.database }}
+  {{- if $storageClass }}
+  storageClassName: {{ $storageClass }}
+  {{- end }}
   resources:
     requests:
       storage: {{ .app.harness.database.size }}
@@ -59,6 +63,12 @@ spec:
   # StatefulSet updates terminate the old pod before creating its replacement, so no
   # Recreate strategy or node pinning is needed.
   serviceName: {{ .app.harness.database.name | quote }}
+  # With the default OrderedReady policy the controller waits for every existing pod
+  # to be Running and Ready before applying a template update, so a crash-looping pod
+  # blocks the rollout of its own fix. Parallel lifts that gate; ordered bring-up is
+  # not needed for a single-replica database. Immutable field: changing it on an
+  # existing deployment requires deleting the StatefulSet (use --cascade=orphan).
+  podManagementPolicy: Parallel
   {{- else }}
   # The database's ReadWriteOnce volume attaches to a single node and the pod is
   # pinned to it via podAffinity. Recreate terminates the old pod before starting
@@ -138,6 +148,10 @@ spec:
       spec:
         accessModes:
           - ReadWriteOnce
+        {{- $storageClass := include "deploy_utils.databaseStorageClass" .app.harness.database }}
+        {{- if $storageClass }}
+        storageClassName: {{ $storageClass }}
+        {{- end }}
         resources:
           requests:
             storage: {{ .app.harness.database.size }}

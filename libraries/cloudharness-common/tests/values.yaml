@@ -30,6 +30,12 @@ apps:
         image: cloudharness/volumemanager:latest
         name: volumemanager
         port: 8080
+        volume:
+          name: volumemanager-files
+          mountpath: /usr/src/app/files
+          auto: true
+          size: 10Mi
+          writeMany: true
         resources: &id001
           requests:
             memory: 32Mi
@@ -232,6 +238,11 @@ apps:
         image: cloudharness/samples:latest
         name: samples
         port: 8080
+        volume:
+          name: my-shared-volume
+          mountpath: /tmp/myvolume
+          auto: true
+          size: 10Mi
         resources: &id003
           requests:
             memory: 32Mi

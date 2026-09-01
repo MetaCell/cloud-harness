@@ -16,6 +16,7 @@ from .utils import get_cluster_ip, get_git_commit_hash, get_image_name, image_na
 from .models import HarnessMainConfig
 
 from .configurationgenerator import ConfigurationGenerator, get_included_builds, validate_helm_values, resolve_task_image_owner, \
+    clear_unused_volume_configuration, \
     KEY_HARNESS, KEY_SERVICE, KEY_DATABASE, KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES, KEY_DEPLOYMENT, DEFAULT_IGNORE, \
     values_from_legacy, values_set_legacy, get_included_applications, create_env_variables, collect_apps_helm_templates, generate_tag_from_content, guess_build_dependencies_from_dockerfile
 
@@ -239,6 +240,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
                 harness[KEY_DATABASE]['name'] = app_name.strip() + '-db'
 
             self._clear_unused_db_configuration(harness)
+            clear_unused_volume_configuration(harness)
             values_set_legacy(v)
 
         if self.include:

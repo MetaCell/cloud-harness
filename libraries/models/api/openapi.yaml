@@ -684,6 +684,14 @@ components:
                             description: Specify database disk size
                             type: string
                             example: 1Gi
+                        storageClass:
+                            description: |-
+                                Storage class of the database volume claim.
+
+                                When not set, the claim carries no storage class, so that the cluster
+                                default storage class is used.
+                            type: string
+                            nullable: true
                         user:
                             description: database username
                             type: string
@@ -813,8 +821,28 @@ components:
 
                                 E.g. 5Gi
                         usenfs:
-                            description: Set to `true` to use the nfs on the created volume and mount as ReadWriteMany.
+                            description: |-
+                                Deprecated: use `writeMany` with the nfs storage class instead.
+
+                                Set to `true` to use the nfs on the created volume and mount as ReadWriteMany.
                             type: boolean
+                        writeMany:
+                            description: |-
+                                Set to `true` to create and mount the volume as ReadWriteMany.
+
+                                ReadWriteMany volumes attach to several nodes at once, hence pods using them
+                                are not pinned to the volume's node.
+                                Requires a storage class supporting ReadWriteMany: set `storageClass`, unless
+                                the cluster default one supports it.
+                            type: boolean
+                        storageClass:
+                            description: |-
+                                The storage class used to create the volume claim, `standard` by default.
+
+                                Set it to null to omit the storage class from the claim, so that the
+                                cluster default storage class is used.
+                            type: string
+                            nullable: true
                 -
                     $ref: '#/components/schemas/AutoArtifactSpec'
             example:
@@ -822,7 +850,8 @@ components:
                 mountpath: /usr/src/app/persistent
                 name: my-files
                 size: 5Gi
-                usenfs: true
+                writeMany: true
+                storageClass: efs-sc
         CDCEvent:
             description: |-
                 A message sent to the orchestration queue.
@@ -1327,7 +1356,7 @@ components:
                                 When true, the workload is rendered as a Kubernetes StatefulSet instead of a
                                 Deployment. Recommended for deployments with a ReadWriteOnce volume: updates
                                 terminate the old pod before creating the new one, so no Recreate strategy or
-                                node pinning is needed. The volume, unless nfs-shared or externally managed
+                                node pinning is needed. The volume, unless ReadWriteMany or externally managed
                                 (auto false), is provisioned per replica through volumeClaimTemplates. A
                                 pre-existing PVC named after the volume (left over from a previous Deployment)
                                 is migrated automatically: a migration job streams its data into each

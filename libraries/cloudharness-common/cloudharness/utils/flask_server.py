@@ -1,0 +1,230 @@
+import os
+import json
+import traceback
+from datetime import date, datetime
+
+import flask
+import connexion
+from flask.json.provider import DefaultJSONProvider
+import six
+
+from cloudharness import log as logging
+from cloudharness.applications import get_current_configuration
+from cloudharness.middleware.asgi import AuthMiddleware
+
+app = None
+
+
+class JSONEncoder(DefaultJSONProvider):
+    include_nulls = False
+
+    def default(self, o):
+        # `format: date-time`/`format: date` in the specs mean RFC 3339, but the
+        # Flask provider we inherit from renders any date as an HTTP date
+        # ("Mon, 31 Aug 2026 16:44:54 GMT"), so handle them here. Naive
+        # datetimes are assumed UTC: the offset is not optional for RFC 3339.
+        # `datetime` first, it is a subclass of `date`.
+        if isinstance(o, datetime):
+            return o.isoformat("T") if o.tzinfo else o.isoformat("T") + "Z"
+        if isinstance(o, date):
+            return o.isoformat()
+        # Connexion/openapi-generator models: their `to_dict()` keys are the
+        # *Python* attribute names (snake_case), so serializing through it would
+        # break every camelCase property in the spec. `attribute_map` holds the
+        # JSON names, so use it — this branch must come first, since these models
+        # also define `to_dict()`.
+        if hasattr(o, 'openapi_types') and hasattr(o, 'attribute_map'):
+            dikt = {}
+            for attr, _ in six.iteritems(o.openapi_types):
+                value = getattr(o, attr)
+                if value is None and not self.include_nulls:
+                    continue
+                dikt[o.attribute_map[attr]] = value
+            return dikt
+        # Pydantic models (e.g. cloudharness_model): to_dict() already
+        # serializes by alias, so the JSON names are correct.
+        if hasattr(o, 'to_dict') and callable(getattr(o, 'to_dict')):
+            result = o.to_dict()
+            if not self.include_nulls:
+                # Filter out None values if include_nulls is False
+                result = {k: v for k, v in result.items() if v is not None}
+            return result
+        return super().default(o)
+
+    def dumps(self, obj, **kwargs):
+        """Override dumps to ensure our default method is used
+
+        Uses stdlib_json to avoid issues with cloudharness monkeypatch
+        """
+        kwargs.setdefault('default', self.default)
+        return json.dumps(obj, **kwargs)
+
+
+def init_webapp_routes(app: flask.Flask, www_path):
+    @app.route('/test', methods=['GET'])
+    def test():
+        return 'routing ok'
+
+    @app.route('/', methods=['GET'])
+    def index():
+        return flask.send_from_directory(www_path, 'index.html')
+
+    @app.route('/<path:path>', methods=['GET'])
+    def send_webapp(path):
+        return flask.send_from_directory(www_path, path)
+
+    @app.errorhandler(404)
+    def page_not_found(error):
+        # when a 404 is thrown send the "main" index page
+        # unless the first segment of the path is in the exception list
+        first_segment_path = flask.request.full_path.split('/')[1]
+        if first_segment_path in ['api', 'static', 'test']:  # exception list
+            return error
+        return index()
+
+    @app.route('/static/<path:path>', methods=['GET'])
+    def send_static(path):
+        return flask.send_from_directory(os.path.join(www_path, 'static'), path)
+
+
+def setup_cors(app: flask.Flask):
+    """
+    Setup CORS headers for Flask app to work with Connexion 3.x
+    This replaces Flask-CORS which is no longer compatible
+    """
+    @app.after_request
+    def after_request(response):
+        # Allow CORS for API endpoints
+        if flask.request.path.startswith('/api/'):
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+            response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response
+
+    @app.before_request
+    def handle_preflight():
+        if flask.request.method == "OPTIONS" and flask.request.path.startswith('/api/'):
+            response = flask.Response()
+            response.headers.add("Access-Control-Allow-Origin", "*")
+            response.headers.add('Access-Control-Allow-Headers', "Content-Type,Authorization")
+            response.headers.add('Access-Control-Allow-Methods', "GET,PUT,POST,DELETE,OPTIONS")
+            return response
+
+
+class Config(object):
+    DEBUG = False
+    TESTING = False
+    CSRF_ENABLED = True
+
+
+def init_flask(title='CH service API', init_app_fn=None, webapp=False, json_encoder=JSONEncoder, resolver=None,
+               config=Config, enable_cors=True):
+    """
+
+    """
+    global app
+
+    # Some magic inspection to get the caller's absolute path
+    import inspect
+    import os
+    frm = inspect.stack()[1]
+    mod = inspect.getmodule(frm[0])
+    caller_path = os.path.dirname(os.path.realpath(mod.__file__))
+
+    connexion_app = connexion.FlaskApp(__name__)
+    app = connexion_app.app
+    obj_config = os.environ.get('APP_SETTINGS', config)
+    if obj_config:
+        app.config.from_object(obj_config)
+    app.json = json_encoder(app)
+    # activate the CH middleware. Connexion 3 is ASGI based and captures the
+    # Flask wsgi_app at construction time, so wrapping app.wsgi_app has no
+    # effect; the token middleware must be added to the ASGI stack instead.
+    # Connexion 2 apps are still WSGI based, so fall back to wrapping wsgi_app.
+    try:
+        from connexion.middleware.main import MiddlewarePosition
+        connexion_app.add_middleware(AuthMiddleware, position=MiddlewarePosition.BEFORE_CONTEXT)
+    except ImportError:
+        from cloudharness.middleware.flask import middleware
+        app.wsgi_app = middleware(app.wsgi_app)
+
+    with app.app_context():
+        # setup logging
+        gunicorn_logger = logging.getLogger("gunicorn.error")
+        app.logger.handlers = gunicorn_logger.handlers
+        app.logger.setLevel(gunicorn_logger.level)
+
+        # Setup CORS if enabled (replacement for Flask-CORS)
+        if enable_cors:
+            setup_cors(app)
+
+        if webapp:
+            init_webapp_routes(app, www_path=os.path.join(
+                os.path.dirname(caller_path), 'www'))
+        connexion_app.add_api(os.path.join(caller_path, 'openapi/openapi.yaml'),
+                              arguments={'title': title},
+                              pythonic_params=True, resolver=resolver)
+
+        if init_app_fn:
+            init_app_fn(app)
+
+        def handle_exception(request, exc: Exception):
+            data = {
+                "description": str(exc),
+                "type": type(exc).__name__
+            }
+
+            try:
+                # Try to check sentry configuration, but don't fail if config is not available
+                try:
+                    if not get_current_configuration().is_sentry_enabled():
+                        data['trace'] = traceback.format_exc()
+                except Exception as config_error:
+                    # If configuration check fails, include trace anyway
+                    logging.warning(f"Could not check sentry configuration: {config_error}")
+                    data['trace'] = traceback.format_exc()
+            except Exception as general_error:
+                logging.error(f"Error in error handler: {general_error}", exc_info=True)
+                data['trace'] = traceback.format_exc()
+
+            logging.error(str(exc), exc_info=True)
+            return json.dumps(data), 500
+
+        # Register error handler with Flask app directly for better compatibility
+        @app.errorhandler(Exception)
+        def flask_handle_exception(*args):
+            # Flask error handlers can be called with different signatures
+            # Handle both single argument (exc) and multiple arguments flexibly
+            if len(args) == 1:
+                exc = args[0]
+            elif len(args) >= 2:
+                exc = args[0] if isinstance(args[0], Exception) else args[1]
+            else:
+                exc = Exception("Unknown error")
+
+            # For Flask error handlers, we don't get the request object,
+            # but we can access it via flask.request if needed
+            try:
+                import flask
+                request = flask.request if flask.has_request_context() else None
+            except:
+                request = None
+            return handle_exception(request, exc)
+
+    return connexion_app
+
+
+def main():
+    # Get the global connexion app from init_flask and run it
+    import inspect
+    frm = inspect.stack()[1]
+    mod = inspect.getmodule(frm[0])
+
+    # Get the connexion app variable from the calling module
+    connexion_app = getattr(mod, 'app', None)
+    if connexion_app and hasattr(connexion_app, 'run'):
+        connexion_app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5001)))
+    else:
+        # Fallback to the global app variable (Flask app)
+        if app:
+            app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5001)))

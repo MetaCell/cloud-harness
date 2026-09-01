@@ -95,6 +95,55 @@ heritage: {{ $.Release.Service | quote }}
 
 
 {{/*
+Tells whether a harness.deployment.volume is ReadWriteMany: nfs volumes (legacy `usenfs` flag)
+always are, otherwise `writeMany` decides. Renders "true" or nothing, so the result can be used
+directly in a condition. Accepts a nil volume.
+Usage: {{ if include "deploy_utils.volumeWriteMany" $volume }}
+*/}}
+{{- define "deploy_utils.volumeWriteMany" -}}
+{{- if . }}{{ if .usenfs }}true{{ else if .writeMany }}true{{ end }}{{ end }}
+{{- end -}}
+
+{{/*
+Storage class of a harness.deployment.volume claim: nfs volumes always use the class created by
+the nfsserver application, otherwise the volume `storageClass` (`standard` by default, see
+value-template.yaml). Renders nothing when it is set to null, leaving the claim to the cluster
+default storage class.
+Usage: {{ include "deploy_utils.volumeStorageClass" (dict "root" .root "volume" $volume) }}
+*/}}
+{{- define "deploy_utils.volumeStorageClass" -}}
+{{- $volume := .volume -}}
+{{- if $volume.usenfs }}{{ printf "%s-%s" .root.Values.namespace .root.Values.apps.nfsserver.storageClass.name }}{{ else if $volume.storageClass }}{{ $volume.storageClass }}{{ end }}
+{{- end -}}
+
+{{/*
+Storage class of a database volume claim: harness.database.storageClass. Renders nothing when it
+is not set (the default), leaving the claim to the cluster default storage class: that is how the
+database volumes of existing deployments were created, and the storage class is immutable.
+Usage: {{ include "deploy_utils.databaseStorageClass" .app.harness.database }}
+*/}}
+{{- define "deploy_utils.databaseStorageClass" -}}
+{{- if .storageClass }}{{ .storageClass }}{{ end }}
+{{- end -}}
+
+{{/*
+Render the spec of a claim (PersistentVolumeClaim or statefulset volumeClaimTemplate) for a
+harness.deployment.volume.
+Usage: {{ include "deploy_utils.volumeClaimSpec" (dict "root" .root "volume" $volume) | nindent 2 }}
+*/}}
+{{- define "deploy_utils.volumeClaimSpec" -}}
+{{- $storageClass := include "deploy_utils.volumeStorageClass" (dict "root" .root "volume" .volume) -}}
+accessModes:
+  - {{ if include "deploy_utils.volumeWriteMany" .volume }}ReadWriteMany{{ else }}ReadWriteOnce{{ end }}
+{{- if $storageClass }}
+storageClassName: {{ $storageClass }}
+{{- end }}
+resources:
+  requests:
+    storage: {{ .volume.size }}
+{{- end -}}
+
+{{/*
 Render volumeMounts block for a container.
 Usage: {{ include "deploy_utils.volumeMounts" (dict "app" .app "root" .root) }}
 */}}
