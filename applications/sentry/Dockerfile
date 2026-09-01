@@ -1,5 +1,5 @@
-ARG CLOUDHARNESS_ROOT_BASE=sentry:9.1.2
-FROM $CLOUDHARNESS_ROOT_BASE
+ARG SENTRY=sentry:9.1.2
+FROM $SENTRY
 
 ADD sentryrunner.sh ./sentryrunner.sh
 RUN chmod +x ./sentryrunner.sh

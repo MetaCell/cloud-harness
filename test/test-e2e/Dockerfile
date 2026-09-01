@@ -1,5 +1,5 @@
-ARG CLOUDHARNESS_ROOT_BASE=ghcr.io/puppeteer/puppeteer:24
-FROM $CLOUDHARNESS_ROOT_BASE
+ARG PUPPETEER=ghcr.io/puppeteer/puppeteer:24
+FROM $PUPPETEER
 
 USER root
 RUN mkdir -p /home/test

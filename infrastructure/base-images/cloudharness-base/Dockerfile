@@ -1,5 +1,5 @@
-ARG CLOUDHARNESS_ROOT_BASE=python:3.12-slim-trixie
-FROM $CLOUDHARNESS_ROOT_BASE
+ARG PYTHON=python:3.12-slim-trixie
+FROM $PYTHON
 
 RUN apt update && apt install -y --no-install-recommends \
     gcc \
