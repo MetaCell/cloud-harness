@@ -1,10 +1,14 @@
-from ch_cli_tools.helm import *
-from ch_cli_tools.configurationgenerator import *
-from ch_cli_tools import configurationgenerator
-from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
-import pytest
 import shutil
 import subprocess
+
+import pytest
+from ch_cli_tools import configurationgenerator
+from ch_cli_tools.configurationgenerator import *
+from ch_cli_tools.helm import *
+from ch_cli_tools.preprocessing import (
+    generate_hash_based_image_tags,
+    preprocess_build_overrides,
+)
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')
@@ -181,6 +185,18 @@ def test_collect_helm_values_noreg_noinclude(tmp_path):
     assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'testprojectname/cloudharness-base:1'
     assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'testprojectname/myapp-mytask:1'
     assert values[KEY_TASK_IMAGES]['my-common'] == 'testprojectname/my-common:1'
+
+    # Check source images
+    # KEYCLOAK is overriden and mybase and mybase2 should appear as they have been collected
+    assert values["source_images"] == {
+        "GOLANG": "golang:1.26",
+        "ROCKYLINUX": "golang:rockylinux/rockylinux:10.1-minimal",
+        "SENTRY": "sentry:9.1.2",
+        "KEYCLOAK": "myregistry.mykeycloak:99.9",
+        "mybase": "foo:bar",
+        "mybase2": "spam:egg",
+        "NODE": "node:22-alpine",
+    }
 
 
 def test_collect_helm_values_precedence(tmp_path):
@@ -1150,3 +1166,24 @@ def test_validate_secrets_rejects_malformed_definitions():
 
     with pytest.raises(ValuesValidationException, match="expected a map of secret definitions"):
         validate_secrets(secret_values(['a', 'b']))
+
+
+def test_collect_helm_values_source_images_merge(tmp_path):
+    out_path = tmp_path / 'test_collect_helm_values_source_images_merge'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path,
+                               include=["samples", "myapp"], domain="my.local",
+                               namespace='test', env='nreg', local=False, tag=1, registry='reg')
+
+    source_images = values.get("source_images")
+    assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
+    assert "NODE" in source_images
+
+
+def test_collect_helm_values_source_images_merge_no_include(tmp_path):
+    out_path = tmp_path / 'test_collect_helm_values_source_images_merge'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, domain="my.local",
+                               namespace='test', env='nreg', local=False, tag=1, registry='reg')
+
+    source_images = values.get("source_images")
+    assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
+    assert "NODE" in source_images
