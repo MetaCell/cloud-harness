@@ -75,7 +75,7 @@ In both situations, the modification is done in the `value-template.yaml` of you
 
 ### Change the base image for applications with a `Dockerfile`
 
-Changing the base image for your application or applications which have a `Dockerfile` is done through the `source-images` entry of your `value-template.yaml` file. 
+Changing the base image for your application or applications which have a `Dockerfile` is done through the `source_images` entry of your `value-template.yaml` file. 
 This entry defines a mapping between the `ARG` of your `Dockerfile` and the value you want to inject. 
 Here is an example of a declared mapping for two applications:
 

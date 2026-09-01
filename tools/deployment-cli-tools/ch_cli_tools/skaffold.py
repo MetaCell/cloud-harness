@@ -338,7 +338,7 @@ def get_additional_build_args(helm_values: HarnessMainConfig, app_key: str) -> d
 
 
 def get_image_source(helm_values: HarnessMainConfig, app_key: str) -> dict[str, str]:
-    source_image = helm_values.get("source-images", {}).get(app_key)
+    source_image = helm_values.get("source_images", {}).get(app_key)
     if isinstance(source_image, dict):
         return source_image
     elif source_image:

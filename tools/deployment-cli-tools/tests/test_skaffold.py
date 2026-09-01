@@ -383,7 +383,7 @@ def test_skaffold_imgarg_retrieval(tmp_path):
     assert values.get("events").kafka.image == "nodocker.io/apache/kafka:4.0.2"
 
     # Ensure in the test that the Helm is well formed
-    source_images = values.get("source-images")
+    source_images = values.get("source_images")
     assert len(source_images) == 2
     assert source_images["myapp"] == "myregistry.myapp:15.3"
     assert source_images["samples"] == {"BASEIMAGE": "myother.image:14"}

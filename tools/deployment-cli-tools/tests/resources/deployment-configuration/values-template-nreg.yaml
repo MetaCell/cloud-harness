@@ -5,7 +5,7 @@ a: b
 database:
   auto: true
 
-source-images:
+source_images:
   myapp: "myregistry.myapp:15.3"
   samples:
     BASEIMAGE: myother.image:14
