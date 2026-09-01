@@ -528,6 +528,7 @@ steps:
     stage: qa
     title: Wait deployment to be ready
     image: codefresh/kubectl
+    timeout: 10m
     commands:
     - kubectl config use-context ${{CLUSTER_NAME}}
     - kubectl config set-context --current --namespace=test-${{NAMESPACE_BASENAME}}
