@@ -46,6 +46,10 @@ spec:
 
   storage:
     size: {{ .app.harness.database.size }}
+    {{- $storageClass := include "deploy_utils.databaseStorageClass" .app.harness.database }}
+    {{- if $storageClass }}
+    storageClass: {{ $storageClass }}
+    {{- end }}
 
   {{- with .app.harness.database.resources }}
   resources:

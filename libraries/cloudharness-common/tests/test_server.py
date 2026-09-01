@@ -1,9 +1,10 @@
 import datetime
 import json
+import uuid
 
 import flask
 
-from cloudharness.utils.server import JSONEncoder
+from cloudharness.utils.flask_server import JSONEncoder
 
 
 class ConnexionStyleModel:
@@ -44,5 +45,23 @@ def test_pydantic_model_keeps_its_aliased_keys():
 
 
 def test_unknown_types_fall_back_to_the_default_provider():
-    encoded = json.loads(encoder().dumps({'date': datetime.date(2026, 7, 29)}))
-    assert 'Jul 2026' in encoded['date']
+    value = uuid.uuid4()
+    assert json.loads(encoder().dumps({'id': value})) == {'id': str(value)}
+
+
+def test_aware_datetime_is_serialized_as_rfc3339():
+    value = datetime.datetime(2026, 8, 31, 16, 44, 54, tzinfo=datetime.timezone.utc)
+    encoded = json.loads(encoder().dumps({'createTime': value}))
+    assert encoded == {'createTime': '2026-08-31T16:44:54+00:00'}
+
+
+def test_naive_datetime_is_serialized_as_utc():
+    """RFC 3339 makes the offset mandatory, so a naive datetime is assumed UTC."""
+    value = datetime.datetime(2026, 8, 31, 16, 44, 54)
+    encoded = json.loads(encoder().dumps({'createTime': value}))
+    assert encoded == {'createTime': '2026-08-31T16:44:54Z'}
+
+
+def test_date_is_serialized_as_iso_date():
+    encoded = json.loads(encoder().dumps({'day': datetime.date(2026, 7, 29)}))
+    assert encoded == {'day': '2026-07-29'}

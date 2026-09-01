@@ -76,7 +76,7 @@ steps:
       kube_context: ${{CLUSTER_NAME}}
       namespace: test-${{NAMESPACE_BASENAME}}
       chart_version: ${{CF_SHORT_REVISION}}
-      cmd_ps: "--timeout 600s --create-namespace"
+      cmd_ps: "--timeout 200s --create-namespace"
       custom_value_files:
         - ./deployment/helm/values.yaml
   build_test_images:
@@ -88,6 +88,7 @@ steps:
     stage: qa
     title: Wait deployment to be ready
     image: codefresh/kubectl
+    timeout: 10m
     commands:
       - kubectl config use-context ${{CLUSTER_NAME}}
       - kubectl config set-context --current --namespace=test-${{NAMESPACE_BASENAME}}

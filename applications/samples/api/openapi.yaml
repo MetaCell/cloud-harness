@@ -55,6 +55,10 @@ paths:
           application/json:
             schema:
               type: object
+              # `nullable` is what actually makes the body optional for connexion:
+              # `required: false` alone still 400s an absent body, because the json
+              # validator only skips validation when the schema is nullable.
+              nullable: true
               properties:
                 content:
                   type: string
