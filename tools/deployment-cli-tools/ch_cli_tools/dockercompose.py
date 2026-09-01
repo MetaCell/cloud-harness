@@ -257,7 +257,7 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
         create_env_variables(values)
         return values, self.include
 
-    def create_app_values_spec(self, app_name: str, app_path: Path, base_image_name: str | None=None, helm_values: dict | None=None):
+    def create_app_values_spec(self, app_name: str, app_path: Path, base_image_name: str | None = None, helm_values: dict | None = None):
         logging.info(f'Generating values script for {app_name}')
         helm_values = helm_values or {}
 

@@ -590,7 +590,6 @@ def get_dockerfile_baseimg_args(filename: str) -> dict[str, str]:
     return args
 
 
-
 def check_response_200(endpoint_url, headers=None):
     resp = requests.get(endpoint_url, headers=headers, timeout=5)
     return resp.status_code == 200

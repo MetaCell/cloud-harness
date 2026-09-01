@@ -161,7 +161,6 @@ class CloudHarnessHelm(ConfigurationGenerator):
                 registry["secret"] = None
         return HarnessMainConfig.from_dict(merged_values)
 
-
     def _aggregate_source_images(self, base_images, helm_values):
         """Collects all the source_images and set them at the config root"""
         all_source_images = {}
@@ -183,7 +182,6 @@ class CloudHarnessHelm(ConfigurationGenerator):
                 continue
 
         helm_values["source_images"] = all_source_images | dict(helm_values.get("source_images", {}))
-
 
     def _aggregate_task_images(self, values):
         """Aggregate task images from included apps after finalization."""
@@ -337,7 +335,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
         create_env_variables(values)
         return values, self.include
 
-    def create_app_values_spec(self, app_name: str, app_path: Path, base_image_name: str | None=None, helm_values: dict | None=None):
+    def create_app_values_spec(self, app_name: str, app_path: Path, base_image_name: str | None = None, helm_values: dict | None = None):
         logging.info(f'Generating values script for {app_name}')
 
         specific_template_path = app_path / "deploy" / "values.yaml"
@@ -435,7 +433,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
 
         return values
 
-    def finalize_app_values(self, app_name: str, app_path: Path, app_values, base_image_name: str | None=None, helm_values: dict | None=None):
+    def finalize_app_values(self, app_name: str, app_path: Path, app_values, base_image_name: str | None = None, helm_values: dict | None = None):
         """Expensive finalization: Dockerfile discovery, image tagging, task images.
 
         Called only for apps that survive the include filter.

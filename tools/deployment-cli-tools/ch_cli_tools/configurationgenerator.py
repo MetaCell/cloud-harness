@@ -71,7 +71,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         self.all_images = {}
 
     @abc.abstractmethod
-    def create_app_values_spec(self, app_name: str, app_path: Path, base_image_name: str | None=None, helm_values: dict | None=None) -> dict:
+    def create_app_values_spec(self, app_name: str, app_path: Path, base_image_name: str | None = None, helm_values: dict | None = None) -> dict:
         ...
 
     @abc.abstractmethod

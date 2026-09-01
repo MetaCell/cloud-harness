@@ -59,7 +59,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
     def build_artifact(
         app_name: str,
         context_path: str,
-        requirements: list[str] |  None = None,
+        requirements: list[str] | None = None,
         dockerfile_path: str = '',
         additional_build_args: dict[str, str] | None = None,
     ) -> dict:
