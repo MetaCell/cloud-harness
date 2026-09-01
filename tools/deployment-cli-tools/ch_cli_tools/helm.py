@@ -339,7 +339,6 @@ class CloudHarnessHelm(ConfigurationGenerator):
 
     def create_app_values_spec(self, app_name: str, app_path: Path, base_image_name: str | None=None, helm_values: dict | None=None):
         logging.info(f'Generating values script for {app_name}')
-        helm_values = helm_values or {}
 
         specific_template_path = app_path / "deploy" / "values.yaml"
         if specific_template_path.exists():
@@ -442,7 +441,6 @@ class CloudHarnessHelm(ConfigurationGenerator):
         Called only for apps that survive the include filter.
         """
         logging.info('Finalizing values for ' + app_name)
-        helm_values = helm_values or {}
         values = app_values
 
         image_paths = [path for path in find_dockerfiles_paths(
