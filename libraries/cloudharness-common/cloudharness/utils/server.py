@@ -1,6 +1,7 @@
 import os
 import json
 import traceback
+from datetime import date, datetime
 
 import flask
 import connexion
@@ -18,6 +19,15 @@ class JSONEncoder(DefaultJSONProvider):
     include_nulls = False
 
     def default(self, o):
+        # `format: date-time`/`format: date` in the specs mean RFC 3339, but the
+        # Flask provider we inherit from renders any date as an HTTP date
+        # ("Mon, 31 Aug 2026 16:44:54 GMT"), so handle them here. Naive
+        # datetimes are assumed UTC: the offset is not optional for RFC 3339.
+        # `datetime` first, it is a subclass of `date`.
+        if isinstance(o, datetime):
+            return o.isoformat("T") if o.tzinfo else o.isoformat("T") + "Z"
+        if isinstance(o, date):
+            return o.isoformat()
         # Connexion/openapi-generator models: their `to_dict()` keys are the
         # *Python* attribute names (snake_case), so serializing through it would
         # break every camelCase property in the spec. `attribute_map` holds the
