@@ -473,6 +473,9 @@ def test_statefulset_option(tmp_path):
     manifests = render_helm_chart(helm_path)
     sts = find_manifest(manifests, 'StatefulSet', dep_name)
     assert sts['spec']['serviceName'] == service_name
+    # OrderedReady would block template updates while an existing pod is unready,
+    # so a crash-looping pod could never be replaced by its own fix.
+    assert sts['spec']['podManagementPolicy'] == 'Parallel'
     assert 'strategy' not in sts['spec']
     assert 'affinity' not in sts['spec']['template']['spec']
     assert 'initContainers' not in sts['spec']['template']['spec']
@@ -485,6 +488,7 @@ def test_statefulset_option(tmp_path):
 
     db_sts = find_manifest(manifests, 'StatefulSet', db_name)
     assert db_sts['spec']['serviceName'] == db_name
+    assert db_sts['spec']['podManagementPolicy'] == 'Parallel'
     assert 'strategy' not in db_sts['spec']
     assert 'affinity' not in db_sts['spec']['template']['spec']
     assert 'initContainers' not in db_sts['spec']['template']['spec']

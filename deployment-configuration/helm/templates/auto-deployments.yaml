@@ -45,6 +45,12 @@ spec:
   # StatefulSet updates terminate the old pod before creating its replacement, so no
   # Recreate strategy or node pinning is needed even for ReadWriteOnce volumes.
   serviceName: {{ .app.harness.service.name | quote }}
+  # With the default OrderedReady policy the controller waits for every existing pod
+  # to be Running and Ready before applying a template update, so a crash-looping pod
+  # blocks the rollout of its own fix. Parallel lifts that gate; ordered bring-up is
+  # not needed for these single-app workloads. Immutable field: changing it on an
+  # existing deployment requires deleting the StatefulSet (use --cascade=orphan).
+  podManagementPolicy: Parallel
   {{- else if $rwoVolume }}
   # A ReadWriteOnce volume attaches to a single node and the pod is pinned to the
   # volume's node via podAffinity (see below). Recreate terminates the old pod
