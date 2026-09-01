@@ -1,6 +1,7 @@
 """
 Utilities to create a helm chart from a CloudHarness directory structure
 """
+from pathlib import Path
 from typing import Union
 import yaml
 import os
@@ -9,7 +10,7 @@ from hashlib import sha1
 import subprocess
 
 from cloudharness_utils.constants import VALUES_MANUAL_PATH, HELM_CHART_PATH
-from .utils import get_cluster_ip, get_git_commit_hash, get_image_name, image_name_from_dockerfile_path, \
+from .utils import get_cluster_ip, get_dockerfile_baseimg_args, get_git_commit_hash, get_image_name, image_name_from_dockerfile_path, \
     get_template, merge_to_yaml_file, dict_merge, app_name_from_path, \
     find_dockerfiles_paths
 
@@ -116,6 +117,9 @@ class CloudHarnessHelm(ConfigurationGenerator):
             # Now aggregate task images from the finalized included apps
             self._aggregate_task_images(helm_values)
 
+            # Collect all source_images and move them to the root
+            self._aggregate_source_images(self.base_images, helm_values)
+
             # Remove build-only deps from apps — they belong in task_images only
             build_only = set(helm_values[KEY_APPS].keys()) - self.include
             for name in build_only:
@@ -129,6 +133,9 @@ class CloudHarnessHelm(ConfigurationGenerator):
             self._process_applications(helm_values, base_image_name)
 
             values, include = self.__finish_helm_values(values=helm_values, defer_task_images=False)
+
+            # Collect all source_images and move them to the root
+            self._aggregate_source_images(self.base_images, helm_values)
 
         self.create_tls_certificate(helm_values)
 
@@ -154,6 +161,30 @@ class CloudHarnessHelm(ConfigurationGenerator):
                 registry["secret"] = None
         return HarnessMainConfig.from_dict(merged_values)
 
+
+    def _aggregate_source_images(self, base_images, helm_values):
+        """Collects all the source_images and set them at the config root"""
+        all_source_images = {}
+        all_apps = helm_values["apps"]
+        for app, app_config in all_apps.items():
+            try:
+                source_images = app_config["source_images"]
+                if source_images:
+                    all_source_images |= source_images
+                del all_apps[app]["source_images"]
+            except KeyError:
+                continue
+
+        for _, source_images in base_images.values():
+            try:
+                if source_images:
+                    all_source_images |= source_images
+            except KeyError:
+                continue
+
+        helm_values["source_images"] = all_source_images | dict(helm_values.get("source_images", {}))
+
+
     def _aggregate_task_images(self, values):
         """Aggregate task images from included apps after finalization."""
         apps = values[KEY_APPS]
@@ -171,7 +202,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
                     values[KEY_TASK_IMAGES][dep_name] = image
                 app_name = dep_name
             elif dep_name in self.base_images:
-                values[KEY_TASK_IMAGES][dep_name] = self.base_images[dep_name]
+                values[KEY_TASK_IMAGES][dep_name] = self.base_images[dep_name][0]
             elif owner in apps:
                 app_name = owner
                 values[KEY_TASK_IMAGES][dep_name] = apps[app_name][KEY_TASK_IMAGES][dep_name]
@@ -286,7 +317,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
                             values[KEY_TASK_IMAGES][dep_name] = image
                         app_name = dep_name
                     elif dep_name in self.base_images:
-                        values[KEY_TASK_IMAGES][dep_name] = self.base_images[dep_name]
+                        values[KEY_TASK_IMAGES][dep_name] = self.base_images[dep_name][0]
                     elif owner in apps:  # task image owned by an application that is not part of the deployment
                         app_name = owner
                         values[KEY_TASK_IMAGES][dep_name] = apps[app_name][KEY_TASK_IMAGES][dep_name]
@@ -306,24 +337,22 @@ class CloudHarnessHelm(ConfigurationGenerator):
         create_env_variables(values)
         return values, self.include
 
-    def create_app_values_spec(self, app_name, app_path, base_image_name=None, helm_values={}):
-        logging.info('Generating values script for ' + app_name)
+    def create_app_values_spec(self, app_name: str, app_path: Path, base_image_name: str | None=None, helm_values: dict | None=None):
+        logging.info(f'Generating values script for {app_name}')
+        helm_values = helm_values or {}
 
-        specific_template_path = os.path.join(app_path, 'deploy', 'values.yaml')
-        if os.path.exists(specific_template_path):
-            logging.info("Specific values template found: " +
-                         specific_template_path)
+        specific_template_path = app_path / "deploy" / "values.yaml"
+        if specific_template_path.exists():
+            logging.info(f"Specific values template found: {specific_template_path}")
             values = get_template(specific_template_path)
         else:
             values = {}
 
         for e in self.env:
-            specific_template_path = os.path.join(
-                app_path, 'deploy', f'values-{e}.yaml')
-            if os.path.exists(specific_template_path):
-                logging.info(
-                    "Specific environment values template found: " + specific_template_path)
-                with open(specific_template_path) as f:
+            specific_template_path = app_path / "deploy" / f"values-{e}.yaml"
+            if specific_template_path.exists():
+                logging.info(f"Specific environment values template found: {specific_template_path}")
+                with specific_template_path.open("r") as f:
                     values_env_specific = yaml.safe_load(f)
                 values = dict_merge(values, values_env_specific)
 
@@ -332,10 +361,11 @@ class CloudHarnessHelm(ConfigurationGenerator):
                             values[KEY_HARNESS]['name'])
 
         image_paths = [path for path in find_dockerfiles_paths(
-            app_path) if 'tasks/' not in path and 'subapps' not in path]
+            f"{app_path}") if 'tasks/' not in path and 'subapps' not in path]
         if len(image_paths) > 1:
             logging.warning('Multiple Dockerfiles found in application %s. Picking the first one: %s', app_name,
                             image_paths[0])
+
         if KEY_HARNESS in values and 'dependencies' in values[KEY_HARNESS] and 'build' in values[KEY_HARNESS]['dependencies']:
             build_dependencies = values[KEY_HARNESS]['dependencies']['build']
         else:
@@ -347,8 +377,8 @@ class CloudHarnessHelm(ConfigurationGenerator):
 
         image_name = get_image_name(values.get(KEY_HARNESS, {}).get('image_name', ''), base_image_name)
         if len(image_paths) > 0 and not deployment_image:
-
-            image_name = image_name or image_name_from_dockerfile_path(os.path.relpath(image_paths[0], os.path.dirname(app_path)), base_image_name)
+            values['source_images'] = get_dockerfile_baseimg_args(app_path)
+            image_name = image_name or image_name_from_dockerfile_path(os.path.relpath(image_paths[0], app_path.parent), base_name=base_image_name)
             values['image'] = self.image_tag(
                 image_name, build_context_path=app_path, dependencies=build_dependencies)
         elif KEY_HARNESS in values and not deployment_image and values[
@@ -357,17 +387,17 @@ class CloudHarnessHelm(ConfigurationGenerator):
                             f"Specify harness.deployment.image value if you intend to use a prebuilt image.")
 
         task_images_paths = [path for path in find_dockerfiles_paths(
-            app_path) if 'tasks/' in path]
+            f"{app_path}") if 'tasks/' in path]
         values[KEY_TASK_IMAGES] = values.get(KEY_TASK_IMAGES, {})
 
         if build_dependencies:
             for build_dependency in values[KEY_HARNESS]['dependencies']['build']:
                 if build_dependency in self.base_images:
-                    values[KEY_TASK_IMAGES][build_dependency] = self.base_images[build_dependency]
+                    values[KEY_TASK_IMAGES][build_dependency] = self.base_images[build_dependency][0]
 
         for task_path in task_images_paths:
-            task_name = app_name_from_path(os.path.relpath(
-                task_path, os.path.dirname(app_path)))
+            values['source_images'] = get_dockerfile_baseimg_args(app_path)
+            task_name = app_name_from_path(os.path.relpath(task_path, app_path.parent))
             task_img_name = "-".join([image_name, os.path.basename(task_path)]) if image_name else image_name_from_dockerfile_path(task_path, base_image_name)
 
             values[KEY_TASK_IMAGES][task_name] = self.image_tag(
@@ -406,16 +436,17 @@ class CloudHarnessHelm(ConfigurationGenerator):
 
         return values
 
-    def finalize_app_values(self, app_name, app_path, app_values, base_image_name=None, helm_values={}):
+    def finalize_app_values(self, app_name: str, app_path: Path, app_values, base_image_name: str | None=None, helm_values: dict | None=None):
         """Expensive finalization: Dockerfile discovery, image tagging, task images.
 
         Called only for apps that survive the include filter.
         """
         logging.info('Finalizing values for ' + app_name)
+        helm_values = helm_values or {}
         values = app_values
 
         image_paths = [path for path in find_dockerfiles_paths(
-            app_path) if 'tasks/' not in path and 'subapps' not in path]
+            f"{app_path}") if 'tasks/' not in path and 'subapps' not in path]
         if len(image_paths) > 1:
             logging.warning('Multiple Dockerfiles found in application %s. Picking the first one: %s', app_name,
                             image_paths[0])
@@ -432,7 +463,8 @@ class CloudHarnessHelm(ConfigurationGenerator):
         image_name = get_image_name(values.get(KEY_HARNESS, {}).get('image_name', ''), base_image_name)
         if len(image_paths) > 0 and not deployment_image:
             values['build'] = True
-            image_name = image_name or image_name_from_dockerfile_path(os.path.relpath(image_paths[0], os.path.dirname(app_path)), base_image_name)
+            values['source_images'] = get_dockerfile_baseimg_args(app_path)
+            image_name = image_name or image_name_from_dockerfile_path(os.path.relpath(image_paths[0], app_path.parent), base_image_name)
             values['image'] = self.image_tag(
                 image_name, build_context_path=app_path, dependencies=build_dependencies)
         elif KEY_HARNESS in values and not deployment_image and values[
@@ -443,19 +475,20 @@ class CloudHarnessHelm(ConfigurationGenerator):
             values['build'] = not bool(deployment_image)
 
         task_images_paths = [path for path in find_dockerfiles_paths(
-            app_path) if 'tasks/' in path]
+            f"{app_path}") if 'tasks/' in path]
         values[KEY_TASK_IMAGES] = values.get(KEY_TASK_IMAGES, {})
 
         if build_dependencies:
             for build_dependency in values[KEY_HARNESS]['dependencies']['build']:
                 if build_dependency in self.base_images:
-                    values[KEY_TASK_IMAGES][build_dependency] = self.base_images[build_dependency]
+                    values[KEY_TASK_IMAGES][build_dependency] = self.base_images[build_dependency][0]
 
         for task_path in task_images_paths:
             task_name = app_name_from_path(os.path.relpath(
                 task_path, os.path.dirname(app_path)))
             task_img_name = "-".join([image_name, os.path.basename(task_path)]) if image_name else image_name_from_dockerfile_path(task_path, base_image_name)
 
+            values['source_images'] = get_dockerfile_baseimg_args(app_path)
             values[KEY_TASK_IMAGES][task_name] = self.image_tag(
                 task_img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys())
 

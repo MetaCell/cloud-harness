@@ -31,7 +31,6 @@ VALUES_MANUAL_PATH = 'values.yaml'
 VALUE_TEMPLATE_PATH = f'{DEPLOYMENT_CONFIGURATION_PATH}/value-template.yaml'
 
 CH_BASE_IMAGES = {'cloudharness-base': 'python:3.9.10'}
-CH_BASE_IMAGE_CONVENTIONAL_KEY = "CLOUDHARNESS_ROOT_BASE"
 
 
 CD_BUILD_STEP_PARALLEL = 'build_application_images'

@@ -1,8 +1,8 @@
-import shutil
 import os
+import shutil
 
-from ch_cli_tools.preprocessing import preprocess_build_overrides
 from ch_cli_tools.helm import *
+from ch_cli_tools.preprocessing import preprocess_build_overrides
 from ch_cli_tools.skaffold import *
 
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -385,12 +385,12 @@ def test_skaffold_imgarg_retrieval(tmp_path):
     # Ensure in the test that the Helm is well formed
     source_images = values.get("source_images")
     assert len(source_images) == 2
-    assert source_images["myapp"] == "myregistry.myapp:15.3"
-    assert source_images["samples"] == {"BASEIMAGE": "myother.image:14"}
-
-    assert get_image_source(values, "myapp") == {CH_BASE_IMAGE_CONVENTIONAL_KEY: "myregistry.myapp:15.3"}
-    assert get_image_source(values, "samples") == {"BASEIMAGE": "myother.image:14"}
-    assert get_image_source(values, "events") == {}
+    assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
+    assert source_images["NODE"] == "node:22-alpine"
+    assert get_image_source(values) == {
+        "KEYCLOAK": "myregistry.myapp:15.3",
+        "NODE": "node:22-alpine",
+    }
 
 
 def test_skaffold_imgarg(tmp_path):
@@ -431,9 +431,9 @@ def test_skaffold_imgarg(tmp_path):
         return {}
 
     samples_buildargs = get_buildargs("samples")
-    assert "BASEIMAGE" in samples_buildargs
-    assert samples_buildargs["BASEIMAGE"] == "myother.image:14"
+    assert samples_buildargs["KEYCLOAK"] == "myregistry.myapp:15.3"
+    assert samples_buildargs["NODE"] == "node:22-alpine"
 
     myapp_buildargs = get_buildargs("myapp")
-    assert CH_BASE_IMAGE_CONVENTIONAL_KEY in myapp_buildargs
-    assert myapp_buildargs[CH_BASE_IMAGE_CONVENTIONAL_KEY] == "myregistry.myapp:15.3"
+    assert myapp_buildargs["KEYCLOAK"] == "myregistry.myapp:15.3"
+    assert myapp_buildargs["NODE"] == "node:22-alpine"

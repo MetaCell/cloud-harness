@@ -34,7 +34,7 @@ REPLACE_TEXT_FILES_EXTENSIONS = (
 SKIP_DIRS = ('node_modules',)
 
 
-def image_name_from_dockerfile_path(dockerfile_path, base_name=None):
+def image_name_from_dockerfile_path(dockerfile_path, base_name=None) -> str:
     return get_image_name(app_name_from_path(dockerfile_path), base_name)
 
 
@@ -65,12 +65,12 @@ def find_subdirs(base_path):
     return tuple()
 
 
-def find_dockerfiles_paths(base_directory):
+def find_dockerfiles_paths(base_directory: str) -> tuple[str, ...]:
     all_dockerfiles = find_file_paths(base_directory, 'Dockerfile')
 
     # We want to remove all dockerfiles that are not in a git repository
     # This will exclude the cloned dependencies and other repos cloned for convenience
-    dockerfiles_without_git = []
+    dockerfiles_without_git: list[str] = []
 
     for dockerfile in all_dockerfiles:
         directory = dockerfile

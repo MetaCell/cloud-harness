@@ -16,7 +16,7 @@ import abc
 from . import HERE, CH_ROOT
 from cloudharness_utils.constants import TEST_IMAGES_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, \
     DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH
-from .utils import get_cluster_ip, env_variable, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
+from .utils import get_cluster_ip, env_variable, get_dockerfile_baseimg_args, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
     get_template, merge_configuration_directories, dict_merge, app_name_from_path, \
     find_dockerfiles_paths, get_git_commit_hash
 from .secrets import secret_definition_error
@@ -43,7 +43,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         self.root_paths = [Path(r) for r in root_paths]
         self.tag = str(tag) if tag else None
         if registry and not registry.endswith('/'):
-            self.registry = f'{registry}/'
+            self.registry: str = f'{registry}/'
         else:
             self.registry = registry
         self.local = local
@@ -67,11 +67,11 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         self.__init_deployment()
 
         self.static_images = set()
-        self.base_images = {}
+        self.base_images: dict[str, tuple[str, dict[str, str]]] = {}
         self.all_images = {}
 
     @abc.abstractmethod
-    def create_app_values_spec(self, app_name, app_path, base_image_name=None, helm_values={}):
+    def create_app_values_spec(self, app_name: str, app_path: Path, base_image_name: str | None=None, helm_values: dict | None=None) -> dict:
         ...
 
     @abc.abstractmethod
@@ -173,7 +173,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
                 helm_values[KEY_APPS][app_name] = dict_merge(
                     helm_values[KEY_APPS][app_name], finalized)
 
-    def collect_app_values(self, app_base_path, base_image_name=None, helm_values=None):
+    def collect_app_values(self, app_base_path: Path, base_image_name=None, helm_values=None):
         values = {}
 
         for app_path in app_base_path.glob("*/"):  # We get the sub-files that are directories
@@ -196,14 +196,14 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
             base_name = base_image_name
             for static_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, STATIC_IMAGES_PATH)):
                 self.static_images.add(static_img_dockerfile)
-
-                img_name = image_name_from_dockerfile_path(os.path.basename(
-                    static_img_dockerfile), base_name=base_name)
+                dockerfile_basename = os.path.basename(static_img_dockerfile)
+                img_name = image_name_from_dockerfile_path(dockerfile_basename, base_name=base_name)
                 # Static images have context where the Dockerfile is located
-                self.base_images[os.path.basename(static_img_dockerfile)] = self.image_tag(
+                image_tag = self.image_tag(
                     img_name, build_context_path=static_img_dockerfile,
                     dependencies=guess_build_dependencies_from_dockerfile(static_img_dockerfile)
                 )
+                self.base_images[dockerfile_basename] = (image_tag, get_dockerfile_baseimg_args(static_img_dockerfile))
 
     def _assign_static_build_dependencies(self, helm_values):
         static_consumers = {}
@@ -216,7 +216,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
                     if dep in self.exclude and dep in helm_values[KEY_TASK_IMAGES] and key not in self.exclude:
                         static_consumers.setdefault(dep, set()).add(key)
                     if dep in self.base_images and dep not in helm_values[KEY_TASK_IMAGES]:
-                        helm_values[KEY_TASK_IMAGES][dep] = self.base_images[dep]
+                        helm_values[KEY_TASK_IMAGES][dep] = self.base_images[dep][0]
                         # helm_values.setdefault(KEY_TASK_IMAGES_BUILD, {})[dep] = {
                         #     'context': os.path.relpath(static_img_dockerfile, self.dest_deployment_path.parent),
                         #     'dockerfile': 'Dockerfile',
@@ -265,21 +265,22 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
                 continue
             del task_images[image_name]
 
-    def _init_base_images(self, base_image_name):
+    def _init_base_images(self, base_image_name: str) -> dict[str, tuple[str, dict[str, str]]]:
         """Initialize base images (infrastructure/base-images/) with root context."""
         for i in range(len(self.root_paths)):
-            root_path = self.root_paths[i]
+            root_path = Path(self.root_paths[i])
             base_name = base_image_name
 
-            for base_img_dockerfile in find_dockerfiles_paths(os.path.join(root_path, BASE_IMAGES_PATH)):
+            for base_img_dockerfile in find_dockerfiles_paths(f"{root_path / BASE_IMAGES_PATH}"):
+                dockerfile_basename = os.path.basename(base_img_dockerfile)
                 img_name = image_name_from_dockerfile_path(
-                    os.path.basename(base_img_dockerfile), base_name=base_name)
+                    dockerfile_basename, base_name=base_name)
                 # Base images have context at root
-                self.base_images[os.path.basename(base_img_dockerfile)] = self.image_tag(
+                image_tag = self.image_tag(
                     img_name, build_context_path=root_path,
                     dependencies=guess_build_dependencies_from_dockerfile(base_img_dockerfile)
                 )
-
+                self.base_images[dockerfile_basename] = (image_tag, get_dockerfile_baseimg_args(base_img_dockerfile))
         return self.base_images
 
     def _init_test_images(self, base_image_name):
@@ -398,10 +399,9 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
             if database_type != db:
                 del database_config[db]
 
-    def image_tag(self, image_name, build_context_path=None, dependencies=()):
-        tag = self.tag
-
-        return self.registry + image_name + (f':{tag}' if tag else '')
+    def image_tag(self, image_name: str, build_context_path=None, dependencies=()) -> str:
+        tag = f":{self.tag}" if self.tag else ''
+        return f"{self.registry}{image_name}{tag}"
 
 
 def get_included_applications(values, include):

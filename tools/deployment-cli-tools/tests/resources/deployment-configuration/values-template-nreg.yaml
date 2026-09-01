@@ -6,9 +6,7 @@ database:
   auto: true
 
 source_images:
-  myapp: "myregistry.myapp:15.3"
-  samples:
-    BASEIMAGE: myother.image:14
+  KEYCLOAK: "myregistry.myapp:15.3"
 
 events:
   kafka:

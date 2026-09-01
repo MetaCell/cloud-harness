@@ -7,8 +7,7 @@ from os.path import join, relpath, basename, exists, abspath
 from cloudharness_model import ApplicationTestConfig, HarnessMainConfig, GitDependencyConfig
 
 from cloudharness_utils.constants import APPS_PATH, DEPLOYMENT_CONFIGURATION_PATH, \
-    BASE_IMAGES_PATH, STATIC_IMAGES_PATH, HELM_ENGINE, COMPOSE_ENGINE, \
-    CH_BASE_IMAGE_CONVENTIONAL_KEY
+    BASE_IMAGES_PATH, STATIC_IMAGES_PATH, HELM_ENGINE, COMPOSE_ENGINE
 from .helm import KEY_APPS, KEY_HARNESS, KEY_DEPLOYMENT, KEY_TASK_IMAGES
 from .utils import get_template, dict_merge, find_dockerfiles_paths, app_name_from_path, yaml, \
     find_file_paths, guess_build_dependencies_from_dockerfile, get_json_template, clean_image_name
@@ -108,7 +107,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
             builds[app_name] = context_path
             base_images.add(clean_image_name(app_name))
 
-            additional_build_args = get_additional_build_args(helm_values, app_key) | get_image_source(helm_values, app_key)
+            additional_build_args = get_additional_build_args(helm_values, app_key) | get_image_source(helm_values)
 
             artifacts[app_name] = build_artifact(
                 app_name,
@@ -337,10 +336,5 @@ def get_additional_build_args(helm_values: HarnessMainConfig, app_key: str) -> d
         return {}
 
 
-def get_image_source(helm_values: HarnessMainConfig, app_key: str) -> dict[str, str]:
-    source_image = helm_values.get("source_images", {}).get(app_key)
-    if isinstance(source_image, dict):
-        return source_image
-    elif source_image:
-        return {CH_BASE_IMAGE_CONVENTIONAL_KEY: source_image}
-    return {}
+def get_image_source(helm_values: HarnessMainConfig) -> dict[str, str]:
+    return helm_values.get("source_images", {})
