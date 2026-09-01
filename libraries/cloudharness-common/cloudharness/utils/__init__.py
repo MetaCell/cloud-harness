@@ -1,5 +1,5 @@
 import collections
-
+import flask_server as server # Backwards compatibility
 
 def dict_merge(dct, merge_dct, add_keys=True, merge_none=True):
     """ Recursive dict merge. Inspired by :meth:``dict.update()``, instead of
@@ -37,3 +37,6 @@ def dict_merge(dct, merge_dct, add_keys=True, merge_none=True):
             dct[k] = merge_dct[k]
 
     return dct
+
+
+__all__ = ["dict_merge", "server"]
