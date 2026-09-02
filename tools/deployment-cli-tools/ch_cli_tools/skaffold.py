@@ -107,7 +107,7 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
             builds[app_name] = context_path
             base_images.add(clean_image_name(app_name))
 
-            additional_build_args = get_additional_build_args(helm_values, app_key) | get_image_source(helm_values)
+            additional_build_args = get_additional_build_args(helm_values, app_key) | get_source_images(helm_values)
 
             artifacts[app_name] = build_artifact(
                 app_name,
@@ -336,5 +336,5 @@ def get_additional_build_args(helm_values: HarnessMainConfig, app_key: str) -> d
         return {}
 
 
-def get_image_source(helm_values: HarnessMainConfig) -> dict[str, str]:
+def get_source_images(helm_values: HarnessMainConfig) -> dict[str, str]:
     return helm_values.get("source_images", {})
