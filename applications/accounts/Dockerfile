@@ -1,4 +1,5 @@
-FROM quay.io/keycloak/keycloak:26.5
+ARG KEYCLOAK=quay.io/keycloak/keycloak:26.5
+FROM $KEYCLOAK
 
 EXPOSE 9000
 EXPOSE 8080

@@ -1,4 +1,5 @@
-FROM sentry:9.1.2
+ARG SENTRY=sentry:9.1.2
+FROM $SENTRY
 
 ADD sentryrunner.sh ./sentryrunner.sh
 RUN chmod +x ./sentryrunner.sh

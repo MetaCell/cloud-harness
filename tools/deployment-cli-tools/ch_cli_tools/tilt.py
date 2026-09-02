@@ -8,7 +8,7 @@ from cloudharness_utils.constants import APPS_PATH, BASE_IMAGES_PATH, \
     STATIC_IMAGES_PATH
 from .helm import KEY_TASK_IMAGES
 from .utils import find_dockerfiles_paths, app_name_from_path, get_image_name, \
-    guess_build_dependencies_from_dockerfile
+    guess_build_dependencies_from_dockerfile, get_image_source
 
 from . import HERE, CH_ROOT
 
@@ -72,6 +72,8 @@ def create_tilt_configuration(root_paths, helm_values: HarnessMainConfig, manage
         if requirements:
             for req in requirements:
                 build_args.update({req.replace('-', '_').upper(): get_image_tag(req)})
+
+        build_args.update(get_image_source(helm_values))
 
         image_name = get_image_tag(app_key)
 

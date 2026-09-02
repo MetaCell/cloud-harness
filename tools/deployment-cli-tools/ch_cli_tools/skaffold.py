@@ -10,7 +10,8 @@ from cloudharness_utils.constants import APPS_PATH, DEPLOYMENT_CONFIGURATION_PAT
     BASE_IMAGES_PATH, STATIC_IMAGES_PATH, HELM_ENGINE, COMPOSE_ENGINE
 from .helm import KEY_APPS, KEY_HARNESS, KEY_DEPLOYMENT, KEY_TASK_IMAGES
 from .utils import get_template, dict_merge, find_dockerfiles_paths, app_name_from_path, yaml, \
-    find_file_paths, guess_build_dependencies_from_dockerfile, get_json_template, clean_image_name
+    find_file_paths, guess_build_dependencies_from_dockerfile, get_json_template, clean_image_name, \
+    get_image_source
 
 from . import HERE
 
@@ -59,9 +60,9 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
     def build_artifact(
         app_name: str,
         context_path: str,
-        requirements: list[str] = None,
+        requirements: list[str] | None = None,
         dockerfile_path: str = '',
-        additional_build_args: dict[str, str] = None,
+        additional_build_args: dict[str, str] | None = None,
     ) -> dict:
         build_args = {
             'DEBUG': 'true' if helm_values.local or helm_values.debug else ''
@@ -107,12 +108,14 @@ def create_skaffold_configuration(root_paths, helm_values: HarnessMainConfig, ou
             builds[app_name] = context_path
             base_images.add(clean_image_name(app_name))
 
+            additional_build_args = get_additional_build_args(helm_values, app_key) | get_source_images(helm_values)
+
             artifacts[app_name] = build_artifact(
                 app_name,
                 context_path,
                 dockerfile_path=relpath(dockerfile_path, output_path),
                 requirements=requirements or guess_build_dependencies_from_dockerfile(dockerfile_path),
-                additional_build_args=get_additional_build_args(helm_values, app_key),
+                additional_build_args=additional_build_args,
             )
 
             if app_key in helm_values.apps and helm_values.apps[app_key].harness.dependencies and helm_values.apps[app_key].harness.dependencies.git:
@@ -328,10 +331,11 @@ def create_vscode_debug_configuration(root_paths, helm_values):
 
 
 def get_additional_build_args(helm_values: HarnessMainConfig, app_key: str) -> dict[str, str]:
-    if app_key not in helm_values.apps:
-        return None
+    try:
+        return helm_values.apps[app_key].harness.dockerfile.build_args
+    except (KeyError, AttributeError):
+        return {}
 
-    if not (helm_values.apps[app_key].harness.dockerfile and helm_values.apps[app_key].harness.dockerfile.build_args):
-        return None
 
-    return helm_values.apps[app_key].harness.dockerfile.build_args
+def get_source_images(helm_values: HarnessMainConfig) -> dict[str, str]:
+    return helm_values.get("source_images", {})

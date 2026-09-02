@@ -17,6 +17,7 @@ import shutil
 import logging
 import fileinput
 import pathspec
+from pathlib import Path
 
 from cloudharness_utils.constants import NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
     APPS_PATH, EXCLUDE_PATHS
@@ -33,7 +34,7 @@ REPLACE_TEXT_FILES_EXTENSIONS = (
 SKIP_DIRS = ('node_modules',)
 
 
-def image_name_from_dockerfile_path(dockerfile_path, base_name=None):
+def image_name_from_dockerfile_path(dockerfile_path, base_name=None) -> str:
     return get_image_name(app_name_from_path(dockerfile_path), base_name)
 
 
@@ -64,12 +65,12 @@ def find_subdirs(base_path):
     return tuple()
 
 
-def find_dockerfiles_paths(base_directory):
+def find_dockerfiles_paths(base_directory: str) -> tuple[str, ...]:
     all_dockerfiles = find_file_paths(base_directory, 'Dockerfile')
 
     # We want to remove all dockerfiles that are not in a git repository
     # This will exclude the cloned dependencies and other repos cloned for convenience
-    dockerfiles_without_git = []
+    dockerfiles_without_git: list[str] = []
 
     for dockerfile in all_dockerfiles:
         directory = dockerfile
@@ -555,6 +556,42 @@ def guess_build_dependencies_from_dockerfile(filename):
             else:
                 break
     return dependencies
+
+
+@cache
+def get_dockerfile_baseimg_args(filename: str) -> dict[str, str]:
+    """Gets the ARGS from a Dockerfile image (if ARGS is used directly in the FROM of the Dockerfile)"""
+    file = Path(filename)
+    if file.is_dir() and file.name != "Dockerfile":
+        file /= "Dockerfile"
+    if not file.exists():
+        return {}
+    content = file.read_text()
+    found_args = {}
+    args: dict[str, str] = {}
+    for line in content.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        cmd, *rest = line.split()
+        arg = rest[0] if len(rest) > 0 else ""
+        match cmd:
+            case "ARG" if "=" in rest[0]:
+                key, val = arg.split("=")
+                found_args[key] = val
+            case "FROM" if arg[1:] in found_args:  # $NAME case
+                key = arg[1:]
+                args[key] = found_args[key]
+            case "FROM" if arg[2:-1] in found_args:  # ${NAME} case
+                key = arg[2:-1]
+                args[key] = found_args[key]
+            case _:
+                continue
+    return args
+
+
+def get_image_source(helm_values) -> dict[str, str]:
+    return helm_values.get("source_images", {})
 
 
 def check_response_200(endpoint_url, headers=None):

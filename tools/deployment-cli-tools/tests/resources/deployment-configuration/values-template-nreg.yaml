@@ -1,0 +1,13 @@
+mainapp: myapp
+domain: myapp.local
+name: testprojectname
+a: b
+database:
+  auto: true
+
+source_images:
+  KEYCLOAK: "myregistry.myapp:15.3"
+
+events:
+  kafka:
+    image: nodocker.io/apache/kafka:4.0.2

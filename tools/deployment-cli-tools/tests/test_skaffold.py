@@ -1,8 +1,8 @@
-import shutil
 import os
+import shutil
 
-from ch_cli_tools.preprocessing import preprocess_build_overrides
 from ch_cli_tools.helm import *
+from ch_cli_tools.preprocessing import preprocess_build_overrides
 from ch_cli_tools.skaffold import *
 
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -363,3 +363,77 @@ def test_skaffold_builds_cross_app_task_image(tmp_path):
 
     shutil.rmtree(tmp_path)
     shutil.rmtree(BUILD_DIR)
+
+
+def test_skaffold_imgarg_retrieval(tmp_path):
+    out_folder = tmp_path / "test_skaffold_imgarg_retrieval"
+
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=out_folder,
+        include=["samples", "myapp"],
+        domain="my.local",
+        namespace="test",
+        env="nreg",
+        local=False,
+        tag=1,
+        registry="reg",
+    )
+
+    assert values.get("events").kafka.image == "nodocker.io/apache/kafka:4.0.2"
+
+    # Ensure in the test that the Helm is well formed
+    source_images = values.get("source_images")
+    assert len(source_images) == 2
+    assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
+    assert source_images["NODE"] == "node:22-alpine"
+    assert get_source_images(values) == {
+        "KEYCLOAK": "myregistry.myapp:15.3",
+        "NODE": "node:22-alpine",
+    }
+
+
+def test_skaffold_imgarg(tmp_path):
+    out_folder = tmp_path / "test_skaffold_imgarg"
+
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=out_folder,
+        include=["samples", "myapp"],
+        domain="my.local",
+        namespace="test",
+        env="nreg",
+        local=False,
+        tag=1,
+        registry="reg",
+    )
+
+    assert values.get("events").kafka.image == "nodocker.io/apache/kafka:4.0.2"
+
+    BUILD_DIR = "/tmp/build"
+    root_paths = preprocess_build_overrides(
+        root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+        helm_values=values,
+        merge_build_path=BUILD_DIR,
+    )
+
+    sk = create_skaffold_configuration(
+        root_paths=root_paths, helm_values=values, output_path=out_folder
+    )
+
+    # Look in sk
+    sk.get("build").get("artifacts")
+
+    def get_buildargs(name) -> dict[str, str]:
+        f = [e["docker"]["buildArgs"] for e in sk["build"]["artifacts"] if f"applications/{name}" in e["context"]]
+        if len(f) > 0:
+            return f[0]
+        return {}
+
+    samples_buildargs = get_buildargs("samples")
+    assert samples_buildargs["KEYCLOAK"] == "myregistry.myapp:15.3"
+    assert samples_buildargs["NODE"] == "node:22-alpine"
+
+    myapp_buildargs = get_buildargs("myapp")
+    assert myapp_buildargs["KEYCLOAK"] == "myregistry.myapp:15.3"
+    assert myapp_buildargs["NODE"] == "node:22-alpine"

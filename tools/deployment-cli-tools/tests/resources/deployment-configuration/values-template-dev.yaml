@@ -1,3 +1,6 @@
 a: dev
 database:
   auto: false
+
+source_images:
+  KEYCLOAK: "myregistry.mykeycloak:99.9"

@@ -1,5 +1,7 @@
 # compile provisioner
-FROM golang:1.26 AS provisioner
+ARG GOLANG=golang:1.26
+ARG ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+FROM $GOLANG AS provisioner
 
 WORKDIR /usr/src/app
 COPY nfs-subdir-external-provisioner ./
@@ -17,10 +19,9 @@ RUN go mod tidy && go build -o /usr/local/bin/nfsvol .
 # Upstream continuation of the old k8s.gcr.io/volume-nfs:0.8 image, maintained
 # by the Kubernetes project at test/images/volume/nfs. CentOS Stream 9 base
 # with nfs-utils already installed; we only need to add e2fsprogs for mkfs.ext4.
-FROM rockylinux/rockylinux:10.2-minimal
+FROM $ROCKYLINUX
 
-RUN microdnf update -y \
-  && microdnf install -y \
+RUN microdnf install -y \
   e2fsprogs \
   rpcbind \
   nfs-utils \

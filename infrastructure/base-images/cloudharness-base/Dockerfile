@@ -1,5 +1,5 @@
-ARG PARENT=python:3.12-slim-trixie
-FROM ${PARENT}
+ARG PYTHON=python:3.12-slim-trixie
+FROM $PYTHON
 
 RUN apt update && apt install -y --no-install-recommends \
     gcc \

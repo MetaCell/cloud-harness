@@ -1,6 +1,7 @@
 """
 Utilities to create a helm chart from a CloudHarness directory structure
 """
+from pathlib import Path
 from typing import Union
 import yaml
 from ruamel.yaml import YAML
@@ -257,8 +258,9 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
         create_env_variables(values)
         return values, self.include
 
-    def create_app_values_spec(self, app_name, app_path, base_image_name=None, helm_values={}):
-        logging.info('Generating values script for ' + app_name)
+    def create_app_values_spec(self, app_name: str, app_path: Path, base_image_name: str | None = None, helm_values: dict | None = None):
+        logging.info(f'Generating values script for {app_name}')
+        helm_values = helm_values or {}
 
         deploy_path = app_path / 'deploy'
         specific_template_path = deploy_path / 'values.yaml'
@@ -315,7 +317,7 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
         if build_dependencies:
             for build_dependency in values[KEY_HARNESS]['dependencies']['build']:
                 if build_dependency in self.base_images:
-                    values[KEY_TASK_IMAGES][build_dependency] = self.base_images[build_dependency]
+                    values[KEY_TASK_IMAGES][build_dependency] = self.base_images[build_dependency][0]
 
         for task_path in task_images_paths:
             task_name = app_name_from_path(os.path.relpath(
@@ -415,7 +417,7 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
         if build_dependencies:
             for build_dependency in values[KEY_HARNESS]['dependencies']['build']:
                 if build_dependency in self.base_images:
-                    values[KEY_TASK_IMAGES][build_dependency] = self.base_images[build_dependency]
+                    values[KEY_TASK_IMAGES][build_dependency] = self.base_images[build_dependency][0]
 
         for task_path in task_images_paths:
             task_name = app_name_from_path(os.path.relpath(
