@@ -387,7 +387,7 @@ def test_skaffold_imgarg_retrieval(tmp_path):
     assert len(source_images) == 2
     assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
     assert source_images["NODE"] == "node:22-alpine"
-    assert get_image_source(values) == {
+    assert get_source_images(values) == {
         "KEYCLOAK": "myregistry.myapp:15.3",
         "NODE": "node:22-alpine",
     }
