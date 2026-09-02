@@ -14,7 +14,7 @@ from cloudharness_utils.constants import *
 from .configurationgenerator import KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES
 from .secrets import is_cloudharness_managed, is_secret_config, secret_value
 from .utils import check_image_exists_in_registry, find_dockerfiles_paths, get_app_relative_to_base_path, guess_build_dependencies_from_dockerfile, \
-    get_template, dict_merge, app_name_from_path, clean_path, strip_registry_tag
+    get_template, dict_merge, app_name_from_path, clean_path, strip_registry_tag, get_image_source
 from cloudharness_utils.testing.api import get_api_filename, get_schemathesis_command, get_urls_from_api_file
 
 logging.getLogger().setLevel(logging.INFO)
@@ -263,6 +263,16 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                         helm_values.apps[values_key].harness.dependencies.build)
                 except (KeyError, AttributeError):
                     add_arg_dependencies(helm_values['task-images'])
+
+            source_images = get_image_source(helm_values)
+            if source_images:
+                existing_arg_keys = {arg.split('=', 1)[0]: i for i, arg in enumerate(build['build_arguments'])}
+                for key, value in source_images.items():
+                    arg = f"{key}={value}"
+                    if key in existing_arg_keys:
+                        build['build_arguments'][existing_arg_keys[key]] = arg
+                    else:
+                        build['build_arguments'].append(arg)
 
             when_condition = existing_build_when_condition(tag)
             build["when"] = when_condition

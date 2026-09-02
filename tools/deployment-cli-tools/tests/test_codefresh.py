@@ -1082,3 +1082,62 @@ def test_codefresh_secret_managers_from_parsed_values():
     assert is_secret_config(definitions['rich_secret'])
     assert not is_secret_config(definitions['plain_secret'])
     assert secret_value(definitions['static_random']) == ''
+
+
+def test_codefresh_source_images_build_args():
+    """source_images entries (global base-image overrides) must be injected as build
+    arguments for every build step, matching the behaviour of skaffold and Tilt."""
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['samples', 'myapp'],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+
+    source_images = values.get("source_images")
+    assert source_images["KEYCLOAK"] == "myregistry.mykeycloak:99.9"
+    assert source_images["NODE"] == "node:22-alpine"
+
+    # CLOUDHARNESS_FLASK is also a build dependency of samples and myapp: a source_images
+    # override for it must win over the dependency-derived build argument, not be shadowed by it.
+    values["source_images"] = dict(source_images) | {"CLOUDHARNESS_FLASK": "myoverride/cloudharness-flask:9.9"}
+
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+        build_included = [app['harness']['name']
+                          for app in values['apps'].values() if 'harness' in app]
+
+        cf = create_codefresh_deployment_scripts(root_paths, include=build_included,
+                                                 envs=["dev"],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+
+        def get_build_step(name):
+            for step_name, step in cf['steps'].items():
+                if step_name.startswith(CD_BUILD_STEP_PARALLEL) and name in step.get('steps', {}):
+                    return step['steps'][name]
+            return None
+
+        samples_build = get_build_step('samples')
+        assert samples_build is not None, "samples build step not found"
+        assert "KEYCLOAK=myregistry.mykeycloak:99.9" in samples_build['build_arguments']
+        assert "NODE=node:22-alpine" in samples_build['build_arguments']
+        assert "CLOUDHARNESS_FLASK=myoverride/cloudharness-flask:9.9" in samples_build['build_arguments']
+
+        myapp_build = get_build_step('myapp')
+        assert myapp_build is not None, "myapp build step not found"
+        assert "KEYCLOAK=myregistry.mykeycloak:99.9" in myapp_build['build_arguments']
+        assert "NODE=node:22-alpine" in myapp_build['build_arguments']
+        assert "CLOUDHARNESS_FLASK=myoverride/cloudharness-flask:9.9" in myapp_build['build_arguments']
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR, ignore_errors=True)

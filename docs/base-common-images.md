@@ -81,7 +81,7 @@ Here is an example of a declared mapping to change the base image for Python bas
 
 ```yaml
 # value-template.yaml
-image_sources:
+source_images:
   NODE: "mybaseimg:14.5"
   PYTHON: "myotherimage:15.1"
 ```
