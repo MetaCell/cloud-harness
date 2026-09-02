@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from cloudharness.utils.server import init_flask, main
+from cloudharness.utils.flask_server import init_flask, main
 
 app = init_flask()
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 
-import { TestApi } from '../rest/apis/TestApi'
+import { TestApi } from '../rest/samples/apis/TestApi'
 const test = new TestApi();
 
 

@@ -292,6 +292,31 @@ paths:
       tags:
       - auth
       x-openapi-router-controller: samples.controllers.auth_controller
+  /write-file:
+    post:
+      description: "Writes a timestamped file on the application volume and returns\
+        \ the name of the pod that handled the request. On a statefulset deployment,\
+        \ route this endpoint to the leader service to have all writes land on pod\
+        \ 0."
+      operationId: write_file
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/write_file_request'
+        description: Optional content of the file to write.
+        required: false
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/write_file_200_response'
+          description: The file was written on the application volume
+      summary: writes a file on the application volume
+      tags:
+      - test
+      x-openapi-router-controller: samples.controllers.test_controller
 components:
   schemas:
     inline_response_202_task:
@@ -342,6 +367,31 @@ components:
       required:
       - a
       title: SampleResource
+      type: object
+    write_file_request:
+      nullable: true
+      properties:
+        content:
+          title: content
+          type: string
+      title: write_file_request
+      type: object
+    write_file_200_response:
+      example:
+        path: path
+        hostname: hostname
+        filename: filename
+      properties:
+        filename:
+          title: filename
+          type: string
+        path:
+          title: path
+          type: string
+        hostname:
+          title: hostname
+          type: string
+      title: write_file_200_response
       type: object
   securitySchemes:
     bearerAuth:

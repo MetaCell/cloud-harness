@@ -60,7 +60,6 @@ export class WorkflowsApi extends runtime.BaseAPI {
 
     /**
      * Send a synchronous operation
-     * @deprecated
      */
     async submitSyncRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<object>> {
         const queryParameters: any = {};
@@ -79,7 +78,6 @@ export class WorkflowsApi extends runtime.BaseAPI {
 
     /**
      * Send a synchronous operation
-     * @deprecated
      */
     async submitSync(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<object> {
         const response = await this.submitSyncRaw(initOverrides);
@@ -88,7 +86,6 @@ export class WorkflowsApi extends runtime.BaseAPI {
 
     /**
      * Send a synchronous operation and get results using the event queue. Just a sum, but in the cloud
-     * @deprecated
      */
     async submitSyncWithResultsRaw(requestParameters: SubmitSyncWithResultsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<string>> {
         if (requestParameters['a'] == null) {
@@ -133,7 +130,6 @@ export class WorkflowsApi extends runtime.BaseAPI {
 
     /**
      * Send a synchronous operation and get results using the event queue. Just a sum, but in the cloud
-     * @deprecated
      */
     async submitSyncWithResults(requestParameters: SubmitSyncWithResultsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<string> {
         const response = await this.submitSyncWithResultsRaw(requestParameters, initOverrides);

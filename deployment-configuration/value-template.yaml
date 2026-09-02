@@ -36,8 +36,21 @@ harness:
     name:
     # -- Deployment port.
     port: 8080
-    # -- volume specification
+    # -- volume specification. `mountpath` is what defines a volume: without it these values are
+    # dropped and the deployment has no volume.
+    # `writeMany: true` creates and mounts the volume as ReadWriteMany: the volume attaches to several
+    # nodes at once, hence pods using it are not pinned to the volume's node. It requires a storage
+    # class supporting ReadWriteMany, set through `storageClass`.
     volume:
+      # -- Storage class of the volume claim. Set to null to use the cluster default storage class.
+      storageClass: standard
+      # example:
+      #   name: my-volume
+      #   mountpath: /usr/src/app/myvolume
+      #   auto: true
+      #   size: 5Gi
+      #   writeMany: true
+      #   storageClass: efs-sc
     # -- When true, the deployment is rendered as a StatefulSet instead of a Deployment. Recommended for deployments with a (non-nfs) volume: updates terminate the old pod before creating the new one. The volume is provisioned per replica through volumeClaimTemplates; data of a pre-existing PVC named after the volume is copied into each statefulset volume by a migration job (delete the legacy PVC once migrated).
     statefulset: false
     # -- Deployment resources.
@@ -93,6 +106,11 @@ harness:
     # -- supported db types: mongo, postgres, neo4j
     type:
     size: 1Gi
+    # -- Storage class of the database volume claim. Left null, the claim carries no storage class and
+    # the cluster default one is used, which is what pre-existing database volumes were created with:
+    # the storage class is immutable on an existing claim, so setting it on a live database requires
+    # deleting and recreating the claim.
+    storageClass:
     # -- database username
     user: mnp
     # -- database password

@@ -14,6 +14,20 @@
 
 
 import * as runtime from '../runtime';
+import type {
+  WriteFile200Response,
+  WriteFileRequest,
+} from '../models/index';
+import {
+    WriteFile200ResponseFromJSON,
+    WriteFile200ResponseToJSON,
+    WriteFileRequestFromJSON,
+    WriteFileRequestToJSON,
+} from '../models/index';
+
+export interface WriteFileOperationRequest {
+    writeFileRequest?: WriteFileRequest;
+}
 
 /**
  * 
@@ -22,7 +36,6 @@ export class TestApi extends runtime.BaseAPI {
 
     /**
      * test sentry is working
-     * @deprecated
      */
     async errorRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<string>> {
         const queryParameters: any = {};
@@ -45,7 +58,6 @@ export class TestApi extends runtime.BaseAPI {
 
     /**
      * test sentry is working
-     * @deprecated
      */
     async error(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<string> {
         const response = await this.errorRaw(initOverrides);
@@ -79,6 +91,37 @@ export class TestApi extends runtime.BaseAPI {
      */
     async ping(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<number> {
         const response = await this.pingRaw(initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Writes a timestamped file on the application volume and returns the name of the pod that handled the request. On a statefulset deployment, route this endpoint to the leader service to have all writes land on pod 0.
+     * writes a file on the application volume
+     */
+    async writeFileRaw(requestParameters: WriteFileOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<WriteFile200Response>> {
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        const response = await this.request({
+            path: `/write-file`,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: WriteFileRequestToJSON(requestParameters['writeFileRequest']),
+        }, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => WriteFile200ResponseFromJSON(jsonValue));
+    }
+
+    /**
+     * Writes a timestamped file on the application volume and returns the name of the pod that handled the request. On a statefulset deployment, route this endpoint to the leader service to have all writes land on pod 0.
+     * writes a file on the application volume
+     */
+    async writeFile(requestParameters: WriteFileOperationRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<WriteFile200Response> {
+        const response = await this.writeFileRaw(requestParameters, initOverrides);
         return await response.value();
     }
 
