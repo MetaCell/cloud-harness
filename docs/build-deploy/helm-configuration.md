@@ -1,6 +1,6 @@
 
 ## Override Helm values
-Edit `./deployment-configuration/values-template.yaml` to override any helm chart values file. Refer to the default [Helm values file](tools/cloudharness_utilities/deployment-configuration/helm/values.yaml) for documentation about each value. 
+Edit `./deployment-configuration/values-template.yaml` to override any helm chart values file. Refer to the default [Helm values file](../../deployment-configuration/helm/values.yaml) for documentation about each value. 
 
 For environment specific configurations edit `deployment-configuration/values-template-[ENV].yaml`.
 
@@ -9,7 +9,18 @@ For environment specific configurations edit `deployment-configuration/values-te
 ## Override base/common images
 
 Base images are built from the infrastructure/base-images sub folders.
-See the dedicated [base images](./docs/applications.md) document for more details and examples.
+See the dedicated [base and common images](../base-common-images.md) document for more details and examples.
+
+## Override the images the chart pulls
+
+Every run of `harness-deployment` writes `deployment/helm/values-overrides.yaml` alongside the
+generated `values.yaml`, listing every image the chart pulls at the exact path Helm reads it from:
+the `source_images` build arguments, the vendored sub-chart images keyed by sub-chart name, and the
+images each application declares inline. It is applied after `values.yaml` by all the deployment
+flows, so editing an entry there changes the deployed image.
+
+Use it to find the path of an image and to try a replacement out, then make the change permanent as
+described in [image sources](../image-sources.md#make-an-override-permanent).
 
 ## Single application deployment configuration
 
