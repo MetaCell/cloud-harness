@@ -1,5 +1,6 @@
 import os
 import re
+from itertools import chain
 from os.path import join, relpath, exists, dirname, basename, abspath
 from cloudharness_model.models.git_dependency_config import GitDependencyConfig
 
@@ -507,8 +508,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
     cmds = codefresh['steps']['prepare_deployment']['commands']
 
-    params = [p for inc in include for p in ["-i", inc]] +\
-        [p for ex in exclude for p in ["-i", ex]]
+    params = [f"-i {inc}" for inc in include] + [f"-ex {ex}" for ex in exclude]
 
     for i in range(len(cmds)):
         cmds[i] = cmds[i].replace("$ENV", "-".join(envs))
