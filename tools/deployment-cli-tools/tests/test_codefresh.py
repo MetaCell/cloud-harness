@@ -179,12 +179,60 @@ def test_create_codefresh_configuration_multienv():
         assert cf['test_step'] == 'test'
         assert cf['test'] == True
         assert cf['dev'] == True
-        for cmd in cf['steps']['prepare_deployment']['commands']:
+        assert len(build_included) > 0
+
+        commands = cf['steps']['prepare_deployment']['commands']
+        assert any("harness-deployment" in cmd for cmd in commands)
+        for cmd in commands:
             if 'harness-deployment' in cmd:
                 assert '-e dev-test' in cmd
                 assert "test-${{NAMESPACE_BASENAME}}" in cmd
-                assert "-i samples" in cmd
+                for inc in build_included:
+                    assert f"-i {inc}" in cmd
 
+    finally:
+        shutil.rmtree(BUILD_MERGE_DIR)
+
+
+def test_create_codefresh_configuration_exclude_params_use_ex_flag():
+    """Excluded apps must be re-emitted as -ex in the generated prepare_deployment command.
+
+    Regression: both include and exclude used to be flattened to "-i" pairs, so an app passed
+    via -ex on the original CLI invocation would come back as -i in the CI-generated command,
+    turning it into a (mistaken) whitelist entry instead of being excluded.
+    """
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=OUT,
+        include=['samples', 'myapp', "workflows"],
+        exclude=['events'],
+        domain="my.local",
+        namespace='test',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+    try:
+        root_paths = preprocess_build_overrides(
+            root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+            helm_values=values,
+            merge_build_path=BUILD_MERGE_DIR
+        )
+
+        cf = create_codefresh_deployment_scripts(root_paths, include=['samples'],
+                                                 exclude=['myapp'],
+                                                 envs=['dev'],
+                                                 base_image_name=values['name'],
+                                                 helm_values=values, save=False)
+
+        commands = cf['steps']['prepare_deployment']['commands']
+        assert any("harness-deployment" in cmd for cmd in commands)
+        for cmd in commands:
+            if 'harness-deployment' in cmd:
+                assert "-i samples" in cmd
+                assert "-ex myapp" in cmd
+                assert "-i myapp" not in cmd
     finally:
         shutil.rmtree(BUILD_MERGE_DIR)
 
