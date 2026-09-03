@@ -15,6 +15,7 @@ from ch_cli_tools.preprocessing import (
     generate_hash_based_image_tags,
     preprocess_build_overrides,
 )
+from ch_cli_tools.utils import find_chart_images, ChartImageRef
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')
@@ -25,9 +26,9 @@ def exists(path):
     return path.exists()
 
 
-def render_helm_chart(chart_path):
+def render_helm_chart(chart_path, values_files=()):
     completed = subprocess.run(
-        ["helm", "template", str(chart_path)],
+        ["helm", "template", str(chart_path), *(arg for f in values_files for arg in ("-f", str(f)))],
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -1426,3 +1427,130 @@ def test_collect_helm_values_source_images_merge_no_include(tmp_path):
     source_images = values.get("source_images")
     assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
     assert "NODE" in source_images
+
+
+def test_values_overrides_helm_native_structure(tmp_path):
+    out_path = tmp_path / 'test_values_overrides_helm_native_structure'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, include=['chartimgapp'],
+                               domain="my.local", namespace='test', env='dev', local=False, tag=1, registry='reg')
+
+    helm_path = out_path / HELM_CHART_PATH
+    overrides = yaml.safe_load(open(helm_path / VALUES_OVERRIDES_PATH))
+
+    # Build-argument base images are listed too, as aggregated at the root
+    assert overrides["source_images"] == values["source_images"]
+
+    # The vendored sub-chart's images are keyed by its Chart.yaml name (how Helm passes parent
+    # values to a sub-chart), not by the app/dir name; the empty tag resolves to the appVersion
+    assert overrides["vendored-thing"]["image"] == {"registry": "docker.io", "repository": "someorg/somerepo", "tag": "2.0.0"}
+    assert "chartimgapp" not in overrides
+
+    # Inline images declared in the app's own values keep their path under apps.<app>
+    assert overrides[KEY_APPS]["chartimgapp"]["worker"]["image"] == "docker.io/baz/qux:9"
+    assert overrides[KEY_APPS]["chartimgapp"]["sidecar"]["image"] == {"name": "quay.io/foo/bar", "tag": "1.2.3"}
+    # The CloudHarness-built image (root image / harness.deployment.image) is not a runtime override
+    assert "image" not in overrides[KEY_APPS]["chartimgapp"]
+    assert KEY_HARNESS not in overrides[KEY_APPS]["chartimgapp"]
+
+    # No inert aggregated listing in values.yaml
+    assert "chart_images" not in values
+
+    # Rendering the chart with the overrides file selects exactly the listed image
+    manifests = render_helm_chart(helm_path, values_files=[helm_path / VALUES_OVERRIDES_PATH])
+    assert find_manifest(manifests, "ConfigMap", "vendored-thing-image")["data"]["image"] == "docker.io/someorg/somerepo:2.0.0"
+
+
+def test_values_overrides_edit_overrides_subchart_image(tmp_path):
+    out_path = tmp_path / 'test_values_overrides_edit'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, include=['chartimgapp'],
+                      domain="my.local", namespace='test', env='dev', local=False, tag=1, registry='reg')
+    helm_path = out_path / HELM_CHART_PATH
+    overrides_path = helm_path / VALUES_OVERRIDES_PATH
+
+    # Editing the generated file is enough to change the deployed image: Helm applies it after values.yaml
+    overrides = yaml.safe_load(open(overrides_path))
+    overrides["vendored-thing"]["image"] = {"registry": "myregistry.io", "repository": "other/repo", "tag": "7"}
+    with open(overrides_path, "w") as f:
+        yaml.safe_dump(overrides, f)
+
+    manifests = render_helm_chart(helm_path, values_files=[overrides_path])
+    assert find_manifest(manifests, "ConfigMap", "vendored-thing-image")["data"]["image"] == "myregistry.io/other/repo:7"
+
+
+def test_values_overrides_from_values_template(tmp_path):
+    out_path = tmp_path / 'test_values_overrides_from_values_template'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, include=['chartimgapp'],
+                               domain="my.local", namespace='test', env='chartimages', local=False, tag=1, registry='reg')
+    helm_path = out_path / HELM_CHART_PATH
+
+    # values-template-chartimages.yaml overrides only the tag: the overrides file shows the merged result
+    overrides = yaml.safe_load(open(helm_path / VALUES_OVERRIDES_PATH))
+    assert overrides["vendored-thing"]["image"] == {"registry": "docker.io", "repository": "someorg/somerepo", "tag": "9.9.9"}
+
+    # ...and, being Helm-native, the override in values.yaml alone already reaches the sub-chart
+    assert values["vendored-thing"]["image"]["tag"] == "9.9.9"
+    manifests = render_helm_chart(helm_path)
+    assert find_manifest(manifests, "ConfigMap", "vendored-thing-image")["data"]["image"] == "docker.io/someorg/somerepo:9.9.9"
+
+
+def test_values_overrides_no_include_lists_vendored_charts(tmp_path):
+    out_path = tmp_path / 'test_values_overrides_no_include'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, domain="my.local",
+                      namespace='test', env='dev', local=False, tag=1)
+    overrides = yaml.safe_load(open(out_path / HELM_CHART_PATH / VALUES_OVERRIDES_PATH))
+
+    assert overrides["vendored-thing"]["image"]["repository"] == "someorg/somerepo"
+    # Real vendored sub-charts, keyed by their Chart.yaml names
+    assert overrides["argo-workflows"]["controller"]["image"]["repository"] == "argoproj/workflow-controller"
+    assert overrides["argo-workflows"]["controller"]["image"]["tag"]  # resolved from the sub-chart appVersion
+    assert overrides["kafka-ui"]["image"]["repository"] == "provectuslabs/kafka-ui"
+    # Inline images of real applications
+    assert overrides[KEY_APPS]["events"]["kafka"]["image"].startswith("docker.io/apache/kafka")
+    assert overrides[KEY_APPS]["jupyterhub"]["hub"]["image"]["name"] == "quay.io/jupyterhub/k8s-hub"
+
+
+def test_find_chart_images_shapes():
+    refs = {ref.path: ref.value for ref in find_chart_images({
+        'flat': {'image': 'docker.io/x/y:1'},
+        'flat_with_tag': {'image': 'docker.elastic.co/es/es', 'imageTag': '8.17.0', 'imagePullPolicy': 'IfNotPresent'},
+        'registry_shape': {'image': {'registry': 'quay.io', 'repository': 'a/b', 'tag': '2', 'pullPolicy': 'Always'}},
+        'name_shape': {'image': {'name': 'quay.io/a/b', 'tag': '3', 'pullPolicy': 'Always'}},
+    })}
+    assert refs == {
+        ('flat', 'image'): 'docker.io/x/y:1',
+        ('flat_with_tag', 'image'): 'docker.elastic.co/es/es',
+        ('flat_with_tag', 'imageTag'): '8.17.0',
+        ('registry_shape', 'image'): {'registry': 'quay.io', 'repository': 'a/b', 'tag': '2'},
+        ('name_shape', 'image'): {'name': 'quay.io/a/b', 'tag': '3'},
+    }
+
+
+def test_find_chart_images_excludes_pull_policy_traps():
+    # Plural "images" key (argo's shape) must never match
+    assert find_chart_images({'images': {'pullPolicy': 'Always', 'pullSecrets': []}}) == []
+    # Singular "image" with neither "repository" nor "name" must never match
+    assert find_chart_images({'component': {'image': {'pullPolicy': 'Always', 'pullSecrets': []}}}) == []
+    assert find_chart_images({'imagePullSecrets': [{'name': 'x'}], 'imagePullSecret': {'registry': 'r'}}) == []
+
+
+def test_find_chart_images_excludes_harness_subtree_and_root_build_image():
+    node = {
+        'harness': {'deployment': {'image': 'should-be-ignored:1'}, 'nested': {'image': 'also-ignored:1'}},
+        'image': 'the-built-image:1',
+        'worker': {'image': 'a-real-runtime-image:1'},
+    }
+    assert find_chart_images(node, skip_root_image=True) == [
+        ChartImageRef(path=('worker', 'image'), value='a-real-runtime-image:1'),
+    ]
+    # Without skip_root_image (a vendored sub-chart's own values.yaml) the root "image" is legitimate
+    assert ChartImageRef(path=('image',), value='the-built-image:1') in find_chart_images(node)
+
+
+def test_find_chart_images_resolves_empty_tag_from_app_version():
+    assert find_chart_images({'image': {'repository': 'a/b', 'tag': ''}}, app_version='9.9.9') == [
+        ChartImageRef(path=('image',), value={'repository': 'a/b', 'tag': '9.9.9'}),
+    ]
+    # Without an appVersion the tag is simply left out rather than emitted empty
+    assert find_chart_images({'image': {'repository': 'a/b', 'tag': ''}}) == [
+        ChartImageRef(path=('image',), value={'repository': 'a/b'}),
+    ]

@@ -506,6 +506,9 @@ def test_codefresh_db_connect_string_secret():
                                                  envs=['dev'],
                                                  base_image_name=values['name'],
                                                  helm_values=values, save=False)
+        # The generated image overrides are applied after values.yaml so editing them wins
+        assert cf['steps']['deployment']['arguments']['custom_value_files'] == [
+            './deployment/helm/values.yaml', './deployment/helm/values-overrides.yaml']
         custom_values = cf['steps']['deployment']['arguments']['custom_values']
         expected = "apps_myapp_harness_database_connect__string=\"${{MYAPP_DB_CONNECT_STRING}}\""
         assert expected in custom_values, \

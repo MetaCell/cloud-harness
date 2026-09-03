@@ -13,8 +13,9 @@ def deploy(name, namespace, extra_env, watch):
         name=name,
         # The namespace to install in, equivalent to helm --namespace
         namespace=namespace,
-        # The values file to substitute into the chart.
-        values=["deployment/helm/values.yaml"],
+        # The values files to substitute into the chart. values-overrides.yaml carries every
+        # image the chart pulls in Helm-native structure and is applied last, so editing it wins.
+        values=["deployment/helm/values.yaml", "deployment/helm/values-overrides.yaml"],
         # Values to set from the command-line
         set=["service.port=1234", "ingress.enabled=true"]
         )

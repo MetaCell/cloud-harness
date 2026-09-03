@@ -39,6 +39,8 @@ def test_create_skaffold_configuration(tmp_path):
         output_path=tmp_path
     )
     assert os.path.exists(os.path.join(tmp_path, 'skaffold.yaml'))
+    # The generated image overrides are applied on top of the chart's own values.yaml
+    assert sk['deploy']['helm']['releases'][0]['valuesFiles'] == ['deployment/helm/values-overrides.yaml']
     exp_apps = ('accounts', 'samples', 'workflows', 'myapp', 'common')
     assert len(sk['build']['artifacts']) == len(
         exp_apps) + len(values[KEY_TASK_IMAGES])

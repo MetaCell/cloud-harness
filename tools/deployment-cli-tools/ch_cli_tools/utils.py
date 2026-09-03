@@ -4,6 +4,7 @@ import pathlib
 import socket
 import glob
 import subprocess
+from dataclasses import dataclass
 from typing import Any, Union
 import requests
 import os
@@ -592,6 +593,86 @@ def get_dockerfile_baseimg_args(filename: str) -> dict[str, str]:
 
 def get_image_source(helm_values) -> dict[str, str]:
     return helm_values.get("source_images", {})
+
+
+@dataclass(frozen=True)
+class ChartImageRef:
+    """A runtime (non-built) image reference discovered inside a values dict.
+
+    `path` locates the node inside the scanned dict; `value` is what a values file must
+    hold there to select the image: the flat string, or a dict of only the identifying
+    fields (registry/repository/name/tag), with an empty tag resolved to the chart appVersion.
+    """
+    path: tuple
+    value: Union[str, dict]
+
+
+def nested_get(doc: dict, path: tuple):
+    for segment in path:
+        if not isinstance(doc, dict) or segment not in doc:
+            return None
+        doc = doc[segment]
+    return doc
+
+
+def nested_set(doc: dict, path: tuple, value) -> dict:
+    node = doc
+    for segment in path[:-1]:
+        node = node.setdefault(segment, {})
+    node[path[-1]] = value
+    return doc
+
+
+def find_chart_images(node: dict, *, skip_root_image: bool = False,
+                       skip_subtrees: frozenset = frozenset({'harness'}),
+                       app_version: Union[str, None] = None,
+                       _path: tuple = ()) -> list:
+    """Heuristically finds runtime (non-built) image references in a values dict.
+
+    Matches only an exact key named "image" - never by substring, which would also catch
+    imagePullSecrets/pullPolicy - holding one of these shapes:
+      - a flat string:                      image: "docker.io/x/y:1"
+        (a sibling `imageTag` key, as in the elasticsearch chart, is reported as well)
+      - a {repository, registry?, tag?} dict (registry is optional)
+      - a {name, tag?} dict
+
+    A dict under "image" matching neither shape (e.g. {pullPolicy, pullSecrets}) is not
+    recorded and not recursed into - its sub-keys are never image references.
+
+    `skip_root_image` drops a match at the document root (path == ("image",)). Set it when
+    scanning a CloudHarness app's own values, where the root "image" is the CLI-built image.
+
+    `skip_subtrees` names keys never recursed into, at any depth - "harness" by default,
+    where CloudHarness's own build image (harness.deployment.image) lives.
+
+    `app_version` resolves an empty/missing "tag": vendored charts ship tag: "" and rely on
+    Helm's `tag | default .Chart.AppVersion`, so pass the sub-chart appVersion for the
+    reported value to state what is actually deployed.
+    """
+    found = []
+    for key, value in node.items():
+        path = _path + (key,)
+        if key in skip_subtrees:
+            continue
+        if key == 'image':
+            if skip_root_image and path == ('image',):
+                continue
+            if isinstance(value, str) and value:
+                found.append(ChartImageRef(path=path, value=value))
+                if 'imageTag' in node:
+                    found.append(ChartImageRef(path=_path + ('imageTag',), value=node['imageTag']))
+            elif isinstance(value, dict):
+                identity = {k: value[k] for k in ('registry', 'repository', 'name') if k in value}
+                if 'repository' in identity or 'name' in identity:
+                    tag = value.get('tag') or app_version
+                    if tag:
+                        identity['tag'] = tag
+                    found.append(ChartImageRef(path=path, value=identity))
+            continue
+        if isinstance(value, dict):
+            found.extend(find_chart_images(value, skip_root_image=skip_root_image, skip_subtrees=skip_subtrees,
+                                            app_version=app_version, _path=path))
+    return found
 
 
 def check_response_200(endpoint_url, headers=None):
