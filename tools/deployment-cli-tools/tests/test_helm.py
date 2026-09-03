@@ -1448,9 +1448,11 @@ def test_values_overrides_helm_native_structure(tmp_path):
     # Inline images declared in the app's own values keep their path under apps.<app>
     assert overrides[KEY_APPS]["chartimgapp"]["worker"]["image"] == "docker.io/baz/qux:9"
     assert overrides[KEY_APPS]["chartimgapp"]["sidecar"]["image"] == {"name": "quay.io/foo/bar", "tag": "1.2.3"}
-    # The CloudHarness-built image (root image / harness.deployment.image) is not a runtime override
+    # The CloudHarness-built image (root image / harness.deployment.image) is not an image source
     assert "image" not in overrides[KEY_APPS]["chartimgapp"]
-    assert KEY_HARNESS not in overrides[KEY_APPS]["chartimgapp"]
+    assert "image" not in overrides[KEY_APPS]["chartimgapp"][KEY_HARNESS].get(KEY_DEPLOYMENT, {})
+    # ...but the images the application pulls under harness are, e.g. its gatekeeper
+    assert overrides[KEY_APPS]["chartimgapp"][KEY_HARNESS]["proxy"]["gatekeeper"]["image"].startswith("quay.io/gogatekeeper")
 
     # No inert aggregated listing in values.yaml
     assert "chart_images" not in values
@@ -1508,6 +1510,34 @@ def test_values_overrides_no_include_lists_vendored_charts(tmp_path):
     assert overrides[KEY_APPS]["events"]["kafka"]["image"].startswith("docker.io/apache/kafka")
     assert overrides[KEY_APPS]["jupyterhub"]["hub"]["image"]["name"] == "quay.io/jupyterhub/k8s-hub"
 
+    # Database images, which live under the application's harness configuration
+    assert overrides[KEY_APPS]["accounts"][KEY_HARNESS]["database"]["postgres"]["image"] == "postgres:17"
+    assert overrides[KEY_APPS]["neo4j"][KEY_HARNESS]["database"]["neo4j"]["image"] == "neo4j:5"
+    # The gatekeeper image, per application and at the root it falls back to
+    assert overrides[KEY_APPS]["samples"][KEY_HARNESS]["proxy"]["gatekeeper"]["image"].startswith("quay.io/gogatekeeper")
+    assert overrides["proxy"]["gatekeeper"]["image"].startswith("quay.io/gogatekeeper")
+    # Images the generated resources themselves run
+    assert overrides["backup"]["image"] == "prodrigestivill/postgres-backup-local"
+    assert overrides["volumeMigration"]["image"].startswith("alpine/k8s")
+    assert overrides["volumeMigration"]["wait"]["image"].startswith("busybox")
+
+    # The images CloudHarness builds are not image sources and must not be listed
+    for app_name, app in overrides[KEY_APPS].items():
+        assert "image" not in app, f"built image of {app_name} leaked into the overrides"
+        assert "image" not in app.get(KEY_HARNESS, {}).get(KEY_DEPLOYMENT, {}), app_name
+
+
+def test_values_overrides_includes_prebuilt_deployment_image(tmp_path):
+    out_path = tmp_path / 'test_values_overrides_prebuilt'
+    values = create_helm_chart([RESOURCES], output_path=out_path, include=['myapp'], exclude=['events'],
+                               domain="my.local", namespace='test', env='nobuild', local=False, tag=1)
+
+    # An application declaring a prebuilt image is not built, so that image IS an overridable
+    # source, unlike the image CloudHarness would have built for it
+    assert values[KEY_APPS]['myapp']['build'] is False
+    overrides = yaml.safe_load(open(out_path / HELM_CHART_PATH / VALUES_OVERRIDES_PATH))
+    assert overrides[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DEPLOYMENT]['image'] == 'custom-image'
+
 
 def test_find_chart_images_shapes():
     refs = {ref.path: ref.value for ref in find_chart_images({
@@ -1533,16 +1563,25 @@ def test_find_chart_images_excludes_pull_policy_traps():
     assert find_chart_images({'imagePullSecrets': [{'name': 'x'}], 'imagePullSecret': {'registry': 'r'}}) == []
 
 
-def test_find_chart_images_excludes_harness_subtree_and_root_build_image():
+def test_find_chart_images_prunes_skip_paths():
     node = {
-        'harness': {'deployment': {'image': 'should-be-ignored:1'}, 'nested': {'image': 'also-ignored:1'}},
+        'harness': {
+            'deployment': {'image': 'the-built-image:1'},
+            'database': {'postgres': {'image': 'postgres:17'}},
+            'proxy': {'gatekeeper': {'image': 'quay.io/gogatekeeper/gatekeeper:4.6.0'}},
+        },
         'image': 'the-built-image:1',
         'worker': {'image': 'a-real-runtime-image:1'},
     }
-    assert find_chart_images(node, skip_root_image=True) == [
+    # A built application: only its own image is not an overridable source, while the images it
+    # merely pulls under harness (database, gatekeeper) are
+    skip = frozenset({('image',), ('harness', 'deployment', 'image')})
+    assert sorted(find_chart_images(node, skip_paths=skip), key=lambda r: r.path) == [
+        ChartImageRef(path=('harness', 'database', 'postgres', 'image'), value='postgres:17'),
+        ChartImageRef(path=('harness', 'proxy', 'gatekeeper', 'image'), value='quay.io/gogatekeeper/gatekeeper:4.6.0'),
         ChartImageRef(path=('worker', 'image'), value='a-real-runtime-image:1'),
     ]
-    # Without skip_root_image (a vendored sub-chart's own values.yaml) the root "image" is legitimate
+    # Pruning nothing: a prebuilt application (build: false), or a sub-chart's own values.yaml
     assert ChartImageRef(path=('image',), value='the-built-image:1') in find_chart_images(node)
 
 

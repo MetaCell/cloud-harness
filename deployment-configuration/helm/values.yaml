@@ -110,6 +110,8 @@ secretmanagers: {}
   #   # -- How often the value is refreshed from AWS.
   #   refreshInterval: 1h
 backup:
+  # -- Image running the database backup cronjob. Not built by CloudHarness.
+  image: prodrigestivill/postgres-backup-local
   # -- Flag to enable/disable backups.
   active: false
   # -- Number of days to keep backups.
@@ -137,6 +139,14 @@ backup:
       memory: "64Mi"
       # -- K8s cpu resource definition.
       cpu: "50m"
+# -- Images used by the generated volume migration resources. Not built by CloudHarness.
+volumeMigration:
+  # -- Image of the job copying a legacy volume into its replacement.
+  image: alpine/k8s:1.34.9
+  wait:
+    # -- Image of the init container holding pods until the migration job has completed.
+    image: busybox:1.36
+
 proxy:
   # -- Set to false to hide remote client headers. Will hide the client IPs in all logs
   forwardedHeaders: true

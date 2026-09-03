@@ -623,11 +623,10 @@ def nested_set(doc: dict, path: tuple, value) -> dict:
     return doc
 
 
-def find_chart_images(node: dict, *, skip_root_image: bool = False,
-                       skip_subtrees: frozenset = frozenset({'harness'}),
+def find_chart_images(node: dict, *, skip_paths: frozenset = frozenset(),
                        app_version: Union[str, None] = None,
                        _path: tuple = ()) -> list:
-    """Heuristically finds runtime (non-built) image references in a values dict.
+    """Heuristically finds references to images that CloudHarness does not build itself.
 
     Matches only an exact key named "image" - never by substring, which would also catch
     imagePullSecrets/pullPolicy - holding one of these shapes:
@@ -639,11 +638,10 @@ def find_chart_images(node: dict, *, skip_root_image: bool = False,
     A dict under "image" matching neither shape (e.g. {pullPolicy, pullSecrets}) is not
     recorded and not recursed into - its sub-keys are never image references.
 
-    `skip_root_image` drops a match at the document root (path == ("image",)). Set it when
-    scanning a CloudHarness app's own values, where the root "image" is the CLI-built image.
-
-    `skip_subtrees` names keys never recursed into, at any depth - "harness" by default,
-    where CloudHarness's own build image (harness.deployment.image) lives.
+    `skip_paths` holds paths (as tuples, relative to the scanned dict) that are neither
+    recorded nor recursed into. Callers use it to prune the images CloudHarness builds
+    itself, which are not overridable image sources: an application's own `image` and
+    `harness.deployment.image`, and the `apps` subtree when it is scanned separately.
 
     `app_version` resolves an empty/missing "tag": vendored charts ship tag: "" and rely on
     Helm's `tag | default .Chart.AppVersion`, so pass the sub-chart appVersion for the
@@ -652,11 +650,9 @@ def find_chart_images(node: dict, *, skip_root_image: bool = False,
     found = []
     for key, value in node.items():
         path = _path + (key,)
-        if key in skip_subtrees:
+        if path in skip_paths:
             continue
         if key == 'image':
-            if skip_root_image and path == ('image',):
-                continue
             if isinstance(value, str) and value:
                 found.append(ChartImageRef(path=path, value=value))
                 if 'imageTag' in node:
@@ -670,7 +666,7 @@ def find_chart_images(node: dict, *, skip_root_image: bool = False,
                     found.append(ChartImageRef(path=path, value=identity))
             continue
         if isinstance(value, dict):
-            found.extend(find_chart_images(value, skip_root_image=skip_root_image, skip_subtrees=skip_subtrees,
+            found.extend(find_chart_images(value, skip_paths=skip_paths,
                                             app_version=app_version, _path=path))
     return found
 
