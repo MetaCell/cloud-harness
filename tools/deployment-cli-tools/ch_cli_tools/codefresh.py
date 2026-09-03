@@ -1,6 +1,5 @@
 import os
 import re
-from itertools import chain
 from os.path import join, relpath, exists, dirname, basename, abspath
 from cloudharness_model.models.git_dependency_config import GitDependencyConfig
 
