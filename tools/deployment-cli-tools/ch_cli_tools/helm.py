@@ -12,7 +12,7 @@ import subprocess
 from cloudharness_utils.constants import VALUES_MANUAL_PATH, VALUES_OVERRIDES_PATH, HELM_CHART_PATH
 from .utils import get_cluster_ip, get_dockerfile_baseimg_args, get_git_commit_hash, get_image_name, image_name_from_dockerfile_path, \
     get_template, merge_to_yaml_file, dict_merge, app_name_from_path, \
-    find_dockerfiles_paths, find_chart_images, nested_get, nested_set, load_yaml, save_yaml
+    find_dockerfiles_paths, write_values_overrides
 
 from .models import HarnessMainConfig
 
@@ -27,11 +27,8 @@ def deploy(namespace, output_path='./deployment'):
     logging.info('Deploying helm chart %s', helm_path)
     subprocess.run("helm dependency update".split(), cwd=helm_path)
 
-    command = f"helm upgrade {namespace} {helm_path} -n {namespace} --install --reset-values".split()
-    values_overrides_path = os.path.join(helm_path, VALUES_OVERRIDES_PATH)
-    if os.path.exists(values_overrides_path):
-        command += ["-f", values_overrides_path]
-    subprocess.run(command)
+    subprocess.run(
+        f"helm upgrade {namespace} {helm_path} -n {namespace} --install --reset-values".split())
 
 
 def create_helm_chart(root_paths, tag: Union[str, int, None] = 'latest', registry='', local=True, domain=None, exclude=(), secured=True,
@@ -151,7 +148,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
                                         dest_helm_chart_path=self.dest_deployment_path, envs=self.env)
 
         # Collect every image the chart pulls into values-overrides.yaml, in Helm-native structure
-        self._write_values_overrides(helm_values)
+        write_values_overrides(helm_values, self.dest_deployment_path)
 
         # Save values file for manual helm chart
         merged_values = merge_to_yaml_file(helm_values, os.path.join(
@@ -189,59 +186,6 @@ class CloudHarnessHelm(ConfigurationGenerator):
                 continue
 
         helm_values["source_images"] = all_source_images | dict(helm_values.get("source_images", {}))
-
-    def _write_values_overrides(self, helm_values):
-        """Writes values-overrides.yaml next to values.yaml: every image the chart pulls but does
-        not build, in the structure Helm consumes, so the file can be edited and applied as an
-        additional values file.
-
-        - source_images: the Dockerfile base images (build arguments) aggregated at the root
-        - <sub-chart name>: the images of each vendored sub-chart copied under charts/<app>, keyed
-          by the sub-chart's own Chart.yaml name - the key Helm uses to pass parent values down.
-          Empty tags are resolved from the sub-chart appVersion so the file states what is deployed.
-        - apps.<app>: the images an application pulls, both the ones declared inline in its own
-          values (e.g. jupyterhub) and the ones under its harness configuration (database,
-          gatekeeper, extra containers)
-        - the remaining root paths: images the generated resources themselves run, such as the
-          database backup and the volume migration containers
-
-        The images CloudHarness builds are left out, not being an overridable image source: an
-        application's own `image` and `harness.deployment.image` are pruned, unless the application
-        declares a prebuilt image instead of being built (`build: false`).
-
-        Values already set at those paths (e.g. from values-template-<env>.yaml) win over the
-        vendored defaults, so the file always reflects the effective configuration.
-        """
-        overrides = {}
-        if helm_values.get("source_images"):
-            overrides["source_images"] = dict(helm_values["source_images"])
-
-        # Images the generated resources run, declared at the root of the chart values
-        for ref in find_chart_images(helm_values, skip_paths=frozenset({(KEY_APPS,)})):
-            nested_set(overrides, ref.path, ref.value)
-
-        for app_name, app_values in helm_values[KEY_APPS].items():
-            # A built application owns its image; everything else it merely pulls
-            built = app_values.get('build', False)
-            skip_paths = frozenset({('image',), (KEY_HARNESS, KEY_DEPLOYMENT, 'image')}) if built else frozenset()
-            for ref in find_chart_images(app_values, skip_paths=skip_paths):
-                nested_set(overrides, (KEY_APPS, app_name) + ref.path, ref.value)
-
-            chart_dir = self.dest_deployment_path / 'charts' / app_name
-            chart_values_path = chart_dir / 'values.yaml'
-            if not chart_values_path.exists():
-                continue
-            chart_meta_path = chart_dir / 'Chart.yaml'
-            chart_meta = (load_yaml(chart_meta_path) if chart_meta_path.exists() else None) or {}
-            chart_name = chart_meta.get('name') or app_name
-            for ref in find_chart_images(load_yaml(chart_values_path) or {}, app_version=chart_meta.get('appVersion')):
-                value = ref.value
-                existing = nested_get(helm_values, (chart_name,) + ref.path)
-                if existing is not None:
-                    value = dict_merge(value, existing) if isinstance(value, dict) and isinstance(existing, dict) else existing
-                nested_set(overrides, (chart_name,) + ref.path, value)
-
-        save_yaml(self.dest_deployment_path / VALUES_OVERRIDES_PATH, overrides)
 
     def _aggregate_task_images(self, values):
         """Aggregate task images from included apps after finalization."""

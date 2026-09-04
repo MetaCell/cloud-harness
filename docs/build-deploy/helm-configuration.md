@@ -16,11 +16,12 @@ See the dedicated [base and common images](../base-common-images.md) document fo
 Every run of `harness-deployment` writes `deployment/helm/values-overrides.yaml` alongside the
 generated `values.yaml`, listing every image the chart pulls at the exact path Helm reads it from:
 the `source_images` build arguments, the vendored sub-chart images keyed by sub-chart name, and the
-images each application declares inline. It is applied after `values.yaml` by all the deployment
-flows, so editing an entry there changes the deployed image.
+images each application declares inline or pulls through its harness configuration.
 
-Use it to find the path of an image and to try a replacement out, then make the change permanent as
-described in [image sources](../image-sources.md#make-an-override-permanent).
+The file is a reference and is not applied by any deployment flow. Use it to find the path of an
+image, try a replacement out by passing it explicitly (`helm ... -f
+./deployment/helm/values-overrides.yaml`), then make the change permanent as described in
+[image sources](../image-sources.md#make-an-override-permanent).
 
 ## Single application deployment configuration
 

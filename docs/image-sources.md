@@ -83,9 +83,9 @@ apps:                               # images declared inline by an application
       image: {name: quay.io/jupyterhub/k8s-hub, tag: '3.2.1'}
 ```
 
-This file is a real Helm values file, applied after `values.yaml` by every deployment flow
-(`harness-deployment` + `helm upgrade`, Skaffold, Tilt and the Codefresh pipeline). Editing an entry
-is enough to change the image that gets deployed:
+The file is a reference, not part of any deployment: no pipeline applies it, since it is regenerated
+on every run and would only ever restate the values already in effect. It is a real Helm values
+file though, so you can pass it explicitly to try an image out:
 
 ```bash
 harness-deployment cloudharness . -i events -i argo
@@ -101,9 +101,13 @@ redirect: an application's own `image` and `harness.deployment.image`. An applic
 a prebuilt image instead of being built (`build: false`) does not build anything, so its
 `harness.deployment.image` is listed like any other pulled image.
 
-Expect the same image to appear at several paths, the gatekeeper in particular, which every
-application configures separately. Each listed path is one that genuinely takes effect, which is
-what makes the file usable for repointing a deployment wholesale, for instance with `yq`.
+Every listed path is one that genuinely takes effect: a value shadowed by something of higher
+precedence is not reported, so editing any entry in the file changes what gets deployed. An
+application declaring `harness.database.image_ref`, for instance, runs the task image built under
+that reference, so its `harness.database.<type>.image` is left out rather than shown as an override
+that would do nothing. This is what makes the file usable for repointing a deployment wholesale,
+for instance with `yq`. An image shared by many applications, such as the gatekeeper, is listed
+once rather than repeated on each of them.
 
 ## Make an override permanent
 
@@ -186,26 +190,29 @@ same way, or for every application at once through `value-template.yaml`:
 
 | Image | Image path |
 | --- | --- |
-| gatekeeper | `apps.<app>.harness.proxy.gatekeeper.image` |
 | MongoDB | `apps.<app>.harness.database.mongo.image` |
 | Neo4J | `apps.<app>.harness.database.neo4j.image` |
 | Postgres | `apps.<app>.harness.database.postgres.image` |
+| Database built by CloudHarness | not an image source: see `harness.database.image_ref` |
 | extra containers | `apps.<app>.harness.deployment.extraContainers.<name>.image` |
 | prebuilt application image (`build: false` only) | `apps.<app>.harness.deployment.image` |
-
-The gatekeeper image is configured per application, falling back to a root
-`proxy.gatekeeper.image`. Every CloudHarness application ships with the per-application default
-set, so in practice the per-application path is the one that takes effect and setting only the root
-value changes nothing.
 
 Images the generated resources run themselves, overridden at the root of `values-template.yaml`:
 
 | Image | Image path |
 | --- | --- |
+| Gatekeeper | `source_images.GATEKEEPER` |
 | Database backup cronjob | `backup.image` |
 | Volume migration job | `volumeMigration.image` |
 | Volume migration wait init container | `volumeMigration.wait.image` |
-| gatekeeper fallback | `proxy.gatekeeper.image` |
+
+A gatekeeper is generated for every secured application, so its image is configured once, at
+`source_images.GATEKEEPER`, instead of being repeated on each application. A single application can
+still opt out through `apps.<app>.harness.proxy.gatekeeper.image`, which is unset by default and so
+does not show up in `values-overrides.yaml` until you set it.
+
+> The root `proxy.gatekeeper.image` used to override the gatekeeper of every application. It is no
+> longer read: set `source_images.GATEKEEPER` instead. `harness-deployment` warns if it is still set.
 
 The JupyterHub hub image is a special case: JupyterHub's own template renders the hub pod from the
 image CloudHarness builds for the application, so `apps.jupyterhub.hub.image` is listed and can be

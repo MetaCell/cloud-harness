@@ -181,7 +181,7 @@ spec:
 {{ include "deploy_utils.etcHosts" .root | indent 6 }}
       containers:
       - name: {{ .app.harness.service.name | quote }}
-        image: {{ .app.harness.proxy.gatekeeper.image | default .root.Values.proxy.gatekeeper.image | default "quay.io/gogatekeeper/gatekeeper:4.6.0" }}
+        image: {{ .app.harness.proxy.gatekeeper.image | default .root.Values.source_images.GATEKEEPER | default "quay.io/gogatekeeper/gatekeeper:4.6.0" }}
         imagePullPolicy: IfNotPresent
         {{ if .root.Values.local }}
         securityContext:

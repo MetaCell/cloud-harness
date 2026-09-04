@@ -473,11 +473,6 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
     if deployment_step:
         arguments = deployment_step.get("arguments")
         if arguments:
-            # Apply the generated image overrides after values.yaml so editing them wins
-            values_overrides_file = f"./{DEPLOYMENT_PATH}/{HELM_CHART_PATH}/{VALUES_OVERRIDES_PATH}"
-            value_files = arguments.setdefault("custom_value_files", [])
-            if values_overrides_file not in value_files:
-                value_files.append(values_overrides_file)
             if "custom_values" not in arguments:
                 arguments["custom_values"] = []
             for app_name, app in helm_values.apps.items():

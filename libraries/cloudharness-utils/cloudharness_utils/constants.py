@@ -28,9 +28,10 @@ CF_TEMPLATE_PATH = f'{DEPLOYMENT_CONFIGURATION_PATH}/codefresh-template.yaml'
 CF_TEMPLATE_PUBLISH_PATH = f'{DEPLOYMENT_CONFIGURATION_PATH}/codefresh-publish-template.yaml'
 
 VALUES_MANUAL_PATH = 'values.yaml'
-# Generated next to values.yaml: every image the chart pulls (source_images for builds,
-# vendored sub-chart images keyed by sub-chart name, inline app images under apps.*), in the
-# structure Helm consumes, so it can be edited and passed as an additional values file.
+# Generated next to values.yaml as a reference: every image the chart pulls (source_images for
+# builds, vendored sub-chart images keyed by sub-chart name, application images under apps.*), in
+# the structure Helm consumes. No pipeline applies it; it is passed to helm explicitly when trying
+# an image out.
 VALUES_OVERRIDES_PATH = 'values-overrides.yaml'
 VALUE_TEMPLATE_PATH = f'{DEPLOYMENT_CONFIGURATION_PATH}/value-template.yaml'
 

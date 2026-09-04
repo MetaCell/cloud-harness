@@ -26,9 +26,11 @@ def exists(path):
     return path.exists()
 
 
-def render_helm_chart(chart_path, values_files=()):
+def render_helm_chart(chart_path, values_files=(), set_values=()):
     completed = subprocess.run(
-        ["helm", "template", str(chart_path), *(arg for f in values_files for arg in ("-f", str(f)))],
+        ["helm", "template", str(chart_path),
+         *(arg for f in values_files for arg in ("-f", str(f))),
+         *(arg for v in set_values for arg in ("--set", v))],
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -203,6 +205,8 @@ def test_collect_helm_values_noreg_noinclude(tmp_path):
         "mybase": "foo:bar",
         "mybase2": "spam:egg",
         "NODE": "node:22-alpine",
+        # Declared by CloudHarness itself: the gatekeeper is configured in one place
+        "GATEKEEPER": "quay.io/gogatekeeper/gatekeeper:4.6.0",
     }
 
 
@@ -1450,9 +1454,11 @@ def test_values_overrides_helm_native_structure(tmp_path):
     assert overrides[KEY_APPS]["chartimgapp"]["sidecar"]["image"] == {"name": "quay.io/foo/bar", "tag": "1.2.3"}
     # The CloudHarness-built image (root image / harness.deployment.image) is not an image source
     assert "image" not in overrides[KEY_APPS]["chartimgapp"]
-    assert "image" not in overrides[KEY_APPS]["chartimgapp"][KEY_HARNESS].get(KEY_DEPLOYMENT, {})
-    # ...but the images the application pulls under harness are, e.g. its gatekeeper
-    assert overrides[KEY_APPS]["chartimgapp"][KEY_HARNESS]["proxy"]["gatekeeper"]["image"].startswith("quay.io/gogatekeeper")
+    assert "image" not in overrides[KEY_APPS]["chartimgapp"].get(KEY_HARNESS, {}).get(KEY_DEPLOYMENT, {})
+    # The gatekeeper image is configured once at source_images.GATEKEEPER, so it is not repeated
+    # under every application
+    assert overrides["source_images"]["GATEKEEPER"].startswith("quay.io/gogatekeeper")
+    assert "proxy" not in overrides[KEY_APPS]["chartimgapp"].get(KEY_HARNESS, {})
 
     # No inert aggregated listing in values.yaml
     assert "chart_images" not in values
@@ -1497,8 +1503,8 @@ def test_values_overrides_from_values_template(tmp_path):
 
 def test_values_overrides_no_include_lists_vendored_charts(tmp_path):
     out_path = tmp_path / 'test_values_overrides_no_include'
-    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, domain="my.local",
-                      namespace='test', env='dev', local=False, tag=1)
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, domain="my.local",
+                               namespace='test', env='dev', local=False, tag=1)
     overrides = yaml.safe_load(open(out_path / HELM_CHART_PATH / VALUES_OVERRIDES_PATH))
 
     assert overrides["vendored-thing"]["image"]["repository"] == "someorg/somerepo"
@@ -1513,9 +1519,18 @@ def test_values_overrides_no_include_lists_vendored_charts(tmp_path):
     # Database images, which live under the application's harness configuration
     assert overrides[KEY_APPS]["accounts"][KEY_HARNESS]["database"]["postgres"]["image"] == "postgres:17"
     assert overrides[KEY_APPS]["neo4j"][KEY_HARNESS]["database"]["neo4j"]["image"] == "neo4j:5"
-    # The gatekeeper image, per application and at the root it falls back to
-    assert overrides[KEY_APPS]["samples"][KEY_HARNESS]["proxy"]["gatekeeper"]["image"].startswith("quay.io/gogatekeeper")
-    assert overrides["proxy"]["gatekeeper"]["image"].startswith("quay.io/gogatekeeper")
+    # The gatekeeper image is configured once at source_images.GATEKEEPER, so it is listed there
+    # and not repeated on the applications that rely on it, nor at the root proxy configuration
+    assert overrides["source_images"]["GATEKEEPER"].startswith("quay.io/gogatekeeper")
+    assert "gatekeeper" not in overrides.get("proxy", {})
+    # An application only appears here when it explicitly overrides its own gatekeeper, in which
+    # case that value is the effective one; the rest carry nothing
+    repeated = {app_name for app_name, app in overrides[KEY_APPS].items()
+                if "gatekeeper" in app.get(KEY_HARNESS, {}).get("proxy", {})}
+    explicit = {app_name for app_name, app in values[KEY_APPS].items()
+                if (((app.get(KEY_HARNESS) or {}).get("proxy") or {}).get("gatekeeper") or {}).get("image")}
+    assert repeated == explicit, f"gatekeeper image reported for {repeated - explicit}"
+    assert len(repeated) < len(overrides[KEY_APPS]), "gatekeeper image repeated on every application"
     # Images the generated resources themselves run
     assert overrides["backup"]["image"] == "prodrigestivill/postgres-backup-local"
     assert overrides["volumeMigration"]["image"].startswith("alpine/k8s")
@@ -1525,6 +1540,94 @@ def test_values_overrides_no_include_lists_vendored_charts(tmp_path):
     for app_name, app in overrides[KEY_APPS].items():
         assert "image" not in app, f"built image of {app_name} leaked into the overrides"
         assert "image" not in app.get(KEY_HARNESS, {}).get(KEY_DEPLOYMENT, {}), app_name
+
+
+def test_gatekeeper_image_comes_from_source_images(tmp_path):
+    out_path = tmp_path / 'test_gatekeeper_source_images'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, include=['samples', 'argo'],
+                      domain="my.local", namespace='test', env='dev', local=False, tag=1, secured=True)
+    helm_path = out_path / HELM_CHART_PATH
+
+    def gatekeeper_images(*set_values):
+        found = {}
+        for manifest in render_helm_chart(helm_path, set_values=set_values):
+            name = manifest.get("metadata", {}).get("name", "")
+            if manifest.get("kind") != "Deployment" or not name.endswith("-gk"):
+                continue
+            for container in (manifest["spec"]["template"]["spec"].get("containers") or []):
+                found[name] = container.get("image")
+        return found
+
+    # A gatekeeper without an application-specific override takes the single source_images entry
+    default_image = "quay.io/gogatekeeper/gatekeeper:4.6.0"
+    baseline = gatekeeper_images()
+    assert baseline, "no gatekeeper deployment was rendered"
+    shared = {name for name, image in baseline.items() if image == default_image}
+    assert shared, f"no gatekeeper used source_images.GATEKEEPER, got {baseline}"
+
+    # Overriding that one entry moves every gatekeeper that relies on it, and only those
+    overridden = gatekeeper_images(f"source_images.GATEKEEPER=myreg.io/gk:9.9.9")
+    assert {name for name, image in overridden.items() if image == "myreg.io/gk:9.9.9"} == shared
+    assert {name: image for name, image in overridden.items() if name not in shared} == \
+           {name: image for name, image in baseline.items() if name not in shared}
+
+    # A single application can still opt out, without affecting the others
+    opted_out = next(iter(shared))
+    per_app = gatekeeper_images("source_images.GATEKEEPER=myreg.io/gk:9.9.9",
+                                f"apps.argo.harness.proxy.gatekeeper.image=argoonly/gk:1")
+    assert per_app["argo-gk"] == "argoonly/gk:1"
+    assert all(per_app[name] == "myreg.io/gk:9.9.9" for name in shared if name != "argo-gk")
+    assert opted_out
+
+
+def test_values_overrides_omits_shadowed_gatekeeper_path(tmp_path):
+    """proxy.gatekeeper.image no longer overrides anything, so it must not be advertised."""
+    solution = tmp_path / 'solution'
+    (solution / 'deployment-configuration').mkdir(parents=True)
+    (solution / 'deployment-configuration' / 'values-template.yaml').write_text(
+        'proxy:\n  gatekeeper:\n    image: "legacyroot/gk:1"\n')
+
+    out_path = tmp_path / 'out'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, str(solution)], output_path=out_path,
+                      include=['samples'], domain="my.local", namespace='test', local=False,
+                      tag=1, secured=True)
+    helm_path = out_path / HELM_CHART_PATH
+    overrides = yaml.safe_load(open(helm_path / VALUES_OVERRIDES_PATH))
+
+    # The inert path is not reported, the one that works is
+    assert "gatekeeper" not in overrides.get("proxy", {})
+    assert overrides["source_images"]["GATEKEEPER"].startswith("quay.io/gogatekeeper")
+
+    # ...and no gatekeeper container actually uses the inert value
+    images = {manifest["metadata"]["name"]: container.get("image")
+              for manifest in render_helm_chart(helm_path)
+              if manifest.get("kind") == "Deployment" and manifest["metadata"]["name"].endswith("-gk")
+              for container in (manifest["spec"]["template"]["spec"].get("containers") or [])}
+    assert images, "no gatekeeper deployment was rendered"
+    assert "legacyroot/gk:1" not in images.values()
+
+
+def test_values_overrides_omits_database_image_shadowed_by_image_ref(tmp_path):
+    """A database built from an image_ref ignores the type's image, so it is not an override."""
+    def overrides_for(app_values, name):
+        solution = tmp_path / name
+        (solution / 'applications' / 'myapp' / 'deploy').mkdir(parents=True)
+        (solution / 'applications' / 'myapp' / 'deploy' / 'values.yaml').write_text(app_values)
+        out_path = tmp_path / f'out-{name}'
+        create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, str(solution)], output_path=out_path,
+                          include=['myapp'], exclude=['events'], domain="my.local",
+                          namespace='test', local=False, tag=1)
+        loaded = yaml.safe_load(open(out_path / HELM_CHART_PATH / VALUES_OVERRIDES_PATH))
+        return (loaded.get(KEY_APPS, {}).get('myapp', {}).get(KEY_HARNESS) or {})
+
+    database = 'harness:\n  database:\n    auto: true\n    type: postgres\n    postgres:\n      image: "postgres:17"\n'
+
+    # Without image_ref the database image is the effective one, so it is reported
+    assert overrides_for(database, 'plain')['database']['postgres']['image'] == 'postgres:17'
+
+    # With image_ref the built task image wins, so the shadowed value is not reported
+    with_ref = database.replace('    type: postgres\n', '    type: postgres\n    image_ref: myapp-mytask\n')
+    assert 'database' not in overrides_for(with_ref, 'withref')
 
 
 def test_values_overrides_includes_prebuilt_deployment_image(tmp_path):
