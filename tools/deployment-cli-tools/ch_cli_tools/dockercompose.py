@@ -3,8 +3,6 @@ Utilities to create a helm chart from a CloudHarness directory structure
 """
 from pathlib import Path
 from typing import Union
-import yaml
-from ruamel.yaml import YAML
 import os
 import logging
 import subprocess
@@ -13,7 +11,8 @@ import copy
 
 from cloudharness_utils.constants import VALUES_MANUAL_PATH, COMPOSE
 from .utils import get_cluster_ip, image_name_from_dockerfile_path, get_template, \
-    merge_to_yaml_file, dict_merge, app_name_from_path, find_dockerfiles_paths, find_file_paths
+    merge_to_yaml_file, dict_merge, app_name_from_path, find_dockerfiles_paths, find_file_paths, \
+    yaml, yaml_rt
 
 from .models import HarnessMainConfig
 
@@ -142,8 +141,7 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
             logging.warning("Something went wrong during the docker-compose.yaml generation, cannot post-process it")
             return
 
-        yaml_handler = YAML()
-        documents = yaml_handler.load_all(yaml_document)
+        documents = yaml_rt.load_all(yaml_document)
 
         main_document = None
         for document in documents:
@@ -161,7 +159,7 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
                 # so if we modify it while looping on "documents"
                 # the output will be affected (probably truncated for some outputs)
                 main_document = document  # we need to save the main document later
-        yaml_handler.dump(main_document, yaml_document)
+        yaml_rt.dump(main_document, yaml_document)
 
     def __get_default_helm_values_with_secrets(self, helm_values):
         helm_values = copy.deepcopy(helm_values)
@@ -276,7 +274,7 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
                 logging.info(
                     f"Specific environment values template found: {specific_template_path}")
                 with open(specific_template_path) as f:
-                    values_env_specific = yaml.safe_load(f)
+                    values_env_specific = yaml.load(f)
                 values = dict_merge(values, values_env_specific)
 
         if KEY_HARNESS in values and 'name' in values[KEY_HARNESS] and values[KEY_HARNESS]['name']:
@@ -362,7 +360,7 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
                 logging.info(
                     f"Specific environment values template found: {specific_template_path}")
                 with open(specific_template_path) as f:
-                    values_env_specific = yaml.safe_load(f)
+                    values_env_specific = yaml.load(f)
                 values = dict_merge(values, values_env_specific)
 
         if KEY_HARNESS in values and 'name' in values[KEY_HARNESS] and values[KEY_HARNESS]['name']:
