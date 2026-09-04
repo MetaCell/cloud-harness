@@ -1535,7 +1535,8 @@ def test_values_overrides_includes_prebuilt_deployment_image(tmp_path):
     # An application declaring a prebuilt image is not built, so that image IS an overridable
     # source, unlike the image CloudHarness would have built for it
     assert values[KEY_APPS]['myapp']['build'] is False
-    overrides = yaml.safe_load(open(out_path / HELM_CHART_PATH / VALUES_OVERRIDES_PATH))
+    with open(out_path / HELM_CHART_PATH / VALUES_OVERRIDES_PATH) as f:
+        overrides = yaml.safe_load(f)
     assert overrides[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DEPLOYMENT]['image'] == 'custom-image'
 
 
