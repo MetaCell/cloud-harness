@@ -33,7 +33,7 @@ def render_helm_chart(chart_path):
         stderr=subprocess.PIPE,
         text=True,
     )
-    return [manifest for manifest in yaml.safe_load_all(completed.stdout) if manifest]
+    return [manifest for manifest in yaml.load_all(completed.stdout) if manifest]
 
 
 def find_manifest(manifests, kind, name):
@@ -112,7 +112,7 @@ def test_collect_helm_values(tmp_path):
     # Not indicated as a build dependency
     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES]
 
-    chart_values = yaml.safe_load(open(helm_path / 'charts/myapp/values.yaml', 'r'))  # Check if the values.yaml is valid YAML
+    chart_values = yaml.load(open(helm_path / 'charts/myapp/values.yaml', 'r'))  # Check if the values.yaml is valid YAML
     assert chart_values is not None, "values.yaml should be valid YAML"
     assert chart_values["test"] == "dev"
 
@@ -404,7 +404,7 @@ def test_cnpg_postgres_parameters_render_only_when_set(tmp_path):
     shutil.rmtree(helm_path / 'charts')
     values_path = helm_path / 'values.yaml'
     with open(values_path, 'r') as values_file:
-        values = yaml.safe_load(values_file)
+        values = yaml.load(values_file)
     postgres = values['apps']['myapp']['harness']['database']['postgres']
     postgres['operator'] = True
     postgres['parameters'] = {
@@ -416,7 +416,7 @@ def test_cnpg_postgres_parameters_render_only_when_set(tmp_path):
         'track_io_timing': False,
     }
     with open(values_path, 'w') as values_file:
-        yaml.safe_dump(values, values_file)
+        yaml.dump(values, values_file)
 
     manifests = render_helm_chart(helm_path)
     db_name = values['apps']['myapp']['harness']['database']['name']
@@ -431,7 +431,7 @@ def test_cnpg_postgres_parameters_render_only_when_set(tmp_path):
 
     postgres['parameters'] = {}
     with open(values_path, 'w') as values_file:
-        yaml.safe_dump(values, values_file)
+        yaml.dump(values, values_file)
 
     manifests = render_helm_chart(helm_path)
     cluster = find_manifest(manifests, 'Cluster', db_name)
@@ -439,7 +439,7 @@ def test_cnpg_postgres_parameters_render_only_when_set(tmp_path):
 
     postgres.pop('parameters')
     with open(values_path, 'w') as values_file:
-        yaml.safe_dump(values, values_file)
+        yaml.dump(values, values_file)
 
     manifests = render_helm_chart(helm_path)
     cluster = find_manifest(manifests, 'Cluster', db_name)
@@ -456,7 +456,7 @@ def test_statefulset_option(tmp_path):
     shutil.rmtree(helm_path / 'charts')
     values_path = helm_path / 'values.yaml'
     with open(values_path, 'r') as values_file:
-        values = yaml.safe_load(values_file)
+        values = yaml.load(values_file)
 
     myapp = values['apps']['myapp']
     harness = myapp['harness']
@@ -469,7 +469,7 @@ def test_statefulset_option(tmp_path):
         'name': 'myapp-data', 'mountpath': '/data', 'size': '1Gi', 'auto': True,
     }
     with open(values_path, 'w') as values_file:
-        yaml.safe_dump(values, values_file)
+        yaml.dump(values, values_file)
 
     # Default: Deployments with the Recreate/affinity workaround and a standalone PVC
     manifests = render_helm_chart(helm_path)
@@ -489,7 +489,7 @@ def test_statefulset_option(tmp_path):
     harness['deployment']['statefulset'] = True
     harness['database']['statefulset'] = True
     with open(values_path, 'w') as values_file:
-        yaml.safe_dump(values, values_file)
+        yaml.dump(values, values_file)
 
     manifests = render_helm_chart(helm_path)
     sts = find_manifest(manifests, 'StatefulSet', dep_name)
@@ -524,7 +524,7 @@ def test_statefulset_option(tmp_path):
     # PVC by claimName and no volumeClaimTemplates are created.
     harness['deployment']['volume']['usenfs'] = True
     with open(values_path, 'w') as values_file:
-        yaml.safe_dump(values, values_file)
+        yaml.dump(values, values_file)
 
     manifests = render_helm_chart(helm_path)
     sts = find_manifest(manifests, 'StatefulSet', dep_name)
@@ -540,7 +540,7 @@ def test_statefulset_option(tmp_path):
     harness['deployment']['volume']['usenfs'] = False
     harness['deployment']['volume']['auto'] = False
     with open(values_path, 'w') as values_file:
-        yaml.safe_dump(values, values_file)
+        yaml.dump(values, values_file)
 
     manifests = render_helm_chart(helm_path)
     sts = find_manifest(manifests, 'StatefulSet', dep_name)
@@ -560,7 +560,7 @@ def test_volume_write_many(tmp_path):
     shutil.rmtree(helm_path / 'charts')
     values_path = helm_path / 'values.yaml'
     with open(values_path, 'r') as values_file:
-        values = yaml.safe_load(values_file)
+        values = yaml.load(values_file)
 
     harness = values['apps']['myapp']['harness']
     dep_name = harness['deployment']['name']
@@ -571,7 +571,7 @@ def test_volume_write_many(tmp_path):
 
     def render():
         with open(values_path, 'w') as values_file:
-            yaml.safe_dump(values, values_file)
+            yaml.dump(values, values_file)
         return render_helm_chart(helm_path)
 
     # a null storage class is omitted, so the cluster default one is used
@@ -687,7 +687,7 @@ def test_volume_usenfs_prevails(tmp_path):
     shutil.rmtree(helm_path / 'charts')
     values_path = helm_path / 'values.yaml'
     with open(values_path, 'r') as values_file:
-        values = yaml.safe_load(values_file)
+        values = yaml.load(values_file)
 
     harness = values['apps']['myapp']['harness']
     harness['deployment']['auto'] = True
@@ -697,7 +697,7 @@ def test_volume_usenfs_prevails(tmp_path):
         'usenfs': True, 'writeMany': False, 'storageClass': 'efs-sc',
     }
     with open(values_path, 'w') as values_file:
-        yaml.safe_dump(values, values_file)
+        yaml.dump(values, values_file)
 
     manifests = render_helm_chart(helm_path)
     pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
@@ -737,14 +737,14 @@ def test_database_storage_class(tmp_path):
     shutil.rmtree(helm_path / 'charts')
     values_path = helm_path / 'values.yaml'
     with open(values_path, 'r') as values_file:
-        values = yaml.safe_load(values_file)
+        values = yaml.load(values_file)
 
     database = values['apps']['myapp']['harness']['database']
     db_name = database['name']
 
     def render():
         with open(values_path, 'w') as values_file:
-            yaml.safe_dump(values, values_file)
+            yaml.dump(values, values_file)
         return render_helm_chart(helm_path)
 
     # not set by default: the claim carries no storage class, so the cluster default one is used.
@@ -788,7 +788,7 @@ def test_statefulset_leader_service(tmp_path):
     shutil.rmtree(helm_path / 'charts')
     values_path = helm_path / 'values.yaml'
     with open(values_path, 'r') as values_file:
-        values = yaml.safe_load(values_file)
+        values = yaml.load(values_file)
 
     harness = values['apps']['myapp']['harness']
     dep_name = harness['deployment']['name']
@@ -807,7 +807,7 @@ def test_statefulset_leader_service(tmp_path):
         {'uri': '/readonly', 'methods': ['GET']},
     ]
     with open(values_path, 'w') as values_file:
-        yaml.safe_dump(values, values_file)
+        yaml.dump(values, values_file)
 
     manifests = render_helm_chart(helm_path)
     assert not any(m for m in manifests
@@ -817,7 +817,7 @@ def test_statefulset_leader_service(tmp_path):
 
     harness['deployment']['statefulset'] = True
     with open(values_path, 'w') as values_file:
-        yaml.safe_dump(values, values_file)
+        yaml.dump(values, values_file)
 
     manifests = render_helm_chart(helm_path)
     rw_service = find_manifest(manifests, 'Service', rw_name)
@@ -848,7 +848,7 @@ def test_gatekeeper_native_configuration_rendering_and_checksum(tmp_path):
     shutil.rmtree(helm_path / 'charts')
     values_path = helm_path / 'values.yaml'
     with open(values_path, 'r') as values_file:
-        values = yaml.safe_load(values_file)
+        values = yaml.load(values_file)
 
     app_harness = values['apps']['myapp']['harness']
     app_harness['secured'] = True
@@ -866,12 +866,12 @@ def test_gatekeeper_native_configuration_rendering_and_checksum(tmp_path):
 
     def render_gatekeeper():
         with open(values_path, 'w') as values_file:
-            yaml.safe_dump(values, values_file)
+            yaml.dump(values, values_file)
         manifests = render_helm_chart(helm_path)
         config = find_manifest(manifests, 'ConfigMap', 'mysubdomain-gk')
         deployment = find_manifest(manifests, 'Deployment', 'mysubdomain-gk')
         return (
-            yaml.safe_load(config['data']['proxy.yml']),
+            yaml.load(config['data']['proxy.yml']),
             deployment['spec']['template']['metadata']['annotations']['checksum/config'],
         )
 
@@ -1057,7 +1057,7 @@ def test_network_policy_defaults_from_value_template(tmp_path):
     )
 
     chart_path = out_folder / HELM_CHART_PATH / 'Chart.yaml'
-    chart = yaml.safe_load(open(chart_path, 'r'))
+    chart = yaml.load(open(chart_path, 'r'))
     assert chart['name'] == 'custom-chart'
     assert chart['version'] == '9.8.7'
     assert chart['appVersion'] == '4.5.6'
@@ -1129,7 +1129,7 @@ def render_with_secrets(tmp_path, name, secrets, secretmanagers=None, app='myapp
     shutil.rmtree(helm_path / 'charts', ignore_errors=True)
     values_path = helm_path / 'values.yaml'
     with open(values_path) as values_file:
-        values = yaml.safe_load(values_file)
+        values = yaml.load(values_file)
     values['apps'][app]['harness']['secrets'] = secrets
     # the test applications are not deployed by default, but we need the deployment to
     # check how the secrets are mounted
@@ -1139,7 +1139,7 @@ def render_with_secrets(tmp_path, name, secrets, secretmanagers=None, app='myapp
     if patch:
         patch(values)
     with open(values_path, 'w') as values_file:
-        yaml.safe_dump(values, values_file)
+        yaml.dump(values, values_file)
 
     return render_helm_chart(helm_path)
 
@@ -1351,7 +1351,7 @@ def test_secrets_definitions_survive_the_values_generation(tmp_path):
     shutil.rmtree(helm_path / 'charts', ignore_errors=True)
     values_path = helm_path / 'values.yaml'
     with open(values_path) as values_file:
-        values = yaml.safe_load(values_file)
+        values = yaml.load(values_file)
     secrets = values['apps']['myapp']['harness']['secrets']
     assert 'manager' in secrets['unmanagedSecret'], "the explicitly null manager must be kept"
     assert secrets['unmanagedSecret']['manager'] is None
@@ -1363,7 +1363,7 @@ def test_secrets_definitions_survive_the_values_generation(tmp_path):
 
     values['apps']['myapp']['harness']['deployment']['auto'] = True
     with open(values_path, 'w') as values_file:
-        yaml.safe_dump(values, values_file)
+        yaml.dump(values, values_file)
 
     manifests = render_helm_chart(helm_path)
     secret = find_manifest(manifests, 'Secret', 'myapp')

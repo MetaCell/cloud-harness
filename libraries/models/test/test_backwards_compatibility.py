@@ -1,7 +1,7 @@
 
 from cloudharness_model import HarnessMainConfig, ApplicationConfig, User, ApplicationHarnessConfig, CDCEvent
 from os.path import join, dirname as dn, realpath
-import oyaml as yaml
+from ruamel.yaml import YAML
 
 HERE = dn(realpath(__file__))
 
@@ -37,7 +37,7 @@ def test_dict_behaviour():
 
 def test_usages():
     with open(join(HERE, "resources/values.yaml")) as f:
-        values = yaml.safe_load(f)
+        values = YAML(typ="safe").load(f)
         v = HarnessMainConfig.from_dict(values)
     assert v.apps["accounts"].harness.database
     assert v.apps["accounts"].client.id
