@@ -1435,7 +1435,8 @@ def test_values_overrides_helm_native_structure(tmp_path):
                                domain="my.local", namespace='test', env='dev', local=False, tag=1, registry='reg')
 
     helm_path = out_path / HELM_CHART_PATH
-    overrides = yaml.safe_load(open(helm_path / VALUES_OVERRIDES_PATH))
+    with open(helm_path / VALUES_OVERRIDES_PATH) as f:
+        overrides = yaml.safe_load(f)
 
     # Build-argument base images are listed too, as aggregated at the root
     assert overrides["source_images"] == values["source_images"]
@@ -1470,7 +1471,8 @@ def test_values_overrides_edit_overrides_subchart_image(tmp_path):
     overrides_path = helm_path / VALUES_OVERRIDES_PATH
 
     # Editing the generated file is enough to change the deployed image: Helm applies it after values.yaml
-    overrides = yaml.safe_load(open(overrides_path))
+    with open(overrides_path) as f:
+        overrides = yaml.safe_load(f)
     overrides["vendored-thing"]["image"] = {"registry": "myregistry.io", "repository": "other/repo", "tag": "7"}
     with open(overrides_path, "w") as f:
         yaml.safe_dump(overrides, f)
@@ -1486,7 +1488,8 @@ def test_values_overrides_from_values_template(tmp_path):
     helm_path = out_path / HELM_CHART_PATH
 
     # values-template-chartimages.yaml overrides only the tag: the overrides file shows the merged result
-    overrides = yaml.safe_load(open(helm_path / VALUES_OVERRIDES_PATH))
+    with open(helm_path / VALUES_OVERRIDES_PATH) as f:
+        overrides = yaml.safe_load(f)
     assert overrides["vendored-thing"]["image"] == {"registry": "docker.io", "repository": "someorg/somerepo", "tag": "9.9.9"}
 
     # ...and, being Helm-native, the override in values.yaml alone already reaches the sub-chart
@@ -1499,7 +1502,8 @@ def test_values_overrides_no_include_lists_vendored_charts(tmp_path):
     out_path = tmp_path / 'test_values_overrides_no_include'
     create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, domain="my.local",
                       namespace='test', env='dev', local=False, tag=1)
-    overrides = yaml.safe_load(open(out_path / HELM_CHART_PATH / VALUES_OVERRIDES_PATH))
+    with open(out_path / HELM_CHART_PATH / VALUES_OVERRIDES_PATH) as f:
+        overrides = yaml.safe_load(f)
 
     assert overrides["vendored-thing"]["image"]["repository"] == "someorg/somerepo"
     # Real vendored sub-charts, keyed by their Chart.yaml names
