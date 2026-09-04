@@ -28,6 +28,11 @@ CF_TEMPLATE_PATH = f'{DEPLOYMENT_CONFIGURATION_PATH}/codefresh-template.yaml'
 CF_TEMPLATE_PUBLISH_PATH = f'{DEPLOYMENT_CONFIGURATION_PATH}/codefresh-publish-template.yaml'
 
 VALUES_MANUAL_PATH = 'values.yaml'
+# Generated next to values.yaml as a reference: every image the chart pulls (source_images for
+# builds, vendored sub-chart images keyed by sub-chart name, application images under apps.*), in
+# the structure Helm consumes. No pipeline applies it; it is passed to helm explicitly when trying
+# an image out.
+VALUES_OVERRIDES_PATH = 'values-overrides.yaml'
 VALUE_TEMPLATE_PATH = f'{DEPLOYMENT_CONFIGURATION_PATH}/value-template.yaml'
 
 CH_BASE_IMAGES = {'cloudharness-base': 'python:3.9.10'}

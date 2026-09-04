@@ -27,7 +27,7 @@ spec:
           containers:
             - name: "{{ .app.harness.database.name }}-backup"
               imagePullPolicy: IfNotPresent
-              image: prodrigestivill/postgres-backup-local
+              image: {{ .root.Values.backup.image | default "prodrigestivill/postgres-backup-local" }}
               command: ["/bin/bash"]
               args: ["-c" , "./backup.sh"]
               env:

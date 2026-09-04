@@ -9,10 +9,10 @@ import logging
 from hashlib import sha1
 import subprocess
 
-from cloudharness_utils.constants import VALUES_MANUAL_PATH, HELM_CHART_PATH
+from cloudharness_utils.constants import VALUES_MANUAL_PATH, VALUES_OVERRIDES_PATH, HELM_CHART_PATH
 from .utils import get_cluster_ip, get_dockerfile_baseimg_args, get_git_commit_hash, get_image_name, image_name_from_dockerfile_path, \
     get_template, merge_to_yaml_file, dict_merge, app_name_from_path, \
-    find_dockerfiles_paths
+    find_dockerfiles_paths, write_values_overrides
 
 from .models import HarnessMainConfig
 
@@ -146,6 +146,9 @@ class CloudHarnessHelm(ConfigurationGenerator):
         for root_path in self.root_paths:
             collect_apps_helm_templates(root_path, exclude=self.exclude, include=self.include,
                                         dest_helm_chart_path=self.dest_deployment_path, envs=self.env)
+
+        # Collect every image the chart pulls into values-overrides.yaml, in Helm-native structure
+        write_values_overrides(helm_values, self.dest_deployment_path)
 
         # Save values file for manual helm chart
         merged_values = merge_to_yaml_file(helm_values, os.path.join(

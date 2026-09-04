@@ -4,6 +4,7 @@ import pathlib
 import socket
 import glob
 import subprocess
+from dataclasses import dataclass
 from typing import Any, Union
 import requests
 import os
@@ -13,6 +14,7 @@ import json
 import collections
 import re
 from ruamel.yaml import YAML
+from ruamel.yaml.comments import CommentedMap
 import shutil
 import logging
 import fileinput
@@ -20,7 +22,7 @@ import pathspec
 from pathlib import Path
 
 from cloudharness_utils.constants import NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
-    APPS_PATH, EXCLUDE_PATHS
+    APPS_PATH, EXCLUDE_PATHS, VALUES_OVERRIDES_PATH
 from . import CH_ROOT
 
 yaml = YAML(typ='safe')
@@ -594,6 +596,191 @@ def get_image_source(helm_values) -> dict[str, str]:
     return helm_values.get("source_images", {})
 
 
+@dataclass(frozen=True)
+class ChartImageRef:
+    """A runtime (non-built) image reference discovered inside a values dict.
+
+    `path` locates the node inside the scanned dict; `value` is what a values file must
+    hold there to select the image: the flat string, or a dict of only the identifying
+    fields (registry/repository/name/tag), with an empty tag resolved to the chart appVersion.
+    """
+    path: tuple
+    value: Union[str, dict]
+
+
+def nested_get(doc: dict, path: tuple):
+    for segment in path:
+        if not isinstance(doc, dict) or segment not in doc:
+            return None
+        doc = doc[segment]
+    return doc
+
+
+def nested_set(doc: dict, path: tuple, value) -> dict:
+    node = doc
+    for segment in path[:-1]:
+        node = node.setdefault(segment, {})
+    node[path[-1]] = value
+    return doc
+
+
+def find_chart_images(node: dict, *, skip_paths: frozenset = frozenset(),
+                      app_version: Union[str, None] = None,
+                      _path: tuple = ()) -> list:
+    """Heuristically finds references to images that CloudHarness does not build itself.
+
+    Matches only an exact key named "image" - never by substring, which would also catch
+    imagePullSecrets/pullPolicy - holding one of these shapes:
+      - a flat string:                      image: "docker.io/x/y:1"
+        (a sibling `imageTag` key, as in the elasticsearch chart, is reported as well)
+      - a {repository, registry?, tag?} dict (registry is optional)
+      - a {name, tag?} dict
+
+    A dict under "image" matching neither shape (e.g. {pullPolicy, pullSecrets}) is not
+    recorded and not recursed into - its sub-keys are never image references.
+
+    `skip_paths` holds paths (as tuples, relative to the scanned dict) that are neither
+    recorded nor recursed into. Callers use it to prune the images CloudHarness builds
+    itself, which are not overridable image sources: an application's own `image` and
+    `harness.deployment.image`, and the `apps` subtree when it is scanned separately.
+
+    `app_version` resolves an empty/missing "tag": vendored charts ship tag: "" and rely on
+    Helm's `tag | default .Chart.AppVersion`, so pass the sub-chart appVersion for the
+    reported value to state what is actually deployed.
+    """
+    found = []
+    for key, value in node.items():
+        path = _path + (key,)
+        if path in skip_paths:
+            continue
+        if key == 'image':
+            if isinstance(value, str) and value:
+                found.append(ChartImageRef(path=path, value=value))
+                if 'imageTag' in node:
+                    found.append(ChartImageRef(path=_path + ('imageTag',), value=node['imageTag']))
+            elif isinstance(value, dict):
+                identity = {k: value[k] for k in ('registry', 'repository', 'name') if k in value}
+                if 'repository' in identity or 'name' in identity:
+                    tag = value.get('tag') or app_version
+                    if tag:
+                        identity['tag'] = tag
+                    found.append(ChartImageRef(path=path, value=identity))
+            continue
+        if isinstance(value, dict):
+            found.extend(find_chart_images(value, skip_paths=skip_paths,
+                                           app_version=app_version, _path=path))
+    return found
+
+
+def write_values_overrides(helm_values: dict, dest_deployment_path: pathlib.Path) -> None:
+    """Writes values-overrides.yaml next to values.yaml: every image the chart pulls but does
+    not build, in the structure Helm consumes. It is a reference for looking a path up and
+    trying an image out by passing the file to helm explicitly; no pipeline applies it, since it
+    is regenerated on every run and would only restate the values already in effect.
+
+    - source_images: the Dockerfile base images (build arguments) aggregated at the root
+    - <sub-chart name>: the images of each vendored sub-chart copied under charts/<app>, keyed
+      by the sub-chart's own Chart.yaml name - the key Helm uses to pass parent values down.
+      Empty tags are resolved from the sub-chart appVersion so the file states what is deployed.
+    - apps.<app>: the images an application pulls, both the ones declared inline in its own
+      values (e.g. jupyterhub) and the ones under its harness configuration (database,
+      gatekeeper, extra containers)
+    - the remaining root paths: images the generated resources themselves run, such as the
+      database backup and the volume migration containers
+
+    The images CloudHarness builds are left out, not being an overridable image source: an
+    application's own `image` and `harness.deployment.image` are pruned, unless the application
+    declares a prebuilt image instead of being built (`build: false`).
+
+    Values already set at those paths (e.g. from values-template-<env>.yaml) win over the
+    vendored defaults, so the file always reflects the effective configuration.
+    """
+    apps_key, harness_key, database_key, deployment_key = 'apps', 'harness', 'database', 'deployment'
+
+    overrides = {}
+    key_comments = {}
+    if helm_values.get("source_images"):
+        overrides["source_images"] = dict(helm_values["source_images"])
+        key_comments["source_images"] = (
+            "Dockerfile base images, injected as build arguments.\n"
+            "Origin: the ARG defaults declared in each application's own Dockerfile (and\n"
+            "CloudHarness's base/static image Dockerfiles), aggregated here at build time."
+        )
+
+    # proxy.gatekeeper.image used to override the gatekeeper image for every application.
+    # The gatekeeper is now configured at source_images.GATEKEEPER, so no template reads it:
+    # reporting it would advertise a path that overrides nothing.
+    legacy_gatekeeper_path = ('proxy', 'gatekeeper', 'image')
+    if nested_get(helm_values, legacy_gatekeeper_path):
+        logging.warning(
+            "proxy.gatekeeper.image is set but no longer used: set source_images.GATEKEEPER "
+            "to change the gatekeeper image for every application, or "
+            "apps.<app>.harness.proxy.gatekeeper.image for a single one")
+
+    # Images the generated resources run, declared at the root of the chart values
+    for ref in find_chart_images(helm_values, skip_paths=frozenset({(apps_key,), legacy_gatekeeper_path})):
+        nested_set(overrides, ref.path, ref.value)
+        key_comments.setdefault(ref.path[0], (
+            "Image run by a resource generated by the chart itself.\n"
+            "Origin: CloudHarness's own chart defaults, deployment-configuration/helm/values.yaml."
+        ))
+
+    for app_name, app_values in helm_values[apps_key].items():
+        skip_paths = set()
+        # A built application owns its image; everything else it merely pulls
+        if app_values.get('build', False):
+            skip_paths |= {('image',), (harness_key, deployment_key, 'image')}
+        # An application declaring database.image_ref runs the task image built under that
+        # reference, which shadows the database type's own image: that one is then not the
+        # value to override, so it is not reported as one
+        harness_values = app_values.get(harness_key) or {}
+        if (harness_values.get(database_key) or {}).get('image_ref'):
+            skip_paths.add((harness_key, database_key))
+        for ref in find_chart_images(app_values, skip_paths=frozenset(skip_paths)):
+            nested_set(overrides, (apps_key, app_name) + ref.path, ref.value)
+            key_comments.setdefault(apps_key, (
+                "Images declared inline by an application, or pulled through its harness\n"
+                "configuration (database, gatekeeper, extra containers).\n"
+                "Origin: declared inline in the application's own deploy/values.yaml, or\n"
+                "inherited from the harness-wide defaults in deployment-configuration/value-template.yaml\n"
+                "(singular)."
+            ))
+
+        chart_dir = dest_deployment_path / 'charts' / app_name
+        chart_values_path = chart_dir / 'values.yaml'
+        if not chart_values_path.exists():
+            continue
+        chart_meta_path = chart_dir / 'Chart.yaml'
+        chart_meta = (load_yaml(chart_meta_path) if chart_meta_path.exists() else None) or {}
+        chart_name = chart_meta.get('name') or app_name
+        for ref in find_chart_images(load_yaml(chart_values_path) or {}, app_version=chart_meta.get('appVersion')):
+            value = ref.value
+            existing = nested_get(helm_values, (chart_name,) + ref.path)
+            if existing is not None:
+                value = dict_merge(value, existing) if isinstance(value, dict) and isinstance(existing, dict) else existing
+            nested_set(overrides, (chart_name,) + ref.path, value)
+            key_comments.setdefault(chart_name, (
+                f"Images of the vendored '{chart_name}' sub-chart (from the {app_name} application),\n"
+                "keyed by its own Chart.yaml name - the key Helm uses to pass parent values down.\n"
+                f"Origin: the sub-chart's own default values, vendored (checked in as-is from the\n"
+                f"upstream chart) at applications/{app_name}/deploy/charts/values.yaml."
+            ))
+
+    header = (
+        "This file is a reference, auto-generated by `harness-deployment` and overwritten on\n"
+        "every run. No pipeline applies it: it lists every image the chart pulls but does not\n"
+        "build, at the exact path Helm reads it from, so you can look a path up here or try an\n"
+        "image out with `helm ... -f <this file>`. The comment on each key below states where\n"
+        "that value originates. To make a change permanent instead, redefine the same path in\n"
+        "your own deployment configuration - which file depends on where the image sits, as\n"
+        "explained in docs/image-sources.md (e.g. a per-environment\n"
+        "deployment-configuration/values-template-<env>.yaml for most root-level keys, but each\n"
+        "application's own deploy/values.yaml for anything under apps.<app>)."
+    )
+    save_yaml_with_comments(dest_deployment_path / VALUES_OVERRIDES_PATH, overrides,
+                            header=header, key_comments=key_comments)
+
+
 def check_response_200(endpoint_url, headers=None):
     resp = requests.get(endpoint_url, headers=headers, timeout=5)
     return resp.status_code == 200
@@ -677,6 +864,31 @@ def load_yaml(yaml_file: pathlib.Path) -> dict:
 def save_yaml(yaml_file: pathlib.Path, data: dict) -> None:
     with yaml_file.open('w') as file:
         yaml.dump(data, file)
+
+
+def _sorted_deep(value):
+    if isinstance(value, dict):
+        return {key: _sorted_deep(value[key]) for key in sorted(value)}
+    if isinstance(value, list):
+        return [_sorted_deep(item) for item in value]
+    return value
+
+
+def save_yaml_with_comments(yaml_file: pathlib.Path, data: dict, header: str = None,
+                            key_comments: dict[str, str] = None) -> None:
+    """Writes data as YAML (keys sorted at every level, like `save_yaml`), with a comment block
+    before the document and, optionally, a comment before each named top-level key."""
+    commented = CommentedMap(_sorted_deep(data))
+    if header:
+        commented.yaml_set_start_comment(header)
+    for key, comment in (key_comments or {}).items():
+        if key in commented:
+            # Leading blank line separates each key's comment from the previous entry
+            commented.yaml_set_comment_before_after_key(key, before='\n' + comment)
+    handler = YAML()
+    handler.default_flow_style = False
+    with yaml_file.open('w') as file:
+        handler.dump(commented, file)
 
 
 def get_apps_paths(root, app_name) -> tuple[str]:

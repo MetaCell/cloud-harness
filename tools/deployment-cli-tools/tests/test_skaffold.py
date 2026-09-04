@@ -39,6 +39,8 @@ def test_create_skaffold_configuration(tmp_path):
         output_path=tmp_path
     )
     assert os.path.exists(os.path.join(tmp_path, 'skaffold.yaml'))
+    # values-overrides.yaml is a reference for discovering image paths, not applied automatically
+    assert 'valuesFiles' not in sk['deploy']['helm']['releases'][0]
     exp_apps = ('accounts', 'samples', 'workflows', 'myapp', 'common')
     assert len(sk['build']['artifacts']) == len(
         exp_apps) + len(values[KEY_TASK_IMAGES])
@@ -384,12 +386,15 @@ def test_skaffold_imgarg_retrieval(tmp_path):
 
     # Ensure in the test that the Helm is well formed
     source_images = values.get("source_images")
-    assert len(source_images) == 2
+    assert len(source_images) == 3
     assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
     assert source_images["NODE"] == "node:22-alpine"
     assert get_source_images(values) == {
         "KEYCLOAK": "myregistry.myapp:15.3",
         "NODE": "node:22-alpine",
+        # Not a build argument of any Dockerfile: declared by CloudHarness so that the
+        # gatekeeper image is configured in a single place
+        "GATEKEEPER": "quay.io/gogatekeeper/gatekeeper:4.6.0",
     }
 
 
