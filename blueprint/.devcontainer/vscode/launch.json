@@ -1,0 +1,227 @@
+{
+  "configurations": [
+    {
+      "console": "integratedTerminal",
+      "cwd": "${file}",
+      "name": "Python Debugger: Current File",
+      "program": "${file}",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/applications/myapp/backend",
+      "env": {
+        "ACCOUNTS_ADMIN_PASSWORD": "metacell",
+        "ACCOUNTS_ADMIN_USERNAME": "admin",
+        "CH_CURRENT_APP_NAME": "myapp",
+        "CH_VALUES_PATH": "${workspaceFolder}/deployment/helm/values.yaml",
+        "DJANGO_SETTINGS_MODULE": "django_baseapp.settings",
+        "KUBERNETES_SERVICE_HOST": "."
+      },
+      "justMyCode": true,
+      "name": "Python: Current File",
+      "program": "${file}",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "cloud-harness",
+        ".",
+        "-i",
+        "myapp",
+        "-d",
+        "myapp.local",
+        "-u",
+        "-dtls",
+        "-e",
+        "prod-dev-test-local",
+        "-l",
+        "-n",
+        "myproject"
+      ],
+      "console": "integratedTerminal",
+      "name": "Harness deployment local",
+      "program": "cloud-harness/tools/deployment-cli-tools/harness-deployment",
+      "request": "launch",
+      "type": "python"
+    },
+    {
+      "args": [
+        "cloud-harness",
+        ".",
+        "-i",
+        "jupyterhub",
+        "-d",
+        "myapp.local",
+        "-u",
+        "-dtls",
+        "-e",
+        "dev-local",
+        "-l",
+        "-n",
+        "myproject",
+        "-t",
+        "latest"
+      ],
+      "console": "integratedTerminal",
+      "name": "Harness deployment WS",
+      "program": "cloud-harness/tools/deployment-cli-tools/harness-deployment",
+      "request": "launch",
+      "type": "python"
+    },
+    {
+      "args": [
+        "cloud-harness",
+        ".",
+        "-i",
+        "myapp",
+        "-d",
+        "myapp.local",
+        "-dtls",
+        "-e",
+        "research-test-dev",
+        "-l",
+        "-n",
+        "myapp"
+      ],
+      "console": "integratedTerminal",
+      "name": "test Harness deployment myapp",
+      "program": "cloud-harness/tools/deployment-cli-tools/harness-deployment",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "neuroglass_research.tests"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/applications/myapp/backend",
+      "env": {
+        "CH_CURRENT_APP_NAME": "myapp",
+        "CH_VALUES_PATH": "${workspaceFolder}/deployment/helm/values.yaml"
+      },
+      "justMyCode": false,
+      "name": "Test",
+      "program": "runtests.py",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "createsuperuser"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/applications/myapp/backend",
+      "env": {
+        "ACCOUNTS_ADMIN_PASSWORD": "metacell",
+        "ACCOUNTS_ADMIN_USERNAME": "admin",
+        "CH_CURRENT_APP_NAME": "myapp",
+        "CH_VALUES_PATH": "${workspaceFolder}/deployment/helm/values.yaml",
+        "DJANGO_SETTINGS_MODULE": "django_baseapp.settings",
+        "KUBERNETES_SERVICE_HOST": "ssdds"
+      },
+      "justMyCode": false,
+      "name": "Django superuser",
+      "program": "manage.py",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "cloud-harness",
+        ".",
+        "-i",
+        "myapp",
+        "-d",
+        "mnptest.dev.metacell.us",
+        "-u",
+        "-dtls",
+        "-e",
+        "dev",
+        "-l",
+        "-n",
+        "mnptest",
+        "-r",
+        "us.gcr.io/metacellllc"
+      ],
+      "console": "integratedTerminal",
+      "name": "Harness deployment dev",
+      "program": "cloud-harness/tools/deployment-cli-tools/harness-deployment",
+      "request": "launch",
+      "type": "python"
+    },
+    {
+      "args": [
+        "cloud-harness",
+        ".",
+        "-i",
+        "myapp",
+        "-d",
+        "myapp.metacell.us",
+        "-u",
+        "-dtls",
+        "-e",
+        "prod",
+        "-l",
+        "-n",
+        "myproject",
+        "-r",
+        "us.gcr.io/metacellllc",
+        "-t",
+        "3.1.0"
+      ],
+      "console": "integratedTerminal",
+      "name": "Harness deployment prod",
+      "program": "cloud-harness/tools/deployment-cli-tools/harness-deployment",
+      "request": "launch",
+      "type": "python"
+    },
+    {
+      "args": [
+        "cloud-harness",
+        ".",
+        "-i",
+        "myapp",
+        "-d",
+        "myapp.stage.metacell.us",
+        "-u",
+        "-dtls",
+        "-e",
+        "stage",
+        "-l",
+        "-n",
+        "myproject",
+        "-r",
+        "us.gcr.io/metacellllc"
+      ],
+      "console": "integratedTerminal",
+      "name": "Harness deployment stage",
+      "program": "cloud-harness/tools/deployment-cli-tools/harness-deployment",
+      "request": "launch",
+      "type": "python"
+    },
+    {
+      "args": [
+        "runserver"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/applications/myapp/backend",
+      "env": {
+        "ACCOUNTS_ADMIN_PASSWORD": "metacell",
+        "ACCOUNTS_ADMIN_USERNAME": "admin",
+        "CH_CURRENT_APP_NAME": "myapp",
+        "CH_VALUES_PATH": "${workspaceFolder}/deployment/helm/values.yaml",
+        "DJANGO_SETTINGS_MODULE": "django_baseapp.settings",
+        "KUBERNETES_SERVICE_HOST": "a"
+      },
+      "justMyCode": false,
+      "name": "myapp django runserver",
+      "program": "manage.py",
+      "request": "launch",
+      "type": "debugpy"
+    }
+  ],
+  "version": "0.2.0"
+}
