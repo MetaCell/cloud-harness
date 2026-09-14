@@ -23,7 +23,18 @@ from cloudharness_utils.constants import NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION
     APPS_PATH, EXCLUDE_PATHS
 from . import CH_ROOT
 
+# Single YAML handler for the whole toolchain: ruamel.yaml.
+# `yaml` loads/dumps plain Python types; block style is forced so that generated
+# files never come out as inline `{a: 1, b: 2}` flow mappings.
 yaml = YAML(typ='safe')
+yaml.default_flow_style = False
+
+# Round trip handler, for the cases where the key order of the source document
+# (or of the dumped dictionary) must be preserved: the safe representer above
+# sorts mapping keys alphabetically.
+yaml_rt = YAML()
+yaml_rt.default_flow_style = False
+
 BASE_TEMPLATES_PATH = CH_ROOT
 
 

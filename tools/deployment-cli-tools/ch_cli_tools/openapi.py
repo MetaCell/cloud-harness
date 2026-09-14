@@ -17,7 +17,7 @@ from ch_cli_tools.common_types import TemplateType
 from ch_cli_tools.manifest import get_manifest
 
 from . import HERE
-from .utils import confirm, copymergedir, replace_in_file, replaceindir, to_python_module, get_apps_paths
+from .utils import confirm, copymergedir, replace_in_file, replaceindir, to_python_module, get_apps_paths, yaml
 
 CODEGEN = os.path.join(HERE, 'bin', 'openapi-generator-cli.jar')
 APPLICATIONS_SRC_PATH = os.path.join('applications')
@@ -147,7 +147,6 @@ def generate_ts_client(openapi_file, app_name=""):
 
 
 def json2yaml(json_filename, yaml_file=None):
-    import yaml
     if yaml_file is None:
         yaml_file = str(json_filename).replace('.json', '.yaml')
     with open(json_filename, 'r') as json_filename:

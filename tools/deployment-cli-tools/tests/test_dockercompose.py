@@ -4,7 +4,7 @@ from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash
 import pytest
 import shutil
 import subprocess
-import yaml
+from ch_cli_tools.utils import yaml
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')
@@ -110,7 +110,7 @@ def test_compose_gatekeeper_native_configuration_rendering(tmp_path):
     compose_path = out_folder / COMPOSE_PATH
     values_path = compose_path / 'values.yaml'
     with open(values_path, 'r') as values_file:
-        values = yaml.safe_load(values_file)
+        values = yaml.load(values_file)
 
     values['apps']['samples']['harness']['proxy']['gatekeeper']['configuration'] = {
         'same-site-cookie': 'None',
@@ -126,7 +126,7 @@ def test_compose_gatekeeper_native_configuration_rendering(tmp_path):
 
     def render_proxy_config():
         with open(values_path, 'w') as values_file:
-            yaml.safe_dump(values, values_file)
+            yaml.dump(values, values_file)
         completed = subprocess.run(
             ['helm', 'template', str(compose_path)],
             check=True,
@@ -134,10 +134,10 @@ def test_compose_gatekeeper_native_configuration_rendering(tmp_path):
             stderr=subprocess.PIPE,
             text=True,
         )
-        for document in yaml.safe_load_all(completed.stdout):
+        for document in yaml.load_all(completed.stdout):
             metadata = (document or {}).get('cloudharness-metadata', {})
             if metadata.get('path') == 'resources/generated/samples-gk/proxy.yml':
-                return yaml.safe_load(document['data'])
+                return yaml.load(document['data'])
         raise AssertionError('Could not find the samples Gatekeeper proxy configuration')
 
     tls_config = render_proxy_config()

@@ -3,7 +3,6 @@ Utilities to create a helm chart from a CloudHarness directory structure
 """
 from typing import List, Union
 import copy
-import yaml
 import os
 import shutil
 import logging
@@ -18,7 +17,7 @@ from cloudharness_utils.constants import TEST_IMAGES_PATH, HELM_CHART_PATH, APPS
     DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH
 from .utils import get_cluster_ip, env_variable, get_dockerfile_baseimg_args, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
     get_template, merge_configuration_directories, dict_merge, app_name_from_path, \
-    find_dockerfiles_paths, get_git_commit_hash
+    find_dockerfiles_paths, get_git_commit_hash, yaml
 from .secrets import secret_definition_error
 
 
@@ -111,7 +110,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
     def _adjust_missing_values(self, helm_values):
         if 'name' not in helm_values:
             with open(self.helm_chart_path) as f:
-                chart_idx_content = yaml.safe_load(f)
+                chart_idx_content = yaml.load(f)
             helm_values['name'] = chart_idx_content['name'].lower()
 
     def _process_applications(self, helm_values, base_image_name=None):
@@ -481,7 +480,7 @@ def collect_helm_values(deployment_root, env=()):
             logging.info(
                 "Specific environment values template found: " + specific_template_path)
             with open(specific_template_path) as f:
-                values_env_specific = yaml.safe_load(f)
+                values_env_specific = yaml.load(f)
             values = dict_merge(values, values_env_specific)
     return values
 

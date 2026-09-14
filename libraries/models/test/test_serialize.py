@@ -2,7 +2,7 @@
 import json
 from os.path import join, dirname as dn, realpath
 
-import oyaml as yaml
+from ruamel.yaml import YAML
 
 from cloudharness_model import HarnessMainConfig, ApplicationConfig, User, ApplicationHarnessConfig
 from cloudharness_model.encoder import CloudHarnessJSONEncoder
@@ -11,7 +11,7 @@ HERE = dn(realpath(__file__))
 
 def test_json_serialize():
     with open(join(HERE, "resources/values.yaml")) as f:
-        values = yaml.safe_load(f)
+        values = YAML(typ="safe").load(f)
     v = HarnessMainConfig.from_dict(values)
     dumped = json.dumps(v, cls=CloudHarnessJSONEncoder)
     cloned = json.loads(dumped)

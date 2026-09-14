@@ -3,7 +3,6 @@ Utilities to create a helm chart from a CloudHarness directory structure
 """
 from pathlib import Path
 from typing import Union
-import yaml
 import os
 import logging
 from hashlib import sha1
@@ -12,7 +11,7 @@ import subprocess
 from cloudharness_utils.constants import VALUES_MANUAL_PATH, HELM_CHART_PATH
 from .utils import get_cluster_ip, get_dockerfile_baseimg_args, get_git_commit_hash, get_image_name, image_name_from_dockerfile_path, \
     get_template, merge_to_yaml_file, dict_merge, app_name_from_path, \
-    find_dockerfiles_paths
+    find_dockerfiles_paths, yaml
 
 from .models import HarnessMainConfig
 
@@ -352,7 +351,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
             if specific_template_path.exists():
                 logging.info(f"Specific environment values template found: {specific_template_path}")
                 with specific_template_path.open("r") as f:
-                    values_env_specific = yaml.safe_load(f)
+                    values_env_specific = yaml.load(f)
                 values = dict_merge(values, values_env_specific)
 
         if KEY_HARNESS in values and 'name' in values[KEY_HARNESS] and values[KEY_HARNESS]['name']:
@@ -426,7 +425,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
                 logging.info(
                     "Specific environment values template found: " + specific_template_path)
                 with open(specific_template_path) as f:
-                    values_env_specific = yaml.safe_load(f)
+                    values_env_specific = yaml.load(f)
                 values = dict_merge(values, values_env_specific)
 
         if KEY_HARNESS in values and 'name' in values[KEY_HARNESS] and values[KEY_HARNESS]['name']:
