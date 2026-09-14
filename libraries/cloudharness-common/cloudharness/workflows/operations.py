@@ -350,7 +350,7 @@ class AsyncOperation(ContainerizedOperation):
         return op
 
     def get_operation_update_url(self):
-        return f"{env.get_cloudharness_workflows_service_url()}/operations/{self.persisted.name}"
+        return f"{env.get_cloudharness_workflows_service_url()}/api/operations/{self.persisted.name}"
 
 
 class CompositeOperation(AsyncOperation):
