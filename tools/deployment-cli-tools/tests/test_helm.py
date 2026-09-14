@@ -112,7 +112,8 @@ def test_collect_helm_values(tmp_path):
     # Not indicated as a build dependency
     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES]
 
-    chart_values = yaml.load(open(helm_path / 'charts/myapp/values.yaml', 'r'))  # Check if the values.yaml is valid YAML
+    with open(helm_path / 'charts/myapp/values.yaml', 'r') as values_file:
+        chart_values = yaml.load(values_file)  # Check if the values.yaml is valid YAML
     assert chart_values is not None, "values.yaml should be valid YAML"
     assert chart_values["test"] == "dev"
 
@@ -1057,7 +1058,8 @@ def test_network_policy_defaults_from_value_template(tmp_path):
     )
 
     chart_path = out_folder / HELM_CHART_PATH / 'Chart.yaml'
-    chart = yaml.load(open(chart_path, 'r'))
+    with open(chart_path, 'r') as chart_file:
+        chart = yaml.load(chart_file)
     assert chart['name'] == 'custom-chart'
     assert chart['version'] == '9.8.7'
     assert chart['appVersion'] == '4.5.6'
