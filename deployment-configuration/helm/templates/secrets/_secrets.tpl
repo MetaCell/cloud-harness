@@ -216,8 +216,8 @@ Usage: {{ include "deploy_utils.secretManagerResources" (dict "root" $root "app"
   {{- if include "deploy_utils.secretIsExternal" (dict "spec" $spec) }}
     {{- $manager := include "deploy_utils.secretManager" (dict "spec" $spec) }}
     {{- $context := dict "root" $root "app" $app "name" $name "spec" $spec "resourceName" (include "deploy_utils.secretResourceName" (dict "app" $app "name" $name)) }}
----
 {{ include (printf "deploy_utils.secretmanager.%s.resource" $manager) $context }}
+---
   {{- end }}
 {{- end }}
 {{- end -}}

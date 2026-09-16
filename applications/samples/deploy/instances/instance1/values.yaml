@@ -1,0 +1,8 @@
+harness:
+  subdomain: samples1
+  deployment:
+    replicas: 1
+  database:
+    connect_string: "instance1 connection string"
+  envmap:
+    ENVIRONMENT_TEST_A: "instance1 value"

@@ -11,7 +11,7 @@ import subprocess
 from cloudharness_utils.constants import VALUES_MANUAL_PATH, HELM_CHART_PATH
 from .utils import get_cluster_ip, get_dockerfile_baseimg_args, get_git_commit_hash, get_image_name, image_name_from_dockerfile_path, \
     get_template, merge_to_yaml_file, dict_merge, app_name_from_path, \
-    find_dockerfiles_paths, yaml
+    find_dockerfiles_paths, is_buildable_dockerfile_path, yaml
 
 from .models import HarnessMainConfig
 
@@ -136,6 +136,8 @@ class CloudHarnessHelm(ConfigurationGenerator):
 
             # Collect all source_images and move them to the root
             self._aggregate_source_images(self.base_images, helm_values)
+
+        self._inherit_instance_images(helm_values)
 
         self.create_tls_certificate(helm_values)
 
@@ -359,7 +361,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
                             values[KEY_HARNESS]['name'])
 
         image_paths = [path for path in find_dockerfiles_paths(
-            f"{app_path}") if 'tasks/' not in path and 'subapps' not in path]
+            f"{app_path}") if is_buildable_dockerfile_path(path)]
         if len(image_paths) > 1:
             logging.warning('Multiple Dockerfiles found in application %s. Picking the first one: %s', app_name,
                             image_paths[0])
@@ -443,7 +445,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
         values = app_values
 
         image_paths = [path for path in find_dockerfiles_paths(
-            f"{app_path}") if 'tasks/' not in path and 'subapps' not in path]
+            f"{app_path}") if is_buildable_dockerfile_path(path)]
         if len(image_paths) > 1:
             logging.warning('Multiple Dockerfiles found in application %s. Picking the first one: %s', app_name,
                             image_paths[0])

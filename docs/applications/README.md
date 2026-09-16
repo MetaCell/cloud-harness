@@ -70,6 +70,77 @@ harness:
 
 To customize the helm templates to use, put them inside the *deploy* subdirectory.
 
+## Application instances
+
+An application can be deployed several times over, each deployment on its own subdomain and with
+its own configuration and database. Each of those deployments is an *instance*, declared as a
+directory under the application's `deploy/instances`:
+
+```
+applications/samples/
+  Dockerfile
+  deploy/
+    values.yaml                # the application's configuration
+    resources/
+      example.yaml
+      myConfig.json
+    instances/
+      instance1/               # the instance's name is its directory's
+        values.yaml            # what this instance changes
+        resources/
+          example.yaml         # overrides the application's resource of the same name
+        templates/             # optional, overlaid on the application's templates
+```
+
+The instance above is deployed as the application `samples-instance1`: that key names its service,
+deployment, database, volume, gatekeeper and configmaps, and is how it is referenced on the command
+line. It runs the image built for `samples` — an instance adds no build, so declare no Dockerfile
+in it. The key must not take over one of the application's task images: an instance named `print`
+on an application with a `tasks/print-file` is rejected, as `samples-print` would own
+`samples-print-file`.
+
+Everything else is inherited from the application, so an instance's `values.yaml` only carries what
+it changes:
+
+```yaml
+harness:
+  subdomain: samples1
+  deployment:
+    replicas: 1
+```
+
+Values are merged over the application's the usual way: mappings key by key, lists as a whole. An
+instance overriding `uri_role_mapping` therefore replaces the whole list rather than adding to it.
+Resources and templates are overlaid file by file, so an instance inherits every file it does not
+override — above, `myConfig.json` comes from the application and `example.yaml` from the instance.
+
+Environment specific values apply at both levels, the instance's taking precedence over the
+application's:
+
+```
+deploy/instances/instance1/values-[ENV].yaml   # wins
+deploy/instances/instance1/values.yaml
+deploy/values-[ENV].yaml
+deploy/values.yaml                             # loses
+```
+
+What identifies the application is never inherited, so that an instance never claims the
+application's hosts or resources:
+
+- `subdomain`, `aliases` and `domain`. An instance without a `subdomain` of its own answers on
+  its directory's name, so `instances/samples1/` alone is served at `samples1.[DOMAIN]`; declare
+  `subdomain: null` to give an instance no ingress at all
+- the names of the service, deployment and database, which are derived from the instance key
+- `deployment.volume.name`, prefixed with the instance key, so the instance never mounts the
+  application's storage
+- `database.connect_string`, emptied: an instance of an application using an externally managed
+  database needs a connection string of its own. Set `database.auto: true` to have CloudHarness
+  deploy a database of its own for it instead.
+
+Instances are deployed together with their application: `harness-deployment -i samples` deploys
+`samples` and all its instances, and `-e samples-instance1` leaves one out. CI builds and tests the
+application only, since an instance runs the same image.
+
 ## Dependency to an existing Helm chart
 
 TBD

@@ -15,6 +15,7 @@ from ch_cli_tools.preprocessing import (
     generate_hash_based_image_tags,
     preprocess_build_overrides,
 )
+from ch_cli_tools.instances import *
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')
@@ -1428,3 +1429,412 @@ def test_collect_helm_values_source_images_merge_no_include(tmp_path):
     source_images = values.get("source_images")
     assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
     assert "NODE" in source_images
+
+
+def test_instances_expand_into_applications(tmp_path):
+    """An instance is deployed as an application of its own, inheriting the parent's configuration."""
+    out_folder = tmp_path / 'test_instances_expand_into_applications'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples'],
+                               domain="my.local", namespace='test', env='dev', local=False, tag=1, registry='reg')
+
+    apps = values[KEY_APPS]
+    assert 'samples-instance1' in apps, 'including an application includes its instances'
+    instance = apps['samples-instance1']
+    parent = apps['samples']
+
+    # Its own host: the parent's subdomain and aliases are never inherited
+    assert instance[KEY_HARNESS]['subdomain'] == 'samples1'
+    assert not instance[KEY_HARNESS]['aliases']
+    assert parent[KEY_HARNESS]['subdomain'] == 'www'
+    assert parent[KEY_HARNESS]['aliases'] == ['samples']
+
+    # Its own resources
+    assert instance[KEY_HARNESS]['name'] == 'samples-instance1'
+    assert instance[KEY_HARNESS]['service']['name'] == 'samples-instance1'
+    assert instance[KEY_HARNESS][KEY_DEPLOYMENT]['name'] == 'samples-instance1'
+    assert instance[KEY_HARNESS][KEY_DATABASE]['name'] == 'samples-instance1-db'
+    assert instance[KEY_HARNESS][KEY_DEPLOYMENT]['volume']['name'] == \
+        'samples-instance1-my-shared-volume', 'an instance must not mount the parent claim'
+    assert parent[KEY_HARNESS][KEY_DEPLOYMENT]['volume']['name'] == 'my-shared-volume'
+
+    # The parent's image, built once
+    assert instance['build'] is False
+    assert instance['image'] == parent['image']
+    assert instance[KEY_HARNESS][KEY_DEPLOYMENT]['image'] == parent[KEY_HARNESS][KEY_DEPLOYMENT]['image']
+    assert not instance[KEY_TASK_IMAGES]
+
+    # Inherited configuration, with the instance's own values merged over it
+    assert instance[KEY_HARNESS]['secured'] == parent[KEY_HARNESS]['secured']
+    assert instance[KEY_HARNESS][KEY_DEPLOYMENT]['replicas'] == 1
+    assert parent[KEY_HARNESS][KEY_DEPLOYMENT]['replicas'] == 2
+    assert instance[KEY_HARNESS]['envmap']['ENVIRONMENT_TEST_B'] == 123
+
+
+def test_instances_expand_without_include(tmp_path):
+    out_folder = tmp_path / 'test_instances_expand_without_include'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               namespace='test', env='dev', local=False, tag=1, registry='reg')
+
+    instance = values[KEY_APPS]['samples-instance1']
+    assert instance[KEY_HARNESS]['subdomain'] == 'samples1'
+    assert instance['build'] is False
+    assert instance['image'] == values[KEY_APPS]['samples']['image']
+
+
+def test_instance_excluded_individually(tmp_path):
+    """A single instance is left out with --exclude, without affecting its parent."""
+    out_folder = tmp_path / 'test_instance_excluded_individually'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples'],
+                               exclude=['samples-instance1'], domain="my.local", namespace='test', env='dev',
+                               local=False, tag=1, registry='reg')
+
+    assert 'samples-instance1' not in values[KEY_APPS]
+    assert 'samples' in values[KEY_APPS]
+    # an excluded instance leaves no collected files behind either
+    assert not (out_folder / HELM_CHART_PATH / 'resources' / 'samples-instance1').exists()
+
+
+def test_instance_include_pulls_in_its_parent(tmp_path):
+    """Including an instance alone deploys the application it inherits its image from too."""
+    out_folder = tmp_path / 'test_instance_include_pulls_in_its_parent'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder,
+                               include=['samples-instance1'], domain="my.local", namespace='test', env='dev',
+                               local=False, tag=1, registry='reg')
+
+    assert 'samples-instance1' in values[KEY_APPS]
+    assert 'samples' in values[KEY_APPS]
+    assert values[KEY_APPS]['samples-instance1']['image'] == values[KEY_APPS]['samples']['image']
+
+
+def test_instance_resources_are_overlaid_on_the_application(tmp_path):
+    """An instance's resources override the application's file by file, and it inherits the rest."""
+    out_folder = tmp_path / 'test_instance_resources'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples'],
+                      domain="my.local", namespace='test', env='dev', local=False, tag=1, registry='reg')
+
+    helm_path = out_folder / HELM_CHART_PATH
+    instance_resources = helm_path / 'resources' / 'samples-instance1'
+    assert (instance_resources / 'example.yaml').exists()
+    assert (instance_resources / 'myConfig.json').exists(), \
+        'a resource the instance does not override is inherited'
+
+    shutil.rmtree(helm_path / 'charts', ignore_errors=True)
+    manifests = render_helm_chart(helm_path)
+
+    # the overridden resource carries the instance's content...
+    overridden = find_manifest(manifests, 'ConfigMap', 'samples-instance1-example')
+    assert 'an instance overridden' in overridden['data']['important_config.yaml']
+    # ...the inherited one the application's, and it is not empty (the configmap is looked up
+    # by deployment name, so a missing instance directory renders an empty value)
+    inherited = find_manifest(manifests, 'ConfigMap', 'samples-instance1-my-config')
+    parent_config = find_manifest(manifests, 'ConfigMap', 'samples-my-config')
+    assert inherited['data']['myConfig.json'].strip()
+    assert inherited['data'] == parent_config['data']
+    # the application keeps its own
+    parent = find_manifest(manifests, 'ConfigMap', 'samples-example')
+    assert 'an instance overridden' not in parent['data']['important_config.yaml']
+
+
+def test_instance_templates_are_overlaid_on_the_application(tmp_path):
+    """An instance's helm templates are collected over the application's."""
+    out_folder = tmp_path / 'test_instance_templates'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
+                      domain="my.local", namespace='test', env='dev', local=False, tag=1, registry='reg')
+
+    helm_path = out_folder / HELM_CHART_PATH
+    assert (helm_path / 'templates' / 'myapp-inst1' / 'mytemplate.yaml').exists()
+    assert (helm_path / 'resources' / 'myapp-inst1' / 'instanceonly.txt').exists()
+    assert (helm_path / 'resources' / 'myapp-inst1' / 'aresource.txt').exists()
+
+    shutil.rmtree(helm_path / 'charts', ignore_errors=True)
+    manifests = render_helm_chart(helm_path)
+    rendered = find_manifest(manifests, 'ConfigMap', 'myapp-inst1-instance-template')
+    assert rendered['data']['subdomain'] == 'myinstance'
+
+
+def test_instance_does_not_inherit_the_parent_connect_string(tmp_path):
+    """A connection string points at one database: an instance never inherits the parent's."""
+    out_folder = tmp_path / 'test_instance_connect_string'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples'],
+                               domain="my.local", namespace='test', env='dev', local=False, tag=1, registry='reg')
+
+    instance_db = values[KEY_APPS]['samples-instance1'][KEY_HARNESS][KEY_DATABASE]
+    parent_db = values[KEY_APPS]['samples'][KEY_HARNESS][KEY_DATABASE]
+    assert instance_db['connect_string'] != parent_db['connect_string']
+
+    # an instance that declares none is left with an empty one, to be supplied per instance at
+    # deploy time, rather than silently connecting to the parent's database
+    parent = {KEY_HARNESS: {KEY_DATABASE: {'type': 'postgres', 'connect_string': 'parent connection'}}}
+    instance = build_instance_values(parent, 'myapp', 'i1', {KEY_HARNESS: {'subdomain': 'myapp1'}})
+    assert instance[KEY_HARNESS][KEY_DATABASE]['connect_string'] == ''
+    assert parent[KEY_HARNESS][KEY_DATABASE]['connect_string'] == 'parent connection'
+
+
+def test_instance_renders_its_own_manifests(tmp_path):
+    """The instance gets the full set of manifests on its own subdomain, backed by its own workload."""
+    out_folder = tmp_path / 'test_instance_renders_its_own_manifests'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples'],
+                      domain="my.local", namespace='test', env='dev', local=False, tag=1, registry='reg')
+
+    helm_path = out_folder / HELM_CHART_PATH
+    shutil.rmtree(helm_path / 'charts', ignore_errors=True)
+    manifests = render_helm_chart(helm_path)
+
+    statefulset = find_manifest(manifests, 'StatefulSet', 'samples-instance1')
+    find_manifest(manifests, 'Service', 'samples-instance1')
+
+    containers = statefulset['spec']['template']['spec']['containers']
+    app_container = next(c for c in containers if c['name'] == 'samples-instance1')
+    env = {e['name']: e.get('value') for e in app_container['env']}
+    assert env['CH_CURRENT_APP_NAME'] == 'samples-instance1', \
+        'the instance must read its own configuration, not the parent one'
+
+    # Its own claim: sharing the parent's would give the instance the parent's data
+    claims = [c['metadata']['name'] for c in statefulset['spec'].get('volumeClaimTemplates', [])]
+    parent_claims = [c['metadata']['name']
+                     for c in find_manifest(manifests, 'StatefulSet', 'samples')['spec'].get('volumeClaimTemplates', [])]
+    assert claims and not set(claims) & set(parent_claims)
+
+    # Its own database secret
+    instance_secret = find_manifest(manifests, 'Secret', 'samples-instance1-db')
+    parent_secret = find_manifest(manifests, 'Secret', 'samples-db')
+    assert instance_secret['stringData']['connect_string'] != parent_secret['stringData']['connect_string']
+
+    # Its own host, served by its own gatekeeper
+    hosts = {}
+    for manifest in manifests:
+        if manifest.get('kind') != 'Ingress':
+            continue
+        for rule in manifest['spec']['rules']:
+            for path in rule['http']['paths']:
+                hosts.setdefault(rule['host'], set()).add(path['backend']['service']['name'])
+
+    assert 'samples1.my.local' in hosts
+    assert 'samples-instance1' in hosts['samples1.my.local']
+    assert 'samples1-gk' in hosts['samples1.my.local']
+    # the parent keeps its own hosts, and the instance never serves them
+    assert 'samples-instance1' not in hosts['samples.my.local']
+    assert 'samples-instance1' not in hosts['www.my.local']
+
+    gatekeeper = find_manifest(manifests, 'ConfigMap', 'samples1-gk')
+    proxy_config = yaml.load(gatekeeper['data']['proxy.yml'])
+    assert proxy_config['redirection-url'] == 'https://samples1.my.local'
+    assert proxy_config['upstream-url'].startswith('http://samples-instance1.')
+
+
+def test_instance_colliding_with_an_application_is_rejected(tmp_path):
+    """An instance and an application under the same key would be merged into one, whichever
+    root path declares each of them."""
+    first, second = tmp_path / 'first', tmp_path / 'second'
+    (first / APPS_PATH / 'myapp' / 'deploy' / INSTANCES_PATH / 'other').mkdir(parents=True)
+    (second / APPS_PATH / 'myapp-other' / 'deploy').mkdir(parents=True)
+
+    check_instance_collisions([first])
+    check_instance_collisions([second])
+    with pytest.raises(ValuesValidationException, match='myapp-other'):
+        check_instance_collisions([first, second])
+    with pytest.raises(ValuesValidationException, match='myapp-other'):
+        check_instance_collisions([second, first])
+    check_instance_collisions([first, second], exclude=['myapp-other'])
+
+    # the check is made by the generator before anything is read
+    with pytest.raises(ValuesValidationException, match='myapp-other'):
+        create_helm_chart([CLOUDHARNESS_ROOT, first, second], output_path=tmp_path / 'out', include=['myapp'],
+                          domain="my.local", namespace='test', local=False, tag=1, registry='reg')
+
+
+def test_instance_directory_colliding_with_a_task_is_rejected(tmp_path):
+    """Task image ownership is resolved by longest name prefix, so an instance named `print` on
+    an application owning `myapp-print-file` would take the image over and it would never build.
+    The collision is caught when instances are collected, before anything reads task images."""
+    app_path = tmp_path / APPS_PATH / 'myapp'
+    (app_path / 'tasks' / 'print-file').mkdir(parents=True)
+    instance_path = app_path / 'deploy' / INSTANCES_PATH / 'print'
+    instance_path.mkdir(parents=True)
+    (instance_path / 'values.yaml').write_text('harness:\n  subdomain: myprint\n')
+
+    with pytest.raises(ValuesValidationException, match='myapp-print-file'):
+        collect_instances('myapp', [tmp_path])
+
+    assert resolve_task_image_owner('myapp-print-file', {'myapp', 'myapp-print'}) == 'myapp-print', \
+        'the prefix match this guards against'
+
+
+def test_collect_instances_skips_hidden_directories(tmp_path):
+    instances_dir = tmp_path / APPS_PATH / 'myapp' / 'deploy' / INSTANCES_PATH
+    (instances_dir / '.hidden').mkdir(parents=True)
+    (instances_dir / 'real').mkdir(parents=True)
+    (instances_dir / 'real' / 'values.yaml').write_text('harness:\n  subdomain: real\n')
+
+    assert set(collect_instances('myapp', [tmp_path])) == {'real'}
+
+
+def test_collect_instances_of_an_application_without_any(tmp_path):
+    (tmp_path / APPS_PATH / 'myapp' / 'deploy').mkdir(parents=True)
+    assert collect_instances('myapp', [tmp_path]) == {}
+    assert collect_instances('missing', [tmp_path]) == {}, 'an application absent from a root declares nothing there'
+
+
+def test_collect_instances_merges_the_roots_declaring_the_same_instance(tmp_path):
+    for root, replicas in (('first', 1), ('second', 2)):
+        instance_path = tmp_path / root / APPS_PATH / 'myapp' / 'deploy' / INSTANCES_PATH / 'inst'
+        instance_path.mkdir(parents=True)
+        (instance_path / 'values.yaml').write_text(f'harness:\n  deployment:\n    replicas: {replicas}\n{root}: true\n')
+
+    instances = collect_instances('myapp', [tmp_path / 'first', tmp_path / 'second'])
+    assert instances['inst'][KEY_HARNESS][KEY_DEPLOYMENT]['replicas'] == 2, 'a later root wins'
+    assert instances['inst']['first'] and instances['inst']['second'], 'what a root does not override is kept'
+
+
+def test_instance_values_replace_parent_lists():
+    """An instance's lists replace the parent's rather than adding to them.
+
+    `uri_role_mapping` is what the gatekeeper whitelists, so the two semantics differ in
+    what an instance leaves open: pinned here because the merge rule is documented.
+    """
+    parent_mapping = [
+        {'uri': '/', 'white-listed': True},
+        {'uri': '/api/ping', 'white-listed': True},
+    ]
+    parent_app = {
+        KEY_HARNESS: {
+            'uri_role_mapping': parent_mapping,
+            'env': [{'name': 'WORKERS', 'value': '3'}],
+            'envmap': {'A': 'parent', 'B': 'kept'},
+        }
+    }
+    instance = build_instance_values(parent_app, 'myapp', 'i1', {
+        KEY_HARNESS: {
+            'subdomain': 'myapp1',
+            'uri_role_mapping': [{'uri': '/*', 'roles': ['administrator']}],
+            'envmap': {'A': 'instance'},
+        }
+    })[KEY_HARNESS]
+    parent = parent_app[KEY_HARNESS]
+
+    # lists are replaced as a whole
+    assert instance['uri_role_mapping'] == [{'uri': '/*', 'roles': ['administrator']}]
+    assert parent['uri_role_mapping'] == parent_mapping
+    # a list the instance does not override is inherited
+    assert instance['env'] == [{'name': 'WORKERS', 'value': '3'}]
+    # mappings are merged key by key
+    assert instance['envmap'] == {'A': 'instance', 'B': 'kept'}
+    assert parent['envmap'] == {'A': 'parent', 'B': 'kept'}
+
+
+def test_instances_are_collected_with_the_application_they_belong_to(tmp_path):
+    """An instance is added to the deployment as soon as its application is read: the values
+    collected from a root path hold the instances next to the applications, derived from the
+    application's values as merged so far."""
+    generator = CloudHarnessHelm([CLOUDHARNESS_ROOT, RESOURCES],
+                                 output_path=tmp_path / 'test_instances_collected',
+                                 domain="my.local", namespace='test', env=['dev'],
+                                 local=False, tag=1, registry='reg')
+    merged_so_far = {KEY_APPS: {'myapp': {KEY_HARNESS: {'secured': True, 'subdomain': 'earlier'}}}}
+
+    values = generator.collect_app_values(Path(RESOURCES) / APPS_PATH, helm_values=merged_so_far)
+
+    instance = values['myapp-inst1']
+    assert instance[KEY_HARNESS]['subdomain'] == 'myinstance'
+    assert instance[KEY_HARNESS]['secured'] is True, 'derived from the application merged so far'
+    assert instance['a'] == 'instance-dev-b', 'with the instance values on top'
+    assert instance['build'] is False
+    assert 'accounts-inst1' not in values, 'applications declaring no instance get none'
+    # nothing in the values tells the instance apart: the directories are the only record
+    assert instance_names('myapp', [RESOURCES]) == {'inst1'}
+    assert instance_names('accounts', [RESOURCES]) == set()
+
+
+def test_values_vocabulary_is_re_exported():
+    """The values keys live in `constants` and the validation exception lives in `common_types`,
+    and both are read from `configurationgenerator` by the other cli tools and by these tests:
+    dropping the re-export breaks them with an ImportError far from where it was caused."""
+    from ch_cli_tools import common_types, constants
+
+    for name in ('KEY_HARNESS', 'KEY_SERVICE', 'KEY_DATABASE', 'KEY_DEPLOYMENT', 'KEY_APPS',
+                 'KEY_TASK_IMAGES', 'KEY_TEST_IMAGES'):
+        assert getattr(configurationgenerator, name) is getattr(constants, name), \
+            f"{name} must stay importable from configurationgenerator"
+
+    assert configurationgenerator.ValuesValidationException is common_types.ValuesValidationException, \
+        "ValuesValidationException must stay importable from configurationgenerator"
+
+
+def test_instance_subdomain_defaults_to_its_directory_name():
+    """Creating the directory is enough to reach an instance: without a subdomain of its own it
+    answers on its name. An explicit null opts out of the ingress."""
+    def subdomain_of(instance_values):
+        parent = {KEY_HARNESS: {'subdomain': 'www', 'aliases': ['samples']}}
+        return build_instance_values(parent, 'samples', 'instance1', instance_values)[KEY_HARNESS].get('subdomain', '<absent>')
+
+    assert subdomain_of({}) == 'instance1'
+    assert subdomain_of({KEY_HARNESS: {'replicas': 2}}) == 'instance1'
+    assert subdomain_of({KEY_HARNESS: {'subdomain': 'samples1'}}) == 'samples1'
+    assert subdomain_of({KEY_HARNESS: {'subdomain': None}}) is None
+
+
+def test_instance_values_precedence(tmp_path):
+    """Values are layered instance env > instance > application env > application.
+
+    The `myapp` fixture sets `a` in all four files and `dev` only in the application's
+    environment values, so the winner and the inheritance are both visible.
+    """
+    out_folder = tmp_path / 'test_instance_values_precedence'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
+                               domain="my.local", namespace='test', env='dev', local=False, tag=1, registry='reg')
+
+    instance = values[KEY_APPS]['myapp-inst1']
+    parent = values[KEY_APPS]['myapp']
+
+    # the instance's environment values win over everything
+    assert instance['a'] == 'instance-dev-b'
+    assert instance[KEY_HARNESS][KEY_DEPLOYMENT]['replicas'] == 4, \
+        'the instance values-dev.yaml overrides its values.yaml'
+    # what no instance file sets is inherited, environment values included
+    assert instance['dev'] is True
+    # the application keeps its own
+    assert parent['a'] == 'b'
+    assert parent[KEY_HARNESS]['subdomain'] == 'mysubdomain'
+
+
+def test_instance_without_env_values_still_layers_over_the_application(tmp_path):
+    """Without the environment, the instance's values.yaml is the top of the chain."""
+    out_folder = tmp_path / 'test_instance_values_precedence_noenv'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
+                               domain="my.local", namespace='test', local=False, tag=1, registry='reg')
+
+    instance = values[KEY_APPS]['myapp-inst1']
+    assert instance['a'] == 'instance-b'
+    assert instance[KEY_HARNESS][KEY_DEPLOYMENT]['replicas'] == 3
+    assert 'dev' not in instance
+
+
+def test_instance_inherits_the_application_merged_across_roots(tmp_path):
+    """An instance inherits the application's final configuration, not the one of the root its
+    directory happens to live in.
+
+    An instance is derived again in every root path that reads its application, from the
+    application as merged up to that root and the instance's values from every root: a
+    scaffolding overriding an application reaches its instances, and the instance's own values
+    still win over it.
+    """
+    overriding_root = tmp_path / 'overriding_root'
+    app_deploy = overriding_root / APPS_PATH / 'myapp' / 'deploy'
+    app_deploy.mkdir(parents=True)
+    (app_deploy / 'values.yaml').write_text(
+        'harness:\n  secured: true\n  deployment:\n    port: 9999\n    replicas: 1\n')
+
+    out_folder = tmp_path / 'test_instance_inherits_merged'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, overriding_root], output_path=out_folder,
+                               include=['myapp'], domain="my.local", namespace='test', env='dev',
+                               local=False, tag=1, registry='reg')
+
+    # the instance is declared in RESOURCES, the override comes from a later root
+    instance = values[KEY_APPS]['myapp-inst1'][KEY_HARNESS]
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DEPLOYMENT]['port'] == 9999
+    assert instance[KEY_DEPLOYMENT]['port'] == 9999
+    assert instance['secured'] is True
+    # and what the instance sets for itself still wins over the later root's application values
+    assert instance['subdomain'] == 'myinstance'
+    assert instance[KEY_DEPLOYMENT]['replicas'] == 4
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DEPLOYMENT]['replicas'] == 1
