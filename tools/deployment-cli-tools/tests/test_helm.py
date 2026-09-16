@@ -1435,7 +1435,7 @@ def test_instances_expand_into_applications(tmp_path):
     """An instance is deployed as an application of its own, inheriting the parent's configuration."""
     out_folder = tmp_path / 'test_instances_expand_into_applications'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples'],
-                               domain="my.local", namespace='test', env='dev', local=False, tag=1, registry='reg')
+                               domain="my.local", namespace='test', env='test', local=False, tag=1, registry='reg')
 
     apps = values[KEY_APPS]
     assert 'samples-instance1' in apps, 'including an application includes its instances'
@@ -1473,7 +1473,7 @@ def test_instances_expand_into_applications(tmp_path):
 def test_instances_expand_without_include(tmp_path):
     out_folder = tmp_path / 'test_instances_expand_without_include'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                               namespace='test', env='dev', local=False, tag=1, registry='reg')
+                               namespace='test', env='test', local=False, tag=1, registry='reg')
 
     instance = values[KEY_APPS]['samples-instance1']
     assert instance[KEY_HARNESS]['subdomain'] == 'samples1'
@@ -1485,7 +1485,7 @@ def test_instance_excluded_individually(tmp_path):
     """A single instance is left out with --exclude, without affecting its parent."""
     out_folder = tmp_path / 'test_instance_excluded_individually'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples'],
-                               exclude=['samples-instance1'], domain="my.local", namespace='test', env='dev',
+                               exclude=['samples-instance1'], domain="my.local", namespace='test', env='test',
                                local=False, tag=1, registry='reg')
 
     assert 'samples-instance1' not in values[KEY_APPS]
@@ -1498,7 +1498,7 @@ def test_instance_include_pulls_in_its_parent(tmp_path):
     """Including an instance alone deploys the application it inherits its image from too."""
     out_folder = tmp_path / 'test_instance_include_pulls_in_its_parent'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder,
-                               include=['samples-instance1'], domain="my.local", namespace='test', env='dev',
+                               include=['samples-instance1'], domain="my.local", namespace='test', env='test',
                                local=False, tag=1, registry='reg')
 
     assert 'samples-instance1' in values[KEY_APPS]
@@ -1510,7 +1510,7 @@ def test_instance_resources_are_overlaid_on_the_application(tmp_path):
     """An instance's resources override the application's file by file, and it inherits the rest."""
     out_folder = tmp_path / 'test_instance_resources'
     create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples'],
-                      domain="my.local", namespace='test', env='dev', local=False, tag=1, registry='reg')
+                      domain="my.local", namespace='test', env='test', local=False, tag=1, registry='reg')
 
     helm_path = out_folder / HELM_CHART_PATH
     instance_resources = helm_path / 'resources' / 'samples-instance1'
@@ -1599,7 +1599,7 @@ def test_instance_does_not_inherit_the_parent_connect_string(tmp_path):
     """A connection string points at one database: an instance never inherits the parent's."""
     out_folder = tmp_path / 'test_instance_connect_string'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples'],
-                               domain="my.local", namespace='test', env='dev', local=False, tag=1, registry='reg')
+                               domain="my.local", namespace='test', env='test', local=False, tag=1, registry='reg')
 
     instance_db = values[KEY_APPS]['samples-instance1'][KEY_HARNESS][KEY_DATABASE]
     parent_db = values[KEY_APPS]['samples'][KEY_HARNESS][KEY_DATABASE]
@@ -1617,7 +1617,7 @@ def test_instance_renders_its_own_manifests(tmp_path):
     """The instance gets the full set of manifests on its own subdomain, backed by its own workload."""
     out_folder = tmp_path / 'test_instance_renders_its_own_manifests'
     create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples'],
-                      domain="my.local", namespace='test', env='dev', local=False, tag=1, registry='reg')
+                      domain="my.local", namespace='test', env='test', local=False, tag=1, registry='reg')
 
     helm_path = out_folder / HELM_CHART_PATH
     shutil.rmtree(helm_path / 'charts', ignore_errors=True)
@@ -1691,23 +1691,6 @@ def test_instance_colliding_with_an_application_is_rejected(tmp_path):
                           domain="my.local", namespace='test', local=False, tag=1, registry='reg')
 
 
-def test_instance_directory_colliding_with_a_task_is_rejected(tmp_path):
-    """Task image ownership is resolved by longest name prefix, so an instance named `print` on
-    an application owning `myapp-print-file` would take the image over and it would never build.
-    The collision is caught when instances are collected, before anything reads task images."""
-    app_path = tmp_path / APPS_PATH / 'myapp'
-    (app_path / 'tasks' / 'print-file').mkdir(parents=True)
-    instance_path = app_path / 'deploy' / INSTANCES_PATH / 'print'
-    instance_path.mkdir(parents=True)
-    (instance_path / 'values.yaml').write_text('harness:\n  subdomain: myprint\n')
-
-    with pytest.raises(ValuesValidationException, match='myapp-print-file'):
-        collect_instances('myapp', [tmp_path])
-
-    assert resolve_task_image_owner('myapp-print-file', {'myapp', 'myapp-print'}) == 'myapp-print', \
-        'the prefix match this guards against'
-
-
 def test_collect_instances_skips_hidden_directories(tmp_path):
     instances_dir = tmp_path / APPS_PATH / 'myapp' / 'deploy' / INSTANCES_PATH
     (instances_dir / '.hidden').mkdir(parents=True)
@@ -1719,14 +1702,14 @@ def test_collect_instances_skips_hidden_directories(tmp_path):
 
 def test_instance_declared_for_an_environment_only(tmp_path):
     """An instance with a `values-[env].yaml` alone is deployed in that environment only; the
-    `samples` fixture declares `instance1` for `dev`."""
+    `samples` fixture declares `instance1` for `test`."""
     instances_dir = Path(CLOUDHARNESS_ROOT) / APPS_PATH / 'samples' / 'deploy' / INSTANCES_PATH / 'instance1'
-    assert (instances_dir / 'values-dev.yaml').exists() and not (instances_dir / 'values.yaml').exists()
+    assert (instances_dir / 'values-test.yaml').exists() and not (instances_dir / 'values.yaml').exists()
 
     assert instance_names('samples', [CLOUDHARNESS_ROOT]) == set()
-    assert instance_names('samples', [CLOUDHARNESS_ROOT], envs=['dev']) == {'instance1'}
+    assert instance_names('samples', [CLOUDHARNESS_ROOT], envs=['test']) == {'instance1'}
     assert collect_instances('samples', [CLOUDHARNESS_ROOT]) == {}
-    assert collect_instances('samples', [CLOUDHARNESS_ROOT], envs=['dev'])['instance1'][KEY_HARNESS]['subdomain'] == 'samples1'
+    assert collect_instances('samples', [CLOUDHARNESS_ROOT], envs=['test'])['instance1'][KEY_HARNESS]['subdomain'] == 'samples1'
 
     out_folder = tmp_path / 'test_instance_env_only'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples'],

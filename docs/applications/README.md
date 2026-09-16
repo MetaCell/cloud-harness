@@ -70,14 +70,14 @@ harness:
 
 To customize the helm templates to use, put them inside the *deploy* subdirectory.
 
-## Application instances
+## Multiple application instances
 
 An application can be deployed several times over, each deployment on its own subdomain and with
 its own configuration and database. Each of those deployments is an *instance*, declared as a
-directory under the application's `deploy/instances`:
+directory under the application's `deploy/instances`, such as:
 
 ```
-applications/samples/
+applications/myapp/
   Dockerfile
   deploy/
     values.yaml                # the application's configuration
@@ -92,19 +92,17 @@ applications/samples/
         templates/             # optional, overlaid on the application's templates
 ```
 
-The instance above is deployed as the application `samples-instance1`: that key names its service,
+The instance above is deployed as the application `myapp-instance1`: that key names its service,
 deployment, database, volume, gatekeeper and configmaps, and is how it is referenced on the command
-line. It runs the image built for `samples` — an instance adds no build, so declare no Dockerfile
-in it. The key must not take over one of the application's task images: an instance named `print`
-on an application with a `tasks/print-file` is rejected, as `samples-print` would own
-`samples-print-file`.
+line. It runs the image built for `myapp` — an instance adds no build, so declare no Dockerfile
+in it.
 
 Everything else is inherited from the application, so an instance's `values.yaml` only carries what
 it changes:
 
 ```yaml
 harness:
-  subdomain: samples1
+  subdomain: myapp1
   deployment:
     replicas: 1
 ```
@@ -114,6 +112,7 @@ instance overriding `uri_role_mapping` therefore replaces the whole list rather 
 Resources and templates are overlaid file by file, so an instance inherits every file it does not
 override — above, `myConfig.json` comes from the application and `example.yaml` from the instance.
 
+### Envs and values precedence resolution
 Environment specific values apply at both levels, the instance's taking precedence over the
 application's:
 
@@ -128,12 +127,13 @@ An instance is declared by its values files: with a `values.yaml` it is deployed
 environment, with only a `values-[ENV].yaml` it is deployed in that environment alone (with
 `harness-deployment -e ENV`). A directory with neither is ignored.
 
-What identifies the application is never inherited, so that an instance never claims the
+### Inheritance exceptions
+What identifies the application is never inherited, so to avoid collisions across
 application's hosts or resources:
 
 - `subdomain`, `aliases` and `domain`. An instance without a `subdomain` of its own answers on
-  its directory's name, so `instances/samples1/` with an empty `values.yaml` is served at
-  `samples1.[DOMAIN]`; declare `subdomain: null` to give an instance no ingress at all
+  its directory's name, so `instances/myapp1/` with an empty `values.yaml` is served at
+  `myapp1.[DOMAIN]`; declare `subdomain: null` to give an instance no ingress at all
 - the names of the service, deployment and database, which are derived from the instance key
 - `deployment.volume.name` when the volume is automatic (`auto` unset or `true`): prefixed with
   the instance name (`instance1-my-shared-volume`), so the instance gets a claim of its own instead
@@ -143,13 +143,16 @@ application's hosts or resources:
   database needs a connection string of its own. Set `database.auto: true` to have CloudHarness
   deploy a database of its own for it instead.
 
-An instance may share the application's database server by declaring its `database.name`
-(`samples-db` for `samples`). Its initial database is then named after the instance application,
-hyphens turned to underscores (`samples_instance1`), so the two never share data. Declare
+### Database sharing
+An instance may share the application's database server by explitly declaring its `database.name`
+(For instance, `myapp-db` for `myapp`), and not overriding the name in the instance (or using the same). 
+When the database instance is shared, its initial database is then named after the instance application,
+hyphens turned to underscores (`myapp_instance1`), so the two never share data. Declare
 `postgres.initialdb` on the instance to pick the name yourself.
 
-Instances are deployed together with their application: `harness-deployment -i samples` deploys
-`samples` and all its instances, and `-e samples-instance1` leaves one out. CI builds and tests the
+### Deployment
+Instances are deployed together with their application: `harness-deployment -i myapp` deploys
+`myapp` and all its instances, and `-ex myapp-instance1` leaves one out. CI builds and tests the
 application only, since an instance runs the same image.
 
 ## Dependency to an existing Helm chart
@@ -210,6 +213,6 @@ The most important configuration entries are the following:
     - `buildArgs`: a map of build arguments to provide to the dockerfile when building with Skaffold
 
 # Example code
-- [Sample application](../../applications/samples) is a sample web application providing working examples of deployment configuration, backend and frontend code.
+- [Sample application](../../applications/myapp) is a sample web application providing working examples of deployment configuration, backend and frontend code.
     
 

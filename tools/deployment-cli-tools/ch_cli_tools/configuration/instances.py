@@ -203,19 +203,6 @@ def resolve_instance_includes(include, app_name, instance_keys):
     return resolved
 
 
-def task_image_collision(app_key, task_images):
-    """The task image an instance application key would take ownership of, if any.
-
-    Task images are resolved to the application that builds them by longest name prefix
-    (`resolve_task_image_owner`), so an instance is in the way of the image named after it and
-    of every image whose name it prefixes: `samples-print` would own `samples-print-file`.
-    """
-    for task_image in sorted(task_images):
-        if task_image == app_key or task_image.startswith(f"{app_key}-"):
-            return task_image
-    return None
-
-
 def load_instance_values(instance_path, envs=()):
     """The override values declared in one instance directory: `values.yaml`, overridden by
     `values-[env].yaml`."""
@@ -239,25 +226,9 @@ def collect_instances(app_name, root_paths, envs=()):
     no instance.
     """
     instances = {}
-    # Task images are named `[application]-[task directory]`, the same way an instance
-    # application is: an instance whose key prefixes one would take ownership of it.
-    task_images = set()
-
     for root_path in root_paths:
         app_path = Path(root_path) / APPS_PATH / app_name
-        task_images.update(app_name_from_path(f"{app_name}/{task_path.name}")
-                           for task_path in (app_path / 'tasks').glob("*/") if task_path.is_dir())
-
         for instance_name, instance_path in instance_directories(app_path, envs).items():
             instances[instance_name] = dict_merge(
                 instances.get(instance_name, {}), load_instance_values(instance_path, envs))
-
-    for instance_name in instances:
-        collision = task_image_collision(instance_app_key(app_name, instance_name), task_images)
-        if collision:
-            raise ValuesValidationException(
-                f"Instance `{instance_name}` of application `{app_name}` is deployed as application "
-                f"`{instance_app_key(app_name, instance_name)}`, which takes over the task image "
-                f"`{collision}`. Rename the instance.")
-
     return instances
