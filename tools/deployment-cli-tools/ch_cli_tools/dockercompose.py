@@ -16,7 +16,7 @@ from .utils import get_cluster_ip, image_name_from_dockerfile_path, get_template
 
 from .models import HarnessMainConfig
 
-from .configurationgenerator import ConfigurationGenerator, \
+from .configuration.configurationgenerator import ConfigurationGenerator, \
     clear_unused_volume_configuration, validate_helm_values, values_from_legacy, values_set_legacy, get_included_applications, get_included_builds, resolve_task_image_owner, create_env_variables, collect_apps_helm_templates, \
     KEY_HARNESS, KEY_SERVICE, KEY_DATABASE, KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES, KEY_DEPLOYMENT
 

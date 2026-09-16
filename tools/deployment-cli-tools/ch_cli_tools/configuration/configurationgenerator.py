@@ -12,18 +12,18 @@ from docker import from_env as DockerClient
 from pathlib import Path
 import abc
 
-from . import HERE, CH_ROOT
+from .. import HERE, CH_ROOT
 from cloudharness_utils.constants import TEST_IMAGES_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, \
     DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH
-from .utils import get_cluster_ip, env_variable, get_dockerfile_baseimg_args, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
+from ..utils import get_cluster_ip, env_variable, get_dockerfile_baseimg_args, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
     get_template, merge_configuration_directories, dict_merge, app_name_from_path, \
     find_dockerfiles_paths, get_git_commit_hash, yaml
 from .secrets import secret_definition_error
 # Re-exported on purpose: the rest of the cli tools and the tests read the deployment values
 # vocabulary from here. Keep them importable — see test_values_vocabulary_is_re_exported.
-from .constants import KEY_APPS, KEY_DATABASE, KEY_DEPLOYMENT, KEY_HARNESS, \
+from ..constants import KEY_APPS, KEY_DATABASE, KEY_DEPLOYMENT, KEY_HARNESS, \
     KEY_SERVICE, KEY_TASK_IMAGES, KEY_TEST_IMAGES
-from .common_types import ValuesValidationException
+from ..common_types import ValuesValidationException
 from .instances import build_instance_values, check_instance_collisions, collect_instances, inherit_parent_image, \
     instance_app_key, instance_directories, instance_names, resolve_instance_includes
 

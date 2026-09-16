@@ -16,9 +16,9 @@ import copy
 from pathlib import Path
 
 from cloudharness_utils.constants import APPS_PATH
-from .constants import KEY_DATABASE, KEY_DEPLOYMENT, KEY_HARNESS, KEY_SERVICE, KEY_TASK_IMAGES
-from .common_types import ValuesValidationException
-from .utils import app_name_from_path, dict_merge, get_template, yaml
+from ..constants import KEY_DATABASE, KEY_DEPLOYMENT, KEY_HARNESS, KEY_SERVICE, KEY_TASK_IMAGES
+from ..common_types import ValuesValidationException
+from ..utils import app_name_from_path, dict_merge, get_template, yaml
 
 
 # Directory of an application holding its instances, one sub-directory each

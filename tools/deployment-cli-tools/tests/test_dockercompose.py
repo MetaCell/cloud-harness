@@ -1,6 +1,6 @@
 from ch_cli_tools.dockercompose import *
-from ch_cli_tools.configurationgenerator import *
-from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
+from ch_cli_tools.configuration.configurationgenerator import *
+from ch_cli_tools.configuration.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
 import pytest
 import shutil
 import subprocess

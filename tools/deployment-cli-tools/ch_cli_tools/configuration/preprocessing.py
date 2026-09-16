@@ -7,10 +7,10 @@ import shutil
 from glob import glob
 from os.path import join, basename, dirname, isabs, relpath
 
-from .helm import KEY_APPS, KEY_TASK_IMAGES, KEY_HARNESS, KEY_DEPLOYMENT
+from ..constants import KEY_APPS, KEY_TASK_IMAGES, KEY_HARNESS, KEY_DEPLOYMENT
 from .configurationgenerator import DEFAULT_IGNORE, generate_tag_from_content
 
-from .utils import app_name_from_path, merge_app_directories, merge_configuration_directories, find_subdirs, read_dockerignore, guess_build_dependencies_from_dockerfile
+from ..utils import app_name_from_path, merge_app_directories, merge_configuration_directories, find_subdirs, read_dockerignore, guess_build_dependencies_from_dockerfile
 from cloudharness_utils.constants import APPS_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, DEFAULT_MERGE_PATH, EXCLUDE_PATHS
 
 

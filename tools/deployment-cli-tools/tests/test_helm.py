@@ -1,21 +1,21 @@
 from ch_cli_tools.helm import *
-from ch_cli_tools.configurationgenerator import *
-from ch_cli_tools import configurationgenerator
-from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
+from ch_cli_tools.configuration.configurationgenerator import *
+from ch_cli_tools.configuration import configurationgenerator
+from ch_cli_tools.configuration.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
 import logging
 import pytest
 import shutil
 import subprocess
 
 import pytest
-from ch_cli_tools import configurationgenerator
-from ch_cli_tools.configurationgenerator import *
+from ch_cli_tools.configuration import configurationgenerator
+from ch_cli_tools.configuration.configurationgenerator import *
 from ch_cli_tools.helm import *
-from ch_cli_tools.preprocessing import (
+from ch_cli_tools.configuration.preprocessing import (
     generate_hash_based_image_tags,
     preprocess_build_overrides,
 )
-from ch_cli_tools.instances import *
+from ch_cli_tools.configuration.instances import *
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')
