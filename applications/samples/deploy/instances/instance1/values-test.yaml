@@ -2,6 +2,13 @@ harness:
   subdomain: samples1
   deployment:
     replicas: 1
+    statefulset: false
+    resources:
+      limits:
+        memory: "160Mi"
+      requests:
+        cpu: "1m"
+        memory: "16Mi"
   database:
     connect_string: "instance1 connection string"
   envmap:

@@ -124,18 +124,29 @@ deploy/values-[ENV].yaml
 deploy/values.yaml                             # loses
 ```
 
+An instance is declared by its values files: with a `values.yaml` it is deployed in every
+environment, with only a `values-[ENV].yaml` it is deployed in that environment alone (with
+`harness-deployment -e ENV`). A directory with neither is ignored.
+
 What identifies the application is never inherited, so that an instance never claims the
 application's hosts or resources:
 
 - `subdomain`, `aliases` and `domain`. An instance without a `subdomain` of its own answers on
-  its directory's name, so `instances/samples1/` alone is served at `samples1.[DOMAIN]`; declare
-  `subdomain: null` to give an instance no ingress at all
+  its directory's name, so `instances/samples1/` with an empty `values.yaml` is served at
+  `samples1.[DOMAIN]`; declare `subdomain: null` to give an instance no ingress at all
 - the names of the service, deployment and database, which are derived from the instance key
-- `deployment.volume.name`, prefixed with the instance key, so the instance never mounts the
-  application's storage
+- `deployment.volume.name` when the volume is automatic (`auto` unset or `true`): prefixed with
+  the instance name (`instance1-my-shared-volume`), so the instance gets a claim of its own instead
+  of mounting the application's storage. A non-automatic volume is a pre-existing claim and stays
+  shared
 - `database.connect_string`, emptied: an instance of an application using an externally managed
   database needs a connection string of its own. Set `database.auto: true` to have CloudHarness
   deploy a database of its own for it instead.
+
+An instance may share the application's database server by declaring its `database.name`
+(`samples-db` for `samples`). Its initial database is then named after the instance application,
+hyphens turned to underscores (`samples_instance1`), so the two never share data. Declare
+`postgres.initialdb` on the instance to pick the name yourself.
 
 Instances are deployed together with their application: `harness-deployment -i samples` deploys
 `samples` and all its instances, and `-e samples-instance1` leaves one out. CI builds and tests the

@@ -56,7 +56,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         self.env = env or {}
         self.namespace = namespace
         self.calculate_hash_tags = calculate_hash_tags
-        check_instance_collisions(self.root_paths, exclude=self.exclude)
+        check_instance_collisions(self.root_paths, exclude=self.exclude, envs=self.env)
 
         # In this tree we will collect the  and their parent dependencies
         self.build_tree: dict[str, list[str]] = {}
@@ -196,7 +196,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         """
         apps = helm_values[KEY_APPS]
         for app_name in list(apps):
-            for instance_name in instance_names(app_name, self.root_paths):
+            for instance_name in instance_names(app_name, self.root_paths, self.env):
                 app_key = instance_app_key(app_name, instance_name)
                 if app_key in apps:
                     inherit_parent_image(apps[app_key], apps[app_name])
@@ -806,7 +806,7 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_pat
         collect_app_deploy_directories(
             app_path, app_name, dest_helm_chart_path, templates_path=templates_path, envs=envs)
 
-        for instance_name, instance_path in instance_directories(app_path).items():
+        for instance_name, instance_path in instance_directories(app_path, envs).items():
             instance_key = instance_app_key(app_name, instance_name)
             if instance_key in exclude or (include and not any(inc in instance_key for inc in include)):
                 continue

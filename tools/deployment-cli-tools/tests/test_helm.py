@@ -1454,7 +1454,7 @@ def test_instances_expand_into_applications(tmp_path):
     assert instance[KEY_HARNESS][KEY_DEPLOYMENT]['name'] == 'samples-instance1'
     assert instance[KEY_HARNESS][KEY_DATABASE]['name'] == 'samples-instance1-db'
     assert instance[KEY_HARNESS][KEY_DEPLOYMENT]['volume']['name'] == \
-        'samples-instance1-my-shared-volume', 'an instance must not mount the parent claim'
+        'instance1-my-shared-volume', 'an instance must not mount the parent claim'
     assert parent[KEY_HARNESS][KEY_DEPLOYMENT]['volume']['name'] == 'my-shared-volume'
 
     # The parent's image, built once
@@ -1552,6 +1552,49 @@ def test_instance_templates_are_overlaid_on_the_application(tmp_path):
     assert rendered['data']['subdomain'] == 'myinstance'
 
 
+def test_instance_gets_its_own_automatic_volume():
+    """An automatic volume is a claim created for the application: the instance gets one of its
+    own, named after the instance. A non-automatic volume is a pre-existing claim, left shared."""
+    def volume_of(parent_volume, instance_values={}):
+        parent = {KEY_HARNESS: {KEY_DEPLOYMENT: {'volume': parent_volume}}}
+        return build_instance_values(parent, 'samples', 'instance1', instance_values)[KEY_HARNESS][KEY_DEPLOYMENT]['volume']
+
+    assert volume_of({'name': 'shared', 'auto': True})['name'] == 'instance1-shared'
+    assert volume_of({'name': 'shared'})['name'] == 'instance1-shared', 'volumes are automatic by default'
+    assert volume_of({'name': 'existing-claim', 'auto': False})['name'] == 'existing-claim'
+    assert volume_of({'name': 'shared', 'auto': True},
+                     {KEY_HARNESS: {KEY_DEPLOYMENT: {'volume': {'name': 'mine'}}}})['name'] == 'mine'
+
+
+def test_instance_sharing_the_parent_database_server_gets_its_own_database():
+    """By default an instance gets a database server of its own. Declaring the parent's database
+    name shares the server, and the initial database is then named after the instance application
+    so the data is not shared. Underscores, as hyphens need quoting in SQL identifiers."""
+    parent = {KEY_HARNESS: {KEY_DATABASE: {
+        'type': 'postgres', 'auto': True, 'postgres': {'initialdb': 'cloudharness'}, 'mongo': {'image': 'mongo:5'}}}}
+
+    def database_of(instance_database):
+        return build_instance_values(parent, 'samples', 'instance1',
+                                     {KEY_HARNESS: {KEY_DATABASE: instance_database}})[KEY_HARNESS][KEY_DATABASE]
+
+    own_server = database_of({})
+    assert 'name' not in own_server, 'named after the instance when the deployment is finalized'
+    assert own_server['postgres']['initialdb'] == 'cloudharness'
+
+    shared_server = database_of({'name': 'samples-db'})
+    assert shared_server['postgres']['initialdb'] == 'samples_instance1'
+    assert shared_server['mongo'] == {'image': 'mongo:5'}
+    assert parent[KEY_HARNESS][KEY_DATABASE]['postgres']['initialdb'] == 'cloudharness'
+
+    assert database_of({'name': 'samples-db', 'postgres': {'initialdb': 'mine'}})['postgres']['initialdb'] == 'mine'
+    assert database_of({'name': 'other-db'})['postgres']['initialdb'] == 'cloudharness'
+
+    # a parent naming its database explicitly is matched on that name
+    parent[KEY_HARNESS][KEY_DATABASE]['name'] = 'central-db'
+    assert database_of({'name': 'central-db'})['postgres']['initialdb'] == 'samples_instance1'
+    assert database_of({'name': 'samples-db'})['postgres']['initialdb'] == 'cloudharness'
+
+
 def test_instance_does_not_inherit_the_parent_connect_string(tmp_path):
     """A connection string points at one database: an instance never inherits the parent's."""
     out_folder = tmp_path / 'test_instance_connect_string'
@@ -1580,20 +1623,23 @@ def test_instance_renders_its_own_manifests(tmp_path):
     shutil.rmtree(helm_path / 'charts', ignore_errors=True)
     manifests = render_helm_chart(helm_path)
 
-    statefulset = find_manifest(manifests, 'StatefulSet', 'samples-instance1')
+    # the fixture instance opts out of the parent's statefulset, so it is a plain Deployment
+    workload = find_manifest(manifests, 'Deployment', 'samples-instance1')
     find_manifest(manifests, 'Service', 'samples-instance1')
 
-    containers = statefulset['spec']['template']['spec']['containers']
+    containers = workload['spec']['template']['spec']['containers']
     app_container = next(c for c in containers if c['name'] == 'samples-instance1')
     env = {e['name']: e.get('value') for e in app_container['env']}
     assert env['CH_CURRENT_APP_NAME'] == 'samples-instance1', \
         'the instance must read its own configuration, not the parent one'
 
-    # Its own claim: sharing the parent's would give the instance the parent's data
-    claims = [c['metadata']['name'] for c in statefulset['spec'].get('volumeClaimTemplates', [])]
-    parent_claims = [c['metadata']['name']
-                     for c in find_manifest(manifests, 'StatefulSet', 'samples')['spec'].get('volumeClaimTemplates', [])]
-    assert claims and not set(claims) & set(parent_claims)
+    # Its own claim, named after the instance: sharing the parent's would give it the parent's data
+    find_manifest(manifests, 'PersistentVolumeClaim', 'instance1-my-shared-volume')
+    claims = {v['persistentVolumeClaim']['claimName']
+              for v in workload['spec']['template']['spec'].get('volumes', []) if 'persistentVolumeClaim' in v}
+    parent_claims = {c['metadata']['name']
+                     for c in find_manifest(manifests, 'StatefulSet', 'samples')['spec'].get('volumeClaimTemplates', [])}
+    assert claims == {'instance1-my-shared-volume'} and not claims & parent_claims
 
     # Its own database secret
     instance_secret = find_manifest(manifests, 'Secret', 'samples-instance1-db')
@@ -1626,7 +1672,9 @@ def test_instance_colliding_with_an_application_is_rejected(tmp_path):
     """An instance and an application under the same key would be merged into one, whichever
     root path declares each of them."""
     first, second = tmp_path / 'first', tmp_path / 'second'
-    (first / APPS_PATH / 'myapp' / 'deploy' / INSTANCES_PATH / 'other').mkdir(parents=True)
+    instance_path = first / APPS_PATH / 'myapp' / 'deploy' / INSTANCES_PATH / 'other'
+    instance_path.mkdir(parents=True)
+    (instance_path / 'values.yaml').write_text('')
     (second / APPS_PATH / 'myapp-other' / 'deploy').mkdir(parents=True)
 
     check_instance_collisions([first])
@@ -1667,6 +1715,34 @@ def test_collect_instances_skips_hidden_directories(tmp_path):
     (instances_dir / 'real' / 'values.yaml').write_text('harness:\n  subdomain: real\n')
 
     assert set(collect_instances('myapp', [tmp_path])) == {'real'}
+
+
+def test_instance_declared_for_an_environment_only(tmp_path):
+    """An instance with a `values-[env].yaml` alone is deployed in that environment only; the
+    `samples` fixture declares `instance1` for `dev`."""
+    instances_dir = Path(CLOUDHARNESS_ROOT) / APPS_PATH / 'samples' / 'deploy' / INSTANCES_PATH / 'instance1'
+    assert (instances_dir / 'values-dev.yaml').exists() and not (instances_dir / 'values.yaml').exists()
+
+    assert instance_names('samples', [CLOUDHARNESS_ROOT]) == set()
+    assert instance_names('samples', [CLOUDHARNESS_ROOT], envs=['dev']) == {'instance1'}
+    assert collect_instances('samples', [CLOUDHARNESS_ROOT]) == {}
+    assert collect_instances('samples', [CLOUDHARNESS_ROOT], envs=['dev'])['instance1'][KEY_HARNESS]['subdomain'] == 'samples1'
+
+    out_folder = tmp_path / 'test_instance_env_only'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples'],
+                               domain="my.local", namespace='test', local=False, tag=1, registry='reg')
+    assert 'samples-instance1' not in values[KEY_APPS]
+    assert not (out_folder / HELM_CHART_PATH / 'resources' / 'samples-instance1').exists(), \
+        'an instance not deployed leaves no collected files behind'
+
+
+def test_instance_directory_without_values_is_ignored(tmp_path):
+    instance_path = tmp_path / APPS_PATH / 'myapp' / 'deploy' / INSTANCES_PATH / 'inst'
+    (instance_path / 'resources').mkdir(parents=True)
+    assert collect_instances('myapp', [tmp_path], envs=['dev']) == {}
+
+    (instance_path / 'values.yaml').write_text('')
+    assert collect_instances('myapp', [tmp_path]) == {'inst': {}}, 'an empty values file declares it'
 
 
 def test_collect_instances_of_an_application_without_any(tmp_path):
