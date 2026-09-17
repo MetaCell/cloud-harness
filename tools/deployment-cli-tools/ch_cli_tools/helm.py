@@ -279,6 +279,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
             # Only include applications that are specified in the include list and their dependencies
             self.include = get_included_applications(
                 values, set(self.include))
+            self.include = self._include_application_instances(values)
 
             self.include -= set(self.exclude)
 
@@ -302,6 +303,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
                         owner = resolve_task_image_owner(dep_name, set(apps))
                         if owner and owner in apps:
                             included_apps[owner] = apps[owner]
+                self._keep_included_instances(apps, included_apps)
                 values[KEY_APPS] = included_apps
             else:
                 # Original single-pass mode: filter apps and aggregate task images
@@ -328,6 +330,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
                             if key in included_builds or app_name in self.include:
                                 values[KEY_TASK_IMAGES][key] = apps[app_name][KEY_TASK_IMAGES][key]
 
+                self._keep_included_instances(apps, included_apps)
                 values[KEY_APPS] = included_apps
         elif not defer_task_images:
             for v in apps:

@@ -235,6 +235,7 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
             included_builds = get_included_builds(values, set(self.include))
             self.include = get_included_applications(
                 values, set(self.include))
+            self.include = self._include_application_instances(values)
             logging.info('Selecting included applications')
 
             keep = set(self.include)

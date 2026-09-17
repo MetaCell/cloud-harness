@@ -188,6 +188,33 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
             self.include = resolve_instance_includes(self.include, app_name, instances)
         return instances
 
+    def _include_application_instances(self, helm_values):
+        """Include the instances of every included application.
+
+        Resolved once `--include` has been expanded over dependencies: an application is more
+        often pulled in as another's dependency than named on the command line, and its instances
+        are deployed with it either way. Instances left out with `--exclude` were never derived,
+        so they cannot come back here.
+        """
+        apps = helm_values[KEY_APPS]
+        included = set(self.include)
+        for app_name in self.include:
+            for instance_name in instance_names(app_name, self.root_paths, self.env):
+                app_key = instance_app_key(app_name, instance_name)
+                if app_key in apps:
+                    included.add(app_key)
+        return included
+
+    def _keep_included_instances(self, apps, included_apps):
+        """Keep the instances of the included applications in the deployment.
+
+        Applications are selected by walking the build closure, which instances are never part of:
+        they build nothing. They are deployed with the application they belong to all the same.
+        """
+        for app_key in self.include:
+            if app_key in apps and app_key not in included_apps:
+                included_apps[app_key] = apps[app_key]
+
     def _inherit_instance_images(self, helm_values):
         """Give every instance the image of its parent application, once images are known.
 

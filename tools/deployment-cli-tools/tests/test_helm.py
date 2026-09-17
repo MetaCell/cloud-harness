@@ -1949,3 +1949,60 @@ def test_auto_tag_leaves_a_pinned_image_alone(tmp_path):
     assert values[KEY_APPS]['pinned']['image'] == 'reg/app:v1.0'
     assert values[KEY_APPS]['unrelated']['image'] == 'nginx:1.0'
     assert values[KEY_APPS]['builder']['image'] == 'reg/app:abc123'
+
+
+def test_instances_of_a_dependency_are_included(tmp_path):
+    """An application is more often pulled in as another's dependency than named on the command
+    line, and its instances are deployed with it either way.
+
+    Instances build nothing, so they are absent from the build closure the applications are
+    selected from: resolved too early, or filtered by that closure alone, they silently vanish
+    while their templates and resources are still collected into the chart.
+    """
+    dependent_root = tmp_path / 'dependent_root'
+    app_deploy = dependent_root / APPS_PATH / 'needsmyapp' / 'deploy'
+    app_deploy.mkdir(parents=True)
+    (app_deploy / 'values.yaml').write_text(
+        'harness:\n'
+        '  subdomain: needsmyapp\n'
+        '  dependencies:\n'
+        '    soft: [myapp]\n'
+        '  deployment:\n'
+        '    auto: true\n'
+        '    image: reg/needsmyapp:1\n'
+    )
+
+    out_folder = tmp_path / 'test_instances_of_a_dependency'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, dependent_root], output_path=out_folder,
+                               include=['needsmyapp'], domain="my.local", namespace='test', env='dev',
+                               local=False, tag=1, registry='reg')
+
+    apps = values[KEY_APPS]
+    assert 'myapp' in apps, 'the dependency itself is included'
+    assert 'myapp-inst1' in apps, 'and so are its instances'
+    assert apps['myapp-inst1'][KEY_HARNESS]['subdomain'] == 'myinstance'
+    assert apps['myapp-inst1']['image'] == apps['myapp']['image']
+
+
+def test_instance_of_a_dependency_can_still_be_excluded(tmp_path):
+    dependent_root = tmp_path / 'dependent_root'
+    app_deploy = dependent_root / APPS_PATH / 'needsmyapp' / 'deploy'
+    app_deploy.mkdir(parents=True)
+    (app_deploy / 'values.yaml').write_text(
+        'harness:\n'
+        '  subdomain: needsmyapp\n'
+        '  dependencies:\n'
+        '    soft: [myapp]\n'
+        '  deployment:\n'
+        '    auto: true\n'
+        '    image: reg/needsmyapp:1\n'
+    )
+
+    out_folder = tmp_path / 'test_instance_of_a_dependency_excluded'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, dependent_root], output_path=out_folder,
+                               include=['needsmyapp'], exclude=['myapp-inst1'], domain="my.local",
+                               namespace='test', env='dev', local=False, tag=1, registry='reg')
+
+    assert 'myapp' in values[KEY_APPS]
+    assert 'myapp-inst1' not in values[KEY_APPS]
+    assert not (out_folder / HELM_CHART_PATH / 'resources' / 'myapp-inst1').exists()
