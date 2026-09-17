@@ -134,7 +134,8 @@ def test_compose_gatekeeper_native_configuration_rendering(tmp_path):
             stderr=subprocess.PIPE,
             text=True,
         )
-        for document in yaml.load_all(completed.stdout):
+        documents = list(yaml.load_all(completed.stdout))
+        for document in documents:
             metadata = (document or {}).get('cloudharness-metadata', {})
             if metadata.get('path') == 'resources/generated/samples-gk/proxy.yml':
                 return yaml.load(document['data'])
