@@ -5,7 +5,7 @@ harness:
     statefulset: false
     resources:
       limits:
-        memory: "160Mi"
+        memory: "300Mi"
       requests:
         cpu: "1m"
         memory: "16Mi"
