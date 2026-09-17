@@ -1,0 +1,7 @@
+{{- $app := index .Values.apps "myapp-inst1" }}
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: "{{ $app.harness.deployment.name }}-instance-template"
+data:
+  subdomain: "{{ $app.harness.subdomain }}"

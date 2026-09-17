@@ -3,7 +3,7 @@ from os.path import dirname as dn
 import logging
 import subprocess
 
-from ch_cli_tools.preprocessing import get_build_paths
+from ch_cli_tools.configuration.preprocessing import get_build_paths
 
 
 from cloudharness_model.models import HarnessMainConfig, ApiTestsConfig, ApplicationHarnessConfig

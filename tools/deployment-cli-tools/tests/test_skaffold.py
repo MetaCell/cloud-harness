@@ -2,7 +2,7 @@ import os
 import shutil
 
 from ch_cli_tools.helm import *
-from ch_cli_tools.preprocessing import preprocess_build_overrides
+from ch_cli_tools.configuration.preprocessing import preprocess_build_overrides
 from ch_cli_tools.skaffold import *
 
 HERE = os.path.dirname(os.path.realpath(__file__))

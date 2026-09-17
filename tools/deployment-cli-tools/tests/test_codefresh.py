@@ -1,9 +1,9 @@
-from ch_cli_tools.preprocessing import preprocess_build_overrides
+from ch_cli_tools.configuration.preprocessing import preprocess_build_overrides
 
 from ch_cli_tools.helm import *
-from ch_cli_tools.configurationgenerator import *
+from ch_cli_tools.configuration.configurationgenerator import *
 from ch_cli_tools.codefresh import *
-from ch_cli_tools.secrets import is_cloudharness_managed, is_secret_config, secret_manager, secret_value
+from ch_cli_tools.configuration.secrets import is_cloudharness_managed, is_secret_config, secret_manager, secret_value
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')

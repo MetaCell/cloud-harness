@@ -1,0 +1,4 @@
+harness:
+  deployment:
+    replicas: 4
+a: instance-dev-b
