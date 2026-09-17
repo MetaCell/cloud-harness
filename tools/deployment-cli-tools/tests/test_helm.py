@@ -1,7 +1,8 @@
 from ch_cli_tools.helm import *
 from ch_cli_tools.configuration.configurationgenerator import *
 from ch_cli_tools.configuration import configurationgenerator
-from ch_cli_tools.configuration.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
+from ch_cli_tools.configuration.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags, \
+    apply_retagged_images
 import logging
 import pytest
 import shutil
@@ -1897,3 +1898,54 @@ def test_instance_inherits_the_application_merged_across_roots(tmp_path):
     assert instance['subdomain'] == 'myinstance'
     assert instance[KEY_DEPLOYMENT]['replicas'] == 4
     assert values[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DEPLOYMENT]['replicas'] == 1
+
+
+def test_auto_tag_reaches_instance_images(tmp_path):
+    """An instance runs the image built for its application, so it carries that image's tag.
+
+    Instances declare no build, so no hash tag is computed for them: without carrying the
+    application's over they would be deployed with a bare, untagged image name.
+    """
+    out_folder = str(tmp_path / 'test_auto_tag_reaches_instance_images')
+    merge_build_path = str(tmp_path / '.overrides')
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder,
+                               include=['samples', 'myapp'], exclude=['events'], domain="my.local",
+                               namespace='test', env='test', local=False, tag=None, registry='reg')
+    # tag omitted: the chart is generated with bare image names, tags come from the content hash
+    assert values[KEY_APPS]['samples-instance1'][KEY_HARNESS][KEY_DEPLOYMENT]['image'] == \
+        values[KEY_APPS]['samples'][KEY_HARNESS][KEY_DEPLOYMENT]['image']
+
+    preprocess_build_overrides([CLOUDHARNESS_ROOT, RESOURCES], values, merge_build_path=merge_build_path)
+    generate_hash_based_image_tags([CLOUDHARNESS_ROOT, RESOURCES], values, merge_build_path=merge_build_path)
+
+    for app_name, instance_key in (('samples', 'samples-instance1'), ('myapp', 'myapp-inst1')):
+        parent_image = values[KEY_APPS][app_name][KEY_HARNESS][KEY_DEPLOYMENT]['image']
+        instance = values[KEY_APPS][instance_key]
+        assert ':' in parent_image, f'{app_name} should be tagged with its content hash'
+        assert instance['image'] == parent_image
+        assert instance[KEY_HARNESS][KEY_DEPLOYMENT]['image'] == parent_image
+
+
+def test_auto_tag_leaves_a_pinned_image_alone(tmp_path):
+    """An application running a prebuilt image keeps it: only bare names of images that were
+    just tagged are carried over."""
+    values = {
+        KEY_APPS: {
+            'builder': {'image': 'reg/app:abc123',
+                        KEY_HARNESS: {KEY_DEPLOYMENT: {'image': 'reg/app:abc123'}}},
+            'inherits': {'image': 'reg/app',
+                         KEY_HARNESS: {KEY_DEPLOYMENT: {'image': 'reg/app'}}},
+            'pinned': {'image': 'reg/app:v1.0',
+                       KEY_HARNESS: {KEY_DEPLOYMENT: {'image': 'reg/app:v1.0'}}},
+            'unrelated': {'image': 'nginx:1.0',
+                          KEY_HARNESS: {KEY_DEPLOYMENT: {'image': 'nginx:1.0'}}},
+        }
+    }
+    apply_retagged_images(values, {'reg/app': 'reg/app:abc123'})
+
+    assert values[KEY_APPS]['inherits']['image'] == 'reg/app:abc123'
+    assert values[KEY_APPS]['inherits'][KEY_HARNESS][KEY_DEPLOYMENT]['image'] == 'reg/app:abc123'
+    assert values[KEY_APPS]['pinned']['image'] == 'reg/app:v1.0'
+    assert values[KEY_APPS]['unrelated']['image'] == 'nginx:1.0'
+    assert values[KEY_APPS]['builder']['image'] == 'reg/app:abc123'

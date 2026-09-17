@@ -257,9 +257,11 @@ def generate_hash_based_image_tags(root_paths, helm_values, merge_build_path=DEF
                 calculated_tags[image_key] = sha1(content_hash.encode('utf-8')).hexdigest()
                 pending.remove(image_key)
 
+    retagged_images = {}
     for image_key, image_tag in calculated_tags.items():
         image_spec = image_specs[image_key]
         retagged = _set_image_tag(image_spec['image'], image_tag)
+        retagged_images[image_spec['image']] = retagged
 
         if image_spec['kind'] == KEY_APPS and image_key in helm_values[KEY_APPS]:
             app_values = helm_values[KEY_APPS][image_key]
@@ -269,4 +271,25 @@ def generate_hash_based_image_tags(root_paths, helm_values, merge_build_path=DEF
         elif image_spec['kind'] == KEY_TASK_IMAGES and image_key in helm_values[KEY_TASK_IMAGES]:
             helm_values[KEY_TASK_IMAGES][image_key] = retagged
 
+    apply_retagged_images(helm_values, retagged_images)
+
     return helm_values
+
+
+def apply_retagged_images(helm_values, retagged_images):
+    """Carry the recomputed tags over to the applications running an image they do not build.
+
+    An instance declares no build of its own, so no tag is computed for it: it is left holding the
+    untagged image name the chart was generated with, and would be deployed without a tag. An
+    application still referencing the bare name of an image that was just tagged runs that very
+    image, so it takes its tag. One pinning a tag of its own does not match, and keeps it.
+    """
+    if not retagged_images:
+        return
+
+    for app_values in helm_values.get(KEY_APPS, {}).values():
+        holders = [app_values, (app_values.get(KEY_HARNESS) or {}).get(KEY_DEPLOYMENT) or {}]
+        for holder in holders:
+            retagged = retagged_images.get(holder.get('image'))
+            if retagged:
+                holder['image'] = retagged
