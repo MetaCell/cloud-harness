@@ -290,12 +290,6 @@ class CHProject:
         self.helm_chart = CHValues(
             self.root / "deployment-configuration" / "helm" / "Chart.yaml", self
         )
-        self.ch_codefresh_template = CHValues(
-            self.ch_path / "deployment-configuration" / "codefresh-template.yaml", self
-        )
-        self.ch_skaffold_template = CHValues(
-            self.ch_path / "deployment-configuration" / "skaffold-template.yaml", self
-        )
         for cls, key, path, no_base in self._extregister:
             p = (
                 CHValues.path_for_env(path(self.root), self.config.env)

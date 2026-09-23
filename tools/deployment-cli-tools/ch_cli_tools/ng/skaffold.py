@@ -8,13 +8,18 @@ from .model import CHValues, register_file
     lambda root: root / "deployment-configuration" / "skaffold-template.yaml",
 )
 class CHSkaffoldTemplate(CHValues):
+    def __init__(self, path, parent, env=None):
+        super().__init__(path, parent, env or "project")
+        self.default = CHValues(
+            self.project.ch_path
+            / "deployment-configuration"
+            / "skaffold-template.yaml",
+            self.project,
+        )
+
     @lru_cache
     def all_values(self):
-        project = self.project
-        default = project.ch_skaffold_template
-        layer = project.skaffold_template
-        layer.env = "project"
-        return default.merge_with(layer)
+        return self.default.merge_with(self)
 
 
 @register_file("skaffold", lambda root: root / "skaffold.yaml")
