@@ -1,7 +1,7 @@
 from functools import lru_cache
 
 from .model import CHValues, register_file
-from .utils import dict_merge
+from .utils import dict_merge  # type: ignore
 
 
 @register_file(

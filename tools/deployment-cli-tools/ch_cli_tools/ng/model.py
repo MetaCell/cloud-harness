@@ -1,4 +1,3 @@
-import dataclasses
 import itertools
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -14,7 +13,7 @@ yaml = YAML(typ="safe")
 KEY_TASK_IMAGES = "task-images"
 
 
-from .utils import dict_merge, merge_with_layer
+from .utils import dict_merge, merge_with_layer  # type: ignore
 
 
 def resolve_path(d, p, default=None):
@@ -35,18 +34,16 @@ class AppUnknownError(Exception): ...
 class DependencyUnknownError(Exception): ...
 
 
-class CHApp:
+class CHAppDefault:
     def __init__(self, path: Path, parent: "CHProject | CHApp"):
         self.path = path
         self.parent = parent
         self.name = self.path.name
-        tasks: dict[str, CHAppTask] = {}
-        for t in self.path.glob("tasks/*/"):
-            task = CHAppTask(t, self)
-            tasks[task.name] = task
-        self.tasks = tasks
         self.dockerfile = CHDockerfile(self.path / "Dockerfile", self)
         self.valuesyaml = CHValues(self.path / "deploy" / "values.yaml", self)
+
+    def exists(self):
+        return self.path.exists()
 
     def __getitem__(self, key) -> "CHAppTask":
         try:
@@ -64,9 +61,20 @@ class CHApp:
 
     @lru_cache
     def all_values(self):
-        base = self.valuesyaml
-        layer = base.for_env(self.project.config.env)
-        return base.merge_with(layer)
+        env = self.project.config.env
+        return self.valuesyaml.merge_with(self.valuesyaml.for_env(env))
+
+    @property
+    @lru_cache
+    def tasks(self) -> dict[str, "CHAppTask"]:
+        tasks: dict[str, CHAppTask] = {}
+        for t in self.path.glob("tasks/*/"):
+            task = CHAppTask(t, self)
+            tasks[task.name] = task
+        return tasks
+
+    def add_task(self, name):
+        self.tasks[name] = CHAppTask(self.path / name, self)
 
     @property
     @lru_cache
@@ -76,9 +84,6 @@ class CHApp:
             CHTemplate(p, self)
             for p in itertools.chain(path.rglob("*.yaml"), path.rglob("*.tpl"))
         ]
-
-    def add_task(self, name):
-        self.tasks[name] = CHAppTask(self.path / name, self)
 
     @property
     def manifest(self) -> Path:
@@ -147,9 +152,47 @@ class CHApp:
         return f"<{self.__class__.__name__} {self.name!r} at {hex(id(self))}>"
 
 
+class CHApp(CHAppDefault):
+    def __init__(self, path: Path, parent: "CHProject | CHApp"):
+        super().__init__(path, parent)
+
+        ch_path_candidate = self.project.ch_path / "applications" / self.name
+        self.default = (
+            CHAppDefault(ch_path_candidate, self.parent)
+            if ch_path_candidate != self.path
+            else None
+        )
+
+        if not self.dockerfile.exists() and self.default:
+            self.dockerfile = self.default.dockerfile
+
+    @lru_cache
+    def all_values(self):
+        own_values = super().all_values()
+        if self.default is None:
+            return own_values
+        return dict_merge(self.default.all_values(), own_values)
+
+    @property
+    @lru_cache
+    def tasks(self) -> dict[str, "CHAppTask"]:
+        tasks: dict[str, CHAppTask] = {}
+        if self.default:
+            for t in self.default.path.glob("tasks/*/"):
+                task = CHAppTask(t, self)
+                tasks[task.name] = task
+        tasks.update(super().tasks)
+        return tasks
+
+
 class CHValues:
-    def __init__(self, path: Path, parent: "CHApp | CHProject", env: str | None = None):
-        self.app: CHApp | CHProject = parent
+    def __init__(
+        self,
+        path: Path,
+        parent: "CHApp | CHProject | CHAppDefault",
+        env: str | None = None,
+    ):
+        self.app: CHApp | CHProject | CHAppDefault = parent
         self.path: Path = path
         self.env: str | None = env
 
@@ -188,7 +231,7 @@ class CHValues:
 
 
 class CHTemplate:
-    def __init__(self, path: Path, parent: "CHProject | CHApp"):
+    def __init__(self, path: Path, parent: "CHProject | CHApp | CHAppDefault"):
         self.path = path
         self.project = parent
 
@@ -197,7 +240,7 @@ class CHInstance: ...
 
 
 class CHAppTask:
-    def __init__(self, path: Path, parent: CHApp):
+    def __init__(self, path: Path, parent: CHApp | CHAppDefault):
         self.path = path
         self.app = parent
         self.dockerfile = CHDockerfile(self.path / "Dockerfile", self)
@@ -219,7 +262,7 @@ class CHAppTask:
 
 
 class CHDockerfile:
-    def __init__(self, path: Path, parent: CHApp | CHAppTask):
+    def __init__(self, path: Path, parent: CHApp | CHAppTask | CHAppDefault):
         self.path = path
         self.app = parent
 
@@ -275,11 +318,15 @@ class CHProject:
     ):
         self.root = Path(root)
         self.ch_path = Path(cloudharness_path) if cloudharness_path else self.root
+        ch_apps = (
+            {p.name: p for p in self.ch_path.glob("applications/*/")}
+            if self.ch_path != self.root
+            else {}
+        )
+        root_apps = {p.name: p for p in self.root.glob("applications/*/")}
         self.scanned_apps: dict[str, CHApp] = {
-            p.name: CHApp(p, self)
-            for p in itertools.chain(
-                self.ch_path.glob("applications/*/"), self.root.glob("applications/*/")
-            )
+            name: CHApp(root_apps.get(name) or ch_apps[name], self)
+            for name in {*ch_apps, *root_apps}
         }
         self.valuesyaml = CHValues(
             self.root / "deployment-configuration" / "values-template.yaml", self
