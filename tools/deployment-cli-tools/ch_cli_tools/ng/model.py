@@ -1,10 +1,10 @@
 import dataclasses
 import itertools
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
 from ruamel.yaml import YAML
 
@@ -382,7 +382,12 @@ class CHProject:
 
 @dataclass
 class CHDeployConfig:
-    env: str | None = dataclasses.field(default=None, kw_only=True)
-    includes: list[str] = dataclasses.field(default_factory=list, kw_only=True)
-    excludes: list[str] = dataclasses.field(default_factory=list, kw_only=True)
-    skip_unknown_deps: bool = dataclasses.field(default=False, kw_only=True)
+    env: str | None = field(default=None, kw_only=True)
+    includes: list[str] = field(default_factory=list, kw_only=True)
+    excludes: list[str] = field(default_factory=list, kw_only=True)
+    skip_unknown_deps: bool = field(default=False, kw_only=True)
+    registry: str = field(default="", kw_only=True)
+    tag: str | None = field(default=None, kw_only=True)
+    local: bool = field(default=False, kw_only=True)
+    namespace: str | None = field(default=None, kw_only=True)
+    backend: Literal["helm", "compose"] = field(default="helm", kw_only=True)
