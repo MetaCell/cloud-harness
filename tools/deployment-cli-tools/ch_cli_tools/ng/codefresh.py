@@ -1,6 +1,7 @@
 from functools import lru_cache
 
-from .model import CHValues, dict_merge, register_file
+from .model import CHValues, register_file
+from .utils import dict_merge
 
 
 @register_file(
@@ -42,10 +43,16 @@ class CHCodefresh(CHValues):
             "dockerfile": app.dockerfile.path.name,
             "tag": "${{CF_SHORT_REVISION}}",
         }
-        # MISSING: env-specific dockerfile selection, build args, registry
-        # push/credentials, e2e/domain wiring, git-dependency clone steps, and a
-        # `stage:` assignment (no `stages` pipeline scaffolding is modeled here) -
-        # none of these are exposed by CHApp/CHDockerfile yet.
+        if self.project.config.local or self.project.config.debug:
+            step["build_arguments"] = ["DEBUG=true"]
+        # MISSING: env-specific dockerfile selection, the rest of build args beyond
+        # DEBUG, git-dependency clone steps, and a `stage:` assignment (no `stages`
+        # pipeline scaffolding is modeled here) - none of these are exposed by
+        # CHApp/CHDockerfile yet. `registry_secret_name`/`domain` are on
+        # CHDeployConfig now but have nothing to plug into yet either: registry auth
+        # for a push is a Codefresh registry integration reference, not a k8s secret
+        # name (that's a Helm-values concern, a generator we haven't built), and
+        # `domain` only matters for e2e test steps, which aren't generated at all.
         return f"build_{app.name.replace('-', '_')}", step
 
     def _collect_task_build_steps(self, app):

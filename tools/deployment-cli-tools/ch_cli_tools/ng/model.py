@@ -385,3 +385,6 @@ class CHDeployConfig:
     local: bool = field(default=False, kw_only=True)
     namespace: str | None = field(default=None, kw_only=True)
     backend: Literal["helm", "compose"] = field(default="helm", kw_only=True)
+    registry_secret_name: str | None = field(default=None, kw_only=True)
+    domain: str = field(default="cloudharness.metacell.us", kw_only=True)
+    debug: bool = field(default=False, kw_only=True)
