@@ -223,9 +223,14 @@ class CHDockerfile:
         self.path = path
         self.app = parent
 
+    def exists(self):
+        return self.path.exists()
+
     @property
     def base_images(self) -> dict[str, str]:
         """Gets the ARGS from a Dockerfile image (if ARGS is used directly in the FROM of the Dockerfile)"""
+        if not self.exists():
+            return {}
         content = self.path.read_text()
         found_args = {}
         args: dict[str, str] = {}
