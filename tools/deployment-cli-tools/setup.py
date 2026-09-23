@@ -41,7 +41,7 @@ setup(
     install_requires=REQUIREMENTS,
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,
-    scripts=['harness-deployment', 'harness-generate', 'harness-application', 'harness-migrate'],
+    scripts=['harness-deployment', 'harness-generate', 'harness-application', 'harness-migrate', 'harness-deployment-ng'],
     long_description="""\
     CloudHarness deploy library
     """
