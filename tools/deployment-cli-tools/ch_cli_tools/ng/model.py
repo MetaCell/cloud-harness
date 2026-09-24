@@ -119,9 +119,9 @@ class CHAppDefault:
             if dep not in self.project.config.excludes
         ]
 
-    def build_dependencies(self) -> list["CHApp | str"]:
+    def build_dependencies(self) -> list["CHApp | CHBaseImage | str"]:
         return [
-            self.project.scanned_apps.get(dep, dep)
+            self.project.scanned_apps.get(dep) or self.project.base_images.get(dep, dep)
             for dep in cast(
                 list[str],
                 resolve_path(self.harness_config, "dependencies.build", default=[]),
@@ -239,8 +239,27 @@ class CHTemplate:
 class CHInstance: ...
 
 
+class CHBaseImage:
+    def __init__(self, path: Path, parent: "CHProject | CHApp"):
+        self.path = path
+        self.app = parent
+        self.name = self.path.name
+        self.dockerfile = CHDockerfile(self.path / "Dockerfile", self)
+
+    @property
+    def project(self):
+        return self.app.project
+
+    @property
+    def image_name(self):
+        return f"{self.project.base_image_name()}/{self.name}"
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__} {self.name!r} at {hex(id(self))}>"
+
+
 class CHAppTask:
-    def __init__(self, path: Path, parent: CHApp | CHAppDefault):
+    def __init__(self, path: Path, parent: CHApp | CHAppDefault | CHBaseImage):
         self.path = path
         self.app = parent
         self.dockerfile = CHDockerfile(self.path / "Dockerfile", self)
@@ -262,7 +281,9 @@ class CHAppTask:
 
 
 class CHDockerfile:
-    def __init__(self, path: Path, parent: CHApp | CHAppTask | CHAppDefault):
+    def __init__(
+        self, path: Path, parent: CHApp | CHAppTask | CHAppDefault | CHBaseImage
+    ):
         self.path = path
         self.app = parent
 
@@ -327,6 +348,21 @@ class CHProject:
         self.scanned_apps: dict[str, CHApp] = {
             name: CHApp(root_apps.get(name) or ch_apps[name], self)
             for name in {*ch_apps, *root_apps}
+        }
+
+        self.ch_base_images = (
+            {p.name: p for p in self.ch_path.glob("infrastructure/base-images/*/")}
+            if self.ch_path != self.root
+            else {}
+        )
+        self.root_base_images = {
+            p.name: p for p in self.root.glob("infrastructure/base-images/*/")
+        }
+        self.base_images: dict[str, CHBaseImage] = {
+            name: CHBaseImage(
+                self.root_base_images.get(name) or self.ch_base_images[name], self
+            )
+            for name in {*self.ch_base_images, *self.root_base_images}
         }
         self.valuesyaml = CHValues(
             self.root / "deployment-configuration" / "values-template.yaml", self
