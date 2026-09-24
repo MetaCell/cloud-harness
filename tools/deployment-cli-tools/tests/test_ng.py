@@ -53,7 +53,7 @@ def test_app_and_task_dockerfiles_are_found(resources_project):
     assert task.dockerfile.path == app.path / "tasks" / "mytask" / "Dockerfile"
 
 
-def _minimal_project(tmp_path, registry=""):
+def _minimal_project(tmp_path, **config_kwargs):
     root = tmp_path
     (root / "deployment-configuration").mkdir(parents=True)
     (root / "deployment-configuration" / "values-template.yaml").write_text(
@@ -65,7 +65,7 @@ def _minimal_project(tmp_path, registry=""):
     (app_dir / "tasks" / "mytask" / "Dockerfile").write_text("FROM scratch\n")
 
     return CHProject(
-        root, cloudharness_path=root, config=CHDeployConfig(registry=registry)
+        root, cloudharness_path=root, config=CHDeployConfig(**config_kwargs)
     )
 
 
@@ -113,9 +113,10 @@ def test_include_exclude_and_transitive_dependencies():
     assert "accounts" in involved
     assert "legacy" in involved
 
-    # Second-level: samples --soft--> workflows --hard--> argo. Only resolvable
-    # once cross-root app merging works - workflows only has a real
-    # dependencies.hard in cloud-harness's copy, not the fixture's.
+    # Second-level: samples --soft--> workflows --hard--> argo. This only resolves
+    # because cross-root app merging is in place - workflows only has a real
+    # dependencies.hard in cloud-harness's copy, not the fixture's, so this
+    # assertion exercises that merge, not just soft/hard closure on its own.
     assert "argo" in involved
 
     # Explicit exclude removes it even though samples soft-depends on it.
@@ -210,15 +211,13 @@ def test_unresolved_hard_dependency_raises():
         project.all_values()
 
 
-def test_unresolved_soft_dependency_currently_also_raises():
-    # Old behavior: does NOT raise (dependencies.soft is optional by design). `ng`
-    # doesn't distinguish soft from hard once the name is in `involved_apps` -
-    # known gap.
+def test_unresolved_soft_dependency_does_not_raise():
+    # A soft dependency is optional by design: unresolved is never fatal, matching
+    # the old validate_dependencies (warns, doesn't raise).
     project = CHProject(
         WRONG_DEPENDENCIES, config=CHDeployConfig(includes=["wrong-soft"])
     )
-    with pytest.raises(DependencyUnknownError):
-        project.all_values()
+    project.all_values()  # does not raise
 
 
 def test_unresolved_build_dependency_currently_does_not_raise():
@@ -229,3 +228,155 @@ def test_unresolved_build_dependency_currently_does_not_raise():
         WRONG_DEPENDENCIES, config=CHDeployConfig(includes=["wrong-build"])
     )
     project.all_values()  # does not raise
+
+
+# --- skaffold generator tests. Ports of tests/test_skaffold.py, scoped to the
+# slice of behavior the ng model currently supports.
+
+
+def test_build_dependency_on_app_produces_requires_entry():
+    # Ports test_app_depends_on_app: dependantapp declares
+    # dependencies.build: [myapp, myapp-mytask] - a real app and a task owned by
+    # that app. Both resolve, each to its own requires entry.
+    project = CHProject(
+        RESOURCES,
+        cloudharness_path=CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(includes=["dependantapp"]),
+    )
+    artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
+    dependantapp_artifact = next(
+        a for a in artifacts if a["image"] == "testprojectname/dependantapp"
+    )
+    assert dependantapp_artifact["requires"] == [
+        {"image": "testprojectname/myapp", "alias": "MYAPP"},
+        {"image": "testprojectname/myapp-mytask", "alias": "MYAPP_MYTASK"},
+    ]
+
+    # myapp-mytask must have its own build artifact even though myapp itself is
+    # only a build dependency here, not deployed.
+    assert any(a["image"] == "testprojectname/myapp-mytask" for a in artifacts)
+
+
+def test_build_only_dependency_is_not_deployed():
+    # Ports the other half of test_app_depends_on_app: myapp is a build
+    # dependency of dependantapp (dependencies.build), not a soft/hard one, so it
+    # must not end up deployed - no artifactOverrides entry, even though its
+    # image still gets built (see test_build_dependency_on_app_produces_requires_
+    # entry for the build side of the same fixture).
+    project = CHProject(
+        RESOURCES,
+        cloudharness_path=CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(includes=["dependantapp"]),
+    )
+    generated = project.skaffold.generate(write_on_disk=False)
+    overrides = generated["deploy"]["helm"]["releases"][0]["artifactOverrides"]["apps"]
+
+    assert "dependantapp" in overrides
+    assert "myapp" not in overrides
+
+
+def test_build_dependency_on_base_image_gets_its_own_artifact():
+    # Slice of test_create_skaffold_configuration's cloudharness_flask assertions:
+    # a build dependency resolving to infrastructure/common-images/ gets its own
+    # artifact, with a context under that directory, and the requiring app's
+    # artifact references it via requires.
+    project = CHProject(
+        RESOURCES,
+        cloudharness_path=CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(includes=["taskdep"]),
+    )
+    artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
+
+    taskdep_artifact = next(
+        a for a in artifacts if a["image"] == "testprojectname/taskdep"
+    )
+    assert taskdep_artifact["requires"] == [
+        {"image": "testprojectname/cloudharness-flask", "alias": "CLOUDHARNESS_FLASK"},
+        {"image": "testprojectname/myapp-mytask", "alias": "MYAPP_MYTASK"},
+    ]
+
+    flask_artifact = next(
+        a for a in artifacts if a["image"] == "testprojectname/cloudharness-flask"
+    )
+    context = (RESOURCES / flask_artifact["context"]).resolve()
+    expected = (
+        CLOUDHARNESS_ROOT / "infrastructure" / "common-images" / "cloudharness-flask"
+    )
+    assert context == expected.resolve()
+
+
+def test_build_dependency_on_task_owned_by_an_undeployed_app_resolves():
+    # Ports test_skaffold_builds_cross_app_task_image: taskdep declares
+    # dependencies.build: [cloudharness-flask, myapp-mytask]. myapp-mytask is a
+    # task owned by myapp, an app that isn't otherwise deployed here (not an
+    # entrypoint, not a soft/hard dep of anything included) - it must still
+    # resolve and get its own build artifact. CHAppDefault.build_dependencies()
+    # falls back to CHProject.all_buildable_tasks(), which is scoped to every
+    # scanned app, not just involved_apps, precisely to cover this case.
+    project = CHProject(
+        RESOURCES,
+        cloudharness_path=CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(includes=["taskdep"]),
+    )
+    artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
+    assert any(a["image"] == "testprojectname/myapp-mytask" for a in artifacts)
+
+
+def test_namespace_sets_helm_release_name_and_namespace(tmp_path):
+    project = _minimal_project(tmp_path, namespace="my-ns")
+    release = project.skaffold.generate(write_on_disk=False)["deploy"]["helm"][
+        "releases"
+    ][0]
+
+    assert release["name"] == "my-ns"
+    assert release["namespace"] == "my-ns"
+
+
+def test_no_namespace_leaves_helm_release_name_unset(tmp_path):
+    project = _minimal_project(tmp_path)
+    release = project.skaffold.generate(write_on_disk=False)["deploy"]["helm"][
+        "releases"
+    ][0]
+
+    assert "name" not in release
+    assert "namespace" not in release
+
+
+def test_tag_policy_is_sha256_by_default(tmp_path):
+    project = _minimal_project(tmp_path)
+    build = project.skaffold.generate(write_on_disk=False)["build"]
+    assert build["tagPolicy"] == {"sha256": {}}
+
+
+def test_tag_policy_is_env_template_when_external_tag_and_not_local(tmp_path):
+    # An external tag (e.g. from CI) means skaffold should trust the tag it's
+    # handed rather than compute its own content hash.
+    project = _minimal_project(tmp_path, tag="v1", local=False)
+    build = project.skaffold.generate(write_on_disk=False)["build"]
+    assert build["tagPolicy"] == {"envTemplate": {"template": '"{{.TAG}}"'}}
+
+
+def test_tag_policy_is_sha256_when_tag_set_but_local(tmp_path):
+    # A local dev build still wants content-hash tagging even if an external tag
+    # was also passed - `local` wins over `tag`.
+    project = _minimal_project(tmp_path, tag="v1", local=True)
+    build = project.skaffold.generate(write_on_disk=False)["build"]
+    assert build["tagPolicy"] == {"sha256": {}}
+
+
+def test_compose_backend_builds_docker_compose_deploy_block(tmp_path):
+    # Also covers the tagPolicy branch: compose always wants envTemplate, even
+    # without an explicit tag - see test_tag_policy_is_env_template_when_
+    # external_tag_and_not_local for the non-compose case.
+    project = _minimal_project(tmp_path, backend="compose")
+    generated = project.skaffold.generate(write_on_disk=False)
+
+    assert generated["build"]["tagPolicy"] == {
+        "envTemplate": {"template": '"{{.TAG}}"'}
+    }
+    assert generated["deploy"] == {
+        "docker": {
+            "useCompose": True,
+            "images": ["testproj/myapp", "testproj/myapp-mytask"],
+        }
+    }
