@@ -91,11 +91,15 @@ class CHCodefresh(CHValues):
 
             build_steps.update(self._collect_task_build_steps(app))
 
-        # MISSING: infrastructure/base-images and infrastructure/common-images
-        # (static images) aren't scanned by CHProject at all - only applications/*/ -
-        # so those steps can't be produced here, unlike the old
+        # MISSING: CHProject.base_images (infrastructure/base-images/ and
+        # infrastructure/common-images/) exists now (see skaffold.py, which uses it
+        # to resolve `requires`), but nothing here iterates it to emit a build step
+        # for the base/common image itself, and this file doesn't have a
+        # `requires`/build-ordering concept at all yet either - unlike the old
         # codefresh_steps_from_base_path() passes over BASE_IMAGES_PATH/
-        # STATIC_IMAGES_PATH.
+        # STATIC_IMAGES_PATH. Also, base images build from repo root context and
+        # common images from their own directory - CHBaseImage doesn't carry that
+        # distinction yet.
 
         steps = base.setdefault("steps", {})
         steps.update(build_steps)

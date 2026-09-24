@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from .model import CHValues, register_file
+from .model import CHBaseImage, CHValues, register_file
 
 
 @register_file(
@@ -31,12 +31,11 @@ class CHSkaffold(CHValues):
         return f"{registry}{image_name}"
 
     def _collect_app_dockerfile_artifact(self, app):
+        context = app.dockerfile.resolve_context(self.path.parent)
         artifact = {
             "image": self.qualify(app.image_name),
-            "context": str(
-                app.path.resolve().relative_to(self.path.parent.resolve(), walk_up=True)
-            ),
-            "docker": {"dockerfile": app.dockerfile.path.name},
+            "context": str(context.path),
+            "docker": {"dockerfile": str(context.dockerfile.path)},
         }
         if self.project.config.local or self.project.config.debug:
             artifact["docker"]["buildArgs"] = {"DEBUG": "true"}
@@ -44,9 +43,9 @@ class CHSkaffold(CHValues):
         requires = []
         for dep in app.build_dependencies():
             if isinstance(dep, str):
-                # MISSING: base-image / task-image build dependencies (e.g.
-                # "cloudharness-flask") aren't scanned apps, so they can't be
-                # resolved to a `requires` artifact reference here.
+                # A build dependency that doesn't match a scanned app,
+                # infrastructure/base-images/, or infrastructure/common-images/
+                # entry - genuinely unresolvable (e.g. a typo), not a scanning gap.
                 continue
             requires.append(
                 {
@@ -63,35 +62,36 @@ class CHSkaffold(CHValues):
         # CHApp/CHDockerfile yet.
         return artifact, artifact["image"]
 
+    def _collect_build_dependency_artifact(self, dependency):
+        context = dependency.dockerfile.resolve_context(self.path.parent)
+        return {
+            "image": self.qualify(dependency.image_name),
+            "context": str(context.path),
+            "docker": {"dockerfile": str(context.dockerfile.path)},
+        }
+
     def _collect_task_dockerfile_artifacts(self, app):
         artifacts = []
         overrides = {}
         for task in app.tasks.values():
             if not task.dockerfile.path.exists():
                 continue
+            context = task.dockerfile.resolve_context(self.path.parent)
             artifact = {
                 "image": self.qualify(task.image_name),
-                "context": str(
-                    task.path.resolve().relative_to(
-                        self.path.parent.resolve(), walk_up=True
-                    )
-                ),
-                "docker": {"dockerfile": task.dockerfile.path.name},
+                "context": str(context.path),
+                "docker": {"dockerfile": str(context.dockerfile.path)},
             }
             artifacts.append(artifact)
             overrides[task.name] = artifact["image"]
         return artifacts, overrides
 
-    def generate(self, write_on_disk=True):
-        project = self.project
-
-        base = project.skaffold_template.all_values()
-
+    def _collect_app_and_task_artifacts(self):
         artifacts = []
         app_image_overrides = {}
         task_image_overrides = {}
 
-        for app in project.involved_apps:
+        for app in self.project.involved_apps:
             if isinstance(app, str):
                 continue
 
@@ -106,9 +106,33 @@ class CHSkaffold(CHValues):
             artifacts.extend(task_artifacts)
             task_image_overrides.update(task_overrides)
 
-        # MISSING: infrastructure/base-images and infrastructure/common-images (static
-        # images) aren't scanned by CHProject at all - only applications/*/ - so those
-        # artifacts can't be produced here.
+        return artifacts, app_image_overrides, task_image_overrides
+
+    def _collect_build_dependency_artifacts(self):
+        build_dependencies_needed = {}
+        for app in self.project.involved_apps:
+            if isinstance(app, str):
+                # skipping unresolved apps
+                continue
+            for dep in app.build_dependencies():
+                if isinstance(dep, str):
+                    # skipping unresolved build dependencies
+                    continue
+                build_dependencies_needed[dep.name] = dep
+        return [
+            self._collect_build_dependency_artifact(dependency)
+            for dependency in build_dependencies_needed.values()
+        ]
+
+    def generate(self, write_on_disk=True):
+        project = self.project
+
+        base = project.skaffold_template.all_values()
+
+        artifacts, app_image_overrides, task_image_overrides = (
+            self._collect_app_and_task_artifacts()
+        )
+        artifacts.extend(self._collect_build_dependency_artifacts())
 
         build = base.setdefault("build", {})
         build["artifacts"] = artifacts

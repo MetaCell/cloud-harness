@@ -45,6 +45,10 @@ class CHAppDefault:
     def exists(self):
         return self.path.exists()
 
+    @property
+    def build_context(self) -> Path:
+        return self.path
+
     def __getitem__(self, key) -> "CHAppTask":
         try:
             return self.tasks[key]
@@ -239,6 +243,12 @@ class CHTemplate:
 class CHInstance: ...
 
 
+class CHContext:
+    def __init__(self, path: Path, dockerfile: "CHDockerfile"):
+        self.path = path
+        self.dockerfile = dockerfile
+
+
 class CHBaseImage:
     def __init__(self, path: Path, parent: "CHProject | CHApp"):
         self.path = path
@@ -249,6 +259,15 @@ class CHBaseImage:
     @property
     def project(self):
         return self.app.project
+
+    @property
+    def build_context(self) -> Path:
+        if self.path.parent.name != "base-images":
+            return self.path
+        project = self.project
+        return (
+            project.root if self.path.is_relative_to(project.root) else project.ch_path
+        )
 
     @property
     def image_name(self):
@@ -267,6 +286,10 @@ class CHAppTask:
     @property
     def name(self):
         return f"{self.app.name}-{self.path.name}"
+
+    @property
+    def build_context(self) -> Path:
+        return self.path
 
     @property
     def readme(self) -> Path:
@@ -289,6 +312,15 @@ class CHDockerfile:
 
     def exists(self):
         return self.path.exists()
+
+    def resolve_context(self, relative_to: Path) -> "CHContext":
+        context = self.app.build_context.resolve().relative_to(
+            relative_to.resolve(), walk_up=True
+        )
+        dockerfile_path = self.path.resolve().relative_to(
+            self.app.build_context.resolve()
+        )
+        return CHContext(context, CHDockerfile(dockerfile_path, self.app))
 
     @property
     def base_images(self) -> dict[str, str]:
@@ -349,20 +381,11 @@ class CHProject:
             name: CHApp(root_apps.get(name) or ch_apps[name], self)
             for name in {*ch_apps, *root_apps}
         }
-
-        self.ch_base_images = (
-            {p.name: p for p in self.ch_path.glob("infrastructure/base-images/*/")}
-            if self.ch_path != self.root
-            else {}
-        )
-        self.root_base_images = {
-            p.name: p for p in self.root.glob("infrastructure/base-images/*/")
-        }
+        root_base, ch_base = self._scan("infrastructure/base-images/*/")
+        root_common, ch_common = self._scan("infrastructure/common-images/*/")
+        base_image_paths = {**ch_base, **root_base, **ch_common, **root_common}
         self.base_images: dict[str, CHBaseImage] = {
-            name: CHBaseImage(
-                self.root_base_images.get(name) or self.ch_base_images[name], self
-            )
-            for name in {*self.ch_base_images, *self.root_base_images}
+            name: CHBaseImage(path, self) for name, path in base_image_paths.items()
         }
         self.valuesyaml = CHValues(
             self.root / "deployment-configuration" / "values-template.yaml", self
@@ -385,6 +408,15 @@ class CHProject:
                 else path(self.root)
             )
             setattr(self, key, cls(p, self))
+
+    def _scan(self, relative_glob):
+        ch = (
+            {p.name: p for p in self.ch_path.glob(relative_glob)}
+            if self.ch_path != self.root
+            else {}
+        )
+        root = {p.name: p for p in self.root.glob(relative_glob)}
+        return root, ch
 
     def __getitem__(self, key) -> "CHApp":
         try:
