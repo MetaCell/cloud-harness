@@ -123,9 +123,11 @@ class CHAppDefault:
             if dep not in self.project.config.excludes
         ]
 
-    def build_dependencies(self) -> list["CHApp | CHBaseImage | str"]:
+    def build_dependencies(self) -> list["CHApp | CHBaseImage | CHAppTask | str"]:
         return [
-            self.project.scanned_apps.get(dep) or self.project.base_images.get(dep, dep)
+            self.project.scanned_apps.get(dep)
+            or self.project.base_images.get(dep)
+            or self.project.all_buildable_tasks().get(dep, dep)
             for dep in cast(
                 list[str],
                 resolve_path(self.harness_config, "dependencies.build", default=[]),
@@ -465,11 +467,9 @@ class CHProject:
         return softs, hards
 
     @lru_cache
-    def all_tasks(self):
+    def all_buildable_tasks(self):
         tasks = {}
-        for app in self.involved_apps:
-            if isinstance(app, str):
-                continue
+        for app in self.scanned_apps.values():
             tasks.update(app.tasks)
         return tasks
 
@@ -478,11 +478,11 @@ class CHProject:
         app_values = {}
         for app in self.involved_apps:
             if isinstance(app, str):
-                msg = f"Dependency {app} is declared as dependency but cannot be found in the known applications: {list(self.scanned_apps.keys())}"
-                if not self.config.skip_unknown_deps:
-                    raise DependencyUnknownError(msg)
-                print(msg)
-                continue
+                if app in self.soft_dependencies:
+                    # A soft dependency is optional by definition
+                    continue
+                msg = f"Dependency {app} is declared as a hard dependency but cannot be found in the known applications: {list(self.scanned_apps.keys())}"
+                raise DependencyUnknownError(msg)
             app_values[app.name] = app.all_values()
         base = self.valuesyaml
         return dict_merge(
@@ -499,7 +499,6 @@ class CHDeployConfig:
     env: str | None = field(default=None, kw_only=True)
     includes: list[str] = field(default_factory=list, kw_only=True)
     excludes: list[str] = field(default_factory=list, kw_only=True)
-    skip_unknown_deps: bool = field(default=False, kw_only=True)
     registry: str = field(default="", kw_only=True)
     tag: str | None = field(default=None, kw_only=True)
     local: bool = field(default=False, kw_only=True)
