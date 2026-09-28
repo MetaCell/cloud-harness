@@ -322,6 +322,35 @@ def test_build_dependency_on_task_owned_by_an_undeployed_app_resolves():
     assert any(a["image"] == "testprojectname/myapp-mytask" for a in artifacts)
 
 
+def test_excluded_task_drops_out_unless_still_a_build_dependency():
+    # Ports test_exclude_single_task. excludes applies to a task in its own
+    # right - myapp's own myapp-mytask disappears when excluded and nothing else
+    # needs it - but a build dependency is never optional (see
+    # test_build_dependency_on_task_owned_by_an_undeployed_app_resolves), so the
+    # same exclude has no effect when dependantapp still requires it to build.
+    own_project = CHProject(
+        RESOURCES,
+        cloudharness_path=CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(includes=["myapp"], excludes=["myapp-mytask"]),
+    )
+    own_artifacts = own_project.skaffold.generate(write_on_disk=False)["build"][
+        "artifacts"
+    ]
+    assert not any(a["image"].endswith("myapp-mytask") for a in own_artifacts)
+
+    required_project = CHProject(
+        RESOURCES,
+        cloudharness_path=CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(includes=["dependantapp"], excludes=["myapp-mytask"]),
+    )
+    required_artifacts = required_project.skaffold.generate(write_on_disk=False)[
+        "build"
+    ]["artifacts"]
+    assert any(
+        a["image"] == "testprojectname/myapp-mytask" for a in required_artifacts
+    )
+
+
 def test_namespace_sets_helm_release_name_and_namespace(tmp_path):
     project = _minimal_project(tmp_path, namespace="my-ns")
     release = project.skaffold.generate(write_on_disk=False)["deploy"]["helm"][

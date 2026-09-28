@@ -68,14 +68,22 @@ class CHAppDefault:
         env = self.project.config.env
         return self.valuesyaml.merge_with(self.valuesyaml.for_env(env))
 
-    @property
     @lru_cache
-    def tasks(self) -> dict[str, "CHAppTask"]:
+    def _scan_tasks(self) -> dict[str, "CHAppTask"]:
         tasks: dict[str, CHAppTask] = {}
         for t in self.path.glob("tasks/*/"):
             task = CHAppTask(t, self)
             tasks[task.name] = task
         return tasks
+
+    @property
+    @lru_cache
+    def tasks(self) -> dict[str, "CHAppTask"]:
+        return {
+            name: task
+            for name, task in self._scan_tasks().items()
+            if name not in self.project.config.excludes
+        }
 
     def add_task(self, name):
         self.tasks[name] = CHAppTask(self.path / name, self)
@@ -179,15 +187,14 @@ class CHApp(CHAppDefault):
             return own_values
         return dict_merge(self.default.all_values(), own_values)
 
-    @property
     @lru_cache
-    def tasks(self) -> dict[str, "CHAppTask"]:
+    def _scan_tasks(self) -> dict[str, "CHAppTask"]:
         tasks: dict[str, CHAppTask] = {}
         if self.default:
             for t in self.default.path.glob("tasks/*/"):
                 task = CHAppTask(t, self)
                 tasks[task.name] = task
-        tasks.update(super().tasks)
+        tasks.update(super()._scan_tasks())
         return tasks
 
 
@@ -470,7 +477,7 @@ class CHProject:
     def all_buildable_tasks(self):
         tasks = {}
         for app in self.scanned_apps.values():
-            tasks.update(app.tasks)
+            tasks.update(app._scan_tasks())
         return tasks
 
     @lru_cache
