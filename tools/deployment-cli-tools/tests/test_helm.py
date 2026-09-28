@@ -1,3 +1,4 @@
+from io import StringIO
 import logging
 import pytest
 import shutil
@@ -33,7 +34,7 @@ def render_helm_chart(chart_path, values_files=(), set_values=()):
         stderr=subprocess.PIPE,
         text=True,
     )
-    return [manifest for manifest in yaml.load_all(completed.stdout) if manifest]
+    return [manifest for manifest in yaml.load_all(StringIO(completed.stdout)) if manifest]
 
 
 def find_manifest(manifests, kind, name):

@@ -4,6 +4,7 @@ from ch_cli_tools.configuration.preprocessing import preprocess_build_overrides,
 import pytest
 import shutil
 import subprocess
+from io import StringIO
 from ch_cli_tools.utils import yaml
 
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -134,7 +135,7 @@ def test_compose_gatekeeper_native_configuration_rendering(tmp_path):
             stderr=subprocess.PIPE,
             text=True,
         )
-        documents = list(yaml.load_all(completed.stdout))
+        documents = list(yaml.load_all(StringIO(completed.stdout)))
         for document in documents:
             metadata = (document or {}).get('cloudharness-metadata', {})
             if metadata.get('path') == 'resources/generated/samples-gk/proxy.yml':

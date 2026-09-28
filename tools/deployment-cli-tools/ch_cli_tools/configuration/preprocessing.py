@@ -19,10 +19,9 @@ def preprocess_build_overrides(root_paths, helm_values, merge_build_path=DEFAULT
         merge_build_path = join(os.getcwd(), merge_build_path)
     if len(root_paths) < 2:
         return root_paths
-    if not os.path.exists(merge_build_path):
-        os.makedirs(merge_build_path)
-    else:
+    if os.path.exists(merge_build_path):
         shutil.rmtree(merge_build_path)
+    os.makedirs(merge_build_path)
     merged = False
     artifacts = {}
 

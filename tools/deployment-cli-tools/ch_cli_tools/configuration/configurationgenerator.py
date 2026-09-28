@@ -750,12 +750,10 @@ def validate_volumes(values):
             continue
         if volume.get("storageClass"):
             logging.warning(
-                f"Volume {volume.get('name')} of application {app} sets usenfs and storageClass "
-                f"{volume['storageClass']}: the nfs server storage class prevails.")
+                "A volume sets usenfs together with storageClass: the nfs server storage class prevails.")
         if volume.get("writeMany") is False:
             logging.warning(
-                f"Volume {volume.get('name')} of application {app} sets usenfs and writeMany false: "
-                "nfs volumes are always mounted ReadWriteMany.")
+                "A volume sets usenfs together with writeMany false: nfs volumes are always mounted ReadWriteMany.")
 
 
 def validate_secrets(values):
