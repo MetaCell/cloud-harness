@@ -12,11 +12,11 @@ import copy
 from cloudharness_utils.constants import VALUES_MANUAL_PATH, COMPOSE
 from .utils import get_cluster_ip, image_name_from_dockerfile_path, get_template, \
     merge_to_yaml_file, dict_merge, app_name_from_path, find_dockerfiles_paths, find_file_paths, \
-    yaml, yaml_rt
+    is_buildable_dockerfile_path, yaml, yaml_rt
 
 from .models import HarnessMainConfig
 
-from .configurationgenerator import ConfigurationGenerator, \
+from .configuration.configurationgenerator import ConfigurationGenerator, \
     clear_unused_volume_configuration, validate_helm_values, values_from_legacy, values_set_legacy, get_included_applications, get_included_builds, resolve_task_image_owner, create_env_variables, collect_apps_helm_templates, \
     KEY_HARNESS, KEY_SERVICE, KEY_DATABASE, KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES, KEY_DEPLOYMENT
 
@@ -92,6 +92,8 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
             self._process_applications(helm_values, base_image_name)
 
             values, include = self.__finish_helm_values(values=helm_values, defer_task_images=False)
+
+        self._inherit_instance_images(helm_values)
 
         # Adjust dependencies from static (common) images
         self._assign_static_build_dependencies(helm_values)
@@ -233,6 +235,7 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
             included_builds = get_included_builds(values, set(self.include))
             self.include = get_included_applications(
                 values, set(self.include))
+            self.include = self._include_application_instances(values)
             logging.info('Selecting included applications')
 
             keep = set(self.include)
@@ -282,7 +285,7 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
                             values[KEY_HARNESS]['name'])
 
         image_paths = [path for path in find_dockerfiles_paths(
-            app_path) if 'tasks/' not in path and 'subapps' not in path]
+            app_path) if is_buildable_dockerfile_path(path)]
 
         # Inject entry points commands to enable debug
         if helm_values.get("debug", False):
@@ -378,7 +381,7 @@ class CloudHarnessDockerCompose(ConfigurationGenerator):
         values = app_values
 
         image_paths = [path for path in find_dockerfiles_paths(
-            app_path) if 'tasks/' not in path and 'subapps' not in path]
+            app_path) if is_buildable_dockerfile_path(path)]
 
         # Inject entry points commands to enable debug
         if helm_values.get("debug", False):

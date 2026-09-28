@@ -20,7 +20,7 @@ RUN yarn build
 FROM $CLOUDHARNESS_FLASK
 ENV MODULE_NAME=samples
 
-ENV WORKERS=2
+ENV WORKERS=1
 ENV PORT=8080
 
 COPY backend/requirements.txt /usr/src/app/

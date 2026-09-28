@@ -6,11 +6,11 @@ import os
 
 from ch_cli_tools.dockercompose import create_docker_compose_configuration
 from ch_cli_tools.helm import create_helm_chart, deploy
-from ch_cli_tools.configurationgenerator import hosts_info
+from ch_cli_tools.configuration.configurationgenerator import hosts_info
 from ch_cli_tools.skaffold import create_skaffold_configuration, create_vscode_debug_configuration
 from ch_cli_tools.tilt import create_tilt_configuration
 from ch_cli_tools.codefresh import create_codefresh_deployment_scripts, write_env_file
-from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
+from ch_cli_tools.configuration.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
 from ch_cli_tools.utils import merge_app_directories, merge_to_yaml_file
 from ch_cli_tools.migration import perform_migration
 from cloudharness_utils.constants import DEPLOYMENT_PATH, COMPOSE_ENGINE, HELM_ENGINE, VALUES_MANUAL_PATH, HELM_PATH, COMPOSE

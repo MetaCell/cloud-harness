@@ -1,6 +1,6 @@
 from ch_cli_tools.dockercompose import *
-from ch_cli_tools.configurationgenerator import *
-from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
+from ch_cli_tools.configuration.configurationgenerator import *
+from ch_cli_tools.configuration.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
 import pytest
 import shutil
 import subprocess
@@ -134,7 +134,8 @@ def test_compose_gatekeeper_native_configuration_rendering(tmp_path):
             stderr=subprocess.PIPE,
             text=True,
         )
-        for document in yaml.load_all(completed.stdout):
+        documents = list(yaml.load_all(completed.stdout))
+        for document in documents:
             metadata = (document or {}).get('cloudharness-metadata', {})
             if metadata.get('path') == 'resources/generated/samples-gk/proxy.yml':
                 return yaml.load(document['data'])

@@ -12,23 +12,23 @@ from docker import from_env as DockerClient
 from pathlib import Path
 import abc
 
-from . import HERE, CH_ROOT
+from .. import HERE, CH_ROOT
 from cloudharness_utils.constants import TEST_IMAGES_PATH, HELM_CHART_PATH, APPS_PATH, HELM_PATH, \
     DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH
-from .utils import get_cluster_ip, env_variable, get_dockerfile_baseimg_args, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
+from ..utils import get_cluster_ip, env_variable, get_dockerfile_baseimg_args, get_sub_paths, guess_build_dependencies_from_dockerfile, image_name_from_dockerfile_path, \
     get_template, merge_configuration_directories, dict_merge, app_name_from_path, \
     find_dockerfiles_paths, get_git_commit_hash, yaml
 from .secrets import secret_definition_error
+# Re-exported on purpose: the rest of the cli tools and the tests read the deployment values
+# vocabulary from here. Keep them importable — see test_values_vocabulary_is_re_exported.
+from ..constants import KEY_APPS, KEY_DATABASE, KEY_DEPLOYMENT, KEY_HARNESS, \
+    KEY_SERVICE, KEY_TASK_IMAGES, KEY_TEST_IMAGES
+from ..common_types import ValuesValidationException
+from .instances import build_instance_values, check_instance_collisions, collect_instances, inherit_parent_image, \
+    instance_app_key, instance_directories, instance_names, resolve_instance_includes
 
 
-KEY_HARNESS = 'harness'
-KEY_SERVICE = 'service'
-KEY_DATABASE = 'database'
-KEY_DEPLOYMENT = 'deployment'
-KEY_APPS = 'apps'
-KEY_TASK_IMAGES = 'task-images'
 # KEY_TASK_IMAGES_BUILD = f"{KEY_TASK_IMAGES}-build"
-KEY_TEST_IMAGES = 'test-images'
 
 DEFAULT_IGNORE = ('/tasks', '.dockerignore', '.hypothesis', "__pycache__", '.node_modules', 'dist', 'build', '.coverage')
 
@@ -56,6 +56,7 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
         self.env = env or {}
         self.namespace = namespace
         self.calculate_hash_tags = calculate_hash_tags
+        check_instance_collisions(self.root_paths, exclude=self.exclude, envs=self.env)
 
         # In this tree we will collect the  and their parent dependencies
         self.build_tree: dict[str, list[str]] = {}
@@ -147,15 +148,85 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
 
     def _collect_app_values_lightweight(self, app_base_path, helm_values=None):
         """Collect only YAML-based values for all apps (no image processing)."""
+        return self._collect_root_app_values(
+            app_base_path, helm_values,
+            lambda app_name, app_path: self.load_app_values(app_name, app_path, helm_values=helm_values))
+
+    def _collect_root_app_values(self, app_base_path, helm_values, load_app_values):
+        """Values of the applications found under one root path, read with `load_app_values`,
+        and of the instances they declare.
+
+        An instance is derived from its application's values as merged so far, this root
+        included, and added to the deployment right away: from then on it is an application
+        like any other, merged over the root paths that follow the same way its parent is.
+        """
+        merged_apps = (helm_values or {}).get(KEY_APPS, {})
         values = {}
-        for app_path in app_base_path.glob("*/"):
+        for app_path in app_base_path.glob("*/"):  # We get the sub-files that are directories
             app_name = app_name_from_path(f"{app_path.relative_to(app_base_path)}")
             if app_name in self.exclude:
                 continue
-            app_values = self.load_app_values(app_name, app_path, helm_values=helm_values)
-            values[app_name] = dict_merge(
-                values[app_name], app_values) if app_name in values else app_values
+            values[app_name] = load_app_values(app_name, app_path)
+            values.update(self.collect_instance_values(
+                app_name, dict_merge(merged_apps.get(app_name, {}), values[app_name])))
         return values
+
+    def collect_instance_values(self, app_name, app_values):
+        """The instances declared by an application, as applications of their own derived from
+        `app_values`, the application's configuration merged so far.
+
+        Instances are deployed together with their application, so `--include` is resolved over
+        them here: including either side includes the other.
+        """
+        instances = {}
+        for instance_name, instance_values in collect_instances(app_name, self.root_paths, envs=self.env).items():
+            app_key = instance_app_key(app_name, instance_name)
+            if app_key in self.exclude:
+                continue
+            instances[app_key] = build_instance_values(app_values, app_name, instance_name, instance_values)
+        if self.include:
+            self.include = resolve_instance_includes(self.include, app_name, instances)
+        return instances
+
+    def _include_application_instances(self, helm_values):
+        """Include the instances of every included application.
+
+        Resolved once `--include` has been expanded over dependencies: an application is more
+        often pulled in as another's dependency than named on the command line, and its instances
+        are deployed with it either way. Instances left out with `--exclude` were never derived,
+        so they cannot come back here.
+        """
+        apps = helm_values[KEY_APPS]
+        included = set(self.include)
+        for app_name in self.include:
+            for instance_name in instance_names(app_name, self.root_paths, self.env):
+                app_key = instance_app_key(app_name, instance_name)
+                if app_key in apps:
+                    included.add(app_key)
+        return included
+
+    def _keep_included_instances(self, apps, included_apps):
+        """Keep the instances of the included applications in the deployment.
+
+        Applications are selected by walking the build closure, which instances are never part of:
+        they build nothing. They are deployed with the application they belong to all the same.
+        """
+        for app_key in self.include:
+            if app_key in apps and app_key not in included_apps:
+                included_apps[app_key] = apps[app_key]
+
+    def _inherit_instance_images(self, helm_values):
+        """Give every instance the image of its parent application, once images are known.
+
+        With `--include`, images are only computed when the included applications are finalized,
+        after their instances have been derived from them.
+        """
+        apps = helm_values[KEY_APPS]
+        for app_name in list(apps):
+            for instance_name in instance_names(app_name, self.root_paths, self.env):
+                app_key = instance_app_key(app_name, instance_name)
+                if app_key in apps:
+                    inherit_parent_image(apps[app_key], apps[app_name])
 
     def _finalize_included_app_values(self, helm_values, base_image_name=None):
         """Expensive pass: run Dockerfile discovery and image tagging for included apps only."""
@@ -173,21 +244,10 @@ class ConfigurationGenerator(object, metaclass=abc.ABCMeta):
                     helm_values[KEY_APPS][app_name], finalized)
 
     def collect_app_values(self, app_base_path: Path, base_image_name=None, helm_values=None):
-        values = {}
-
-        for app_path in app_base_path.glob("*/"):  # We get the sub-files that are directories
-            app_name = app_name_from_path(f"{app_path.relative_to(app_base_path)}")
-
-            if app_name in self.exclude:
-                continue
-            app_key = app_name
-
-            app_values = self.create_app_values_spec(app_name, app_path, base_image_name=base_image_name, helm_values=helm_values)
-
-            values[app_key] = dict_merge(
-                values[app_key], app_values) if app_key in values else app_values
-
-        return values
+        return self._collect_root_app_values(
+            app_base_path, helm_values,
+            lambda app_name, app_path: self.create_app_values_spec(
+                app_name, app_path, base_image_name=base_image_name, helm_values=helm_values))
 
     def _init_static_images(self, base_image_name):
         for i in range(len(self.root_paths)):
@@ -655,10 +715,6 @@ def hosts_info(values):
         "\nTo test locally, update your hosts file" + f"\n{ip}\t{domain + ' ' + ' '.join(sd + '.' + domain for sd in subdomains)}")
 
 
-class ValuesValidationException(Exception):
-    pass
-
-
 def validate_helm_values(values):
     validate_dependencies(values)
     validate_secrets(values)
@@ -774,119 +830,91 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_pat
         if app_name in exclude or (include and not any(inc in app_name for inc in include)):
             continue
 
-        # Determine which template directory to use
-        regular_template_dir = app_path / 'deploy' / 'templates'
-        if templates_path == HELM_PATH:
-            template_dir = regular_template_dir
-        else:
-            template_dir = app_path / 'deploy' / f'templates-{templates_path}'
+        collect_app_deploy_directories(
+            app_path, app_name, dest_helm_chart_path, templates_path=templates_path, envs=envs)
 
-        if template_dir.exists():
+        for instance_name, instance_path in instance_directories(app_path, envs).items():
+            instance_key = instance_app_key(app_name, instance_name)
+            if instance_key in exclude or (include and not any(inc in instance_key for inc in include)):
+                continue
+            # The instance's own files are collected over the application's, so that it inherits
+            # every resource and template it does not override.
+            collect_app_deploy_directories(
+                app_path, instance_key, dest_helm_chart_path, templates_path=templates_path, envs=envs)
+            collect_app_deploy_directories(
+                instance_path, instance_key, dest_helm_chart_path, templates_path=templates_path,
+                envs=envs, deploy_subpath='.')
+
+
+def collect_app_deploy_directories(app_path, app_name, dest_helm_chart_path, templates_path=HELM_PATH,
+                                   envs=(), deploy_subpath='deploy'):
+    """Collect the templates, resources and sub-charts of an application into the destination
+    chart, under `app_name`.
+
+    `deploy_subpath` is where those directories live inside `app_path`: applications keep them
+    in `deploy`, instances directly in their own directory.
+    """
+    deploy_path = Path(app_path) / deploy_subpath
+
+    # Determine which template directory to use
+    regular_template_dir = deploy_path / 'templates'
+    if templates_path == HELM_PATH:
+        template_dir = regular_template_dir
+    else:
+        template_dir = deploy_path / f'templates-{templates_path}'
+
+    if template_dir.exists():
+        dest_dir = dest_helm_chart_path / 'templates' / app_name
+
+        logging.info(
+            "Collecting templates for application %s to %s", app_name, dest_dir)
+        if dest_dir.exists():
+            logging.warning(
+                "Merging/overriding all files in directory %s", dest_dir)
+            merge_configuration_directories(f"{template_dir}", f"{dest_dir}", envs)
+        else:
+            shutil.copytree(template_dir, dest_dir)
+        if envs:
+            merge_configuration_directories(f"{dest_dir}", f"{dest_dir}", envs)
+
+    # For non-helm mode (e.g., compose), also copy helper templates (_*.tpl) from regular
+    # templates directory. These are needed because resources (e.g., realm.json) may reference
+    # template helpers defined there.
+    if templates_path != HELM_PATH and regular_template_dir.exists():
+        helper_files = list(regular_template_dir.glob("_*.tpl"))
+        if helper_files:
             dest_dir = dest_helm_chart_path / 'templates' / app_name
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            logging.info(
+                "Collecting helper templates for application %s to %s", app_name, dest_dir)
+            for helper_file in helper_files:
+                dest_file = dest_dir / helper_file.name
+                if not dest_file.exists():  # Don't overwrite if templates-{path} provided one
+                    shutil.copy(helper_file, dest_file)
+
+    resources_dir = deploy_path / 'resources'
+    if resources_dir.exists():
+        dest_dir = dest_helm_chart_path / 'resources' / app_name
+
+        logging.info(
+            "Collecting resources for application  %s to %s", app_name, dest_dir)
+
+        merge_configuration_directories(f"{resources_dir}", f"{dest_dir}", envs)
+        if envs:
+            merge_configuration_directories(f"{dest_dir}", f"{dest_dir}", envs)
+
+    if templates_path == HELM_PATH:
+        subchart_dir = deploy_path / 'charts'
+        if subchart_dir.exists():
+            dest_dir = dest_helm_chart_path / 'charts' / app_name
 
             logging.info(
                 "Collecting templates for application %s to %s", app_name, dest_dir)
             if dest_dir.exists():
                 logging.warning(
                     "Merging/overriding all files in directory %s", dest_dir)
-                merge_configuration_directories(f"{template_dir}", f"{dest_dir}", envs)
+                merge_configuration_directories(f"{subchart_dir}", f"{dest_dir}", envs)
             else:
-                shutil.copytree(template_dir, dest_dir)
+                shutil.copytree(subchart_dir, dest_dir)
             if envs:
                 merge_configuration_directories(f"{dest_dir}", f"{dest_dir}", envs)
-
-        # For non-helm mode (e.g., compose), also copy helper templates (_*.tpl) from regular
-        # templates directory. These are needed because resources (e.g., realm.json) may reference
-        # template helpers defined there.
-        if templates_path != HELM_PATH and regular_template_dir.exists():
-            helper_files = list(regular_template_dir.glob("_*.tpl"))
-            if helper_files:
-                dest_dir = dest_helm_chart_path / 'templates' / app_name
-                dest_dir.mkdir(parents=True, exist_ok=True)
-                logging.info(
-                    "Collecting helper templates for application %s to %s", app_name, dest_dir)
-                for helper_file in helper_files:
-                    dest_file = dest_dir / helper_file.name
-                    if not dest_file.exists():  # Don't overwrite if templates-{path} provided one
-                        shutil.copy(helper_file, dest_file)
-
-        resources_dir = app_path / 'deploy' / 'resources'
-        if resources_dir.exists():
-            dest_dir = dest_helm_chart_path / 'resources' / app_name
-
-            logging.info(
-                "Collecting resources for application  %s to %s", app_name, dest_dir)
-
-            merge_configuration_directories(f"{resources_dir}", f"{dest_dir}", envs)
-            if envs:
-                merge_configuration_directories(f"{dest_dir}", f"{dest_dir}", envs)
-
-        if templates_path == HELM_PATH:
-            subchart_dir = app_path / 'deploy/charts'
-            if subchart_dir.exists():
-                dest_dir = dest_helm_chart_path / 'charts' / app_name
-
-                logging.info(
-                    "Collecting templates for application %s to %s", app_name, dest_dir)
-                if dest_dir.exists():
-                    logging.warning(
-                        "Merging/overriding all files in directory %s", dest_dir)
-                    merge_configuration_directories(f"{subchart_dir}", f"{dest_dir}", envs)
-                else:
-                    shutil.copytree(subchart_dir, dest_dir)
-                if envs:
-                    merge_configuration_directories(f"{dest_dir}", f"{dest_dir}", envs)
-
-
-# def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_path=None, exclude=(), include=None):
-#     """
-#     Searches recursively for helm templates inside the applications and collects the templates in the destination
-
-#     :param search_root:
-#     :param dest_helm_chart_path: collected helm templates destination folder
-#     :param exclude:
-#     :return:
-#     """
-#     app_base_path = os.path.join(search_root, APPS_PATH)
-
-#     import ipdb; ipdb.set_trace()  # fmt: skip
-
-#     for app_path in get_sub_paths(app_base_path):
-#         app_name = app_name_from_path(os.path.relpath(app_path, app_base_path))
-#         if app_name in exclude or (include and not any(inc in app_name for inc in include)):
-#             continue
-#         template_dir = os.path.join(app_path, 'deploy', 'templates')
-#         if os.path.exists(template_dir):
-#             dest_dir = os.path.join(
-#                 dest_helm_chart_path, 'templates', app_name)
-
-#             logging.info(
-#                 "Collecting templates for application %s to %s", app_name, dest_dir)
-#             if os.path.exists(dest_dir):
-#                 logging.warning(
-#                     "Merging/overriding all files in directory %s", dest_dir)
-#                 merge_configuration_directories(template_dir, dest_dir)
-#             else:
-#                 shutil.copytree(template_dir, dest_dir)
-#         resources_dir = os.path.join(app_path, 'deploy/resources')
-#         if os.path.exists(resources_dir):
-#             dest_dir = os.path.join(
-#                 dest_helm_chart_path, 'resources', app_name)
-
-#             logging.info(
-#                 "Collecting resources for application  %s to %s", app_name, dest_dir)
-
-#             merge_configuration_directories(resources_dir, dest_dir)
-
-#         subchart_dir = os.path.join(app_path, 'deploy/charts')
-#         if os.path.exists(subchart_dir):
-#             dest_dir = os.path.join(dest_helm_chart_path, 'charts', app_name)
-
-#             logging.info(
-#                 "Collecting templates for application %s to %s", app_name, dest_dir)
-#             if os.path.exists(dest_dir):
-#                 logging.warning(
-#                     "Merging/overriding all files in directory %s", dest_dir)
-#                 merge_configuration_directories(subchart_dir, dest_dir)
-#             else:
-#                 shutil.copytree(subchart_dir, dest_dir)

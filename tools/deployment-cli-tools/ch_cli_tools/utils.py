@@ -95,6 +95,21 @@ def find_dockerfiles_paths(base_directory: str) -> tuple[str, ...]:
     return tuple(p for p in dockerfiles_without_git if not re.search(r'(^|/).*dependencies.*/', p + '/'))
 
 
+# Directory names that hold Dockerfiles belonging to something other than the application's own
+# buildable image: task images, deprecated subapps, and instance overrides.
+NON_BUILDABLE_DOCKERFILE_SEGMENTS = frozenset({'tasks', 'subapps', 'instances'})
+
+
+def is_buildable_dockerfile_path(path: str) -> bool:
+    """Whether a Dockerfile path belongs to the application's own buildable image, i.e. is not
+    nested under a `tasks`, `subapps` or `instances` directory.
+
+    Matches by path segment rather than substring, so an application or resource directory whose
+    name merely contains one of these words (e.g. `myinstances`) is not excluded by mistake.
+    """
+    return not (set(Path(path).parts) & NON_BUILDABLE_DOCKERFILE_SEGMENTS)
+
+
 def get_parent_app_name(app_relative_path):
     return app_relative_path.split("/")[0] if "/" in app_relative_path else ""
 

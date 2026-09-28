@@ -1,0 +1,15 @@
+harness:
+  subdomain: samples1
+  deployment:
+    replicas: 1
+    statefulset: false
+    resources:
+      limits:
+        memory: "300Mi"
+      requests:
+        cpu: "1m"
+        memory: "16Mi"
+  database:
+    connect_string: "instance1 connection string"
+  envmap:
+    ENVIRONMENT_TEST_A: "instance1 value"

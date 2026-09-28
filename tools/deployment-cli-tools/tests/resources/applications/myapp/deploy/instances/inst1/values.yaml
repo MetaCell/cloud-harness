@@ -1,0 +1,5 @@
+harness:
+  subdomain: myinstance
+  deployment:
+    replicas: 3
+a: instance-b
