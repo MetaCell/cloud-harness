@@ -825,7 +825,7 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_pat
 
     for app_path in app_base_path.glob("*/"):  # We get the sub-files that are directories
         app_name = app_name_from_path(os.path.relpath(f"{app_path}", app_base_path))
-        if app_name in exclude or (include and not any(inc in app_name for inc in include)):
+        if app_name in exclude or (include and app_name not in include):
             continue
 
         collect_app_deploy_directories(
@@ -833,7 +833,7 @@ def collect_apps_helm_templates(search_root, dest_helm_chart_path, templates_pat
 
         for instance_name, instance_path in instance_directories(app_path, envs).items():
             instance_key = instance_app_key(app_name, instance_name)
-            if instance_key in exclude or (include and not any(inc in instance_key for inc in include)):
+            if instance_key in exclude or (include and instance_key not in include):
                 continue
             # The instance's own files are collected over the application's, so that it inherits
             # every resource and template it does not override.

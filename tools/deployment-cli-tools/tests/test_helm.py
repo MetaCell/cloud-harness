@@ -34,7 +34,8 @@ def render_helm_chart(chart_path, values_files=(), set_values=()):
         stderr=subprocess.PIPE,
         text=True,
     )
-    return [manifest for manifest in yaml.load_all(StringIO(completed.stdout)) if manifest]
+    with StringIO(completed.stdout) as stream:
+        return [manifest for manifest in yaml.load_all(stream) if manifest]
 
 
 def find_manifest(manifests, kind, name):
