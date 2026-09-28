@@ -25,7 +25,18 @@ from cloudharness_utils.constants import NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION
     APPS_PATH, EXCLUDE_PATHS, VALUES_OVERRIDES_PATH
 from . import CH_ROOT
 
+# Single YAML handler for the whole toolchain: ruamel.yaml.
+# `yaml` loads/dumps plain Python types; block style is forced so that generated
+# files never come out as inline `{a: 1, b: 2}` flow mappings.
 yaml = YAML(typ='safe')
+yaml.default_flow_style = False
+
+# Round trip handler, for the cases where the key order of the source document
+# (or of the dumped dictionary) must be preserved: the safe representer above
+# sorts mapping keys alphabetically.
+yaml_rt = YAML()
+yaml_rt.default_flow_style = False
+
 BASE_TEMPLATES_PATH = CH_ROOT
 
 
@@ -84,6 +95,21 @@ def find_dockerfiles_paths(base_directory: str) -> tuple[str, ...]:
             dockerfiles_without_git.append(dockerfile.replace(os.sep, "/"))
 
     return tuple(p for p in dockerfiles_without_git if not re.search(r'(^|/).*dependencies.*/', p + '/'))
+
+
+# Directory names that hold Dockerfiles belonging to something other than the application's own
+# buildable image: task images, deprecated subapps, and instance overrides.
+NON_BUILDABLE_DOCKERFILE_SEGMENTS = frozenset({'tasks', 'subapps', 'instances'})
+
+
+def is_buildable_dockerfile_path(path: str) -> bool:
+    """Whether a Dockerfile path belongs to the application's own buildable image, i.e. is not
+    nested under a `tasks`, `subapps` or `instances` directory.
+
+    Matches by path segment rather than substring, so an application or resource directory whose
+    name merely contains one of these words (e.g. `myinstances`) is not excluded by mistake.
+    """
+    return not (set(Path(path).parts) & NON_BUILDABLE_DOCKERFILE_SEGMENTS)
 
 
 def get_parent_app_name(app_relative_path):

@@ -1,5 +1,5 @@
 from os.path import join, dirname as dn, realpath
-import oyaml as yaml
+from ruamel.yaml import YAML
 
 from cloudharness_model import HarnessMainConfig, ApplicationConfig, User, ApplicationHarnessConfig, CDCEvent, ApplicationTestConfig, DatabaseConfig, GatekeeperConf
 
@@ -8,7 +8,7 @@ HERE = dn(realpath(__file__))
 
 def test_helm_values_deserialize():
     with open(join(HERE, "resources/values.yaml")) as f:
-        values = yaml.safe_load(f)
+        values = YAML(typ="safe").load(f)
     v = HarnessMainConfig.from_dict(values)
 
     assert v.domain

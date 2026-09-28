@@ -6,15 +6,15 @@ from cloudharness_model.models.git_dependency_config import GitDependencyConfig
 import logging
 from cloudharness_model.models.api_tests_config import ApiTestsConfig
 
-import oyaml as yaml
+from ruamel.yaml.scalarstring import SingleQuotedScalarString
 
 from cloudharness_utils.testing.util import get_app_environment
 from .models import HarnessMainConfig, ApplicationTestConfig, ApplicationHarnessConfig
 from cloudharness_utils.constants import *
-from .configurationgenerator import KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES
-from .secrets import is_cloudharness_managed, is_secret_config, secret_value
+from .constants import KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES
+from .configuration.secrets import is_cloudharness_managed, is_secret_config, secret_value
 from .utils import check_image_exists_in_registry, find_dockerfiles_paths, get_app_relative_to_base_path, guess_build_dependencies_from_dockerfile, \
-    get_template, dict_merge, app_name_from_path, clean_path, strip_registry_tag, get_image_source
+    get_template, dict_merge, app_name_from_path, clean_path, strip_registry_tag, get_image_source, yaml, yaml_rt
 from cloudharness_utils.testing.api import get_api_filename, get_schemathesis_command, get_urls_from_api_file
 
 logging.getLogger().setLevel(logging.INFO)
@@ -43,19 +43,6 @@ def _to_codefresh_path(path: str) -> str:
     if i > 0 and i < len(parts) and parts[i] == CLOUD_HARNESS_PATH:
         return '/'.join([CLOUD_HARNESS_PATH] + parts[i + 1:])
     return rel
-
-# Codefresh variables may need quotes: adjust yaml dump accordingly
-
-
-def literal_presenter(dumper, data):
-    if isinstance(data, str) and "\n" in data:
-        return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
-    if isinstance(data, str) and data.startswith('${{'):
-        return dumper.represent_scalar('tag:yaml.org,2002:str', data, style="'")
-    return dumper.represent_scalar('tag:yaml.org,2002:str', data)
-
-
-yaml.add_representer(str, literal_presenter)
 
 
 def clean_step_key(s: str) -> str:
@@ -236,7 +223,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 logging.info("Specific build template found: %s" %
                              (specific_build_template_path))
                 with open(specific_build_template_path) as f:
-                    build_specific = yaml.safe_load(f)
+                    build_specific = yaml.load(f)
 
                 build_specific.pop(
                     'build_arguments') if 'build_arguments' in build_specific else []
@@ -507,8 +494,7 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
 
     cmds = codefresh['steps']['prepare_deployment']['commands']
 
-    params = [p for inc in include for p in ["-i", inc]] +\
-        [p for ex in exclude for p in ["-i", ex]]
+    params = [f"-i {inc}" for inc in include] + [f"-ex {ex}" for ex in exclude]
 
     for i in range(len(cmds)):
         cmds[i] = cmds[i].replace("$ENV", "-".join(envs))
@@ -552,8 +538,6 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
         codefresh_dir = dirname(codefresh_abs_path)
         if not exists(codefresh_dir):
             os.makedirs(codefresh_dir)
-        from ruamel.yaml.scalarstring import SingleQuotedScalarString
-
         deployment_step = codefresh.get("steps", {}).get("deployment", {})
         arguments = deployment_step.get("arguments", {})
         if "custom_values" in arguments:
@@ -562,11 +546,10 @@ def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude
                 for v in arguments["custom_values"]
             ]
 
-        from ruamel.yaml import YAML
-        ryaml = YAML()
-        ryaml.default_flow_style = False
+        # Round trip handler: the codefresh steps are deliberately ordered by stage,
+        # a sorting representer would scramble them.
         with open(codefresh_abs_path, 'w') as f:
-            ryaml.dump(codefresh, f)
+            yaml_rt.dump(codefresh, f)
     return codefresh
 
 
