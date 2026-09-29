@@ -94,6 +94,9 @@ builds nothing of its own and runs exactly the image that was built, content has
 Use `args` rather than `command` to choose what the container runs, unless the intent is to replace
 the image's `ENTRYPOINT` too: `command` overrides the entrypoint, `args` only the default `CMD`.
 
+> The docker-compose target does not render `command` and `args` yet: there, an application
+> referencing an image runs that image's default `CMD`.
+
 ## Replicas
 
 ```yaml

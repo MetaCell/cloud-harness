@@ -495,7 +495,8 @@ def test_compose_secrets_use_local_defaults(tmp_path):
     assert len((generated / 'unmanagedSecret').read_text()) == 20
 
 
-def test_deployment_image_ref_runs_an_image_of_the_build(tmp_path):
+@pytest.mark.parametrize('include', [['refapp'], []], ids=['include', 'noinclude'])
+def test_deployment_image_ref_runs_an_image_of_the_build(tmp_path, include):
     """An application referencing a build image runs that image and builds nothing itself."""
     app_path = tmp_path / 'solution' / APPS_PATH / 'refapp'
     (app_path / 'deploy').mkdir(parents=True)
@@ -508,7 +509,7 @@ def test_deployment_image_ref_runs_an_image_of_the_build(tmp_path):
         '    build:\n'
         '      - cloudharness-base\n')
     values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES, str(tmp_path / 'solution')],
-                                                 output_path=tmp_path / 'out', include=['refapp'],
+                                                 output_path=tmp_path / 'out', include=include,
                                                  domain="my.local", namespace='test', local=False, tag=1,
                                                  registry='reg')
 

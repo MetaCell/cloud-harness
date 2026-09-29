@@ -2265,6 +2265,17 @@ def test_deployment_image_ref_runs_an_image_of_the_build(tmp_path):
     assert [c['image'] for c in containers] == [base_image]
 
 
+def test_deployment_image_ref_without_include(tmp_path):
+    """Without --include every application goes through the single pass, not the finalization."""
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, image_ref_solution(tmp_path)],
+                               output_path=tmp_path / 'out', domain="my.local", namespace='test', local=False,
+                               tag=1, registry='reg')
+
+    app = values[KEY_APPS]['refapp']
+    assert app['build'] is False
+    assert app[KEY_HARNESS][KEY_DEPLOYMENT]['image'] == values[KEY_TASK_IMAGES]['cloudharness-base']
+
+
 def test_deployment_image_ref_wins_over_a_dockerfile(tmp_path):
     solution = image_ref_solution(tmp_path, dockerfile=True)
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, solution], output_path=tmp_path / 'out',
