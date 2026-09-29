@@ -107,6 +107,9 @@ services:
       {{- range $app_config.harness.env }}
       - {{ .name }}={{ .value }}
       {{- end }}
+      {{- range $name, $value := $app_config.harness.envmap }}
+      - {{ printf "%s=%v" $name $value | quote }}
+      {{- end }}
     {{- if or $app_config.harness.dependencies.hard $app_config.harness.dependencies.soft }}
     {{- with compact
           (append (concat (without $app_config.harness.dependencies.hard "argo")
