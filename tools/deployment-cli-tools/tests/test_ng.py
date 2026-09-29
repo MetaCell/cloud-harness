@@ -458,6 +458,64 @@ def test_no_env_never_uses_env_dockerfile():
     assert myapp_artifact["docker"]["dockerfile"] == "Dockerfile"
 
 
+def _multi_env_project(tmp_path, env):
+    # Deliberately deterministic, not RESOURCES: a, b, c let us tell apart
+    # "later env wins" from "earlier env's untouched keys survive" from
+    # "base's own untouched keys survive both env layers".
+    root = tmp_path
+    (root / "deployment-configuration").mkdir(parents=True)
+    (root / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\n"
+    )
+    app_dir = root / "applications" / "myapp"
+    app_dir.mkdir(parents=True)
+    (app_dir / "Dockerfile").write_text("FROM scratch\n")
+    (app_dir / "dev.Dockerfile").write_text("FROM dev-image\n")
+    (app_dir / "test.Dockerfile").write_text("FROM test-image\n")
+    (app_dir / "deploy").mkdir()
+    (app_dir / "deploy" / "values.yaml").write_text("a: base\nb: base\nc: base\n")
+    (app_dir / "deploy" / "values-dev.yaml").write_text("a: dev\nb: dev\n")
+    (app_dir / "deploy" / "values-test.yaml").write_text("a: test\n")
+
+    return CHProject(root, cloudharness_path=root, config=CHDeployConfig(env=env))
+
+
+def test_multi_env_layers_in_order_later_env_wins(tmp_path):
+    project = _multi_env_project(tmp_path, env=["dev", "test"])
+    values = project["myapp"].all_values()
+
+    assert values["a"] == "test"  # both dev and test touch it - test is later
+    assert values["b"] == "dev"  # only dev touches it - survives test's layer
+    assert values["c"] == "base"  # neither env touches it - stays at base
+
+
+def test_multi_env_order_matters(tmp_path):
+    # Same two envs, reversed order - "dev" now wins on "a" since it's last.
+    project = _multi_env_project(tmp_path, env=["test", "dev"])
+    values = project["myapp"].all_values()
+
+    assert values["a"] == "dev"
+    assert values["b"] == "dev"
+
+
+def test_multi_env_dockerfile_selection_tries_each_env_in_order(tmp_path):
+    project = _multi_env_project(tmp_path / "both", env=["dev", "test"])
+    assert project["myapp"].dockerfile.path.name == "dev.Dockerfile"
+
+    project_test_only = _multi_env_project(tmp_path / "test-only", env=["test"])
+    assert project_test_only["myapp"].dockerfile.path.name == "test.Dockerfile"
+
+
+def test_multi_env_output_path_is_dash_joined(tmp_path):
+    # Ports the real -e dev-test convention: the *output* artifact name joins
+    # the envs with a dash, unlike the per-env *input* files it reads from.
+    project = _multi_env_project(tmp_path / "both", env=["dev", "test"])
+    assert project.codefresh.path.name == "codefresh-dev-test.yaml"
+
+    project_none = _multi_env_project(tmp_path / "none", env=None)
+    assert project_none.codefresh.path.name == "codefresh.yaml"
+
+
 def test_own_build_args_apply_only_to_the_apps_own_artifact():
     # Ports part of test_skaffold_imgarg: samples declares harness.dockerfile.
     # buildArgs.TEST_ARGUMENT, which must reach samples' own artifact but not its

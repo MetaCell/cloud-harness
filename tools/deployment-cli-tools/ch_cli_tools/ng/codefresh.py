@@ -17,8 +17,8 @@ class CHCodefreshTemplate(CHValues):
             project,
         )
         return dict_merge(
-            default.merge_with(default.for_env(project.config.env)),
-            self.merge_with(self.for_env(project.config.env)),
+            default.merge_with_envs(project.config.envs),
+            self.merge_with_envs(project.config.envs),
         )
 
 

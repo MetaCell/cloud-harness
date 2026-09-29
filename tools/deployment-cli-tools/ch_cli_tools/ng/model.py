@@ -69,8 +69,7 @@ class CHAppDefault:
 
     @lru_cache
     def all_values(self):
-        env = self.project.config.env
-        return self.valuesyaml.merge_with(self.valuesyaml.for_env(env))
+        return self.valuesyaml.merge_with_envs(self.project.config.envs)
 
     @lru_cache
     def _scan_tasks(self) -> dict[str, "CHAppTask"]:
@@ -239,7 +238,8 @@ class CHValues:
 
     @classmethod
     def path_for_env(cls, path, env):
-        return path.with_name(f"{path.stem}-{env}{path.suffix}")
+        suffix = env if isinstance(env, str) else "-".join(env)
+        return path.with_name(f"{path.stem}-{suffix}{path.suffix}")
 
     def for_env(self, env: str | None):
         if env is None:
@@ -249,6 +249,14 @@ class CHValues:
 
     def merge_with(self, other):
         return merge_with_layer(self, other)
+
+    def merge_with_envs(self, envs: list[str]) -> dict:
+        result = self.all_raw_values() if self.exists() else {}
+        for env in envs:
+            layer = self.for_env(env)
+            if layer.exists():
+                result = dict_merge(result, layer.all_raw_values())
+        return result
 
     def write(self, base):
         with self.path.open("w", encoding="utf-8") as f:
@@ -348,8 +356,7 @@ class CHDockerfile:
 
     @property
     def resolved(self) -> "CHDockerfile":
-        env = self.app.project.config.env
-        if env:
+        for env in self.app.project.config.envs:
             env_path = self.path.with_name(f"{env}.Dockerfile")
             if env_path.exists():
                 return CHDockerfile(env_path, self.app)
@@ -445,8 +452,8 @@ class CHProject:
         )
         for cls, key, path, no_base in self._extregister:
             p = (
-                CHValues.path_for_env(path(self.root), self.config.env)
-                if no_base
+                CHValues.path_for_env(path(self.root), self.config.envs)
+                if no_base and self.config.envs
                 else path(self.root)
             )
             setattr(self, key, cls(p, self))
@@ -535,7 +542,7 @@ class CHProject:
             app_values[app.name] = app.all_values()
         base = self.valuesyaml
         return dict_merge(
-            dict_merge(base.merge_with(base.for_env(self.config.env)), app_values),
+            dict_merge(base.merge_with_envs(self.config.envs), app_values),
             self.helm_chart.all_raw_values(),
         )
 
@@ -545,7 +552,7 @@ class CHProject:
 
 @dataclass
 class CHDeployConfig:
-    env: str | None = field(default=None, kw_only=True)
+    env: str | list[str] | None = field(default=None, kw_only=True)
     includes: list[str] = field(default_factory=list, kw_only=True)
     excludes: list[str] = field(default_factory=list, kw_only=True)
     registry: str = field(default="", kw_only=True)
@@ -556,3 +563,9 @@ class CHDeployConfig:
     registry_secret_name: str | None = field(default=None, kw_only=True)
     domain: str = field(default="cloudharness.metacell.us", kw_only=True)
     debug: bool = field(default=False, kw_only=True)
+
+    @property
+    def envs(self) -> list[str]:
+        if not self.env:
+            return []
+        return [self.env] if isinstance(self.env, str) else list(self.env)
