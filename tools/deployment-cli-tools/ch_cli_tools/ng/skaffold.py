@@ -30,15 +30,27 @@ class CHSkaffold(CHValues):
             registry = f"{registry}/"
         return f"{registry}{image_name}"
 
+    def _build_docker_options(self, dockerfile_path, own_build_args=None):
+        args = dict(self.project.all_source_images())
+        if own_build_args:
+            args.update(own_build_args)
+        if self.project.config.local or self.project.config.debug:
+            args["DEBUG"] = "true"
+
+        options = {"dockerfile": str(dockerfile_path), "ssh": "default"}
+        if args:
+            options["buildArgs"] = args
+        return options
+
     def _collect_app_dockerfile_artifact(self, app):
         context = app.dockerfile.resolve_context(self.path.parent)
         artifact = {
             "image": self.qualify(app.image_name),
             "context": str(context.path),
-            "docker": {"dockerfile": str(context.dockerfile.path)},
+            "docker": self._build_docker_options(
+                context.dockerfile.path, app.build_args
+            ),
         }
-        if self.project.config.local or self.project.config.debug:
-            artifact["docker"]["buildArgs"] = {"DEBUG": "true"}
 
         requires = []
         for dep in app.build_dependencies():
@@ -56,9 +68,7 @@ class CHSkaffold(CHValues):
         if requires:
             artifact["requires"] = requires
 
-        # MISSING: the rest of build args beyond DEBUG (harness.dockerfile.build_args,
-        # source_images), ssh config, and git-dependency clone hooks - none of these
-        # are exposed by CHApp/CHDockerfile yet.
+        # MISSING: git-dependency clone hooks - not exposed by CHApp yet.
         return artifact, artifact["image"]
 
     def _collect_build_dependency_artifact(self, dependency):
@@ -66,7 +76,7 @@ class CHSkaffold(CHValues):
         return {
             "image": self.qualify(dependency.image_name),
             "context": str(context.path),
-            "docker": {"dockerfile": str(context.dockerfile.path)},
+            "docker": self._build_docker_options(context.dockerfile.path),
         }
 
     def _collect_task_dockerfile_artifacts(self, app):
@@ -79,7 +89,7 @@ class CHSkaffold(CHValues):
             artifact = {
                 "image": self.qualify(task.image_name),
                 "context": str(context.path),
-                "docker": {"dockerfile": str(context.dockerfile.path)},
+                "docker": self._build_docker_options(context.dockerfile.path),
             }
             artifacts.append(artifact)
             overrides[task.name] = artifact["image"]

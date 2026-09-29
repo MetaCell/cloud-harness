@@ -456,3 +456,57 @@ def test_no_env_never_uses_env_dockerfile():
         a for a in artifacts if a["image"] == "testprojectname/myapp"
     )
     assert myapp_artifact["docker"]["dockerfile"] == "Dockerfile"
+
+
+def test_own_build_args_apply_only_to_the_apps_own_artifact():
+    # Ports part of test_skaffold_imgarg: samples declares harness.dockerfile.
+    # buildArgs.TEST_ARGUMENT, which must reach samples' own artifact but not its
+    # tasks'.
+    project = CHProject(
+        RESOURCES,
+        cloudharness_path=CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(includes=["samples"], excludes=["events"]),
+    )
+    artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
+
+    app_artifact = next(
+        a for a in artifacts if a["image"] == "testprojectname/sampleapp"
+    )
+    assert app_artifact["docker"]["buildArgs"]["TEST_ARGUMENT"] == "example value"
+
+    task_artifacts = [
+        a for a in artifacts if a["image"].startswith("testprojectname/sampleapp-")
+    ]
+    assert task_artifacts
+    assert all(
+        "TEST_ARGUMENT" not in a["docker"].get("buildArgs", {}) for a in task_artifacts
+    )
+
+
+def test_source_images_apply_to_every_artifact_project_wide():
+    # Ports test_skaffold_imgarg/test_skaffold_imgarg_retrieval's source_images
+    # aggregation. Uses RESOURCES only (not the real cloud-harness repo), so the
+    # expected ARG defaults stay stable: newapp1 declares mybase/mybase2 in its
+    # own Dockerfile; myapp's Dockerfile doesn't reference either, but still gets
+    # them as buildArgs, since source_images is a project-wide aggregation
+    # applied to every artifact, not just the app that owns the ARG.
+    project = CHProject(
+        RESOURCES,
+        cloudharness_path=RESOURCES,
+        config=CHDeployConfig(includes=["newapp1", "myapp"]),
+    )
+    artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
+
+    myapp_artifact = next(
+        a for a in artifacts if a["image"] == "testprojectname/myapp"
+    )
+    assert myapp_artifact["docker"]["buildArgs"]["mybase"] == "foo:bar"
+    assert myapp_artifact["docker"]["buildArgs"]["mybase2"] == "spam:egg"
+
+
+def test_ssh_default_set_on_every_artifact(tmp_path):
+    project = _minimal_project(tmp_path)
+    artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
+
+    assert artifacts
+    assert all(a["docker"]["ssh"] == "default" for a in artifacts)

@@ -159,6 +159,10 @@ class CHAppDefault:
         return resolve_path(self.deployment_config, "resources.requests", default={})
 
     @property
+    def build_args(self) -> dict[str, str]:
+        return resolve_path(self.harness_config, "dockerfile.buildArgs", default={})
+
+    @property
     def image_name(self):
         return f"{self.project.base_image_name()}/{
             resolve_path(
@@ -508,6 +512,15 @@ class CHProject:
         for app in self.scanned_apps.values():
             tasks.update(app._scan_tasks())
         return tasks
+
+    @lru_cache
+    def all_source_images(self) -> dict[str, str]:
+        images: dict[str, str] = {}
+        for app in self.scanned_apps.values():
+            images.update(app.dockerfile.base_images)
+        for base_image in self.base_images.values():
+            images.update(base_image.dockerfile.base_images)
+        return images
 
     @lru_cache
     def all_values(self):
