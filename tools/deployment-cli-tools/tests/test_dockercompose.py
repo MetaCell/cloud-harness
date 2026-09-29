@@ -493,3 +493,25 @@ def test_compose_secrets_use_local_defaults(tmp_path):
     assert (generated / 'richSecret').read_text() == 'a local value'
     # nothing is known locally about an unmanaged secret: a random value is generated
     assert len((generated / 'unmanagedSecret').read_text()) == 20
+
+
+def test_deployment_image_ref_runs_an_image_of_the_build(tmp_path):
+    """An application referencing a build image runs that image and builds nothing itself."""
+    app_path = tmp_path / 'solution' / APPS_PATH / 'refapp'
+    (app_path / 'deploy').mkdir(parents=True)
+    (app_path / 'deploy' / 'values.yaml').write_text(
+        'harness:\n'
+        '  deployment:\n'
+        '    auto: true\n'
+        '    image_ref: cloudharness-base\n'
+        '  dependencies:\n'
+        '    build:\n'
+        '      - cloudharness-base\n')
+    values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES, str(tmp_path / 'solution')],
+                                                 output_path=tmp_path / 'out', include=['refapp'],
+                                                 domain="my.local", namespace='test', local=False, tag=1,
+                                                 registry='reg')
+
+    base_image = values[KEY_TASK_IMAGES]['cloudharness-base']
+    assert values[KEY_APPS]['refapp']['image'] == base_image
+    assert values[KEY_APPS]['refapp'][KEY_HARNESS][KEY_DEPLOYMENT]['image'] == base_image

@@ -716,7 +716,9 @@ def write_values_overrides(helm_values: dict, dest_deployment_path: pathlib.Path
 
     The images CloudHarness builds are left out, not being an overridable image source: an
     application's own `image` and `harness.deployment.image` are pruned, unless the application
-    declares a prebuilt image instead of being built (`build: false`).
+    declares a prebuilt image instead of being built (`build: false`). An application running an
+    image of the build through `harness.deployment.image_ref` is not built either, but its image
+    is still pruned: it is one CloudHarness builds.
 
     Values already set at those paths (e.g. from values-template-<env>.yaml) win over the
     vendored defaults, so the file always reflects the effective configuration.
@@ -753,13 +755,15 @@ def write_values_overrides(helm_values: dict, dest_deployment_path: pathlib.Path
 
     for app_name, app_values in helm_values[apps_key].items():
         skip_paths = set()
-        # A built application owns its image; everything else it merely pulls
-        if app_values.get('build', False):
+        harness_values = app_values.get(harness_key) or {}
+        # A built application owns its image; everything else it merely pulls. One running an
+        # image of the build through deployment.image_ref builds nothing of its own, but that
+        # image is still one CloudHarness builds, so it is no more an overridable source
+        if app_values.get('build', False) or (harness_values.get(deployment_key) or {}).get('image_ref'):
             skip_paths |= {('image',), (harness_key, deployment_key, 'image')}
         # An application declaring database.image_ref runs the task image built under that
         # reference, which shadows the database type's own image: that one is then not the
         # value to override, so it is not reported as one
-        harness_values = app_values.get(harness_key) or {}
         if (harness_values.get(database_key) or {}).get('image_ref'):
             skip_paths.add((harness_key, database_key))
         for ref in find_chart_images(app_values, skip_paths=frozenset(skip_paths)):

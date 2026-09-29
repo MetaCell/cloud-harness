@@ -16,7 +16,7 @@ When `auto: true`, CloudHarness generates:
 - Standard environment variables injected into every container
 - Volume mounts for CloudHarness resources and any configured secrets
 
-> Auto deployment requires either a `Dockerfile` in the application directory, or an explicit `image` value.
+> Auto deployment requires either a `Dockerfile` in the application directory, an explicit `image` value, or an `image_ref` to an image of the build.
 
 ## Configuration reference
 
@@ -28,6 +28,7 @@ All fields are under `harness.deployment`.
 | `port` | int | `8080` | Container port |
 | `replicas` | int | `1` | Number of pod replicas |
 | `image` | string | *(from Dockerfile)* | Pre-built image to use instead of building from source |
+| `image_ref` | string | — | Image of the build to run instead of building one — see [Running an image of the build](#running-an-image-of-the-build) |
 | `name` | string | *(app name)* | Deployment name override |
 | `command` | list | — | Override the container entrypoint |
 | `args` | list | — | Override the container arguments |
@@ -61,6 +62,37 @@ harness:
 ```
 
 When `image` is set, no `Dockerfile` is required and no build step is performed.
+
+### Running an image of the build
+
+Several applications can run the same image, each with its own command, configuration and secrets:
+typically a base image holding the code of all of them. Rather than giving each application a
+`Dockerfile` that only repeats `FROM` that image, which is one more image to build and push per
+application, reference the image with `image_ref`:
+
+```yaml
+harness:
+  deployment:
+    auto: true
+    image_ref: my-base-image
+    args: ["node", "dist/server.js"]
+  dependencies:
+    build:
+      - my-base-image
+```
+
+As with the [database `image_ref`](./databases.md), the reference names an image the build produces
+for the application: a base or common image declared in `dependencies.build`, or one of the
+application's own task images. It resolves to that image's full name and tag, so the application
+builds nothing of its own and runs exactly the image that was built, content hash tag included.
+
+- `image_ref` takes precedence over `image`, and over a `Dockerfile` in the application directory.
+- A reference to an image that is not built for the application fails the generation, rather than
+  deploying an image name that does not exist.
+- Instances of the application run the same image, like the instances of any other application.
+
+Use `args` rather than `command` to choose what the container runs, unless the intent is to replace
+the image's `ENTRYPOINT` too: `command` overrides the entrypoint, `args` only the default `CMD`.
 
 ## Replicas
 

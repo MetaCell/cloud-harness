@@ -100,6 +100,8 @@ The only images left out are the ones CloudHarness builds itself, which are not 
 redirect: an application's own `image` and `harness.deployment.image`. An application that declares
 a prebuilt image instead of being built (`build: false`) does not build anything, so its
 `harness.deployment.image` is listed like any other pulled image.
+An application running an image of the build through `harness.deployment.image_ref` does not build
+anything either, but its image is still one CloudHarness builds, so it is left out as well.
 
 Every listed path is one that genuinely takes effect: a value shadowed by something of higher
 precedence is not reported, so editing any entry in the file changes what gets deployed. An
@@ -196,6 +198,7 @@ same way, or for every application at once through `value-template.yaml`:
 | Database built by CloudHarness | not an image source: see `harness.database.image_ref` |
 | extra containers | `apps.<app>.harness.deployment.extraContainers.<name>.image` |
 | prebuilt application image (`build: false` only) | `apps.<app>.harness.deployment.image` |
+| Application image built by CloudHarness | not an image source: see `harness.deployment.image_ref` |
 
 Images the generated resources run themselves, overridden at the root of `values-template.yaml`:
 

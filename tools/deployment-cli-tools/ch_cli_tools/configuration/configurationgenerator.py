@@ -628,6 +628,38 @@ def values_set_legacy(values):
         values['resources'] = harness[KEY_DEPLOYMENT]['resources']
 
 
+def deployment_image_ref(values):
+    """The build image an application declares to run, from `harness.deployment.image_ref`."""
+    return ((values.get(KEY_HARNESS) or {}).get(KEY_DEPLOYMENT) or {}).get('image_ref') or None
+
+
+def resolve_deployment_image_ref(app_name, values):
+    """Run the image built under `harness.deployment.image_ref` instead of building one.
+
+    As with `harness.database.image_ref`, the reference names an image of the application's own
+    build: a base or common image declared in `harness.dependencies.build`, or one of its task
+    images. The application then builds nothing of its own, and its deployment image is that one.
+
+    The reference takes precedence over `harness.deployment.image`, the same way the database
+    reference shadows the image of the database type. The resolved name is the one the build
+    computed, so the content hash tag it later receives reaches the deployment as well.
+
+    Must be called once the application's task images are known.
+    """
+    image_ref = deployment_image_ref(values)
+    if not image_ref:
+        return
+    image = (values.get(KEY_TASK_IMAGES) or {}).get(image_ref)
+    if not image:
+        raise ValuesValidationException(
+            f"harness.deployment.image_ref of application {app_name} is {image_ref}, which is not an image "
+            f"built for it: add {image_ref} to harness.dependencies.build, or name one of the "
+            f"application's task images")
+    values['image'] = image
+    values[KEY_HARNESS][KEY_DEPLOYMENT]['image'] = image
+    values['build'] = False
+
+
 def generate_tag_from_content(content_path, ignore=()):
     from dirhash import dirhash
     content_path = str(content_path)

@@ -18,7 +18,8 @@ from .models import HarnessMainConfig
 from .configuration.configurationgenerator import ConfigurationGenerator, get_included_builds, validate_helm_values, resolve_task_image_owner, \
     clear_unused_volume_configuration, \
     KEY_HARNESS, KEY_SERVICE, KEY_DATABASE, KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES, KEY_DEPLOYMENT, DEFAULT_IGNORE, \
-    values_from_legacy, values_set_legacy, get_included_applications, create_env_variables, collect_apps_helm_templates, generate_tag_from_content, guess_build_dependencies_from_dockerfile
+    values_from_legacy, values_set_legacy, get_included_applications, create_env_variables, collect_apps_helm_templates, generate_tag_from_content, guess_build_dependencies_from_dockerfile, \
+    deployment_image_ref, resolve_deployment_image_ref
 
 
 def deploy(namespace, output_path='./deployment'):
@@ -379,18 +380,20 @@ class CloudHarnessHelm(ConfigurationGenerator):
 
         deployment_values = values.get(KEY_HARNESS, {}).get(KEY_DEPLOYMENT, {})
         deployment_image = deployment_values.get('image', None) or values.get('image', None)
+        image_ref = deployment_image_ref(values)
         values['build'] = not bool(deployment_image)  # Used by skaffold and ci/cd to determine if the image should be built
 
         image_name = get_image_name(values.get(KEY_HARNESS, {}).get('image_name', ''), base_image_name)
-        if len(image_paths) > 0 and not deployment_image:
+        if len(image_paths) > 0 and not deployment_image and not image_ref:
             values['source_images'] = get_dockerfile_baseimg_args(app_path)
             image_name = image_name or image_name_from_dockerfile_path(os.path.relpath(image_paths[0], app_path.parent), base_name=base_image_name)
             values['image'] = self.image_tag(
                 image_name, build_context_path=app_path, dependencies=build_dependencies)
-        elif KEY_HARNESS in values and not deployment_image and values[
+        elif KEY_HARNESS in values and not deployment_image and not image_ref and values[
                 KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('auto', False):
             raise Exception(f"At least one Dockerfile must be specified on application {app_name}. "
-                            f"Specify harness.deployment.image value if you intend to use a prebuilt image.")
+                            f"Specify harness.deployment.image value if you intend to use a prebuilt image, "
+                            f"or harness.deployment.image_ref to run an image of the build.")
 
         task_images_paths = [path for path in find_dockerfiles_paths(
             f"{app_path}") if 'tasks/' in path]
@@ -408,6 +411,8 @@ class CloudHarnessHelm(ConfigurationGenerator):
 
             values[KEY_TASK_IMAGES][task_name] = self.image_tag(
                 task_img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys())
+
+        resolve_deployment_image_ref(app_name, values)
 
         return values
 
@@ -464,18 +469,20 @@ class CloudHarnessHelm(ConfigurationGenerator):
         # Check both YAML-declared pre-built image and already-computed image
         # (from a previous root_path finalization)
         deployment_image = deployment_values.get('image', None) or values.get('image', None)
+        image_ref = deployment_image_ref(values)
 
         image_name = get_image_name(values.get(KEY_HARNESS, {}).get('image_name', ''), base_image_name)
-        if len(image_paths) > 0 and not deployment_image:
+        if len(image_paths) > 0 and not deployment_image and not image_ref:
             values['build'] = True
             values['source_images'] = get_dockerfile_baseimg_args(app_path)
             image_name = image_name or image_name_from_dockerfile_path(os.path.relpath(image_paths[0], app_path.parent), base_image_name)
             values['image'] = self.image_tag(
                 image_name, build_context_path=app_path, dependencies=build_dependencies)
-        elif KEY_HARNESS in values and not deployment_image and values[
+        elif KEY_HARNESS in values and not deployment_image and not image_ref and values[
                 KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('auto', False):
             raise Exception(f"At least one Dockerfile must be specified on application {app_name}. "
-                            f"Specify harness.deployment.image value if you intend to use a prebuilt image.")
+                            f"Specify harness.deployment.image value if you intend to use a prebuilt image, "
+                            f"or harness.deployment.image_ref to run an image of the build.")
         elif 'build' not in values:
             values['build'] = not bool(deployment_image)
 
@@ -496,5 +503,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
             values['source_images'] = get_dockerfile_baseimg_args(app_path)
             values[KEY_TASK_IMAGES][task_name] = self.image_tag(
                 task_img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys())
+
+        resolve_deployment_image_ref(app_name, values)
 
         return values

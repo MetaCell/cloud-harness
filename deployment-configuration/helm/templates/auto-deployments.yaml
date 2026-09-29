@@ -124,11 +124,23 @@ spec:
       - name: {{ .app.harness.deployment.name| default "cloudharness-docs" | quote }}
         image: {{ .app.harness.deployment.image }}
         imagePullPolicy: {{ include "deploy_utils.pullpolicy" .root }}
-        {{- if .app.harness.deployment.command }}
-        command: {{ .app.harness.deployment.command }}
+        {{- /* A list is rendered as a list: printed as is, ["a", "b"] would come out as the
+               single string "a b". A string is kept verbatim, as it always was. */}}
+        {{- with .app.harness.deployment.command }}
+        {{- if kindIs "string" . }}
+        command: {{ . }}
+        {{- else }}
+        command:
+          {{- toYaml . | nindent 10 }}
         {{- end }}
-        {{- if .app.harness.deployment.args }}
-        args: {{ .app.harness.deployment.args }}
+        {{- end }}
+        {{- with .app.harness.deployment.args }}
+        {{- if kindIs "string" . }}
+        args: {{ . }}
+        {{- else }}
+        args:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         {{- end }}
         env:
         - name: CH_CURRENT_APP_NAME

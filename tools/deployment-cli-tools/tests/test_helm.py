@@ -2223,6 +2223,121 @@ def test_auto_tag_leaves_a_pinned_image_alone(tmp_path):
     assert values[KEY_APPS]['builder']['image'] == 'reg/app:abc123'
 
 
+def image_ref_solution(tmp_path, image_ref='cloudharness-base', dockerfile=False, instance=False):
+    """A solution with one application, refapp, running an image of the build through image_ref."""
+    solution = tmp_path / 'image_ref_solution'
+    app_path = solution / APPS_PATH / 'refapp'
+    (app_path / 'deploy').mkdir(parents=True)
+    (app_path / 'deploy' / 'values.yaml').write_text(
+        'harness:\n'
+        '  subdomain: refapp\n'
+        '  deployment:\n'
+        '    auto: true\n'
+        f'    image_ref: {image_ref}\n'
+        '  dependencies:\n'
+        '    build:\n'
+        '      - cloudharness-base\n')
+    if dockerfile:
+        (app_path / 'Dockerfile').write_text('FROM scratch\n')
+    if instance:
+        (app_path / 'deploy' / 'instances' / 'one').mkdir(parents=True)
+        (app_path / 'deploy' / 'instances' / 'one' / 'values.yaml').write_text('harness:\n  subdomain: one\n')
+    return str(solution)
+
+
+def test_deployment_image_ref_runs_an_image_of_the_build(tmp_path):
+    """An application referencing a build image deploys that image and builds nothing itself."""
+    solution = image_ref_solution(tmp_path)
+    out_path = tmp_path / 'out'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, solution], output_path=out_path, include=['refapp'],
+                               domain="my.local", namespace='test', local=False, tag=1, registry='reg')
+
+    base_image = values[KEY_TASK_IMAGES]['cloudharness-base']
+    app = values[KEY_APPS]['refapp']
+    assert app['build'] is False
+    assert app['image'] == base_image
+    assert app[KEY_HARNESS][KEY_DEPLOYMENT]['image'] == base_image
+
+    containers = [container
+                  for manifest in render_helm_chart(out_path / HELM_CHART_PATH)
+                  if manifest.get('kind') == 'Deployment' and manifest['metadata']['name'] == 'refapp'
+                  for container in manifest['spec']['template']['spec']['containers']]
+    assert [c['image'] for c in containers] == [base_image]
+
+
+def test_deployment_image_ref_wins_over_a_dockerfile(tmp_path):
+    solution = image_ref_solution(tmp_path, dockerfile=True)
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, solution], output_path=tmp_path / 'out',
+                               include=['refapp'], domain="my.local", namespace='test', local=False, tag=1,
+                               registry='reg')
+
+    app = values[KEY_APPS]['refapp']
+    assert app['build'] is False
+    assert app[KEY_HARNESS][KEY_DEPLOYMENT]['image'] == values[KEY_TASK_IMAGES]['cloudharness-base']
+
+
+def test_deployment_image_ref_takes_the_content_hash_tag(tmp_path):
+    """Without a tag, images are tagged with their content hash after the chart is generated:
+    the referenced image's tag must reach the application running it, and the application's own
+    copy of its build images, which database.image_ref is looked up in."""
+    root_paths = [CLOUDHARNESS_ROOT, RESOURCES, image_ref_solution(tmp_path, instance=True)]
+    merge_build_path = str(tmp_path / '.overrides')
+    values = create_helm_chart(root_paths, output_path=tmp_path / 'out', include=['refapp'], domain="my.local",
+                               namespace='test', env='test', local=False, tag=None, registry='reg')
+    preprocess_build_overrides(root_paths, values, merge_build_path=merge_build_path)
+    generate_hash_based_image_tags(root_paths, values, merge_build_path=merge_build_path)
+
+    base_image = values[KEY_TASK_IMAGES]['cloudharness-base']
+    assert ':' in base_image, 'cloudharness-base should be tagged with its content hash'
+    for app_key in ('refapp', 'refapp-one'):
+        app = values[KEY_APPS][app_key]
+        assert app['image'] == base_image
+        assert app[KEY_HARNESS][KEY_DEPLOYMENT]['image'] == base_image
+    assert values[KEY_APPS]['refapp'][KEY_TASK_IMAGES]['cloudharness-base'] == base_image
+
+
+def test_deployment_image_ref_to_an_image_not_built_fails(tmp_path):
+    solution = image_ref_solution(tmp_path, image_ref='not-built')
+    with pytest.raises(ValuesValidationException, match='not-built'):
+        create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, solution], output_path=tmp_path / 'out',
+                          include=['refapp'], domain="my.local", namespace='test', local=False, tag=1)
+
+
+def test_deployment_command_and_args_render_lists_and_strings(tmp_path):
+    """A list is rendered as a list, rather than as one string of its items joined by spaces; a
+    string is kept verbatim, as it always was."""
+    app_path = tmp_path / 'solution' / APPS_PATH / 'cmdapp'
+    (app_path / 'deploy').mkdir(parents=True)
+    (app_path / 'deploy' / 'values.yaml').write_text(
+        'harness:\n'
+        '  deployment:\n'
+        '    auto: true\n'
+        '    image: custom-image\n'
+        '    command: ["node", "dist/server.js"]\n'
+        '    args: \'["--port", "8080"]\'\n')
+    out_path = tmp_path / 'out'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, str(tmp_path / 'solution')], output_path=out_path,
+                      include=['cmdapp'], domain="my.local", namespace='test', local=False, tag=1)
+
+    containers = [container
+                  for manifest in render_helm_chart(out_path / HELM_CHART_PATH)
+                  if manifest.get('kind') == 'Deployment' and manifest['metadata']['name'] == 'cmdapp'
+                  for container in manifest['spec']['template']['spec']['containers']]
+    assert [(c['command'], c['args']) for c in containers] == [(['node', 'dist/server.js'], ['--port', '8080'])]
+
+
+def test_values_overrides_omits_deployment_image_ref(tmp_path):
+    """The referenced image is built by CloudHarness, so it is not an image source to redirect."""
+    out_path = tmp_path / 'out'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, image_ref_solution(tmp_path)], output_path=out_path,
+                      include=['refapp'], domain="my.local", namespace='test', local=False, tag=1)
+    with open(out_path / HELM_CHART_PATH / VALUES_OVERRIDES_PATH) as f:
+        overrides = yaml.load(f)
+    app_overrides = (overrides.get(KEY_APPS) or {}).get('refapp') or {}
+    assert 'image' not in app_overrides
+    assert 'image' not in ((app_overrides.get(KEY_HARNESS) or {}).get(KEY_DEPLOYMENT) or {})
+
+
 def test_instances_of_a_dependency_are_included(tmp_path):
     """An application is more often pulled in as another's dependency than named on the command
     line, and its instances are deployed with it either way.

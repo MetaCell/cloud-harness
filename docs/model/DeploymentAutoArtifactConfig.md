@@ -11,6 +11,7 @@ Name | Type | Description | Notes
 **port** | **object** | Deployment port | [optional] 
 **replicas** | **int** | Number of replicas | [optional] 
 **image** | **str** | Image name to use in the deployment. Leave it blank to set from the application&#39;s Docker file | [optional] 
+**image_ref** | **str** | Used for running an image from the build instead of building one: a build dependency or a task image of the application. Takes precedence over image | [optional] 
 **resources** | [**DeploymentResourcesConf**](DeploymentResourcesConf.md) |  | [optional] 
 **volume** | [**DeploymentVolumeSpec**](DeploymentVolumeSpec.md) |  | [optional] 
 **statefulset** | **bool** | When true, the workload is rendered as a Kubernetes StatefulSet instead of a Deployment. Recommended for deployments with a ReadWriteOnce volume: updates terminate the old pod before creating the new one, so no Recreate strategy or node pinning is needed. The volume, unless ReadWriteMany or externally managed (auto false), is provisioned per replica through volumeClaimTemplates. A pre-existing PVC named after the volume (left over from a previous Deployment) is migrated automatically: a migration job streams its data into each statefulset volume through the Kubernetes API, so the volumes are never mounted by the same pod (works on multi-zone clusters); delete the legacy PVC once migrated. | [optional] 

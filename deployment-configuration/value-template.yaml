@@ -32,6 +32,9 @@ harness:
     replicas: 1
     # -- Docker image url. Leave blank to leave Cloudharness automatic image name assignment.
     image:
+    # -- image ref for running an image of the build instead of building one, e.g. image_ref: my-base-image.
+    # The image must be a build dependency (or a task image of the application). Takes precedence over image.
+    image_ref:
     # -- Deployment name. Leave blank to leave Cloudharness automatic image name assignment.
     name:
     # -- Deployment port.

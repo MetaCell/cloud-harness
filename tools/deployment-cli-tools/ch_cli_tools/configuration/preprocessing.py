@@ -292,3 +292,10 @@ def apply_retagged_images(helm_values, retagged_images):
             retagged = retagged_images.get(holder.get('image'))
             if retagged:
                 holder['image'] = retagged
+        # The application's own copy of the images of its build, which `harness.database.image_ref`
+        # is looked up in by the templates: left bare, the database would run an untagged image.
+        # Assigned back whole, since a model hands out a copy of a mapping field on every read.
+        task_images = dict(app_values.get(KEY_TASK_IMAGES) or {})
+        if any(image in retagged_images for image in task_images.values()):
+            app_values[KEY_TASK_IMAGES] = {image_key: retagged_images.get(image, image)
+                                           for image_key, image in task_images.items()}
