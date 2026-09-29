@@ -164,6 +164,10 @@ class CHAppDefault:
         return test_config.get("commands") or []
 
     @property
+    def git_dependencies(self) -> list[dict]:
+        return resolve_path(self.harness_config, "dependencies.git", default=[]) or []
+
+    @property
     def app_entrypoint(self) -> Path | None:
         candidates = sorted(
             self.build_context.glob("**/__main__.py"), key=lambda p: len(p.parts)

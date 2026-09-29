@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from ch_cli_tools.ng import CHDeployConfig, CHProject
+from ch_cli_tools.ng import skaffold
 from ch_cli_tools.ng.model import DependencyUnknownError
 from ch_cli_tools.ng.skaffold import CHSkaffold
 from ch_cli_tools.ng.utils import parse_dockerfile
@@ -745,3 +746,148 @@ def test_parse_dockerfile_lowercase_instructions_are_normalized(tmp_path):
     dockerfile = tmp_path / "Dockerfile"
     dockerfile.write_text("from scratch\n")
     assert parse_dockerfile(dockerfile) == [("FROM", "scratch")]
+
+
+def test_git_dependencies_exposes_raw_config():
+    # myapp/deploy/values.yaml declares two: one without a path, one with.
+    project = CHProject(
+        RESOURCES, cloudharness_path=CLOUDHARNESS_ROOT, config=CHDeployConfig()
+    )
+    deps = project["myapp"].git_dependencies
+    assert deps == [
+        {"url": "https://github.com/a/b.git", "branch_tag": "master"},
+        {
+            "url": "https://github.com/c/d.git",
+            "branch_tag": "v1.0.0",
+            "path": "myrepo",
+        },
+    ]
+
+
+def test_git_dependencies_empty_for_an_app_without_any():
+    project = CHProject(
+        RESOURCES, cloudharness_path=CLOUDHARNESS_ROOT, config=CHDeployConfig()
+    )
+    assert project["events"].git_dependencies == []
+
+
+def test_git_clone_hooks_reach_the_skaffold_artifact():
+    # Ports the intent of the legacy git_clone_hook(): one build.artifacts[].
+    # hooks.before entry per git dependency, each shelling out to clone.sh
+    # with (branch_tag, url, clone_path) - clone_path under context/
+    # dependencies/[path/]repo_name.
+    project = CHProject(
+        RESOURCES, cloudharness_path=CLOUDHARNESS_ROOT, config=CHDeployConfig(includes=["myapp"])
+    )
+    artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
+    myapp_artifact = next(
+        a for a in artifacts if a["image"] == "testprojectname/myapp"
+    )
+
+    hooks = myapp_artifact["hooks"]["before"]
+    assert len(hooks) == 2
+
+    no_path_command = hooks[0]["command"]
+    assert no_path_command[0:2] == ["sh", str(skaffold._CLONE_SH)]
+    assert no_path_command[2:] == [
+        "master",
+        "https://github.com/a/b.git",
+        "applications/myapp/dependencies/b",
+    ]
+
+    with_path_command = hooks[1]["command"]
+    assert with_path_command[2:] == [
+        "v1.0.0",
+        "https://github.com/c/d.git",
+        "applications/myapp/dependencies/myrepo/d",
+    ]
+
+
+def test_git_clone_hooks_absent_when_no_git_dependencies():
+    project = CHProject(
+        RESOURCES,
+        cloudharness_path=CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(includes=["accounts"]),
+    )
+    artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
+    accounts_artifact = next(
+        a for a in artifacts if a["image"] == "testprojectname/accounts"
+    )
+    assert "hooks" not in accounts_artifact
+
+
+def test_skaffold_template_flags_pass_through_to_output():
+    # deployment-configuration/skaffold-template.yaml's own deploy.helm.flags
+    # (install --timeout=10m, upgrade --install) - static passthrough via
+    # skaffold_template.all_values(), not something generate() computes, but
+    # never actually asserted anywhere.
+    project = CHProject(
+        RESOURCES,
+        cloudharness_path=CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(includes=["accounts"]),
+    )
+    generated = project.skaffold.generate(write_on_disk=False)
+    flags = generated["deploy"]["helm"]["flags"]
+    assert flags["install"] == ["--timeout=10m"]
+    assert flags["upgrade"] == ["--install"]
+
+
+def test_multiple_apps_unit_tests_all_aggregate_into_test_array(tmp_path):
+    root = tmp_path
+    (root / "deployment-configuration").mkdir(parents=True)
+    (root / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\n"
+    )
+    for name, command in [
+        ("appone", "pytest appone/test"),
+        ("apptwo", "pytest apptwo/test"),
+    ]:
+        app_dir = root / "applications" / name
+        (app_dir / "deploy").mkdir(parents=True)
+        (app_dir / "Dockerfile").write_text("FROM scratch\n")
+        (app_dir / "deploy" / "values.yaml").write_text(
+            "harness:\n"
+            "  test:\n"
+            "    unit:\n"
+            "      enabled: true\n"
+            f"      commands: ['{command}']\n"
+        )
+
+    project = CHProject(root, cloudharness_path=root, config=CHDeployConfig())
+    test_entries = project.skaffold.generate(write_on_disk=False)["test"]
+
+    assert len(test_entries) == 2
+    images = {entry["image"] for entry in test_entries}
+    assert images == {"testproj/appone", "testproj/apptwo"}
+
+
+def test_build_dependency_artifact_respects_env_dockerfile(tmp_path):
+    # _collect_build_dependency_artifact goes through the same env-aware
+    # .dockerfile property as an app's own artifact - never exercised with an
+    # env active until now.
+    root = tmp_path
+    (root / "deployment-configuration").mkdir(parents=True)
+    (root / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\n"
+    )
+
+    helper_dir = root / "applications" / "helper"
+    helper_dir.mkdir(parents=True)
+    (helper_dir / "Dockerfile").write_text("FROM scratch\n")
+    (helper_dir / "dev.Dockerfile").write_text("FROM dev-base\n")
+
+    consumer_dir = root / "applications" / "consumer"
+    (consumer_dir / "deploy").mkdir(parents=True)
+    (consumer_dir / "Dockerfile").write_text("FROM scratch\n")
+    (consumer_dir / "deploy" / "values.yaml").write_text(
+        "harness:\n  dependencies:\n    build: ['helper']\n"
+    )
+
+    project = CHProject(
+        root,
+        cloudharness_path=root,
+        config=CHDeployConfig(includes=["consumer"], env="dev"),
+    )
+    artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
+    helper_artifact = next(a for a in artifacts if a["image"] == "testproj/helper")
+    assert helper_artifact["docker"]["dockerfile"] == "dev.Dockerfile"

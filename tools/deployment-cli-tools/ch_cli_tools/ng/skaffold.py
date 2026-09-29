@@ -1,6 +1,11 @@
 from functools import lru_cache
+from pathlib import Path
 
 from .model import CHBaseImage, CHValues, register_file
+
+# tools/clone.sh, shipped alongside this package - not part of any deployed
+# project, so it's located relative to this file, not project.root/ch_path.
+_CLONE_SH = Path(__file__).resolve().parent.parent.parent.parent / "clone.sh"
 
 
 @register_file(
@@ -68,8 +73,37 @@ class CHSkaffold(CHValues):
         if requires:
             artifact["requires"] = requires
 
-        # MISSING: git-dependency clone hooks - not exposed by CHApp yet.
+        hooks = self._collect_git_clone_hooks(app, context.path)
+        if hooks:
+            artifact["hooks"] = hooks
+
         return artifact, artifact["image"]
+
+    def _collect_git_clone_hooks(self, app, context_path):
+        git_deps = app.git_dependencies
+        if not git_deps:
+            return None
+
+        before = []
+        for dep in git_deps:
+            url = dep["url"]
+            repo_name = Path(url).name.split(".")[0]
+            clone_dir = context_path / "dependencies"
+            if dep.get("path"):
+                clone_dir = clone_dir / dep["path"]
+            clone_dir = clone_dir / repo_name
+            before.append(
+                {
+                    "command": [
+                        "sh",
+                        str(_CLONE_SH),
+                        dep.get("branch_tag"),
+                        url,
+                        str(clone_dir),
+                    ]
+                }
+            )
+        return {"before": before}
 
     def _collect_build_dependency_artifact(self, dependency):
         context = dependency.dockerfile.resolve_context(self.path.parent)
