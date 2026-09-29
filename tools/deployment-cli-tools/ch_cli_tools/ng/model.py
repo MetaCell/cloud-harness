@@ -17,7 +17,12 @@ _ENTRYPOINT_OVERRIDE_PATTERN = re.compile(
 )
 
 
-from .utils import dict_merge, merge_with_layer, resolve_path  # type: ignore
+from .utils import (
+    dict_merge,  # type: ignore
+    merge_with_layer,
+    parse_dockerfile,
+    resolve_path,
+)
 
 
 class TaskUnknownError(Exception): ...
@@ -423,6 +428,34 @@ class CHDockerfile:
                 case _:
                     continue
         return args
+
+    @property
+    def base_dependencies(self) -> list["CHApp | CHBaseImage | CHAppTask | str"]:
+        if not self.exists():
+            return []
+
+        project = self.app.project
+        instructions = parse_dockerfile(self.path)
+        arg_names = {
+            instruction[1] for instruction in instructions if instruction[0] == "ARG"
+        }
+
+        dependencies = []
+        for instruction in instructions:
+            if instruction[0] != "FROM":
+                continue
+            ref = instruction[1]
+            if ref not in arg_names:
+                continue
+
+            name = ref.lower().replace("_", "-")
+            entity = (
+                project.scanned_apps.get(name)
+                or project.base_images.get(name)
+                or project.all_buildable_tasks().get(name)
+            )
+            dependencies.append(entity.dockerfile if entity is not None else name)
+        return dependencies
 
 
 def register_file(key: str, path: Callable[[Path], Path], only_env: bool = False):

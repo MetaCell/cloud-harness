@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from .model import CHBaseImage, CHValues, register_file
+from .model import CHValues, DependencyUnknownError, register_file
 
 # tools/clone.sh, shipped alongside this package - not part of any deployed
 # project, so it's located relative to this file, not project.root/ch_path.
@@ -47,6 +47,47 @@ class CHSkaffold(CHValues):
             options["buildArgs"] = args
         return options
 
+    # Generator-agnostic: entirely about what an app/task/base-image needs to be
+    # built (explicit + guessed, deduped, validated), nothing skaffold-shaped in
+    # here. codefresh.py will need the exact same semantics once it grows its own
+    # base/common-image build steps and ordering - if/when that happens, this and
+    # _collect_build_dependency_artifacts' traversal are the two candidates to
+    # split off onto CHApp/CHProject for both generators to share; only the
+    # artifact/step *shaping* (skaffold's `image`/`context`/`docker`/`requires`
+    # dict vs codefresh's `title`/`type`/`tag` step) would stay generator-specific.
+    def _combined_dependencies(self, entity):
+        build_dependencies = getattr(entity, "build_dependencies", None)
+        explicit = build_dependencies() if build_dependencies is not None else []
+        for dep in explicit:
+            if isinstance(dep, str):
+                msg = f"Build dependency {dep!r} declared by {entity.name} is not a known app, base image, or task"
+                raise DependencyUnknownError(msg)
+        guessed = [
+            dep if isinstance(dep, str) else dep.app
+            for dep in entity.dockerfile.base_dependencies
+        ]
+        return [*explicit, *guessed]
+
+    def _collect_requires(self, deps):
+        requires = []
+        seen = set()
+        for dep in deps:
+            if isinstance(dep, str):
+                continue
+            if dep.name in seen:
+                continue
+            seen.add(dep.name)
+            requires.append(
+                {
+                    "image": self.qualify(dep.image_name),
+                    "alias": dep.name.replace("-", "_").upper(),
+                }
+            )
+        return requires
+
+    def _requires_for(self, entity):
+        return self._collect_requires(self._combined_dependencies(entity))
+
     def _collect_app_dockerfile_artifact(self, app):
         context = app.dockerfile.resolve_context(self.path.parent)
         artifact = {
@@ -57,19 +98,7 @@ class CHSkaffold(CHValues):
             ),
         }
 
-        requires = []
-        for dep in app.build_dependencies():
-            if isinstance(dep, str):
-                # A build dependency that doesn't match a scanned app,
-                # infrastructure/base-images/, or infrastructure/common-images/
-                # entry - genuinely unresolvable (e.g. a typo), not a scanning gap.
-                continue
-            requires.append(
-                {
-                    "image": self.qualify(dep.image_name),
-                    "alias": dep.name.replace("-", "_").upper(),
-                }
-            )
+        requires = self._requires_for(app)
         if requires:
             artifact["requires"] = requires
 
@@ -107,11 +136,15 @@ class CHSkaffold(CHValues):
 
     def _collect_build_dependency_artifact(self, dependency):
         context = dependency.dockerfile.resolve_context(self.path.parent)
-        return {
+        artifact = {
             "image": self.qualify(dependency.image_name),
             "context": str(context.path),
             "docker": self._build_docker_options(context.dockerfile.path),
         }
+        requires = self._requires_for(dependency)
+        if requires:
+            artifact["requires"] = requires
+        return artifact
 
     def _collect_task_dockerfile_artifacts(self, app):
         artifacts = []
@@ -162,7 +195,7 @@ class CHSkaffold(CHValues):
             if isinstance(app, str):
                 continue
 
-            if app.dockerfile.exists():
+            if app.dockerfile.exists() and not app.deployment_config.get("image"):
                 artifact, image = self._collect_app_dockerfile_artifact(app)
                 artifacts.append(artifact)
                 app_image_overrides[app.name] = image
@@ -189,20 +222,26 @@ class CHSkaffold(CHValues):
             test_entries,
         )
 
-    def _collect_build_dependency_artifacts(self):
-        build_dependencies_needed = {}
+    def _collect_build_dependency_artifacts(self, already_covered):
+        needed = {}
+        stack = []
         for app in self.project.involved_apps:
             if isinstance(app, str):
-                # skipping unresolved apps
                 continue
-            for dep in app.build_dependencies():
-                if isinstance(dep, str):
-                    # skipping unresolved build dependencies
-                    continue
-                build_dependencies_needed[dep.name] = dep
+            stack.extend(self._combined_dependencies(app))
+
+        while stack:
+            dependency = stack.pop()
+            if isinstance(dependency, str) or dependency.name in needed:
+                continue
+            if dependency.name in already_covered:
+                continue
+            needed[dependency.name] = dependency
+            stack.extend(self._combined_dependencies(dependency))
+
         return [
             self._collect_build_dependency_artifact(dependency)
-            for dependency in build_dependencies_needed.values()
+            for dependency in needed.values()
         ]
 
     def generate(self, write_on_disk=True):
@@ -217,7 +256,11 @@ class CHSkaffold(CHValues):
             entrypoint_overrides,
             test_entries,
         ) = self._collect_app_and_task_artifacts()
-        artifacts.extend(self._collect_build_dependency_artifacts())
+        artifacts.extend(
+            self._collect_build_dependency_artifacts(
+                {*app_image_overrides.keys(), *task_image_overrides.keys()}
+            )
+        )
 
         if test_entries:
             base["test"] = test_entries

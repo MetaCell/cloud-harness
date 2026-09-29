@@ -42,6 +42,12 @@ _EXEC_FORM_COMMANDS = {"RUN", "CMD", "ENTRYPOINT", "SHELL", "HEALTHCHECK"}
 _LINE_CONTINUATION = re.compile(r"\\\s*$")
 _FROM_ALIAS = re.compile(r"\s+AS\s+", re.IGNORECASE)
 _LEADING_FLAG = re.compile(r"^--[\w-]+(=\S*)?$")
+_VAR_REFERENCE = re.compile(r"^\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?$")
+
+
+def dockerfile_variable_reference(token: str) -> str | None:
+    match = _VAR_REFERENCE.match(token)
+    return match.group(1) if match else None
 
 
 def parse_dockerfile(path: Path) -> list[tuple[str, ...]]:
@@ -97,8 +103,11 @@ def _split_args(rest: str) -> list[str]:
 def _parse_from(rest: str) -> tuple[str, ...]:
     # FROM [--platform=<platform>] <image> [AS <name>]
     tokens = _strip_leading_flags(rest.split())
-    parts = _FROM_ALIAS.split(" ".join(tokens), maxsplit=1)
-    return tuple(part.strip() for part in parts)
+    parts = [part.strip() for part in _FROM_ALIAS.split(" ".join(tokens), maxsplit=1)]
+    reference = dockerfile_variable_reference(parts[0])
+    if reference is not None:
+        parts[0] = reference
+    return tuple(parts)
 
 
 def _parse_arg(rest: str) -> tuple[str, ...]:
