@@ -1,4 +1,5 @@
 import itertools
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -11,18 +12,12 @@ yaml = YAML(typ="safe")
 
 
 KEY_TASK_IMAGES = "task-images"
+_ENTRYPOINT_OVERRIDE_PATTERN = re.compile(
+    r"CLOUDHARNESS_FLASK|gunicorn|CLOUDHARNESS_DJANGO", re.IGNORECASE
+)
 
 
-from .utils import dict_merge, merge_with_layer  # type: ignore
-
-
-def resolve_path(d, p, default=None):
-    obj = d
-    for frag in p.split("."):
-        if obj is None:
-            return default
-        obj = obj.get(frag)
-    return obj if obj is not None else default
+from .utils import dict_merge, merge_with_layer, resolve_path  # type: ignore
 
 
 class TaskUnknownError(Exception): ...
@@ -160,6 +155,32 @@ class CHAppDefault:
     @property
     def build_args(self) -> dict[str, str]:
         return resolve_path(self.harness_config, "dockerfile.buildArgs", default={})
+
+    @property
+    def unit_test_commands(self) -> list[str]:
+        test_config = resolve_path(self.harness_config, "test.unit", default={})
+        if not test_config.get("enabled"):
+            return []
+        return test_config.get("commands") or []
+
+    @property
+    def app_entrypoint(self) -> Path | None:
+        candidates = sorted(
+            self.build_context.glob("**/__main__.py"), key=lambda p: len(p.parts)
+        )
+        if not candidates:
+            return None
+
+        texts = []
+        if self.dockerfile.exists():
+            texts.append(self.dockerfile.path.read_text())
+        requirements = self.path / "requirements.txt"
+        if requirements.exists():
+            texts.append(requirements.read_text())
+
+        if not any(_ENTRYPOINT_OVERRIDE_PATTERN.search(text) for text in texts):
+            return None
+        return candidates[0].parent
 
     @property
     def image_name(self):

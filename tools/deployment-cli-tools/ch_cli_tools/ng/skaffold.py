@@ -95,19 +95,51 @@ class CHSkaffold(CHValues):
             overrides[task.name] = artifact["image"]
         return artifacts, overrides
 
+    def _collect_entrypoint_override(self, app):
+        entrypoint = app.app_entrypoint
+        if entrypoint is None:
+            return None
+        return {
+            "harness": {
+                "deployment": {
+                    "command": ["python"],
+                    "args": [f"/usr/src/app/{entrypoint.name}/__main__.py"],
+                }
+            }
+        }
+
+    def _collect_test_entry(self, app):
+        commands = app.unit_test_commands
+        if not commands:
+            return None
+        return {
+            "image": self.qualify(app.image_name),
+            "custom": [{"command": f"docker run $IMAGE {cmd}"} for cmd in commands],
+        }
+
     def _collect_app_and_task_artifacts(self):
         artifacts = []
         app_image_overrides = {}
         task_image_overrides = {}
+        entrypoint_overrides = {}
+        test_entries = []
 
         for app in self.project.involved_apps:
             if isinstance(app, str):
                 continue
 
-            if app.dockerfile.path.exists():
+            if app.dockerfile.exists():
                 artifact, image = self._collect_app_dockerfile_artifact(app)
                 artifacts.append(artifact)
                 app_image_overrides[app.name] = image
+
+                entrypoint_override = self._collect_entrypoint_override(app)
+                if entrypoint_override is not None:
+                    entrypoint_overrides[app.name] = entrypoint_override
+
+                test_entry = self._collect_test_entry(app)
+                if test_entry is not None:
+                    test_entries.append(test_entry)
 
             task_artifacts, task_overrides = self._collect_task_dockerfile_artifacts(
                 app
@@ -115,7 +147,13 @@ class CHSkaffold(CHValues):
             artifacts.extend(task_artifacts)
             task_image_overrides.update(task_overrides)
 
-        return artifacts, app_image_overrides, task_image_overrides
+        return (
+            artifacts,
+            app_image_overrides,
+            task_image_overrides,
+            entrypoint_overrides,
+            test_entries,
+        )
 
     def _collect_build_dependency_artifacts(self):
         build_dependencies_needed = {}
@@ -138,10 +176,17 @@ class CHSkaffold(CHValues):
 
         base = project.skaffold_template.all_values()
 
-        artifacts, app_image_overrides, task_image_overrides = (
-            self._collect_app_and_task_artifacts()
-        )
+        (
+            artifacts,
+            app_image_overrides,
+            task_image_overrides,
+            entrypoint_overrides,
+            test_entries,
+        ) = self._collect_app_and_task_artifacts()
         artifacts.extend(self._collect_build_dependency_artifacts())
+
+        if test_entries:
+            base["test"] = test_entries
 
         build = base.setdefault("build", {})
         build["artifacts"] = artifacts
@@ -173,15 +218,17 @@ class CHSkaffold(CHValues):
             if project.config.namespace:
                 release_config["name"] = project.config.namespace
                 release_config["namespace"] = project.config.namespace
-            overrides = release_config.setdefault("artifactOverrides", {})
-            overrides["apps"] = {
+            artifact_overrides = release_config.setdefault("artifactOverrides", {})
+            artifact_overrides["apps"] = {
                 name: {"harness": {"deployment": {"image": image}}}
                 for name, image in app_image_overrides.items()
             }
-            overrides["task-images"] = task_image_overrides
-            # MISSING: `overrides.apps` (command/args override for gunicorn-based task
-            # entrypoints) and `test` (per-app unit test commands from
-            # harness.test.unit) aren't modeled by CHApp yet either.
+            artifact_overrides["task-images"] = task_image_overrides
+
+            if entrypoint_overrides:
+                release_config.setdefault("overrides", {})["apps"] = (
+                    entrypoint_overrides
+                )
 
         if write_on_disk:
             self.write(base)

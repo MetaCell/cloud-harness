@@ -11,6 +11,7 @@ import pytest
 from ch_cli_tools.ng import CHDeployConfig, CHProject
 from ch_cli_tools.ng.model import DependencyUnknownError
 from ch_cli_tools.ng.skaffold import CHSkaffold
+from ch_cli_tools.ng.utils import parse_dockerfile
 
 HERE = Path(__file__).parent
 RESOURCES = HERE / "resources"
@@ -568,3 +569,179 @@ def test_ssh_default_set_on_every_artifact(tmp_path):
 
     assert artifacts
     assert all(a["docker"]["ssh"] == "default" for a in artifacts)
+
+
+def _entrypoint_app_project(tmp_path, dockerfile_text="", requirements_text=None, main_dirs=()):
+    root = tmp_path
+    (root / "deployment-configuration").mkdir(parents=True)
+    (root / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\n"
+    )
+    app_dir = root / "applications" / "myapp"
+    app_dir.mkdir(parents=True)
+    (app_dir / "Dockerfile").write_text(dockerfile_text or "FROM scratch\n")
+    if requirements_text is not None:
+        (app_dir / "requirements.txt").write_text(requirements_text)
+    for main_dir in main_dirs:
+        (app_dir / main_dir).mkdir(parents=True)
+        (app_dir / main_dir / "__main__.py").write_text("")
+
+    return CHProject(root, cloudharness_path=root, config=CHDeployConfig())
+
+
+def test_entrypoint_prefers_shortest_path_over_decoys(tmp_path):
+    # Ports test_create_skaffold_configuration_with_conflicting_dependencies:
+    # a venv/vendored __main__.py (e.g. matplotlib's) must lose to the app's
+    # own, shallower one.
+    project = _entrypoint_app_project(
+        tmp_path,
+        dockerfile_text="ARG CLOUDHARNESS_FLASK\nFROM $CLOUDHARNESS_FLASK\n",
+        main_dirs=["myapp_code", "myapp_code/venv/matplotlib"],
+    )
+    entrypoint = project["myapp"].app_entrypoint
+    assert entrypoint.name == "myapp_code"
+
+
+def test_entrypoint_falls_back_to_requirements_txt(tmp_path):
+    # Ports test_create_skaffold_configuration_with_conflicting_dependencies_
+    # requirements_file: a Dockerfile with no gunicorn/Flask/Django mention
+    # still triggers the override via a sibling requirements.txt.
+    project = _entrypoint_app_project(
+        tmp_path,
+        dockerfile_text="FROM python:3.12\n",
+        requirements_text="gunicorn==21.2.0\n",
+        main_dirs=["myapp_code"],
+    )
+    entrypoint = project["myapp"].app_entrypoint
+    assert entrypoint.name == "myapp_code"
+
+
+def test_entrypoint_none_without_a_match(tmp_path):
+    project = _entrypoint_app_project(
+        tmp_path,
+        dockerfile_text="FROM python:3.12\n",
+        main_dirs=["myapp_code"],
+    )
+    assert project["myapp"].app_entrypoint is None
+
+
+def test_entrypoint_none_without_main(tmp_path):
+    project = _entrypoint_app_project(
+        tmp_path, dockerfile_text="ARG CLOUDHARNESS_FLASK\nFROM $CLOUDHARNESS_FLASK\n"
+    )
+    assert project["myapp"].app_entrypoint is None
+
+
+def test_unit_test_commands_requires_the_enabled_flag(tmp_path):
+    root = tmp_path
+    (root / "deployment-configuration").mkdir(parents=True)
+    (root / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\n"
+    )
+    app_dir = root / "applications" / "myapp"
+    (app_dir / "deploy").mkdir(parents=True)
+    (app_dir / "Dockerfile").write_text("FROM scratch\n")
+    (app_dir / "deploy" / "values.yaml").write_text(
+        "harness:\n  test:\n    unit:\n      enabled: false\n"
+        "      commands: ['pytest tests/']\n"
+    )
+    project = CHProject(root, cloudharness_path=root, config=CHDeployConfig())
+    assert project["myapp"].unit_test_commands == []
+
+
+def test_app_entrypoint_override_and_unit_tests_reach_skaffold_output():
+    # Ports test_create_skaffold_configuration's command/args and test[]
+    # assertions, against the real samples app (applications/samples/backend/
+    # samples/__main__.py, a real Flask-based entrypoint in this monorepo).
+    project = CHProject(
+        RESOURCES,
+        cloudharness_path=CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(includes=["samples"], excludes=["events"]),
+    )
+    generated = project.skaffold.generate(write_on_disk=False)
+    release = generated["deploy"]["helm"]["releases"][0]
+
+    override = release["overrides"]["apps"]["samples"]["harness"]["deployment"]
+    assert override["command"] == ["python"]
+    assert override["args"] == ["/usr/src/app/samples/__main__.py"]
+
+    test_entries = generated["test"]
+    assert len(test_entries) == 1
+    assert test_entries[0]["image"] == "testprojectname/sampleapp"
+    assert "samples/test" in test_entries[0]["custom"][0]["command"]
+
+
+def test_parse_dockerfile_missing_file_returns_empty_list(tmp_path):
+    assert parse_dockerfile(tmp_path / "Dockerfile") == []
+
+
+def test_parse_dockerfile_skips_comments_and_blank_lines(tmp_path):
+    dockerfile = tmp_path / "Dockerfile"
+    dockerfile.write_text("# a comment\n\nFROM scratch\n\n# another\n")
+    assert parse_dockerfile(dockerfile) == [("FROM", "scratch")]
+
+
+def test_parse_dockerfile_from_with_and_without_alias(tmp_path):
+    dockerfile = tmp_path / "Dockerfile"
+    dockerfile.write_text(
+        "FROM python:3.12 AS builder\n"
+        "FROM --platform=linux/amd64 scratch\n"
+    )
+    assert parse_dockerfile(dockerfile) == [
+        ("FROM", "python:3.12", "builder"),
+        ("FROM", "scratch"),
+    ]
+
+
+def test_parse_dockerfile_arg_with_and_without_default(tmp_path):
+    dockerfile = tmp_path / "Dockerfile"
+    dockerfile.write_text("ARG NO_DEFAULT\nARG WITH_DEFAULT=value\n")
+    assert parse_dockerfile(dockerfile) == [
+        ("ARG", "NO_DEFAULT"),
+        ("ARG", "WITH_DEFAULT", "value"),
+    ]
+
+
+def test_parse_dockerfile_exec_form_vs_shell_form(tmp_path):
+    dockerfile = tmp_path / "Dockerfile"
+    dockerfile.write_text(
+        'CMD ["gunicorn", "app:app"]\n'
+        "RUN pip install gunicorn\n"
+    )
+    assert parse_dockerfile(dockerfile) == [
+        ("CMD", "gunicorn", "app:app"),
+        ("RUN", "pip", "install", "gunicorn"),
+    ]
+
+
+def test_parse_dockerfile_line_continuation(tmp_path):
+    dockerfile = tmp_path / "Dockerfile"
+    dockerfile.write_text("RUN apt-get update && \\\n    apt-get install -y curl\n")
+    assert parse_dockerfile(dockerfile) == [
+        ("RUN", "apt-get", "update", "&&", "apt-get", "install", "-y", "curl")
+    ]
+
+
+def test_parse_dockerfile_copy_strips_leading_flags_only(tmp_path):
+    dockerfile = tmp_path / "Dockerfile"
+    dockerfile.write_text("COPY --from=builder /app/dist /app/dist\n")
+    assert parse_dockerfile(dockerfile) == [
+        ("COPY", "/app/dist", "/app/dist")
+    ]
+
+
+def test_parse_dockerfile_command_is_case_insensitive():
+    # Real fixture Dockerfile, already all-uppercase - locks in that we don't
+    # accidentally rely on case for the common path while testing case
+    # insensitivity synthetically below.
+    instructions = parse_dockerfile(RESOURCES / "applications" / "myapp" / "Dockerfile")
+    assert instructions == [
+        ("ARG", "CLOUDHARNESS_FLASK"),
+        ("FROM", "$CLOUDHARNESS_FLASK"),
+    ]
+
+
+def test_parse_dockerfile_lowercase_instructions_are_normalized(tmp_path):
+    dockerfile = tmp_path / "Dockerfile"
+    dockerfile.write_text("from scratch\n")
+    assert parse_dockerfile(dockerfile) == [("FROM", "scratch")]
