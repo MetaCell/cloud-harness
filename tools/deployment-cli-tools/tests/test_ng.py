@@ -409,3 +409,50 @@ def test_compose_backend_builds_docker_compose_deploy_block(tmp_path):
             "images": ["testproj/myapp", "testproj/myapp-mytask"],
         }
     }
+
+
+def test_env_dockerfile_used_when_it_exists():
+    # Ports test_env_dockerfile: myapp has a dev.Dockerfile, so it's preferred
+    # over the plain Dockerfile once env="dev" is active.
+    project = CHProject(
+        RESOURCES,
+        cloudharness_path=CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(includes=["myapp"], env="dev"),
+    )
+    artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
+    myapp_artifact = next(
+        a for a in artifacts if a["image"] == "testprojectname/myapp"
+    )
+    assert myapp_artifact["docker"]["dockerfile"].endswith("dev.Dockerfile")
+
+
+def test_env_dockerfile_falls_back_to_plain_dockerfile():
+    # Ports test_env_dockerfile's samples half and test_env_dockerfile_fallback:
+    # samples has no dev.Dockerfile, so it keeps using the plain Dockerfile even
+    # with env="dev" active; myapp-mytask (a task, not the app itself) has no
+    # dev.Dockerfile of its own either.
+    project = CHProject(
+        RESOURCES,
+        cloudharness_path=CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(includes=["myapp"], env="dev"),
+    )
+    artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
+    mytask_artifact = next(
+        a for a in artifacts if a["image"] == "testprojectname/myapp-mytask"
+    )
+    dockerfile = mytask_artifact["docker"]["dockerfile"]
+    assert dockerfile.endswith("Dockerfile")
+    assert not dockerfile.endswith("dev.Dockerfile")
+
+
+def test_no_env_never_uses_env_dockerfile():
+    project = CHProject(
+        RESOURCES,
+        cloudharness_path=CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(includes=["myapp"]),
+    )
+    artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
+    myapp_artifact = next(
+        a for a in artifacts if a["image"] == "testprojectname/myapp"
+    )
+    assert myapp_artifact["docker"]["dockerfile"] == "Dockerfile"

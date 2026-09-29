@@ -39,11 +39,15 @@ class CHAppDefault:
         self.path = path
         self.parent = parent
         self.name = self.path.name
-        self.dockerfile = CHDockerfile(self.path / "Dockerfile", self)
+        self._dockerfile = CHDockerfile(self.path / "Dockerfile", self)
         self.valuesyaml = CHValues(self.path / "deploy" / "values.yaml", self)
 
     def exists(self):
         return self.path.exists()
+
+    @property
+    def dockerfile(self) -> "CHDockerfile":
+        return self._dockerfile.resolved
 
     @property
     def build_context(self) -> Path:
@@ -177,8 +181,12 @@ class CHApp(CHAppDefault):
             else None
         )
 
-        if not self.dockerfile.exists() and self.default:
-            self.dockerfile = self.default.dockerfile
+    @property
+    def dockerfile(self) -> "CHDockerfile":
+        own = super().dockerfile
+        if not own.exists() and self.default:
+            return self.default.dockerfile
+        return own
 
     @lru_cache
     def all_values(self):
@@ -263,11 +271,15 @@ class CHBaseImage:
         self.path = path
         self.app = parent
         self.name = self.path.name
-        self.dockerfile = CHDockerfile(self.path / "Dockerfile", self)
+        self._dockerfile = CHDockerfile(self.path / "Dockerfile", self)
 
     @property
     def project(self):
         return self.app.project
+
+    @property
+    def dockerfile(self) -> "CHDockerfile":
+        return self._dockerfile.resolved
 
     @property
     def build_context(self) -> Path:
@@ -290,11 +302,19 @@ class CHAppTask:
     def __init__(self, path: Path, parent: CHApp | CHAppDefault | CHBaseImage):
         self.path = path
         self.app = parent
-        self.dockerfile = CHDockerfile(self.path / "Dockerfile", self)
+        self._dockerfile = CHDockerfile(self.path / "Dockerfile", self)
 
     @property
     def name(self):
         return f"{self.app.name}-{self.path.name}"
+
+    @property
+    def project(self) -> "CHProject":
+        return self.app.project
+
+    @property
+    def dockerfile(self) -> "CHDockerfile":
+        return self._dockerfile.resolved
 
     @property
     def build_context(self) -> Path:
@@ -321,6 +341,15 @@ class CHDockerfile:
 
     def exists(self):
         return self.path.exists()
+
+    @property
+    def resolved(self) -> "CHDockerfile":
+        env = self.app.project.config.env
+        if env:
+            env_path = self.path.with_name(f"{env}.Dockerfile")
+            if env_path.exists():
+                return CHDockerfile(env_path, self.app)
+        return self
 
     def resolve_context(self, relative_to: Path) -> "CHContext":
         context = self.app.build_context.resolve().relative_to(

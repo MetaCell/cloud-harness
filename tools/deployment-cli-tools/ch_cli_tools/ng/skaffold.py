@@ -56,10 +56,9 @@ class CHSkaffold(CHValues):
         if requires:
             artifact["requires"] = requires
 
-        # MISSING: env-specific dockerfile selection (<env>.Dockerfile), the rest of
-        # build args beyond DEBUG (harness.dockerfile.build_args, source_images), ssh
-        # config, and git-dependency clone hooks - none of these are exposed by
-        # CHApp/CHDockerfile yet.
+        # MISSING: the rest of build args beyond DEBUG (harness.dockerfile.build_args,
+        # source_images), ssh config, and git-dependency clone hooks - none of these
+        # are exposed by CHApp/CHDockerfile yet.
         return artifact, artifact["image"]
 
     def _collect_build_dependency_artifact(self, dependency):
