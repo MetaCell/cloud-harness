@@ -165,6 +165,61 @@ def test_compose_gatekeeper_native_configuration_rendering(tmp_path):
     assert inherited_config['enable-pkce'] is False
 
 
+@pytest.mark.skipif(not HELM_IS_INSTALLED, reason="helm is not installed")
+def test_compose_envmap_rendering(tmp_path):
+    out_folder = tmp_path / 'test_compose_envmap_rendering'
+    create_docker_compose_configuration(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=out_folder,
+        include=['samples'],
+        domain="my.local",
+        local=False,
+    )
+
+    compose_path = out_folder / COMPOSE_PATH
+    values_path = compose_path / 'values.yaml'
+    with open(values_path, 'r') as values_file:
+        values = yaml.load(values_file)
+
+    def render_samples_environment():
+        with open(values_path, 'w') as values_file:
+            yaml.dump(values, values_file)
+        completed = subprocess.run(
+            ['helm', 'template', str(compose_path)],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        with StringIO(completed.stdout) as stream:
+            documents = list(yaml.load_all(stream))
+        for document in documents:
+            if document and 'services' in document:
+                return document['services']['samples']['environment']
+        raise AssertionError('Could not find the docker compose services')
+
+    # envmap entries from the application values.yaml are rendered alongside the (deprecated) env list
+    environment = render_samples_environment()
+    assert 'ENVIRONMENT_TEST_A=value' in environment
+    assert 'ENVIRONMENT_TEST_B=123' in environment
+    assert 'WORKERS=3' in environment
+    assert 'CH_CURRENT_APP_NAME=samples' in environment
+
+    # A single key can be overridden without restating the others, and values are quoted
+    values['apps']['samples']['harness']['envmap']['ENVIRONMENT_TEST_A'] = 'overridden: #1'
+    values['apps']['samples']['harness']['envmap']['ENVIRONMENT_TEST_C'] = True
+    environment = render_samples_environment()
+    assert 'ENVIRONMENT_TEST_A=overridden: #1' in environment
+    assert 'ENVIRONMENT_TEST_B=123' in environment
+    assert 'ENVIRONMENT_TEST_C=true' in environment
+
+    # No envmap: only the list-based variables are rendered
+    del values['apps']['samples']['harness']['envmap']
+    environment = render_samples_environment()
+    assert not [e for e in environment if e.startswith('ENVIRONMENT_TEST_')]
+    assert 'WORKERS=3' in environment
+
+
 def test_compose_app_depends_on_task_only(tmp_path):
     out_folder = tmp_path / 'test_compose_app_depends_on_task_only'
 
