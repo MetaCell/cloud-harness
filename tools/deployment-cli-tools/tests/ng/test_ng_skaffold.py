@@ -1,253 +1,11 @@
-"""Ports of the legacy ch_cli_tools structural tests onto the ch_cli_tools.ng model.
-
-Only tests about project/app structure (discovery, naming, Dockerfile parsing) are
-ported here - not generator output. See tests/test_utils.py and tests/test_helm.py
-for the originals.
+"""ch_cli_tools.ng.skaffold generator tests. Ports of tests/test_skaffold.py,
+scoped to the slice of behavior the ng model currently supports. See test_ng.py
+(this folder) for the structural/model tests these build on.
 """
 
-from pathlib import Path
-
-import pytest
-from ch_cli_tools.ng import CHDeployConfig, CHProject
-from ch_cli_tools.ng import skaffold
-from ch_cli_tools.ng.model import DependencyUnknownError
-from ch_cli_tools.ng.skaffold import CHSkaffold
+from ch_cli_tools.ng import CHDeployConfig, CHProject, skaffold
 from ch_cli_tools.ng.utils import dockerfile_variable_reference, parse_dockerfile
-
-HERE = Path(__file__).parent
-RESOURCES = HERE / "resources"
-CLOUDHARNESS_ROOT = HERE.parent.parent.parent
-WRONG_DEPENDENCIES = RESOURCES / "wrong-dependencies"
-
-
-@pytest.fixture(scope="module")
-def resources_project():
-    return CHProject(RESOURCES, config=CHDeployConfig())
-
-
-def test_base_images_missing_dockerfile(resources_project):
-    # accounts has no Dockerfile at all in this fixture tree.
-    assert resources_project["accounts"].dockerfile.base_images == {}
-
-
-def test_base_images_no_arg_based_from(resources_project):
-    # dependantapp/Dockerfile: `ARG MYAPP` has no `=value`, so it's never recorded,
-    # and `FROM $MYAPP` can't resolve it.
-    assert resources_project["dependantapp"].dockerfile.base_images == {}
-
-
-def test_base_images_with_arg_based_from(resources_project):
-    # newapp1/Dockerfile: two ARG-defaulted bases actually used in a FROM
-    # (${mybase} and $mybase2 forms), one ARG left unused by any FROM.
-    base_images = resources_project["newapp1"].dockerfile.base_images
-    assert base_images == {"mybase": "foo:bar", "mybase2": "spam:egg"}
-    assert "mybase3" not in base_images
-
-
-def test_app_and_task_dockerfiles_are_found(resources_project):
-    app = resources_project["myapp"]
-
-    assert app.dockerfile.exists()
-    assert app.dockerfile.path.name == "Dockerfile"
-
-    task = app.tasks["myapp-mytask"]
-    assert task.dockerfile.exists()
-    assert task.dockerfile.path == app.path / "tasks" / "mytask" / "Dockerfile"
-
-
-def _minimal_project(tmp_path, **config_kwargs):
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
-    app_dir = root / "applications" / "myapp"
-    (app_dir / "tasks" / "mytask").mkdir(parents=True)
-    (app_dir / "Dockerfile").write_text("FROM scratch\n")
-    (app_dir / "tasks" / "mytask" / "Dockerfile").write_text("FROM scratch\n")
-
-    return CHProject(
-        root, cloudharness_path=root, config=CHDeployConfig(**config_kwargs)
-    )
-
-
-def test_app_and_task_image_names(tmp_path):
-    project = _minimal_project(tmp_path)
-    app = project["myapp"]
-
-    assert app.image_name == "testproj/myapp"
-    assert app.tasks["myapp-mytask"].image_name == "testproj/myapp-mytask"
-
-
-def test_qualify_prefixes_registry(tmp_path):
-    project = _minimal_project(tmp_path, registry="reg")
-    app = project["myapp"]
-    skaffold = CHSkaffold(tmp_path / "skaffold.yaml", project)
-
-    assert skaffold.qualify(app.image_name) == "reg/testproj/myapp"
-
-
-def test_no_include_means_every_scanned_app_is_entrypoint():
-    project = CHProject(
-        RESOURCES, cloudharness_path=CLOUDHARNESS_ROOT, config=CHDeployConfig()
-    )
-
-    assert set(project.entrypoint_apps().keys()) == set(project.scanned_apps.keys())
-    assert "jupyterhub" in project.entrypoint_apps()
-
-
-def test_include_exclude_and_transitive_dependencies():
-    project = CHProject(
-        RESOURCES,
-        cloudharness_path=CLOUDHARNESS_ROOT,
-        config=CHDeployConfig(includes=["samples", "myapp"], excludes=["events"]),
-    )
-
-    entrypoints = set(project.entrypoint_apps().keys())
-    assert entrypoints == {"samples", "myapp"}
-
-    involved = {a if isinstance(a, str) else a.name for a in project.involved_apps}
-
-    # Not included, not a dependency of anything included.
-    assert "jupyterhub" not in involved
-
-    # First-level dependencies: samples --soft--> accounts, myapp --soft--> legacy.
-    assert "accounts" in involved
-    assert "legacy" in involved
-
-    # Second-level: samples --soft--> workflows --hard--> argo. This only resolves
-    # because cross-root app merging is in place - workflows only has a real
-    # dependencies.hard in cloud-harness's copy, not the fixture's, so this
-    # assertion exercises that merge, not just soft/hard closure on its own.
-    assert "argo" in involved
-
-    # Explicit exclude removes it even though samples soft-depends on it.
-    assert "events" not in involved
-
-
-def test_same_named_app_in_both_roots_is_layered_not_replaced():
-    project = CHProject(
-        RESOURCES, cloudharness_path=CLOUDHARNESS_ROOT, config=CHDeployConfig()
-    )
-    workflows = project["workflows"]
-
-    # The project's own copy is still the identity/override path...
-    assert workflows.path == RESOURCES / "applications" / "workflows"
-    # ...but cloud-harness's copy is known too, as the default to merge with.
-    assert workflows.default.path == CLOUDHARNESS_ROOT / "applications" / "workflows"
-
-    # Both sides' tasks are present: the fixture's own plus cloud-harness's three.
-    assert set(workflows.tasks.keys()) == {
-        "workflows-new-task",
-        "workflows-notify-queue",
-        "workflows-extract-download",
-        "workflows-send-result-event",
-    }
-
-    # cloud-harness's real `dependencies.hard: [argo]` survives the override, since
-    # the fixture's values.yaml (which doesn't exist) has nothing to say about it.
-    assert [d.name for d in workflows.hard_dependencies] == ["argo"]
-
-
-def test_same_app_values_precedence_across_roots_and_env():
-    project = CHProject(
-        RESOURCES,
-        cloudharness_path=CLOUDHARNESS_ROOT,
-        config=CHDeployConfig(includes=["events"], env="prod"),
-    )
-    limits = project["events"].all_values()["kafka"]["resources"]["limits"]
-
-    # RESOURCES's own values.yaml sets `memory: overridden`; its values-prod.yaml
-    # doesn't touch memory at all - so this can only be "overridden" if the
-    # project's base values.yaml is consulted even when an env-specific file
-    # exists, not just the (cloud-harness real) values-prod.yaml alone.
-    assert limits["memory"] == "overridden"
-
-    # RESOURCES's own values-prod.yaml sets `cpu: overridden-prod`, which must win
-    # over both cloud-harness's values-prod.yaml (cpu: 500m) and RESOURCES's own
-    # base values.yaml (cpu: 600m) - the project's env layer is the most specific
-    # source there is.
-    assert limits["cpu"] == "overridden-prod"
-
-
-# Not a port - covers the third facet of the same fix: when the project's own copy
-# of an app has no Dockerfile of its own, its cloud-harness default is used instead
-# of the app silently ending up with no Dockerfile at all.
-def test_app_dockerfile_falls_back_to_cloudharness_default(tmp_path):
-    ch = tmp_path / "ch"
-    proj = tmp_path / "proj"
-    (ch / "applications" / "myapp").mkdir(parents=True)
-    (ch / "applications" / "myapp" / "Dockerfile").write_text("FROM scratch\n")
-    (proj / "applications" / "myapp" / "deploy").mkdir(parents=True)
-    (proj / "applications" / "myapp" / "deploy" / "values.yaml").write_text("a: 1\n")
-    (proj / "deployment-configuration").mkdir(parents=True)
-    (proj / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
-
-    project = CHProject(proj, cloudharness_path=ch, config=CHDeployConfig())
-    app = project["myapp"]
-
-    assert app.dockerfile.exists()
-    assert app.dockerfile.path == ch / "applications" / "myapp" / "Dockerfile"
-
-
-# Ports test_helm.py::test_collect_helm_values_harness_image_name_override.
-def test_harness_image_name_overrides_dockerfile_derived_name():
-    project = CHProject(
-        RESOURCES,
-        cloudharness_path=CLOUDHARNESS_ROOT,
-        config=CHDeployConfig(includes=["myapp"], env="imagename"),
-    )
-    app = project["myapp"]
-
-    assert app.image_name == "testprojectname/custom-myapp"
-    assert app.tasks["myapp-mytask"].image_name == "testprojectname/custom-myapp-mytask"
-
-
-def test_unresolved_hard_dependency_raises():
-    project = CHProject(
-        WRONG_DEPENDENCIES, config=CHDeployConfig(includes=["wrong-hard"])
-    )
-    with pytest.raises(DependencyUnknownError):
-        project.all_values()
-
-
-def test_unresolved_soft_dependency_does_not_raise():
-    # A soft dependency is optional by design: unresolved is never fatal, matching
-    # the old validate_dependencies (warns, doesn't raise).
-    project = CHProject(
-        WRONG_DEPENDENCIES, config=CHDeployConfig(includes=["wrong-soft"])
-    )
-    project.all_values()  # does not raise
-
-
-def test_unresolved_build_dependency_stays_a_plain_string():
-    # build_dependencies() itself stays permissive (like soft/hard_dependencies):
-    # the TUI's lint/dependency-graph views consume it directly and want to report
-    # a broken reference rather than crash on it.
-    project = CHProject(
-        WRONG_DEPENDENCIES, config=CHDeployConfig(includes=["wrong-build"])
-    )
-    assert project["wrong-build"].build_dependencies() == ["idonotexist"]
-
-
-def test_unresolved_build_dependency_raises_at_skaffold_generation():
-    # CHProject.all_dependencies() (soft/hard only) never walks build_dependencies -
-    # that's a separate resolution against a different namespace (apps, base
-    # images, tasks), matching the old get_included_applications/get_included_builds
-    # split. But skaffold generation still validates and raises for an unresolved
-    # *explicit* build dependency, matching the old validate_dependencies' check -
-    # unlike an unresolved *guessed* (Dockerfile-derived) one, which stays permissive.
-    project = CHProject(
-        WRONG_DEPENDENCIES, config=CHDeployConfig(includes=["wrong-build"])
-    )
-    with pytest.raises(DependencyUnknownError):
-        project.skaffold.generate(write_on_disk=False)
-
-
-# --- skaffold generator tests. Ports of tests/test_skaffold.py, scoped to the
-# slice of behavior the ng model currently supports.
+from conftest import CLOUDHARNESS_ROOT, RESOURCES, minimal_project
 
 
 def test_build_dependency_on_app_produces_requires_entry():
@@ -362,13 +120,11 @@ def test_excluded_task_drops_out_unless_still_a_build_dependency():
     required_artifacts = required_project.skaffold.generate(write_on_disk=False)[
         "build"
     ]["artifacts"]
-    assert any(
-        a["image"] == "testprojectname/myapp-mytask" for a in required_artifacts
-    )
+    assert any(a["image"] == "testprojectname/myapp-mytask" for a in required_artifacts)
 
 
 def test_namespace_sets_helm_release_name_and_namespace(tmp_path):
-    project = _minimal_project(tmp_path, namespace="my-ns")
+    project = minimal_project(tmp_path, namespace="my-ns")
     release = project.skaffold.generate(write_on_disk=False)["deploy"]["helm"][
         "releases"
     ][0]
@@ -378,7 +134,7 @@ def test_namespace_sets_helm_release_name_and_namespace(tmp_path):
 
 
 def test_no_namespace_leaves_helm_release_name_unset(tmp_path):
-    project = _minimal_project(tmp_path)
+    project = minimal_project(tmp_path)
     release = project.skaffold.generate(write_on_disk=False)["deploy"]["helm"][
         "releases"
     ][0]
@@ -388,7 +144,7 @@ def test_no_namespace_leaves_helm_release_name_unset(tmp_path):
 
 
 def test_tag_policy_is_sha256_by_default(tmp_path):
-    project = _minimal_project(tmp_path)
+    project = minimal_project(tmp_path)
     build = project.skaffold.generate(write_on_disk=False)["build"]
     assert build["tagPolicy"] == {"sha256": {}}
 
@@ -396,7 +152,7 @@ def test_tag_policy_is_sha256_by_default(tmp_path):
 def test_tag_policy_is_env_template_when_external_tag_and_not_local(tmp_path):
     # An external tag (e.g. from CI) means skaffold should trust the tag it's
     # handed rather than compute its own content hash.
-    project = _minimal_project(tmp_path, tag="v1", local=False)
+    project = minimal_project(tmp_path, tag="v1", local=False)
     build = project.skaffold.generate(write_on_disk=False)["build"]
     assert build["tagPolicy"] == {"envTemplate": {"template": '"{{.TAG}}"'}}
 
@@ -404,7 +160,7 @@ def test_tag_policy_is_env_template_when_external_tag_and_not_local(tmp_path):
 def test_tag_policy_is_sha256_when_tag_set_but_local(tmp_path):
     # A local dev build still wants content-hash tagging even if an external tag
     # was also passed - `local` wins over `tag`.
-    project = _minimal_project(tmp_path, tag="v1", local=True)
+    project = minimal_project(tmp_path, tag="v1", local=True)
     build = project.skaffold.generate(write_on_disk=False)["build"]
     assert build["tagPolicy"] == {"sha256": {}}
 
@@ -413,7 +169,7 @@ def test_compose_backend_builds_docker_compose_deploy_block(tmp_path):
     # Also covers the tagPolicy branch: compose always wants envTemplate, even
     # without an explicit tag - see test_tag_policy_is_env_template_when_
     # external_tag_and_not_local for the non-compose case.
-    project = _minimal_project(tmp_path, backend="compose")
+    project = minimal_project(tmp_path, backend="compose")
     generated = project.skaffold.generate(write_on_disk=False)
 
     assert generated["build"]["tagPolicy"] == {
@@ -436,9 +192,7 @@ def test_env_dockerfile_used_when_it_exists():
         config=CHDeployConfig(includes=["myapp"], env="dev"),
     )
     artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
-    myapp_artifact = next(
-        a for a in artifacts if a["image"] == "testprojectname/myapp"
-    )
+    myapp_artifact = next(a for a in artifacts if a["image"] == "testprojectname/myapp")
     assert myapp_artifact["docker"]["dockerfile"].endswith("dev.Dockerfile")
 
 
@@ -468,9 +222,7 @@ def test_no_env_never_uses_env_dockerfile():
         config=CHDeployConfig(includes=["myapp"]),
     )
     artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
-    myapp_artifact = next(
-        a for a in artifacts if a["image"] == "testprojectname/myapp"
-    )
+    myapp_artifact = next(a for a in artifacts if a["image"] == "testprojectname/myapp")
     assert myapp_artifact["docker"]["dockerfile"] == "Dockerfile"
 
 
@@ -571,22 +323,22 @@ def test_source_images_apply_to_every_artifact_project_wide():
     )
     artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
 
-    myapp_artifact = next(
-        a for a in artifacts if a["image"] == "testprojectname/myapp"
-    )
+    myapp_artifact = next(a for a in artifacts if a["image"] == "testprojectname/myapp")
     assert myapp_artifact["docker"]["buildArgs"]["mybase"] == "foo:bar"
     assert myapp_artifact["docker"]["buildArgs"]["mybase2"] == "spam:egg"
 
 
 def test_ssh_default_set_on_every_artifact(tmp_path):
-    project = _minimal_project(tmp_path)
+    project = minimal_project(tmp_path)
     artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
 
     assert artifacts
     assert all(a["docker"]["ssh"] == "default" for a in artifacts)
 
 
-def _entrypoint_app_project(tmp_path, dockerfile_text="", requirements_text=None, main_dirs=()):
+def _entrypoint_app_project(
+    tmp_path, dockerfile_text="", requirements_text=None, main_dirs=()
+):
     root = tmp_path
     (root / "deployment-configuration").mkdir(parents=True)
     (root / "deployment-configuration" / "values-template.yaml").write_text(
@@ -699,8 +451,7 @@ def test_parse_dockerfile_skips_comments_and_blank_lines(tmp_path):
 def test_parse_dockerfile_from_with_and_without_alias(tmp_path):
     dockerfile = tmp_path / "Dockerfile"
     dockerfile.write_text(
-        "FROM python:3.12 AS builder\n"
-        "FROM --platform=linux/amd64 scratch\n"
+        "FROM python:3.12 AS builder\nFROM --platform=linux/amd64 scratch\n"
     )
     assert parse_dockerfile(dockerfile) == [
         ("FROM", "python:3.12", "builder"),
@@ -710,11 +461,7 @@ def test_parse_dockerfile_from_with_and_without_alias(tmp_path):
 
 def test_parse_dockerfile_from_normalizes_variable_references(tmp_path):
     dockerfile = tmp_path / "Dockerfile"
-    dockerfile.write_text(
-        "FROM $BASE AS one\n"
-        "FROM ${BASE}\n"
-        "FROM python:3.12\n"
-    )
+    dockerfile.write_text("FROM $BASE AS one\nFROM ${BASE}\nFROM python:3.12\n")
     assert parse_dockerfile(dockerfile) == [
         ("FROM", "BASE", "one"),
         ("FROM", "BASE"),
@@ -733,10 +480,7 @@ def test_parse_dockerfile_arg_with_and_without_default(tmp_path):
 
 def test_parse_dockerfile_exec_form_vs_shell_form(tmp_path):
     dockerfile = tmp_path / "Dockerfile"
-    dockerfile.write_text(
-        'CMD ["gunicorn", "app:app"]\n'
-        "RUN pip install gunicorn\n"
-    )
+    dockerfile.write_text('CMD ["gunicorn", "app:app"]\nRUN pip install gunicorn\n')
     assert parse_dockerfile(dockerfile) == [
         ("CMD", "gunicorn", "app:app"),
         ("RUN", "pip", "install", "gunicorn"),
@@ -754,9 +498,7 @@ def test_parse_dockerfile_line_continuation(tmp_path):
 def test_parse_dockerfile_copy_strips_leading_flags_only(tmp_path):
     dockerfile = tmp_path / "Dockerfile"
     dockerfile.write_text("COPY --from=builder /app/dist /app/dist\n")
-    assert parse_dockerfile(dockerfile) == [
-        ("COPY", "/app/dist", "/app/dist")
-    ]
+    assert parse_dockerfile(dockerfile) == [("COPY", "/app/dist", "/app/dist")]
 
 
 def test_parse_dockerfile_command_is_case_insensitive():
@@ -817,12 +559,12 @@ def test_git_clone_hooks_reach_the_skaffold_artifact():
     # with (branch_tag, url, clone_path) - clone_path under context/
     # dependencies/[path/]repo_name.
     project = CHProject(
-        RESOURCES, cloudharness_path=CLOUDHARNESS_ROOT, config=CHDeployConfig(includes=["myapp"])
+        RESOURCES,
+        cloudharness_path=CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(includes=["myapp"]),
     )
     artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
-    myapp_artifact = next(
-        a for a in artifacts if a["image"] == "testprojectname/myapp"
-    )
+    myapp_artifact = next(a for a in artifacts if a["image"] == "testprojectname/myapp")
 
     hooks = myapp_artifact["hooks"]["before"]
     assert len(hooks) == 2
@@ -938,7 +680,9 @@ def test_base_dependencies_resolves_real_chain():
     # FROM $CLOUDHARNESS_BASE - a real, currently-unresolved-by-base_images
     # chain (base_images only picks up ARGs *with* a default).
     project = CHProject(
-        RESOURCES, cloudharness_path=CLOUDHARNESS_ROOT, config=CHDeployConfig(includes=["taskdep"])
+        RESOURCES,
+        cloudharness_path=CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(includes=["taskdep"]),
     )
     flask = project.base_images["cloudharness-flask"]
     [flask_dep] = flask.dockerfile.base_dependencies
@@ -954,7 +698,9 @@ def test_base_dependencies_unresolved_names_stay_plain_strings():
     # used in a real FROM, but "mybase" isn't any scanned app/base-image/task
     # name in this project, so it can't resolve to a CHDockerfile.
     project = CHProject(
-        RESOURCES, cloudharness_path=CLOUDHARNESS_ROOT, config=CHDeployConfig(includes=["newapp1"])
+        RESOURCES,
+        cloudharness_path=CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(includes=["newapp1"]),
     )
     deps = project["newapp1"].dockerfile.base_dependencies
     assert deps == ["mybase", "mybase2"]
@@ -975,9 +721,7 @@ def test_base_dependencies_survives_a_leading_comment(tmp_path):
 
     app_dir = root / "applications" / "consumer"
     app_dir.mkdir(parents=True)
-    (app_dir / "Dockerfile").write_text(
-        "# license header\nARG BASE\nFROM $BASE\n"
-    )
+    (app_dir / "Dockerfile").write_text("# license header\nARG BASE\nFROM $BASE\n")
 
     project = CHProject(root, cloudharness_path=root, config=CHDeployConfig())
     [dep] = project["consumer"].dockerfile.base_dependencies
@@ -1025,7 +769,9 @@ def test_base_image_requires_chain_transitively_discovered():
     # cloudharness-flask's own base_dependencies - it must still get its own
     # artifact, and cloudharness-flask's artifact must show requires: [it].
     project = CHProject(
-        RESOURCES, cloudharness_path=CLOUDHARNESS_ROOT, config=CHDeployConfig(includes=["taskdep"])
+        RESOURCES,
+        cloudharness_path=CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(includes=["taskdep"]),
     )
     artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
     by_image = {a["image"]: a for a in artifacts}
@@ -1044,7 +790,9 @@ def test_explicit_and_guessed_build_dependency_dedupe():
     # its own Dockerfile also does FROM $CLOUDHARNESS_FLASK - same dependency
     # from both sources, must appear exactly once in requires.
     project = CHProject(
-        RESOURCES, cloudharness_path=CLOUDHARNESS_ROOT, config=CHDeployConfig(includes=["myapp"])
+        RESOURCES,
+        cloudharness_path=CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(includes=["myapp"]),
     )
     artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
     myapp = next(a for a in artifacts if a["image"] == "testprojectname/myapp")

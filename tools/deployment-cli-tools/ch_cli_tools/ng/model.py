@@ -638,7 +638,7 @@ class CHProject:
     def base_image_name(self):
         return self.all_values()["name"]
 
-    def build_legacy_helm_values(self) -> HarnessMainConfig:
+    def build_legacy_helm_values(self, write_on_disk=True) -> HarnessMainConfig:
         app_names = {app.name for app in self.involved_apps if not isinstance(app, str)}
         values = self.all_values()
         apps = {
@@ -670,6 +670,18 @@ class CHProject:
 
         helm_values = HarnessMainConfig.from_dict(final_allvalues)
         helm_values._ch_project = self
+
+        if write_on_disk:
+            # deployment/helm/values.yaml - the actual Helm chart's own values
+            # file, auto-loaded by `helm install`/`upgrade` (same as legacy's
+            # default output_path='./deployment'), not just an informational
+            # dump. Every other ng generator (skaffold/codefresh) writes to a
+            # fixed path under project.root the same way, no output_path
+            # configurability yet - matching that rather than introducing one.
+            CHValues(
+                self.root / "deployment" / "helm" / "values.yaml", self
+            ).write(helm_values.to_dict())
+
         return helm_values
 
 
