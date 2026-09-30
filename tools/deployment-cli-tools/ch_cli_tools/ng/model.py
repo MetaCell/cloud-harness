@@ -6,6 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal, cast
 
+from cloudharness_model import HarnessMainConfig  # type: ignore
 from ruamel.yaml import YAML
 
 yaml = YAML(typ="safe")
@@ -40,7 +41,9 @@ class CHAppDefault:
         self.parent = parent
         self.name = self.path.name
         self._dockerfile = CHDockerfile(self.path / "Dockerfile", self)
-        self.valuesyaml = CHValues(self.path / "deploy" / "values.yaml", self)
+        self.app_basevalues_template = CHValues(
+            self.path / "deploy" / "values.yaml", self
+        )
 
     def exists(self):
         return self.path.exists()
@@ -69,7 +72,7 @@ class CHAppDefault:
 
     @lru_cache
     def all_values(self):
-        return self.valuesyaml.merge_with_envs(self.project.config.envs)
+        return self.app_basevalues_template.merge_with_envs(self.project.config.envs)
 
     @lru_cache
     def _scan_tasks(self) -> dict[str, "CHAppTask"]:
@@ -224,9 +227,11 @@ class CHApp(CHAppDefault):
     @lru_cache
     def all_values(self):
         own_values = super().all_values()
-        if self.default is None:
-            return own_values
-        return dict_merge(self.default.all_values(), own_values)
+        if self.default is not None:
+            own_values = dict_merge(self.default.all_values(), own_values)
+        return dict_merge(
+            self.project.app_defaults.merge_with_default_and_envs(), own_values
+        )
 
     @lru_cache
     def _scan_tasks(self) -> dict[str, "CHAppTask"]:
@@ -287,6 +292,14 @@ class CHValues:
             if layer.exists():
                 result = dict_merge(result, layer.all_raw_values())
         return result
+
+    def merge_with_default_and_envs(self) -> dict:
+        project = self.project
+        default = CHValues(
+            project.ch_path / "deployment-configuration" / self.path.name, project
+        )
+        envs = project.config.envs
+        return dict_merge(default.merge_with_envs(envs), self.merge_with_envs(envs))
 
     def write(self, base):
         with self.path.open("w", encoding="utf-8") as f:
@@ -458,6 +471,21 @@ class CHDockerfile:
         return dependencies
 
 
+def _shim_legacy_app_values(value: dict) -> dict:
+    harness = dict(value.get("harness") or {})
+    unit = resolve_path(harness, "test.unit")
+    if isinstance(unit, dict) and "enabled" not in unit:
+        harness = dict_merge(harness, {"test": {"unit": {"enabled": False}}})
+
+    deployment = harness.get("deployment")
+    volume = deployment.get("volume") if isinstance(deployment, dict) else None
+    if isinstance(volume, dict) and not volume.get("mountpath"):
+        deployment = {k: v for k, v in deployment.items() if k != "volume"}
+        harness = {**harness, "deployment": deployment}
+
+    return {**value, "harness": harness}
+
+
 def register_file(key: str, path: Callable[[Path], Path], only_env: bool = False):
 
     def clsdescr(cls):
@@ -501,6 +529,9 @@ class CHProject:
             self.root / "custom-values-template.yaml", self
         )
         self.config = config if config else CHDeployConfig()
+        self.app_defaults = CHValues(
+            self.root / "deployment-configuration" / "value-template.yaml", self
+        )
         self.soft_dependencies, self.hard_dependencies = self.all_dependencies()
         self.involved_apps = set(
             itertools.chain(self.entrypoint_apps().values(), *self.all_dependencies())
@@ -606,6 +637,40 @@ class CHProject:
 
     def base_image_name(self):
         return self.all_values()["name"]
+
+    def build_legacy_helm_values(self) -> HarnessMainConfig:
+        app_names = {app.name for app in self.involved_apps if not isinstance(app, str)}
+        values = self.all_values()
+        apps = {
+            name: _shim_legacy_app_values(value)
+            for name, value in values.items()
+            if name in app_names
+        }
+        project_values = {
+            key: value for key, value in values.items() if key not in app_names
+        }
+
+        final_allvalues = {
+            **project_values,
+            "apps": apps,
+            "local": self.config.local,
+            "secured_gatekeepers": True,
+        }
+        if self.config.domain:
+            final_allvalues["domain"] = self.config.domain
+        if self.config.namespace:
+            final_allvalues["namespace"] = self.config.namespace
+        if self.config.tag:
+            final_allvalues["tag"] = self.config.tag
+        if self.config.registry:
+            registry = {"name": self.config.registry}
+            if self.config.registry_secret_name:
+                registry["secret"] = {"name": self.config.registry_secret_name}
+            final_allvalues["registry"] = registry
+
+        helm_values = HarnessMainConfig.from_dict(final_allvalues)
+        helm_values._ch_project = self
+        return helm_values
 
 
 @dataclass
