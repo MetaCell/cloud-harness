@@ -1,3 +1,64 @@
+"""Generates skaffold.yaml from a CHProject.
+
+`skaffold dev`/`skaffold run` is what actually builds every image a CH deployment needs and hands their freshly-built tags to Helm, but it needs a build+deploy plan to do that - and that plan can't be hand-maintained.
+A CH project is a monorepo of independently-versioned apps/tasks/base-images, only some of which are deployed on any given run (--include/--exclude, per-env config), each of which may depend on another one being built first (an app's Dockerfile FROM-ing a base image, or an app declaring another app/task as a build prerequisite).
+Generation derives, from the project's actual structure, exactly which images need building, in what order, with what build args and per-env Dockerfile variant, and how each one maps onto the Helm values so the deployed pod gets the image that was just built rather than a stale one.
+
+CH model concepts this relies on:
+- CHProject.involved_apps (the soft/hard dependency closure over entrypoint
+  apps) scopes artifacts to what's actually deployed, not every app in the
+  repo.
+- CHApp/CHAppTask/CHBaseImage's `.dockerfile`/`.image_name`/`.build_context`
+  are the raw facts needed to build: path, image name, context directory.
+- CHDockerfile.resolved/.resolve_context give env-aware Dockerfile selection
+  (an `<env>.Dockerfile` override) and context-relative pathing.
+- app.build_dependencies() (explicit `dependencies.build`) and
+  CHDockerfile.base_dependencies (guessed from the Dockerfile's own FROM/ARG
+  chain) together give the real build-ordering graph (`requires:`), since a
+  build dependency can be declared explicitly or only exist implicitly in the
+  Dockerfile itself.
+- app.deployment_config (`harness.deployment.image`) tells apart an app with
+  a prebuilt/external image (never built here) from one CH must build.
+- app.git_dependencies are external repos that must be cloned before the
+  build can run, wired in as pre-build hooks.
+- app.app_entrypoint/app.unit_test_commands are the deployment command/args
+  overrides and unit-test wiring that skaffold.yaml also carries.
+- CHProject.all_source_images() is a project-wide aggregation of
+  ARG-defaulted base images, so every artifact gets the pinned versions as
+  build args.
+- CHDeployConfig (registry/tag/local/debug/namespace/backend) holds the
+  deployment-target knobs: image qualification, tag policy, compose vs helm,
+  namespace.
+
+CHSkaffold.generate() algorithm:
+
+1. Start from the merged skaffold-template.yaml (CH default + project
+   override).
+2. For every involved app (the project's soft/hard dependency closure),
+   unless it declares a prebuilt harness.deployment.image, build an artifact
+   for its own Dockerfile: context, dockerfile path (env-Dockerfile aware),
+   buildArgs (project-wide source_images + the app's own
+   harness.dockerfile.buildArgs), ssh passthrough, git-dependency clone
+   hooks, an entrypoint override (gunicorn/Django detection) and a
+   unit-test entry, if any apply.
+3. Every task under an involved app gets its own artifact unconditionally,
+   whether or not the app itself builds.
+4. Each artifact's `requires:` comes from combining that app/task's
+   explicit dependencies.build with its Dockerfile's guessed FROM/ARG chain
+   (base_dependencies), deduplicated and validated - an unresolved
+   *explicit* build dependency raises.
+5. Any base image, app or task that's a build dependency of something above
+   but isn't already covered by an app/task artifact is pulled in
+   transitively (its own build dependencies are followed too) and given
+   its own artifact, so build.artifacts never omits something the graph
+   actually needs.
+6. tagPolicy is envTemplate for compose or an explicit external tag, sha256
+   content-hash otherwise.
+7. The deploy block is either a compose block (useCompose + image list) or
+   a helm block with per-app/task image overrides and entrypoint
+   overrides.
+"""
+
 from functools import lru_cache
 from pathlib import Path
 
