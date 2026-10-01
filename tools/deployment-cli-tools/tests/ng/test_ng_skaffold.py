@@ -29,6 +29,25 @@ def test_build_dependency_on_app_produces_requires_entry():
     assert any(a["image"] == "testprojectname/myapp-mytask" for a in artifacts)
 
 
+def test_manage_task_images_false_suppresses_an_orphan_tasks_build_artifact():
+    # Same fixture as above, but manage_task_images=False: myapp-mytask's own
+    # owning app (myapp) still isn't deployed, so unlike the default (True)
+    # the task no longer gets a build artifact either, even as a declared
+    # build dependency of dependantapp - the one and only effect this flag
+    # has in the legacy generator it's ported from.
+    project = chain(
+        CLOUDHARNESS_ROOT,
+        RESOURCES,
+        config=CHDeployConfig(includes=["dependantapp"], manage_task_images=False),
+    )
+    artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
+    assert not any(a["image"] == "testprojectname/myapp-mytask" for a in artifacts)
+
+    # dependantapp itself and its own tasks are entirely unaffected - the flag
+    # only suppresses tasks whose *owning app* isn't deployed.
+    assert any(a["image"] == "testprojectname/dependantapp" for a in artifacts)
+
+
 def test_build_only_dependency_is_not_deployed():
     # Ports the other half of test_app_depends_on_app: myapp is a build
     # dependency of dependantapp (dependencies.build), not a soft/hard one, so it

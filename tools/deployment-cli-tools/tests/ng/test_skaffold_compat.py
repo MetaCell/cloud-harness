@@ -36,16 +36,11 @@ def test_create_skaffold_configuration(tmp_path):
     )
     assert os.path.exists(os.path.join(tmp_path, "skaffold.yaml"))
 
-    # NG-COMPAT-TODO: legacy's exp_apps also included 'workflows'/'common' -
-    # in this fixture tree neither has a Dockerfile anywhere in its own chain
-    # (checked directly: CHApp.dockerfile.exists() is False for both, at every
-    # layer), so ng correctly never builds them; they're still pulled in for
-    # their *values* (see involved_apps), just not as build artifacts. Legacy's
-    # own Dockerfile discovery (find_dockerfiles_paths, a directory walk
-    # independent of the app-vs-base-image/common-image split) apparently
-    # found something for them that CHApp.dockerfile does not - a real
-    # divergence, not reproduced here.
-    exp_apps = ("accounts", "samples", "myapp")
+    # workflows/common each build from applications/<name>/server/Dockerfile,
+    # not a top-level one - legacy's own directory walk (find_dockerfiles_paths
+    # + NEUTRAL_PATHS) already treated that as the app's own Dockerfile;
+    # CHApp.dockerfile now checks the same conventional subdirectories.
+    exp_apps = ("accounts", "samples", "workflows", "myapp", "common")
     artifact_images = [a["image"] for a in sk["build"]["artifacts"]]
     artifact_overrides = sk["deploy"]["helm"]["releases"][0]["artifactOverrides"]
     for app in exp_apps:
@@ -89,9 +84,13 @@ def test_create_skaffold_configuration(tmp_path):
     # declares its own infrastructure/base-images/cloudharness-base/,
     # overriding (not just passing through) the real checkout's one. Every
     # artifact "context" below is relative to the skaffold.yaml's own
-    # directory (tmp_path), not the cwd - joined against tmp_path before
-    # comparing, matching CHDockerfile.resolve_context.
-    assert os.path.samefile(tmp_path / cloudharness_base_artifact["context"], RESOURCES)
+    # directory, which is project.root regardless of output_path (output_path
+    # only ever controls where the generated file gets *written*, matching
+    # the real harness-deployment CLI, which never overrides it) - joined
+    # against project.root before comparing, matching CHDockerfile.resolve_context.
+    assert os.path.samefile(
+        project.root / cloudharness_base_artifact["context"], RESOURCES
+    )
 
     cloudharness_flask_artifact = next(
         a
@@ -99,7 +98,7 @@ def test_create_skaffold_configuration(tmp_path):
         if a["image"] == "reg/testprojectname/cloudharness-flask"
     )
     assert os.path.samefile(
-        tmp_path / cloudharness_flask_artifact["context"],
+        project.root / cloudharness_flask_artifact["context"],
         os.path.join(
             CLOUDHARNESS_ROOT, "infrastructure/common-images/cloudharness-flask"
         ),
@@ -111,7 +110,7 @@ def test_create_skaffold_configuration(tmp_path):
         a for a in sk["build"]["artifacts"] if a["image"] == expected_samples_image
     )
     assert os.path.samefile(
-        tmp_path / samples_artifact["context"],
+        project.root / samples_artifact["context"],
         os.path.join(CLOUDHARNESS_ROOT, "applications/samples"),
     )
     assert "TEST_ARGUMENT" in samples_artifact["docker"]["buildArgs"]
@@ -123,7 +122,7 @@ def test_create_skaffold_configuration(tmp_path):
     # NG-COMPAT-TODO: same merged-context caveat as cloudharness_base_artifact -
     # myapp exists only in RESOURCES here, so its own (unmerged) context applies.
     assert os.path.samefile(
-        tmp_path / myapp_artifact["context"],
+        project.root / myapp_artifact["context"],
         os.path.join(RESOURCES, "applications/myapp"),
     )
     assert myapp_artifact["hooks"][

@@ -35,12 +35,23 @@ class AppUnknownError(Exception): ...
 class DependencyUnknownError(Exception): ...
 
 
+def _own_dockerfile_path(path: Path) -> Path:
+    candidates = [
+        p
+        for p in path.rglob("Dockerfile")
+        if "tasks" not in p.relative_to(path).parts[:-1]
+    ]
+    if not candidates:
+        return path / "Dockerfile"
+    return min(candidates, key=lambda p: (len(p.parts), str(p)))
+
+
 class CHApp:
     def __init__(self, path: Path, parent: "CHProject | CHApp"):
         self.path = path
         self.parent = parent
         self.name = self.path.name
-        self._dockerfile = CHDockerfile(self.path / "Dockerfile", self)
+        self._dockerfile = CHDockerfile(_own_dockerfile_path(self.path), self)
         self.app_basevalues_template = CHValues(
             self.path / "deploy" / "values.yaml", self
         )
@@ -296,9 +307,13 @@ class CHValues:
         )
         return dict_merge(base.merge_with_base_and_envs(), own)
 
-    def write(self, base):
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("w", encoding="utf-8") as f:
+    def write(self, base, output_path=None):
+        if output_path is None:
+            target = self.path
+        else:
+            target = Path(output_path) / self.path.name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with target.open("w", encoding="utf-8") as f:
             yaml.dump(base, f)
 
 
@@ -322,7 +337,7 @@ class CHBaseImage:
         self.path = path
         self.app = parent
         self.name = self.path.name
-        self._dockerfile = CHDockerfile(self.path / "Dockerfile", self)
+        self._dockerfile = CHDockerfile(_own_dockerfile_path(self.path), self)
 
     @property
     @lru_cache
@@ -363,7 +378,7 @@ class CHAppTask:
     def __init__(self, path: Path, parent: "CHApp | CHBaseImage"):
         self.path = path
         self.app = parent
-        self._dockerfile = CHDockerfile(self.path / "Dockerfile", self)
+        self._dockerfile = CHDockerfile(_own_dockerfile_path(self.path), self)
 
     @property
     @lru_cache
@@ -745,6 +760,10 @@ class CHDeployConfig:
     domain: str = field(default="cloudharness.metacell.us", kw_only=True)
     debug: bool = field(default=False, kw_only=True)
     output_path: str = field(default="./deployment", kw_only=True)
+    # False suppresses a task's build artifact when its own owning app isn't
+    # itself deployed - even when the task is a build dependency of something
+    # that is. Only skaffold generation reads this; nothing else needs it.
+    manage_task_images: bool = field(default=True, kw_only=True)
 
     @property
     def envs(self) -> list[str]:

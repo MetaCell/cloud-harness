@@ -12,6 +12,8 @@ by CHProject/CHDeployConfig and the rest of the ng model instead of the legacy
 ConfigurationGenerator/HarnessMainConfig machinery.
 """
 
+from dataclasses import replace
+
 from .model import CHDeployConfig, CHProject
 
 # --- ch_cli_tools/helm.py ---
@@ -61,6 +63,7 @@ def create_helm_chart(
     project = None
     for path in root_paths:  # lowest priority first, most specific last
         project = CHProject(path, base=project, config=config)
+    assert project, "Couldn't build the project root representation"
     return project.build_final_helm_values()
 
 
@@ -110,7 +113,21 @@ def create_skaffold_configuration(
     backend_deploy=None,
     env=None,
 ):
-    pass
+    base_config = helm_values._ch_project.config
+    config = replace(
+        base_config,
+        backend="compose" if backend_deploy == "docker-compose" else "helm",
+        env=env if env is not None else base_config.env,
+        manage_task_images=manage_task_images,
+    )
+
+    # builds the CHProject chain
+    project = None
+    for path in root_paths:  # lowest priority first, most specific last
+        project = CHProject(path, base=project, config=config)
+
+    assert project, "Couldn't build the project root representation"
+    return project.skaffold.generate(output_path=output_path)
 
 
 def create_vscode_debug_configuration(root_paths, helm_values):

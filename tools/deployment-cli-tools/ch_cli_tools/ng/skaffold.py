@@ -10,6 +10,9 @@ CH model concepts this relies on:
   repo.
 - CHApp/CHAppTask/CHBaseImage's `.dockerfile`/`.image_name`/`.build_context`
   are the raw facts needed to build: path, image name, context directory.
+  `.dockerfile` also resolves a Dockerfile nested under a conventional
+  subdirectory (`server`/`src`/`backend`), not just the entity's own top
+  level - several real apps build this way.
 - CHDockerfile.resolved/.resolve_context give env-aware Dockerfile selection
   (an `<env>.Dockerfile` override) and context-relative pathing.
 - app.build_dependencies() (explicit `dependencies.build`) and
@@ -26,9 +29,10 @@ CH model concepts this relies on:
 - CHProject.all_source_images() is a project-wide aggregation of
   ARG-defaulted base images, so every artifact gets the pinned versions as
   build args.
-- CHDeployConfig (registry/tag/local/debug/namespace/backend) holds the
-  deployment-target knobs: image qualification, tag policy, compose vs helm,
-  namespace.
+- CHDeployConfig (registry/tag/local/debug/namespace/backend/
+  manage_task_images) holds the deployment-target knobs: image qualification,
+  tag policy, compose vs helm, namespace, and whether a task whose own owning
+  app isn't itself deployed still gets built when something else needs it.
 
 CHSkaffold.generate() algorithm:
 
@@ -51,7 +55,9 @@ CHSkaffold.generate() algorithm:
    but isn't already covered by an app/task artifact is pulled in
    transitively (its own build dependencies are followed too) and given
    its own artifact, so build.artifacts never omits something the graph
-   actually needs.
+   actually needs - except a task whose own owning app isn't itself
+   deployed, when manage_task_images is False: that one (and anything only
+   reachable through it) is dropped instead, regardless of what needs it.
 6. tagPolicy is envTemplate for compose or an explicit external tag, sha256
    content-hash otherwise.
 7. The deploy block is either a compose block (useCompose + image list) or
@@ -62,7 +68,7 @@ CHSkaffold.generate() algorithm:
 from functools import lru_cache
 from pathlib import Path
 
-from .model import CHValues, DependencyUnknownError, register_file
+from .model import CHAppTask, CHValues, DependencyUnknownError, register_file
 from .utils import dict_merge  # type: ignore
 
 # tools/clone.sh, shipped alongside this package - not part of any deployed
@@ -282,6 +288,16 @@ class CHSkaffold(CHValues):
             test_entries,
         )
 
+    def _is_suppressed_orphan_task(self, dependency) -> bool:
+        if self.project.config.manage_task_images or not isinstance(
+            dependency, CHAppTask
+        ):
+            return False
+        involved_names = {
+            app.name for app in self.project.involved_apps if not isinstance(app, str)
+        }
+        return dependency.app.name not in involved_names
+
     def _collect_build_dependency_artifacts(self, already_covered):
         needed = {}
         stack = []
@@ -296,6 +312,8 @@ class CHSkaffold(CHValues):
                 continue
             if dependency.name in already_covered:
                 continue
+            if self._is_suppressed_orphan_task(dependency):
+                continue
             needed[dependency.name] = dependency
             stack.extend(self._combined_dependencies(dependency))
 
@@ -304,7 +322,7 @@ class CHSkaffold(CHValues):
             for dependency in needed.values()
         ]
 
-    def generate(self, write_on_disk=True):
+    def generate(self, write_on_disk=True, output_path="."):
         project = self.project
 
         base = project.skaffold_template.all_values()
@@ -368,6 +386,6 @@ class CHSkaffold(CHValues):
                 )
 
         if write_on_disk:
-            self.write(base)
+            self.write(base, output_path=output_path)
 
         return base

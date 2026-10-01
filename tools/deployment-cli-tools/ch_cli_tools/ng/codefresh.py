@@ -70,7 +70,7 @@ class CHCodefresh(CHValues):
             }
         return steps
 
-    def generate(self, write_on_disk=True):
+    def generate(self, write_on_disk=True, output_path="."):
         project = self.project
 
         base = project.codefresh_template.all_values()
@@ -107,6 +107,6 @@ class CHCodefresh(CHValues):
         # logic - none of that is reproduced here, only the per-app/task build steps.
 
         if write_on_disk:
-            self.write(base)
+            self.write(base, output_path=output_path)
 
         return base

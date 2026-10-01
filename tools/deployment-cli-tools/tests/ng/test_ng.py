@@ -171,6 +171,83 @@ def test_app_dockerfile_falls_back_to_cloudharness_default(tmp_path):
     assert app.dockerfile.path == ch / "applications" / "myapp" / "Dockerfile"
 
 
+# Not a port - no legacy test actually constructs this layout in isolation
+# (tests/test_utils.py::test_find_dockerfile_paths only covers the top-level
+# + tasks/ cases); legacy's own directory walk only ever got exercised here
+# incidentally, by real apps (workflows, common, notifications, volumemanager)
+# happening to use this layout in the real checkout. Multi-component apps
+# (an API spec, a frontend, and the actual backend service) put the
+# Dockerfile one level down, under a conventional subdirectory name, to keep
+# it separate from sibling non-Docker concerns at the app's top level.
+def test_app_dockerfile_found_under_a_conventional_subdirectory(tmp_path):
+    app_dir = tmp_path / "applications" / "myapp"
+    (app_dir / "server").mkdir(parents=True)
+    (app_dir / "server" / "Dockerfile").write_text("FROM scratch\n")
+    (tmp_path / "deployment-configuration").mkdir(parents=True)
+    (tmp_path / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\n"
+    )
+
+    project = CHProject(tmp_path, config=CHDeployConfig())
+    app = project["myapp"]
+
+    assert app.dockerfile.exists()
+    assert app.dockerfile.path == app_dir / "server" / "Dockerfile"
+
+
+def test_app_dockerfile_prefers_top_level_over_a_conventional_subdirectory(tmp_path):
+    app_dir = tmp_path / "applications" / "myapp"
+    (app_dir / "server").mkdir(parents=True)
+    (app_dir / "server" / "Dockerfile").write_text("FROM scratch\n")
+    (app_dir / "Dockerfile").write_text("FROM scratch\n")
+    (tmp_path / "deployment-configuration").mkdir(parents=True)
+    (tmp_path / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\n"
+    )
+
+    project = CHProject(tmp_path, config=CHDeployConfig())
+    app = project["myapp"]
+
+    assert app.dockerfile.path == app_dir / "Dockerfile"
+
+
+def test_app_dockerfile_picks_shortest_path_among_equal_depth_candidates(tmp_path):
+    # No real app nests more than one of these at once, and nothing writes an
+    # explicit priority between them - this only pins down the deterministic
+    # tiebreak (alphabetical), not a meaningful real-world precedence.
+    app_dir = tmp_path / "applications" / "myapp"
+    (app_dir / "backend").mkdir(parents=True)
+    (app_dir / "backend" / "Dockerfile").write_text("FROM scratch\n")
+    (app_dir / "src").mkdir(parents=True)
+    (app_dir / "src" / "Dockerfile").write_text("FROM scratch\n")
+    (tmp_path / "deployment-configuration").mkdir(parents=True)
+    (tmp_path / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\n"
+    )
+
+    project = CHProject(tmp_path, config=CHDeployConfig())
+    app = project["myapp"]
+
+    assert app.dockerfile.path == app_dir / "backend" / "Dockerfile"
+
+
+def test_app_dockerfile_ignores_tasks_subtree(tmp_path):
+    # tasks/ is a structural concept of its own (CHAppTask) - a task's
+    # Dockerfile must never be picked up as the owning app's own.
+    app_dir = tmp_path / "applications" / "myapp"
+    (app_dir / "tasks" / "mytask").mkdir(parents=True)
+    (app_dir / "tasks" / "mytask" / "Dockerfile").write_text("FROM scratch\n")
+    (tmp_path / "deployment-configuration").mkdir(parents=True)
+    (tmp_path / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\n"
+    )
+
+    project = CHProject(tmp_path, config=CHDeployConfig())
+    app = project["myapp"]
+
+    assert not app.dockerfile.exists()
+
+
 # Ports test_helm.py::test_collect_helm_values_harness_image_name_override.
 def test_harness_image_name_overrides_dockerfile_derived_name():
     project = chain(
