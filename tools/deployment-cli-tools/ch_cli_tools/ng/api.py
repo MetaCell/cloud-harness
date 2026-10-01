@@ -41,8 +41,6 @@ def create_helm_chart(
     # no CHDeployConfig field for it yet; Chart.yaml metadata has no ng
     # generator yet).
     root_paths = list(root_paths)
-    project_root = root_paths[-1]
-    cloudharness_path = root_paths[0] if len(root_paths) > 1 else None
 
     config_kwargs = dict(
         includes=list(include or []),
@@ -59,11 +57,10 @@ def create_helm_chart(
     if domain:
         config_kwargs["domain"] = domain
 
-    project = CHProject(
-        project_root,
-        cloudharness_path=cloudharness_path,
-        config=CHDeployConfig(**config_kwargs),
-    )
+    config = CHDeployConfig(**config_kwargs)
+    project = None
+    for path in root_paths:  # lowest priority first, most specific last
+        project = CHProject(path, base=project, config=config)
     return project.build_final_helm_values()
 
 
@@ -161,7 +158,7 @@ def write_env_file(helm_values, filename, image_cache_endpoint_url=None):
 # context sees files from every root that touches that app, not just the one
 # that owns the Dockerfile. Whether this is still needed depends on whether
 # the ng model keeps allowing a root to contribute extra build-context files
-# alongside a Dockerfile it doesn't own itself (CHApp.default only merges
+# alongside a Dockerfile it doesn't own itself (CHApp.base only merges
 # *values*, never the filesystem) - open question, not decided yet.
 
 

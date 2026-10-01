@@ -63,6 +63,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from .model import CHValues, DependencyUnknownError, register_file
+from .utils import dict_merge  # type: ignore
 
 # tools/clone.sh, shipped alongside this package - not part of any deployed
 # project, so it's located relative to this file, not project.root/ch_path.
@@ -76,16 +77,14 @@ _CLONE_SH = Path(__file__).resolve().parent.parent.parent.parent / "clone.sh"
 class CHSkaffoldTemplate(CHValues):
     def __init__(self, path, parent, env=None):
         super().__init__(path, parent, env or "project")
-        self.default = CHValues(
-            self.project.ch_path
-            / "deployment-configuration"
-            / "skaffold-template.yaml",
-            self.project,
-        )
 
     @lru_cache
     def all_values(self):
-        return self.default.merge_with(self)
+        own = self.all_raw_values() if self.exists() else {}
+        base = self.containing_project.base
+        if base is None:
+            return own
+        return dict_merge(base.skaffold_template.all_values(), own)
 
 
 @register_file("skaffold", lambda root: root / "skaffold.yaml")

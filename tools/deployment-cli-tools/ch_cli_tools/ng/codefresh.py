@@ -11,15 +11,11 @@ from .utils import dict_merge  # type: ignore
 class CHCodefreshTemplate(CHValues):
     @lru_cache
     def all_values(self):
-        project = self.project
-        default = CHValues(
-            project.ch_path / "deployment-configuration" / "codefresh-template.yaml",
-            project,
-        )
-        return dict_merge(
-            default.merge_with_envs(project.config.envs),
-            self.merge_with_envs(project.config.envs),
-        )
+        layer = self.containing_project
+        own = self.merge_with_envs(self.project.config.envs)
+        if layer.base is None:
+            return own
+        return dict_merge(layer.base.codefresh_template.all_values(), own)
 
 
 @register_file(

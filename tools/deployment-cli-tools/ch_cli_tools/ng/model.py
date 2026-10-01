@@ -35,7 +35,7 @@ class AppUnknownError(Exception): ...
 class DependencyUnknownError(Exception): ...
 
 
-class CHAppDefault:
+class CHApp:
     def __init__(self, path: Path, parent: "CHProject | CHApp"):
         self.path = path
         self.parent = parent
@@ -49,8 +49,17 @@ class CHAppDefault:
         return self.path.exists()
 
     @property
+    @lru_cache
+    def base(self) -> "CHApp | None":
+        lower = self.containing_project.base
+        return lower.scanned_apps.get(self.name) if lower is not None else None
+
+    @property
     def dockerfile(self) -> "CHDockerfile":
-        return self._dockerfile.resolved
+        own = self._dockerfile.resolved
+        if not own.exists() and self.base:
+            return self.base.dockerfile
+        return own
 
     @property
     def build_context(self) -> Path:
@@ -64,19 +73,36 @@ class CHAppDefault:
 
     @property
     @lru_cache
-    def project(self) -> "CHProject":
+    def containing_project(self) -> "CHProject":
         project = self.parent
         while isinstance(project, CHApp):
             project = project.parent
         return project
 
+    @property
+    def project(self) -> "CHProject":
+        return self.containing_project.project
+
+    @lru_cache
+    def raw_values(self):
+        own = self.app_basevalues_template.merge_with_envs(self.project.config.envs)
+        if self.base is None:
+            return own
+        return dict_merge(self.base.raw_values(), own)
+
     @lru_cache
     def all_values(self):
-        return self.app_basevalues_template.merge_with_envs(self.project.config.envs)
+        return dict_merge(
+            self.project.app_defaults.merge_with_base_and_envs(),
+            self.raw_values(),
+        )
 
     @lru_cache
     def _scan_tasks(self) -> dict[str, "CHAppTask"]:
         tasks: dict[str, CHAppTask] = {}
+        if self.base is not None:
+            for name, task in self.base._scan_tasks().items():
+                tasks[name] = CHAppTask(task.path, self)
         for t in self.path.glob("tasks/*/"):
             task = CHAppTask(t, self)
             tasks[task.name] = task
@@ -206,58 +232,24 @@ class CHAppDefault:
         return f"<{self.__class__.__name__} {self.name!r} at {hex(id(self))}>"
 
 
-class CHApp(CHAppDefault):
-    def __init__(self, path: Path, parent: "CHProject | CHApp"):
-        super().__init__(path, parent)
-
-        ch_path_candidate = self.project.ch_path / "applications" / self.name
-        self.default = (
-            CHAppDefault(ch_path_candidate, self.parent)
-            if ch_path_candidate != self.path
-            else None
-        )
-
-    @property
-    def dockerfile(self) -> "CHDockerfile":
-        own = super().dockerfile
-        if not own.exists() and self.default:
-            return self.default.dockerfile
-        return own
-
-    @lru_cache
-    def all_values(self):
-        own_values = super().all_values()
-        if self.default is not None:
-            own_values = dict_merge(self.default.all_values(), own_values)
-        return dict_merge(
-            self.project.app_defaults.merge_with_default_and_envs(), own_values
-        )
-
-    @lru_cache
-    def _scan_tasks(self) -> dict[str, "CHAppTask"]:
-        tasks: dict[str, CHAppTask] = {}
-        if self.default:
-            for t in self.default.path.glob("tasks/*/"):
-                task = CHAppTask(t, self)
-                tasks[task.name] = task
-        tasks.update(super()._scan_tasks())
-        return tasks
-
-
 class CHValues:
     def __init__(
         self,
         path: Path,
-        parent: "CHApp | CHProject | CHAppDefault",
+        parent: "CHApp | CHProject",
         env: str | None = None,
     ):
-        self.app: CHApp | CHProject | CHAppDefault = parent
+        self.app: CHApp | CHProject = parent
         self.path: Path = path
         self.env: str | None = env
 
     @property
     def project(self):
         return self.app.project
+
+    @property
+    def containing_project(self):
+        return self.app.containing_project
 
     @lru_cache
     def all_raw_values(self):
@@ -293,13 +285,16 @@ class CHValues:
                 result = dict_merge(result, layer.all_raw_values())
         return result
 
-    def merge_with_default_and_envs(self) -> dict:
-        project = self.project
-        default = CHValues(
-            project.ch_path / "deployment-configuration" / self.path.name, project
+    def merge_with_base_and_envs(self) -> dict:
+        layer = self.containing_project
+        own = self.merge_with_envs(self.project.config.envs)
+        if layer.base is None:
+            return own
+        base = CHValues(
+            layer.base.root / "deployment-configuration" / self.path.name,
+            layer.base,
         )
-        envs = project.config.envs
-        return dict_merge(default.merge_with_envs(envs), self.merge_with_envs(envs))
+        return dict_merge(base.merge_with_base_and_envs(), own)
 
     def write(self, base):
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -308,7 +303,7 @@ class CHValues:
 
 
 class CHTemplate:
-    def __init__(self, path: Path, parent: "CHProject | CHApp | CHAppDefault"):
+    def __init__(self, path: Path, parent: "CHProject | CHApp"):
         self.path = path
         self.project = parent
 
@@ -323,11 +318,21 @@ class CHContext:
 
 
 class CHBaseImage:
-    def __init__(self, path: Path, parent: "CHProject | CHApp"):
+    def __init__(self, path: Path, parent: "CHProject"):
         self.path = path
         self.app = parent
         self.name = self.path.name
         self._dockerfile = CHDockerfile(self.path / "Dockerfile", self)
+
+    @property
+    @lru_cache
+    def base(self) -> "CHBaseImage | None":
+        lower = self.containing_project.base
+        return lower.base_images.get(self.name) if lower is not None else None
+
+    @property
+    def containing_project(self):
+        return self.app
 
     @property
     def project(self):
@@ -335,16 +340,16 @@ class CHBaseImage:
 
     @property
     def dockerfile(self) -> "CHDockerfile":
-        return self._dockerfile.resolved
+        own = self._dockerfile.resolved
+        if not own.exists() and self.base:
+            return self.base.dockerfile
+        return own
 
     @property
     def build_context(self) -> Path:
         if self.path.parent.name != "base-images":
             return self.path
-        project = self.project
-        return (
-            project.root if self.path.is_relative_to(project.root) else project.ch_path
-        )
+        return self.containing_project.root
 
     @property
     def image_name(self):
@@ -355,14 +360,24 @@ class CHBaseImage:
 
 
 class CHAppTask:
-    def __init__(self, path: Path, parent: CHApp | CHAppDefault | CHBaseImage):
+    def __init__(self, path: Path, parent: "CHApp | CHBaseImage"):
         self.path = path
         self.app = parent
         self._dockerfile = CHDockerfile(self.path / "Dockerfile", self)
 
     @property
+    @lru_cache
+    def base(self) -> "CHAppTask | None":
+        lower = self.containing_project.base
+        return lower.all_buildable_tasks().get(self.name) if lower is not None else None
+
+    @property
     def name(self):
         return f"{self.app.name}-{self.path.name}"
+
+    @property
+    def containing_project(self) -> "CHProject":
+        return self.app.containing_project
 
     @property
     def project(self) -> "CHProject":
@@ -370,7 +385,10 @@ class CHAppTask:
 
     @property
     def dockerfile(self) -> "CHDockerfile":
-        return self._dockerfile.resolved
+        own = self._dockerfile.resolved
+        if not own.exists() and self.base:
+            return self.base.dockerfile
+        return own
 
     @property
     def build_context(self) -> Path:
@@ -389,9 +407,7 @@ class CHAppTask:
 
 
 class CHDockerfile:
-    def __init__(
-        self, path: Path, parent: CHApp | CHAppTask | CHAppDefault | CHBaseImage
-    ):
+    def __init__(self, path: Path, parent: "CHApp | CHAppTask | CHBaseImage"):
         self.path = path
         self.app = parent
 
@@ -502,40 +518,29 @@ class CHProject:
     def __init__(
         self,
         root: str | Path,
-        cloudharness_path: str | Path | None = None,
+        base: "CHProject | None" = None,
         config: "CHDeployConfig | None" = None,
     ):
         self.root = Path(root)
-        self.ch_path = Path(cloudharness_path) if cloudharness_path else self.root
-        ch_apps = (
-            {p.name: p for p in self.ch_path.glob("applications/*/")}
-            if self.ch_path != self.root
-            else {}
-        )
-        root_apps = {p.name: p for p in self.root.glob("applications/*/")}
-        self.scanned_apps: dict[str, CHApp] = {
-            name: CHApp(root_apps.get(name) or ch_apps[name], self)
-            for name in {*ch_apps, *root_apps}
-        }
-        root_base, ch_base = self._scan("infrastructure/base-images/*/")
-        root_common, ch_common = self._scan("infrastructure/common-images/*/")
-        base_image_paths = {**ch_base, **root_base, **ch_common, **root_common}
-        self.base_images: dict[str, CHBaseImage] = {
-            name: CHBaseImage(path, self) for name, path in base_image_paths.items()
-        }
+        resolved_config = config if config else CHDeployConfig()
+        self.base = base
+        self._overlay: "CHProject | None" = None
+        if base is not None:
+            if base._overlay is not None:
+                raise ValueError(
+                    f"{base.root} is already layered under another project - "
+                    "construct a fresh CHProject per layer for each build."
+                )
+            base._overlay = self
+        self.config = resolved_config
         self.valuesyaml = CHValues(
             self.root / "deployment-configuration" / "values-template.yaml", self
         )
         self.customvalues_template = CHValues(
             self.root / "custom-values-template.yaml", self
         )
-        self.config = config if config else CHDeployConfig()
         self.app_defaults = CHValues(
             self.root / "deployment-configuration" / "value-template.yaml", self
-        )
-        self.soft_dependencies, self.hard_dependencies = self.all_dependencies()
-        self.involved_apps = set(
-            itertools.chain(self.entrypoint_apps().values(), *self.all_dependencies())
         )
         self.helm_chart = CHValues(
             self.root / "deployment-configuration" / "helm" / "Chart.yaml", self
@@ -548,27 +553,73 @@ class CHProject:
             )
             setattr(self, key, cls(p, self))
 
-    def _scan(self, relative_glob):
-        ch = (
-            {p.name: p for p in self.ch_path.glob(relative_glob)}
-            if self.ch_path != self.root
-            else {}
-        )
-        root = {p.name: p for p in self.root.glob(relative_glob)}
-        return root, ch
+    @property
+    @lru_cache
+    def own_apps(self) -> dict[str, "CHApp"]:
+        return {p.name: CHApp(p, self) for p in self.root.glob("applications/*/")}
+
+    @property
+    @lru_cache
+    def scanned_apps(self) -> dict[str, "CHApp"]:
+        merged = dict(self.base.scanned_apps) if self.base is not None else {}
+        merged.update(self.own_apps)
+        return merged
+
+    @property
+    @lru_cache
+    def own_base_images(self) -> dict[str, "CHBaseImage"]:
+        images: dict[str, CHBaseImage] = {}
+        for relative_glob in (
+            "infrastructure/base-images/*/",
+            "infrastructure/common-images/*/",
+        ):
+            for p in self.root.glob(relative_glob):
+                images[p.name] = CHBaseImage(p, self)
+        return images
+
+    @property
+    @lru_cache
+    def base_images(self) -> dict[str, "CHBaseImage"]:
+        merged = dict(self.base.base_images) if self.base is not None else {}
+        merged.update(self.own_base_images)
+        return merged
 
     def __getitem__(self, key) -> "CHApp":
         try:
             return self.scanned_apps[key]
         except KeyError:
-            msg = f"Coulnd't find app named {key} in {self.root} or in {self.ch_path}"
-            if self.ch_path != self.root:
-                msg = f"{msg} or in {self.ch_path}"
+            msg = f"Coulnd't find app named {key} in {self.root}"
+            if self.base is not None:
+                msg = f"{msg} or in its base layers"
             raise AppUnknownError(msg)
 
     @property
-    def project(self) -> "CHProject":
+    def containing_project(self) -> "CHProject":
         return self
+
+    @property
+    def project(self) -> "CHProject":
+        top = self
+        while top._overlay is not None:
+            top = top._overlay
+        return top
+
+    @property
+    @lru_cache
+    def soft_dependencies(self):
+        return self.all_dependencies()[0]
+
+    @property
+    @lru_cache
+    def hard_dependencies(self):
+        return self.all_dependencies()[1]
+
+    @property
+    @lru_cache
+    def involved_apps(self):
+        return set(
+            itertools.chain(self.entrypoint_apps().values(), *self.all_dependencies())
+        )
 
     @lru_cache
     def entrypoint_apps(self):
