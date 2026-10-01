@@ -683,7 +683,7 @@ class CHProject:
             app_values[app.name] = app.all_values()
         base = self.valuesyaml
         return dict_merge(
-            dict_merge(base.merge_with_envs(self.config.envs), app_values),
+            dict_merge(app_values, base.merge_with_envs(self.config.envs)),
             self.helm_chart.all_raw_values(),
         )
 
