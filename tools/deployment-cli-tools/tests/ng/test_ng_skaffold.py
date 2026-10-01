@@ -337,6 +337,26 @@ def test_source_images_apply_to_every_artifact_project_wide():
     assert myapp_artifact["docker"]["buildArgs"]["mybase2"] == "spam:egg"
 
 
+def test_source_images_excludes_apps_not_in_this_deployment():
+    # The flip side of the test above: newapp1 (which declares mybase/
+    # mybase2) isn't included here and nothing depends on it, so it's not in
+    # involved_apps - its ARGs must not leak into myapp's buildArgs just
+    # because newapp1 happens to exist elsewhere in the same repo. Confirmed
+    # against a real legacy test (test_skaffold_imgarg_retrieval's
+    # `len(source_images) == 2`): CHProject.all_source_images() scopes its
+    # app side to involved_apps, not every scanned app project-wide.
+    project = chain(
+        CLOUDHARNESS_ROOT,
+        RESOURCES,
+        config=CHDeployConfig(includes=["myapp"]),
+    )
+    artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
+
+    myapp_artifact = next(a for a in artifacts if a["image"] == "testprojectname/myapp")
+    assert "mybase" not in myapp_artifact["docker"]["buildArgs"]
+    assert "mybase2" not in myapp_artifact["docker"]["buildArgs"]
+
+
 def test_ssh_default_set_on_every_artifact(tmp_path):
     project = minimal_project(tmp_path)
     artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]

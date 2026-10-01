@@ -679,7 +679,9 @@ class CHProject:
     @lru_cache
     def all_source_images(self) -> dict[str, str]:
         images: dict[str, str] = {}
-        for app in self.scanned_apps.values():
+        for app in self.involved_apps:
+            if isinstance(app, str):
+                continue
             images.update(app.dockerfile.base_images)
         for base_image in self.base_images.values():
             images.update(base_image.dockerfile.base_images)

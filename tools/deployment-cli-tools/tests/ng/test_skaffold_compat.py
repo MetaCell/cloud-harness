@@ -70,6 +70,12 @@ def test_create_skaffold_configuration(tmp_path):
             "image"
         ][0:3]
     )
+    assert (
+        "harness"
+        not in artifact_overrides[KEY_APPS]["accounts"][KEY_HARNESS][KEY_DEPLOYMENT][
+            "image"
+        ]
+    )
 
     cloudharness_base_artifact = next(
         a
@@ -132,12 +138,30 @@ def test_create_skaffold_configuration(tmp_path):
         len(myapp_artifact["hooks"]["before"]) == 2
     ), "The hook for dependencies should include 2 clone commands"
 
+    accounts_artifact = next(
+        a
+        for a in sk["build"]["artifacts"]
+        if a["image"] == "reg/testprojectname/accounts"
+    )
+    # accounts is a pass-through app (no Dockerfile of its own in RESOURCES,
+    # falls back to CLOUDHARNESS_ROOT's) - same unmerged-context caveat as
+    # cloudharness_base_artifact above.
+    assert os.path.samefile(
+        project.root / accounts_artifact["context"],
+        os.path.join(CLOUDHARNESS_ROOT, "applications/accounts"),
+    )
+
     # Custom unit tests
     assert len(sk["test"]) == 2, "Unit tests should be included"
     samples_test = next(t for t in sk["test"] if t["image"] == expected_samples_image)
     assert (
         "samples/test" in samples_test["custom"][0]["command"]
     ), "The test command must come from values.yaml test/unit/commands"
+
+    myapp_test = next(
+        t for t in sk["test"] if t["image"] == "reg/testprojectname/myapp"
+    )
+    assert len(myapp_test["custom"]) == 2
 
     flags = sk["deploy"]["helm"]["flags"]
     assert "--timeout=10m" in flags["install"]
@@ -427,6 +451,7 @@ def test_skaffold_imgarg_retrieval(tmp_path):
     # pure pass-through app's own real Dockerfile ARG).
     project = values._ch_project
     source_images = project.all_source_images()
+    assert len(source_images) == 2
     assert source_images["KEYCLOAK"] == "quay.io/keycloak/keycloak:26.5"
     assert source_images["NODE"] == "node:22-alpine"
 
