@@ -154,8 +154,13 @@ class CHSkaffold(CHValues):
     def _requires_for(self, entity):
         return self._collect_requires(self._combined_dependencies(entity))
 
+    def _context_for(self, entity):
+        return entity.dockerfile.resolve_context(self.path.parent).resolve_for_build(
+            self.path.parent
+        )
+
     def _collect_app_dockerfile_artifact(self, app):
-        context = app.dockerfile.resolve_context(self.path.parent)
+        context = self._context_for(app)
         artifact = {
             "image": self.qualify(app.image_name),
             "context": str(context.path),
@@ -201,7 +206,7 @@ class CHSkaffold(CHValues):
         return {"before": before}
 
     def _collect_build_dependency_artifact(self, dependency):
-        context = dependency.dockerfile.resolve_context(self.path.parent)
+        context = self._context_for(dependency)
         artifact = {
             "image": self.qualify(dependency.image_name),
             "context": str(context.path),
@@ -218,7 +223,7 @@ class CHSkaffold(CHValues):
         for task in app.tasks.values():
             if not task.dockerfile.path.exists():
                 continue
-            context = task.dockerfile.resolve_context(self.path.parent)
+            context = self._context_for(task)
             artifact = {
                 "image": self.qualify(task.image_name),
                 "context": str(context.path),

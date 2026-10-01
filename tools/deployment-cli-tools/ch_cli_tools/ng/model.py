@@ -1,5 +1,6 @@
 import itertools
 import re
+import shutil
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -33,6 +34,23 @@ class AppUnknownError(Exception): ...
 
 
 class DependencyUnknownError(Exception): ...
+
+
+# Where an overridden (multi-layer) build context gets physically merged
+# before `skaffold build` runs - rebuilt every generate() call, but left on
+# disk afterwards: the merge has to survive this process exiting, since the
+# actual `docker build` happens later, as a separate `skaffold`/`codefresh`
+# invocation reading the context path this merge gets redirected to.
+_MERGE_DIRNAME = ".overrides"
+
+# A base image's build_context can be the whole project root (see
+# CHBaseImage.build_context), and a merge destination normally lives under
+# that same root - so these must always be excluded, not just as a
+# performance nicety, or copytree walks into its own, still-being-written
+# destination and never stops.
+_MERGE_COPY_IGNORE = shutil.ignore_patterns(
+    _MERGE_DIRNAME, ".git", "node_modules", ".tox"
+)
 
 
 def _own_dockerfile_path(path: Path) -> Path:
@@ -330,6 +348,32 @@ class CHContext:
     def __init__(self, path: Path, dockerfile: "CHDockerfile"):
         self.path = path
         self.dockerfile = dockerfile
+
+    def redirect(self, new_root: Path, relative_to: Path) -> "CHContext":
+        context = new_root.resolve().relative_to(relative_to.resolve(), walk_up=True)
+        return CHContext(context, self.dockerfile)
+
+    def resolve_for_build(self, relative_to: Path) -> "CHContext":
+        entity = self.dockerfile.app
+        if entity.base is None:
+            return self
+        destination = relative_to / _MERGE_DIRNAME / entity.name
+        shutil.rmtree(destination, ignore_errors=True)
+        self.copy_my_context_to(destination)
+        return self.redirect(destination, relative_to)
+
+    def copy_my_context_to(self, destination: Path) -> None:
+        entity = self.dockerfile.app
+        if entity.base is not None:
+            CHContext(destination, entity.base.dockerfile).copy_my_context_to(
+                destination
+            )
+        shutil.copytree(
+            entity.build_context,
+            destination,
+            dirs_exist_ok=True,
+            ignore=_MERGE_COPY_IGNORE,
+        )
 
 
 class CHBaseImage:

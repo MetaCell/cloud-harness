@@ -1,11 +1,10 @@
 # NG-COMPAT-TODO: retargeted at ch_cli_tools.ng.api.create_helm_chart/
 # create_skaffold_configuration instead of the legacy ch_cli_tools.helm/
-# ch_cli_tools.skaffold ones (ported from tests/test_skaffold.py). Every
-# preprocess_build_overrides() call is dropped: ng.api.preprocess_build_overrides
-# is a stub (physical cross-root filesystem merging is explicitly out of scope,
-# see ng/api.py's own comment on it) - root_paths is passed through unmerged, so
-# any assertion that depended on the merged build directory is marked below
-# rather than loosened to pass against the wrong thing.
+# ch_cli_tools.skaffold ones (ported from tests/test_skaffold.py). There's no
+# separate preprocess_build_overrides() call (ng.api's own stub of that name is
+# unrelated/unused) - merging an overridden app/base-image's directory across
+# layers now happens transparently inside CHSkaffold.generate(), via
+# CHContext.copy_my_context_to(), the moment such an artifact is collected.
 from ch_cli_tools.configurationgenerator import *
 from ch_cli_tools.ng.api import create_helm_chart, create_skaffold_configuration
 from conftest import CLOUDHARNESS_ROOT, RESOURCES
@@ -83,19 +82,24 @@ def test_create_skaffold_configuration(tmp_path):
         if a["image"] == "reg/testprojectname/cloudharness-base"
     )
     assert "requires" not in cloudharness_base_artifact
-    # NG-COMPAT-TODO: legacy's context here is the merged BUILD_DIR
-    # (preprocess_build_overrides); without that merge, a base-image's context
-    # is simply its own containing project's root (see
-    # CHBaseImage.build_context) - RESOURCES here, since tests/resources/
-    # declares its own infrastructure/base-images/cloudharness-base/,
-    # overriding (not just passing through) the real checkout's one. Every
-    # artifact "context" below is relative to the skaffold.yaml's own
-    # directory, which is project.root regardless of output_path (output_path
-    # only ever controls where the generated file gets *written*, matching
-    # the real harness-deployment CLI, which never overrides it) - joined
-    # against project.root before comparing, matching CHDockerfile.resolve_context.
+    # tests/resources/ declares its own infrastructure/base-images/
+    # cloudharness-base/, overriding (not just passing through) the real
+    # checkout's one - CHContext.copy_my_context_to() physically merges both
+    # layers' build_context (CLOUDHARNESS_ROOT first, then RESOURCES on top,
+    # matching legacy's preprocess_build_overrides) into .overrides/
+    # cloudharness-base next to skaffold.yaml, and the context points there.
     assert os.path.samefile(
-        project.root / cloudharness_base_artifact["context"], RESOURCES
+        project.root / cloudharness_base_artifact["context"],
+        project.root / ".overrides" / "cloudharness-base",
+    )
+    merged_root = project.root / ".overrides" / "cloudharness-base"
+    assert (merged_root / cloudharness_base_artifact["docker"]["dockerfile"]).exists()
+    assert (
+        merged_root / "infrastructure/base-images/cloudharness-base/testfile"
+    ).exists(), "RESOURCES' own cloudharness-base files must be present in the merge"
+    assert (merged_root / "libraries").exists(), (
+        "CLOUDHARNESS_ROOT's libraries/ (needed by the Dockerfile) must survive"
+        " the merge since the base image's build context is the whole root"
     )
 
     cloudharness_flask_artifact = next(
@@ -125,8 +129,8 @@ def test_create_skaffold_configuration(tmp_path):
     myapp_artifact = next(
         a for a in sk["build"]["artifacts"] if a["image"] == "reg/testprojectname/myapp"
     )
-    # NG-COMPAT-TODO: same merged-context caveat as cloudharness_base_artifact -
-    # myapp exists only in RESOURCES here, so its own (unmerged) context applies.
+    # myapp exists only in RESOURCES (no CLOUDHARNESS_ROOT counterpart, so no
+    # .base/merge applies) - its own, unmerged context is used directly.
     assert os.path.samefile(
         project.root / myapp_artifact["context"],
         os.path.join(RESOURCES, "applications/myapp"),
@@ -143,9 +147,10 @@ def test_create_skaffold_configuration(tmp_path):
         for a in sk["build"]["artifacts"]
         if a["image"] == "reg/testprojectname/accounts"
     )
-    # accounts is a pass-through app (no Dockerfile of its own in RESOURCES,
-    # falls back to CLOUDHARNESS_ROOT's) - same unmerged-context caveat as
-    # cloudharness_base_artifact above.
+    # accounts exists in both layers, but RESOURCES' own copy has no
+    # Dockerfile, so .dockerfile falls back to CLOUDHARNESS_ROOT's entity -
+    # whose own .base is None (it's the bottom layer), so no merge applies;
+    # its unmerged context is used directly, same as before the merge feature.
     assert os.path.samefile(
         project.root / accounts_artifact["context"],
         os.path.join(CLOUDHARNESS_ROOT, "applications/accounts"),
