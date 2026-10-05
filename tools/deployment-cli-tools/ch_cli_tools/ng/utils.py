@@ -156,6 +156,13 @@ def get_yaml_parser():
 _MERGEABLE_SUFFIXES = {".yaml": yaml, ".yml": yaml, ".json": json}
 
 
+def env_suffixed_path(path: Path, suffix: str) -> Path:
+    """The env-specific sibling of path (values.yaml, dev -> values-dev.yaml)
+    - the one naming convention CHValues.path_for_env and
+    collect_and_merge_env_specific_files both need."""
+    return path.with_name(f"{path.stem}-{suffix}{path.suffix}")
+
+
 def collect_and_merge_env_specific_files(directory: Path, envs: list[str]) -> None:
     if not envs or not directory.exists():
         return
@@ -166,7 +173,7 @@ def collect_and_merge_env_specific_files(directory: Path, envs: list[str]) -> No
         if any(path.stem.endswith(f"-{env}") for env in envs):
             continue
         for env in envs:
-            env_path = path.with_name(f"{path.stem}-{env}{path.suffix}")
+            env_path = env_suffixed_path(path, env)
             if not env_path.exists():
                 continue
             with path.open("r", encoding="utf-8") as f:
@@ -175,6 +182,32 @@ def collect_and_merge_env_specific_files(directory: Path, envs: list[str]) -> No
                 override = codec.load(f) or {}
             with path.open("w", encoding="utf-8") as f:
                 codec.dump(dict_merge(base, override), f)
+
+
+_DEFAULT_IGNORE = (
+    "/tasks",
+    ".dockerignore",
+    ".hypothesis",
+    "__pycache__",
+    ".node_modules",
+    "dist",
+    "build",
+    ".coverage",
+)
+
+
+def content_hash(path: Path) -> str:
+    from dirhash import dirhash
+
+    ignore = set(_DEFAULT_IGNORE)
+    dockerignore = path / ".dockerignore"
+    if dockerignore.exists():
+        ignore |= {
+            line.strip()
+            for line in dockerignore.read_text().splitlines()
+            if line.strip() and not line.startswith("#")
+        }
+    return dirhash(str(path), "sha1", ignore=ignore, allow_cyclic_links=True)
 
 
 def own_dockerfile_path(path: Path) -> Path:

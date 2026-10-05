@@ -1,3 +1,4 @@
+import hashlib
 import itertools
 import re
 import shutil
@@ -19,7 +20,9 @@ from .utils import (
     MERGE_DIRNAME,
     _merge_base_chain,
     collect_and_merge_env_specific_files,
+    content_hash,
     dict_merge,  # type: ignore
+    env_suffixed_path,
     get_yaml_parser,
     merge_with_layer,
     own_dockerfile_path,
@@ -274,7 +277,7 @@ class CHValues:
     @classmethod
     def path_for_env(cls, path, env):
         suffix = env if isinstance(env, str) else "-".join(env)
-        return path.with_name(f"{path.stem}-{suffix}{path.suffix}")
+        return env_suffixed_path(path, suffix)
 
     def for_env(self, env: str | None):
         if env is None:
@@ -647,7 +650,7 @@ class CHProject:
 
     @property
     @lru_cache
-    def own_apps(self) -> dict[str, "CHApp"]:
+    def own_apps(self) -> dict[str, CHApp]:
         return {p.name: CHApp(p, self) for p in self.root.glob("applications/*/")}
 
     @property
@@ -659,7 +662,7 @@ class CHProject:
 
     @property
     @lru_cache
-    def own_base_images(self) -> dict[str, "CHBaseImage"]:
+    def own_base_images(self) -> dict[str, CHBaseImage]:
         images: dict[str, CHBaseImage] = {}
         for relative_glob in (
             "infrastructure/base-images/*/",
@@ -671,7 +674,7 @@ class CHProject:
 
     @property
     @lru_cache
-    def base_images(self) -> dict[str, "CHBaseImage"]:
+    def base_images(self) -> dict[str, CHBaseImage]:
         merged = dict(self.base.base_images) if self.base is not None else {}
         merged.update(self.own_base_images)
         return merged
@@ -764,7 +767,7 @@ class CHProject:
             images.update(base_image.dockerfile.base_images)
         return images
 
-    def _combined_dependencies(self, entity: "CHApp | CHBaseImage | CHAppTask"):
+    def _combined_dependencies(self, entity: CHApp | CHBaseImage | CHAppTask):
         explicit = entity.build_dependencies()
         for dep in explicit:
             if isinstance(dep, str):
@@ -811,31 +814,89 @@ class CHProject:
             registry = f"{registry}/"
         return f"{registry}{image_name}"
 
-    def qualify_with_tag(self, image_name):
-        qualified = self.qualify(image_name)
-        return f"{qualified}:{self.config.tag}" if self.config.tag else qualified
+    @property
+    def _use_content_hash_tag(self) -> bool:
+        return not self.config.tag and not self.config.local
 
+    @property
+    def _concrete_involved_apps(self) -> tuple[CHApp, ...]:
+        return tuple(app for app in self.involved_apps if not isinstance(app, str))
+
+    def _is_buildable_app(self, app: CHApp) -> bool:
+        return app.dockerfile.exists() and not app.deployment_config.get("image")
+
+    def _buildable_tasks(self, app: CHApp) -> list[CHAppTask]:
+        return [t for t in app.tasks.values() if t.dockerfile.exists()]
+
+    def _hashable_entities(self) -> dict[str, CHApp | CHBaseImage | CHAppTask]:
+        entities: dict[str, CHApp | CHBaseImage | CHAppTask] = {}
+        for app in self._concrete_involved_apps:
+            if self._is_buildable_app(app):
+                entities[app.name] = app
+            entities.update({t.name: t for t in self._buildable_tasks(app)})
+        entities.update(self.all_build_dependencies())
+        return entities
+
+    @lru_cache
+    def _content_hash_tags(self) -> dict[str, str]:
+        entities = self._hashable_entities()
+        tags: dict[str, str] = {}
+        own_hashes: dict[str, str] = {}
+        visiting: set[str] = set()
+
+        def own_hash(entity) -> str:
+            if entity.name not in own_hashes:
+                own_hashes[entity.name] = content_hash(
+                    entity.dockerfile.app.build_context
+                )
+            return own_hashes[entity.name]
+
+        def resolve(entity) -> str:
+            if entity.name in tags:
+                return tags[entity.name]
+            if entity.name in visiting:
+                return hashlib.sha1(own_hash(entity).encode("utf-8")).hexdigest()
+            visiting.add(entity.name)
+            deps = [
+                d
+                for d in self._combined_dependencies(entity)
+                if not isinstance(d, str) and d.name in entities
+            ]
+            dep_tags = "".join(resolve(d) for d in deps)
+            tags[entity.name] = hashlib.sha1(
+                (own_hash(entity) + dep_tags).encode("utf-8")
+            ).hexdigest()
+            visiting.discard(entity.name)
+            return tags[entity.name]
+
+        for entity in entities.values():
+            resolve(entity)
+        return tags
+
+    def qualify_image(self, entity: "CHApp | CHBaseImage | CHAppTask") -> str:
+        qualified = self.qualify(entity.image_name)
+        if self._use_content_hash_tag:
+            tag = self._content_hash_tags().get(entity.name)
+        else:
+            tag = self.config.tag
+        return f"{qualified}:{tag}" if tag else qualified
+
+    @lru_cache
     def _app_task_images(self, app: "CHApp") -> dict[str, str]:
         return {
-            task.name: self.qualify_with_tag(task.image_name)
-            for task in app.tasks.values()
-            if task.dockerfile.exists()
+            task.name: self.qualify_image(task) for task in self._buildable_tasks(app)
         }
 
     @lru_cache
     def all_task_images(self) -> dict[str, str]:
-        already_deployed = tuple(
-            app.name for app in self.involved_apps if not isinstance(app, str)
-        )
+        already_deployed = tuple(app.name for app in self._concrete_involved_apps)
         images = {
-            name: self.qualify_with_tag(dependency.image_name)
+            name: self.qualify_image(dependency)
             for name, dependency in self.all_build_dependencies(
                 already_deployed
             ).items()
         }
-        for app in self.involved_apps:
-            if isinstance(app, str):
-                continue
+        for app in self._concrete_involved_apps:
             images.update(self._app_task_images(app))
         return images
 
@@ -865,14 +926,10 @@ class CHProject:
         return self.all_values()["name"]
 
     def _buildable_image(self, app: "CHApp") -> str | None:
-        if app.dockerfile.exists() and not app.deployment_config.get("image"):
-            return self.qualify_with_tag(app.image_name)
-        return None
+        return self.qualify_image(app) if self._is_buildable_app(app) else None
 
     def build_final_helm_values(self, write_on_disk=True) -> HarnessMainConfig:
-        involved_apps = {
-            app.name: app for app in self.involved_apps if not isinstance(app, str)
-        }
+        involved_apps = {app.name: app for app in self._concrete_involved_apps}
         values = self.all_values()
         apps = {
             name: _finalize_app_values(
