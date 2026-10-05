@@ -2,6 +2,7 @@
 # the legacy ch_cli_tools.helm one - only create_helm_chart is actually used
 # from that module in this file (checked: no CloudHarnessHelm/deploy() usage).
 from ch_cli_tools.ng.api import create_helm_chart
+from ch_cli_tools.ng.model import DependencyUnknownError
 from ch_cli_tools.configurationgenerator import *
 from ch_cli_tools import configurationgenerator
 from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
@@ -70,17 +71,12 @@ def test_collect_helm_values(tmp_path):
     # Explicit exclude overrides include
     assert 'events' not in values[KEY_APPS]
 
-    # NG-COMPAT-TODO: ng.api.create_helm_chart doesn't auto-compute/inject each
-    # app's built image name+tag into harness.deployment.image (or a top-level
-    # 'build' flag / harness.name) the way legacy's process_values() did -
-    # these stay whatever the app's own raw values.yaml/app_defaults already
-    # have, which is None/absent here.
-    # assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/myapp:1'
-    # assert values[KEY_APPS]['myapp']['build'] == True
-    # assert values.apps['myapp'].harness.deployment.image == 'reg/testprojectname/myapp:1'
-    # assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
-    # assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
-    # assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/accounts:1'
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/myapp:1'
+    assert values[KEY_APPS]['myapp']['build'] == True
+    assert values.apps['myapp'].harness.deployment.image == 'reg/testprojectname/myapp:1'
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
+    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/accounts:1'
 
     # Base values kept
     assert values[KEY_APPS]['accounts'][KEY_HARNESS]['subdomain'] == 'accounts'
@@ -103,58 +99,50 @@ def test_collect_helm_values(tmp_path):
 
     helm_path = out_folder / HELM_CHART_PATH
 
-    # NG-COMPAT-TODO: two separate real gaps here, not just missing features:
-    # (1) ng.api.create_helm_chart ignores `output_path` entirely - it always
-    #     writes to <project_root>/deployment/helm/values.yaml regardless of
-    #     what output_path says (verified: this call actually wrote into the
-    #     real tests/resources/deployment/, not out_folder - cleaned up after
-    #     each run during this porting pass, but this is a real footgun since
-    #     project_root is a real repo directory, not disposable). (2) even if
-    #     output_path were respected, ng has no generator that copies resource
-    #     files, Helm templates, or subcharts into the output chart directory,
-    #     or populates task-images/base-images - none of that exists yet.
-    # assert exists(helm_path)
-    # assert exists(helm_path / 'values.yaml')
-    # assert exists(helm_path / 'resources' / 'accounts' / 'realm.json')
-    # assert exists(helm_path / 'resources' / 'accounts' / 'aresource.txt')
-    # assert exists(helm_path / 'resources' / 'myapp' / 'aresource.txt')
-    # assert exists(helm_path / 'templates' / 'myapp' / 'mytemplate.yaml')
-    #
-    # assert values[KEY_TASK_IMAGES]
-    # assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
-    # assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'reg/testprojectname/cloudharness-base:1'
-    # assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/testprojectname/myapp-mytask:1'
-    # assert values[KEY_TASK_IMAGES]['cloudharness-flask'] == 'reg/testprojectname/cloudharness-flask:1'
-    # assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES]
-    #
-    # with open(helm_path / 'charts/myapp/values.yaml', 'r') as values_file:
-    #     chart_values = yaml.load(values_file)
-    # assert chart_values is not None, "values.yaml should be valid YAML"
-    # assert chart_values["test"] == "dev"
+    assert exists(helm_path)
+    assert exists(helm_path / 'values.yaml')
+    assert exists(helm_path / 'resources' / 'accounts' / 'realm.json')
+    assert exists(helm_path / 'resources' / 'accounts' / 'aresource.txt')
+    assert exists(helm_path / 'resources' / 'myapp' / 'aresource.txt')
+    assert exists(helm_path / 'templates' / 'myapp' / 'mytemplate.yaml')
+
+    assert values[KEY_TASK_IMAGES]
+    assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
+    assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'reg/testprojectname/cloudharness-base:1'
+    assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/testprojectname/myapp-mytask:1'
+    assert values[KEY_TASK_IMAGES]['cloudharness-flask'] == 'reg/testprojectname/cloudharness-flask:1'
+    assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES]
+
+    with open(helm_path / 'charts/myapp/values.yaml', 'r') as values_file:
+        chart_values = yaml.load(values_file)
+    assert chart_values is not None, "values.yaml should be valid YAML"
+    assert chart_values["test"] == "dev"
 
 
-# NG-COMPAT-TODO: needs the harness.deployment.image auto-injection / 'build'
-# flag computation ng.api.create_helm_chart doesn't do yet (same gap as
-# test_collect_helm_values's "Auto values" section above).
-# def test_collect_nobuild(tmp_path):
-#     out_folder = tmp_path / 'test_collect_helm_values'
-#     values = create_helm_chart([RESOURCES], output_path=out_folder, include=['myapp'],
-#                                exclude=['events'], domain="my.local",
-#                                namespace='test', env='nobuild', local=False, tag='1', registry='reg')
-#     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'custom-image'
-#     assert values[KEY_APPS]['myapp']['build'] == False
+# NG-COMPAT-TODO: legacy's root_paths=[RESOURCES] alone still works because
+# init_app_values() always reads CH_ROOT (a hardcoded install-location
+# global) as an implicit extra base layer, regardless of root_paths. ng has
+# no such hidden fallback - the chain is always exactly what's passed in -
+# so CLOUDHARNESS_ROOT is added explicitly here to supply the same rich
+# app_defaults (test.api/test.e2e in particular), matching every other
+# create_helm_chart test in this file.
+def test_collect_nobuild(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
+                               exclude=['events'], domain="my.local",
+                               namespace='test', env='nobuild', local=False, tag='1', registry='reg')
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'custom-image'
+    assert values[KEY_APPS]['myapp']['build'] == False
 
 
-# NG-COMPAT-TODO: needs harness.deployment.image auto-injection + task-images
-# population, neither computed by ng.api.create_helm_chart yet.
-# def test_collect_helm_values_harness_image_name_override(tmp_path):
-#     out_folder = tmp_path / 'test_collect_helm_values_harness_image_name_override'
-#
-#     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
-#                                domain="my.local", namespace='test', env='imagename', local=False, tag='1', registry='reg')
-#
-#     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/custom-myapp:1'
-#     assert values[KEY_APPS]['myapp'][KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/testprojectname/custom-myapp-mytask:1'
+def test_collect_helm_values_harness_image_name_override(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values_harness_image_name_override'
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
+                               domain="my.local", namespace='test', env='imagename', local=False, tag='1', registry='reg')
+
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/custom-myapp:1'
+    assert values[KEY_APPS]['myapp'][KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/testprojectname/custom-myapp-mytask:1'
 
 
 def test_collect_helm_values_noreg_noinclude(tmp_path):
@@ -308,36 +296,34 @@ def test_collect_app_defaults_env_specific_chart(tmp_path):
     assert 'env-defaults' not in values[KEY_APPS]['myapp']
 
 
-# NG-COMPAT-TODO: two real, deliberate ng design differences, not a plain gap:
-# (1) ng raises ch_cli_tools.ng.model.DependencyUnknownError for an unresolved
-#     hard dependency, not legacy's ValuesValidationException - a different
-#     exception class by design (see model.py's CHProject.all_values()).
-# (2) an unresolved *build* dependency isn't validated by create_helm_chart/
-#     build_final_helm_values at all - that check lives in ng.skaffold's
-#     generate() (CHSkaffold._combined_dependencies), a separate generator this
-#     test never invokes. The soft/use_services non-raising halves would likely
-#     still hold, but the test as written can't be adapted by just swapping the
-#     exception type without also restructuring which call is expected to raise.
-# def test_collect_helm_values_wrong_dependencies_validate(tmp_path):
-#     out_folder = tmp_path / 'test_collect_helm_values_wrong_dependencies_validate'
-#     with pytest.raises(ValuesValidationException):
-#         create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-#                           namespace='test', env='prod', local=False, tag='1', include=["wrong-hard"])
-#     try:
-#         create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-#                           namespace='test', env='prod', local=False, tag='1', include=["wrong-soft"])
-#
-#     except ValuesValidationException as e:
-#         pytest.fail("Should not error because of wrong soft dependency")
-#
-#     with pytest.raises(ValuesValidationException):
-#         create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-#                           namespace='test', env='prod', local=False, tag='1', include=["wrong-build"])
-#     try:
-#         create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-#                           namespace='test', env='prod', local=False, tag='1', include=["wrong-services"])
-#     except ValuesValidationException:
-#         pytest.fail("Should not error because of missing use_services dependency")
+# NG-COMPAT-TODO: ng raises ch_cli_tools.ng.model.DependencyUnknownError, not
+# legacy's ValuesValidationException - a different exception class by design
+# (see model.py's CHProject.all_values()/_combined_dependencies()). The build
+# dependency case used to be unchecked by create_helm_chart entirely (that
+# validation lived only in ng.skaffold's generate()), but
+# CHProject.all_task_images() now walks the same build-dependency closure
+# during build_final_helm_values() too, so it raises here as well - verified
+# empirically against this exact fixture before porting.
+def test_collect_helm_values_wrong_dependencies_validate(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values_wrong_dependencies_validate'
+    with pytest.raises(DependencyUnknownError):
+        create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
+                          namespace='test', env='prod', local=False, tag='1', include=["wrong-hard"])
+    try:
+        create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
+                          namespace='test', env='prod', local=False, tag='1', include=["wrong-soft"])
+
+    except DependencyUnknownError as e:
+        pytest.fail("Should not error because of wrong soft dependency")
+
+    with pytest.raises(DependencyUnknownError):
+        create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
+                          namespace='test', env='prod', local=False, tag='1', include=["wrong-build"])
+    try:
+        create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
+                          namespace='test', env='prod', local=False, tag='1', include=["wrong-services"])
+    except DependencyUnknownError:
+        pytest.fail("Should not error because of missing use_services dependency")
 
 
 def test_validate_dependencies_accepts_app_local_build_images():
@@ -364,42 +350,36 @@ def test_validate_dependencies_accepts_app_local_build_images():
     validate_dependencies(values)
 
 
-# NG-COMPAT-TODO: task-images population not implemented by
-# ng.api.create_helm_chart/build_final_helm_values (same gap as
-# test_collect_helm_values). The underlying build-dependency discovery this
-# checks (guessed + explicit, transitive) is real and tested in
-# tests/ng/test_ng_skaffold.py against ng.skaffold.CHSkaffold.generate()'s
-# `requires:` output - just not surfaced here via create_helm_chart.
-# def test_collect_helm_values_build_dependencies(tmp_path):
-#     out_folder = tmp_path / 'test_collect_helm_values_build_dependencies'
-#     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-#                                namespace='test', env='prod', local=False, tag='1', include=["myapp"])
-#
-#     assert 'cloudharness-flask' in values[KEY_TASK_IMAGES], "Cloudharness-flask is included in the build dependencies"
-#     assert 'cloudharness-base' in values[KEY_TASK_IMAGES], "Cloudharness-base is included in cloudharness-flask Dockerfile and it should be guessed"
-#     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES], "Cloudharness-base-debian is not included in any dependency"
-#     assert 'cloudharness-frontend-build' not in values[KEY_TASK_IMAGES], "cloudharness-frontend-build is not included in any dependency"
-#
-#
-# def test_collect_helm_values_build_dependencies_nodeps(tmp_path):
-#     out_folder = tmp_path / 'test_collect_helm_values_build_dependencies_nodeps'
-#     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-#                                namespace='test', env='prod', local=False, tag='1', include=["events"])
-#
-#     assert 'cloudharness-flask' not in values[KEY_TASK_IMAGES], "Cloudharness-flask is not included in the build dependencies"
-#     assert 'cloudharness-base' not in values[KEY_TASK_IMAGES], "Cloudharness-base is not included in the build dependencies"
-#     assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES], "Cloudharness-base-debian is not included in any dependency"
-#     assert 'cloudharness-frontend-build' not in values[KEY_TASK_IMAGES], "cloudharness-frontend-build is not included in any dependency"
-#
-#
-# def test_collect_helm_values_build_dependencies_exclude(tmp_path):
-#     out_folder = tmp_path / 'test_collect_helm_values_build_dependencies_exclude'
-#     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-#                                namespace='test', env='prod', local=False, tag='1', include=["workflows"], exclude=["workflows-extract-download"])
-#
-#     assert 'cloudharness-flask' in values[KEY_TASK_IMAGES], "Cloudharness-flask is included in the build dependencies"
-#     assert 'cloudharness-base' in values[KEY_TASK_IMAGES], "Cloudharness-base is included in cloudharness-flask Dockerfile and it should be guessed"
-#     assert 'workflows-extract-download' not in values[KEY_TASK_IMAGES], "workflows-extract-download has been explicitly excluded"
+def test_collect_helm_values_build_dependencies(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values_build_dependencies'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               namespace='test', env='prod', local=False, tag='1', include=["myapp"])
+
+    assert 'cloudharness-flask' in values[KEY_TASK_IMAGES], "Cloudharness-flask is included in the build dependencies"
+    assert 'cloudharness-base' in values[KEY_TASK_IMAGES], "Cloudharness-base is included in cloudharness-flask Dockerfile and it should be guessed"
+    assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES], "Cloudharness-base-debian is not included in any dependency"
+    assert 'cloudharness-frontend-build' not in values[KEY_TASK_IMAGES], "cloudharness-frontend-build is not included in any dependency"
+
+
+def test_collect_helm_values_build_dependencies_nodeps(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values_build_dependencies_nodeps'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               namespace='test', env='prod', local=False, tag='1', include=["events"])
+
+    assert 'cloudharness-flask' not in values[KEY_TASK_IMAGES], "Cloudharness-flask is not included in the build dependencies"
+    assert 'cloudharness-base' not in values[KEY_TASK_IMAGES], "Cloudharness-base is not included in the build dependencies"
+    assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES], "Cloudharness-base-debian is not included in any dependency"
+    assert 'cloudharness-frontend-build' not in values[KEY_TASK_IMAGES], "cloudharness-frontend-build is not included in any dependency"
+
+
+def test_collect_helm_values_build_dependencies_exclude(tmp_path):
+    out_folder = tmp_path / 'test_collect_helm_values_build_dependencies_exclude'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               namespace='test', env='prod', local=False, tag='1', include=["workflows"], exclude=["workflows-extract-download"])
+
+    assert 'cloudharness-flask' in values[KEY_TASK_IMAGES], "Cloudharness-flask is included in the build dependencies"
+    assert 'cloudharness-base' in values[KEY_TASK_IMAGES], "Cloudharness-base is included in cloudharness-flask Dockerfile and it should be guessed"
+    assert 'workflows-extract-download' not in values[KEY_TASK_IMAGES], "workflows-extract-download has been explicitly excluded"
 
 
 def test_clear_unused_dbconfig(tmp_path):
@@ -1112,37 +1092,31 @@ def test_network_policy_defaults_from_value_template(tmp_path):
     # assert chart['metadata']['namespace'] == 'custom-ns'
 
 
-# NG-COMPAT-TODO: task-images population not implemented by
-# ng.api.create_helm_chart/build_final_helm_values (same gap as
-# test_collect_helm_values_build_dependencies), and both calls below are also
-# missing namespace= (see test_clear_unused_dbconfig) - not what this test is
-# about, but noted since it'd need supplying too if this test comes back.
-# def test_exclude_single_task(tmp_path):
-#     out_folder = tmp_path / 'test_exclude_single_task'
-#
-#     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-#                                env='withpostgres', local=False, include=["myapp"], exclude=["myapp-mytask"])
-#
-#     assert "myapp-mytask" not in values["task-images"], "myapp-mytask has been excluded, so should not appear in the task images"
-#
-#     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-#                                env='fulldep', local=False, include=["dependantapp"], exclude=["myapp-mytask"])
-#
-#     assert "myapp-mytask" in values[KEY_TASK_IMAGES], (
-#         "myapp-mytask is excluded but still required by dependantapp, so it should be kept"
-#     )
-#
-#
-# NG-COMPAT-TODO: same task-images gap, plus missing namespace= on both calls.
-# def test_app_depends_on_app(tmp_path):
-#     out_folder = tmp_path / 'test_app_depends_on_app'
-#
-#     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-#                                env='', local=False, include=["dependantapp"], exclude=[])
-#     assert "myapp" in values["task-images"], "myapp should be included as a task image because it is a dependency of dependantapp"
-#     assert "cloudharness-flask" in values["task-images"], "cloudharness-flask should be included as a task image because it is a dependency of myapp"
-#     assert "cloudharness-base" in values["task-images"], "cloudharness-flask should be included as a task image because it is a dependency of cloudharness-flask"
-#     assert "myapp-mytask" in values["task-images"], "task should be also included as build dependencies,as it's required by another task"
+def test_exclude_single_task(tmp_path):
+    out_folder = tmp_path / 'test_exclude_single_task'
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               env='withpostgres', local=False, include=["myapp"], exclude=["myapp-mytask"])
+
+    assert "myapp-mytask" not in values["task-images"], "myapp-mytask has been excluded, so should not appear in the task images"
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               env='fulldep', local=False, include=["dependantapp"], exclude=["myapp-mytask"])
+
+    assert "myapp-mytask" in values[KEY_TASK_IMAGES], (
+        "myapp-mytask is excluded but still required by dependantapp, so it should be kept"
+    )
+
+
+def test_app_depends_on_app(tmp_path):
+    out_folder = tmp_path / 'test_app_depends_on_app'
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               env='', local=False, include=["dependantapp"], exclude=[])
+    assert "myapp" in values["task-images"], "myapp should be included as a task image because it is a dependency of dependantapp"
+    assert "cloudharness-flask" in values["task-images"], "cloudharness-flask should be included as a task image because it is a dependency of myapp"
+    assert "cloudharness-base" in values["task-images"], "cloudharness-flask should be included as a task image because it is a dependency of cloudharness-flask"
+    assert "myapp-mytask" in values["task-images"], "task should be also included as build dependencies,as it's required by another task"
 #     assert "legacy" not in values["task-images"], "legacy should not be included as a task image because it is not a dependency"
 #
 #     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
@@ -1472,25 +1446,22 @@ def test_validate_secrets_rejects_malformed_definitions():
         validate_secrets(secret_values(['a', 'b']))
 
 
-# NG-COMPAT-TODO: build_final_helm_values doesn't aggregate a top-level
-# `source_images` key (same gap noted in test_collect_helm_values_noreg_noinclude).
-# def test_collect_helm_values_source_images_merge(tmp_path):
-#     out_path = tmp_path / 'test_collect_helm_values_source_images_merge'
-#     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path,
-#                                include=["samples", "myapp"], domain="my.local",
-#                                namespace='test', env='nreg', local=False, tag='1', registry='reg')
-#
-#     source_images = values.get("source_images")
-#     assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
-#     assert "NODE" in source_images
-#
-#
-# NG-COMPAT-TODO: same source_images gap.
-# def test_collect_helm_values_source_images_merge_no_include(tmp_path):
-#     out_path = tmp_path / 'test_collect_helm_values_source_images_merge'
-#     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, domain="my.local",
-#                                namespace='test', env='nreg', local=False, tag='1', registry='reg')
-#
-#     source_images = values.get("source_images")
-#     assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
-#     assert "NODE" in source_images
+def test_collect_helm_values_source_images_merge(tmp_path):
+    out_path = tmp_path / 'test_collect_helm_values_source_images_merge'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path,
+                               include=["samples", "myapp"], domain="my.local",
+                               namespace='test', env='nreg', local=False, tag='1', registry='reg')
+
+    source_images = values.get("source_images")
+    assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
+    assert "NODE" in source_images
+
+
+def test_collect_helm_values_source_images_merge_no_include(tmp_path):
+    out_path = tmp_path / 'test_collect_helm_values_source_images_merge'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, domain="my.local",
+                               namespace='test', env='nreg', local=False, tag='1', registry='reg')
+
+    source_images = values.get("source_images")
+    assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
+    assert "NODE" in source_images

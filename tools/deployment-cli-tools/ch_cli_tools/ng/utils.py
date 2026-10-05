@@ -1,10 +1,12 @@
 import json
 import re
 import shlex
+import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from cloudharness.utils import dict_merge  # type: ignore
+from ruamel.yaml import YAML
 
 if TYPE_CHECKING:
     from .model import CHValues
@@ -126,3 +128,61 @@ def _parse_exec_form(rest: str) -> tuple[str, ...]:
     if isinstance(parsed, list):
         return tuple(str(item) for item in parsed)
     return (rest,)
+
+
+MERGE_DIRNAME = ".overrides"
+_MERGE_COPY_IGNORE = shutil.ignore_patterns(
+    MERGE_DIRNAME, ".git", "node_modules", ".tox"
+)
+
+
+def _merge_base_chain(entity, source_of, destination: Path) -> None:
+    if entity.base is not None:
+        _merge_base_chain(entity.base, source_of, destination)
+    source = source_of(entity)
+    if source.exists():
+        shutil.copytree(
+            source, destination, dirs_exist_ok=True, ignore=_MERGE_COPY_IGNORE
+        )
+
+
+yaml = YAML(typ="safe")
+
+
+def get_yaml_parser():
+    return yaml
+
+
+_MERGEABLE_SUFFIXES = {".yaml": yaml, ".yml": yaml, ".json": json}
+
+
+def collect_and_merge_env_specific_files(directory: Path, envs: list[str]) -> None:
+    if not envs or not directory.exists():
+        return
+    for path in directory.rglob("*"):
+        codec = _MERGEABLE_SUFFIXES.get(path.suffix.lower())
+        if not path.is_file() or codec is None:
+            continue
+        if any(path.stem.endswith(f"-{env}") for env in envs):
+            continue
+        for env in envs:
+            env_path = path.with_name(f"{path.stem}-{env}{path.suffix}")
+            if not env_path.exists():
+                continue
+            with path.open("r", encoding="utf-8") as f:
+                base = codec.load(f) or {}
+            with env_path.open("r", encoding="utf-8") as f:
+                override = codec.load(f) or {}
+            with path.open("w", encoding="utf-8") as f:
+                codec.dump(dict_merge(base, override), f)
+
+
+def own_dockerfile_path(path: Path) -> Path:
+    candidates = [
+        p
+        for p in path.rglob("Dockerfile")
+        if "tasks" not in p.relative_to(path).parts[:-1]
+    ]
+    if not candidates:
+        return path / "Dockerfile"
+    return min(candidates, key=lambda p: (len(p.parts), str(p)))

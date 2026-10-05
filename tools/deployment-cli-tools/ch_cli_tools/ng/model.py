@@ -8,10 +8,6 @@ from pathlib import Path
 from typing import Literal, cast
 
 from cloudharness_model import HarnessMainConfig  # type: ignore
-from ruamel.yaml import YAML
-
-yaml = YAML(typ="safe")
-
 
 KEY_TASK_IMAGES = "task-images"
 _ENTRYPOINT_OVERRIDE_PATTERN = re.compile(
@@ -20,8 +16,13 @@ _ENTRYPOINT_OVERRIDE_PATTERN = re.compile(
 
 
 from .utils import (
+    MERGE_DIRNAME,
+    _merge_base_chain,
+    collect_and_merge_env_specific_files,
     dict_merge,  # type: ignore
+    get_yaml_parser,
     merge_with_layer,
+    own_dockerfile_path,
     parse_dockerfile,
     resolve_path,
 )
@@ -39,31 +40,7 @@ class DependencyUnknownError(Exception): ...
 class InvalidVolumeConfigurationError(Exception): ...
 
 
-_MERGE_DIRNAME = ".overrides"
-_MERGE_COPY_IGNORE = shutil.ignore_patterns(
-    _MERGE_DIRNAME, ".git", "node_modules", ".tox"
-)
-
-
-def _merge_base_chain(entity, source_of, destination: Path) -> None:
-    if entity.base is not None:
-        _merge_base_chain(entity.base, source_of, destination)
-    source = source_of(entity)
-    if source.exists():
-        shutil.copytree(
-            source, destination, dirs_exist_ok=True, ignore=_MERGE_COPY_IGNORE
-        )
-
-
-def _own_dockerfile_path(path: Path) -> Path:
-    candidates = [
-        p
-        for p in path.rglob("Dockerfile")
-        if "tasks" not in p.relative_to(path).parts[:-1]
-    ]
-    if not candidates:
-        return path / "Dockerfile"
-    return min(candidates, key=lambda p: (len(p.parts), str(p)))
+yaml = get_yaml_parser()
 
 
 class CHApp:
@@ -71,7 +48,7 @@ class CHApp:
         self.path = path
         self.parent = parent
         self.name = self.path.name
-        self._dockerfile = CHDockerfile(_own_dockerfile_path(self.path), self)
+        self._dockerfile = CHDockerfile(own_dockerfile_path(self.path), self)
         self.app_basevalues_template = CHValues(
             self.path / "deploy" / "values.yaml", self
         )
@@ -360,7 +337,7 @@ class CHContext:
         entity = self.dockerfile.app
         if entity.base is None:
             return self
-        destination = relative_to / _MERGE_DIRNAME / entity.name
+        destination = relative_to / MERGE_DIRNAME / entity.name
         shutil.rmtree(destination, ignore_errors=True)
         self.copy_my_context_to(destination)
         return self.redirect(destination, relative_to)
@@ -374,7 +351,7 @@ class CHBaseImage:
         self.path = path
         self.app = parent
         self.name = self.path.name
-        self._dockerfile = CHDockerfile(_own_dockerfile_path(self.path), self)
+        self._dockerfile = CHDockerfile(own_dockerfile_path(self.path), self)
 
     @property
     @lru_cache
@@ -418,7 +395,7 @@ class CHAppTask:
     def __init__(self, path: Path, parent: "CHApp | CHBaseImage"):
         self.path = path
         self.app = parent
-        self._dockerfile = CHDockerfile(_own_dockerfile_path(self.path), self)
+        self._dockerfile = CHDockerfile(own_dockerfile_path(self.path), self)
 
     @property
     @lru_cache
@@ -593,16 +570,25 @@ def _promote_legacy_top_level_fields(value: dict, harness: dict) -> dict:
     return value
 
 
-def _finalize_app_values(name: str, value: dict, image: str | None = None) -> dict:
+def _finalize_app_values(
+    name: str,
+    value: dict,
+    image: str | None = None,
+    task_images: dict[str, str] | None = None,
+) -> dict:
     harness = dict(value.get("harness") or {})
     harness = _default_test_unit_enabled(harness)
     harness = _finalize_app_names(name, harness)
     harness = _drop_mountpathless_volume(harness)
-    value = {**value, "harness": harness}
     deployment_image = resolve_path(harness, "deployment.image") or value.get("image")
-    value["build"] = not bool(deployment_image)
     if image is not None:
-        value["image"] = image
+        harness = {
+            **harness,
+            "deployment": {**(harness.get("deployment") or {}), "image": image},
+        }
+    value = {**value, "harness": harness, "build": not bool(deployment_image)}
+    if task_images:
+        value["task-images"] = task_images
     return _promote_legacy_top_level_fields(value, harness)
 
 
@@ -825,17 +811,33 @@ class CHProject:
             registry = f"{registry}/"
         return f"{registry}{image_name}"
 
+    def qualify_with_tag(self, image_name):
+        qualified = self.qualify(image_name)
+        return f"{qualified}:{self.config.tag}" if self.config.tag else qualified
+
+    def _app_task_images(self, app: "CHApp") -> dict[str, str]:
+        return {
+            task.name: self.qualify_with_tag(task.image_name)
+            for task in app.tasks.values()
+            if task.dockerfile.exists()
+        }
+
     @lru_cache
     def all_task_images(self) -> dict[str, str]:
         already_deployed = tuple(
             app.name for app in self.involved_apps if not isinstance(app, str)
         )
-        return {
-            name: self.qualify(dependency.image_name)
+        images = {
+            name: self.qualify_with_tag(dependency.image_name)
             for name, dependency in self.all_build_dependencies(
                 already_deployed
             ).items()
         }
+        for app in self.involved_apps:
+            if isinstance(app, str):
+                continue
+            images.update(self._app_task_images(app))
+        return images
 
     @lru_cache
     def all_values(self):
@@ -864,7 +866,7 @@ class CHProject:
 
     def _buildable_image(self, app: "CHApp") -> str | None:
         if app.dockerfile.exists() and not app.deployment_config.get("image"):
-            return self.qualify(app.image_name)
+            return self.qualify_with_tag(app.image_name)
         return None
 
     def build_final_helm_values(self, write_on_disk=True) -> HarnessMainConfig:
@@ -874,7 +876,10 @@ class CHProject:
         values = self.all_values()
         apps = {
             name: _finalize_app_values(
-                name, value, self._buildable_image(involved_apps[name])
+                name,
+                value,
+                self._buildable_image(involved_apps[name]),
+                self._app_task_images(involved_apps[name]),
             )
             for name, value in values.items()
             if name in involved_apps
@@ -890,10 +895,16 @@ class CHProject:
             )
             project_values = {**project_values, "ingress": ingress}
 
+        source_images = {
+            **self.all_source_images(),
+            **(project_values.get("source_images") or {}),
+        }
+
         final_allvalues = {
             **project_values,
             "apps": apps,
             "task-images": self.all_task_images(),
+            "source_images": source_images,
             "local": self.config.local,
             "secured_gatekeepers": True,
             "tls": self.config.tls,
@@ -942,6 +953,7 @@ class CHProject:
             _merge_base_chain(
                 app, lambda a: a.path / "deploy" / "charts", dest / "charts" / app.name
             )
+        collect_and_merge_env_specific_files(dest, self.config.envs)
 
 
 @dataclass
