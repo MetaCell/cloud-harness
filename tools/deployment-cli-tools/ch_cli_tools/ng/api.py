@@ -37,11 +37,13 @@ def create_helm_chart(
     chart_version=None,
     app_version=None,
 ):
-    # secured/tls/name/chart_version/app_version: accepted for signature
-    # compat, not wired yet - see ng/api.py's module docstring and
+    # secured/name/chart_version/app_version: accepted for signature compat,
+    # not wired yet - see ng/api.py's module docstring and
     # CHProject.build_final_helm_values (secured_gatekeepers is hardcoded True,
-    # no CHDeployConfig field for it yet; Chart.yaml metadata has no ng
-    # generator yet).
+    # no CHDeployConfig field for it yet). Chart.yaml itself now comes from
+    # CHProject.write_chart() (copied from deployment-configuration/helm/,
+    # same as legacy) - name/chart_version/app_version would override fields
+    # inside that copied file, not generate it from scratch; still not wired.
     root_paths = list(root_paths)
 
     config_kwargs = dict(
@@ -53,6 +55,7 @@ def create_helm_chart(
         namespace=namespace,
         registry_secret_name=registry_secret_name,
         output_path=output_path,
+        tls=tls,
     )
     if env:
         config_kwargs["env"] = env
@@ -64,6 +67,7 @@ def create_helm_chart(
     for path in root_paths:  # lowest priority first, most specific last
         project = CHProject(path, base=project, config=config)
     assert project, "Couldn't build the project root representation"
+    project.write_chart()
     return project.build_final_helm_values()
 
 

@@ -36,21 +36,23 @@ class AppUnknownError(Exception): ...
 class DependencyUnknownError(Exception): ...
 
 
-# Where an overridden (multi-layer) build context gets physically merged
-# before `skaffold build` runs - rebuilt every generate() call, but left on
-# disk afterwards: the merge has to survive this process exiting, since the
-# actual `docker build` happens later, as a separate `skaffold`/`codefresh`
-# invocation reading the context path this merge gets redirected to.
-_MERGE_DIRNAME = ".overrides"
+class InvalidVolumeConfigurationError(Exception): ...
 
-# A base image's build_context can be the whole project root (see
-# CHBaseImage.build_context), and a merge destination normally lives under
-# that same root - so these must always be excluded, not just as a
-# performance nicety, or copytree walks into its own, still-being-written
-# destination and never stops.
+
+_MERGE_DIRNAME = ".overrides"
 _MERGE_COPY_IGNORE = shutil.ignore_patterns(
     _MERGE_DIRNAME, ".git", "node_modules", ".tox"
 )
+
+
+def _merge_base_chain(entity, source_of, destination: Path) -> None:
+    if entity.base is not None:
+        _merge_base_chain(entity.base, source_of, destination)
+    source = source_of(entity)
+    if source.exists():
+        shutil.copytree(
+            source, destination, dirs_exist_ok=True, ignore=_MERGE_COPY_IGNORE
+        )
 
 
 def _own_dockerfile_path(path: Path) -> Path:
@@ -319,8 +321,9 @@ class CHValues:
         own = self.merge_with_envs(self.project.config.envs)
         if layer.base is None:
             return own
+        relative = self.path.relative_to(layer.root / "deployment-configuration")
         base = CHValues(
-            layer.base.root / "deployment-configuration" / self.path.name,
+            layer.base.root / "deployment-configuration" / relative,
             layer.base,
         )
         return dict_merge(base.merge_with_base_and_envs(), own)
@@ -363,17 +366,7 @@ class CHContext:
         return self.redirect(destination, relative_to)
 
     def copy_my_context_to(self, destination: Path) -> None:
-        entity = self.dockerfile.app
-        if entity.base is not None:
-            CHContext(destination, entity.base.dockerfile).copy_my_context_to(
-                destination
-            )
-        shutil.copytree(
-            entity.build_context,
-            destination,
-            dirs_exist_ok=True,
-            ignore=_MERGE_COPY_IGNORE,
-        )
+        _merge_base_chain(self.dockerfile.app, lambda e: e.build_context, destination)
 
 
 class CHBaseImage:
@@ -547,19 +540,59 @@ class CHDockerfile:
         return dependencies
 
 
-def _shim_legacy_app_values(value: dict) -> dict:
-    harness = dict(value.get("harness") or {})
+def _default_test_unit_enabled(harness: dict) -> dict:
     unit = resolve_path(harness, "test.unit")
     if isinstance(unit, dict) and "enabled" not in unit:
-        harness = dict_merge(harness, {"test": {"unit": {"enabled": False}}})
+        return dict_merge(harness, {"test": {"unit": {"enabled": False}}})
+    return harness
 
+
+def _finalize_app_names(name: str, harness: dict) -> dict:
+    harness = {**harness, "name": name}
+    for key, default_name in (("service", name), ("deployment", name)):
+        block = harness.get(key)
+        if isinstance(block, dict) and not block.get("name"):
+            harness = {**harness, key: {**block, "name": default_name}}
+
+    database = harness.get("database")
+    if isinstance(database, dict) and not database.get("name"):
+        harness = {**harness, "database": {**database, "name": f"{name}-db"}}
+    return harness
+
+
+def _drop_mountpathless_volume(harness: dict) -> dict:
     deployment = harness.get("deployment")
-    volume = deployment.get("volume") if isinstance(deployment, dict) else None
-    if isinstance(volume, dict) and not volume.get("mountpath"):
-        deployment = {k: v for k, v in deployment.items() if k != "volume"}
-        harness = {**harness, "deployment": deployment}
+    if not isinstance(deployment, dict):
+        return harness
+    volume = deployment.get("volume")
+    if not isinstance(volume, dict) or volume.get("mountpath"):
+        return harness
+    if volume.get("name") or volume.get("size"):
+        raise InvalidVolumeConfigurationError(
+            f"Bad volume specified for application {harness.get('name')}: mountpath is required"
+        )
+    deployment = {k: v for k, v in deployment.items() if k != "volume"}
+    return {**harness, "deployment": deployment}
 
-    return {**value, "harness": harness}
+
+def _promote_legacy_top_level_fields(value: dict, harness: dict) -> dict:
+    value = {**value, "name": harness["name"]}
+    deployment = harness.get("deployment") or {}
+    if deployment.get("image"):
+        value["image"] = deployment["image"]
+    if deployment.get("port"):
+        value["port"] = deployment["port"]
+    if "resources" in deployment:
+        value["resources"] = deployment["resources"]
+    return value
+
+
+def _finalize_app_values(name: str, value: dict) -> dict:
+    harness = dict(value.get("harness") or {})
+    harness = _default_test_unit_enabled(harness)
+    harness = _finalize_app_names(name, harness)
+    harness = _drop_mountpathless_volume(harness)
+    return _promote_legacy_top_level_fields({**value, "harness": harness}, harness)
 
 
 def register_file(key: str, path: Callable[[Path], Path], only_env: bool = False):
@@ -583,7 +616,7 @@ class CHProject:
         self.root = Path(root)
         resolved_config = config if config else CHDeployConfig()
         self.base = base
-        self._overlay: "CHProject | None" = None
+        self._overlay: CHProject | None = None
         if base is not None:
             if base._overlay is not None:
                 raise ValueError(
@@ -603,6 +636,9 @@ class CHProject:
         )
         self.helm_chart = CHValues(
             self.root / "deployment-configuration" / "helm" / "Chart.yaml", self
+        )
+        self.helm_values_defaults = CHValues(
+            self.root / "deployment-configuration" / "helm" / "values.yaml", self
         )
         for cls, key, path, no_base in self._extregister:
             p = (
@@ -744,7 +780,12 @@ class CHProject:
             app_values[app.name] = app.all_values()
         base = self.valuesyaml
         return dict_merge(
-            dict_merge(app_values, base.merge_with_envs(self.config.envs)),
+            dict_merge(
+                dict_merge(
+                    self.helm_values_defaults.merge_with_base_and_envs(), app_values
+                ),
+                base.merge_with_envs(self.config.envs),
+            ),
             self.helm_chart.all_raw_values(),
         )
 
@@ -755,7 +796,7 @@ class CHProject:
         app_names = {app.name for app in self.involved_apps if not isinstance(app, str)}
         values = self.all_values()
         apps = {
-            name: _shim_legacy_app_values(value)
+            name: _finalize_app_values(name, value)
             for name, value in values.items()
             if name in app_names
         }
@@ -763,11 +804,19 @@ class CHProject:
             key: value for key, value in values.items() if key not in app_names
         }
 
+        ingress = dict(project_values.get("ingress") or {})
+        if ingress:
+            ingress["ssl_redirect"] = (
+                bool(ingress.get("ssl_redirect")) and self.config.tls
+            )
+            project_values = {**project_values, "ingress": ingress}
+
         final_allvalues = {
             **project_values,
             "apps": apps,
             "local": self.config.local,
             "secured_gatekeepers": True,
+            "tls": self.config.tls,
         }
         if self.config.domain:
             final_allvalues["domain"] = self.config.domain
@@ -791,6 +840,29 @@ class CHProject:
 
         return helm_values
 
+    def write_chart(self) -> None:
+        dest = Path(self.config.output_path) / "helm"
+        shutil.rmtree(dest, ignore_errors=True)
+        _merge_base_chain(
+            self, lambda p: p.root / "deployment-configuration" / "helm", dest
+        )
+        for app in self.involved_apps:
+            if isinstance(app, str):
+                continue
+            _merge_base_chain(
+                app,
+                lambda a: a.path / "deploy" / "templates",
+                dest / "templates" / app.name,
+            )
+            _merge_base_chain(
+                app,
+                lambda a: a.path / "deploy" / "resources",
+                dest / "resources" / app.name,
+            )
+            _merge_base_chain(
+                app, lambda a: a.path / "deploy" / "charts", dest / "charts" / app.name
+            )
+
 
 @dataclass
 class CHDeployConfig:
@@ -805,10 +877,8 @@ class CHDeployConfig:
     registry_secret_name: str | None = field(default=None, kw_only=True)
     domain: str = field(default="cloudharness.metacell.us", kw_only=True)
     debug: bool = field(default=False, kw_only=True)
+    tls: bool = field(default=True, kw_only=True)
     output_path: str = field(default="./deployment", kw_only=True)
-    # False suppresses a task's build artifact when its own owning app isn't
-    # itself deployed - even when the task is a build dependency of something
-    # that is. Only skaffold generation reads this; nothing else needs it.
     manage_task_images: bool = field(default=True, kw_only=True)
 
     @property

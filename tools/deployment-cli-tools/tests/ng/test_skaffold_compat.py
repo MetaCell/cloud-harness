@@ -252,7 +252,7 @@ def test_create_skaffold_configuration(tmp_path):
 # HarnessMainConfig validation before create_skaffold_configuration is ever
 # reached: myapp's merged harness.test ends up with a populated `unit:` block
 # but no `api:`/`e2e:` sub-blocks, and ng's ApplicationTestConfig requires all
-# three as non-None. _shim_legacy_app_values() (model.py) only backfills
+# three as non-None. _default_test_unit_enabled() (model.py) only backfills
 # `test.unit.enabled` when missing, not `test.api`/`test.e2e` - a real,
 # separate create_helm_chart gap, not a skaffold-wiring one.
 #
