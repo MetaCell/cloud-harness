@@ -443,277 +443,268 @@ def test_clear_unused_dbconfig(tmp_path):
     # assert db_config['postgres'] is None
 
 
-# NG-COMPAT-TODO: needs actual `helm template` rendering (no ng Chart.yaml/templates generator)
-# def test_cnpg_postgres_parameters_render_only_when_set(tmp_path):
-#     out_folder = tmp_path / 'test_cnpg_postgres_parameters_render_only_when_set'
-#     create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-#                       env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
-#
-#     helm_path = out_folder / HELM_CHART_PATH
-#     shutil.rmtree(helm_path / 'charts')
-#     values_path = helm_path / 'values.yaml'
-#     with open(values_path, 'r') as values_file:
-#         values = yaml.load(values_file)
-#     postgres = values['apps']['myapp']['harness']['database']['postgres']
-#     postgres['operator'] = True
-#     postgres['parameters'] = {
-#         # Simulate generated YAML values where on/off can be parsed as booleans before Helm renders the chart.
-#         'autovacuum': True,
-#         'max_connections': '200',
-#         'shared_buffers': '1GB',
-#         'synchronous_commit': True,
-#         'track_io_timing': False,
-#     }
-#     with open(values_path, 'w') as values_file:
-#         yaml.dump(values, values_file)
-#
-#     manifests = render_helm_chart(helm_path)
-#     db_name = values['apps']['myapp']['harness']['database']['name']
-#     cluster = find_manifest(manifests, 'Cluster', db_name)
-#     assert cluster['spec']['postgresql']['parameters'] == {
-#         'autovacuum': 'true',
-#         'max_connections': '200',
-#         'shared_buffers': '1GB',
-#         'synchronous_commit': 'true',
-#         'track_io_timing': 'false',
-#     }
-#
-#     postgres['parameters'] = {}
-#     with open(values_path, 'w') as values_file:
-#         yaml.dump(values, values_file)
-#
-#     manifests = render_helm_chart(helm_path)
-#     cluster = find_manifest(manifests, 'Cluster', db_name)
-#     assert 'postgresql' not in cluster['spec']
-#
-#     postgres.pop('parameters')
-#     with open(values_path, 'w') as values_file:
-#         yaml.dump(values, values_file)
-#
-#     manifests = render_helm_chart(helm_path)
-#     cluster = find_manifest(manifests, 'Cluster', db_name)
-#     assert 'postgresql' not in cluster['spec']
-#
-#
-# NG-COMPAT-TODO: needs actual `helm template` rendering (no ng Chart.yaml/templates generator)
-# def test_statefulset_option(tmp_path):
-#     out_folder = tmp_path / 'test_statefulset_option'
-#     # nfsserver is included to provide the storage class values needed by the usenfs case
-#     create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-#                       env='withpostgres', local=False, include=["myapp", "nfsserver"], exclude=["legacy"])
-#
-#     helm_path = out_folder / HELM_CHART_PATH
-#     shutil.rmtree(helm_path / 'charts')
-#     values_path = helm_path / 'values.yaml'
-#     with open(values_path, 'r') as values_file:
-#         values = yaml.load(values_file)
-#
-#     myapp = values['apps']['myapp']
-#     harness = myapp['harness']
-#     dep_name = harness['deployment']['name']
-#     db_name = harness['database']['name']
-#     service_name = harness['service']['name']
-#
-#     harness['deployment']['auto'] = True
-#     harness['deployment']['volume'] = {
-#         'name': 'myapp-data', 'mountpath': '/data', 'size': '1Gi', 'auto': True,
-#     }
-#     with open(values_path, 'w') as values_file:
-#         yaml.dump(values, values_file)
-#
-#     # Default: Deployments with the Recreate/affinity workaround and a standalone PVC
-#     manifests = render_helm_chart(helm_path)
-#     dep = find_manifest(manifests, 'Deployment', dep_name)
-#     assert dep['spec']['strategy']['type'] == 'Recreate'
-#     assert 'affinity' in dep['spec']['template']['spec']
-#     find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
-#     db_dep = find_manifest(manifests, 'Deployment', db_name)
-#     assert db_dep['spec']['strategy']['type'] == 'Recreate'
-#     assert 'affinity' in db_dep['spec']['template']['spec']
-#     find_manifest(manifests, 'PersistentVolumeClaim', db_name)
-#
-#     # Opt in to StatefulSets: volumes are provisioned via volumeClaimTemplates. The legacy
-#     # volume migration (job copying a pre-existing PVC found by `lookup` into the statefulset
-#     # volumes) cannot be exercised here: `helm template` runs without a cluster, so `lookup`
-#     # finds nothing.
-#     harness['deployment']['statefulset'] = True
-#     harness['database']['statefulset'] = True
-#     with open(values_path, 'w') as values_file:
-#         yaml.dump(values, values_file)
-#
-#     manifests = render_helm_chart(helm_path)
-#     sts = find_manifest(manifests, 'StatefulSet', dep_name)
-#     assert sts['spec']['serviceName'] == service_name
-#     # OrderedReady would block template updates while an existing pod is unready,
-#     # so a crash-looping pod could never be replaced by its own fix.
-#     assert sts['spec']['podManagementPolicy'] == 'Parallel'
-#     assert 'strategy' not in sts['spec']
-#     assert 'affinity' not in sts['spec']['template']['spec']
-#     assert 'initContainers' not in sts['spec']['template']['spec']
-#     claims = [v['persistentVolumeClaim']['claimName']
-#               for v in sts['spec']['template']['spec']['volumes'] if 'persistentVolumeClaim' in v]
-#     assert 'myapp-data' not in claims
-#     assert sts['spec']['volumeClaimTemplates'][0]['metadata']['name'] == 'myapp-data'
-#     assert not any(m for m in manifests
-#                    if m.get('kind') == 'PersistentVolumeClaim' and m.get('metadata', {}).get('name') == 'myapp-data')
-#
-#     db_sts = find_manifest(manifests, 'StatefulSet', db_name)
-#     assert db_sts['spec']['serviceName'] == db_name
-#     assert db_sts['spec']['podManagementPolicy'] == 'Parallel'
-#     assert 'strategy' not in db_sts['spec']
-#     assert 'affinity' not in db_sts['spec']['template']['spec']
-#     assert 'initContainers' not in db_sts['spec']['template']['spec']
-#     assert db_sts['spec']['volumeClaimTemplates'][0]['metadata']['name'] == db_name
-#     assert not any(m for m in manifests
-#                    if m.get('kind') == 'PersistentVolumeClaim' and m.get('metadata', {}).get('name') == db_name)
-#     find_manifest(manifests, 'Service', db_name)
-#     # without a legacy PVC no migration resources are rendered
-#     assert not any(m for m in manifests if 'volume-migration' in m.get('metadata', {}).get('name', ''))
-#
-#     # nfs (shared) volumes are never per-replica: the statefulset keeps mounting the common
-#     # PVC by claimName and no volumeClaimTemplates are created.
-#     harness['deployment']['volume']['usenfs'] = True
-#     with open(values_path, 'w') as values_file:
-#         yaml.dump(values, values_file)
-#
-#     manifests = render_helm_chart(helm_path)
-#     sts = find_manifest(manifests, 'StatefulSet', dep_name)
-#     assert 'volumeClaimTemplates' not in sts['spec']
-#     claims = [v['persistentVolumeClaim']['claimName']
-#               for v in sts['spec']['template']['spec']['volumes'] if 'persistentVolumeClaim' in v]
-#     assert 'myapp-data' in claims
-#     shared_pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
-#     assert shared_pvc['spec']['accessModes'] == ['ReadWriteMany']
-#
-#     # volume.auto: false means the PVC is managed externally: always reference it by
-#     # claimName, never via volumeClaimTemplates.
-#     harness['deployment']['volume']['usenfs'] = False
-#     harness['deployment']['volume']['auto'] = False
-#     with open(values_path, 'w') as values_file:
-#         yaml.dump(values, values_file)
-#
-#     manifests = render_helm_chart(helm_path)
-#     sts = find_manifest(manifests, 'StatefulSet', dep_name)
-#     assert 'volumeClaimTemplates' not in sts['spec']
-#     claims = [v['persistentVolumeClaim']['claimName']
-#               for v in sts['spec']['template']['spec']['volumes'] if 'persistentVolumeClaim' in v]
-#     assert 'myapp-data' in claims
-#
-#
-# NG-COMPAT-TODO: needs actual `helm template` rendering (no ng Chart.yaml/templates generator)
-# def test_volume_write_many(tmp_path):
-#     out_folder = tmp_path / 'test_volume_write_many'
-#     # nfsserver is deliberately not included: a ReadWriteMany volume must not rely on it
-#     create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-#                       env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
-#
-#     helm_path = out_folder / HELM_CHART_PATH
-#     shutil.rmtree(helm_path / 'charts')
-#     values_path = helm_path / 'values.yaml'
-#     with open(values_path, 'r') as values_file:
-#         values = yaml.load(values_file)
-#
-#     harness = values['apps']['myapp']['harness']
-#     dep_name = harness['deployment']['name']
-#
-#     harness['deployment']['auto'] = True
-#     volume = {'name': 'myapp-data', 'mountpath': '/data', 'size': '1Gi', 'auto': True}
-#     harness['deployment']['volume'] = volume
-#
-#     def render():
-#         with open(values_path, 'w') as values_file:
-#             yaml.dump(values, values_file)
-#         return render_helm_chart(helm_path)
-#
-#     # a null storage class is omitted, so the cluster default one is used
-#     volume['storageClass'] = None
-#     manifests = render()
-#     pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
-#     assert 'storageClassName' not in pvc['spec']
-#
-#     # a storage class can be set on a ReadWriteOnce volume, which keeps the node pinning
-#     volume['storageClass'] = 'gp3'
-#     manifests = render()
-#     pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
-#     assert pvc['spec']['accessModes'] == ['ReadWriteOnce']
-#     assert pvc['spec']['storageClassName'] == 'gp3'
-#     dep = find_manifest(manifests, 'Deployment', dep_name)
-#     assert dep['spec']['strategy']['type'] == 'Recreate'
-#     assert 'affinity' in dep['spec']['template']['spec']
-#
-#     # a writeMany volume keeps its storage class, and its pod is neither pinned to a node nor
-#     # recreated on update
-#     volume['writeMany'] = True
-#     manifests = render()
-#     pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
-#     assert pvc['spec']['accessModes'] == ['ReadWriteMany']
-#     assert pvc['spec']['storageClassName'] == 'gp3'
-#     dep = find_manifest(manifests, 'Deployment', dep_name)
-#     assert 'strategy' not in dep['spec']
-#     assert 'affinity' not in dep['spec']['template']['spec']
-#
-#     # writeMany with an explicit ReadWriteMany capable storage class
-#     volume['storageClass'] = 'efs-sc'
-#     manifests = render()
-#     pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
-#     assert pvc['spec']['accessModes'] == ['ReadWriteMany']
-#     assert pvc['spec']['storageClassName'] == 'efs-sc'
-#
-#     # a null storage class is omitted from a ReadWriteMany claim too
-#     volume['storageClass'] = None
-#     manifests = render()
-#     pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
-#     assert 'storageClassName' not in pvc['spec']
-#     volume['storageClass'] = 'efs-sc'
-#     manifests = render()
-#     assert find_manifest(manifests, 'PersistentVolumeClaim',
-#                          'myapp-data')['spec']['storageClassName'] == 'efs-sc'
-#
-#     # ReadWriteMany volumes are shared: a statefulset keeps mounting the common PVC by
-#     # claimName instead of provisioning one per replica
-#     harness['deployment']['statefulset'] = True
-#     manifests = render()
-#     sts = find_manifest(manifests, 'StatefulSet', dep_name)
-#     assert 'volumeClaimTemplates' not in sts['spec']
-#     claims = [v['persistentVolumeClaim']['claimName']
-#               for v in sts['spec']['template']['spec']['volumes'] if 'persistentVolumeClaim' in v]
-#     assert 'myapp-data' in claims
-#     pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
-#     assert pvc['spec']['accessModes'] == ['ReadWriteMany']
-#
-#     # the storage class of a per-replica statefulset volume is configurable too
-#     volume['writeMany'] = False
-#     volume['storageClass'] = 'gp3'
-#     manifests = render()
-#     sts = find_manifest(manifests, 'StatefulSet', dep_name)
-#     claim_template = sts['spec']['volumeClaimTemplates'][0]
-#     assert claim_template['metadata']['name'] == 'myapp-data'
-#     assert claim_template['spec']['accessModes'] == ['ReadWriteOnce']
-#     assert claim_template['spec']['storageClassName'] == 'gp3'
-#
-#
-# NG-COMPAT-TODO: needs actual `helm template` rendering (no ng Chart.yaml/templates generator)
-# def test_volume_storage_class_default(tmp_path):
-#     out_folder = tmp_path / 'test_volume_storage_class_default'
-#     # samples declares a volume, myapp does not
-#     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-#                                env='withpostgres', local=False, include=["samples", "myapp"], exclude=["legacy"])
-#
-#     # the value-template default applies to the volume declared by the application
-#     volume = values[KEY_APPS]['samples'][KEY_HARNESS]['deployment']['volume']
-#     assert volume['mountpath']
-#     assert volume['storageClass'] == 'standard'
-#
-#     # ... and the defaults alone do not make a volume: a volume-less application has none
-#     assert not values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment'].get('volume')
-#
-#     helm_path = out_folder / HELM_CHART_PATH
-#     shutil.rmtree(helm_path / 'charts')
-#     manifests = render_helm_chart(helm_path)
-#     sts = find_manifest(manifests, 'StatefulSet', values[KEY_APPS]['samples'][KEY_HARNESS]['deployment']['name'])
-#     assert sts['spec']['volumeClaimTemplates'][0]['spec']['storageClassName'] == 'standard'
-#
-#
+def test_cnpg_postgres_parameters_render_only_when_set(tmp_path):
+    out_folder = tmp_path / 'test_cnpg_postgres_parameters_render_only_when_set'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                      env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
+
+    helm_path = out_folder / "helm"
+    shutil.rmtree(helm_path / 'charts')
+    values_path = helm_path / 'values.yaml'
+    with open(values_path, 'r') as values_file:
+        values = yaml.load(values_file)
+    postgres = values['apps']['myapp']['harness']['database']['postgres']
+    postgres['operator'] = True
+    postgres['parameters'] = {
+        # Simulate generated YAML values where on/off can be parsed as booleans before Helm renders the chart.
+        'autovacuum': True,
+        'max_connections': '200',
+        'shared_buffers': '1GB',
+        'synchronous_commit': True,
+        'track_io_timing': False,
+    }
+    with open(values_path, 'w') as values_file:
+        yaml.dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    db_name = values['apps']['myapp']['harness']['database']['name']
+    cluster = find_manifest(manifests, 'Cluster', db_name)
+    assert cluster['spec']['postgresql']['parameters'] == {
+        'autovacuum': 'true',
+        'max_connections': '200',
+        'shared_buffers': '1GB',
+        'synchronous_commit': 'true',
+        'track_io_timing': 'false',
+    }
+
+    postgres['parameters'] = {}
+    with open(values_path, 'w') as values_file:
+        yaml.dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    cluster = find_manifest(manifests, 'Cluster', db_name)
+    assert 'postgresql' not in cluster['spec']
+
+    postgres.pop('parameters')
+    with open(values_path, 'w') as values_file:
+        yaml.dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    cluster = find_manifest(manifests, 'Cluster', db_name)
+    assert 'postgresql' not in cluster['spec']
+def test_statefulset_option(tmp_path):
+    out_folder = tmp_path / 'test_statefulset_option'
+    # nfsserver is included to provide the storage class values needed by the usenfs case
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                      env='withpostgres', local=False, include=["myapp", "nfsserver"], exclude=["legacy"])
+
+    helm_path = out_folder / "helm"
+    shutil.rmtree(helm_path / 'charts')
+    values_path = helm_path / 'values.yaml'
+    with open(values_path, 'r') as values_file:
+        values = yaml.load(values_file)
+
+    myapp = values['apps']['myapp']
+    harness = myapp['harness']
+    dep_name = harness['deployment']['name']
+    db_name = harness['database']['name']
+    service_name = harness['service']['name']
+
+    harness['deployment']['auto'] = True
+    harness['deployment']['volume'] = {
+        'name': 'myapp-data', 'mountpath': '/data', 'size': '1Gi', 'auto': True,
+    }
+    with open(values_path, 'w') as values_file:
+        yaml.dump(values, values_file)
+
+    # Default: Deployments with the Recreate/affinity workaround and a standalone PVC
+    manifests = render_helm_chart(helm_path)
+    dep = find_manifest(manifests, 'Deployment', dep_name)
+    assert dep['spec']['strategy']['type'] == 'Recreate'
+    assert 'affinity' in dep['spec']['template']['spec']
+    find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    db_dep = find_manifest(manifests, 'Deployment', db_name)
+    assert db_dep['spec']['strategy']['type'] == 'Recreate'
+    assert 'affinity' in db_dep['spec']['template']['spec']
+    find_manifest(manifests, 'PersistentVolumeClaim', db_name)
+
+    # Opt in to StatefulSets: volumes are provisioned via volumeClaimTemplates. The legacy
+    # volume migration (job copying a pre-existing PVC found by `lookup` into the statefulset
+    # volumes) cannot be exercised here: `helm template` runs without a cluster, so `lookup`
+    # finds nothing.
+    harness['deployment']['statefulset'] = True
+    harness['database']['statefulset'] = True
+    with open(values_path, 'w') as values_file:
+        yaml.dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    sts = find_manifest(manifests, 'StatefulSet', dep_name)
+    assert sts['spec']['serviceName'] == service_name
+    # OrderedReady would block template updates while an existing pod is unready,
+    # so a crash-looping pod could never be replaced by its own fix.
+    assert sts['spec']['podManagementPolicy'] == 'Parallel'
+    assert 'strategy' not in sts['spec']
+    assert 'affinity' not in sts['spec']['template']['spec']
+    assert 'initContainers' not in sts['spec']['template']['spec']
+    claims = [v['persistentVolumeClaim']['claimName']
+              for v in sts['spec']['template']['spec']['volumes'] if 'persistentVolumeClaim' in v]
+    assert 'myapp-data' not in claims
+    assert sts['spec']['volumeClaimTemplates'][0]['metadata']['name'] == 'myapp-data'
+    assert not any(m for m in manifests
+                   if m.get('kind') == 'PersistentVolumeClaim' and m.get('metadata', {}).get('name') == 'myapp-data')
+
+    db_sts = find_manifest(manifests, 'StatefulSet', db_name)
+    assert db_sts['spec']['serviceName'] == db_name
+    assert db_sts['spec']['podManagementPolicy'] == 'Parallel'
+    assert 'strategy' not in db_sts['spec']
+    assert 'affinity' not in db_sts['spec']['template']['spec']
+    assert 'initContainers' not in db_sts['spec']['template']['spec']
+    assert db_sts['spec']['volumeClaimTemplates'][0]['metadata']['name'] == db_name
+    assert not any(m for m in manifests
+                   if m.get('kind') == 'PersistentVolumeClaim' and m.get('metadata', {}).get('name') == db_name)
+    find_manifest(manifests, 'Service', db_name)
+    # without a legacy PVC no migration resources are rendered
+    assert not any(m for m in manifests if 'volume-migration' in m.get('metadata', {}).get('name', ''))
+
+    # nfs (shared) volumes are never per-replica: the statefulset keeps mounting the common
+    # PVC by claimName and no volumeClaimTemplates are created.
+    harness['deployment']['volume']['usenfs'] = True
+    with open(values_path, 'w') as values_file:
+        yaml.dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    sts = find_manifest(manifests, 'StatefulSet', dep_name)
+    assert 'volumeClaimTemplates' not in sts['spec']
+    claims = [v['persistentVolumeClaim']['claimName']
+              for v in sts['spec']['template']['spec']['volumes'] if 'persistentVolumeClaim' in v]
+    assert 'myapp-data' in claims
+    shared_pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    assert shared_pvc['spec']['accessModes'] == ['ReadWriteMany']
+
+    # volume.auto: false means the PVC is managed externally: always reference it by
+    # claimName, never via volumeClaimTemplates.
+    harness['deployment']['volume']['usenfs'] = False
+    harness['deployment']['volume']['auto'] = False
+    with open(values_path, 'w') as values_file:
+        yaml.dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    sts = find_manifest(manifests, 'StatefulSet', dep_name)
+    assert 'volumeClaimTemplates' not in sts['spec']
+    claims = [v['persistentVolumeClaim']['claimName']
+              for v in sts['spec']['template']['spec']['volumes'] if 'persistentVolumeClaim' in v]
+    assert 'myapp-data' in claims
+
+def test_volume_write_many(tmp_path):
+    out_folder = tmp_path / 'test_volume_write_many'
+    # nfsserver is deliberately not included: a ReadWriteMany volume must not rely on it
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                      env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
+
+    helm_path = out_folder / "helm"
+    shutil.rmtree(helm_path / 'charts')
+    values_path = helm_path / 'values.yaml'
+    with open(values_path, 'r') as values_file:
+        values = yaml.load(values_file)
+
+    harness = values['apps']['myapp']['harness']
+    dep_name = harness['deployment']['name']
+
+    harness['deployment']['auto'] = True
+    volume = {'name': 'myapp-data', 'mountpath': '/data', 'size': '1Gi', 'auto': True}
+    harness['deployment']['volume'] = volume
+
+    def render():
+        with open(values_path, 'w') as values_file:
+            yaml.dump(values, values_file)
+        return render_helm_chart(helm_path)
+
+    # a null storage class is omitted, so the cluster default one is used
+    volume['storageClass'] = None
+    manifests = render()
+    pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    assert 'storageClassName' not in pvc['spec']
+
+    # a storage class can be set on a ReadWriteOnce volume, which keeps the node pinning
+    volume['storageClass'] = 'gp3'
+    manifests = render()
+    pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    assert pvc['spec']['accessModes'] == ['ReadWriteOnce']
+    assert pvc['spec']['storageClassName'] == 'gp3'
+    dep = find_manifest(manifests, 'Deployment', dep_name)
+    assert dep['spec']['strategy']['type'] == 'Recreate'
+    assert 'affinity' in dep['spec']['template']['spec']
+
+    # a writeMany volume keeps its storage class, and its pod is neither pinned to a node nor
+    # recreated on update
+    volume['writeMany'] = True
+    manifests = render()
+    pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    assert pvc['spec']['accessModes'] == ['ReadWriteMany']
+    assert pvc['spec']['storageClassName'] == 'gp3'
+    dep = find_manifest(manifests, 'Deployment', dep_name)
+    assert 'strategy' not in dep['spec']
+    assert 'affinity' not in dep['spec']['template']['spec']
+
+    # writeMany with an explicit ReadWriteMany capable storage class
+    volume['storageClass'] = 'efs-sc'
+    manifests = render()
+    pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    assert pvc['spec']['accessModes'] == ['ReadWriteMany']
+    assert pvc['spec']['storageClassName'] == 'efs-sc'
+
+    # a null storage class is omitted from a ReadWriteMany claim too
+    volume['storageClass'] = None
+    manifests = render()
+    pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    assert 'storageClassName' not in pvc['spec']
+    volume['storageClass'] = 'efs-sc'
+    manifests = render()
+    assert find_manifest(manifests, 'PersistentVolumeClaim',
+                         'myapp-data')['spec']['storageClassName'] == 'efs-sc'
+
+    # ReadWriteMany volumes are shared: a statefulset keeps mounting the common PVC by
+    # claimName instead of provisioning one per replica
+    harness['deployment']['statefulset'] = True
+    manifests = render()
+    sts = find_manifest(manifests, 'StatefulSet', dep_name)
+    assert 'volumeClaimTemplates' not in sts['spec']
+    claims = [v['persistentVolumeClaim']['claimName']
+              for v in sts['spec']['template']['spec']['volumes'] if 'persistentVolumeClaim' in v]
+    assert 'myapp-data' in claims
+    pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    assert pvc['spec']['accessModes'] == ['ReadWriteMany']
+
+    # the storage class of a per-replica statefulset volume is configurable too
+    volume['writeMany'] = False
+    volume['storageClass'] = 'gp3'
+    manifests = render()
+    sts = find_manifest(manifests, 'StatefulSet', dep_name)
+    claim_template = sts['spec']['volumeClaimTemplates'][0]
+    assert claim_template['metadata']['name'] == 'myapp-data'
+    assert claim_template['spec']['accessModes'] == ['ReadWriteOnce']
+    assert claim_template['spec']['storageClassName'] == 'gp3'
+
+def test_volume_storage_class_default(tmp_path):
+    out_folder = tmp_path / 'test_volume_storage_class_default'
+    # samples declares a volume, myapp does not
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               env='withpostgres', local=False, include=["samples", "myapp"], exclude=["legacy"])
+
+    # the value-template default applies to the volume declared by the application
+    volume = values[KEY_APPS]['samples'][KEY_HARNESS]['deployment']['volume']
+    assert volume['mountpath']
+    assert volume['storageClass'] == 'standard'
+
+    # ... and the defaults alone do not make a volume: a volume-less application has none
+    assert not values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment'].get('volume')
+
+    helm_path = out_folder / "helm"
+    shutil.rmtree(helm_path / 'charts')
+    manifests = render_helm_chart(helm_path)
+    sts = find_manifest(manifests, 'StatefulSet', values[KEY_APPS]['samples'][KEY_HARNESS]['deployment']['name'])
+    assert sts['spec']['volumeClaimTemplates'][0]['spec']['storageClassName'] == 'standard'
+
 def test_volume_without_mountpath_is_rejected():
     harness = {'name': 'myapp', KEY_DEPLOYMENT: {'volume': {'name': 'myapp-data', 'size': '1Gi'}}}
     with pytest.raises(ValuesValidationException):
@@ -730,37 +721,35 @@ def test_volume_without_mountpath_is_rejected():
     assert harness[KEY_DEPLOYMENT]['volume'] == volume
 
 
-# NG-COMPAT-TODO: needs actual `helm template` rendering (no ng Chart.yaml/templates generator)
-# def test_volume_usenfs_prevails(tmp_path):
-#     out_folder = tmp_path / 'test_volume_usenfs_prevails'
-#     create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-#                       env='withpostgres', local=False, include=["myapp", "nfsserver"], exclude=["legacy"])
-#
-#     helm_path = out_folder / HELM_CHART_PATH
-#     shutil.rmtree(helm_path / 'charts')
-#     values_path = helm_path / 'values.yaml'
-#     with open(values_path, 'r') as values_file:
-#         values = yaml.load(values_file)
-#
-#     harness = values['apps']['myapp']['harness']
-#     harness['deployment']['auto'] = True
-#     # colliding settings: the nfs server storage class and access mode prevail
-#     harness['deployment']['volume'] = {
-#         'name': 'myapp-data', 'mountpath': '/data', 'size': '1Gi', 'auto': True,
-#         'usenfs': True, 'writeMany': False, 'storageClass': 'efs-sc',
-#     }
-#     with open(values_path, 'w') as values_file:
-#         yaml.dump(values, values_file)
-#
-#     manifests = render_helm_chart(helm_path)
-#     pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
-#     nfs_class = f"{values['namespace']}-{values['apps']['nfsserver']['storageClass']['name']}"
-#     assert pvc['spec']['storageClassName'] == nfs_class
-#     assert pvc['spec']['accessModes'] == ['ReadWriteMany']
-#     dep = find_manifest(manifests, 'Deployment', harness['deployment']['name'])
-#     assert 'affinity' not in dep['spec']['template']['spec']
-#
-#
+def test_volume_usenfs_prevails(tmp_path):
+    out_folder = tmp_path / 'test_volume_usenfs_prevails'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                      env='withpostgres', local=False, include=["myapp", "nfsserver"], exclude=["legacy"])
+
+    helm_path = out_folder / "helm"
+    shutil.rmtree(helm_path / 'charts')
+    values_path = helm_path / 'values.yaml'
+    with open(values_path, 'r') as values_file:
+        values = yaml.load(values_file)
+
+    harness = values['apps']['myapp']['harness']
+    harness['deployment']['auto'] = True
+    # colliding settings: the nfs server storage class and access mode prevail
+    harness['deployment']['volume'] = {
+        'name': 'myapp-data', 'mountpath': '/data', 'size': '1Gi', 'auto': True,
+        'usenfs': True, 'writeMany': False, 'storageClass': 'efs-sc',
+    }
+    with open(values_path, 'w') as values_file:
+        yaml.dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    pvc = find_manifest(manifests, 'PersistentVolumeClaim', 'myapp-data')
+    nfs_class = f"{values['namespace']}-{values['apps']['nfsserver']['storageClass']['name']}"
+    assert pvc['spec']['storageClassName'] == nfs_class
+    assert pvc['spec']['accessModes'] == ['ReadWriteMany']
+    dep = find_manifest(manifests, 'Deployment', harness['deployment']['name'])
+    assert 'affinity' not in dep['spec']['template']['spec']
+
 def test_validate_volumes_warns_on_nfs_collisions(caplog):
     volume = {'name': 'myapp-data', 'usenfs': True, 'writeMany': False, 'storageClass': 'efs-sc'}
     values = {'apps': {'myapp': {KEY_HARNESS: {'deployment': {'volume': volume}}}}}
@@ -781,119 +770,115 @@ def test_validate_volumes_warns_on_nfs_collisions(caplog):
     assert not caplog.text
 
 
-# NG-COMPAT-TODO: needs actual `helm template` rendering (no ng Chart.yaml/templates generator)
-# def test_database_storage_class(tmp_path):
-#     out_folder = tmp_path / 'test_database_storage_class'
-#     create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-#                       env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
-#
-#     helm_path = out_folder / HELM_CHART_PATH
-#     shutil.rmtree(helm_path / 'charts')
-#     values_path = helm_path / 'values.yaml'
-#     with open(values_path, 'r') as values_file:
-#         values = yaml.load(values_file)
-#
-#     database = values['apps']['myapp']['harness']['database']
-#     db_name = database['name']
-#
-#     def render():
-#         with open(values_path, 'w') as values_file:
-#             yaml.dump(values, values_file)
-#         return render_helm_chart(helm_path)
-#
-#     # not set by default: the claim carries no storage class, so the cluster default one is used.
-#     # The storage class is immutable on an existing claim, hence never set implicitly: database
-#     # volumes of existing deployments must keep rendering without it.
-#     assert database['storageClass'] is None
-#     manifests = render()
-#     assert 'storageClassName' not in find_manifest(manifests, 'PersistentVolumeClaim', db_name)['spec']
-#
-#     database['storageClass'] = 'gp3'
-#     manifests = render()
-#     assert find_manifest(manifests, 'PersistentVolumeClaim', db_name)['spec']['storageClassName'] == 'gp3'
-#
-#     # statefulset databases provision their volume through volumeClaimTemplates
-#     database['statefulset'] = True
-#     manifests = render()
-#     sts = find_manifest(manifests, 'StatefulSet', db_name)
-#     assert sts['spec']['volumeClaimTemplates'][0]['spec']['storageClassName'] == 'gp3'
-#     database['storageClass'] = None
-#     manifests = render()
-#     sts = find_manifest(manifests, 'StatefulSet', db_name)
-#     assert 'storageClassName' not in sts['spec']['volumeClaimTemplates'][0]['spec']
-#
-#     # the postgres operator cluster storage honours the same setting
-#     database['statefulset'] = False
-#     database['postgres']['operator'] = True
-#     database['storageClass'] = 'gp3'
-#     manifests = render()
-#     assert find_manifest(manifests, 'Cluster', db_name)['spec']['storage']['storageClass'] == 'gp3'
-#     database['storageClass'] = None
-#     manifests = render()
-#     assert 'storageClass' not in find_manifest(manifests, 'Cluster', db_name)['spec']['storage']
-#
-#
-# NG-COMPAT-TODO: needs actual `helm template` rendering (no ng Chart.yaml/templates generator)
-# def test_statefulset_leader_service(tmp_path):
-#     out_folder = tmp_path / 'test_statefulset_leader_service'
-#     create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-#                       env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
-#
-#     helm_path = out_folder / HELM_CHART_PATH
-#     shutil.rmtree(helm_path / 'charts')
-#     values_path = helm_path / 'values.yaml'
-#     with open(values_path, 'r') as values_file:
-#         values = yaml.load(values_file)
-#
-#     harness = values['apps']['myapp']['harness']
-#     dep_name = harness['deployment']['name']
-#     service_name = harness['service']['name']
-#     rw_name = f"{service_name}-rw"
-#
-#     def ingress_paths(manifests):
-#         ingress = find_manifest(manifests, 'Ingress', 'myapp')
-#         return [path for rule in ingress['spec']['rules'] for path in rule['http']['paths']]
-#
-#     # write methods in uri_role_mapping without statefulset: no leader service, no leader routing
-#     harness['uri_role_mapping'] = harness.get('uri_role_mapping', []) + [
-#         {'uri': '/api/edit/*', 'methods': ['POST', 'PUT', 'PATCH']},
-#         {'uri': '/upload', 'methods': ['POST']},
-#         {'uri': '/api/remove', 'methods': ['DELETE']},
-#         {'uri': '/readonly', 'methods': ['GET']},
-#     ]
-#     with open(values_path, 'w') as values_file:
-#         yaml.dump(values, values_file)
-#
-#     manifests = render_helm_chart(helm_path)
-#     assert not any(m for m in manifests
-#                    if m.get('kind') == 'Service' and m.get('metadata', {}).get('name') == rw_name)
-#     assert not any(p for p in ingress_paths(manifests)
-#                    if p['backend']['service']['name'] == rw_name)
-#
-#     harness['deployment']['statefulset'] = True
-#     with open(values_path, 'w') as values_file:
-#         yaml.dump(values, values_file)
-#
-#     manifests = render_helm_chart(helm_path)
-#     rw_service = find_manifest(manifests, 'Service', rw_name)
-#     assert rw_service['spec']['selector']['app'] == dep_name
-#     assert rw_service['spec']['selector']['statefulset.kubernetes.io/pod-name'] == f"{dep_name}-0"
-#     main_service = find_manifest(manifests, 'Service', service_name)
-#     assert rw_service['spec']['ports'] == main_service['spec']['ports']
-#
-#     paths = ingress_paths(manifests)
-#     rw_paths = {p['path']: p for p in paths if p['backend']['service']['name'] == rw_name}
-#     # wildcard uris map to Prefix rules, plain uris to ImplementationSpecific; any write method
-#     # (POST/PUT/PATCH/DELETE) triggers leader routing, while entries without one (the default
-#     # catch-all, /readonly) are not routed to the leader
-#     assert set(rw_paths) == {'/api/edit', '/upload', '/api/remove'}
-#     assert rw_paths['/api/edit']['pathType'] == 'Prefix'
-#     assert rw_paths['/upload']['pathType'] == 'ImplementationSpecific'
-#     # the catch-all still routes to the normal service
-#     assert any(p for p in paths
-#                if p['path'] == '/' and p['backend']['service']['name'] == service_name)
-#
-#
+def test_database_storage_class(tmp_path):
+    out_folder = tmp_path / 'test_database_storage_class'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                      env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
+
+    helm_path = out_folder / "helm"
+    shutil.rmtree(helm_path / 'charts')
+    values_path = helm_path / 'values.yaml'
+    with open(values_path, 'r') as values_file:
+        values = yaml.load(values_file)
+
+    database = values['apps']['myapp']['harness']['database']
+    db_name = database['name']
+
+    def render():
+        with open(values_path, 'w') as values_file:
+            yaml.dump(values, values_file)
+        return render_helm_chart(helm_path)
+
+    # not set by default: the claim carries no storage class, so the cluster default one is used.
+    # The storage class is immutable on an existing claim, hence never set implicitly: database
+    # volumes of existing deployments must keep rendering without it.
+    assert database['storageClass'] is None
+    manifests = render()
+    assert 'storageClassName' not in find_manifest(manifests, 'PersistentVolumeClaim', db_name)['spec']
+
+    database['storageClass'] = 'gp3'
+    manifests = render()
+    assert find_manifest(manifests, 'PersistentVolumeClaim', db_name)['spec']['storageClassName'] == 'gp3'
+
+    # statefulset databases provision their volume through volumeClaimTemplates
+    database['statefulset'] = True
+    manifests = render()
+    sts = find_manifest(manifests, 'StatefulSet', db_name)
+    assert sts['spec']['volumeClaimTemplates'][0]['spec']['storageClassName'] == 'gp3'
+    database['storageClass'] = None
+    manifests = render()
+    sts = find_manifest(manifests, 'StatefulSet', db_name)
+    assert 'storageClassName' not in sts['spec']['volumeClaimTemplates'][0]['spec']
+
+    # the postgres operator cluster storage honours the same setting
+    database['statefulset'] = False
+    database['postgres']['operator'] = True
+    database['storageClass'] = 'gp3'
+    manifests = render()
+    assert find_manifest(manifests, 'Cluster', db_name)['spec']['storage']['storageClass'] == 'gp3'
+    database['storageClass'] = None
+    manifests = render()
+    assert 'storageClass' not in find_manifest(manifests, 'Cluster', db_name)['spec']['storage']
+
+def test_statefulset_leader_service(tmp_path):
+    out_folder = tmp_path / 'test_statefulset_leader_service'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                      env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
+
+    helm_path = out_folder / "helm"
+    shutil.rmtree(helm_path / 'charts')
+    values_path = helm_path / 'values.yaml'
+    with open(values_path, 'r') as values_file:
+        values = yaml.load(values_file)
+
+    harness = values['apps']['myapp']['harness']
+    dep_name = harness['deployment']['name']
+    service_name = harness['service']['name']
+    rw_name = f"{service_name}-rw"
+
+    def ingress_paths(manifests):
+        ingress = find_manifest(manifests, 'Ingress', 'myapp')
+        return [path for rule in ingress['spec']['rules'] for path in rule['http']['paths']]
+
+    # write methods in uri_role_mapping without statefulset: no leader service, no leader routing
+    harness['uri_role_mapping'] = harness.get('uri_role_mapping', []) + [
+        {'uri': '/api/edit/*', 'methods': ['POST', 'PUT', 'PATCH']},
+        {'uri': '/upload', 'methods': ['POST']},
+        {'uri': '/api/remove', 'methods': ['DELETE']},
+        {'uri': '/readonly', 'methods': ['GET']},
+    ]
+    with open(values_path, 'w') as values_file:
+        yaml.dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    assert not any(m for m in manifests
+                   if m.get('kind') == 'Service' and m.get('metadata', {}).get('name') == rw_name)
+    assert not any(p for p in ingress_paths(manifests)
+                   if p['backend']['service']['name'] == rw_name)
+
+    harness['deployment']['statefulset'] = True
+    with open(values_path, 'w') as values_file:
+        yaml.dump(values, values_file)
+
+    manifests = render_helm_chart(helm_path)
+    rw_service = find_manifest(manifests, 'Service', rw_name)
+    assert rw_service['spec']['selector']['app'] == dep_name
+    assert rw_service['spec']['selector']['statefulset.kubernetes.io/pod-name'] == f"{dep_name}-0"
+    main_service = find_manifest(manifests, 'Service', service_name)
+    assert rw_service['spec']['ports'] == main_service['spec']['ports']
+
+    paths = ingress_paths(manifests)
+    rw_paths = {p['path']: p for p in paths if p['backend']['service']['name'] == rw_name}
+    # wildcard uris map to Prefix rules, plain uris to ImplementationSpecific; any write method
+    # (POST/PUT/PATCH/DELETE) triggers leader routing, while entries without one (the default
+    # catch-all, /readonly) are not routed to the leader
+    assert set(rw_paths) == {'/api/edit', '/upload', '/api/remove'}
+    assert rw_paths['/api/edit']['pathType'] == 'Prefix'
+    assert rw_paths['/upload']['pathType'] == 'ImplementationSpecific'
+    # the catch-all still routes to the normal service
+    assert any(p for p in paths
+               if p['path'] == '/' and p['backend']['service']['name'] == service_name)
+
 def test_gatekeeper_native_configuration_rendering_and_checksum(tmp_path):
     out_folder = tmp_path / 'test_gatekeeper_native_configuration'
     create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
