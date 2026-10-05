@@ -23,10 +23,7 @@ class CHCodefreshTemplate(CHValues):
 )
 class CHCodefresh(CHValues):
     def qualify(self, image_name):
-        registry = self.project.config.registry
-        if registry and not registry.endswith("/"):
-            registry = f"{registry}/"
-        return f"{registry}{image_name}"
+        return self.project.qualify(image_name)
 
     def _collect_app_build_step(self, app):
         step = {

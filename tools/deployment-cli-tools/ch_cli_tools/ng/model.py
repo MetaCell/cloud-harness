@@ -407,6 +407,9 @@ class CHBaseImage:
     def image_name(self):
         return f"{self.project.base_image_name()}/{self.name}"
 
+    def build_dependencies(self) -> list["CHApp | CHBaseImage | CHAppTask | str"]:
+        return []
+
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.name!r} at {hex(id(self))}>"
 
@@ -453,6 +456,9 @@ class CHAppTask:
     @property
     def image_name(self):
         return f"{self.app.image_name}-{self.path.name}"
+
+    def build_dependencies(self) -> list["CHApp | CHBaseImage | CHAppTask | str"]:
+        return []
 
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.name} at {hex(id(self))}>"
@@ -587,12 +593,17 @@ def _promote_legacy_top_level_fields(value: dict, harness: dict) -> dict:
     return value
 
 
-def _finalize_app_values(name: str, value: dict) -> dict:
+def _finalize_app_values(name: str, value: dict, image: str | None = None) -> dict:
     harness = dict(value.get("harness") or {})
     harness = _default_test_unit_enabled(harness)
     harness = _finalize_app_names(name, harness)
     harness = _drop_mountpathless_volume(harness)
-    return _promote_legacy_top_level_fields({**value, "harness": harness}, harness)
+    value = {**value, "harness": harness}
+    deployment_image = resolve_path(harness, "deployment.image") or value.get("image")
+    value["build"] = not bool(deployment_image)
+    if image is not None:
+        value["image"] = image
+    return _promote_legacy_top_level_fields(value, harness)
 
 
 def register_file(key: str, path: Callable[[Path], Path], only_env: bool = False):
@@ -767,6 +778,65 @@ class CHProject:
             images.update(base_image.dockerfile.base_images)
         return images
 
+    def _combined_dependencies(self, entity: "CHApp | CHBaseImage | CHAppTask"):
+        explicit = entity.build_dependencies()
+        for dep in explicit:
+            if isinstance(dep, str):
+                msg = f"Build dependency {dep!r} declared by {entity.name} is not a known app, base image, or task"
+                raise DependencyUnknownError(msg)
+        guessed = [
+            dep if isinstance(dep, str) else dep.app
+            for dep in entity.dockerfile.base_dependencies
+        ]
+        return [*explicit, *guessed]
+
+    def _is_suppressed_orphan_task(self, dependency) -> bool:
+        if self.config.manage_task_images or not isinstance(dependency, CHAppTask):
+            return False
+        involved_names = {
+            app.name for app in self.involved_apps if not isinstance(app, str)
+        }
+        return dependency.app.name not in involved_names
+
+    def all_build_dependencies(self, already_covered=()):
+        needed = {}
+        stack = []
+        for app in self.involved_apps:
+            if isinstance(app, str):
+                continue
+            stack.extend(self._combined_dependencies(app))
+
+        while stack:
+            dependency = stack.pop()
+            if isinstance(dependency, str) or dependency.name in needed:
+                continue
+            if dependency.name in already_covered:
+                continue
+            if self._is_suppressed_orphan_task(dependency):
+                continue
+            needed[dependency.name] = dependency
+            stack.extend(self._combined_dependencies(dependency))
+
+        return needed
+
+    def qualify(self, image_name):
+        registry = self.config.registry
+        if registry and not registry.endswith("/"):
+            registry = f"{registry}/"
+        return f"{registry}{image_name}"
+
+    @lru_cache
+    def all_task_images(self) -> dict[str, str]:
+        already_deployed = tuple(
+            app.name for app in self.involved_apps if not isinstance(app, str)
+        )
+        return {
+            name: self.qualify(dependency.image_name)
+            for name, dependency in self.all_build_dependencies(
+                already_deployed
+            ).items()
+        }
+
     @lru_cache
     def all_values(self):
         app_values = {}
@@ -792,16 +862,25 @@ class CHProject:
     def base_image_name(self):
         return self.all_values()["name"]
 
+    def _buildable_image(self, app: "CHApp") -> str | None:
+        if app.dockerfile.exists() and not app.deployment_config.get("image"):
+            return self.qualify(app.image_name)
+        return None
+
     def build_final_helm_values(self, write_on_disk=True) -> HarnessMainConfig:
-        app_names = {app.name for app in self.involved_apps if not isinstance(app, str)}
+        involved_apps = {
+            app.name: app for app in self.involved_apps if not isinstance(app, str)
+        }
         values = self.all_values()
         apps = {
-            name: _finalize_app_values(name, value)
+            name: _finalize_app_values(
+                name, value, self._buildable_image(involved_apps[name])
+            )
             for name, value in values.items()
-            if name in app_names
+            if name in involved_apps
         }
         project_values = {
-            key: value for key, value in values.items() if key not in app_names
+            key: value for key, value in values.items() if key not in involved_apps
         }
 
         ingress = dict(project_values.get("ingress") or {})
@@ -814,6 +893,7 @@ class CHProject:
         final_allvalues = {
             **project_values,
             "apps": apps,
+            "task-images": self.all_task_images(),
             "local": self.config.local,
             "secured_gatekeepers": True,
             "tls": self.config.tls,

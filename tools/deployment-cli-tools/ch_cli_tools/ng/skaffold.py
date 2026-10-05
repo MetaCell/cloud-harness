@@ -68,7 +68,7 @@ CHSkaffold.generate() algorithm:
 from functools import lru_cache
 from pathlib import Path
 
-from .model import CHAppTask, CHValues, DependencyUnknownError, register_file
+from .model import CHValues, register_file
 from .utils import dict_merge  # type: ignore
 
 # tools/clone.sh, shipped alongside this package - not part of any deployed
@@ -96,10 +96,7 @@ class CHSkaffoldTemplate(CHValues):
 @register_file("skaffold", lambda root: root / "skaffold.yaml")
 class CHSkaffold(CHValues):
     def qualify(self, image_name):
-        registry = self.project.config.registry
-        if registry and not registry.endswith("/"):
-            registry = f"{registry}/"
-        return f"{registry}{image_name}"
+        return self.project.qualify(image_name)
 
     def _build_docker_options(self, dockerfile_path, own_build_args=None):
         args = dict(self.project.all_source_images())
@@ -112,27 +109,6 @@ class CHSkaffold(CHValues):
         if args:
             options["buildArgs"] = args
         return options
-
-    # Generator-agnostic: entirely about what an app/task/base-image needs to be
-    # built (explicit + guessed, deduped, validated), nothing skaffold-shaped in
-    # here. codefresh.py will need the exact same semantics once it grows its own
-    # base/common-image build steps and ordering - if/when that happens, this and
-    # _collect_build_dependency_artifacts' traversal are the two candidates to
-    # split off onto CHApp/CHProject for both generators to share; only the
-    # artifact/step *shaping* (skaffold's `image`/`context`/`docker`/`requires`
-    # dict vs codefresh's `title`/`type`/`tag` step) would stay generator-specific.
-    def _combined_dependencies(self, entity):
-        build_dependencies = getattr(entity, "build_dependencies", None)
-        explicit = build_dependencies() if build_dependencies is not None else []
-        for dep in explicit:
-            if isinstance(dep, str):
-                msg = f"Build dependency {dep!r} declared by {entity.name} is not a known app, base image, or task"
-                raise DependencyUnknownError(msg)
-        guessed = [
-            dep if isinstance(dep, str) else dep.app
-            for dep in entity.dockerfile.base_dependencies
-        ]
-        return [*explicit, *guessed]
 
     def _collect_requires(self, deps):
         requires = []
@@ -152,7 +128,7 @@ class CHSkaffold(CHValues):
         return requires
 
     def _requires_for(self, entity):
-        return self._collect_requires(self._combined_dependencies(entity))
+        return self._collect_requires(self.project._combined_dependencies(entity))
 
     def _context_for(self, entity):
         return entity.dockerfile.resolve_context(self.path.parent).resolve_for_build(
@@ -293,38 +269,12 @@ class CHSkaffold(CHValues):
             test_entries,
         )
 
-    def _is_suppressed_orphan_task(self, dependency) -> bool:
-        if self.project.config.manage_task_images or not isinstance(
-            dependency, CHAppTask
-        ):
-            return False
-        involved_names = {
-            app.name for app in self.project.involved_apps if not isinstance(app, str)
-        }
-        return dependency.app.name not in involved_names
-
     def _collect_build_dependency_artifacts(self, already_covered):
-        needed = {}
-        stack = []
-        for app in self.project.involved_apps:
-            if isinstance(app, str):
-                continue
-            stack.extend(self._combined_dependencies(app))
-
-        while stack:
-            dependency = stack.pop()
-            if isinstance(dependency, str) or dependency.name in needed:
-                continue
-            if dependency.name in already_covered:
-                continue
-            if self._is_suppressed_orphan_task(dependency):
-                continue
-            needed[dependency.name] = dependency
-            stack.extend(self._combined_dependencies(dependency))
-
         return [
             self._collect_build_dependency_artifact(dependency)
-            for dependency in needed.values()
+            for dependency in self.project.all_build_dependencies(
+                already_covered
+            ).values()
         ]
 
     def generate(self, write_on_disk=True, output_path="."):

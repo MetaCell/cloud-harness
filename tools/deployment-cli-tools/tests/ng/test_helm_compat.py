@@ -1153,21 +1153,20 @@ def test_network_policy_defaults_from_value_template(tmp_path):
 
 
 # NG-COMPAT-TODO: needs actual `helm template` rendering (no ng Chart.yaml/templates generator)
-# def test_app_depends_on_task_only(tmp_path):
-#     out_folder = tmp_path / 'test_app_depends_on_task_only'
-#
-#     # taskdep depends on a base image (cloudharness-flask, which its Dockerfile uses) and
-#     # on myapp-mytask, a task image owned by another app (myapp) that is not listed as a
-#     # dependency itself. The owner app must be pulled in to build the task image, but must
-#     # not be deployed.
-#     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-#                                env='', local=False, include=["taskdep"], exclude=[])
-#
-#     assert "myapp-mytask" in values[KEY_TASK_IMAGES], "cross-app task image must be built"
-#     assert "cloudharness-flask" in values[KEY_TASK_IMAGES], "declared base-image build dep must be kept"
-#     assert "myapp" not in values[KEY_APPS], "owner app must be built but not deployed"
-#
-#
+def test_app_depends_on_task_only(tmp_path):
+    out_folder = tmp_path / 'test_app_depends_on_task_only'
+
+    # taskdep depends on a base image (cloudharness-flask, which its Dockerfile uses) and
+    # on myapp-mytask, a task image owned by another app (myapp) that is not listed as a
+    # dependency itself. The owner app must be pulled in to build the task image, but must
+    # not be deployed.
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               env='', local=False, include=["taskdep"], exclude=[])
+
+    assert "myapp-mytask" in values[KEY_TASK_IMAGES], "cross-app task image must be built"
+    assert "cloudharness-flask" in values[KEY_TASK_IMAGES], "declared base-image build dep must be kept"
+    assert "myapp" not in values[KEY_APPS], "owner app must be built but not deployed"
+
 def find_manifests(manifests, kind, name=None):
     return [manifest for manifest in manifests
             if manifest.get("kind") == kind and
