@@ -1175,7 +1175,14 @@ def secrets_volume(manifests, app='myapp'):
     return volumes[0]
 
 
-# NG-COMPAT-TODO: secrets management not modeled in ng at all; also needs helm template rendering
+# NG-COMPAT-TODO: fails identically on the real, unported legacy test
+# (tests/test_helm.py::test_secrets_simple_definitions, part of the accepted
+# pre-existing baseline) - confirmed by running it directly: 'secureSecret'
+# (a bare `null` value, not the rich/manager form) never reaches $managed in
+# deployment-configuration/helm/templates/secrets/_secrets.tpl at all with the
+# currently-installed Helm (v4.3.0). Not an ng gap - same templates, same
+# Helm binary, same failure either way. Leaving commented until that's fixed
+# upstream (likely a Sprig `kindIs "invalid"` behavior change for nil).
 # def test_secrets_simple_definitions(tmp_path):
 #     """The legacy plain value forms keep creating the application secret and a plain secret volume"""
 #     manifests = render_with_secrets(tmp_path, 'test_secrets_simple_definitions', {
@@ -1194,28 +1201,32 @@ def secrets_volume(manifests, app='myapp'):
 #     assert secret['stringData']['random-dynamic-secret'] == '?'
 #
 #     assert secrets_volume(manifests) == {'name': 'secrets', 'secret': {'secretName': 'myapp'}}
-#
-#
-# NG-COMPAT-TODO: secrets management not modeled in ng at all; also needs helm template rendering
-# def test_secrets_rich_definition_defaults_to_cloudharness(tmp_path):
-#     """Without a manager, the rich form behaves exactly like the plain form"""
-#     manifests = render_with_secrets(tmp_path, 'test_secrets_rich_definition_defaults_to_cloudharness', {
-#         'withDefault': {'default': 'a value'},
-#         'explicitManager': {'manager': 'cloudharness', 'default': '?'},
-#         'noDefault': {'manager': 'cloudharness'},
-#     })
-#
-#     secret = find_manifest(manifests, 'Secret', 'myapp')
-#     assert secret['stringData']['withDefault'] == 'a value'
-#     assert secret['stringData']['explicitManager'] == '?'
-#     assert len(secret['stringData']['noDefault']) == 20
-#     # the rich form must never be rendered as an unrecognized value
-#     assert not any('formatnotrecognized' in key for key in secret['stringData'])
-#
-#     assert secrets_volume(manifests) == {'name': 'secrets', 'secret': {'secretName': 'myapp'}}
-#
-#
-# NG-COMPAT-TODO: secrets management not modeled in ng at all; also needs helm template rendering
+
+
+def test_secrets_rich_definition_defaults_to_cloudharness(tmp_path):
+    """Without a manager, the rich form behaves exactly like the plain form"""
+    manifests = render_with_secrets(tmp_path, 'test_secrets_rich_definition_defaults_to_cloudharness', {
+        'withDefault': {'default': 'a value'},
+        'explicitManager': {'manager': 'cloudharness', 'default': '?'},
+        'noDefault': {'manager': 'cloudharness'},
+    })
+
+    secret = find_manifest(manifests, 'Secret', 'myapp')
+    assert secret['stringData']['withDefault'] == 'a value'
+    assert secret['stringData']['explicitManager'] == '?'
+    assert len(secret['stringData']['noDefault']) == 20
+    # the rich form must never be rendered as an unrecognized value
+    assert not any('formatnotrecognized' in key for key in secret['stringData'])
+
+    assert secrets_volume(manifests) == {'name': 'secrets', 'secret': {'secretName': 'myapp'}}
+
+
+# NG-COMPAT-TODO: fails identically on the real, unported legacy test
+# (tests/test_helm.py::test_secrets_unmanaged, part of the accepted
+# pre-existing baseline) - same root cause as test_secrets_simple_definitions
+# above (an explicit `{'manager': None}` isn't recognized as unmanaged by
+# _secrets.tpl with the currently-installed Helm), confirmed by running
+# legacy's own copy directly. Not an ng gap.
 # def test_secrets_unmanaged(tmp_path):
 #     """An explicitly null manager creates nothing: the secret is expected to exist already"""
 #     manifests = render_with_secrets(tmp_path, 'test_secrets_unmanaged', {
@@ -1225,9 +1236,11 @@ def secrets_volume(manifests, app='myapp'):
 #     assert not find_manifests(manifests, 'Secret', 'myapp'), "no secret must be created for unmanaged secrets"
 #     # mounted as optional: a missing secret must not block the pod from starting
 #     assert secrets_volume(manifests) == {'name': 'secrets', 'secret': {'secretName': 'myapp', 'optional': True}}
-#
-#
-# NG-COMPAT-TODO: secrets management not modeled in ng at all; also needs helm template rendering
+
+
+# NG-COMPAT-TODO: same root cause as test_secrets_unmanaged above - fails
+# identically on the real, unported legacy test (part of the accepted
+# pre-existing baseline). Not an ng gap.
 # def test_secrets_unmanaged_mixed_with_cloudharness(tmp_path):
 #     """Unmanaged secrets are simply left out of the application secret"""
 #     manifests = render_with_secrets(tmp_path, 'test_secrets_unmanaged_mixed_with_cloudharness', {
@@ -1240,162 +1253,155 @@ def secrets_volume(manifests, app='myapp'):
 #     assert 'existing' not in secret['stringData']
 #     # the whole secret is mounted, so the out of band entry shows up as well
 #     assert secrets_volume(manifests) == {'name': 'secrets', 'secret': {'secretName': 'myapp'}}
-#
-#
-# NG-COMPAT-TODO: secrets management not modeled in ng at all; also needs helm template rendering
-# def test_secrets_onepassword_manager(tmp_path):
-#     manifests = render_with_secrets(tmp_path, 'test_secrets_onepassword_manager', {
-#         'opSecret': {'manager': 'onepassword', 'path': 'vaults/my-vault/items/my-item'},
-#         'opField': {'manager': 'onepassword', 'path': 'my-item', 'field': 'credential'},
-#     }, secretmanagers={'onepassword': {'vault': 'default-vault'}})
-#
-#     item = find_manifest(manifests, 'OnePasswordItem', 'myapp-opsecret')
-#     assert item['apiVersion'] == 'onepassword.com/v1'
-#     assert item['spec']['itemPath'] == 'vaults/my-vault/items/my-item'
-#
-#     # the item name alone is completed with the globally configured vault
-#     item = find_manifest(manifests, 'OnePasswordItem', 'myapp-opfield')
-#     assert item['spec']['itemPath'] == 'vaults/default-vault/items/my-item'
-#
-#     assert not find_manifests(manifests, 'Secret', 'myapp'), "externally managed secrets are not created by CloudHarness"
-#
-#     assert secrets_volume(manifests) == {
-#         'name': 'secrets',
-#         'projected': {
-#             'sources': [
-#                 {'secret': {'name': 'myapp', 'optional': True}},
-#                 {'secret': {'name': 'myapp-opfield', 'items': [{'key': 'credential', 'path': 'opField'}]}},
-#                 {'secret': {'name': 'myapp-opsecret', 'items': [{'key': 'password', 'path': 'opSecret'}]}},
-#             ]
-#         }
-#     }
-#
-#
-# NG-COMPAT-TODO: secrets management not modeled in ng at all; also needs helm template rendering
-# def test_secrets_aws_manager(tmp_path):
-#     manifests = render_with_secrets(tmp_path, 'test_secrets_aws_manager', {
-#         'awsSecret': {'manager': 'aws', 'arn': 'arn:aws:secretsmanager:eu-west-1:1:secret:mine', 'property': 'password'},
-#     }, secretmanagers={'aws': {'store': 'aws-store', 'refreshInterval': '30m'}})
-#
-#     external = find_manifest(manifests, 'ExternalSecret', 'myapp-awssecret')
-#     assert external['apiVersion'] == 'external-secrets.io/v1beta1'
-#     assert external['spec']['secretStoreRef'] == {'name': 'aws-store', 'kind': 'ClusterSecretStore'}
-#     assert external['spec']['refreshInterval'] == '30m'
-#     assert external['spec']['target']['name'] == 'myapp-awssecret'
-#     assert external['spec']['data'] == [{
-#         'secretKey': 'value',
-#         'remoteRef': {'key': 'arn:aws:secretsmanager:eu-west-1:1:secret:mine', 'property': 'password'},
-#     }]
-#
-#     assert secrets_volume(manifests) == {
-#         'name': 'secrets',
-#         'projected': {
-#             'sources': [
-#                 {'secret': {'name': 'myapp', 'optional': True}},
-#                 {'secret': {'name': 'myapp-awssecret', 'items': [{'key': 'value', 'path': 'awsSecret'}]}},
-#             ]
-#         }
-#     }
-#
-#
-# NG-COMPAT-TODO: secrets management not modeled in ng at all; also needs helm template rendering
-# def test_secrets_aws_manager_version(tmp_path):
-#     """A `version` setting pins the secret to a VersionStage or VersionId"""
-#     manifests = render_with_secrets(tmp_path, 'test_secrets_aws_manager_version', {
-#         'awsSecret': {'manager': 'aws', 'arn': 'arn:aws:secretsmanager:eu-west-1:1:secret:mine', 'version': 'AWSPREVIOUS'},
-#     }, secretmanagers={'aws': {'store': 'aws-store'}})
-#
-#     external = find_manifest(manifests, 'ExternalSecret', 'myapp-awssecret')
-#     assert external['spec']['data'] == [{
-#         'secretKey': 'value',
-#         'remoteRef': {'key': 'arn:aws:secretsmanager:eu-west-1:1:secret:mine', 'version': 'AWSPREVIOUS'},
-#     }]
-#
-#
-# NG-COMPAT-TODO: secrets management not modeled in ng at all; also needs helm template rendering
-# def test_secrets_mixed_managers(tmp_path):
-#     """CloudHarness and externally managed secrets are exposed in the same directory"""
-#     manifests = render_with_secrets(tmp_path, 'test_secrets_mixed_managers', {
-#         'local': 'a value',
-#         'opSecret': {'manager': 'onepassword', 'path': 'vaults/my-vault/items/my-item', 'default': 'ignored locally'},
-#     })
-#
-#     secret = find_manifest(manifests, 'Secret', 'myapp')
-#     assert secret['stringData']['local'] == 'a value'
-#     assert 'opSecret' not in secret['stringData'], "the value of an externally managed secret is never written in the chart"
-#
-#     assert find_manifests(manifests, 'OnePasswordItem', 'myapp-opsecret')
-#     assert secrets_volume(manifests) == {
-#         'name': 'secrets',
-#         'projected': {
-#             'sources': [
-#                 {'secret': {'name': 'myapp'}},
-#                 {'secret': {'name': 'myapp-opsecret', 'items': [{'key': 'password', 'path': 'opSecret'}]}},
-#             ]
-#         }
-#     }
-#
-#
-# NG-COMPAT-TODO: secrets management not modeled in ng at all; also needs helm template rendering
-# def test_secrets_unknown_manager_setting_fails(tmp_path):
-#     with pytest.raises(subprocess.CalledProcessError) as error:
-#         render_with_secrets(tmp_path, 'test_secrets_unknown_manager_setting_fails', {
-#             'opSecret': {'manager': 'onepassword'},
-#         })
-#     assert "requires a 'path'" in error.value.stderr
-#
-#
-# NG-COMPAT-TODO: secrets management not modeled in ng at all; also needs helm template rendering
-# def test_secrets_of_a_dependency_are_mounted(tmp_path):
-#     """Applications see the secrets of their dependencies, whatever the manager"""
-#     def depend_on_myapp(values):
-#         values['apps']['dependantapp']['harness']['deployment']['auto'] = True
-#         values['apps']['dependantapp']['harness']['dependencies']['hard'] = ['myapp']
-#
-#     manifests = render_with_secrets(tmp_path, 'test_secrets_of_a_dependency_are_mounted', {
-#         'local': 'a value',
-#         'opSecret': {'manager': 'onepassword', 'path': 'vaults/my-vault/items/my-item'},
-#     }, include=['myapp', 'dependantapp'], patch=depend_on_myapp)
-#
-#     deployment = find_manifest(manifests, 'Deployment', 'dependantapp')
-#     volumes = [v for v in deployment['spec']['template']['spec']['volumes'] if v['name'] == 'cloudharness-myapp']
-#     assert volumes == [{
-#         'name': 'cloudharness-myapp',
-#         'projected': {
-#             'sources': [
-#                 {'secret': {'name': 'myapp'}},
-#                 {'secret': {'name': 'myapp-opsecret', 'items': [{'key': 'password', 'path': 'opSecret'}]}},
-#             ]
-#         }
-#     }]
-#
-#     mounts = [m for m in deployment['spec']['template']['spec']['containers'][0]['volumeMounts']
-#               if m['name'] == 'cloudharness-myapp']
-#     assert mounts[0]['mountPath'] == '/opt/cloudharness/resources/secrets/myapp'
-#
-#
-# NG-COMPAT-TODO: secrets management not modeled in ng at all; also needs helm template rendering
-# def test_secrets_definitions_survive_the_values_generation(tmp_path):
-#     """The rich form must reach the chart untouched, an explicitly null manager included:
-#     losing it would silently turn an unmanaged secret into a CloudHarness managed one"""
-#     out_folder = tmp_path / 'test_secrets_definitions_survive_the_values_generation'
-#     create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-#                       env='secrets', local=False, include=["myapp"], exclude=["legacy"])
-#
-#     helm_path = out_folder / HELM_CHART_PATH
-#     shutil.rmtree(helm_path / 'charts', ignore_errors=True)
-#     values_path = helm_path / 'values.yaml'
-#     with open(values_path) as values_file:
-#         values = yaml.load(values_file)
-#     secrets = values['apps']['myapp']['harness']['secrets']
-#     assert 'manager' in secrets['unmanagedSecret'], "the explicitly null manager must be kept"
-#     assert secrets['unmanagedSecret']['manager'] is None
-#     assert secrets['richSecret'] == {
-#         'manager': 'onepassword',
-#         'path': 'vaults/my-vault/items/my-item',
-#         'default': 'a local value',
-#     }
-#
+
+
+def test_secrets_onepassword_manager(tmp_path):
+    manifests = render_with_secrets(tmp_path, 'test_secrets_onepassword_manager', {
+        'opSecret': {'manager': 'onepassword', 'path': 'vaults/my-vault/items/my-item'},
+        'opField': {'manager': 'onepassword', 'path': 'my-item', 'field': 'credential'},
+    }, secretmanagers={'onepassword': {'vault': 'default-vault'}})
+
+    item = find_manifest(manifests, 'OnePasswordItem', 'myapp-opsecret')
+    assert item['apiVersion'] == 'onepassword.com/v1'
+    assert item['spec']['itemPath'] == 'vaults/my-vault/items/my-item'
+
+    # the item name alone is completed with the globally configured vault
+    item = find_manifest(manifests, 'OnePasswordItem', 'myapp-opfield')
+    assert item['spec']['itemPath'] == 'vaults/default-vault/items/my-item'
+
+    assert not find_manifests(manifests, 'Secret', 'myapp'), "externally managed secrets are not created by CloudHarness"
+
+    assert secrets_volume(manifests) == {
+        'name': 'secrets',
+        'projected': {
+            'sources': [
+                {'secret': {'name': 'myapp', 'optional': True}},
+                {'secret': {'name': 'myapp-opfield', 'items': [{'key': 'credential', 'path': 'opField'}]}},
+                {'secret': {'name': 'myapp-opsecret', 'items': [{'key': 'password', 'path': 'opSecret'}]}},
+            ]
+        }
+    }
+
+
+def test_secrets_aws_manager(tmp_path):
+    manifests = render_with_secrets(tmp_path, 'test_secrets_aws_manager', {
+        'awsSecret': {'manager': 'aws', 'arn': 'arn:aws:secretsmanager:eu-west-1:1:secret:mine', 'property': 'password'},
+    }, secretmanagers={'aws': {'store': 'aws-store', 'refreshInterval': '30m'}})
+
+    external = find_manifest(manifests, 'ExternalSecret', 'myapp-awssecret')
+    assert external['apiVersion'] == 'external-secrets.io/v1beta1'
+    assert external['spec']['secretStoreRef'] == {'name': 'aws-store', 'kind': 'ClusterSecretStore'}
+    assert external['spec']['refreshInterval'] == '30m'
+    assert external['spec']['target']['name'] == 'myapp-awssecret'
+    assert external['spec']['data'] == [{
+        'secretKey': 'value',
+        'remoteRef': {'key': 'arn:aws:secretsmanager:eu-west-1:1:secret:mine', 'property': 'password'},
+    }]
+
+    assert secrets_volume(manifests) == {
+        'name': 'secrets',
+        'projected': {
+            'sources': [
+                {'secret': {'name': 'myapp', 'optional': True}},
+                {'secret': {'name': 'myapp-awssecret', 'items': [{'key': 'value', 'path': 'awsSecret'}]}},
+            ]
+        }
+    }
+
+
+def test_secrets_aws_manager_version(tmp_path):
+    """A `version` setting pins the secret to a VersionStage or VersionId"""
+    manifests = render_with_secrets(tmp_path, 'test_secrets_aws_manager_version', {
+        'awsSecret': {'manager': 'aws', 'arn': 'arn:aws:secretsmanager:eu-west-1:1:secret:mine', 'version': 'AWSPREVIOUS'},
+    }, secretmanagers={'aws': {'store': 'aws-store'}})
+
+    external = find_manifest(manifests, 'ExternalSecret', 'myapp-awssecret')
+    assert external['spec']['data'] == [{
+        'secretKey': 'value',
+        'remoteRef': {'key': 'arn:aws:secretsmanager:eu-west-1:1:secret:mine', 'version': 'AWSPREVIOUS'},
+    }]
+
+
+def test_secrets_mixed_managers(tmp_path):
+    """CloudHarness and externally managed secrets are exposed in the same directory"""
+    manifests = render_with_secrets(tmp_path, 'test_secrets_mixed_managers', {
+        'local': 'a value',
+        'opSecret': {'manager': 'onepassword', 'path': 'vaults/my-vault/items/my-item', 'default': 'ignored locally'},
+    })
+
+    secret = find_manifest(manifests, 'Secret', 'myapp')
+    assert secret['stringData']['local'] == 'a value'
+    assert 'opSecret' not in secret['stringData'], "the value of an externally managed secret is never written in the chart"
+
+    assert find_manifests(manifests, 'OnePasswordItem', 'myapp-opsecret')
+    assert secrets_volume(manifests) == {
+        'name': 'secrets',
+        'projected': {
+            'sources': [
+                {'secret': {'name': 'myapp'}},
+                {'secret': {'name': 'myapp-opsecret', 'items': [{'key': 'password', 'path': 'opSecret'}]}},
+            ]
+        }
+    }
+
+
+def test_secrets_unknown_manager_setting_fails(tmp_path):
+    with pytest.raises(subprocess.CalledProcessError) as error:
+        render_with_secrets(tmp_path, 'test_secrets_unknown_manager_setting_fails', {
+            'opSecret': {'manager': 'onepassword'},
+        })
+    assert "requires a 'path'" in error.value.stderr
+
+
+def test_secrets_of_a_dependency_are_mounted(tmp_path):
+    """Applications see the secrets of their dependencies, whatever the manager"""
+    def depend_on_myapp(values):
+        values['apps']['dependantapp']['harness']['deployment']['auto'] = True
+        values['apps']['dependantapp']['harness']['dependencies']['hard'] = ['myapp']
+
+    manifests = render_with_secrets(tmp_path, 'test_secrets_of_a_dependency_are_mounted', {
+        'local': 'a value',
+        'opSecret': {'manager': 'onepassword', 'path': 'vaults/my-vault/items/my-item'},
+    }, include=['myapp', 'dependantapp'], patch=depend_on_myapp)
+
+    deployment = find_manifest(manifests, 'Deployment', 'dependantapp')
+    volumes = [v for v in deployment['spec']['template']['spec']['volumes'] if v['name'] == 'cloudharness-myapp']
+    assert volumes == [{
+        'name': 'cloudharness-myapp',
+        'projected': {
+            'sources': [
+                {'secret': {'name': 'myapp'}},
+                {'secret': {'name': 'myapp-opsecret', 'items': [{'key': 'password', 'path': 'opSecret'}]}},
+            ]
+        }
+    }]
+
+    mounts = [m for m in deployment['spec']['template']['spec']['containers'][0]['volumeMounts']
+              if m['name'] == 'cloudharness-myapp']
+    assert mounts[0]['mountPath'] == '/opt/cloudharness/resources/secrets/myapp'
+
+
+def test_secrets_definitions_survive_the_values_generation(tmp_path):
+    """The rich form must reach the chart untouched, an explicitly null manager included:
+    losing it would silently turn an unmanaged secret into a CloudHarness managed one"""
+    out_folder = tmp_path / 'test_secrets_definitions_survive_the_values_generation'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                      env='secrets', local=False, include=["myapp"], exclude=["legacy"])
+
+    helm_path = out_folder / HELM_CHART_PATH
+    shutil.rmtree(helm_path / 'charts', ignore_errors=True)
+    values_path = helm_path / 'values.yaml'
+    with open(values_path) as values_file:
+        values = yaml.load(values_file)
+    secrets = values['apps']['myapp']['harness']['secrets']
+    assert 'manager' in secrets['unmanagedSecret'], "the explicitly null manager must be kept"
+    assert secrets['unmanagedSecret']['manager'] is None
+    assert secrets['richSecret'] == {
+        'manager': 'onepassword',
+        'path': 'vaults/my-vault/items/my-item',
+        'default': 'a local value',
+    }
+
 #     values['apps']['myapp']['harness']['deployment']['auto'] = True
 #     with open(values_path, 'w') as values_file:
 #         yaml.dump(values, values_file)
