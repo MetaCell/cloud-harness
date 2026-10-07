@@ -119,16 +119,9 @@ def test_collect_helm_values(tmp_path):
     assert chart_values["test"] == "dev"
 
 
-# NG-COMPAT-TODO: legacy's root_paths=[RESOURCES] alone still works because
-# init_app_values() always reads CH_ROOT (a hardcoded install-location
-# global) as an implicit extra base layer, regardless of root_paths. ng has
-# no such hidden fallback - the chain is always exactly what's passed in -
-# so CLOUDHARNESS_ROOT is added explicitly here to supply the same rich
-# app_defaults (test.api/test.e2e in particular), matching every other
-# create_helm_chart test in this file.
 def test_collect_nobuild(tmp_path):
     out_folder = tmp_path / 'test_collect_helm_values'
-    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
+    values = create_helm_chart([RESOURCES], output_path=out_folder, include=['myapp'],
                                exclude=['events'], domain="my.local",
                                namespace='test', env='nobuild', local=False, tag='1', registry='reg')
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'custom-image'

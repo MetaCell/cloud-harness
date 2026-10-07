@@ -335,10 +335,7 @@ class CHSkaffold(CHValues):
             }
             artifact_overrides["task-images"] = task_image_overrides
 
-            if entrypoint_overrides:
-                release_config.setdefault("overrides", {})["apps"] = (
-                    entrypoint_overrides
-                )
+            release_config.setdefault("overrides", {})["apps"] = entrypoint_overrides
 
         if write_on_disk:
             self.write(base, output_path=output_path)

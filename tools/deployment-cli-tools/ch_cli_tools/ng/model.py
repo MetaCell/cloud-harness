@@ -911,16 +911,17 @@ class CHProject:
                 msg = f"Dependency {app} is declared as a hard dependency but cannot be found in the known applications: {list(self.scanned_apps.keys())}"
                 raise DependencyUnknownError(msg)
             app_values[app.name] = app.all_values()
-        base = self.valuesyaml
-        return dict_merge(
+        values = dict_merge(
             dict_merge(
-                dict_merge(
-                    self.helm_values_defaults.merge_with_base_and_envs(), app_values
-                ),
-                base.merge_with_envs(self.config.envs),
+                self.helm_values_defaults.merge_with_base_and_envs(), app_values
             ),
-            self.helm_chart.all_raw_values(),
+            self.valuesyaml.merge_with_base_and_envs(),
         )
+        if "name" not in values:
+            chart_name = self.helm_chart.merge_with_base_and_envs().get("name")
+            if chart_name:
+                values = {**values, "name": chart_name.lower()}
+        return values
 
     def base_image_name(self):
         return self.all_values()["name"]

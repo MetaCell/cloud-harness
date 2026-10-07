@@ -173,114 +173,95 @@ def test_create_skaffold_configuration(tmp_path):
     assert "--install" in flags["upgrade"]
 
 
-# NG-COMPAT-TODO: both conflicting-dependencies tests below need
-# create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES_BUGGY], ...) to produce a
-# valid HarnessMainConfig, which requires a non-None `mainapp` - a required
-# str field in ng's HarnessMainConfig with no default-derivation (same class
-# of gap as the namespace additions elsewhere in this file and in
-# test_helm_compat.py). Unlike namespace, create_helm_chart has no kwarg for
-# mainapp - it only ever comes from a project's own values-template.yaml, and
-# neither resources_buggy nor the real cloud-harness checkout's own
-# deployment-configuration/values-template.yaml declares one. Not fixable
-# from the test side without editing a shared fixture tree.
-#
-# def test_create_skaffold_configuration_with_conflicting_dependencies(tmp_path):
-#     values = create_helm_chart(
-#         [CLOUDHARNESS_ROOT, RESOURCES_BUGGY],
-#         output_path=tmp_path,
-#         include=["myapp"],
-#         exclude=["events"],
-#         domain="my.local",
-#         namespace="test",
-#         env="dev",
-#         local=False,
-#         tag="1",
-#         registry="reg",
-#     )
-#
-#     sk = create_skaffold_configuration(
-#         root_paths=[CLOUDHARNESS_ROOT, RESOURCES_BUGGY],
-#         helm_values=values,
-#         output_path=tmp_path,
-#     )
-#
-#     releases = sk["deploy"]["helm"]["releases"]
-#     assert len(releases) == 1
-#
-#     release = releases[0]
-#     assert "myapp" in release["overrides"]["apps"]
-#     assert "matplotlib" not in release["overrides"]["apps"]
-#
-#     myapp_config = release["overrides"]["apps"]["myapp"]
-#     assert myapp_config["harness"]["deployment"]["args"][0] == "/usr/src/app/myapp_code/__main__.py"
-#
-#
-# def test_create_skaffold_configuration_with_conflicting_dependencies_requirements_file(
-#     tmp_path,
-# ):
-#     values = create_helm_chart(
-#         [CLOUDHARNESS_ROOT, RESOURCES_BUGGY],
-#         output_path=tmp_path,
-#         include=["myapp2"],
-#         exclude=["events"],
-#         domain="my.local",
-#         namespace="test",
-#         env="dev",
-#         local=False,
-#         tag="1",
-#         registry="reg",
-#     )
-#
-#     sk = create_skaffold_configuration(
-#         root_paths=[CLOUDHARNESS_ROOT, RESOURCES_BUGGY],
-#         helm_values=values,
-#         output_path=tmp_path,
-#     )
-#
-#     releases = sk["deploy"]["helm"]["releases"]
-#     assert len(releases) == 1
-#
-#     release = releases[0]
-#     assert "myapp2" in release["overrides"]["apps"]
-#     assert "matplotlib" not in release["overrides"]["apps"]
-#
-#     myapp_config = release["overrides"]["apps"]["myapp2"]
-#     assert myapp_config["harness"]["deployment"]["args"][0] == "/usr/src/app/myapp_code/__main__.py"
+def test_create_skaffold_configuration_with_conflicting_dependencies(tmp_path):
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES_BUGGY],
+        output_path=tmp_path,
+        include=["myapp"],
+        exclude=["events"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+
+    sk = create_skaffold_configuration(
+        root_paths=[CLOUDHARNESS_ROOT, RESOURCES_BUGGY],
+        helm_values=values,
+        output_path=tmp_path,
+    )
+
+    releases = sk["deploy"]["helm"]["releases"]
+    assert len(releases) == 1
+
+    release = releases[0]
+    assert "myapp" in release["overrides"]["apps"]
+    assert "matplotlib" not in release["overrides"]["apps"]
+
+    myapp_config = release["overrides"]["apps"]["myapp"]
+    assert myapp_config["harness"]["deployment"]["args"][0] == "/usr/src/app/myapp_code/__main__.py"
 
 
-# NG-COMPAT-TODO: create_helm_chart([RESOURCES], env='nobuild', ...) fails
-# HarnessMainConfig validation before create_skaffold_configuration is ever
-# reached: myapp's merged harness.test ends up with a populated `unit:` block
-# but no `api:`/`e2e:` sub-blocks, and ng's ApplicationTestConfig requires all
-# three as non-None. _default_test_unit_enabled() (model.py) only backfills
-# `test.unit.enabled` when missing, not `test.api`/`test.e2e` - a real,
-# separate create_helm_chart gap, not a skaffold-wiring one.
-#
-# def test_create_skaffold_configuration_nobuild(tmp_path):
-#     values = create_helm_chart(
-#         [RESOURCES],
-#         output_path=tmp_path,
-#         include=["myapp"],
-#         domain="my.local",
-#         namespace="test",
-#         env="nobuild",
-#         local=False,
-#         tag="1",
-#         registry="reg",
-#     )
-#
-#     sk = create_skaffold_configuration(
-#         root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
-#         helm_values=values,
-#         output_path=tmp_path,
-#     )
-#     releases = sk["deploy"]["helm"]["releases"]
-#
-#     assert len(sk["build"]["artifacts"]) == 1
-#     assert len(releases) == 1
-#
-#     release = releases[0]
-#     assert "myapp" not in release["overrides"]["apps"]
+def test_create_skaffold_configuration_with_conflicting_dependencies_requirements_file(
+    tmp_path,
+):
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES_BUGGY],
+        output_path=tmp_path,
+        include=["myapp2"],
+        exclude=["events"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+
+    sk = create_skaffold_configuration(
+        root_paths=[CLOUDHARNESS_ROOT, RESOURCES_BUGGY],
+        helm_values=values,
+        output_path=tmp_path,
+    )
+
+    releases = sk["deploy"]["helm"]["releases"]
+    assert len(releases) == 1
+
+    release = releases[0]
+    assert "myapp2" in release["overrides"]["apps"]
+    assert "matplotlib" not in release["overrides"]["apps"]
+
+    myapp_config = release["overrides"]["apps"]["myapp2"]
+    assert myapp_config["harness"]["deployment"]["args"][0] == "/usr/src/app/myapp_code/__main__.py"
+
+
+def test_create_skaffold_configuration_nobuild(tmp_path):
+    values = create_helm_chart(
+        [RESOURCES],
+        output_path=tmp_path,
+        include=["myapp"],
+        domain="my.local",
+        namespace="test",
+        env="nobuild",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+
+    sk = create_skaffold_configuration(
+        root_paths=[RESOURCES],
+        helm_values=values,
+        output_path=tmp_path,
+    )
+    releases = sk["deploy"]["helm"]["releases"]
+
+    assert len(sk["build"]["artifacts"]) == 1
+    assert len(releases) == 1
+
+    release = releases[0]
+    assert "myapp" not in release["overrides"]["apps"]
 
 
 def test_env_dockerfile(tmp_path):
