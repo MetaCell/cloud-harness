@@ -37,26 +37,25 @@ def create_helm_chart(
     chart_version=None,
     app_version=None,
 ):
-    # secured/name/chart_version/app_version: accepted for signature compat,
-    # not wired yet - see ng/api.py's module docstring and
-    # CHProject.build_final_helm_values (secured_gatekeepers is hardcoded True,
-    # no CHDeployConfig field for it yet). Chart.yaml itself now comes from
-    # CHProject.write_chart() (copied from deployment-configuration/helm/,
-    # same as legacy) - name/chart_version/app_version would override fields
-    # inside that copied file, not generate it from scratch; still not wired.
+    # name/chart_version/app_version: accepted for signature compat, not wired
+    # yet - Chart.yaml itself now comes from CHProject.write_chart() (copied
+    # from deployment-configuration/helm/, same as legacy) - these would
+    # override fields inside that copied file, not generate it from scratch;
+    # still not wired.
     root_paths = list(root_paths)
 
-    config_kwargs = dict(
-        includes=list(include or []),
-        excludes=list(exclude or []),
-        registry=registry,
-        tag=tag,
-        local=local,
-        namespace=namespace,
-        registry_secret_name=registry_secret_name,
-        output_path=output_path,
-        tls=tls,
-    )
+    config_kwargs = {
+        "includes": list(include or []),
+        "excludes": list(exclude or []),
+        "registry": registry,
+        "tag": tag,
+        "local": local,
+        "namespace": namespace,
+        "registry_secret_name": registry_secret_name,
+        "output_path": output_path,
+        "tls": tls,
+        "secured_gatekeepers": secured,
+    }
     if env:
         config_kwargs["env"] = env
     if domain:

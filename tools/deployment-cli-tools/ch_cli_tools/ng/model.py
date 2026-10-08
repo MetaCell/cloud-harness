@@ -1035,7 +1035,7 @@ class CHProject:
             "task-images": self.all_task_images(),
             "source_images": source_images,
             "local": self.config.local,
-            "secured_gatekeepers": True,
+            "secured_gatekeepers": self.config.secured_gatekeepers,
             "tls": self.config.tls,
         }
         if self.config.domain:
@@ -1101,6 +1101,7 @@ class CHDeployConfig:
     tls: bool = field(default=True, kw_only=True)
     output_path: str = field(default="./deployment", kw_only=True)
     manage_task_images: bool = field(default=True, kw_only=True)
+    secured_gatekeepers: bool = field(default=True, kw_only=True)
 
     @property
     def envs(self) -> list[str]:

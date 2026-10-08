@@ -7,6 +7,7 @@ from .utils import dict_merge  # type: ignore
 KEY_BUILD_PARALLEL = "build_application_images"
 KEY_UNIT_TESTS = "tests_unit"
 KEY_CLONE_DEPENDENCIES = "post_main_clone"
+KEY_WAIT_DEPLOYMENT = "wait_deployment"
 
 _INVALID_STEP_KEY_CHARS = re.compile(r"[^a-zA-Z0-9_]")
 
@@ -94,7 +95,9 @@ class CHCodefresh(CHValues):
                 url = dep["url"]
                 branch_tag = dep.get("branch_tag")
                 repo_name = url.rsplit("/", 1)[-1]
-                step_name = _clean_step_key(f"clone_{repo_name}_{branch_tag}_{app.name}")
+                step_name = _clean_step_key(
+                    f"clone_{repo_name}_{branch_tag}_{app.name}"
+                )
                 destination = app.path / "dependencies" / (dep.get("path") or "")
                 steps[step_name] = {
                     "title": f"Cloning {repo_name} repository...",
@@ -143,6 +146,25 @@ class CHCodefresh(CHValues):
             }
         return steps
 
+    def _collect_rollout_wait_commands(self, project) -> list[str]:
+        secured_gatekeepers = project.config.secured_gatekeepers
+        commands = []
+        for app in project.involved_apps:
+            if isinstance(app, str):
+                continue
+            deployment = app.deployment_config
+            if deployment.get("auto"):
+                kind = "statefulset" if deployment.get("statefulset") else "deployment"
+                name = deployment.get("name") or app.name
+                commands.append(f"kubectl rollout status {kind}/{name}")
+            if app.harness_config.get("secured") and secured_gatekeepers:
+                # gatekeepers are always rendered as deployments
+                subdomain = app.harness_config.get("subdomain")
+                commands.append(f"kubectl rollout status deployment/{subdomain}-gk")
+        if commands:
+            commands.append("sleep 60")  # give the certificates time to settle
+        return commands
+
     def generate(self, write_on_disk=True, output_path="."):
         project = self.project
 
@@ -173,12 +195,17 @@ class CHCodefresh(CHValues):
             steps.setdefault(KEY_CLONE_DEPENDENCIES, {"type": "parallel", "steps": {}})
             steps[KEY_CLONE_DEPENDENCIES].setdefault("steps", {}).update(clone_steps)
 
+        if KEY_WAIT_DEPLOYMENT in steps:
+            steps[KEY_WAIT_DEPLOYMENT].setdefault("commands", []).extend(
+                self._collect_rollout_wait_commands(project)
+            )
+
         # MISSING: `version`/`stages` pipeline scaffolding (present when the
         # template itself declares them, not computed here), the
         # prepare_deployment/deploy steps (entirely template-driven already), api/
         # e2e test steps and their environment/URL wiring, secrets/db-connect-string/
-        # registry-secret wiring into the deployment step's arguments, rollout-wait
-        # commands, and parallel-step batching + stage ordering (sort_parallel_steps/
+        # registry-secret wiring into the deployment step's arguments, and
+        # parallel-step batching + stage ordering (sort_parallel_steps/
         # order_steps_by_stage in legacy) - none of that is reproduced here yet.
 
         if write_on_disk:

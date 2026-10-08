@@ -7,15 +7,15 @@
 # already relies on.
 #
 # Scope of this file: the per-app/task/base-image build steps (including their
-# dependency/source-image build_arguments), the unit test steps, and git-
-# dependency clone steps, all landing inside the template's pre-declared
-# containers (steps.build_application_images.steps / steps.tests_unit.steps /
-# steps.post_main_clone.steps). Everything else legacy's
-# create_codefresh_deployment_scripts also computes - api/e2e test steps,
-# parallel-step batching into build_application_images_N, stage ordering,
-# secrets/db-connect-string/registry-secret wiring into the deployment step,
-# rollout-wait commands - is not generated yet, so none of that is asserted
-# here.
+# dependency/source-image build_arguments), the unit test steps, git-
+# dependency clone steps, and the wait_deployment rollout-wait commands, all
+# landing inside the template's pre-declared containers
+# (steps.build_application_images.steps / steps.tests_unit.steps /
+# steps.post_main_clone.steps / steps.wait_deployment.commands). Everything
+# else legacy's create_codefresh_deployment_scripts also computes - api/e2e
+# test steps, parallel-step batching into build_application_images_N, stage
+# ordering, secrets/db-connect-string/registry-secret wiring into the
+# deployment step - is not generated yet, so none of that is asserted here.
 from ch_cli_tools.ng.api import create_helm_chart, create_codefresh_deployment_scripts
 from conftest import CLOUDHARNESS_ROOT, RESOURCES
 
@@ -239,3 +239,106 @@ def test_create_codefresh_configuration_no_git_clone_steps_when_no_git_dependenc
     clone_steps = cf["steps"]["post_main_clone"]["steps"]
     # Only the static template step is present - accounts has no git dependencies.
     assert list(clone_steps.keys()) == ["clone_cloud_harness"]
+
+
+def test_create_codefresh_configuration_rollout_wait_commands(tmp_path):
+    # real cloud-harness samples app: harness.secured=true, subdomain=www,
+    # harness.deployment.auto=true, harness.deployment.statefulset=true, no
+    # explicit deployment.name (falls back to the app's own name).
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=tmp_path,
+        include=["samples"],
+        exclude=["events"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+
+    cf = create_codefresh_deployment_scripts(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        envs=["dev"],
+        helm_values=values,
+        save=False,
+    )
+
+    commands = cf["steps"]["wait_deployment"]["commands"]
+
+    # Template-provided context-setup commands survive untouched, first.
+    assert commands[0] == "kubectl config use-context ${{CLUSTER_NAME}}"
+    assert commands[1] == "kubectl config set-context --current --namespace=${{NAMESPACE}}"
+
+    assert "kubectl rollout status statefulset/samples" in commands
+    assert "kubectl rollout status deployment/www-gk" in commands
+
+    # Gives the certificates time to settle, always last.
+    assert commands[-1] == "sleep 60"
+
+
+def test_create_codefresh_configuration_no_rollout_wait_commands_when_nothing_auto(
+    tmp_path,
+):
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=tmp_path,
+        include=["myapp"],
+        exclude=["events"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+
+    cf = create_codefresh_deployment_scripts(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        envs=["dev"],
+        helm_values=values,
+        save=False,
+    )
+
+    commands = cf["steps"]["wait_deployment"]["commands"]
+    # myapp has no deployment.auto/secured set - only the template's own
+    # static context-setup commands remain, no rollout/sleep lines appended.
+    assert commands == [
+        "kubectl config use-context ${{CLUSTER_NAME}}",
+        "kubectl config set-context --current --namespace=${{NAMESPACE}}",
+    ]
+
+
+def test_create_codefresh_configuration_gatekeeper_wait_suppressed_when_unsecured(
+    tmp_path,
+):
+    # create_helm_chart's secured=False (-u/--disable-security on the CLI) turns
+    # off gatekeeper rollout-waits project-wide, even for a secured app.
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=tmp_path,
+        include=["samples"],
+        exclude=["events"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+        secured=False,
+    )
+    assert values["secured_gatekeepers"] is False
+
+    cf = create_codefresh_deployment_scripts(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        envs=["dev"],
+        helm_values=values,
+        save=False,
+    )
+
+    commands = cf["steps"]["wait_deployment"]["commands"]
+    assert "kubectl rollout status deployment/www-gk" not in commands
+    # samples' own deployment.auto rollout-wait is unaffected - only the
+    # gatekeeper wait is gated by secured_gatekeepers.
+    assert "kubectl rollout status statefulset/samples" in commands
