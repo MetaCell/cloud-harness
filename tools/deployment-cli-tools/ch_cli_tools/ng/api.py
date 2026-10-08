@@ -166,7 +166,24 @@ def create_codefresh_deployment_scripts(
     helm_values=None,
     save=True,
 ):
-    pass
+    # template_name/base_image_name: accepted for signature compat, not wired yet -
+    # the template path is fixed (deployment-configuration/codefresh-template.yaml,
+    # chain-merged like every other registered file) and the project's own
+    # base_image_name() is always used, same as every other ng generator.
+    base_config = helm_values._ch_project.config
+    config = replace(
+        base_config,
+        env=list(envs) if envs else base_config.env,
+        includes=list(include) if include else base_config.includes,
+        excludes=list(exclude) if exclude else base_config.excludes,
+    )
+
+    project = None
+    for path in root_paths:  # lowest priority first, most specific last
+        project = CHProject(path, base=project, config=config)
+
+    assert project, "Couldn't build the project root representation"
+    return project.codefresh.generate(write_on_disk=save)
 
 
 def write_env_file(helm_values, filename, image_cache_endpoint_url=None):

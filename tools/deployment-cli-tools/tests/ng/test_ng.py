@@ -456,3 +456,39 @@ def test_three_level_dependency_resolves_to_top_level_instance(tmp_path):
     [dep] = depender.hard_dependencies
     assert dep is project["overridden"]
     assert dep is not project.base.base["overridden"]
+
+
+def test_app_test_fragment_reads_own_values(resources_project):
+    # myapp's own values.yaml declares unit test commands directly.
+    unit = resources_project["myapp"].test.unit
+    assert unit.enabled is True
+    assert unit.commands == ["tox", 'echo "hello"']
+
+
+def test_app_test_fragment_falls_back_to_defaults(resources_project):
+    # accounts declares no test config of its own - everything comes from
+    # deployment-configuration/value-template.yaml's app defaults.
+    test = resources_project["accounts"].test
+    assert test.unit.enabled is True
+    assert test.unit.commands == []
+    assert test.api.enabled is False
+    assert test.api.checks == ["all"]
+    assert test.e2e.enabled is False
+    assert test.e2e.smoketest is True
+
+
+def test_app_test_fragment_commands_empty_when_unit_tests_disabled(tmp_path):
+    root = tmp_path
+    (root / "deployment-configuration").mkdir(parents=True)
+    (root / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\n"
+    )
+    app_dir = root / "applications" / "myapp"
+    (app_dir / "deploy").mkdir(parents=True)
+    (app_dir / "Dockerfile").write_text("FROM scratch\n")
+    (app_dir / "deploy" / "values.yaml").write_text(
+        "harness:\n  test:\n    unit:\n      enabled: false\n"
+        "      commands: ['pytest tests/']\n"
+    )
+    project = chain(root, root, config=CHDeployConfig())
+    assert project["myapp"].test.unit.commands == []

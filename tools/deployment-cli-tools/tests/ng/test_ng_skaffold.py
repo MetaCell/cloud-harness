@@ -442,7 +442,7 @@ def test_unit_test_commands_requires_the_enabled_flag(tmp_path):
         "      commands: ['pytest tests/']\n"
     )
     project = chain(root, root, config=CHDeployConfig())
-    assert project["myapp"].unit_test_commands == []
+    assert project["myapp"].test.unit.commands == []
 
 
 def test_app_entrypoint_override_and_unit_tests_reach_skaffold_output():

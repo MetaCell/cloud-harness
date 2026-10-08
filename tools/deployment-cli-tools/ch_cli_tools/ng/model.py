@@ -43,6 +43,80 @@ class DependencyUnknownError(Exception): ...
 class InvalidVolumeConfigurationError(Exception): ...
 
 
+class CHUnitTest:
+    def __init__(self, config: dict):
+        self._config = config
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self._config.get("enabled"))
+
+    @property
+    def commands(self) -> list[str]:
+        if not self.enabled:
+            return []
+        return self._config.get("commands") or []
+
+
+class CHApiTest:
+    def __init__(self, config: dict):
+        self._config = config
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self._config.get("enabled"))
+
+    @property
+    def autotest(self) -> bool:
+        return bool(self._config.get("autotest"))
+
+    @property
+    def run_params(self) -> list[str]:
+        return self._config.get("runParams") or []
+
+    @property
+    def checks(self) -> list[str]:
+        return self._config.get("checks") or []
+
+
+class CHE2ETest:
+    def __init__(self, config: dict):
+        self._config = config
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self._config.get("enabled"))
+
+    @property
+    def smoketest(self) -> bool:
+        return bool(self._config.get("smoketest"))
+
+    @property
+    def ignore_console_errors(self) -> bool:
+        return bool(self._config.get("ignoreConsoleErrors"))
+
+    @property
+    def ignore_request_errors(self) -> bool:
+        return bool(self._config.get("ignoreRequestErrors"))
+
+
+class CHTest:
+    def __init__(self, config: dict):
+        self._config = config or {}
+
+    @property
+    def unit(self) -> CHUnitTest:
+        return CHUnitTest(self._config.get("unit") or {})
+
+    @property
+    def api(self) -> CHApiTest:
+        return CHApiTest(self._config.get("api") or {})
+
+    @property
+    def e2e(self) -> CHE2ETest:
+        return CHE2ETest(self._config.get("e2e") or {})
+
+
 yaml = get_yaml_parser()
 
 
@@ -202,11 +276,8 @@ class CHApp:
         return resolve_path(self.harness_config, "dockerfile.buildArgs", default={})
 
     @property
-    def unit_test_commands(self) -> list[str]:
-        test_config = resolve_path(self.harness_config, "test.unit", default={})
-        if not test_config.get("enabled"):
-            return []
-        return test_config.get("commands") or []
+    def test(self) -> CHTest:
+        return CHTest(resolve_path(self.harness_config, "test", default={}))
 
     @property
     def git_dependencies(self) -> list[dict]:

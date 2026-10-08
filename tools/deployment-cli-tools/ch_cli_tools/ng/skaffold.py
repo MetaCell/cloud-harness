@@ -24,7 +24,7 @@ CH model concepts this relies on:
   a prebuilt/external image (never built here) from one CH must build.
 - app.git_dependencies are external repos that must be cloned before the
   build can run, wired in as pre-build hooks.
-- app.app_entrypoint/app.unit_test_commands are the deployment command/args
+- app.app_entrypoint/app.test.unit.commands are the deployment command/args
   overrides and unit-test wiring that skaffold.yaml also carries.
 - CHProject.all_source_images() is a project-wide aggregation of
   ARG-defaulted base images, so every artifact gets the pinned versions as
@@ -223,7 +223,7 @@ class CHSkaffold(CHValues):
         }
 
     def _collect_test_entry(self, app):
-        commands = app.unit_test_commands
+        commands = app.test.unit.commands
         if not commands:
             return None
         return {
