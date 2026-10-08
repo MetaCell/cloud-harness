@@ -428,11 +428,16 @@ class CHBaseImage:
         self.name = self.path.name
         self._dockerfile = CHDockerfile(own_dockerfile_path(self.path), self)
 
+    def _lower_registry(self, lower: "CHProject") -> dict:
+        return lower.base_images
+
     @property
     @lru_cache
     def base(self) -> "CHBaseImage | None":
         lower = self.containing_project.base
-        return lower.base_images.get(self.name) if lower is not None else None
+        if lower is None:
+            return None
+        return self._lower_registry(lower).get(self.name)
 
     @property
     def containing_project(self):
@@ -467,11 +472,8 @@ class CHBaseImage:
 
 
 class CHTestImage(CHBaseImage):
-    @property
-    @lru_cache
-    def base(self) -> "CHTestImage | None":
-        lower = self.containing_project.base
-        return lower.test_images.get(self.name) if lower is not None else None
+    def _lower_registry(self, lower: "CHProject") -> dict:
+        return lower.test_images
 
 
 class CHAppTask:
@@ -525,7 +527,7 @@ class CHAppTask:
 
 
 class CHOpenAPI:
-    def __init__(self, path: Path, parent: CHApp):
+    def __init__(self, path: Path, parent: "CHApp"):
         self.path = path
         self.app = parent
 
@@ -535,14 +537,13 @@ class CHOpenAPI:
     @property
     @lru_cache
     def content(self) -> dict:
+        if not self.exists():
+            return {}
         with self.path.open("r", encoding="utf-8") as f:
-            spec = yaml.load(f)
-        return spec
+            return yaml.load(f)
 
     @property
     def server_urls(self) -> list[str]:
-        if not self.exists():
-            return []
         return [server["url"] for server in (self.content.get("servers") or [])]
 
 
@@ -753,12 +754,21 @@ class CHProject:
         own_test_images: dict[str, CHTestImage] = {}
         for p in self.root.glob("test/*/"):
             image = CHTestImage(p, self)
-            if image.dockerfile.path.exists():
+            if image.dockerfile.exists():
                 own_test_images[p.name] = image
         self.own_test_images = own_test_images
 
         self.test_images = dict(base.test_images) if base is not None else {}
         self.test_images.update(self.own_test_images)
+
+    @lru_cache
+    def all_layers(self) -> list["CHProject"]:
+        layers = []
+        layer = self
+        while layer is not None:
+            layers.append(layer)
+            layer = layer.base
+        return layers
 
     @property
     @lru_cache

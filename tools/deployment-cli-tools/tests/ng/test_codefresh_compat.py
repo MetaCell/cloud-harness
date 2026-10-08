@@ -8,24 +8,35 @@
 #
 # Scope of this file: the per-app/task/base-image/test-runner build steps
 # (including their dependency/source-image build_arguments), the unit/api/e2e
-# test steps, git-dependency clone steps, and the wait_deployment rollout-wait
-# commands, all landing inside the template's pre-declared containers
+# test steps, git-dependency clone steps, the wait_deployment rollout-wait
+# commands, the prepare_deployment $PATHS/$ENV/$PARAMS substitution, and
+# write_env_file, all landing inside the template's pre-declared containers
 # (steps.build_application_images.steps / steps.tests_unit.steps /
 # steps.tests_api.scale / steps.tests_e2e.scale / steps.post_main_clone.steps /
-# steps.wait_deployment.commands). Everything else legacy's
-# create_codefresh_deployment_scripts also computes - parallel-step batching
-# into build_application_images_N, stage ordering, secrets/db-connect-string/
-# registry-secret wiring into the deployment step - is not generated yet, so
-# none of that is asserted here.
-from ch_cli_tools.ng.api import create_helm_chart, create_codefresh_deployment_scripts
+# steps.wait_deployment.commands / steps.prepare_deployment.commands).
+# Everything else legacy's create_codefresh_deployment_scripts also computes -
+# parallel-step batching into build_application_images_N, stage ordering,
+# secrets/db-connect-string/registry-secret wiring into the deployment step -
+# is not generated yet, so none of that is asserted here.
+from unittest.mock import patch
+
+from ch_cli_tools.ng.api import (
+    create_helm_chart,
+    create_codefresh_deployment_scripts,
+    write_env_file,
+)
 from conftest import CLOUDHARNESS_ROOT, RESOURCES
 
 
-def test_create_codefresh_configuration_build_steps(tmp_path):
+def _generate_cf(tmp_path, include, **helm_chart_kwargs):
+    """create_helm_chart + create_codefresh_deployment_scripts against the real
+    [CLOUDHARNESS_ROOT, RESOURCES] chain, with the fixed args every test in this
+    file shares. Returns (codefresh_dict, helm_values) - most tests only need
+    the former, a couple (e.g. secured_gatekeepers) need the latter too."""
     values = create_helm_chart(
         [CLOUDHARNESS_ROOT, RESOURCES],
         output_path=tmp_path,
-        include=["samples", "myapp"],
+        include=include,
         exclude=["events"],
         domain="my.local",
         namespace="test",
@@ -33,14 +44,19 @@ def test_create_codefresh_configuration_build_steps(tmp_path):
         local=False,
         tag="1",
         registry="reg",
+        **helm_chart_kwargs,
     )
-
     cf = create_codefresh_deployment_scripts(
         [CLOUDHARNESS_ROOT, RESOURCES],
         envs=["dev"],
         helm_values=values,
         save=False,
     )
+    return cf, values
+
+
+def test_create_codefresh_configuration_build_steps(tmp_path):
+    cf, _ = _generate_cf(tmp_path, ["samples", "myapp"])
 
     # Template scaffolding (stages, main_clone, deployment, ...) survives untouched.
     assert cf["steps"]["main_clone"]["type"] == "git-clone"
@@ -72,25 +88,7 @@ def test_create_codefresh_configuration_build_steps(tmp_path):
 
 
 def test_create_codefresh_configuration_build_arguments(tmp_path):
-    values = create_helm_chart(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        output_path=tmp_path,
-        include=["myapp"],
-        exclude=["events"],
-        domain="my.local",
-        namespace="test",
-        env="dev",
-        local=False,
-        tag="1",
-        registry="reg",
-    )
-
-    cf = create_codefresh_deployment_scripts(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        envs=["dev"],
-        helm_values=values,
-        save=False,
-    )
+    cf, _ = _generate_cf(tmp_path, ["myapp"])
 
     steps = cf["steps"]["build_application_images"]["steps"]
     myapp_args = dict(arg.split("=", 1) for arg in steps["myapp"]["build_arguments"])
@@ -112,25 +110,7 @@ def test_create_codefresh_configuration_build_arguments(tmp_path):
 
 
 def test_create_codefresh_configuration_unit_tests(tmp_path):
-    values = create_helm_chart(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        output_path=tmp_path,
-        include=["myapp"],
-        exclude=["events"],
-        domain="my.local",
-        namespace="test",
-        env="dev",
-        local=False,
-        tag="1",
-        registry="reg",
-    )
-
-    cf = create_codefresh_deployment_scripts(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        envs=["dev"],
-        helm_values=values,
-        save=False,
-    )
+    cf, _ = _generate_cf(tmp_path, ["myapp"])
 
     unit_steps = cf["steps"]["tests_unit"]["steps"]
     assert "myapp_ut" in unit_steps
@@ -147,50 +127,14 @@ def test_create_codefresh_configuration_unit_tests(tmp_path):
 
 def test_create_codefresh_configuration_no_unit_tests_when_not_included(tmp_path):
     """An app with no test.unit.commands gets no unit test step at all."""
-    values = create_helm_chart(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        output_path=tmp_path,
-        include=["accounts"],
-        exclude=["events"],
-        domain="my.local",
-        namespace="test",
-        env="dev",
-        local=False,
-        tag="1",
-        registry="reg",
-    )
-
-    cf = create_codefresh_deployment_scripts(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        envs=["dev"],
-        helm_values=values,
-        save=False,
-    )
+    cf, _ = _generate_cf(tmp_path, ["accounts"])
 
     unit_steps = cf["steps"]["tests_unit"]["steps"]
     assert "accounts_ut" not in unit_steps
 
 
 def test_create_codefresh_configuration_git_clone_steps(tmp_path):
-    values = create_helm_chart(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        output_path=tmp_path,
-        include=["myapp"],
-        exclude=["events"],
-        domain="my.local",
-        namespace="test",
-        env="dev",
-        local=False,
-        tag="1",
-        registry="reg",
-    )
-
-    cf = create_codefresh_deployment_scripts(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        envs=["dev"],
-        helm_values=values,
-        save=False,
-    )
+    cf, _ = _generate_cf(tmp_path, ["myapp"])
 
     clone_steps = cf["steps"]["post_main_clone"]["steps"]
 
@@ -217,25 +161,7 @@ def test_create_codefresh_configuration_git_clone_steps(tmp_path):
 def test_create_codefresh_configuration_no_git_clone_steps_when_no_git_dependencies(
     tmp_path,
 ):
-    values = create_helm_chart(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        output_path=tmp_path,
-        include=["accounts"],
-        exclude=["events"],
-        domain="my.local",
-        namespace="test",
-        env="dev",
-        local=False,
-        tag="1",
-        registry="reg",
-    )
-
-    cf = create_codefresh_deployment_scripts(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        envs=["dev"],
-        helm_values=values,
-        save=False,
-    )
+    cf, _ = _generate_cf(tmp_path, ["accounts"])
 
     clone_steps = cf["steps"]["post_main_clone"]["steps"]
     # Only the static template step is present - accounts has no git dependencies.
@@ -246,25 +172,7 @@ def test_create_codefresh_configuration_rollout_wait_commands(tmp_path):
     # real cloud-harness samples app: harness.secured=true, subdomain=www,
     # harness.deployment.auto=true, harness.deployment.statefulset=true, no
     # explicit deployment.name (falls back to the app's own name).
-    values = create_helm_chart(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        output_path=tmp_path,
-        include=["samples"],
-        exclude=["events"],
-        domain="my.local",
-        namespace="test",
-        env="dev",
-        local=False,
-        tag="1",
-        registry="reg",
-    )
-
-    cf = create_codefresh_deployment_scripts(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        envs=["dev"],
-        helm_values=values,
-        save=False,
-    )
+    cf, _ = _generate_cf(tmp_path, ["samples"])
 
     commands = cf["steps"]["wait_deployment"]["commands"]
 
@@ -282,25 +190,7 @@ def test_create_codefresh_configuration_rollout_wait_commands(tmp_path):
 def test_create_codefresh_configuration_no_rollout_wait_commands_when_nothing_auto(
     tmp_path,
 ):
-    values = create_helm_chart(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        output_path=tmp_path,
-        include=["myapp"],
-        exclude=["events"],
-        domain="my.local",
-        namespace="test",
-        env="dev",
-        local=False,
-        tag="1",
-        registry="reg",
-    )
-
-    cf = create_codefresh_deployment_scripts(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        envs=["dev"],
-        helm_values=values,
-        save=False,
-    )
+    cf, _ = _generate_cf(tmp_path, ["myapp"])
 
     commands = cf["steps"]["wait_deployment"]["commands"]
     # myapp has no deployment.auto/secured set - only the template's own
@@ -316,27 +206,8 @@ def test_create_codefresh_configuration_gatekeeper_wait_suppressed_when_unsecure
 ):
     # create_helm_chart's secured=False (-u/--disable-security on the CLI) turns
     # off gatekeeper rollout-waits project-wide, even for a secured app.
-    values = create_helm_chart(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        output_path=tmp_path,
-        include=["samples"],
-        exclude=["events"],
-        domain="my.local",
-        namespace="test",
-        env="dev",
-        local=False,
-        tag="1",
-        registry="reg",
-        secured=False,
-    )
+    cf, values = _generate_cf(tmp_path, ["samples"], secured=False)
     assert values["secured_gatekeepers"] is False
-
-    cf = create_codefresh_deployment_scripts(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        envs=["dev"],
-        helm_values=values,
-        save=False,
-    )
 
     commands = cf["steps"]["wait_deployment"]["commands"]
     assert "kubectl rollout status deployment/www-gk" not in commands
@@ -349,25 +220,7 @@ def test_create_codefresh_configuration_api_and_e2e_test_steps(tmp_path):
     # real cloud-harness samples app: subdomain=www, test.api/test.e2e both
     # enabled, a real api/openapi.yaml (servers: [{url: /api}]), and both a
     # test/api and test/e2e directory of its own custom tests.
-    values = create_helm_chart(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        output_path=tmp_path,
-        include=["samples"],
-        exclude=["events"],
-        domain="my.local",
-        namespace="test",
-        env="dev",
-        local=False,
-        tag="1",
-        registry="reg",
-    )
-
-    cf = create_codefresh_deployment_scripts(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        envs=["dev"],
-        helm_values=values,
-        save=False,
-    )
+    cf, _ = _generate_cf(tmp_path, ["samples"])
 
     api_steps = cf["steps"]["tests_api"]["scale"]
     api_step = api_steps["samples_api_test"]
@@ -398,25 +251,7 @@ def test_create_codefresh_configuration_api_and_e2e_test_steps(tmp_path):
 
 
 def test_create_codefresh_configuration_no_api_e2e_steps_when_not_enabled(tmp_path):
-    values = create_helm_chart(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        output_path=tmp_path,
-        include=["myapp"],
-        exclude=["events"],
-        domain="my.local",
-        namespace="test",
-        env="dev",
-        local=False,
-        tag="1",
-        registry="reg",
-    )
-
-    cf = create_codefresh_deployment_scripts(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        envs=["dev"],
-        helm_values=values,
-        save=False,
-    )
+    cf, _ = _generate_cf(tmp_path, ["myapp"])
 
     # myapp has no test.api/test.e2e enabled - both steps get pruned entirely,
     # and no test-api/test-e2e runner image is built for nothing.
@@ -431,6 +266,8 @@ def test_create_codefresh_deployment_scripts_save_writes_under_deployment_dir(tm
     # chart lands - root/deployment/codefresh-{env}.yaml - not CWD/codefresh-
     # {env}.yaml. Regression test for a bug where generate()'s own
     # output_path="." default didn't match CHCodefresh.path's actual location.
+    # Uses its own synthetic single-root project, not the shared
+    # [CLOUDHARNESS_ROOT, RESOURCES] fixture _generate_cf relies on.
     (tmp_path / "deployment-configuration").mkdir(parents=True)
     (tmp_path / "deployment-configuration" / "values-template.yaml").write_text(
         "name: testproj\nmainapp: myapp\n"
@@ -458,3 +295,57 @@ def test_create_codefresh_deployment_scripts_save_writes_under_deployment_dir(tm
     )
 
     assert (tmp_path / "deployment" / "codefresh-dev.yaml").exists()
+
+
+def test_create_codefresh_configuration_prepare_deployment_placeholders(tmp_path):
+    # include/exclude flow into $PARAMS via helm_values._ch_project.config,
+    # inherited by create_codefresh_deployment_scripts automatically - no need
+    # to pass them again here.
+    cf, _ = _generate_cf(tmp_path, ["samples", "myapp"])
+
+    deploy_cmd = next(
+        c
+        for c in cf["steps"]["prepare_deployment"]["commands"]
+        if "harness-deployment" in c
+    )
+    # CLOUDHARNESS_ROOT is itself the cloud-harness checkout - rewritten to the
+    # literal "cloud-harness" Codefresh clones it to, regardless of its real
+    # local path; RESOURCES (the top of the chain) is "." relative to itself.
+    assert "harness-deployment cloud-harness . -d" in deploy_cmd
+    assert "-e dev " in deploy_cmd
+    assert "-i samples -i myapp -ex events" in deploy_cmd
+    assert "$PATHS" not in deploy_cmd
+    assert "$ENV" not in deploy_cmd
+    assert "$PARAMS" not in deploy_cmd
+
+
+def test_write_env_file(tmp_path):
+    _, values = _generate_cf(tmp_path, ["myapp"])
+
+    env_file = tmp_path / "test.env"
+    with patch(
+        "ch_cli_tools.ng.codefresh.check_image_exists_in_registry",
+        side_effect=[True, False, True, False, True, False, True],
+    ) as mock_check:
+        write_env_file(values, str(env_file))
+
+    lines = env_file.read_text().splitlines()
+    env = dict(line.split("=", 1) for line in lines)
+
+    # myapp itself, its own task, a declared build dependency
+    # (cloudharness-flask, via task-images), and the test-api/test-e2e runner
+    # images (read straight from the model, never part of helm_values itself)
+    # all get a tag line.
+    assert env["MYAPP_TAG"] == "1"
+    assert env["MYAPP_MYTASK_TAG"] == "1"
+    assert env["CLOUDHARNESS_FLASK_TAG"] == "1"
+    assert env["TEST_API_TAG"] == "1"
+    assert env["TEST_E2E_TAG"] == "1"
+
+    # Registry-existence check drives the _EXISTS/_NEW suffix, one call per
+    # recorded image - alternating True/False above must split the same way.
+    assert mock_check.call_count == 7
+    exists_suffixes = [k for k in env if k.endswith("_EXISTS")]
+    new_suffixes = [k for k in env if k.endswith("_NEW")]
+    assert len(exists_suffixes) == 4
+    assert len(new_suffixes) == 3

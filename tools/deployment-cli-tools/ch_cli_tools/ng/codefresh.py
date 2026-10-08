@@ -1,7 +1,10 @@
 import re
 from functools import lru_cache
+from pathlib import Path
 
-from .model import CHValues, register_file
+from ch_cli_tools.utils import check_image_exists_in_registry  # type: ignore
+
+from .model import KEY_TASK_IMAGES, CHValues, register_file
 from .utils import dict_merge  # type: ignore
 
 KEY_BUILD_PARALLEL = "build_application_images"
@@ -10,6 +13,7 @@ KEY_CLONE_DEPENDENCIES = "post_main_clone"
 KEY_WAIT_DEPLOYMENT = "wait_deployment"
 KEY_API_TESTS = "tests_api"
 KEY_E2E_TESTS = "tests_e2e"
+KEY_PREPARE_DEPLOYMENT = "prepare_deployment"
 
 _INVALID_STEP_KEY_CHARS = re.compile(r"[^a-zA-Z0-9_]")
 
@@ -28,6 +32,62 @@ def _git_main_domain(url: str) -> str:
     if "bitbucket" in host:
         return "bitbucket"
     return "github"
+
+
+_CLOUD_HARNESS_DIR_NAME = "cloud-harness"
+
+
+def _to_codefresh_path(path, relative_to) -> str:
+    rel_parts = path.resolve().relative_to(relative_to.resolve(), walk_up=True).parts
+    if rel_parts and rel_parts[0] == "..":
+        abs_parts = path.resolve().parts
+        if _CLOUD_HARNESS_DIR_NAME in abs_parts:
+            return str(Path(*abs_parts[abs_parts.index(_CLOUD_HARNESS_DIR_NAME) :]))
+    return str(Path(*rel_parts)) if rel_parts else "."
+
+
+def _env_key(name: str) -> str:
+    return name.replace("-", "_").upper()
+
+
+def _tag_variable(name: str) -> str:
+    return f"{_env_key(name)}_TAG"
+
+
+def _extract_tag(image: str) -> str:
+    return image.split(":")[1] if ":" in image else "latest"
+
+
+def write_env_file(helm_values, filename, image_cache_endpoint_url=None) -> None:
+    env: dict[str, int | str] = {}
+
+    def record(name: str, image: str) -> None:
+        tag = _extract_tag(image)
+        env[_tag_variable(name)] = tag
+        chunks = image.split(":")[0].split("/")
+        has_registry_host = "." in chunks[0]
+        registry = chunks[0] if has_registry_host else "docker.io"
+        image_name = "/".join(chunks[1:] if has_registry_host else chunks)
+        exists = check_image_exists_in_registry(
+            registry, image_name, tag, endpoint_url=image_cache_endpoint_url
+        )
+        env[_tag_variable(name) + ("_EXISTS" if exists else "_NEW")] = 1
+
+    for app_name, app in helm_values.apps.items():
+        if app.harness and app.harness.deployment.image:
+            record(app_name, app.harness.deployment.image)
+
+    for name, image in helm_values[KEY_TASK_IMAGES].items():
+        record(name, image)
+
+    project = helm_values._ch_project
+    for name, test_image in project.test_images.items():
+        if not test_image.dockerfile.exists():
+            continue
+        record(name, project.qualify_image(test_image))
+
+    with open(filename, "w", encoding="utf-8") as f:
+        f.writelines(f"{key}={value}\n" for key, value in env.items())
 
 
 @register_file(
@@ -66,7 +126,7 @@ class CHCodefresh(CHValues):
         for dep in self.project._combined_dependencies(entity):
             if isinstance(dep, str):
                 continue
-            args[dep.name.upper().replace("-", "_")] = self.qualify(dep.image_name)
+            args[_env_key(dep.name)] = self.qualify(dep.image_name)
         args.update(self.project.all_source_images())
         return [f"{key}={value}" for key, value in args.items()]
 
@@ -117,7 +177,7 @@ class CHCodefresh(CHValues):
     def _collect_task_build_steps(self, app):
         steps = {}
         for task in app.tasks.values():
-            if not task.dockerfile.path.exists():
+            if not task.dockerfile.exists():
                 continue
             key, step = self._collect_build_step(task)
             steps[key] = step
@@ -126,7 +186,7 @@ class CHCodefresh(CHValues):
     def _collect_base_image_build_steps(self, project):
         steps = {}
         for base_image in project.base_images.values():
-            if not base_image.dockerfile.path.exists():
+            if not base_image.dockerfile.exists():
                 continue
             key, step = self._collect_build_step(base_image)
             steps[key] = step
@@ -166,6 +226,29 @@ class CHCodefresh(CHValues):
             commands.append("sleep 60")  # give the certificates time to settle
         return commands
 
+    def _substitute_prepare_deployment_placeholders(
+        self, project, commands
+    ) -> list[str]:
+        config = project.config
+        params = [f"-i {inc}" for inc in config.includes] + [
+            f"-ex {exc}" for exc in config.excludes
+        ]
+        paths = " ".join(
+            _to_codefresh_path(layer.root, project.root)
+            for layer in reversed(project.all_layers())
+        )
+        replacements = {
+            "$ENV": "-".join(config.envs),
+            "$PARAMS": " ".join(params),
+            "$PATHS": paths,
+        }
+        result = []
+        for command in commands:
+            for placeholder, value in replacements.items():
+                command = command.replace(placeholder, value)
+            result.append(command)
+        return result
+
     def _app_domain(self, app) -> str:
         subdomain = app.harness_config.get("subdomain")
         return f"https://{subdomain}." + "${{DOMAIN}}"
@@ -193,7 +276,14 @@ class CHCodefresh(CHValues):
             params += ["-c", check]
         params += api.run_params
         return " ".join(
-            ["st", "--pre-run", "cloudharness_test.apitest_init", "run", "api/openapi.yaml", *params]
+            [
+                "st",
+                "--pre-run",
+                "cloudharness_test.apitest_init",
+                "run",
+                "api/openapi.yaml",
+                *params,
+            ]
         )
 
     def _api_test_commands(self, app, app_domain: str) -> list[str]:
@@ -213,7 +303,10 @@ class CHCodefresh(CHValues):
 
     def _e2e_test_volumes(self, app) -> list[str]:
         app_path = self._repo_relative(app.path)
-        return ["${{CF_REPO_NAME}}/" + f"{app_path}/test/e2e:/home/test/__tests__/{app.name}"]
+        return [
+            "${{CF_REPO_NAME}}/"
+            + f"{app_path}/test/e2e:/home/test/__tests__/{app.name}"
+        ]
 
     def _collect_api_test_steps(self, project) -> dict:
         scale = {}
@@ -259,7 +352,7 @@ class CHCodefresh(CHValues):
             del steps[key]
             return
         test_image = project.test_images.get(name)
-        if test_image is None or not test_image.dockerfile.path.exists():
+        if test_image is None or not test_image.dockerfile.exists():
             return
         build_key, build_step = self._collect_build_step(test_image)
         steps[KEY_BUILD_PARALLEL].setdefault("steps", {})[build_key] = build_step
@@ -276,7 +369,7 @@ class CHCodefresh(CHValues):
             if isinstance(app, str):
                 continue
 
-            if app.dockerfile.path.exists():
+            if app.dockerfile.exists():
                 key, step = self._collect_build_step(app)
                 build_steps[key] = step
 
@@ -295,34 +388,33 @@ class CHCodefresh(CHValues):
             steps.setdefault(KEY_CLONE_DEPENDENCIES, {"type": "parallel", "steps": {}})
             steps[KEY_CLONE_DEPENDENCIES].setdefault("steps", {}).update(clone_steps)
 
-        # Only extends/prunes already template-provided tests_api/tests_e2e
-        # steps (their image/volumes/when-condition scaffolding is template-
-        # driven) - matches legacy, which deletes either step entirely once
-        # its scale ends up empty.
-        if KEY_API_TESTS in steps:
-            steps[KEY_API_TESTS].setdefault("scale", {}).update(
-                self._collect_api_test_steps(project)
-            )
-            self._wire_test_image(project, steps, KEY_API_TESTS, "test-api")
-
-        if KEY_E2E_TESTS in steps:
-            steps[KEY_E2E_TESTS].setdefault("scale", {}).update(
-                self._collect_e2e_test_steps(project)
-            )
-            self._wire_test_image(project, steps, KEY_E2E_TESTS, "test-e2e")
+        for key, image_name, collect in (
+            (KEY_API_TESTS, "test-api", self._collect_api_test_steps),
+            (KEY_E2E_TESTS, "test-e2e", self._collect_e2e_test_steps),
+        ):
+            if key in steps:
+                steps[key].setdefault("scale", {}).update(collect(project))
+                self._wire_test_image(project, steps, key, image_name)
 
         if KEY_WAIT_DEPLOYMENT in steps:
             steps[KEY_WAIT_DEPLOYMENT].setdefault("commands", []).extend(
                 self._collect_rollout_wait_commands(project)
             )
 
+        prepare_deployment = steps.get(KEY_PREPARE_DEPLOYMENT)
+        if prepare_deployment and prepare_deployment.get("commands"):
+            prepare_deployment["commands"] = (
+                self._substitute_prepare_deployment_placeholders(
+                    project, prepare_deployment["commands"]
+                )
+            )
+
         # MISSING: `version`/`stages` pipeline scaffolding (present when the
-        # template itself declares them, not computed here), the
-        # prepare_deployment/deploy steps (entirely template-driven already),
-        # secrets/db-connect-string/registry-secret wiring into the deployment
-        # step's arguments, and parallel-step batching + stage ordering
-        # (sort_parallel_steps/order_steps_by_stage in legacy) - none of that
-        # is reproduced here yet.
+        # template itself declares them, not computed here), the deploy step
+        # (entirely template-driven already), secrets/db-connect-string/
+        # registry-secret wiring into the deployment step's arguments, and
+        # parallel-step batching + stage ordering (sort_parallel_steps/
+        # order_steps_by_stage in legacy) - none of that is reproduced here yet.
 
         if write_on_disk:
             self.write(base, output_path=output_path)

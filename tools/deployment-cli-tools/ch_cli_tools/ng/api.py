@@ -14,6 +14,7 @@ ConfigurationGenerator/HarnessMainConfig machinery.
 
 from dataclasses import replace
 
+from . import codefresh
 from .model import CHDeployConfig, CHProject
 
 # --- ch_cli_tools/helm.py ---
@@ -186,7 +187,7 @@ def create_codefresh_deployment_scripts(
 
 
 def write_env_file(helm_values, filename, image_cache_endpoint_url=None):
-    pass
+    return codefresh.write_env_file(helm_values, filename, image_cache_endpoint_url)
 
 
 # --- ch_cli_tools/preprocessing.py ---
