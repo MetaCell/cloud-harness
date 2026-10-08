@@ -6,15 +6,16 @@
 # via CHContext.resolve_for_build(), the same mechanism create_skaffold_configuration
 # already relies on.
 #
-# Scope of this file: only the per-app/task/base-image build steps (including
-# their dependency/source-image build_arguments) and the unit test steps, both
-# landing inside the template's pre-declared containers
-# (steps.build_application_images.steps / steps.tests_unit.steps). Everything
-# else legacy's create_codefresh_deployment_scripts also computes - git-clone
-# dependency steps, api/e2e test steps, parallel-step batching into
-# build_application_images_N, stage ordering, secrets/db-connect-string/
-# registry-secret wiring into the deployment step, rollout-wait commands - is
-# not generated yet, so none of that is asserted here.
+# Scope of this file: the per-app/task/base-image build steps (including their
+# dependency/source-image build_arguments), the unit test steps, and git-
+# dependency clone steps, all landing inside the template's pre-declared
+# containers (steps.build_application_images.steps / steps.tests_unit.steps /
+# steps.post_main_clone.steps). Everything else legacy's
+# create_codefresh_deployment_scripts also computes - api/e2e test steps,
+# parallel-step batching into build_application_images_N, stage ordering,
+# secrets/db-connect-string/registry-secret wiring into the deployment step,
+# rollout-wait commands - is not generated yet, so none of that is asserted
+# here.
 from ch_cli_tools.ng.api import create_helm_chart, create_codefresh_deployment_scripts
 from conftest import CLOUDHARNESS_ROOT, RESOURCES
 
@@ -167,3 +168,74 @@ def test_create_codefresh_configuration_no_unit_tests_when_not_included(tmp_path
 
     unit_steps = cf["steps"]["tests_unit"]["steps"]
     assert "accounts_ut" not in unit_steps
+
+
+def test_create_codefresh_configuration_git_clone_steps(tmp_path):
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=tmp_path,
+        include=["myapp"],
+        exclude=["events"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+
+    cf = create_codefresh_deployment_scripts(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        envs=["dev"],
+        helm_values=values,
+        save=False,
+    )
+
+    clone_steps = cf["steps"]["post_main_clone"]["steps"]
+
+    # Template-provided clone step survives untouched alongside the computed ones.
+    assert clone_steps["clone_cloud_harness"]["type"] == "git-clone"
+
+    # myapp declares two harness.dependencies.git entries (tests/resources/
+    # applications/myapp/deploy/values.yaml): one with no `path` override, one
+    # with path="myrepo".
+    no_path_step = clone_steps["clone_b_git_master_myapp"]
+    assert no_path_step["repo"] == "https://github.com/a/b.git"
+    assert no_path_step["revision"] == "master"
+    assert no_path_step["git"] == "github"
+    assert no_path_step["working_directory"].endswith("applications/myapp/dependencies")
+
+    with_path_step = clone_steps["clone_d_git_v1_0_0_myapp"]
+    assert with_path_step["repo"] == "https://github.com/c/d.git"
+    assert with_path_step["revision"] == "v1.0.0"
+    assert with_path_step["working_directory"].endswith(
+        "applications/myapp/dependencies/myrepo"
+    )
+
+
+def test_create_codefresh_configuration_no_git_clone_steps_when_no_git_dependencies(
+    tmp_path,
+):
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=tmp_path,
+        include=["accounts"],
+        exclude=["events"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+
+    cf = create_codefresh_deployment_scripts(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        envs=["dev"],
+        helm_values=values,
+        save=False,
+    )
+
+    clone_steps = cf["steps"]["post_main_clone"]["steps"]
+    # Only the static template step is present - accounts has no git dependencies.
+    assert list(clone_steps.keys()) == ["clone_cloud_harness"]

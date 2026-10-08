@@ -1,3 +1,4 @@
+import re
 from functools import lru_cache
 
 from .model import CHValues, register_file
@@ -5,6 +6,25 @@ from .utils import dict_merge  # type: ignore
 
 KEY_BUILD_PARALLEL = "build_application_images"
 KEY_UNIT_TESTS = "tests_unit"
+KEY_CLONE_DEPENDENCIES = "post_main_clone"
+
+_INVALID_STEP_KEY_CHARS = re.compile(r"[^a-zA-Z0-9_]")
+
+
+def _clean_step_key(name: str) -> str:
+    return _INVALID_STEP_KEY_CHARS.sub("_", name)
+
+
+def _git_main_domain(url: str) -> str:
+    try:
+        host = url.split("//")[1].split("/")[0]
+    except IndexError:
+        return "${{ DEFAULT_REPO }}"
+    if "gitlab" in host:
+        return "gitlab"
+    if "bitbucket" in host:
+        return "bitbucket"
+    return "github"
 
 
 @register_file(
@@ -57,13 +77,38 @@ class CHCodefresh(CHValues):
         build_arguments = self._build_arguments(entity)
         if build_arguments:
             step["build_arguments"] = build_arguments
-        # MISSING: git-dependency clone steps, and a `stage:` assignment (no
-        # `stages` pipeline scaffolding is modeled here). `registry_secret_name`/
-        # `domain` are on CHDeployConfig now but have nothing to plug into yet
-        # either: registry auth for a push is a Codefresh registry integration
-        # reference, not a k8s secret name (that's a Helm-values concern), and
-        # `domain` only matters for e2e test steps, not generated yet.
+        # MISSING: a `stage:` assignment (no `stages` pipeline scaffolding is
+        # modeled here). `registry_secret_name`/`domain` are on CHDeployConfig
+        # now but have nothing to plug into yet either: registry auth for a
+        # push is a Codefresh registry integration reference, not a k8s secret
+        # name (that's a Helm-values concern), and `domain` only matters for
+        # e2e test steps, not generated yet.
         return entity.name, step
+
+    def _collect_git_clone_steps(self, project):
+        steps = {}
+        for app in project.involved_apps:
+            if isinstance(app, str):
+                continue
+            for dep in app.git_dependencies:
+                url = dep["url"]
+                branch_tag = dep.get("branch_tag")
+                repo_name = url.rsplit("/", 1)[-1]
+                step_name = _clean_step_key(f"clone_{repo_name}_{branch_tag}_{app.name}")
+                destination = app.path / "dependencies" / (dep.get("path") or "")
+                steps[step_name] = {
+                    "title": f"Cloning {repo_name} repository...",
+                    "type": "git-clone",
+                    "repo": url,
+                    "revision": branch_tag,
+                    "working_directory": str(
+                        destination.resolve().relative_to(
+                            self.path.parent.resolve(), walk_up=True
+                        )
+                    ),
+                    "git": _git_main_domain(url),
+                }
+        return steps
 
     def _collect_task_build_steps(self, app):
         steps = {}
@@ -123,8 +168,13 @@ class CHCodefresh(CHValues):
         steps.setdefault(KEY_UNIT_TESTS, {"type": "parallel", "steps": {}})
         steps[KEY_UNIT_TESTS].setdefault("steps", {}).update(unit_test_steps)
 
+        clone_steps = self._collect_git_clone_steps(project)
+        if clone_steps:
+            steps.setdefault(KEY_CLONE_DEPENDENCIES, {"type": "parallel", "steps": {}})
+            steps[KEY_CLONE_DEPENDENCIES].setdefault("steps", {}).update(clone_steps)
+
         # MISSING: `version`/`stages` pipeline scaffolding (present when the
-        # template itself declares them, not computed here), the git-clone/
+        # template itself declares them, not computed here), the
         # prepare_deployment/deploy steps (entirely template-driven already), api/
         # e2e test steps and their environment/URL wiring, secrets/db-connect-string/
         # registry-secret wiring into the deployment step's arguments, rollout-wait
