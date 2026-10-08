@@ -265,7 +265,7 @@ class CHCodefresh(CHValues):
         steps[KEY_BUILD_PARALLEL].setdefault("steps", {})[build_key] = build_step
         steps[key]["image"] = self.qualify(test_image.image_name)
 
-    def generate(self, write_on_disk=True, output_path="."):
+    def generate(self, write_on_disk=True, output_path=None):
         project = self.project
 
         base = project.codefresh_template.all_values()

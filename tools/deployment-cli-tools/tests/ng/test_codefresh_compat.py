@@ -424,3 +424,37 @@ def test_create_codefresh_configuration_no_api_e2e_steps_when_not_enabled(tmp_pa
     assert "tests_e2e" not in cf["steps"]
     assert "test-api" not in cf["steps"]["build_application_images"]["steps"]
     assert "test-e2e" not in cf["steps"]["build_application_images"]["steps"]
+
+
+def test_create_codefresh_deployment_scripts_save_writes_under_deployment_dir(tmp_path):
+    # save=True (the real CLI's default) must write next to where helm's own
+    # chart lands - root/deployment/codefresh-{env}.yaml - not CWD/codefresh-
+    # {env}.yaml. Regression test for a bug where generate()'s own
+    # output_path="." default didn't match CHCodefresh.path's actual location.
+    (tmp_path / "deployment-configuration").mkdir(parents=True)
+    (tmp_path / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\nmainapp: myapp\n"
+    )
+    app_dir = tmp_path / "applications" / "myapp"
+    app_dir.mkdir(parents=True)
+    (app_dir / "Dockerfile").write_text("FROM scratch\n")
+
+    values = create_helm_chart(
+        [tmp_path],
+        output_path=tmp_path / "deployment",
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+
+    create_codefresh_deployment_scripts(
+        [tmp_path],
+        envs=["dev"],
+        helm_values=values,
+        save=True,
+    )
+
+    assert (tmp_path / "deployment" / "codefresh-dev.yaml").exists()
