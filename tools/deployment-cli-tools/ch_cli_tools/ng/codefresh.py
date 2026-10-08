@@ -33,6 +33,17 @@ class CHCodefresh(CHValues):
             self.path.parent
         )
 
+    def _build_arguments(self, entity) -> list[str]:
+        args: dict[str, str] = {}
+        if self.project.config.local or self.project.config.debug:
+            args["DEBUG"] = "true"
+        for dep in self.project._combined_dependencies(entity):
+            if isinstance(dep, str):
+                continue
+            args[dep.name.upper().replace("-", "_")] = self.qualify(dep.image_name)
+        args.update(self.project.all_source_images())
+        return [f"{key}={value}" for key, value in args.items()]
+
     def _collect_build_step(self, entity):
         context = self._context_for(entity)
         step = {
@@ -43,16 +54,15 @@ class CHCodefresh(CHValues):
             "dockerfile": str(context.dockerfile.path),
             "tag": "${{CF_SHORT_REVISION}}",
         }
-        if self.project.config.local or self.project.config.debug:
-            step["build_arguments"] = ["DEBUG=true"]
-        # MISSING: the rest of build args beyond DEBUG (dependency build-args,
-        # source-image args - all_source_images()/_combined_dependencies() already
-        # resolve these, just not wired here), git-dependency clone steps, and a
-        # `stage:` assignment (no `stages` pipeline scaffolding is modeled here).
-        # `registry_secret_name`/`domain` are on CHDeployConfig now but have nothing
-        # to plug into yet either: registry auth for a push is a Codefresh registry
-        # integration reference, not a k8s secret name (that's a Helm-values
-        # concern), and `domain` only matters for e2e test steps, not generated yet.
+        build_arguments = self._build_arguments(entity)
+        if build_arguments:
+            step["build_arguments"] = build_arguments
+        # MISSING: git-dependency clone steps, and a `stage:` assignment (no
+        # `stages` pipeline scaffolding is modeled here). `registry_secret_name`/
+        # `domain` are on CHDeployConfig now but have nothing to plug into yet
+        # either: registry auth for a push is a Codefresh registry integration
+        # reference, not a k8s secret name (that's a Helm-values concern), and
+        # `domain` only matters for e2e test steps, not generated yet.
         return entity.name, step
 
     def _collect_task_build_steps(self, app):
