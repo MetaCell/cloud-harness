@@ -492,3 +492,16 @@ def test_app_test_fragment_commands_empty_when_unit_tests_disabled(tmp_path):
     )
     project = chain(root, root, config=CHDeployConfig())
     assert project["myapp"].test.unit.commands == []
+
+
+def test_app_openapi_reads_server_urls_from_real_spec():
+    # samples' real api/openapi.yaml declares servers: [{url: /api}].
+    project = CHProject(CLOUDHARNESS_ROOT, config=CHDeployConfig())
+    assert project["samples"].openapi.server_urls == ["/api"]
+
+
+def test_app_openapi_empty_when_no_spec_file(resources_project):
+    # myapp has no api/openapi.yaml at all in this fixture tree.
+    openapi = resources_project["myapp"].openapi
+    assert openapi.exists() is False
+    assert openapi.server_urls == []

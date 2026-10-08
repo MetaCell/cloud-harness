@@ -6,16 +6,17 @@
 # via CHContext.resolve_for_build(), the same mechanism create_skaffold_configuration
 # already relies on.
 #
-# Scope of this file: the per-app/task/base-image build steps (including their
-# dependency/source-image build_arguments), the unit test steps, git-
-# dependency clone steps, and the wait_deployment rollout-wait commands, all
-# landing inside the template's pre-declared containers
+# Scope of this file: the per-app/task/base-image/test-runner build steps
+# (including their dependency/source-image build_arguments), the unit/api/e2e
+# test steps, git-dependency clone steps, and the wait_deployment rollout-wait
+# commands, all landing inside the template's pre-declared containers
 # (steps.build_application_images.steps / steps.tests_unit.steps /
-# steps.post_main_clone.steps / steps.wait_deployment.commands). Everything
-# else legacy's create_codefresh_deployment_scripts also computes - api/e2e
-# test steps, parallel-step batching into build_application_images_N, stage
-# ordering, secrets/db-connect-string/registry-secret wiring into the
-# deployment step - is not generated yet, so none of that is asserted here.
+# steps.tests_api.scale / steps.tests_e2e.scale / steps.post_main_clone.steps /
+# steps.wait_deployment.commands). Everything else legacy's
+# create_codefresh_deployment_scripts also computes - parallel-step batching
+# into build_application_images_N, stage ordering, secrets/db-connect-string/
+# registry-secret wiring into the deployment step - is not generated yet, so
+# none of that is asserted here.
 from ch_cli_tools.ng.api import create_helm_chart, create_codefresh_deployment_scripts
 from conftest import CLOUDHARNESS_ROOT, RESOURCES
 
@@ -342,3 +343,84 @@ def test_create_codefresh_configuration_gatekeeper_wait_suppressed_when_unsecure
     # samples' own deployment.auto rollout-wait is unaffected - only the
     # gatekeeper wait is gated by secured_gatekeepers.
     assert "kubectl rollout status statefulset/samples" in commands
+
+
+def test_create_codefresh_configuration_api_and_e2e_test_steps(tmp_path):
+    # real cloud-harness samples app: subdomain=www, test.api/test.e2e both
+    # enabled, a real api/openapi.yaml (servers: [{url: /api}]), and both a
+    # test/api and test/e2e directory of its own custom tests.
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=tmp_path,
+        include=["samples"],
+        exclude=["events"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+
+    cf = create_codefresh_deployment_scripts(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        envs=["dev"],
+        helm_values=values,
+        save=False,
+    )
+
+    api_steps = cf["steps"]["tests_api"]["scale"]
+    api_step = api_steps["samples_api_test"]
+    assert api_step["environment"] == ["APP_URL=https://www.${{DOMAIN}}/api"]
+    assert len(api_step["volumes"]) == 2
+    assert any("allvalues.yaml" in v for v in api_step["volumes"])
+    assert len(api_step["commands"]) == 2
+    st_cmd = api_step["commands"][0]
+    assert "--pre-run cloudharness_test.apitest_init" in st_cmd
+    assert "run api/openapi.yaml" in st_cmd
+    assert "--base-url https://www.${{DOMAIN}}/api" in st_cmd
+    assert "-c all" in st_cmd
+    assert "--hypothesis-deadline=180000" in st_cmd
+    assert api_step["commands"][1] == "pytest -v test/api"
+
+    # test-api runner image gets a real build step, with its own dependency
+    # build-args resolved the same way every other build step's are.
+    build_steps = cf["steps"]["build_application_images"]["steps"]
+    assert "CLOUDHARNESS_BASE" in " ".join(build_steps["test-api"]["build_arguments"])
+    assert cf["steps"]["tests_api"]["image"] == build_steps["test-api"]["image_name"]
+
+    e2e_steps = cf["steps"]["tests_e2e"]["scale"]
+    e2e_step = e2e_steps["samples_e2e_test"]
+    assert e2e_step["environment"] == ["APP_URL=https://www.${{DOMAIN}}"]
+    assert len(e2e_step["volumes"]) == 1
+    assert e2e_step["volumes"][0].endswith("applications/samples/test/e2e:/home/test/__tests__/samples")
+    assert cf["steps"]["tests_e2e"]["image"] == build_steps["test-e2e"]["image_name"]
+
+
+def test_create_codefresh_configuration_no_api_e2e_steps_when_not_enabled(tmp_path):
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=tmp_path,
+        include=["myapp"],
+        exclude=["events"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+
+    cf = create_codefresh_deployment_scripts(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        envs=["dev"],
+        helm_values=values,
+        save=False,
+    )
+
+    # myapp has no test.api/test.e2e enabled - both steps get pruned entirely,
+    # and no test-api/test-e2e runner image is built for nothing.
+    assert "tests_api" not in cf["steps"]
+    assert "tests_e2e" not in cf["steps"]
+    assert "test-api" not in cf["steps"]["build_application_images"]["steps"]
+    assert "test-e2e" not in cf["steps"]["build_application_images"]["steps"]

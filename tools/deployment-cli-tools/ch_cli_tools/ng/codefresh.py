@@ -8,6 +8,8 @@ KEY_BUILD_PARALLEL = "build_application_images"
 KEY_UNIT_TESTS = "tests_unit"
 KEY_CLONE_DEPENDENCIES = "post_main_clone"
 KEY_WAIT_DEPLOYMENT = "wait_deployment"
+KEY_API_TESTS = "tests_api"
+KEY_E2E_TESTS = "tests_e2e"
 
 _INVALID_STEP_KEY_CHARS = re.compile(r"[^a-zA-Z0-9_]")
 
@@ -53,6 +55,9 @@ class CHCodefresh(CHValues):
         return entity.dockerfile.resolve_context(self.path.parent).resolve_for_build(
             self.path.parent
         )
+
+    def _repo_relative(self, path) -> str:
+        return str(path.resolve().relative_to(self.path.parent.resolve(), walk_up=True))
 
     def _build_arguments(self, entity) -> list[str]:
         args: dict[str, str] = {}
@@ -104,11 +109,7 @@ class CHCodefresh(CHValues):
                     "type": "git-clone",
                     "repo": url,
                     "revision": branch_tag,
-                    "working_directory": str(
-                        destination.resolve().relative_to(
-                            self.path.parent.resolve(), walk_up=True
-                        )
-                    ),
+                    "working_directory": self._repo_relative(destination),
                     "git": _git_main_domain(url),
                 }
         return steps
@@ -165,6 +166,105 @@ class CHCodefresh(CHValues):
             commands.append("sleep 60")  # give the certificates time to settle
         return commands
 
+    def _app_domain(self, app) -> str:
+        subdomain = app.harness_config.get("subdomain")
+        return f"https://{subdomain}." + "${{DOMAIN}}"
+
+    def _test_environment(self, app, app_domain: str) -> list[str]:
+        env: dict[str, str] = {"APP_URL": app_domain}
+        users = app.harness_config.get("accounts", {}).get("users") or []
+        if users:
+            main_user = users[0]
+            env["USERNAME"] = main_user.get("username")
+            env["PASSWORD"] = main_user.get("password") or "test"
+        e2e = app.test.e2e
+        if not e2e.smoketest:
+            env["SKIP_SMOKETEST"] = "true"
+        if e2e.ignore_console_errors:
+            env["IGNORE_CONSOLE_ERRORS"] = "true"
+        if e2e.ignore_request_errors:
+            env["IGNORE_REQUEST_ERRORS"] = "true"
+        return [f"{key}={value}" for key, value in env.items()]
+
+    def _schemathesis_command(self, app, app_domain: str) -> str:
+        api = app.test.api
+        params = ["--base-url", app_domain]
+        for check in api.checks:
+            params += ["-c", check]
+        params += api.run_params
+        return " ".join(
+            ["st", "--pre-run", "cloudharness_test.apitest_init", "run", "api/openapi.yaml", *params]
+        )
+
+    def _api_test_commands(self, app, app_domain: str) -> list[str]:
+        commands = []
+        if app.test.api.autotest:
+            commands.append(self._schemathesis_command(app, app_domain))
+        if (app.path / "test" / "api").exists():
+            commands.append("pytest -v test/api")
+        return commands
+
+    def _api_test_volumes(self, app) -> list[str]:
+        app_path = self._repo_relative(app.path)
+        return [
+            "${{CF_REPO_NAME}}/" + f"{app_path}:/home/test",
+            "${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml",
+        ]
+
+    def _e2e_test_volumes(self, app) -> list[str]:
+        app_path = self._repo_relative(app.path)
+        return ["${{CF_REPO_NAME}}/" + f"{app_path}/test/e2e:/home/test/__tests__/{app.name}"]
+
+    def _collect_api_test_steps(self, project) -> dict:
+        scale = {}
+        for app in project.involved_apps:
+            if isinstance(app, str):
+                continue
+            if not (app.test.api.enabled and app.harness_config.get("subdomain")):
+                continue
+            server_urls = app.openapi.server_urls
+            if not server_urls:
+                continue
+            app_domain = server_urls[-1]
+            if "http" not in app_domain:
+                app_domain = self._app_domain(app) + app_domain
+            scale[f"{app.name}_api_test"] = {
+                "title": f"{app.name} api test",
+                "volumes": self._api_test_volumes(app),
+                "environment": self._test_environment(app, app_domain),
+                "commands": self._api_test_commands(app, app_domain),
+            }
+        return scale
+
+    def _collect_e2e_test_steps(self, project) -> dict:
+        scale = {}
+        for app in project.involved_apps:
+            if isinstance(app, str):
+                continue
+            if not (app.test.e2e.enabled and app.harness_config.get("subdomain")):
+                continue
+            app_domain = self._app_domain(app)
+            scale[f"{app.name}_e2e_test"] = {
+                "title": f"{app.name} e2e test",
+                "volumes": self._e2e_test_volumes(app),
+                "environment": self._test_environment(app, app_domain),
+            }
+        return scale
+
+    def _wire_test_image(self, project, steps, key, name):
+        """Only builds/wires the test-api/test-e2e runner image once its scale
+        actually needs it - matches legacy, which never builds these for a
+        project that enables neither api nor e2e testing."""
+        if not steps[key]["scale"]:
+            del steps[key]
+            return
+        test_image = project.test_images.get(name)
+        if test_image is None or not test_image.dockerfile.path.exists():
+            return
+        build_key, build_step = self._collect_build_step(test_image)
+        steps[KEY_BUILD_PARALLEL].setdefault("steps", {})[build_key] = build_step
+        steps[key]["image"] = self.qualify(test_image.image_name)
+
     def generate(self, write_on_disk=True, output_path="."):
         project = self.project
 
@@ -195,6 +295,22 @@ class CHCodefresh(CHValues):
             steps.setdefault(KEY_CLONE_DEPENDENCIES, {"type": "parallel", "steps": {}})
             steps[KEY_CLONE_DEPENDENCIES].setdefault("steps", {}).update(clone_steps)
 
+        # Only extends/prunes already template-provided tests_api/tests_e2e
+        # steps (their image/volumes/when-condition scaffolding is template-
+        # driven) - matches legacy, which deletes either step entirely once
+        # its scale ends up empty.
+        if KEY_API_TESTS in steps:
+            steps[KEY_API_TESTS].setdefault("scale", {}).update(
+                self._collect_api_test_steps(project)
+            )
+            self._wire_test_image(project, steps, KEY_API_TESTS, "test-api")
+
+        if KEY_E2E_TESTS in steps:
+            steps[KEY_E2E_TESTS].setdefault("scale", {}).update(
+                self._collect_e2e_test_steps(project)
+            )
+            self._wire_test_image(project, steps, KEY_E2E_TESTS, "test-e2e")
+
         if KEY_WAIT_DEPLOYMENT in steps:
             steps[KEY_WAIT_DEPLOYMENT].setdefault("commands", []).extend(
                 self._collect_rollout_wait_commands(project)
@@ -202,11 +318,11 @@ class CHCodefresh(CHValues):
 
         # MISSING: `version`/`stages` pipeline scaffolding (present when the
         # template itself declares them, not computed here), the
-        # prepare_deployment/deploy steps (entirely template-driven already), api/
-        # e2e test steps and their environment/URL wiring, secrets/db-connect-string/
-        # registry-secret wiring into the deployment step's arguments, and
-        # parallel-step batching + stage ordering (sort_parallel_steps/
-        # order_steps_by_stage in legacy) - none of that is reproduced here yet.
+        # prepare_deployment/deploy steps (entirely template-driven already),
+        # secrets/db-connect-string/registry-secret wiring into the deployment
+        # step's arguments, and parallel-step batching + stage ordering
+        # (sort_parallel_steps/order_steps_by_stage in legacy) - none of that
+        # is reproduced here yet.
 
         if write_on_disk:
             self.write(base, output_path=output_path)

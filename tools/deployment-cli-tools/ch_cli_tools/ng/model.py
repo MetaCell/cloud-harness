@@ -129,6 +129,7 @@ class CHApp:
         self.app_basevalues_template = CHValues(
             self.path / "deploy" / "values.yaml", self
         )
+        self.openapi = CHOpenAPI(self.path / "api" / "openapi.yaml", self)
 
     def exists(self):
         return self.path.exists()
@@ -465,6 +466,14 @@ class CHBaseImage:
         return f"<{self.__class__.__name__} {self.name!r} at {hex(id(self))}>"
 
 
+class CHTestImage(CHBaseImage):
+    @property
+    @lru_cache
+    def base(self) -> "CHTestImage | None":
+        lower = self.containing_project.base
+        return lower.test_images.get(self.name) if lower is not None else None
+
+
 class CHAppTask:
     def __init__(self, path: Path, parent: "CHApp | CHBaseImage"):
         self.path = path
@@ -513,6 +522,28 @@ class CHAppTask:
 
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.name} at {hex(id(self))}>"
+
+
+class CHOpenAPI:
+    def __init__(self, path: Path, parent: CHApp):
+        self.path = path
+        self.app = parent
+
+    def exists(self) -> bool:
+        return self.path.exists()
+
+    @property
+    @lru_cache
+    def content(self) -> dict:
+        with self.path.open("r", encoding="utf-8") as f:
+            spec = yaml.load(f)
+        return spec
+
+    @property
+    def server_urls(self) -> list[str]:
+        if not self.exists():
+            return []
+        return [server["url"] for server in (self.content.get("servers") or [])]
 
 
 class CHDockerfile:
@@ -718,6 +749,16 @@ class CHProject:
                 else path(self.root)
             )
             setattr(self, key, cls(p, self))
+
+        own_test_images: dict[str, CHTestImage] = {}
+        for p in self.root.glob("test/*/"):
+            image = CHTestImage(p, self)
+            if image.dockerfile.path.exists():
+                own_test_images[p.name] = image
+        self.own_test_images = own_test_images
+
+        self.test_images = dict(base.test_images) if base is not None else {}
+        self.test_images.update(self.own_test_images)
 
     @property
     @lru_cache
