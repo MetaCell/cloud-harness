@@ -89,6 +89,13 @@ def test_create_codefresh_configuration_build_steps(tmp_path):
     assert myapp_step["dockerfile"] == "dev.Dockerfile"
     assert "testprojectname/" in myapp_step["image_name"]
 
+    # The build step's own tag is the entity's pipeline-variable tag
+    # reference (${{MYAPP_TAG}}), the same variable write_env_file exports
+    # during prepare_deployment - not an unrelated built-in variable like
+    # CF_SHORT_REVISION, so the image this step pushes is the exact one the
+    # Helm chart's deployment.image already references.
+    assert myapp_step["tag"] == "${{MYAPP_TAG}}"
+
     # Every build step carries cloud-harness's own build-template defaults:
     # its own stage, the Codefresh registry reference, buildkit, and a
     # cache-busting NOCACHE build arg ahead of any dependency/source arg.
@@ -123,9 +130,15 @@ def test_create_codefresh_configuration_build_arguments(tmp_path):
 
     # harness.dependencies.build (cloudharness-flask, plus my-common added by
     # values-dev.yaml) resolve to the already-qualified image this same
-    # pipeline is building for them, not a bare/unqualified name.
-    assert myapp_args["CLOUDHARNESS_FLASK"] == "reg/testprojectname/cloudharness-flask"
-    assert myapp_args["MY_COMMON"] == "reg/testprojectname/my-common"
+    # pipeline is building for them, tagged with that dependency's own
+    # pipeline-variable tag reference (the same one write_env_file exports
+    # during prepare_deployment) - not a bare/unqualified name, and not an
+    # unrelated built-in variable like CF_SHORT_REVISION.
+    assert (
+        myapp_args["CLOUDHARNESS_FLASK"]
+        == "reg/testprojectname/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}"
+    )
+    assert myapp_args["MY_COMMON"] == "reg/testprojectname/my-common:${{MY_COMMON_TAG}}"
 
     # Globally ARG-pinned source images (from real cloud-harness base images'
     # own Dockerfiles) are merged in too - the same value on every build step,
@@ -199,7 +212,11 @@ def test_create_codefresh_configuration_publish_steps(tmp_path):
     myapp_publish = publish_steps["publish_myapp"]
     assert myapp_publish["type"] == "push"
     assert myapp_publish["stage"] == "publish"
-    assert myapp_publish["candidate"] == "reg/testprojectname/myapp:${{CF_SHORT_REVISION}}"
+    # Same tag reference the build step itself used (${{MYAPP_TAG}}, exported
+    # by write_env_file during prepare_deployment) - not an unrelated
+    # built-in variable like CF_SHORT_REVISION, so publish re-pushes the
+    # exact image the deployed Helm chart actually references.
+    assert myapp_publish["candidate"] == "reg/testprojectname/myapp:${{MYAPP_TAG}}"
     assert myapp_publish["tags"] == ["${{DEPLOYMENT_PUBLISH_TAG}}", "latest"]
     assert myapp_publish["registry"] == "${{REGISTRY_PUBLISH_URL}}"
     assert (

@@ -55,6 +55,21 @@ def test_create_skaffold_configuration(tmp_path):
         image.endswith("myapp-mytask") for image in artifact_overrides[KEY_TASK_IMAGES]
     )
 
+    # Legacy asserted an exact artifact count (len(exp_apps) + len(task
+    # images)) because its "task-images" bucket already lumped in every
+    # non-app buildable (base/common images included). ng's CHSkaffold splits
+    # these into three real buckets - apps, task-images, and build
+    # dependencies (base/common images pulled in via all_build_dependencies)
+    # - so the equivalent total needs all three, not just the first two.
+    build_dependency_count = len(
+        project.all_build_dependencies(
+            {*artifact_overrides[KEY_APPS], *artifact_overrides[KEY_TASK_IMAGES]}
+        )
+    )
+    assert len(artifact_images) == (
+        len(exp_apps) + len(artifact_overrides[KEY_TASK_IMAGES]) + build_dependency_count
+    )
+
     assert any("reg" in image and "cloudharness" in image for image in artifact_images)
 
     overrides = sk["deploy"]["helm"]["releases"][0]["overrides"]

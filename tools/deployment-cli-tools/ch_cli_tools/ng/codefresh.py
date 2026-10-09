@@ -57,6 +57,10 @@ def _tag_variable(name: str) -> str:
     return f"{_env_key(name)}_TAG"
 
 
+def _tag_reference(name: str) -> str:
+    return "${{%s}}" % _tag_variable(name)
+
+
 def _extract_tag(image: str) -> str:
     return image.split(":")[1] if ":" in image else "latest"
 
@@ -129,7 +133,9 @@ class CHCodefresh(CHValues):
         for dep in self.project._combined_dependencies(entity):
             if isinstance(dep, str):
                 continue
-            args[_env_key(dep.name)] = self.qualify(dep.image_name)
+            args[_env_key(dep.name)] = (
+                f"{self.qualify(dep.image_name)}:{_tag_reference(dep.name)}"
+            )
         args.update(self.project.all_source_images())
         return [f"{key}={value}" for key, value in args.items()]
 
@@ -159,7 +165,7 @@ class CHCodefresh(CHValues):
             "image_name": self.qualify(entity.image_name),
             "working_directory": str(context.path),
             "dockerfile": str(context.dockerfile.path),
-            "tag": "${{CF_SHORT_REVISION}}",
+            "tag": _tag_reference(entity.name),
             "build_arguments": [
                 "NOCACHE=${{CF_BUILD_ID}}",
                 *self._build_arguments(entity),
@@ -209,7 +215,7 @@ class CHCodefresh(CHValues):
             "title": title,
             "type": "push",
             "stage": "publish",
-            "candidate": f"{self.qualify(entity.image_name)}:${{{{CF_SHORT_REVISION}}}}",
+            "candidate": f"{self.qualify(entity.image_name)}:{_tag_reference(entity.name)}",
             "tags": ["${{DEPLOYMENT_PUBLISH_TAG}}", "latest"],
             "registry": "${{REGISTRY_PUBLISH_URL}}",
             "when": {
