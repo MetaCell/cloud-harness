@@ -171,14 +171,6 @@ class CHCodefresh(CHValues):
             for dep in self.project._combined_dependencies(entity)
             if not isinstance(dep, str)
         ]
-        # MISSING: `registry_secret_name`/`domain` are on CHDeployConfig now
-        # but have nothing to plug into yet either: registry auth for a push
-        # is a Codefresh registry integration reference, not a k8s secret name
-        # (that's a Helm-values concern), and `domain` only matters for e2e
-        # test steps, not generated yet. No support for a project overriding
-        # codefresh-build-template.yaml itself - these fields are
-        # cloud-harness's own shipped defaults, hardcoded (no fixture
-        # exercises an override with different content).
         return entity.name, step
 
     def _collect_git_clone_steps(self, project):
@@ -467,17 +459,12 @@ class CHCodefresh(CHValues):
             groups.append(group)
         return groups
 
-    def _prune_build_group_placeholders(self, steps: dict) -> dict:
-        pruned = dict(steps)
-        if not pruned.get(KEY_BUILD_PARALLEL, {}).get("steps"):
-            pruned.pop(KEY_BUILD_PARALLEL, None)
-        for name in [
-            n
-            for n in pruned
-            if n.startswith(f"{KEY_BUILD_PARALLEL}_") and not pruned[n]
-        ]:
-            del pruned[name]
-        return pruned
+    def _prune_useless_steps(self, steps: dict) -> dict:
+        return {
+            name: step
+            for name, step in steps.items()
+            if step and (step.get("type") != "parallel" or step.get("steps"))
+        }
 
     def _sort_parallel_steps(self, steps: dict) -> dict:
         result = {}
@@ -580,21 +567,12 @@ class CHCodefresh(CHValues):
                 )
             )
 
-        steps = self._prune_build_group_placeholders(steps)
+        steps = self._prune_useless_steps(steps)
         steps = self._sort_parallel_steps(steps)
         stages = base.get("stages")
         if stages:
             steps = self._order_steps_by_stage(steps, stages)
         base["steps"] = steps
-
-        # MISSING: `version`/`stages` pipeline scaffolding (present when the
-        # template itself declares them, not computed here) and the deploy
-        # step's own fields (entirely template-driven already, beyond
-        # custom_values) aren't reproduced here. Pruning of other empty
-        # containers (tests_unit/post_main_clone/etc, as legacy's generic
-        # "remove useless steps" filter does) is deliberately NOT done here -
-        # only the build-group placeholders are, to avoid touching containers
-        # whose emptiness behavior isn't covered by a test yet.
 
         if write_on_disk:
             self.write(base, output_path=output_path)

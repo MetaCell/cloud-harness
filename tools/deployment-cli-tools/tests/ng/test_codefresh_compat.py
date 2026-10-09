@@ -184,6 +184,10 @@ def test_create_codefresh_configuration_build_step_batching(tmp_path):
     assert "build_application_images" not in cf["steps"]
     assert "build_application_images_5" not in cf["steps"]
 
+    # Any other never-populated empty parallel container from the template
+    # (build_test_images is never wired up by anything) is pruned the same way.
+    assert "build_test_images" not in cf["steps"]
+
 
 def test_create_codefresh_configuration_publish_steps(tmp_path):
     cf, _ = _generate_cf(tmp_path, ["myapp"])
@@ -235,11 +239,13 @@ def test_create_codefresh_configuration_unit_tests(tmp_path):
 
 
 def test_create_codefresh_configuration_no_unit_tests_when_not_included(tmp_path):
-    """An app with no test.unit.commands gets no unit test step at all."""
+    """An app with no test.unit.commands gets no unit test step at all - and
+    since nothing else populates tests_unit either, the whole now-empty
+    parallel container is pruned, matching legacy's own "remove useless
+    steps" filter."""
     cf, _ = _generate_cf(tmp_path, ["accounts"])
 
-    unit_steps = cf["steps"]["tests_unit"]["steps"]
-    assert "accounts_ut" not in unit_steps
+    assert "tests_unit" not in cf["steps"]
 
 
 def test_create_codefresh_configuration_git_clone_steps(tmp_path):
