@@ -7,19 +7,21 @@
 # already relies on.
 #
 # Scope of this file: the per-app/task/base-image/test-runner build steps
-# (including their dependency/source-image build_arguments), parallel-step
-# batching of those build steps into build_application_images_N groups and
-# top-level stage ordering, the unit/api/e2e test steps, git-dependency clone
-# steps, the wait_deployment rollout-wait commands, the prepare_deployment
-# $PATHS/$ENV/$PARAMS substitution, and write_env_file, all landing inside the
-# template's pre-declared containers (steps.build_application_images_N.steps /
+# (including their dependency/source-image build_arguments and their own
+# stage/registry/buildkit/NOCACHE fields from cloud-harness's own
+# codefresh-build-template.yaml), parallel-step batching of those build steps
+# into build_application_images_N groups and top-level stage ordering, the
+# unit/api/e2e test steps, git-dependency clone steps, the wait_deployment
+# rollout-wait commands, the prepare_deployment $PATHS/$ENV/$PARAMS
+# substitution, and write_env_file, all landing inside the template's
+# pre-declared containers (steps.build_application_images_N.steps /
 # steps.tests_unit.steps / steps.tests_api.scale / steps.tests_e2e.scale /
 # steps.post_main_clone.steps / steps.wait_deployment.commands /
 # steps.prepare_deployment.commands).
 # Everything else legacy's create_codefresh_deployment_scripts also computes -
 # secrets/db-connect-string/registry-secret wiring into the deployment step,
-# per-step stage field, the publish step, build-skip when conditions - is not
-# generated yet, so none of that is asserted here.
+# the publish step, build-skip when conditions - is not generated yet, so
+# none of that is asserted here.
 from unittest.mock import patch
 
 from ch_cli_tools.ng.api import (
@@ -81,6 +83,14 @@ def test_create_codefresh_configuration_build_steps(tmp_path):
     myapp_step = steps["myapp"]
     assert myapp_step["dockerfile"] == "dev.Dockerfile"
     assert "testprojectname/" in myapp_step["image_name"]
+
+    # Every build step carries cloud-harness's own build-template defaults:
+    # its own stage, the Codefresh registry reference, buildkit, and a
+    # cache-busting NOCACHE build arg ahead of any dependency/source arg.
+    assert myapp_step["stage"] == "build"
+    assert myapp_step["registry"] == "${{CODEFRESH_REGISTRY}}"
+    assert myapp_step["buildkit"] is True
+    assert myapp_step["build_arguments"][0] == "NOCACHE=${{CF_BUILD_ID}}"
 
     # cloudharness-base: overridden by RESOURCES, so it must build from the merged
     # .overrides directory, not straight from CLOUDHARNESS_ROOT's own tree - same

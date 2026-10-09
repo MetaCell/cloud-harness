@@ -135,27 +135,31 @@ class CHCodefresh(CHValues):
         step = {
             "title": f"Building {entity.name}",
             "type": "build",
+            "stage": "build",
+            "registry": "${{CODEFRESH_REGISTRY}}",
+            "buildkit": True,
             "image_name": self.qualify(entity.image_name),
             "working_directory": str(context.path),
             "dockerfile": str(context.dockerfile.path),
             "tag": "${{CF_SHORT_REVISION}}",
+            "build_arguments": [
+                "NOCACHE=${{CF_BUILD_ID}}",
+                *self._build_arguments(entity),
+            ],
         }
-        build_arguments = self._build_arguments(entity)
-        if build_arguments:
-            step["build_arguments"] = build_arguments
         step["dependencies"] = [
             dep.name
             for dep in self.project._combined_dependencies(entity)
             if not isinstance(dep, str)
         ]
-        # MISSING: a per-step `stage:` assignment (each build step should
-        # carry its own, from the per-build template's own fields -
-        # codefresh-build-template.yaml's registry/buildkit/NOCACHE build-arg
-        # included). `registry_secret_name`/`domain` are on CHDeployConfig now
+        # MISSING: `registry_secret_name`/`domain` are on CHDeployConfig now
         # but have nothing to plug into yet either: registry auth for a push
         # is a Codefresh registry integration reference, not a k8s secret name
         # (that's a Helm-values concern), and `domain` only matters for e2e
-        # test steps, not generated yet.
+        # test steps, not generated yet. No support for a project overriding
+        # codefresh-build-template.yaml itself - these fields are
+        # cloud-harness's own shipped defaults, hardcoded (no fixture
+        # exercises an override with different content).
         return entity.name, step
 
     def _collect_git_clone_steps(self, project):
