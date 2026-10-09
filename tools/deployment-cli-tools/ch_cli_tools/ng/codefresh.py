@@ -143,12 +143,19 @@ class CHCodefresh(CHValues):
         build_arguments = self._build_arguments(entity)
         if build_arguments:
             step["build_arguments"] = build_arguments
-        # MISSING: a `stage:` assignment (no `stages` pipeline scaffolding is
-        # modeled here). `registry_secret_name`/`domain` are on CHDeployConfig
-        # now but have nothing to plug into yet either: registry auth for a
-        # push is a Codefresh registry integration reference, not a k8s secret
-        # name (that's a Helm-values concern), and `domain` only matters for
-        # e2e test steps, not generated yet.
+        step["dependencies"] = [
+            dep.name
+            for dep in self.project._combined_dependencies(entity)
+            if not isinstance(dep, str)
+        ]
+        # MISSING: a per-step `stage:` assignment (each build step should
+        # carry its own, from the per-build template's own fields -
+        # codefresh-build-template.yaml's registry/buildkit/NOCACHE build-arg
+        # included). `registry_secret_name`/`domain` are on CHDeployConfig now
+        # but have nothing to plug into yet either: registry auth for a push
+        # is a Codefresh registry integration reference, not a k8s secret name
+        # (that's a Helm-values concern), and `domain` only matters for e2e
+        # test steps, not generated yet.
         return entity.name, step
 
     def _collect_git_clone_steps(self, project):
@@ -344,7 +351,7 @@ class CHCodefresh(CHValues):
             }
         return scale
 
-    def _wire_test_image(self, project, steps, key, name):
+    def _wire_test_image(self, project, steps, key, name, build_steps):
         """Only builds/wires the test-api/test-e2e runner image once its scale
         actually needs it - matches legacy, which never builds these for a
         project that enables neither api nor e2e testing."""
@@ -355,8 +362,72 @@ class CHCodefresh(CHValues):
         if test_image is None or not test_image.dockerfile.exists():
             return
         build_key, build_step = self._collect_build_step(test_image)
-        steps[KEY_BUILD_PARALLEL].setdefault("steps", {})[build_key] = build_step
+        build_steps[build_key] = build_step
         steps[key]["image"] = self.qualify(test_image.image_name)
+
+    def _batch_build_steps(self, build_steps: dict) -> list[dict]:
+        """Split a flat {name: step} dict into topologically ordered groups -
+        every step in a group has all its declared dependencies already
+        placed in an earlier group (or depends on something outside this
+        build entirely). Mirrors legacy's adjust_build_steps."""
+        remaining = dict(build_steps)
+        groups = []
+        while remaining:
+            group = {
+                name: step
+                for name, step in remaining.items()
+                if not any(dep in remaining for dep in step.get("dependencies") or ())
+            }
+            if not group:
+                # Dependency cycle - legacy recurses forever on this; we don't.
+                group, remaining = dict(remaining), {}
+            for name, step in group.items():
+                step.pop("dependencies", None)
+                remaining.pop(name, None)
+            groups.append(group)
+        return groups
+
+    def _prune_build_group_placeholders(self, steps: dict) -> dict:
+        """Drop the un-split build_application_images container (always left
+        empty - its steps are batched into numbered groups instead) and any
+        build_application_images_N placeholder slot the template
+        pre-declares that this run didn't need."""
+        pruned = dict(steps)
+        if not pruned.get(KEY_BUILD_PARALLEL, {}).get("steps"):
+            pruned.pop(KEY_BUILD_PARALLEL, None)
+        for name in [
+            n
+            for n in pruned
+            if n.startswith(f"{KEY_BUILD_PARALLEL}_") and not pruned[n]
+        ]:
+            del pruned[name]
+        return pruned
+
+    def _sort_parallel_steps(self, steps: dict) -> dict:
+        """Sort the sub-steps of every parallel step alphabetically by name,
+        for deterministic output. Top-level step order is untouched here."""
+        result = {}
+        for name, step in steps.items():
+            if (
+                isinstance(step, dict)
+                and step.get("type") == "parallel"
+                and isinstance(step.get("steps"), dict)
+            ):
+                step = {**step, "steps": dict(sorted(step["steps"].items()))}
+            result[name] = step
+        return result
+
+    def _order_steps_by_stage(self, steps: dict, stages: list) -> dict:
+        """Re-order the top-level steps dict so earlier-stage steps come
+        first, stable within a stage; steps with no recognised stage go last."""
+        stage_order = {stage: i for i, stage in enumerate(stages)}
+        unknown = len(stages)
+
+        def stage_key(item):
+            step = item[1]
+            return stage_order.get(step.get("stage"), unknown) if isinstance(step, dict) else unknown
+
+        return dict(sorted(steps.items(), key=stage_key))
 
     def generate(self, write_on_disk=True, output_path=None):
         project = self.project
@@ -376,9 +447,6 @@ class CHCodefresh(CHValues):
             build_steps.update(self._collect_task_build_steps(app))
         build_steps.update(self._collect_base_image_build_steps(project))
 
-        steps.setdefault(KEY_BUILD_PARALLEL, {"type": "parallel", "steps": {}})
-        steps[KEY_BUILD_PARALLEL].setdefault("steps", {}).update(build_steps)
-
         unit_test_steps = self._collect_unit_test_steps(project)
         steps.setdefault(KEY_UNIT_TESTS, {"type": "parallel", "steps": {}})
         steps[KEY_UNIT_TESTS].setdefault("steps", {}).update(unit_test_steps)
@@ -394,7 +462,14 @@ class CHCodefresh(CHValues):
         ):
             if key in steps:
                 steps[key].setdefault("scale", {}).update(collect(project))
-                self._wire_test_image(project, steps, key, image_name)
+                self._wire_test_image(project, steps, key, image_name, build_steps)
+
+        steps.setdefault(KEY_BUILD_PARALLEL, {"type": "parallel", "steps": {}})
+        for index, group in enumerate(self._batch_build_steps(build_steps)):
+            group_step = dict(steps[KEY_BUILD_PARALLEL])
+            group_step["title"] = f"Build parallel step {index + 1}"
+            group_step["steps"] = group
+            steps[f"{KEY_BUILD_PARALLEL}_{index}"] = group_step
 
         if KEY_WAIT_DEPLOYMENT in steps:
             steps[KEY_WAIT_DEPLOYMENT].setdefault("commands", []).extend(
@@ -409,12 +484,22 @@ class CHCodefresh(CHValues):
                 )
             )
 
+        steps = self._prune_build_group_placeholders(steps)
+        steps = self._sort_parallel_steps(steps)
+        stages = base.get("stages")
+        if stages:
+            steps = self._order_steps_by_stage(steps, stages)
+        base["steps"] = steps
+
         # MISSING: `version`/`stages` pipeline scaffolding (present when the
         # template itself declares them, not computed here), the deploy step
-        # (entirely template-driven already), secrets/db-connect-string/
-        # registry-secret wiring into the deployment step's arguments, and
-        # parallel-step batching + stage ordering (sort_parallel_steps/
-        # order_steps_by_stage in legacy) - none of that is reproduced here yet.
+        # (entirely template-driven already), and secrets/db-connect-string/
+        # registry-secret wiring into the deployment step's arguments - none
+        # of that is reproduced here yet. Pruning of other empty containers
+        # (tests_unit/post_main_clone/etc, as legacy's generic "remove useless
+        # steps" filter does) is deliberately NOT done here - only the
+        # build-group placeholders are, to avoid touching containers whose
+        # emptiness behavior isn't covered by a test yet.
 
         if write_on_disk:
             self.write(base, output_path=output_path)

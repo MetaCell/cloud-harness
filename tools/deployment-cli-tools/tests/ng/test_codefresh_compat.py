@@ -7,17 +7,19 @@
 # already relies on.
 #
 # Scope of this file: the per-app/task/base-image/test-runner build steps
-# (including their dependency/source-image build_arguments), the unit/api/e2e
-# test steps, git-dependency clone steps, the wait_deployment rollout-wait
-# commands, the prepare_deployment $PATHS/$ENV/$PARAMS substitution, and
-# write_env_file, all landing inside the template's pre-declared containers
-# (steps.build_application_images.steps / steps.tests_unit.steps /
-# steps.tests_api.scale / steps.tests_e2e.scale / steps.post_main_clone.steps /
-# steps.wait_deployment.commands / steps.prepare_deployment.commands).
+# (including their dependency/source-image build_arguments), parallel-step
+# batching of those build steps into build_application_images_N groups and
+# top-level stage ordering, the unit/api/e2e test steps, git-dependency clone
+# steps, the wait_deployment rollout-wait commands, the prepare_deployment
+# $PATHS/$ENV/$PARAMS substitution, and write_env_file, all landing inside the
+# template's pre-declared containers (steps.build_application_images_N.steps /
+# steps.tests_unit.steps / steps.tests_api.scale / steps.tests_e2e.scale /
+# steps.post_main_clone.steps / steps.wait_deployment.commands /
+# steps.prepare_deployment.commands).
 # Everything else legacy's create_codefresh_deployment_scripts also computes -
-# parallel-step batching into build_application_images_N, stage ordering,
-# secrets/db-connect-string/registry-secret wiring into the deployment step -
-# is not generated yet, so none of that is asserted here.
+# secrets/db-connect-string/registry-secret wiring into the deployment step,
+# per-step stage field, the publish step, build-skip when conditions - is not
+# generated yet, so none of that is asserted here.
 from unittest.mock import patch
 
 from ch_cli_tools.ng.api import (
@@ -26,6 +28,17 @@ from ch_cli_tools.ng.api import (
     write_env_file,
 )
 from conftest import CLOUDHARNESS_ROOT, RESOURCES
+
+
+def _build_steps(cf):
+    """Merge every build_application_images_N group's steps into one dict -
+    batching splits them by dependency order, most tests here don't care
+    which group a given step landed in."""
+    merged = {}
+    for name, step in cf["steps"].items():
+        if name.startswith("build_application_images"):
+            merged.update(step.get("steps") or {})
+    return merged
 
 
 def _generate_cf(tmp_path, include, **helm_chart_kwargs):
@@ -61,7 +74,7 @@ def test_create_codefresh_configuration_build_steps(tmp_path):
     # Template scaffolding (stages, main_clone, deployment, ...) survives untouched.
     assert cf["steps"]["main_clone"]["type"] == "git-clone"
 
-    steps = cf["steps"]["build_application_images"]["steps"]
+    steps = _build_steps(cf)
 
     # myapp: own Dockerfile, env-specific dev.Dockerfile preferred, project name
     # ("testprojectname") overriding the image path.
@@ -90,7 +103,7 @@ def test_create_codefresh_configuration_build_steps(tmp_path):
 def test_create_codefresh_configuration_build_arguments(tmp_path):
     cf, _ = _generate_cf(tmp_path, ["myapp"])
 
-    steps = cf["steps"]["build_application_images"]["steps"]
+    steps = _build_steps(cf)
     myapp_args = dict(arg.split("=", 1) for arg in steps["myapp"]["build_arguments"])
 
     # harness.dependencies.build (cloudharness-flask, plus my-common added by
@@ -107,6 +120,38 @@ def test_create_codefresh_configuration_build_arguments(tmp_path):
         arg.split("=", 1) for arg in steps["cloudharness-base"]["build_arguments"]
     )
     assert base_args["NODE"] == myapp_args["NODE"]
+
+
+def test_create_codefresh_configuration_build_step_batching(tmp_path):
+    cf, _ = _generate_cf(tmp_path, ["myapp"])
+
+    group_names = sorted(
+        (k for k in cf["steps"] if k.startswith("build_application_images_")),
+        key=lambda k: int(k.rsplit("_", 1)[-1]),
+    )
+    groups = [cf["steps"][name] for name in group_names]
+    assert groups, "expected at least one numbered build group"
+
+    def group_of(name):
+        return next(i for i, g in enumerate(groups) if name in g["steps"])
+
+    # myapp depends on cloudharness-flask and my-common (harness.dependencies.
+    # build) - both must be built in a strictly earlier parallel group.
+    assert group_of("myapp") > group_of("cloudharness-flask")
+    assert group_of("myapp") > group_of("my-common")
+
+    # Each step carries no leftover internal "dependencies" bookkeeping field.
+    assert "dependencies" not in groups[group_of("myapp")]["steps"]["myapp"]
+
+    # Groups are numbered contiguously from 0, inherit the template's own
+    # fields (stage), and get their own title.
+    for i, group in enumerate(groups):
+        assert group["title"] == f"Build parallel step {i + 1}"
+        assert group["stage"] == "build"
+
+    # The un-split container and unused placeholder slots don't leak through.
+    assert "build_application_images" not in cf["steps"]
+    assert "build_application_images_5" not in cf["steps"]
 
 
 def test_create_codefresh_configuration_unit_tests(tmp_path):
@@ -238,7 +283,7 @@ def test_create_codefresh_configuration_api_and_e2e_test_steps(tmp_path):
 
     # test-api runner image gets a real build step, with its own dependency
     # build-args resolved the same way every other build step's are.
-    build_steps = cf["steps"]["build_application_images"]["steps"]
+    build_steps = _build_steps(cf)
     assert "CLOUDHARNESS_BASE" in " ".join(build_steps["test-api"]["build_arguments"])
     assert cf["steps"]["tests_api"]["image"] == build_steps["test-api"]["image_name"]
 
@@ -257,8 +302,9 @@ def test_create_codefresh_configuration_no_api_e2e_steps_when_not_enabled(tmp_pa
     # and no test-api/test-e2e runner image is built for nothing.
     assert "tests_api" not in cf["steps"]
     assert "tests_e2e" not in cf["steps"]
-    assert "test-api" not in cf["steps"]["build_application_images"]["steps"]
-    assert "test-e2e" not in cf["steps"]["build_application_images"]["steps"]
+    build_steps = _build_steps(cf)
+    assert "test-api" not in build_steps
+    assert "test-e2e" not in build_steps
 
 
 def test_create_codefresh_deployment_scripts_save_writes_under_deployment_dir(tmp_path):
