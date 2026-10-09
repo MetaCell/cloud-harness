@@ -9,19 +9,19 @@
 # Scope of this file: the per-app/task/base-image/test-runner build steps
 # (including their dependency/source-image build_arguments and their own
 # stage/registry/buildkit/NOCACHE fields from cloud-harness's own
-# codefresh-build-template.yaml), parallel-step batching of those build steps
-# into build_application_images_N groups and top-level stage ordering, the
-# unit/api/e2e test steps, git-dependency clone steps, the wait_deployment
-# rollout-wait commands, the prepare_deployment $PATHS/$ENV/$PARAMS
-# substitution, and write_env_file, all landing inside the template's
-# pre-declared containers (steps.build_application_images_N.steps /
-# steps.tests_unit.steps / steps.tests_api.scale / steps.tests_e2e.scale /
-# steps.post_main_clone.steps / steps.wait_deployment.commands /
-# steps.prepare_deployment.commands).
+# codefresh-build-template.yaml), their sibling publish steps, parallel-step
+# batching of build steps into build_application_images_N groups and
+# top-level stage ordering, the unit/api/e2e test steps, git-dependency clone
+# steps, the wait_deployment rollout-wait commands, the prepare_deployment
+# $PATHS/$ENV/$PARAMS substitution, and write_env_file, all landing inside the
+# template's pre-declared containers (steps.build_application_images_N.steps /
+# steps.publish.steps / steps.tests_unit.steps / steps.tests_api.scale /
+# steps.tests_e2e.scale / steps.post_main_clone.steps /
+# steps.wait_deployment.commands / steps.prepare_deployment.commands).
 # Everything else legacy's create_codefresh_deployment_scripts also computes -
 # secrets/db-connect-string/registry-secret wiring into the deployment step,
-# the publish step, build-skip when conditions - is not generated yet, so
-# none of that is asserted here.
+# build-skip when conditions - is not generated yet, so none of that is
+# asserted here.
 from unittest.mock import patch
 
 from ch_cli_tools.ng.api import (
@@ -162,6 +162,39 @@ def test_create_codefresh_configuration_build_step_batching(tmp_path):
     # The un-split container and unused placeholder slots don't leak through.
     assert "build_application_images" not in cf["steps"]
     assert "build_application_images_5" not in cf["steps"]
+
+
+def test_create_codefresh_configuration_publish_steps(tmp_path):
+    cf, _ = _generate_cf(tmp_path, ["myapp"])
+
+    publish_steps = cf["steps"]["publish"]["steps"]
+
+    # Every buildable entity (app, base image, dependency) gets its own
+    # publish step, re-pushing the exact image+tag this run just built.
+    myapp_publish = publish_steps["publish_myapp"]
+    assert myapp_publish["type"] == "push"
+    assert myapp_publish["stage"] == "publish"
+    assert myapp_publish["candidate"] == "reg/testprojectname/myapp:${{CF_SHORT_REVISION}}"
+    assert myapp_publish["tags"] == ["${{DEPLOYMENT_PUBLISH_TAG}}", "latest"]
+    assert myapp_publish["registry"] == "${{REGISTRY_PUBLISH_URL}}"
+    assert (
+        "MYAPP_PUBLISH_SKIP" in myapp_publish["when"]["condition"]["all"]["skipPublish"]
+    )
+
+    assert "publish_cloudharness-flask" in publish_steps
+    assert "publish_my-common" in publish_steps
+    assert "publish_myapp-mytask" in publish_steps
+
+
+def test_create_codefresh_configuration_no_publish_step_for_test_images(tmp_path):
+    # real cloud-harness samples app pulls in the test-api/test-e2e runner
+    # images - legacy never publishes those (publish=False), and neither
+    # should ng.
+    cf, _ = _generate_cf(tmp_path, ["samples"])
+
+    publish_steps = cf["steps"]["publish"]["steps"]
+    assert "publish_test-api" not in publish_steps
+    assert "publish_test-e2e" not in publish_steps
 
 
 def test_create_codefresh_configuration_unit_tests(tmp_path):

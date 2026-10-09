@@ -14,6 +14,7 @@ KEY_WAIT_DEPLOYMENT = "wait_deployment"
 KEY_API_TESTS = "tests_api"
 KEY_E2E_TESTS = "tests_e2e"
 KEY_PREPARE_DEPLOYMENT = "prepare_deployment"
+KEY_PUBLISH = "publish"
 
 _INVALID_STEP_KEY_CHARS = re.compile(r"[^a-zA-Z0-9_]")
 
@@ -185,23 +186,54 @@ class CHCodefresh(CHValues):
                 }
         return steps
 
+    def _collect_publish_step(self, entity):
+        title = (
+            entity.name.capitalize()
+            .replace("-", " ")
+            .replace("/", " ")
+            .replace(".", " ")
+            .strip()
+        )
+        skip_variable = f"{_env_key(entity.name)}_PUBLISH_SKIP"
+        step = {
+            "title": title,
+            "type": "push",
+            "stage": "publish",
+            "candidate": f"{self.qualify(entity.image_name)}:${{{{CF_SHORT_REVISION}}}}",
+            "tags": ["${{DEPLOYMENT_PUBLISH_TAG}}", "latest"],
+            "registry": "${{REGISTRY_PUBLISH_URL}}",
+            "when": {
+                "condition": {
+                    "all": {
+                        "skipPublish": "includes('${{%s}}', '{{%s}}') == true"
+                        % (skip_variable, skip_variable),
+                    }
+                }
+            },
+        }
+        return f"publish_{entity.name}", step
+
     def _collect_task_build_steps(self, app):
-        steps = {}
+        build_steps, publish_steps = {}, {}
         for task in app.tasks.values():
             if not task.dockerfile.exists():
                 continue
             key, step = self._collect_build_step(task)
-            steps[key] = step
-        return steps
+            build_steps[key] = step
+            pkey, pstep = self._collect_publish_step(task)
+            publish_steps[pkey] = pstep
+        return build_steps, publish_steps
 
     def _collect_base_image_build_steps(self, project):
-        steps = {}
+        build_steps, publish_steps = {}, {}
         for base_image in project.base_images.values():
             if not base_image.dockerfile.exists():
                 continue
             key, step = self._collect_build_step(base_image)
-            steps[key] = step
-        return steps
+            build_steps[key] = step
+            pkey, pstep = self._collect_publish_step(base_image)
+            publish_steps[pkey] = pstep
+        return build_steps, publish_steps
 
     def _collect_unit_test_steps(self, project):
         steps = {}
@@ -356,9 +388,6 @@ class CHCodefresh(CHValues):
         return scale
 
     def _wire_test_image(self, project, steps, key, name, build_steps):
-        """Only builds/wires the test-api/test-e2e runner image once its scale
-        actually needs it - matches legacy, which never builds these for a
-        project that enables neither api nor e2e testing."""
         if not steps[key]["scale"]:
             del steps[key]
             return
@@ -370,10 +399,6 @@ class CHCodefresh(CHValues):
         steps[key]["image"] = self.qualify(test_image.image_name)
 
     def _batch_build_steps(self, build_steps: dict) -> list[dict]:
-        """Split a flat {name: step} dict into topologically ordered groups -
-        every step in a group has all its declared dependencies already
-        placed in an earlier group (or depends on something outside this
-        build entirely). Mirrors legacy's adjust_build_steps."""
         remaining = dict(build_steps)
         groups = []
         while remaining:
@@ -392,10 +417,6 @@ class CHCodefresh(CHValues):
         return groups
 
     def _prune_build_group_placeholders(self, steps: dict) -> dict:
-        """Drop the un-split build_application_images container (always left
-        empty - its steps are batched into numbered groups instead) and any
-        build_application_images_N placeholder slot the template
-        pre-declares that this run didn't need."""
         pruned = dict(steps)
         if not pruned.get(KEY_BUILD_PARALLEL, {}).get("steps"):
             pruned.pop(KEY_BUILD_PARALLEL, None)
@@ -408,8 +429,6 @@ class CHCodefresh(CHValues):
         return pruned
 
     def _sort_parallel_steps(self, steps: dict) -> dict:
-        """Sort the sub-steps of every parallel step alphabetically by name,
-        for deterministic output. Top-level step order is untouched here."""
         result = {}
         for name, step in steps.items():
             if (
@@ -422,14 +441,16 @@ class CHCodefresh(CHValues):
         return result
 
     def _order_steps_by_stage(self, steps: dict, stages: list) -> dict:
-        """Re-order the top-level steps dict so earlier-stage steps come
-        first, stable within a stage; steps with no recognised stage go last."""
         stage_order = {stage: i for i, stage in enumerate(stages)}
         unknown = len(stages)
 
         def stage_key(item):
             step = item[1]
-            return stage_order.get(step.get("stage"), unknown) if isinstance(step, dict) else unknown
+            return (
+                stage_order.get(step.get("stage"), unknown)
+                if isinstance(step, dict)
+                else unknown
+            )
 
         return dict(sorted(steps.items(), key=stage_key))
 
@@ -440,6 +461,7 @@ class CHCodefresh(CHValues):
         steps = base.setdefault("steps", {})
 
         build_steps = {}
+        publish_steps = {}
         for app in project.involved_apps:
             if isinstance(app, str):
                 continue
@@ -447,9 +469,18 @@ class CHCodefresh(CHValues):
             if app.dockerfile.exists():
                 key, step = self._collect_build_step(app)
                 build_steps[key] = step
+                pkey, pstep = self._collect_publish_step(app)
+                publish_steps[pkey] = pstep
 
-            build_steps.update(self._collect_task_build_steps(app))
-        build_steps.update(self._collect_base_image_build_steps(project))
+            task_builds, task_publishes = self._collect_task_build_steps(app)
+            build_steps.update(task_builds)
+            publish_steps.update(task_publishes)
+        base_builds, base_publishes = self._collect_base_image_build_steps(project)
+        build_steps.update(base_builds)
+        publish_steps.update(base_publishes)
+
+        steps.setdefault(KEY_PUBLISH, {"type": "parallel", "steps": {}})
+        steps[KEY_PUBLISH].setdefault("steps", {}).update(publish_steps)
 
         unit_test_steps = self._collect_unit_test_steps(project)
         steps.setdefault(KEY_UNIT_TESTS, {"type": "parallel", "steps": {}})
