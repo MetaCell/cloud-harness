@@ -7,21 +7,21 @@
 # already relies on.
 #
 # Scope of this file: the per-app/task/base-image/test-runner build steps
-# (including their dependency/source-image build_arguments and their own
+# (including their dependency/source-image build_arguments, their own
 # stage/registry/buildkit/NOCACHE fields from cloud-harness's own
-# codefresh-build-template.yaml), their sibling publish steps, parallel-step
-# batching of build steps into build_application_images_N groups and
-# top-level stage ordering, the unit/api/e2e test steps, git-dependency clone
-# steps, the wait_deployment rollout-wait commands, the prepare_deployment
-# $PATHS/$ENV/$PARAMS substitution, and write_env_file, all landing inside the
-# template's pre-declared containers (steps.build_application_images_N.steps /
+# codefresh-build-template.yaml, and their build-skip `when` condition), their
+# sibling publish steps, parallel-step batching of build steps into
+# build_application_images_N groups and top-level stage ordering, the
+# unit/api/e2e test steps, git-dependency clone steps, the wait_deployment
+# rollout-wait commands, the prepare_deployment $PATHS/$ENV/$PARAMS
+# substitution, and write_env_file, all landing inside the template's
+# pre-declared containers (steps.build_application_images_N.steps /
 # steps.publish.steps / steps.tests_unit.steps / steps.tests_api.scale /
 # steps.tests_e2e.scale / steps.post_main_clone.steps /
 # steps.wait_deployment.commands / steps.prepare_deployment.commands).
 # Everything else legacy's create_codefresh_deployment_scripts also computes -
-# secrets/db-connect-string/registry-secret wiring into the deployment step,
-# build-skip when conditions - is not generated yet, so none of that is
-# asserted here.
+# secrets/db-connect-string/registry-secret wiring into the deployment step -
+# is not generated yet, so none of that is asserted here.
 from unittest.mock import patch
 
 from ch_cli_tools.ng.api import (
@@ -130,6 +130,22 @@ def test_create_codefresh_configuration_build_arguments(tmp_path):
         arg.split("=", 1) for arg in steps["cloudharness-base"]["build_arguments"]
     )
     assert base_args["NODE"] == myapp_args["NODE"]
+
+
+def test_create_codefresh_configuration_build_skip_when_condition(tmp_path):
+    cf, _ = _generate_cf(tmp_path, ["myapp"])
+
+    steps = _build_steps(cf)
+    when = steps["myapp"]["when"]["condition"]["any"]
+
+    # Skip rebuilding if write_env_file's own MYAPP_TAG_EXISTS variable says
+    # the registry already has this tag, unless MYAPP_TAG_FORCE_BUILD is set.
+    assert "MYAPP_TAG_EXISTS" in when["buildDoesNotExist"]
+    assert "MYAPP_TAG_FORCE_BUILD" in when["forceNoCache"]
+
+    # Each entity gets its own, name-specific pair of variables.
+    base_when = steps["cloudharness-base"]["when"]["condition"]["any"]
+    assert "CLOUDHARNESS_BASE_TAG_EXISTS" in base_when["buildDoesNotExist"]
 
 
 def test_create_codefresh_configuration_build_step_batching(tmp_path):

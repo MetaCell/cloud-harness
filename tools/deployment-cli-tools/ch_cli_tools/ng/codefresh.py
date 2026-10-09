@@ -131,6 +131,21 @@ class CHCodefresh(CHValues):
         args.update(self.project.all_source_images())
         return [f"{key}={value}" for key, value in args.items()]
 
+    def _build_skip_when_condition(self, name) -> dict:
+        tag_var = _tag_variable(name)
+        exists_var = f"{tag_var}_EXISTS"
+        force_var = f"{tag_var}_FORCE_BUILD"
+        return {
+            "condition": {
+                "any": {
+                    "buildDoesNotExist": "includes('${{%s}}', '{{%s}}') == true"
+                    % (exists_var, exists_var),
+                    "forceNoCache": "includes('${{%s}}', '{{%s}}') == false"
+                    % (force_var, force_var),
+                }
+            }
+        }
+
     def _collect_build_step(self, entity):
         context = self._context_for(entity)
         step = {
@@ -147,6 +162,7 @@ class CHCodefresh(CHValues):
                 "NOCACHE=${{CF_BUILD_ID}}",
                 *self._build_arguments(entity),
             ],
+            "when": self._build_skip_when_condition(entity.name),
         }
         step["dependencies"] = [
             dep.name
