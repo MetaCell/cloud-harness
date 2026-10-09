@@ -517,7 +517,10 @@ class CHCodefresh(CHValues):
             if isinstance(app, str):
                 continue
 
-            if app.dockerfile.exists():
+            # Not just dockerfile.exists(): an app with an explicit
+            # harness.deployment.image uses that pre-built image instead,
+            # even if it also happens to have a Dockerfile checked in.
+            if project._is_buildable_app(app):
                 key, step = self._collect_build_step(app)
                 build_steps[key] = step
                 pkey, pstep = self._collect_publish_step(app)

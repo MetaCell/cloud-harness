@@ -9,7 +9,8 @@
 # Scope of this file: the per-app/task/base-image/test-runner build steps
 # (including their dependency/source-image build_arguments, their own
 # stage/registry/buildkit/NOCACHE fields from cloud-harness's own
-# codefresh-build-template.yaml, and their build-skip `when` condition), their
+# codefresh-build-template.yaml, their build-skip `when` condition, and never
+# generating one for an app with an explicit harness.deployment.image), their
 # sibling publish steps, parallel-step batching of build steps into
 # build_application_images_N groups and top-level stage ordering, the
 # unit/api/e2e test steps, git-dependency clone steps, the wait_deployment
@@ -21,9 +22,11 @@
 # steps.tests_e2e.scale / steps.post_main_clone.steps /
 # steps.wait_deployment.commands / steps.deployment.arguments.custom_values /
 # steps.prepare_deployment.commands).
-# Everything else legacy's create_codefresh_deployment_scripts also computes
-# is not generated yet (per-app build.yaml build-arg override), so none of
-# that is asserted here.
+# That's the full feature set - nothing else is deliberately left out, with
+# one exception: legacy's per-app build.yaml override (ch_cli_tools/codefresh.py
+# ~221-229) reads the file and discards the result (`build_specific` is never
+# merged anywhere) - dead code, untested anywhere in the legacy test suite
+# either. Not ported here; there's no working behavior to match.
 from unittest.mock import patch
 
 from ch_cli_tools.ng.api import (
@@ -389,6 +392,50 @@ def test_create_codefresh_configuration_no_api_e2e_steps_when_not_enabled(tmp_pa
     build_steps = _build_steps(cf)
     assert "test-api" not in build_steps
     assert "test-e2e" not in build_steps
+
+
+def test_create_codefresh_configuration_no_build_for_app_with_prebuilt_image(tmp_path):
+    # An app with harness.deployment.image set uses that pre-built image
+    # instead of a locally-built one, even if it also has a Dockerfile
+    # checked in - legacy's own `build` flag (ch_cli_tools/helm.py:374) is
+    # `not bool(deployment_image)`, which ng already derives the same way via
+    # CHProject._is_buildable_app. No build/publish step should be generated
+    # for it, unlike a normal buildable app alongside it.
+    (tmp_path / "deployment-configuration").mkdir(parents=True)
+    (tmp_path / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\nmainapp: appa\n"
+    )
+    appa_dir = tmp_path / "applications" / "appa"
+    appa_dir.mkdir(parents=True)
+    (appa_dir / "Dockerfile").write_text("FROM scratch\n")
+
+    appb_dir = tmp_path / "applications" / "appb"
+    (appb_dir / "deploy").mkdir(parents=True)
+    (appb_dir / "Dockerfile").write_text("FROM scratch\n")
+    (appb_dir / "deploy" / "values.yaml").write_text(
+        "harness:\n  deployment:\n    image: external/prebuilt:1.0\n"
+    )
+
+    values = create_helm_chart(
+        [tmp_path],
+        output_path=tmp_path,
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+    cf = create_codefresh_deployment_scripts(
+        [tmp_path], envs=["dev"], helm_values=values, save=False
+    )
+
+    build_steps = _build_steps(cf)
+    assert "appa" in build_steps
+    assert "appb" not in build_steps
+    publish_steps = cf["steps"]["publish"]["steps"]
+    assert "publish_appa" in publish_steps
+    assert "publish_appb" not in publish_steps
 
 
 def test_create_codefresh_deployment_scripts_save_writes_under_deployment_dir(tmp_path):
