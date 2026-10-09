@@ -13,15 +13,17 @@
 # sibling publish steps, parallel-step batching of build steps into
 # build_application_images_N groups and top-level stage ordering, the
 # unit/api/e2e test steps, git-dependency clone steps, the wait_deployment
-# rollout-wait commands, the prepare_deployment $PATHS/$ENV/$PARAMS
+# rollout-wait commands, the deployment step's secrets/db-connect-string/
+# registry-secret custom_values, the prepare_deployment $PATHS/$ENV/$PARAMS
 # substitution, and write_env_file, all landing inside the template's
 # pre-declared containers (steps.build_application_images_N.steps /
 # steps.publish.steps / steps.tests_unit.steps / steps.tests_api.scale /
 # steps.tests_e2e.scale / steps.post_main_clone.steps /
-# steps.wait_deployment.commands / steps.prepare_deployment.commands).
-# Everything else legacy's create_codefresh_deployment_scripts also computes -
-# secrets/db-connect-string/registry-secret wiring into the deployment step -
-# is not generated yet, so none of that is asserted here.
+# steps.wait_deployment.commands / steps.deployment.arguments.custom_values /
+# steps.prepare_deployment.commands).
+# Everything else legacy's create_codefresh_deployment_scripts also computes
+# is not generated yet (per-app build.yaml build-arg override), so none of
+# that is asserted here.
 from unittest.mock import patch
 
 from ch_cli_tools.ng.api import (
@@ -318,6 +320,29 @@ def test_create_codefresh_configuration_gatekeeper_wait_suppressed_when_unsecure
     # samples' own deployment.auto rollout-wait is unaffected - only the
     # gatekeeper wait is gated by secured_gatekeepers.
     assert "kubectl rollout status statefulset/samples" in commands
+
+
+def test_create_codefresh_configuration_deployment_secret_values(tmp_path):
+    # real cloud-harness samples app: harness.secrets.asecret = "value" (a
+    # simple-form, CloudHarness-managed secret). myapp: harness.database.
+    # connect_string = "" (auto-generated, needs a pipeline-resolved value).
+    cf, _ = _generate_cf(tmp_path, ["samples", "myapp"])
+
+    custom_values = cf["steps"]["deployment"]["arguments"]["custom_values"]
+    assert 'apps_samples_harness_secrets_asecret="${{ASECRET}}"' in custom_values
+    assert (
+        'apps_myapp_harness_database_connect__string="${{MYAPP_DB_CONNECT_STRING}}"'
+        in custom_values
+    )
+    # No registry secret configured for this run.
+    assert not any(v.startswith("registry_secret_value=") for v in custom_values)
+
+
+def test_create_codefresh_configuration_registry_secret_value(tmp_path):
+    cf, _ = _generate_cf(tmp_path, ["myapp"], registry_secret_name="my-pull-secret")
+
+    custom_values = cf["steps"]["deployment"]["arguments"]["custom_values"]
+    assert 'registry_secret_value="${{K8S_SA_JSON}}"' in custom_values
 
 
 def test_create_codefresh_configuration_api_and_e2e_test_steps(tmp_path):

@@ -2,6 +2,7 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
+from ch_cli_tools.secrets import is_cloudharness_managed, is_secret_config, secret_value
 from ch_cli_tools.utils import check_image_exists_in_registry  # type: ignore
 
 from .model import KEY_TASK_IMAGES, CHValues, register_file
@@ -15,6 +16,7 @@ KEY_API_TESTS = "tests_api"
 KEY_E2E_TESTS = "tests_e2e"
 KEY_PREPARE_DEPLOYMENT = "prepare_deployment"
 KEY_PUBLISH = "publish"
+KEY_DEPLOYMENT = "deployment"
 
 _INVALID_STEP_KEY_CHARS = re.compile(r"[^a-zA-Z0-9_]")
 
@@ -285,6 +287,39 @@ class CHCodefresh(CHValues):
             commands.append("sleep 60")  # give the certificates time to settle
         return commands
 
+    def _collect_deployment_secret_values(self, project) -> list[str]:
+        values = []
+        for app in project.involved_apps:
+            if isinstance(app, str):
+                continue
+            app_key = app.name.replace("_", "__")
+            for secret, definition in app.secrets.items():
+                if (
+                    not is_cloudharness_managed(definition)
+                    or secret_value(definition) == ""
+                ):
+                    continue
+                secret_name = secret.replace("_", "__")
+                # the rich form nests the value under `default`
+                value_path = (
+                    f"{secret_name}_default"
+                    if is_secret_config(definition)
+                    else secret_name
+                )
+                values.append(
+                    'apps_%s_harness_secrets_%s="${{%s}}"'
+                    % (app_key, value_path, secret_name.upper())
+                )
+            if app.database.get("connect_string") == "":
+                var_name = f"{_env_key(app.name)}_DB_CONNECT_STRING"
+                values.append(
+                    'apps_%s_harness_database_connect__string="${{%s}}"'
+                    % (app_key, var_name)
+                )
+        if project.config.registry_secret_name:
+            values.append('registry_secret_value="${{K8S_SA_JSON}}"')
+        return values
+
     def _substitute_prepare_deployment_placeholders(
         self, project, commands
     ) -> list[str]:
@@ -527,6 +562,13 @@ class CHCodefresh(CHValues):
                 self._collect_rollout_wait_commands(project)
             )
 
+        deployment_step = steps.get(KEY_DEPLOYMENT)
+        if deployment_step is not None:
+            arguments = deployment_step.setdefault("arguments", {})
+            arguments.setdefault("custom_values", []).extend(
+                self._collect_deployment_secret_values(project)
+            )
+
         prepare_deployment = steps.get(KEY_PREPARE_DEPLOYMENT)
         if prepare_deployment and prepare_deployment.get("commands"):
             prepare_deployment["commands"] = (
@@ -543,14 +585,13 @@ class CHCodefresh(CHValues):
         base["steps"] = steps
 
         # MISSING: `version`/`stages` pipeline scaffolding (present when the
-        # template itself declares them, not computed here), the deploy step
-        # (entirely template-driven already), and secrets/db-connect-string/
-        # registry-secret wiring into the deployment step's arguments - none
-        # of that is reproduced here yet. Pruning of other empty containers
-        # (tests_unit/post_main_clone/etc, as legacy's generic "remove useless
-        # steps" filter does) is deliberately NOT done here - only the
-        # build-group placeholders are, to avoid touching containers whose
-        # emptiness behavior isn't covered by a test yet.
+        # template itself declares them, not computed here) and the deploy
+        # step's own fields (entirely template-driven already, beyond
+        # custom_values) aren't reproduced here. Pruning of other empty
+        # containers (tests_unit/post_main_clone/etc, as legacy's generic
+        # "remove useless steps" filter does) is deliberately NOT done here -
+        # only the build-group placeholders are, to avoid touching containers
+        # whose emptiness behavior isn't covered by a test yet.
 
         if write_on_disk:
             self.write(base, output_path=output_path)

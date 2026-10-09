@@ -285,6 +285,14 @@ class CHApp:
         return resolve_path(self.harness_config, "dependencies.git", default=[]) or []
 
     @property
+    def secrets(self) -> dict:
+        return resolve_path(self.harness_config, "secrets", default={}) or {}
+
+    @property
+    def database(self) -> dict:
+        return resolve_path(self.harness_config, "database", default={}) or {}
+
+    @property
     def app_entrypoint(self) -> Path | None:
         candidates = sorted(
             self.build_context.glob("**/__main__.py"), key=lambda p: len(p.parts)

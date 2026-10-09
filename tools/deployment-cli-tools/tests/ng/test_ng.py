@@ -505,3 +505,25 @@ def test_app_openapi_empty_when_no_spec_file(resources_project):
     openapi = resources_project["myapp"].openapi
     assert openapi.exists() is False
     assert openapi.server_urls == []
+
+
+def test_app_secrets_reads_real_declaration():
+    # samples' real values.yaml declares harness.secrets.asecret = "value".
+    project = CHProject(CLOUDHARNESS_ROOT, config=CHDeployConfig())
+    assert project["samples"].secrets == {"asecret": "value"}
+
+
+def test_app_secrets_empty_when_not_declared(resources_project):
+    assert resources_project["myapp"].secrets == {}
+
+
+def test_app_database_reads_own_values(resources_project):
+    # myapp's own values.yaml declares harness.database.connect_string: "".
+    assert resources_project["myapp"].database.get("connect_string") == ""
+
+
+def test_app_database_connect_string_unset_when_not_declared():
+    # events gets the app-defaults' own database block (connect_string:
+    # None), not an empty-string sentinel - it never opted into one.
+    project = CHProject(CLOUDHARNESS_ROOT, config=CHDeployConfig())
+    assert project["events"].database.get("connect_string") is None
