@@ -176,7 +176,7 @@ class CHCodefresh(CHValues):
     def _collect_git_clone_steps(self, project):
         steps = {}
         for app in project.involved_apps:
-            if isinstance(app, str):
+            if isinstance(app, str) or not project._is_buildable_app(app):
                 continue
             for dep in app.git_dependencies:
                 url = dep["url"]
@@ -248,7 +248,7 @@ class CHCodefresh(CHValues):
     def _collect_unit_test_steps(self, project):
         steps = {}
         for app in project.involved_apps:
-            if isinstance(app, str):
+            if isinstance(app, str) or not project._is_buildable_app(app):
                 continue
             commands = app.test.unit.commands
             if not commands:
@@ -397,7 +397,7 @@ class CHCodefresh(CHValues):
     def _collect_api_test_steps(self, project) -> dict:
         scale = {}
         for app in project.involved_apps:
-            if isinstance(app, str):
+            if isinstance(app, str) or not project._is_buildable_app(app):
                 continue
             if not (app.test.api.enabled and app.harness_config.get("subdomain")):
                 continue
@@ -418,7 +418,7 @@ class CHCodefresh(CHValues):
     def _collect_e2e_test_steps(self, project) -> dict:
         scale = {}
         for app in project.involved_apps:
-            if isinstance(app, str):
+            if isinstance(app, str) or not project._is_buildable_app(app):
                 continue
             if not (app.test.e2e.enabled and app.harness_config.get("subdomain")):
                 continue
@@ -504,9 +504,6 @@ class CHCodefresh(CHValues):
             if isinstance(app, str):
                 continue
 
-            # Not just dockerfile.exists(): an app with an explicit
-            # harness.deployment.image uses that pre-built image instead,
-            # even if it also happens to have a Dockerfile checked in.
             if project._is_buildable_app(app):
                 key, step = self._collect_build_step(app)
                 build_steps[key] = step

@@ -405,22 +405,62 @@ def test_create_codefresh_configuration_no_build_for_app_with_prebuilt_image(tmp
     # instead of a locally-built one, even if it also has a Dockerfile
     # checked in - legacy's own `build` flag (ch_cli_tools/helm.py:374) is
     # `not bool(deployment_image)`, which ng already derives the same way via
-    # CHProject._is_buildable_app. No build/publish step should be generated
-    # for it, unlike a normal buildable app alongside it.
+    # CHProject._is_buildable_app. In legacy this same flag lives inside the
+    # single per-Dockerfile loop that also generates git-clone/unit/api/e2e
+    # steps, so a non-buildable app gets none of those either - only a
+    # buildable app alongside it does.
     (tmp_path / "deployment-configuration").mkdir(parents=True)
     (tmp_path / "deployment-configuration" / "values-template.yaml").write_text(
         "name: testproj\nmainapp: appa\n"
     )
     appa_dir = tmp_path / "applications" / "appa"
-    appa_dir.mkdir(parents=True)
+    (appa_dir / "deploy").mkdir(parents=True)
     (appa_dir / "Dockerfile").write_text("FROM scratch\n")
+    (appa_dir / "deploy" / "values.yaml").write_text(
+        "harness:\n"
+        "  test:\n"
+        "    unit:\n"
+        "      enabled: true\n"
+        "      commands: ['pytest tests/appa']\n"
+        "    api:\n"
+        "      enabled: false\n"
+        "      autotest: false\n"
+        "      checks: []\n"
+        "    e2e:\n"
+        "      enabled: false\n"
+        "      smoketest: false\n"
+        "  dependencies:\n"
+        "    git:\n"
+        "      - url: https://github.com/a/b.git\n"
+        "        branch_tag: main\n"
+    )
 
     appb_dir = tmp_path / "applications" / "appb"
     (appb_dir / "deploy").mkdir(parents=True)
     (appb_dir / "Dockerfile").write_text("FROM scratch\n")
     (appb_dir / "deploy" / "values.yaml").write_text(
-        "harness:\n  deployment:\n    image: external/prebuilt:1.0\n"
+        "harness:\n"
+        "  deployment:\n"
+        "    image: external/prebuilt:1.0\n"
+        "  subdomain: appb\n"
+        "  test:\n"
+        "    unit:\n"
+        "      enabled: true\n"
+        "      commands: ['pytest tests/appb']\n"
+        "    api:\n"
+        "      enabled: true\n"
+        "      autotest: false\n"
+        "      checks: []\n"
+        "    e2e:\n"
+        "      enabled: true\n"
+        "      smoketest: false\n"
+        "  dependencies:\n"
+        "    git:\n"
+        "      - url: https://github.com/x/y.git\n"
+        "        branch_tag: main\n"
     )
+    (appb_dir / "api").mkdir(parents=True)
+    (appb_dir / "api" / "openapi.yaml").write_text("servers:\n  - url: /api\n")
 
     values = create_helm_chart(
         [tmp_path],
@@ -442,6 +482,19 @@ def test_create_codefresh_configuration_no_build_for_app_with_prebuilt_image(tmp
     publish_steps = cf["steps"]["publish"]["steps"]
     assert "publish_appa" in publish_steps
     assert "publish_appb" not in publish_steps
+
+    unit_steps = cf["steps"]["tests_unit"]["steps"]
+    assert "appa_ut" in unit_steps
+    assert "appb_ut" not in unit_steps
+
+    clone_steps = cf["steps"]["post_main_clone"]["steps"]
+    assert any("appa" in name for name in clone_steps)
+    assert not any("appb" in name for name in clone_steps)
+
+    # appb is the only app with api/e2e enabled - gated off entirely, so
+    # both containers end up empty and are pruned, same as "not included".
+    assert "tests_api" not in cf["steps"]
+    assert "tests_e2e" not in cf["steps"]
 
 
 def test_create_codefresh_deployment_scripts_save_writes_under_deployment_dir(tmp_path):
