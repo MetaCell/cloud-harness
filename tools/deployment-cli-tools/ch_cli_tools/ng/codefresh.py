@@ -1,12 +1,11 @@
 import re
 from functools import lru_cache
-from pathlib import Path
 
 from ch_cli_tools.secrets import is_cloudharness_managed, is_secret_config, secret_value
 from ch_cli_tools.utils import check_image_exists_in_registry  # type: ignore
 
 from .model import KEY_TASK_IMAGES, CHValues, register_file
-from .utils import dict_merge  # type: ignore
+from .utils import dict_merge, pipeline_relative_path  # type: ignore
 
 KEY_BUILD_PARALLEL = "build_application_images"
 KEY_UNIT_TESTS = "tests_unit"
@@ -37,16 +36,8 @@ def _git_main_domain(url: str) -> str:
     return "github"
 
 
-_CLOUD_HARNESS_DIR_NAME = "cloud-harness"
-
-
 def _to_codefresh_path(path, relative_to) -> str:
-    rel_parts = path.resolve().relative_to(relative_to.resolve(), walk_up=True).parts
-    if rel_parts and rel_parts[0] == "..":
-        abs_parts = path.resolve().parts
-        if _CLOUD_HARNESS_DIR_NAME in abs_parts:
-            return str(Path(*abs_parts[abs_parts.index(_CLOUD_HARNESS_DIR_NAME) :]))
-    return str(Path(*rel_parts)) if rel_parts else "."
+    return str(pipeline_relative_path(path, relative_to))
 
 
 def _env_key(name: str) -> str:
@@ -123,6 +114,14 @@ class CHCodefresh(CHValues):
             self.path.parent
         )
 
+    def _working_directory_for(self, context) -> str:
+        abs_context_path = (self.path.parent / context.path).resolve()
+        return str(
+            pipeline_relative_path(
+                abs_context_path, self.path.parent, boundary=self.project.root
+            )
+        )
+
     def _repo_relative(self, path) -> str:
         return str(path.resolve().relative_to(self.path.parent.resolve(), walk_up=True))
 
@@ -163,7 +162,7 @@ class CHCodefresh(CHValues):
             "registry": "${{CODEFRESH_REGISTRY}}",
             "buildkit": True,
             "image_name": self.qualify(entity.image_name),
-            "working_directory": str(context.path),
+            "working_directory": self._working_directory_for(context),
             "dockerfile": str(context.dockerfile.path),
             "tag": _tag_reference(entity.name),
             "build_arguments": [

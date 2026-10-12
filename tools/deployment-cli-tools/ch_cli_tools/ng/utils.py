@@ -130,6 +130,27 @@ def _parse_exec_form(rest: str) -> tuple[str, ...]:
     return (rest,)
 
 
+CLOUD_HARNESS_DIR_NAME = "cloud-harness"
+
+
+def pipeline_relative_path(
+    path: Path, relative_to: Path, boundary: Path | None = None
+) -> Path:
+    rel_parts = path.resolve().relative_to(relative_to.resolve(), walk_up=True).parts
+    if rel_parts and rel_parts[0] == "..":
+        if boundary is not None:
+            try:
+                path.resolve().relative_to(boundary.resolve())
+            except ValueError:
+                pass
+            else:
+                return Path(*rel_parts)
+        abs_parts = path.resolve().parts
+        if CLOUD_HARNESS_DIR_NAME in abs_parts:
+            return Path(*abs_parts[abs_parts.index(CLOUD_HARNESS_DIR_NAME) :])
+    return Path(*rel_parts) if rel_parts else Path(".")
+
+
 MERGE_DIRNAME = ".overrides"
 _MERGE_COPY_IGNORE = shutil.ignore_patterns(
     MERGE_DIRNAME, ".git", "node_modules", ".tox"
