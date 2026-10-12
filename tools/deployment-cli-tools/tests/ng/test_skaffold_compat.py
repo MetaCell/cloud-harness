@@ -361,10 +361,6 @@ def test_app_depends_on_app(tmp_path):
         [CLOUDHARNESS_ROOT, RESOURCES],
         output_path=out_folder,
         domain="my.local",
-        # NG-COMPAT-TODO: namespace='test' added - not in the original legacy
-        # call, but namespace is a required HarnessMainConfig field with no
-        # default-derivation in ng (same gap test_helm_compat.py documents).
-        namespace="test",
         env="",
         local=False,
         include=["dependantapp"],
@@ -401,8 +397,6 @@ def test_skaffold_builds_cross_app_task_image(tmp_path):
         [CLOUDHARNESS_ROOT, RESOURCES],
         output_path=out_folder,
         domain="my.local",
-        # NG-COMPAT-TODO: namespace='test' added - see test_app_depends_on_app.
-        namespace="test",
         env="",
         local=False,
         include=["taskdep"],

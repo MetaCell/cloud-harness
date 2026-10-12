@@ -1101,6 +1101,7 @@ class CHProject:
             final_allvalues["domain"] = self.config.domain
         if self.config.namespace:
             final_allvalues["namespace"] = self.config.namespace
+        final_allvalues.setdefault("namespace", "")
         if self.config.tag:
             final_allvalues["tag"] = self.config.tag
         if self.config.registry:

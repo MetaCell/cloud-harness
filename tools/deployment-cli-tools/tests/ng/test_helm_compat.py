@@ -378,12 +378,8 @@ def test_collect_helm_values_build_dependencies_exclude(tmp_path):
 def test_clear_unused_dbconfig(tmp_path):
     out_folder = tmp_path / 'test_clear_unused_dbconfig'
 
-    # NG-COMPAT-TODO: namespace='test' added - not in the original call, but
-    # namespace is a required HarnessMainConfig field with no default-derivation
-    # in ng (legacy could derive one when omitted, ng can't yet). Not what this
-    # test is actually about, so supplying it rather than commenting the test.
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                               namespace='test', env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
+                               env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
 
     # There is a DB config
     assert KEY_DATABASE in values[KEY_APPS]['myapp'][KEY_HARNESS]
