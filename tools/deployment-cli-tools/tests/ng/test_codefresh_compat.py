@@ -414,6 +414,63 @@ def test_create_codefresh_configuration_registry_secret_value(tmp_path):
     assert 'registry_secret_value="${{K8S_SA_JSON}}"' in custom_values
 
 
+def test_create_codefresh_configuration_secret_filtering(tmp_path):
+    """Only secrets CloudHarness itself manages, with a real value still to be
+    set, get exported as a deployment custom_values pipeline-variable
+    reference - everything else (already-generated static values, secrets
+    delegated to an external manager, explicitly unmanaged ones) is skipped.
+    Adds a third, override-only layer on top of the real [CLOUDHARNESS_ROOT,
+    RESOURCES] chain so myapp's real fixture values.yaml doesn't need to carry
+    every exotic secret shape itself."""
+    override_root = tmp_path / "override"
+    app_dir = override_root / "applications" / "myapp" / "deploy"
+    app_dir.mkdir(parents=True)
+    (app_dir / "values.yaml").write_text(
+        "harness:\n"
+        "  secrets:\n"
+        "    plain_secret: null\n"
+        '    static_random: ""\n'
+        "    rich_secret:\n"
+        "      default: null\n"
+        "    rich_static_random:\n"
+        "      manager: cloudharness\n"
+        '      default: ""\n'
+        "    op_secret:\n"
+        "      manager: onepassword\n"
+        "      path: vaults/v/items/i\n"
+        "    unmanaged_secret:\n"
+        "      manager: null\n"
+    )
+
+    roots = [CLOUDHARNESS_ROOT, RESOURCES, override_root]
+    values = create_helm_chart(
+        roots,
+        output_path=tmp_path,
+        include=["myapp"],
+        exclude=["events"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+    cf = create_codefresh_deployment_scripts(
+        roots, envs=["dev"], helm_values=values, save=False
+    )
+
+    custom_values = [
+        v
+        for v in cf["steps"]["deployment"]["arguments"]["custom_values"]
+        if v.startswith("apps_myapp_harness_secrets_")
+    ]
+    assert custom_values == [
+        'apps_myapp_harness_secrets_plain__secret="${{PLAIN__SECRET}}"',
+        # the rich form nests the value under `default`
+        'apps_myapp_harness_secrets_rich__secret_default="${{RICH__SECRET}}"',
+    ]
+
+
 def test_create_codefresh_configuration_api_and_e2e_test_steps(tmp_path):
     # real cloud-harness samples app: subdomain=www, test.api/test.e2e both
     # enabled, a real api/openapi.yaml (servers: [{url: /api}]), and both a
@@ -613,6 +670,45 @@ def test_create_codefresh_configuration_prepare_deployment_placeholders(tmp_path
     assert "$PATHS" not in deploy_cmd
     assert "$ENV" not in deploy_cmd
     assert "$PARAMS" not in deploy_cmd
+
+
+def test_create_codefresh_configuration_multienv(tmp_path):
+    # Multiple envs merge in order - later envs win on a shared key, each
+    # env's own keys are additive. RESOURCES' own codefresh-template-{dev,test}
+    # fixtures each set a distinct top-level scalar flag; CLOUDHARNESS_ROOT's
+    # real codefresh-template-test.yaml is a full alternate pipeline (its own
+    # namespace naming, no publish step) - test must win on prepare_deployment
+    # since it's merged in after dev.
+    include = ["samples", "myapp", "workflows"]
+    roots = [CLOUDHARNESS_ROOT, RESOURCES]
+    values = create_helm_chart(
+        roots,
+        output_path=tmp_path,
+        include=include,
+        exclude=["events"],
+        domain="my.local",
+        namespace="test",
+        env=["dev", "test"],
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+    cf = create_codefresh_deployment_scripts(
+        roots, envs=["dev", "test"], helm_values=values, save=False
+    )
+
+    assert cf["test_step"] == "test"
+    assert cf["test"] is True
+    assert cf["dev"] is True
+
+    commands = cf["steps"]["prepare_deployment"]["commands"]
+    harness_deployment_cmds = [c for c in commands if "harness-deployment" in c]
+    assert harness_deployment_cmds
+    for cmd in harness_deployment_cmds:
+        assert "-e dev-test" in cmd
+        assert "test-${{NAMESPACE_BASENAME}}" in cmd
+        for inc in include:
+            assert f"-i {inc}" in cmd
 
 
 def test_write_env_file(tmp_path):

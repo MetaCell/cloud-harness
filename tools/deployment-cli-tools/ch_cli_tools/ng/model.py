@@ -349,7 +349,7 @@ class CHValues:
         if not self.path.exists():
             return {}
         with self.path.open("r", encoding="utf-8") as f:
-            return yaml.load(f)
+            return yaml.load(f) or {}
 
     def exists(self):
         return self.path.exists()

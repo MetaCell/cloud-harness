@@ -523,34 +523,46 @@ class CHCodefresh(CHValues):
         build_steps.update(base_builds)
         publish_steps.update(base_publishes)
 
-        steps.setdefault(KEY_PUBLISH, {"type": "parallel", "steps": {}})
-        steps[KEY_PUBLISH].setdefault("steps", {}).update(publish_steps)
+        publish_container = steps.setdefault(
+            KEY_PUBLISH, {"type": "parallel", "steps": {}}
+        )
+        if publish_container is not None:
+            publish_container.setdefault("steps", {}).update(publish_steps)
 
         unit_test_steps = self._collect_unit_test_steps(project)
-        steps.setdefault(KEY_UNIT_TESTS, {"type": "parallel", "steps": {}})
-        steps[KEY_UNIT_TESTS].setdefault("steps", {}).update(unit_test_steps)
+        unit_test_container = steps.setdefault(
+            KEY_UNIT_TESTS, {"type": "parallel", "steps": {}}
+        )
+        if unit_test_container is not None:
+            unit_test_container.setdefault("steps", {}).update(unit_test_steps)
 
         clone_steps = self._collect_git_clone_steps(project)
         if clone_steps:
-            steps.setdefault(KEY_CLONE_DEPENDENCIES, {"type": "parallel", "steps": {}})
-            steps[KEY_CLONE_DEPENDENCIES].setdefault("steps", {}).update(clone_steps)
+            clone_container = steps.setdefault(
+                KEY_CLONE_DEPENDENCIES, {"type": "parallel", "steps": {}}
+            )
+            if clone_container is not None:
+                clone_container.setdefault("steps", {}).update(clone_steps)
 
         for key, image_name, collect in (
             (KEY_API_TESTS, "test-api", self._collect_api_test_steps),
             (KEY_E2E_TESTS, "test-e2e", self._collect_e2e_test_steps),
         ):
-            if key in steps:
+            if steps.get(key):
                 steps[key].setdefault("scale", {}).update(collect(project))
                 self._wire_test_image(project, steps, key, image_name, build_steps)
 
-        steps.setdefault(KEY_BUILD_PARALLEL, {"type": "parallel", "steps": {}})
-        for index, group in enumerate(self._batch_build_steps(build_steps)):
-            group_step = dict(steps[KEY_BUILD_PARALLEL])
-            group_step["title"] = f"Build parallel step {index + 1}"
-            group_step["steps"] = group
-            steps[f"{KEY_BUILD_PARALLEL}_{index}"] = group_step
+        build_parallel_container = steps.setdefault(
+            KEY_BUILD_PARALLEL, {"type": "parallel", "steps": {}}
+        )
+        if build_parallel_container is not None:
+            for index, group in enumerate(self._batch_build_steps(build_steps)):
+                group_step = dict(build_parallel_container)
+                group_step["title"] = f"Build parallel step {index + 1}"
+                group_step["steps"] = group
+                steps[f"{KEY_BUILD_PARALLEL}_{index}"] = group_step
 
-        if KEY_WAIT_DEPLOYMENT in steps:
+        if steps.get(KEY_WAIT_DEPLOYMENT):
             steps[KEY_WAIT_DEPLOYMENT].setdefault("commands", []).extend(
                 self._collect_rollout_wait_commands(project)
             )
