@@ -12,7 +12,10 @@ by CHProject/CHDeployConfig and the rest of the ng model instead of the legacy
 ConfigurationGenerator/HarnessMainConfig machinery.
 """
 
+import logging
 from dataclasses import replace
+
+from ch_cli_tools.utils import get_cluster_ip  # type: ignore
 
 from . import codefresh
 from .model import CHDeployConfig, CHProject
@@ -98,7 +101,38 @@ def create_docker_compose_configuration(
 
 
 def hosts_info(values):
-    pass
+    apps = [app for app in values.apps.values() if app.harness]
+
+    subdomains = [app.harness.subdomain for app in apps if app.harness.subdomain] + [
+        alias for app in apps if app.harness.aliases for alias in app.harness.aliases
+    ]
+
+    logging.info("\nTo run locally some apps, also those references may be needed")
+    for app in apps:
+        if not app.harness.service:
+            continue
+        service = app.harness.service
+        print(
+            f"kubectl port-forward -n {values.namespace} service/{service.name} "
+            f"{service.port}:{service.port}"
+        )
+
+    hosts = [
+        f"{app.harness.service.name}.{values.namespace}"
+        for app in apps
+        if app.harness.service
+    ]
+    print(f"127.0.0.1\t{' '.join(hosts)}")
+
+    try:
+        ip = get_cluster_ip(local=values.local)
+    except Exception:
+        logging.warning("Cannot get cluster ip")
+        ip = "127.0.0.1"
+    logging.info(
+        "\nTo test locally, update your hosts file"
+        + f"\n{ip}\t{values.domain + ' ' + ' '.join(sd + '.' + values.domain for sd in subdomains)}"
+    )
 
 
 # --- ch_cli_tools/skaffold.py ---

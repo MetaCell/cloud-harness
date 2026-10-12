@@ -6,8 +6,11 @@ skaffold generator tests, and tests/test_utils.py/tests/test_helm.py for the
 originals.
 """
 
+import logging
+
 import pytest
 from ch_cli_tools.ng import CHDeployConfig, CHProject
+from ch_cli_tools.ng.api import create_helm_chart, hosts_info
 from ch_cli_tools.ng.model import DependencyUnknownError
 from ch_cli_tools.ng.skaffold import CHSkaffold
 from conftest import (
@@ -527,3 +530,38 @@ def test_app_database_connect_string_unset_when_not_declared():
     # None), not an empty-string sentinel - it never opted into one.
     project = CHProject(CLOUDHARNESS_ROOT, config=CHDeployConfig())
     assert project["events"].database.get("connect_string") is None
+
+
+def test_hosts_info_prints_port_forward_and_hosts_lines(tmp_path, monkeypatch, capsys, caplog):
+    monkeypatch.setattr("ch_cli_tools.ng.api.get_cluster_ip", lambda local: "10.0.0.5")
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES], output_path=tmp_path, include=["myapp"], exclude=["legacy"],
+        domain="my.local", namespace="test", local=False, tag=1, registry="reg",
+    )
+
+    with caplog.at_level(logging.INFO):
+        hosts_info(values)
+
+    out = capsys.readouterr().out
+    # myapp's own values.yaml sets harness.subdomain: mysubdomain; service
+    # name/port (myapp/80) come from the default app-values template cascade.
+    assert "kubectl port-forward -n test service/myapp 80:80" in out
+    assert "127.0.0.1\tmyapp.test" in out
+    assert "10.0.0.5\tmy.local mysubdomain.my.local" in caplog.text
+
+
+def test_hosts_info_falls_back_to_localhost_when_cluster_ip_unavailable(tmp_path, monkeypatch, caplog):
+    def _raise(local):
+        raise RuntimeError("no cluster reachable")
+
+    monkeypatch.setattr("ch_cli_tools.ng.api.get_cluster_ip", _raise)
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES], output_path=tmp_path, include=["myapp"], exclude=["legacy"],
+        domain="my.local", namespace="test", local=False, tag=1, registry="reg",
+    )
+
+    with caplog.at_level(logging.INFO):
+        hosts_info(values)
+
+    assert "Cannot get cluster ip" in caplog.text
+    assert "127.0.0.1\tmy.local mysubdomain.my.local" in caplog.text
