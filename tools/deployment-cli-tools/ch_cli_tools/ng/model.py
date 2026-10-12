@@ -19,7 +19,6 @@ _ENTRYPOINT_OVERRIDE_PATTERN = re.compile(
 from .utils import (
     MERGE_DIRNAME,
     _merge_base_chain,
-    collect_and_merge_env_specific_files,
     content_hash,
     dict_merge,  # type: ignore
     env_suffixed_path,
@@ -679,7 +678,9 @@ def _clear_unused_db_configuration(harness: dict) -> dict:
     if database.get("type") is None:
         return {k: v for k, v in harness.items() if k != "database"}
     db_specific_keys = {
-        k for k, v in database.items() if isinstance(v, dict) and "image" in v and "ports" in v
+        k
+        for k, v in database.items()
+        if isinstance(v, dict) and "image" in v and "ports" in v
     }
     database = {
         k: v
@@ -762,9 +763,6 @@ class CHProject:
         )
         self.app_defaults = CHValues(
             self.root / "deployment-configuration" / "value-template.yaml", self
-        )
-        self.helm_chart = CHValues(
-            self.root / "deployment-configuration" / "helm" / "Chart.yaml", self
         )
         self.helm_values_defaults = CHValues(
             self.root / "deployment-configuration" / "helm" / "values.yaml", self
@@ -1136,30 +1134,6 @@ class CHProject:
 
         return helm_values
 
-    def write_chart(self) -> None:
-        dest = Path(self.config.output_path) / "helm"
-        shutil.rmtree(dest, ignore_errors=True)
-        _merge_base_chain(
-            self, lambda p: p.root / "deployment-configuration" / "helm", dest
-        )
-        for app in self.involved_apps:
-            if isinstance(app, str):
-                continue
-            _merge_base_chain(
-                app,
-                lambda a: a.path / "deploy" / "templates",
-                dest / "templates" / app.name,
-            )
-            _merge_base_chain(
-                app,
-                lambda a: a.path / "deploy" / "resources",
-                dest / "resources" / app.name,
-            )
-            _merge_base_chain(
-                app, lambda a: a.path / "deploy" / "charts", dest / "charts" / app.name
-            )
-        collect_and_merge_env_specific_files(dest, self.config.envs)
-
 
 @dataclass
 class CHDeployConfig:
@@ -1178,6 +1152,9 @@ class CHDeployConfig:
     output_path: str = field(default="./deployment", kw_only=True)
     manage_task_images: bool = field(default=True, kw_only=True)
     secured_gatekeepers: bool = field(default=True, kw_only=True)
+    chart_name: str | None = field(default=None, kw_only=True)
+    chart_version: str | None = field(default=None, kw_only=True)
+    app_version: str | None = field(default=None, kw_only=True)
 
     @property
     def envs(self) -> list[str]:

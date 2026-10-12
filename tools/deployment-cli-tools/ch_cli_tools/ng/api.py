@@ -38,24 +38,22 @@ def create_helm_chart(
     chart_version=None,
     app_version=None,
 ):
-    # name/chart_version/app_version: accepted for signature compat, not wired
-    # yet - Chart.yaml itself now comes from CHProject.write_chart() (copied
-    # from deployment-configuration/helm/, same as legacy) - these would
-    # override fields inside that copied file, not generate it from scratch;
-    # still not wired.
     root_paths = list(root_paths)
 
     config_kwargs = {
         "includes": list(include or []),
         "excludes": list(exclude or []),
         "registry": registry,
-        "tag": tag,
+        "tag": str(tag) if tag is not None else None,
         "local": local,
         "namespace": namespace,
         "registry_secret_name": registry_secret_name,
         "output_path": output_path,
         "tls": tls,
         "secured_gatekeepers": secured,
+        "chart_name": name,
+        "chart_version": chart_version,
+        "app_version": app_version,
     }
     if env:
         config_kwargs["env"] = env
@@ -67,7 +65,7 @@ def create_helm_chart(
     for path in root_paths:  # lowest priority first, most specific last
         project = CHProject(path, base=project, config=config)
     assert project, "Couldn't build the project root representation"
-    project.write_chart()
+    project.helm_chart.generate()
     return project.build_final_helm_values()
 
 

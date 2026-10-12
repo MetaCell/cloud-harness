@@ -12,11 +12,6 @@ import pytest
 import shutil
 import subprocess
 
-# NG-COMPAT-TODO: all `tag=1` (int) call sites below changed to `tag='1'` (str) -
-# legacy's create_helm_chart accepted int tags, ng's HarnessMainConfig.tag is
-# StrictStr and doesn't coerce. Not a test-intent change: no test here checks
-# numeric-vs-string tag behavior, tag=1 was just an arbitrary value. Real gap
-# in ng.api.create_helm_chart/CHProject.build_final_helm_values, not fixed here.
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 # HERE is tests/ng - one level deeper than the legacy tests/test_helm.py this
@@ -52,7 +47,7 @@ def test_collect_helm_values(tmp_path):
     out_folder = tmp_path / 'test_collect_helm_values'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
                                exclude=['events'], domain="my.local",
-                               namespace='test', env='dev', local=False, tag='1', registry='reg')
+                               namespace='test', env='dev', local=False, tag=1, registry='reg')
 
     # First level include apps
     assert 'samples' in values[KEY_APPS]
@@ -123,7 +118,7 @@ def test_collect_nobuild(tmp_path):
     out_folder = tmp_path / 'test_collect_helm_values'
     values = create_helm_chart([RESOURCES], output_path=out_folder, include=['myapp'],
                                exclude=['events'], domain="my.local",
-                               namespace='test', env='nobuild', local=False, tag='1', registry='reg')
+                               namespace='test', env='nobuild', local=False, tag=1, registry='reg')
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'custom-image'
     assert values[KEY_APPS]['myapp']['build'] == False
 
@@ -132,7 +127,7 @@ def test_collect_helm_values_harness_image_name_override(tmp_path):
     out_folder = tmp_path / 'test_collect_helm_values_harness_image_name_override'
 
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
-                               domain="my.local", namespace='test', env='imagename', local=False, tag='1', registry='reg')
+                               domain="my.local", namespace='test', env='imagename', local=False, tag=1, registry='reg')
 
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/custom-myapp:1'
     assert values[KEY_APPS]['myapp'][KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/testprojectname/custom-myapp-mytask:1'
@@ -141,7 +136,7 @@ def test_collect_helm_values_harness_image_name_override(tmp_path):
 def test_collect_helm_values_noreg_noinclude(tmp_path):
     out_path = tmp_path / 'test_collect_helm_values_noreg_noinclude'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, domain="my.local",
-                               namespace='test', env='dev', local=False, tag='1')
+                               namespace='test', env='dev', local=False, tag=1)
 
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'testprojectname/myapp:1'
     assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
@@ -206,7 +201,7 @@ def test_collect_helm_values_noreg_noinclude(tmp_path):
 def test_collect_helm_values_precedence(tmp_path):
     out_folder = tmp_path / 'test_collect_helm_values_precedence'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                               namespace='test', env='prod', local=False, tag='1', include=["events"])
+                               namespace='test', env='prod', local=False, tag=1, include=["events"])
 
     # Values.yaml from current app must override values-prod.yaml from cloudharness
     assert values[KEY_APPS]['events']['kafka']['resources']['limits']['memory'] == 'overridden'
@@ -216,7 +211,7 @@ def test_collect_helm_values_precedence(tmp_path):
 def test_collect_helm_values_multiple_envs(tmp_path):
     out_folder = tmp_path / 'test_collect_helm_values_multiple_envs'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                               namespace='test', env=['dev', 'test'], local=False, tag='1', include=["myapp"])
+                               namespace='test', env=['dev', 'test'], local=False, tag=1, include=["myapp"])
 
     assert values[KEY_APPS]['myapp']['test'] is True, 'values-test not loaded'
     assert values[KEY_APPS]['myapp']['dev'] is True, 'values-dev not loaded'
@@ -270,13 +265,13 @@ def test_collect_app_defaults_env_specific_chart(tmp_path):
     """The deployment root value-template-[env].yaml lands in the generated chart values"""
     out_folder = tmp_path / 'test_collect_app_defaults_env_specific_chart'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                               namespace='test', env='dev', local=False, tag='1', include=["myapp"])
+                               namespace='test', env='dev', local=False, tag=1, include=["myapp"])
 
     assert values[KEY_APPS]['myapp']['env-defaults'] == 'resources-dev'
 
     out_folder = tmp_path / 'test_collect_app_defaults_no_env_chart'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                               namespace='test', local=False, tag='1', include=["myapp"])
+                               namespace='test', local=False, tag=1, include=["myapp"])
 
     assert 'env-defaults' not in values[KEY_APPS]['myapp']
 
@@ -293,20 +288,20 @@ def test_collect_helm_values_wrong_dependencies_validate(tmp_path):
     out_folder = tmp_path / 'test_collect_helm_values_wrong_dependencies_validate'
     with pytest.raises(DependencyUnknownError):
         create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-                          namespace='test', env='prod', local=False, tag='1', include=["wrong-hard"])
+                          namespace='test', env='prod', local=False, tag=1, include=["wrong-hard"])
     try:
         create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-                          namespace='test', env='prod', local=False, tag='1', include=["wrong-soft"])
+                          namespace='test', env='prod', local=False, tag=1, include=["wrong-soft"])
 
     except DependencyUnknownError as e:
         pytest.fail("Should not error because of wrong soft dependency")
 
     with pytest.raises(DependencyUnknownError):
         create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-                          namespace='test', env='prod', local=False, tag='1', include=["wrong-build"])
+                          namespace='test', env='prod', local=False, tag=1, include=["wrong-build"])
     try:
         create_helm_chart([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-                          namespace='test', env='prod', local=False, tag='1', include=["wrong-services"])
+                          namespace='test', env='prod', local=False, tag=1, include=["wrong-services"])
     except DependencyUnknownError:
         pytest.fail("Should not error because of missing use_services dependency")
 
@@ -338,7 +333,7 @@ def test_validate_dependencies_accepts_app_local_build_images():
 def test_collect_helm_values_build_dependencies(tmp_path):
     out_folder = tmp_path / 'test_collect_helm_values_build_dependencies'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                               namespace='test', env='prod', local=False, tag='1', include=["myapp"])
+                               namespace='test', env='prod', local=False, tag=1, include=["myapp"])
 
     assert 'cloudharness-flask' in values[KEY_TASK_IMAGES], "Cloudharness-flask is included in the build dependencies"
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES], "Cloudharness-base is included in cloudharness-flask Dockerfile and it should be guessed"
@@ -349,7 +344,7 @@ def test_collect_helm_values_build_dependencies(tmp_path):
 def test_collect_helm_values_build_dependencies_nodeps(tmp_path):
     out_folder = tmp_path / 'test_collect_helm_values_build_dependencies_nodeps'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                               namespace='test', env='prod', local=False, tag='1', include=["events"])
+                               namespace='test', env='prod', local=False, tag=1, include=["events"])
 
     assert 'cloudharness-flask' not in values[KEY_TASK_IMAGES], "Cloudharness-flask is not included in the build dependencies"
     assert 'cloudharness-base' not in values[KEY_TASK_IMAGES], "Cloudharness-base is not included in the build dependencies"
@@ -360,7 +355,7 @@ def test_collect_helm_values_build_dependencies_nodeps(tmp_path):
 def test_collect_helm_values_build_dependencies_exclude(tmp_path):
     out_folder = tmp_path / 'test_collect_helm_values_build_dependencies_exclude'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                               namespace='test', env='prod', local=False, tag='1', include=["workflows"], exclude=["workflows-extract-download"])
+                               namespace='test', env='prod', local=False, tag=1, include=["workflows"], exclude=["workflows-extract-download"])
 
     assert 'cloudharness-flask' in values[KEY_TASK_IMAGES], "Cloudharness-flask is included in the build dependencies"
     assert 'cloudharness-base' in values[KEY_TASK_IMAGES], "Cloudharness-base is included in cloudharness-flask Dockerfile and it should be guessed"
@@ -1021,7 +1016,7 @@ def test_network_policy_defaults_from_value_template(tmp_path):
     propagates into app values and is not reset to []."""
     out_folder = tmp_path / 'test_network_policy_defaults_from_value_template'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
-                               domain="my.local", namespace='test', env='dev', local=False, tag='1')
+                               domain="my.local", namespace='test', env='dev', local=False, tag=1)
 
     network = values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['network']
     assert network is not None, "network config should be present"
@@ -1030,33 +1025,29 @@ def test_network_policy_defaults_from_value_template(tmp_path):
         f"allowedNamespaces from value-template override should contain 'test-namespace', got: {allowed}"
     )
 
-    # NG-COMPAT-TODO: ng has no generator that writes Chart.yaml metadata
-    # (name/chart_version/app_version/namespace) - create_helm_chart accepts
-    # name/chart_version/app_version for signature compat only, unwired (see
-    # ng/api.py's module docstring note on create_helm_chart).
-    # out_folder = tmp_path / 'test_chart_metadata_optional_overrides'
-    # create_helm_chart(
-    #     [CLOUDHARNESS_ROOT, RESOURCES],
-    #     output_path=out_folder,
-    #     include=['myapp'],
-    #     domain="my.local",
-    #     namespace='custom-ns',
-    #     name='custom-chart',
-    #     chart_version='9.8.7',
-    #     app_version='4.5.6',
-    #     env='dev',
-    #     local=False,
-    #     tag='1',
-    #     registry='reg'
-    # )
-    #
-    # chart_path = out_folder / HELM_CHART_PATH / 'Chart.yaml'
-    # with open(chart_path, 'r') as chart_file:
-    #     chart = yaml.load(chart_file)
-    # assert chart['name'] == 'custom-chart'
-    # assert chart['version'] == '9.8.7'
-    # assert chart['appVersion'] == '4.5.6'
-    # assert chart['metadata']['namespace'] == 'custom-ns'
+    out_folder = tmp_path / 'test_chart_metadata_optional_overrides'
+    create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=out_folder,
+        include=['myapp'],
+        domain="my.local",
+        namespace='custom-ns',
+        name='custom-chart',
+        chart_version='9.8.7',
+        app_version='4.5.6',
+        env='dev',
+        local=False,
+        tag=1,
+        registry='reg'
+    )
+
+    chart_path = out_folder / HELM_CHART_PATH / 'Chart.yaml'
+    with open(chart_path, 'r') as chart_file:
+        chart = yaml.load(chart_file)
+    assert chart['name'] == 'custom-chart'
+    assert chart['version'] == '9.8.7'
+    assert chart['appVersion'] == '4.5.6'
+    assert chart['metadata']['namespace'] == 'custom-ns'
 
 
 def test_exclude_single_task(tmp_path):
@@ -1423,7 +1414,7 @@ def test_collect_helm_values_source_images_merge(tmp_path):
     out_path = tmp_path / 'test_collect_helm_values_source_images_merge'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path,
                                include=["samples", "myapp"], domain="my.local",
-                               namespace='test', env='nreg', local=False, tag='1', registry='reg')
+                               namespace='test', env='nreg', local=False, tag=1, registry='reg')
 
     source_images = values.get("source_images")
     assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
@@ -1433,7 +1424,7 @@ def test_collect_helm_values_source_images_merge(tmp_path):
 def test_collect_helm_values_source_images_merge_no_include(tmp_path):
     out_path = tmp_path / 'test_collect_helm_values_source_images_merge'
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, domain="my.local",
-                               namespace='test', env='nreg', local=False, tag='1', registry='reg')
+                               namespace='test', env='nreg', local=False, tag=1, registry='reg')
 
     source_images = values.get("source_images")
     assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
