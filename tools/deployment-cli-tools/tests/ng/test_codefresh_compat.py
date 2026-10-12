@@ -202,6 +202,49 @@ def test_create_codefresh_configuration_build_step_batching(tmp_path):
     assert "build_test_images" not in cf["steps"]
 
 
+def test_parallel_build_steps_sorted_alphabetically(tmp_path):
+    """Sub-steps inside every generated parallel step must be sorted alphabetically."""
+    cf, _ = _generate_cf(tmp_path, ["samples", "myapp", "workflows"])
+
+    for step_name, step in cf["steps"].items():
+        if (
+            step
+            and isinstance(step, dict)
+            and step.get("type") == "parallel"
+            and "steps" in step
+        ):
+            sub_step_names = list(step["steps"].keys())
+            assert sub_step_names == sorted(sub_step_names), (
+                f"Sub-steps of '{step_name}' are not sorted alphabetically: {sub_step_names}"
+            )
+
+
+def test_steps_ordered_by_stage_in_generated_config(tmp_path):
+    """The steps produced by create_codefresh_deployment_scripts must be ordered by stage."""
+    cf, _ = _generate_cf(tmp_path, ["samples", "myapp", "workflows"])
+
+    stages = cf.get("stages", [])
+    stage_order = {s: i for i, s in enumerate(stages)}
+    steps = cf["steps"]
+
+    step_stage_indices = [
+        stage_order.get(step.get("stage"), len(stages))
+        for step in steps.values()
+        if step and isinstance(step, dict)
+    ]
+
+    assert step_stage_indices == sorted(step_stage_indices), (
+        "Steps are not ordered by stage. Got stages: "
+        + str(
+            [
+                step.get("stage")
+                for step in steps.values()
+                if step and isinstance(step, dict)
+            ]
+        )
+    )
+
+
 def test_create_codefresh_configuration_publish_steps(tmp_path):
     cf, _ = _generate_cf(tmp_path, ["myapp"])
 
