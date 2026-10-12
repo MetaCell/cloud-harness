@@ -143,12 +143,10 @@ def test_collect_helm_values_noreg_noinclude(tmp_path):
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, domain="my.local",
                                namespace='test', env='dev', local=False, tag='1')
 
-    # NG-COMPAT-TODO: harness.deployment.image/harness.name auto-injection not
-    # computed by ng.api.create_helm_chart yet (same gap as test_collect_helm_values).
-    # assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'testprojectname/myapp:1'
-    # assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
-    # assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
-    # assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'testprojectname/accounts:1'
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'testprojectname/myapp:1'
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
+    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
+    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'testprojectname/accounts:1'
 
     # First level include apps
     assert 'samples' in values[KEY_APPS]
@@ -181,34 +179,28 @@ def test_collect_helm_values_noreg_noinclude(tmp_path):
 
     helm_path = out_path / HELM_CHART_PATH
 
-    # NG-COMPAT-TODO: output_path not respected (writes under project_root
-    # instead - see test_collect_helm_values), no ng generator copies resource/
-    # template files or populates task-images, and build_final_helm_values
-    # doesn't aggregate a top-level `source_images` key the way legacy's
-    # process_values() did (CHProject.all_source_images() exists and is used
-    # by skaffold's buildArgs, but isn't surfaced into the helm values output).
-    # assert exists(helm_path)
-    # assert exists(helm_path / 'values.yaml')
-    # assert exists(helm_path / 'resources' / 'accounts' / 'realm.json')
-    # assert exists(helm_path / 'resources' / 'accounts' / 'aresource.txt')
-    # assert exists(helm_path / 'resources' / 'myapp' / 'aresource.txt')
-    # assert exists(helm_path / 'templates' / 'myapp' / 'mytemplate.yaml')
-    #
-    # assert values[KEY_TASK_IMAGES]
-    # assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
-    # assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'testprojectname/cloudharness-base:1'
-    # assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'testprojectname/myapp-mytask:1'
-    # assert values[KEY_TASK_IMAGES]['my-common'] == 'testprojectname/my-common:1'
-    #
-    # assert values["source_images"] == {
-    #     "GOLANG": "golang:1.26",
-    #     "ROCKYLINUX": "rockylinux/rockylinux:10.1-minimal",
-    #     "SENTRY": "sentry:9.1.2",
-    #     "KEYCLOAK": "myregistry.mykeycloak:99.9",
-    #     "mybase": "foo:bar",
-    #     "mybase2": "spam:egg",
-    #     "NODE": "node:22-alpine",
-    # }
+    assert exists(helm_path)
+    assert exists(helm_path / 'values.yaml')
+    assert exists(helm_path / 'resources' / 'accounts' / 'realm.json')
+    assert exists(helm_path / 'resources' / 'accounts' / 'aresource.txt')
+    assert exists(helm_path / 'resources' / 'myapp' / 'aresource.txt')
+    assert exists(helm_path / 'templates' / 'myapp' / 'mytemplate.yaml')
+
+    assert values[KEY_TASK_IMAGES]
+    assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
+    assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'testprojectname/cloudharness-base:1'
+    assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'testprojectname/myapp-mytask:1'
+    assert values[KEY_TASK_IMAGES]['my-common'] == 'testprojectname/my-common:1'
+
+    assert values["source_images"] == {
+        "GOLANG": "golang:1.26",
+        "ROCKYLINUX": "rockylinux/rockylinux:10.1-minimal",
+        "SENTRY": "sentry:9.1.2",
+        "KEYCLOAK": "myregistry.mykeycloak:99.9",
+        "mybase": "foo:bar",
+        "mybase2": "spam:egg",
+        "NODE": "node:22-alpine",
+    }
 
 
 def test_collect_helm_values_precedence(tmp_path):
@@ -389,14 +381,8 @@ def test_clear_unused_dbconfig(tmp_path):
     assert db_config['postgres'] is not None
     assert db_config['postgres']['image'].startswith('postgres:')
 
-    # NG-COMPAT-TODO: legacy actively clears db-config sub-blocks that don't
-    # match the selected database.type (a dedicated step in the old pipeline).
-    # ng.app_defaults's value-template.yaml baseline provides default mongo/
-    # postgres/neo4j sub-blocks unconditionally regardless of type, and
-    # nothing in ng strips the unused ones - so they stay populated from the
-    # baseline instead of coming back None.
-    # assert db_config['mongo'] is None
-    # assert db_config['neo4j'] is None
+    assert db_config['mongo'] is None
+    assert db_config['neo4j'] is None
 
     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
                                namespace='test', env='withmongo', local=False, include=["myapp"], exclude=["legacy"])
@@ -407,9 +393,8 @@ def test_clear_unused_dbconfig(tmp_path):
     # mongo is set, but other entries are not.
     assert db_config['mongo'] is not None
     assert db_config['mongo']['image'].startswith('mongo:')
-    # NG-COMPAT-TODO: same db-config-clearing gap as above.
-    # assert db_config['neo4j'] is None
-    # assert db_config['postgres'] is None
+    assert db_config['neo4j'] is None
+    assert db_config['postgres'] is None
 
 
 def test_cnpg_postgres_parameters_render_only_when_set(tmp_path):
@@ -916,11 +901,8 @@ def test_clear_all_dbconfig_if_nodb(tmp_path):
     # There is a DB config
     assert KEY_DATABASE in values[KEY_APPS]['myapp'][KEY_HARNESS]
 
-    # NG-COMPAT-TODO: same db-config-clearing gap as test_clear_unused_dbconfig
-    # (legacy nulls out harness.database entirely when unused; ng's app_defaults
-    # baseline always supplies a populated database: block, nothing clears it).
-    # db_config = values[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DATABASE]
-    # assert db_config is None
+    db_config = values[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DATABASE]
+    assert db_config is None
 
 
 def test_tag_hash_generation():
@@ -1102,13 +1084,13 @@ def test_app_depends_on_app(tmp_path):
     assert "cloudharness-flask" in values["task-images"], "cloudharness-flask should be included as a task image because it is a dependency of myapp"
     assert "cloudharness-base" in values["task-images"], "cloudharness-flask should be included as a task image because it is a dependency of cloudharness-flask"
     assert "myapp-mytask" in values["task-images"], "task should be also included as build dependencies,as it's required by another task"
-#     assert "legacy" not in values["task-images"], "legacy should not be included as a task image because it is not a dependency"
-#
-#     values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-#                                env='testincludetask', local=False, include=["dependantapp"], exclude=[])
-#
-#     assert "myapp" in values["task-images"], "myapp should be included as a task image because it is a dependency of dependantapp"
-#     assert "myapp-mytask" in values["task-images"], "tasks should be also included as build dependencies, when explicitly included as build dependencies"
+    assert "legacy" not in values["task-images"], "legacy should not be included as a task image because it is not a dependency"
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               env='testincludetask', local=False, include=["dependantapp"], exclude=[])
+
+    assert "myapp" in values["task-images"], "myapp should be included as a task image because it is a dependency of dependantapp"
+    assert "myapp-mytask" in values["task-images"], "tasks should be also included as build dependencies, when explicitly included as build dependencies"
 
 
 # NG-COMPAT-TODO: needs actual `helm template` rendering (no ng Chart.yaml/templates generator)

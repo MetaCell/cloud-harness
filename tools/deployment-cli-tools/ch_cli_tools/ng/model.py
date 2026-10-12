@@ -672,6 +672,23 @@ def _drop_mountpathless_volume(harness: dict) -> dict:
     return {**harness, "deployment": deployment}
 
 
+def _clear_unused_db_configuration(harness: dict) -> dict:
+    database = harness.get("database")
+    if not isinstance(database, dict):
+        return harness
+    if database.get("type") is None:
+        return {k: v for k, v in harness.items() if k != "database"}
+    db_specific_keys = {
+        k for k, v in database.items() if isinstance(v, dict) and "image" in v and "ports" in v
+    }
+    database = {
+        k: v
+        for k, v in database.items()
+        if k not in db_specific_keys or k == database["type"]
+    }
+    return {**harness, "database": database}
+
+
 def _promote_legacy_top_level_fields(value: dict, harness: dict) -> dict:
     value = {**value, "name": harness["name"]}
     deployment = harness.get("deployment") or {}
@@ -694,6 +711,7 @@ def _finalize_app_values(
     harness = _default_test_unit_enabled(harness)
     harness = _finalize_app_names(name, harness)
     harness = _drop_mountpathless_volume(harness)
+    harness = _clear_unused_db_configuration(harness)
     deployment_image = resolve_path(harness, "deployment.image") or value.get("image")
     if image is not None:
         harness = {
