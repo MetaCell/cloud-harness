@@ -107,7 +107,7 @@ class CHCodefreshTemplate(CHValues):
 )
 class CHCodefresh(CHValues):
     def qualify(self, image_name):
-        return self.project.qualify(image_name)
+        return "${{REGISTRY}}/%s" % image_name
 
     def _context_for(self, entity):
         return entity.dockerfile.resolve_context(self.path.parent).resolve_for_build(
@@ -261,7 +261,7 @@ class CHCodefresh(CHValues):
             steps[f"{app.name}_ut"] = {
                 "title": f"Unit tests for {app.name}",
                 "commands": commands,
-                "image": self.qualify(app.image_name),
+                "image": f"{self.qualify(app.image_name)}:{_tag_reference(app.name)}",
             }
         return steps
 
@@ -444,7 +444,9 @@ class CHCodefresh(CHValues):
             return
         build_key, build_step = self._collect_build_step(test_image)
         build_steps[build_key] = build_step
-        steps[key]["image"] = self.qualify(test_image.image_name)
+        steps[key]["image"] = (
+            f"{self.qualify(test_image.image_name)}:{_tag_reference(test_image.name)}"
+        )
 
     def _batch_build_steps(self, build_steps: dict) -> list[dict]:
         remaining = dict(build_steps)

@@ -145,16 +145,20 @@ def test_create_codefresh_configuration_build_arguments(tmp_path):
     myapp_args = dict(arg.split("=", 1) for arg in steps["myapp"]["build_arguments"])
 
     # harness.dependencies.build (cloudharness-flask, plus my-common added by
-    # values-dev.yaml) resolve to the already-qualified image this same
-    # pipeline is building for them, tagged with that dependency's own
-    # pipeline-variable tag reference (the same one write_env_file exports
-    # during prepare_deployment) - not a bare/unqualified name, and not an
-    # unrelated built-in variable like CF_SHORT_REVISION.
+    # values-dev.yaml) resolve to the dependency's own pipeline-variable tag
+    # reference (the same one write_env_file exports during
+    # prepare_deployment) - not a bare/unqualified name, and not an unrelated
+    # built-in variable like CF_SHORT_REVISION. The registry prefix is the
+    # literal ${{REGISTRY}} pipeline variable, not a resolved string: this
+    # file is committed and only regenerated on env/config changes, never
+    # when the REGISTRY variable itself is rotated in the Codefresh UI, so
+    # baking in today's resolved value would silently go stale - matching
+    # legacy's own image_tag_with_variables exactly.
     assert (
         myapp_args["CLOUDHARNESS_FLASK"]
-        == "reg/testprojectname/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}"
+        == "${{REGISTRY}}/testprojectname/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}"
     )
-    assert myapp_args["MY_COMMON"] == "reg/testprojectname/my-common:${{MY_COMMON_TAG}}"
+    assert myapp_args["MY_COMMON"] == "${{REGISTRY}}/testprojectname/my-common:${{MY_COMMON_TAG}}"
 
     # Globally ARG-pinned source images (from real cloud-harness base images'
     # own Dockerfiles) are merged in too - the same value on every build step,
@@ -309,8 +313,10 @@ def test_create_codefresh_configuration_publish_steps(tmp_path):
     # Same tag reference the build step itself used (${{MYAPP_TAG}}, exported
     # by write_env_file during prepare_deployment) - not an unrelated
     # built-in variable like CF_SHORT_REVISION, so publish re-pushes the
-    # exact image the deployed Helm chart actually references.
-    assert myapp_publish["candidate"] == "reg/testprojectname/myapp:${{MYAPP_TAG}}"
+    # exact image the deployed Helm chart actually references. Registry is
+    # the literal ${{REGISTRY}} pipeline variable, not a resolved string -
+    # see CHCodefresh.qualify's own docstring for why.
+    assert myapp_publish["candidate"] == "${{REGISTRY}}/testprojectname/myapp:${{MYAPP_TAG}}"
     assert myapp_publish["tags"] == ["${{DEPLOYMENT_PUBLISH_TAG}}", "latest"]
     assert myapp_publish["registry"] == "${{REGISTRY_PUBLISH_URL}}"
     assert (
@@ -366,12 +372,10 @@ def test_create_codefresh_configuration_unit_tests(tmp_path):
 
     step = unit_steps["myapp_ut"]
     assert step["commands"] == ["tox", 'echo "hello"']
-    # NG-COMPAT-TODO: legacy's image is a Codefresh template-variable reference
-    # (image_tag_with_variables -> "${{REGISTRY}}/testprojectname/myapp:${{MYAPP_TAG}}"),
-    # tied to its own CF-variable-based tagging scheme. ng has no such scheme -
-    # every generator (skaffold, this one) just qualifies the already-resolved
-    # image reference directly, consistent across the whole ng model.
-    assert step["image"] == "reg/testprojectname/myapp"
+    # Matches legacy's image_tag_with_variables exactly: the literal
+    # ${{REGISTRY}} pipeline variable (not a resolved string - see
+    # CHCodefresh.qualify's docstring) plus the entity's own tag reference.
+    assert step["image"] == "${{REGISTRY}}/testprojectname/myapp:${{MYAPP_TAG}}"
 
 
 def test_create_codefresh_configuration_no_unit_tests_when_not_included(tmp_path):
@@ -625,14 +629,22 @@ def test_create_codefresh_configuration_api_and_e2e_test_steps(tmp_path):
     # build-args resolved the same way every other build step's are.
     build_steps = _build_steps(cf)
     assert "CLOUDHARNESS_BASE" in " ".join(build_steps["test-api"]["build_arguments"])
-    assert cf["steps"]["tests_api"]["image"] == build_steps["test-api"]["image_name"]
+    # The runner image's own tag reference is appended - same convention as
+    # every other image reference embedded in codefresh.yaml.
+    assert (
+        cf["steps"]["tests_api"]["image"]
+        == build_steps["test-api"]["image_name"] + ":${{TEST_API_TAG}}"
+    )
 
     e2e_steps = cf["steps"]["tests_e2e"]["scale"]
     e2e_step = e2e_steps["samples_e2e_test"]
     assert e2e_step["environment"] == ["APP_URL=https://www.${{DOMAIN}}"]
     assert len(e2e_step["volumes"]) == 1
     assert e2e_step["volumes"][0].endswith("applications/samples/test/e2e:/home/test/__tests__/samples")
-    assert cf["steps"]["tests_e2e"]["image"] == build_steps["test-e2e"]["image_name"]
+    assert (
+        cf["steps"]["tests_e2e"]["image"]
+        == build_steps["test-e2e"]["image_name"] + ":${{TEST_E2E_TAG}}"
+    )
 
 
 def test_create_codefresh_configuration_api_test_volumes_dont_leak_between_apps(
