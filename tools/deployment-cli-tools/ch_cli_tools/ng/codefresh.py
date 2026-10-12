@@ -1,3 +1,99 @@
+"""Generates codefresh.yaml from a CHProject.
+
+Codefresh is the CI/CD pipeline that actually builds, tests, publishes and
+deploys a CH project, but unlike `skaffold dev` (used locally, right after
+being generated, on the same machine) codefresh.yaml is generated once
+(dev-time or a CI pre-step) and then committed - Codefresh parses the whole
+pipeline definition before any step of it runs, so there's no regenerating it
+mid-run. Generation must therefore statically lay out every build/publish/test
+step the deployment could need, in dependency order, batched into parallel
+groups, with the pieces that can only be known at pipeline-run time (which
+images already exist, what the registry currently resolves to) left as
+Codefresh's own `${{VAR}}` pipeline-variable references rather than baked-in
+values - a value resolved at generation time instead would silently go stale
+the next time that variable changes without a matching regeneration.
+
+CH model concepts this relies on:
+- CHProject.involved_apps / `._is_buildable_app` scope build+publish steps to
+  what's actually deployed and buildable, the same closure skaffold.py uses.
+- CHProject._combined_dependencies gives each build step's `dependencies:`
+  (explicit harness.dependencies.build plus the Dockerfile's own guessed
+  FROM/ARG chain), used both for build args and for ordering.
+- Every task under an involved app and every base image in the project gets
+  its own build+publish step unconditionally, regardless of whether its
+  owning app is itself deployed - codefresh always builds/publishes the full
+  image universe a deployment might later reuse, a wider net than skaffold's
+  manage_task_images gate.
+- app.test.unit/api/e2e (commands, autotest, checks, run_params, smoketest/
+  console/request-error flags) and app.openapi.server_urls drive the unit,
+  API and E2E test steps; app.harness_config (subdomain, secured, accounts)
+  drives their domain URLs, credentials and the gatekeeper/rollout-wait
+  commands.
+- app.secrets/app.database and CHDeployConfig.registry_secret_name decide
+  which cloudharness-managed secret/connect-string/registry-secret values
+  need exporting into the deployment step's custom_values, each as a
+  reference to a Codefresh pipeline variable, not a resolved value.
+- app.git_dependencies become pre-build git-clone steps.
+- CHDeployConfig (includes/excludes/envs/local/debug/secured_gatekeepers)
+  holds the deployment-target knobs substituted into prepare_deployment's
+  harness-deployment command and the build args.
+- pipeline_relative_path rewrites any path that crosses the project's own
+  root into the literal "cloud-harness/..." alias - codefresh.yaml is
+  committed and may run against a differently laid out checkout, unlike a
+  skaffold.yaml path (consumed immediately, same machine, real path only).
+
+CHCodefresh.generate() algorithm:
+
+1. Start from the merged codefresh-template.yaml (CH default + project
+   override, composed across the full project layer chain).
+2. For every involved, buildable app: collect a build step (qualified image,
+   Dockerfile, alias-rewritten working_directory, DEBUG/source_images/
+   dependency build args, a cache-busting NOCACHE arg, a skip-when condition
+   keyed off that image's already-exists/force-rebuild pipeline variables)
+   and a matching publish step (skip-when a per-app publish-skip variable is
+   set, tagged with DEPLOYMENT_PUBLISH_TAG and latest).
+3. Every task of every involved app, and every base image in the project,
+   gets the same build+publish step pair unconditionally (step 2's gating
+   doesn't apply to them).
+4. Unit test steps: one per buildable app with test.unit.commands, run
+   inside that app's own freshly-tagged image.
+5. API/E2E test steps: one scale entry per buildable app with test.api/
+   test.e2e enabled and a subdomain (schemathesis/pytest commands or
+   test/e2e volume mounts, a domain URL, and env for credentials/smoketest/
+   console/request-error flags). The shared test-api/test-e2e runner image
+   only gets a build step and its image wired in if at least one app
+   contributed a scale entry; otherwise the whole container step is pruned.
+6. Git-clone steps: one per app's declared git_dependencies, host-detected
+   (github/gitlab/bitbucket) and working-directory-rewritten the same way
+   build steps are.
+7. Build steps are batched into dependency-ordered parallel groups - a step
+   only joins a group once every build it depends on is already in an
+   earlier group. A dependency cycle (which legacy recurses forever on) is
+   dumped into one final group instead.
+8. Deployment-adjacent wiring: wait_deployment gets a kubectl rollout-status
+   command per auto-deployed app/gatekeeper; the deployment step's
+   custom_values get one entry per secret/connect-string/registry-secret
+   value that needs exporting from Codefresh's own pipeline variables;
+   prepare_deployment's harness-deployment command gets its $ENV/$PARAMS/
+   $PATHS placeholders substituted from the project's env list, include/
+   exclude config and layered root paths.
+9. Every step left falsy (an unfilled template placeholder) or an empty
+   parallel container is pruned, matching legacy's own "remove useless
+   steps" filter; surviving parallel containers get their inner steps
+   key-sorted for a stable diff; if the template declares a `stages` list,
+   the whole step dict is finally re-ordered to match it.
+10. Every image reference emitted anywhere (build/publish/test/task args)
+    uses the literal `${{REGISTRY}}` pipeline-variable placeholder
+    (CHCodefresh.qualify), never a concretely resolved registry string - see
+    the module-level rationale above.
+
+write_env_file() is a separate, related entry point: it writes the
+per-image TAG/EXISTS variables (consumed by step 2's skip-when condition and
+step 8's $PATHS-adjacent exports) at *pipeline run time*, by checking what
+already exists in the registry - never at generation time, since that's
+exactly the kind of fact that can't be baked into the committed file.
+"""
+
 import re
 from functools import lru_cache
 
