@@ -125,6 +125,19 @@ def test_create_codefresh_configuration_build_steps(tmp_path):
     assert "myapp-mytask" in steps
 
 
+def test_create_codefresh_configuration_app_without_build_dependency_still_builds(
+    tmp_path,
+):
+    # Legacy regression: the apps directory was only scanned if task-images
+    # was non-empty project-wide, so an app with a Dockerfile but no build
+    # dependency on any task image (like accounts) could be silently skipped
+    # entirely. Structurally impossible in ng - generate()'s app loop runs
+    # unconditionally, never gated on task-images existing - but cheap to
+    # keep as a basic invariant check.
+    cf, _ = _generate_cf(tmp_path, ["accounts"])
+    assert "accounts" in _build_steps(cf)
+
+
 def test_create_codefresh_configuration_build_arguments(tmp_path):
     cf, _ = _generate_cf(tmp_path, ["myapp"])
 
@@ -307,6 +320,31 @@ def test_create_codefresh_configuration_publish_steps(tmp_path):
     assert "publish_cloudharness-flask" in publish_steps
     assert "publish_my-common" in publish_steps
     assert "publish_myapp-mytask" in publish_steps
+
+    # Exact string match (not just substring) for a base image, not just an
+    # app - confirms the same skipPublish condition mechanism applies
+    # identically regardless of entity kind, matching legacy verbatim.
+    base_publish = publish_steps["publish_cloudharness-base"]
+    assert (
+        base_publish["when"]["condition"]["all"]["skipPublish"]
+        == "includes('${{CLOUDHARNESS_BASE_PUBLISH_SKIP}}', "
+        "'{{CLOUDHARNESS_BASE_PUBLISH_SKIP}}') == true"
+    )
+
+
+def test_create_codefresh_configuration_nested_task_working_directory(tmp_path):
+    # workflows-notify-queue is a task nested two levels deep
+    # (applications/workflows/tasks/notify-queue), not a single-level one
+    # like myapp-mytask - its build step's context must still resolve to its
+    # own real directory, not get confused by the extra nesting depth.
+    cf, _ = _generate_cf(tmp_path, ["workflows"])
+
+    build_steps = _build_steps(cf)
+    step = build_steps["workflows-notify-queue"]
+    assert step["dockerfile"] == "Dockerfile"
+    assert step["working_directory"].endswith(
+        "applications/workflows/tasks/notify-queue"
+    )
 
 
 def test_create_codefresh_configuration_no_publish_step_for_test_images(tmp_path):
