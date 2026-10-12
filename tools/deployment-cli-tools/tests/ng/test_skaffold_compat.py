@@ -434,20 +434,14 @@ def test_skaffold_imgarg_retrieval(tmp_path):
     # convenience access) to ng's actual nested structure.
     assert values[KEY_APPS]["events"].kafka.image == "nodocker.io/apache/kafka:4.0.2"
 
-    # NG-COMPAT-TODO: ng.api.create_helm_chart doesn't surface a top-level
-    # `source_images` key on the returned values (CHProject.all_source_images()
-    # exists and backs ng.skaffold's buildArgs, but isn't aggregated into
-    # build_final_helm_values's output) - see test_helm_compat.py's
-    # test_collect_helm_values_noreg_noinclude for the same gap.
-    # KEYCLOAK's expected value is the real, current
-    # applications/accounts/Dockerfile ARG default - legacy's original test
-    # expected "myregistry.myapp:15.3", which is stale (repo drift unrelated
-    # to ng vs legacy; accounts has no RESOURCES-side override, so this is a
-    # pure pass-through app's own real Dockerfile ARG).
+    # values-template-nreg.yaml declares its own source_images override
+    # (KEYCLOAK: myregistry.myapp:15.3) - it must win over the real
+    # applications/accounts/Dockerfile ARG default (quay.io/keycloak/
+    # keycloak:26.5), matching legacy exactly.
     project = values._ch_project
     source_images = project.all_source_images()
     assert len(source_images) == 2
-    assert source_images["KEYCLOAK"] == "quay.io/keycloak/keycloak:26.5"
+    assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
     assert source_images["NODE"] == "node:22-alpine"
 
 
@@ -482,10 +476,12 @@ def test_skaffold_imgarg(tmp_path):
         ]
         return found[0] if found else {}
 
+    # values-template-nreg.yaml's own source_images override wins over the
+    # real applications/accounts/Dockerfile ARG default, same as above.
     samples_buildargs = get_buildargs("samples")
-    assert samples_buildargs["KEYCLOAK"] == "quay.io/keycloak/keycloak:26.5"
+    assert samples_buildargs["KEYCLOAK"] == "myregistry.myapp:15.3"
     assert samples_buildargs["NODE"] == "node:22-alpine"
 
     myapp_buildargs = get_buildargs("myapp")
-    assert myapp_buildargs["KEYCLOAK"] == "quay.io/keycloak/keycloak:26.5"
+    assert myapp_buildargs["KEYCLOAK"] == "myregistry.myapp:15.3"
     assert myapp_buildargs["NODE"] == "node:22-alpine"

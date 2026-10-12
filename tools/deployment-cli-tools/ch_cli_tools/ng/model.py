@@ -895,6 +895,7 @@ class CHProject:
             images.update(app.dockerfile.base_images)
         for base_image in self.base_images.values():
             images.update(base_image.dockerfile.base_images)
+        images.update(self.all_values().get("source_images") or {})
         return images
 
     def _combined_dependencies(self, entity: CHApp | CHBaseImage | CHAppTask):
@@ -1083,10 +1084,7 @@ class CHProject:
             )
             project_values = {**project_values, "ingress": ingress}
 
-        source_images = {
-            **self.all_source_images(),
-            **(project_values.get("source_images") or {}),
-        }
+        source_images = self.all_source_images()
 
         final_allvalues = {
             **project_values,

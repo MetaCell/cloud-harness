@@ -27,6 +27,9 @@
 # ~221-229) reads the file and discards the result (`build_specific` is never
 # merged anywhere) - dead code, untested anywhere in the legacy test suite
 # either. Not ported here; there's no working behavior to match.
+import os
+import shutil
+import tempfile
 from unittest.mock import patch
 
 from ch_cli_tools.ng.api import (
@@ -148,6 +151,41 @@ def test_create_codefresh_configuration_build_arguments(tmp_path):
         arg.split("=", 1) for arg in steps["cloudharness-base"]["build_arguments"]
     )
     assert base_args["NODE"] == myapp_args["NODE"]
+
+
+def test_create_codefresh_configuration_source_images_override_wins_on_collision(
+    tmp_path,
+):
+    # CLOUDHARNESS_FLASK is also a build dependency of myapp: a project-level
+    # source_images override for it must win over the dependency-derived
+    # build argument, not be shadowed by it.
+    override_root = tmp_path / "override"
+    (override_root / "deployment-configuration").mkdir(parents=True)
+    (override_root / "deployment-configuration" / "values-template.yaml").write_text(
+        "source_images:\n  CLOUDHARNESS_FLASK: myoverride/cloudharness-flask:9.9\n"
+    )
+
+    roots = [CLOUDHARNESS_ROOT, RESOURCES, override_root]
+    values = create_helm_chart(
+        roots,
+        output_path=tmp_path,
+        include=["myapp"],
+        exclude=["events"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+    cf = create_codefresh_deployment_scripts(
+        roots, envs=["dev"], helm_values=values, save=False
+    )
+
+    myapp_args = dict(
+        arg.split("=", 1) for arg in _build_steps(cf)["myapp"]["build_arguments"]
+    )
+    assert myapp_args["CLOUDHARNESS_FLASK"] == "myoverride/cloudharness-flask:9.9"
 
 
 def test_create_codefresh_configuration_build_skip_when_condition(tmp_path):
@@ -362,6 +400,20 @@ def test_create_codefresh_configuration_rollout_wait_commands(tmp_path):
     assert commands[-1] == "sleep 60"
 
 
+def test_create_codefresh_configuration_rollout_wait_uses_plain_deployment_kind(
+    tmp_path,
+):
+    # real cloud-harness accounts app: harness.deployment.auto=true, no
+    # statefulset set - a plain, non-statefulset Deployment. `kubectl rollout
+    # status deployment/x` fails outright when x is actually a StatefulSet,
+    # so the two kinds must never be conflated in either direction.
+    cf, _ = _generate_cf(tmp_path, ["accounts"])
+
+    commands = cf["steps"]["wait_deployment"]["commands"]
+    assert "kubectl rollout status deployment/accounts" in commands
+    assert "kubectl rollout status statefulset/accounts" not in commands
+
+
 def test_create_codefresh_configuration_no_rollout_wait_commands_when_nothing_auto(
     tmp_path,
 ):
@@ -471,6 +523,46 @@ def test_create_codefresh_configuration_secret_filtering(tmp_path):
     ]
 
 
+def test_create_codefresh_configuration_secret_value_containing_quotes(tmp_path):
+    # The secret's own value is never written into the generated YAML - only
+    # a pipeline-variable reference is - so a value containing quotes must
+    # produce exactly the same entry shape as any other secret, with no
+    # escaping/quoting issue leaking through.
+    override_root = tmp_path / "override"
+    app_dir = override_root / "applications" / "myapp" / "deploy"
+    app_dir.mkdir(parents=True)
+    (app_dir / "values.yaml").write_text(
+        "harness:\n"
+        "  secrets:\n"
+        "    settings_secret: \"SECRET_KEY='replace-with-strong-shared-secret'\"\n"
+    )
+
+    roots = [CLOUDHARNESS_ROOT, RESOURCES, override_root]
+    values = create_helm_chart(
+        roots,
+        output_path=tmp_path,
+        include=["myapp"],
+        exclude=["events"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+    cf = create_codefresh_deployment_scripts(
+        roots, envs=["dev"], helm_values=values, save=False
+    )
+
+    custom_values = cf["steps"]["deployment"]["arguments"]["custom_values"]
+    entry = next(
+        v
+        for v in custom_values
+        if v.startswith("apps_myapp_harness_secrets_settings__secret=")
+    )
+    assert entry == 'apps_myapp_harness_secrets_settings__secret="${{SETTINGS__SECRET}}"'
+
+
 def test_create_codefresh_configuration_api_and_e2e_test_steps(tmp_path):
     # real cloud-harness samples app: subdomain=www, test.api/test.e2e both
     # enabled, a real api/openapi.yaml (servers: [{url: /api}]), and both a
@@ -505,6 +597,24 @@ def test_create_codefresh_configuration_api_and_e2e_test_steps(tmp_path):
     assert cf["steps"]["tests_e2e"]["image"] == build_steps["test-e2e"]["image_name"]
 
 
+def test_create_codefresh_configuration_api_test_volumes_dont_leak_between_apps(
+    tmp_path,
+):
+    # common's Dockerfile lives in a non-top-level subdirectory
+    # (applications/common/server/Dockerfile) - its api test step's volumes
+    # must still mount the app's own directory (applications/common), not
+    # leak that "server" subdirectory into the path, and samples' volumes
+    # must be unaffected by common being generated alongside it.
+    cf, _ = _generate_cf(tmp_path, ["samples", "common"])
+
+    api_steps = cf["steps"]["tests_api"]["scale"]
+    common_step = api_steps["common_api_test"]
+    for volume in common_step["volumes"]:
+        assert "server" not in volume
+
+    assert "samples_api_test" in api_steps
+
+
 def test_create_codefresh_configuration_no_api_e2e_steps_when_not_enabled(tmp_path):
     cf, _ = _generate_cf(tmp_path, ["myapp"])
 
@@ -515,6 +625,69 @@ def test_create_codefresh_configuration_no_api_e2e_steps_when_not_enabled(tmp_pa
     build_steps = _build_steps(cf)
     assert "test-api" not in build_steps
     assert "test-e2e" not in build_steps
+
+
+def test_create_codefresh_configuration_test_image_found_across_root_boundary(
+    tmp_path,
+):
+    # Regression: the test-e2e runner image lives in CLOUDHARNESS_ROOT
+    # (root_paths[0]), but the app that enables e2e testing (myapp) lives in
+    # a higher-priority layer (RESOURCES, root_paths[1]) - it must still be
+    # found and built, not missed because the two live in different layers.
+    # An override-only third layer enables myapp's e2e tests without
+    # permanently changing its real fixture values.yaml.
+    override_root = tmp_path / "override"
+    app_dir = override_root / "applications" / "myapp" / "deploy"
+    app_dir.mkdir(parents=True)
+    (app_dir / "values.yaml").write_text(
+        "harness:\n  test:\n    e2e:\n      enabled: true\n      smoketest: false\n"
+    )
+
+    roots = [CLOUDHARNESS_ROOT, RESOURCES, override_root]
+    values = create_helm_chart(
+        roots,
+        output_path=tmp_path,
+        include=["myapp"],
+        exclude=["events"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+    cf = create_codefresh_deployment_scripts(
+        roots, envs=["dev"], helm_values=values, save=False
+    )
+
+    assert "myapp_e2e_test" in cf["steps"]["tests_e2e"]["scale"]
+    assert "test-e2e" in _build_steps(cf)
+
+
+def test_create_codefresh_configuration_excluding_common_app_keeps_my_common_image(
+    tmp_path,
+):
+    # Excluding the app named "common" must not skip the differently-scoped
+    # "my-common" static/common image under infrastructure/common-images -
+    # base/common images are a separate registry, never filtered by app
+    # excludes.
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=tmp_path,
+        include=["myapp"],
+        exclude=["common"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+    cf = create_codefresh_deployment_scripts(
+        [CLOUDHARNESS_ROOT, RESOURCES], envs=["dev"], helm_values=values, save=False
+    )
+
+    assert "my-common" in _build_steps(cf)
 
 
 def test_create_codefresh_configuration_no_build_for_app_with_prebuilt_image(tmp_path):
@@ -614,6 +787,42 @@ def test_create_codefresh_configuration_no_build_for_app_with_prebuilt_image(tmp
     assert "tests_e2e" not in cf["steps"]
 
 
+def test_create_codefresh_configuration_nobuild(tmp_path):
+    # myapp's nobuild env sets harness.deployment.image (not buildable) and
+    # clears dependencies.build (there's no resolvable cloud-harness-provided
+    # dependency in this single-root [RESOURCES] chain) - myapp itself gets no
+    # build/publish step, but its own task - independent of the owning app's
+    # buildability - still does. (Legacy also asserts the generated build
+    # group contains *only* the task image - not reproduced here: legacy's
+    # own scan gates base/common-image discovery behind whether any
+    # task-images exist at all, so cloudharness-base/my-common happen to be
+    # filtered out in that specific scenario; ng's base_images registry
+    # always includes them regardless, a deliberate, already-tested
+    # difference, not a regression.)
+    values = create_helm_chart(
+        [RESOURCES],
+        output_path=tmp_path,
+        include=["myapp"],
+        exclude=["events"],
+        domain="my.local",
+        namespace="test",
+        env=["dev", "nobuild"],
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+    cf = create_codefresh_deployment_scripts(
+        [RESOURCES], envs=["dev", "nobuild"], helm_values=values, save=False
+    )
+
+    build_steps = _build_steps(cf)
+    assert "myapp-mytask" in build_steps
+    assert "myapp" not in build_steps
+
+    assert "publish_myapp" not in cf["steps"]["publish"]["steps"]
+    assert "publish_myapp-mytask" in cf["steps"]["publish"]["steps"]
+
+
 def test_create_codefresh_deployment_scripts_save_writes_under_deployment_dir(tmp_path):
     # save=True (the real CLI's default) must write next to where helm's own
     # chart lands - root/deployment/codefresh-{env}.yaml - not CWD/codefresh-
@@ -670,6 +879,44 @@ def test_create_codefresh_configuration_prepare_deployment_placeholders(tmp_path
     assert "$PATHS" not in deploy_cmd
     assert "$ENV" not in deploy_cmd
     assert "$PARAMS" not in deploy_cmd
+
+
+def test_create_codefresh_configuration_paths_are_cwd_independent(tmp_path):
+    # $PATHS and build steps' working_directory must not depend on the
+    # process's current working directory - ng resolves every path via
+    # Path.resolve() rather than legacy's os.path.relpath(path, '.'), so
+    # running from an unrelated sibling directory must produce identical
+    # results: no "../cloud-harness" leaking through, and no build step
+    # working_directory that escapes via ".." or turns up absolute.
+    sibling_dir = tempfile.mkdtemp(dir=str(CLOUDHARNESS_ROOT.parent))
+    old_cwd = os.getcwd()
+    try:
+        os.chdir(sibling_dir)
+        cf, _ = _generate_cf(tmp_path, ["samples"])
+    finally:
+        os.chdir(old_cwd)
+        shutil.rmtree(sibling_dir, ignore_errors=True)
+
+    deploy_cmd = next(
+        c
+        for c in cf["steps"]["prepare_deployment"]["commands"]
+        if "harness-deployment" in c
+    )
+    assert "../cloud-harness" not in deploy_cmd
+
+    build_steps = _build_steps(cf)
+    ch_steps = {
+        name: step
+        for name, step in build_steps.items()
+        if "cloudharness" in name or name == "samples"
+    }
+    assert ch_steps, "expected at least one cloud-harness image build step"
+    for name, step in ch_steps.items():
+        wd = step.get("working_directory", "")
+        assert not wd.startswith("../") and "/../" not in wd, (
+            f"'{name}' working_directory escapes via '..': {wd}"
+        )
+        assert not os.path.isabs(wd), f"'{name}' working_directory is absolute: {wd}"
 
 
 def test_create_codefresh_configuration_multienv(tmp_path):
