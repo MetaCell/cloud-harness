@@ -5,7 +5,7 @@ from pathlib import Path
 
 from cloudharness_utils.constants import DEPLOYMENT_PATH
 
-from ch_cli_tools.ng.api import deploy, hosts_info
+from ch_cli_tools.ng.api import deploy, hosts_info, perform_migration
 from ch_cli_tools.ng.model import CHDeployConfig, CHProject
 
 HERE = Path(__file__).resolve().parent
@@ -216,8 +216,10 @@ if __name__ == "__main__":
     if args.docker_compose:
         logging.error("docker-compose generation isn't implemented in ng yet.")
         sys.exit(2)
-    if args.migration or args.migration_accept_all:
-        logging.warning("--migrate isn't implemented in ng yet, skipping.")
+    if args.migration_accept_all:
+        perform_migration(root_paths, accept_all=True)
+    elif args.migration:
+        perform_migration(root_paths, accept_all=False)
 
     config = CHDeployConfig(
         includes=args.include,

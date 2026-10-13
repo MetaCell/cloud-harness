@@ -18,6 +18,7 @@ from pathlib import Path
 
 from ch_cli_tools.utils import get_cluster_ip  # type: ignore
 
+from . import migration
 from .model import CHDeployConfig, CHProject
 
 # --- ch_cli_tools/helm.py ---
@@ -232,4 +233,4 @@ def merge_app_directories(root_paths, destination) -> None:
 
 
 def perform_migration(base_root, accept_all=False):
-    pass
+    return migration.perform_migration(base_root, accept_all=accept_all)
