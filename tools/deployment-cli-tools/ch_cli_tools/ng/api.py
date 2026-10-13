@@ -13,7 +13,6 @@ ConfigurationGenerator/HarnessMainConfig machinery.
 """
 
 import logging
-from dataclasses import replace
 
 from ch_cli_tools.utils import get_cluster_ip  # type: ignore
 
@@ -149,25 +148,14 @@ def create_skaffold_configuration(
     backend_deploy=None,
     env=None,
 ):
-    base_config = helm_values._ch_project.config
-    config = replace(
-        base_config,
-        backend="compose" if backend_deploy == "docker-compose" else "helm",
-        env=env if env is not None else base_config.env,
-        manage_task_images=manage_task_images,
-    )
-
-    # builds the CHProject chain
-    project = None
-    for path in root_paths:  # lowest priority first, most specific last
-        project = CHProject(path, base=project, config=config)
-
-    assert project, "Couldn't build the project root representation"
+    project = helm_values._ch_project
+    project.config.backend = "compose" if backend_deploy == "docker-compose" else "helm"
     return project.skaffold.generate(output_path=output_path)
 
 
 def create_vscode_debug_configuration(root_paths, helm_values):
-    pass
+    project = helm_values._ch_project
+    return project.vscode_debug.generate(helm_values)
 
 
 # --- ch_cli_tools/tilt.py ---
@@ -198,23 +186,7 @@ def create_codefresh_deployment_scripts(
     helm_values=None,
     save=True,
 ):
-    # template_name/base_image_name: accepted for signature compat, not wired yet -
-    # the template path is fixed (deployment-configuration/codefresh-template.yaml,
-    # chain-merged like every other registered file) and the project's own
-    # base_image_name() is always used, same as every other ng generator.
-    base_config = helm_values._ch_project.config
-    config = replace(
-        base_config,
-        env=list(envs) if envs else base_config.env,
-        includes=list(include) if include else base_config.includes,
-        excludes=list(exclude) if exclude else base_config.excludes,
-    )
-
-    project = None
-    for path in root_paths:  # lowest priority first, most specific last
-        project = CHProject(path, base=project, config=config)
-
-    assert project, "Couldn't build the project root representation"
+    project = helm_values._ch_project
     return project.codefresh.generate(write_on_disk=save)
 
 

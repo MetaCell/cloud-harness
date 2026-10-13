@@ -120,7 +120,7 @@ yaml = get_yaml_parser()
 
 
 class CHApp:
-    def __init__(self, path: Path, parent: "CHProject | CHApp"):
+    def __init__(self, path: Path, parent: "CHProject"):
         self.path = path
         self.parent = parent
         self.name = self.path.name
@@ -129,15 +129,20 @@ class CHApp:
             self.path / "deploy" / "values.yaml", self
         )
         self.openapi = CHOpenAPI(self.path / "api" / "openapi.yaml", self)
+        self.base: CHApp | None = (
+            parent.base.scanned_apps.get(self.name) if parent.base is not None else None
+        )
+        tasks: dict[str, CHAppTask] = {}
+        if self.base is not None:
+            for name, task in self.base._tasks.items():
+                tasks[name] = CHAppTask(task.path, self)
+        for t in self.path.glob("tasks/*/"):
+            task = CHAppTask(t, self)
+            tasks[task.name] = task
+        self._tasks = tasks
 
     def exists(self):
         return self.path.exists()
-
-    @property
-    @lru_cache
-    def base(self) -> "CHApp | None":
-        lower = self.containing_project.base
-        return lower.scanned_apps.get(self.name) if lower is not None else None
 
     @property
     def dockerfile(self) -> "CHDockerfile":
@@ -157,7 +162,6 @@ class CHApp:
             raise TaskUnknownError(f"App {self.name} doesn't own a {key} task")
 
     @property
-    @lru_cache
     def containing_project(self) -> "CHProject":
         project = self.parent
         while isinstance(project, CHApp):
@@ -182,31 +186,15 @@ class CHApp:
             self.raw_values(),
         )
 
-    @lru_cache
-    def _scan_tasks(self) -> dict[str, "CHAppTask"]:
-        tasks: dict[str, CHAppTask] = {}
-        if self.base is not None:
-            for name, task in self.base._scan_tasks().items():
-                tasks[name] = CHAppTask(task.path, self)
-        for t in self.path.glob("tasks/*/"):
-            task = CHAppTask(t, self)
-            tasks[task.name] = task
-        return tasks
-
     @property
-    @lru_cache
     def tasks(self) -> dict[str, "CHAppTask"]:
         return {
             name: task
-            for name, task in self._scan_tasks().items()
+            for name, task in self._tasks.items()
             if name not in self.project.config.excludes
         }
 
-    def add_task(self, name):
-        self.tasks[name] = CHAppTask(self.path / name, self)
-
     @property
-    @lru_cache
     def templates(self) -> list["CHTemplate"]:
         path = self.path / "deploy" / "templates"
         return [
@@ -439,7 +427,6 @@ class CHBaseImage:
         return lower.base_images
 
     @property
-    @lru_cache
     def base(self) -> "CHBaseImage | None":
         lower = self.containing_project.base
         if lower is None:
@@ -490,7 +477,6 @@ class CHAppTask:
         self._dockerfile = CHDockerfile(own_dockerfile_path(self.path), self)
 
     @property
-    @lru_cache
     def base(self) -> "CHAppTask | None":
         lower = self.containing_project.base
         return lower.all_buildable_tasks().get(self.name) if lower is not None else None
@@ -775,6 +761,24 @@ class CHProject:
             )
             setattr(self, key, cls(p, self))
 
+        own_apps: dict[str, CHApp] = {
+            p.name: CHApp(p, self) for p in self.root.glob("applications/*/")
+        }
+        self.own_apps = own_apps
+        self.scanned_apps = dict(base.scanned_apps) if base is not None else {}
+        self.scanned_apps.update(own_apps)
+
+        own_base_images: dict[str, CHBaseImage] = {}
+        for relative_glob in (
+            "infrastructure/base-images/*/",
+            "infrastructure/common-images/*/",
+        ):
+            for p in self.root.glob(relative_glob):
+                own_base_images[p.name] = CHBaseImage(p, self)
+        self.own_base_images = own_base_images
+        self.base_images = dict(base.base_images) if base is not None else {}
+        self.base_images.update(own_base_images)
+
         own_test_images: dict[str, CHTestImage] = {}
         for p in self.root.glob("test/*/"):
             image = CHTestImage(p, self)
@@ -785,7 +789,6 @@ class CHProject:
         self.test_images = dict(base.test_images) if base is not None else {}
         self.test_images.update(self.own_test_images)
 
-    @lru_cache
     def all_layers(self) -> list["CHProject"]:
         layers = []
         layer = self
@@ -793,37 +796,6 @@ class CHProject:
             layers.append(layer)
             layer = layer.base
         return layers
-
-    @property
-    @lru_cache
-    def own_apps(self) -> dict[str, CHApp]:
-        return {p.name: CHApp(p, self) for p in self.root.glob("applications/*/")}
-
-    @property
-    @lru_cache
-    def scanned_apps(self) -> dict[str, "CHApp"]:
-        merged = dict(self.base.scanned_apps) if self.base is not None else {}
-        merged.update(self.own_apps)
-        return merged
-
-    @property
-    @lru_cache
-    def own_base_images(self) -> dict[str, CHBaseImage]:
-        images: dict[str, CHBaseImage] = {}
-        for relative_glob in (
-            "infrastructure/base-images/*/",
-            "infrastructure/common-images/*/",
-        ):
-            for p in self.root.glob(relative_glob):
-                images[p.name] = CHBaseImage(p, self)
-        return images
-
-    @property
-    @lru_cache
-    def base_images(self) -> dict[str, CHBaseImage]:
-        merged = dict(self.base.base_images) if self.base is not None else {}
-        merged.update(self.own_base_images)
-        return merged
 
     def __getitem__(self, key) -> "CHApp":
         try:
@@ -846,23 +818,19 @@ class CHProject:
         return top
 
     @property
-    @lru_cache
     def soft_dependencies(self):
         return self.all_dependencies()[0]
 
     @property
-    @lru_cache
     def hard_dependencies(self):
         return self.all_dependencies()[1]
 
     @property
-    @lru_cache
     def involved_apps(self):
         return set(
             itertools.chain(self.entrypoint_apps().values(), *self.all_dependencies())
         )
 
-    @lru_cache
     def entrypoint_apps(self):
         includes = self.config.includes
         excludes = self.config.excludes
@@ -876,7 +844,6 @@ class CHProject:
             if is_included(app_name) and is_not_excluded(app_name)
         }
 
-    @lru_cache
     def all_dependencies(self):
         softs: set[CHApp | str] = set()
         hards: set[CHApp | str] = set()
@@ -895,14 +862,12 @@ class CHProject:
             stack.extend(new_hard)
         return softs, hards
 
-    @lru_cache
     def all_buildable_tasks(self):
         tasks = {}
         for app in self.scanned_apps.values():
-            tasks.update(app._scan_tasks())
+            tasks.update(app._tasks)
         return tasks
 
-    @lru_cache
     def all_source_images(self) -> dict[str, str]:
         images: dict[str, str] = {}
         for app in self.involved_apps:
@@ -1028,13 +993,11 @@ class CHProject:
             tag = self.config.tag
         return f"{qualified}:{tag}" if tag else qualified
 
-    @lru_cache
     def _app_task_images(self, app: "CHApp") -> dict[str, str]:
         return {
             task.name: self.qualify_image(task) for task in self._buildable_tasks(app)
         }
 
-    @lru_cache
     def all_task_images(self) -> dict[str, str]:
         already_deployed = tuple(app.name for app in self._concrete_involved_apps)
         images = {
