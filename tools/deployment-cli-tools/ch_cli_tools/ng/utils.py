@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 import shlex
@@ -7,6 +8,8 @@ from typing import TYPE_CHECKING
 
 from cloudharness.utils import dict_merge  # type: ignore
 from ruamel.yaml import YAML
+
+from ch_cli_tools.utils import get_git_commit_hash  # type: ignore
 
 if TYPE_CHECKING:
     from .model import CHValues
@@ -217,6 +220,16 @@ _DEFAULT_IGNORE = (
 )
 
 
+def _cloned_dependency_repos(directory: Path):
+    for child in directory.iterdir():
+        if not child.is_dir():
+            continue
+        if (child / ".git").is_dir():
+            yield child
+        else:
+            yield from _cloned_dependency_repos(child)
+
+
 def content_hash(path: Path) -> str:
     from dirhash import dirhash
 
@@ -228,14 +241,33 @@ def content_hash(path: Path) -> str:
             for line in dockerignore.read_text().splitlines()
             if line.strip() and not line.startswith("#")
         }
-    return dirhash(str(path), "sha1", ignore=ignore, allow_cyclic_links=True)
+
+    git_hashes = []
+    dependencies_path = path / "dependencies"
+    if dependencies_path.is_dir():
+        ignore.add("/dependencies")
+        git_hashes = [
+            commit_hash
+            for repo in _cloned_dependency_repos(dependencies_path)
+            if (commit_hash := get_git_commit_hash(repo))
+        ]
+
+    digest = dirhash(str(path), "sha1", ignore=ignore, allow_cyclic_links=True)
+    if git_hashes:
+        digest = hashlib.sha1(
+            (digest + "".join(git_hashes)).encode("utf-8")
+        ).hexdigest()
+    return digest
+
+
+_EXCLUDED_DOCKERFILE_SEGMENTS = {"tasks", "dependencies", "subapps"}
 
 
 def own_dockerfile_path(path: Path) -> Path:
     candidates = [
         p
         for p in path.rglob("Dockerfile")
-        if "tasks" not in p.relative_to(path).parts[:-1]
+        if _EXCLUDED_DOCKERFILE_SEGMENTS.isdisjoint(p.relative_to(path).parts[:-1])
     ]
     if not candidates:
         return path / "Dockerfile"

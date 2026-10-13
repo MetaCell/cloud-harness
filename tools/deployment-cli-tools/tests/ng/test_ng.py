@@ -8,6 +8,7 @@ originals.
 
 import json
 import logging
+import subprocess
 
 import pytest
 from ch_cli_tools.ng import CHDeployConfig, CHProject
@@ -21,6 +22,7 @@ from ch_cli_tools.ng.model import (
     DependencyUnknownError,
     ValuesValidationError,
 )
+from ch_cli_tools.ng.utils import content_hash, own_dockerfile_path
 from ch_cli_tools.ng.skaffold import CHSkaffold
 from conftest import (
     CLOUDHARNESS_ROOT,
@@ -860,3 +862,57 @@ def test_validate_warns_on_use_services_dependency_not_deployed(tmp_path):
     warnings = project.validate()
 
     assert any("idonotexist" in w for w in warnings)
+
+
+def test_own_dockerfile_path_ignores_cloned_dependency_dockerfile(tmp_path):
+    write_tree_from_yaml(tmp_path, """
+        dependencies:
+          somerepo:
+            Dockerfile: |
+              FROM scratch
+    """)
+    assert own_dockerfile_path(tmp_path) == tmp_path / "Dockerfile"
+
+
+def test_own_dockerfile_path_ignores_subapps_dockerfile(tmp_path):
+    write_tree_from_yaml(tmp_path, """
+        subapps:
+          widget:
+            Dockerfile: |
+              FROM scratch
+    """)
+    assert own_dockerfile_path(tmp_path) == tmp_path / "Dockerfile"
+
+
+def _git(*args, cwd):
+    subprocess.run(
+        ["git", "-c", "user.email=t@t.com", "-c", "user.name=t", *args],
+        cwd=cwd, check=True, capture_output=True,
+    )
+
+
+def test_content_hash_ignores_untracked_changes_in_a_cloned_dependency(tmp_path):
+    write_tree(tmp_path, {"Dockerfile": "FROM scratch\n"})
+    repo = tmp_path / "dependencies" / "somerepo"
+    write_tree(repo, {"file.txt": "a"})
+    _git("init", cwd=repo)
+    _git("add", "file.txt", cwd=repo)
+    _git("commit", "-m", "initial", cwd=repo)
+
+    before = content_hash(tmp_path)
+    (repo / "file.txt").write_text("b")  # uncommitted change
+    assert content_hash(tmp_path) == before
+
+
+def test_content_hash_changes_when_dependency_commit_changes(tmp_path):
+    write_tree(tmp_path, {"Dockerfile": "FROM scratch\n"})
+    repo = tmp_path / "dependencies" / "somerepo"
+    write_tree(repo, {"file.txt": "a"})
+    _git("init", cwd=repo)
+    _git("add", "file.txt", cwd=repo)
+    _git("commit", "-m", "initial", cwd=repo)
+
+    before = content_hash(tmp_path)
+    (repo / "file.txt").write_text("b")
+    _git("commit", "-am", "update", cwd=repo)
+    assert content_hash(tmp_path) != before
