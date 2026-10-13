@@ -1,5 +1,6 @@
 import hashlib
 import itertools
+import logging
 import re
 import shutil
 from collections.abc import Callable
@@ -9,6 +10,8 @@ from pathlib import Path
 from typing import Literal, cast
 
 from cloudharness_model import HarnessMainConfig  # type: ignore
+
+from ch_cli_tools.secrets import secret_definition_error  # type: ignore
 
 KEY_TASK_IMAGES = "task-images"
 _ENTRYPOINT_OVERRIDE_PATTERN = re.compile(
@@ -40,6 +43,9 @@ class DependencyUnknownError(Exception): ...
 
 
 class InvalidVolumeConfigurationError(Exception): ...
+
+
+class ValuesValidationError(Exception): ...
 
 
 class CHUnitTest:
@@ -212,7 +218,7 @@ class CHApp:
 
     @property
     def harness_config(self):
-        return resolve_path(self.all_values(), "harness")
+        return resolve_path(self.all_values(), "harness") or {}
 
     @property
     def soft_dependencies(self) -> list["CHApp | str"]:
@@ -227,14 +233,17 @@ class CHApp:
 
     @property
     def hard_dependencies(self) -> list["CHApp | str"]:
-        return [
-            self.project.scanned_apps.get(dep, dep)
-            for dep in cast(
-                list[str],
-                resolve_path(self.harness_config, "dependencies.hard", default=[]),
-            )
-            if dep not in self.project.config.excludes
-        ]
+        deps = []
+        for dep in cast(
+            list[str],
+            resolve_path(self.harness_config, "dependencies.hard", default=[]),
+        ):
+            if dep in self.project.config.excludes:
+                raise DependencyUnknownError(
+                    f"Hard dependency {dep!r} declared by {self.name} is excluded from this deployment"
+                )
+            deps.append(self.project.scanned_apps.get(dep, dep))
+        return deps
 
     def build_dependencies(self) -> list["CHApp | CHBaseImage | CHAppTask | str"]:
         return [
@@ -580,8 +589,8 @@ class CHDockerfile:
             cmd, *rest = line.split()
             arg = rest[0] if len(rest) > 0 else ""
             match cmd:
-                case "ARG" if "=" in rest[0]:
-                    key, val = arg.split("=")
+                case "ARG" if "=" in arg:
+                    key, val = arg.split("=", maxsplit=1)
                     found_args[key] = val
                 case "FROM" if arg[1:] in found_args:  # $NAME case
                     key = arg[1:]
@@ -943,7 +952,16 @@ class CHProject:
         return tuple(app for app in self.involved_apps if not isinstance(app, str))
 
     def _is_buildable_app(self, app: CHApp) -> bool:
-        return app.dockerfile.exists() and not app.deployment_config.get("image")
+        if app.dockerfile.exists():
+            return not app.deployment_config.get("image")
+        if app.deployment_config.get("image"):
+            return False
+        if app.deployment_config.get("auto"):
+            raise ValuesValidationError(
+                f"At least one Dockerfile must be specified for application {app.name}. "
+                "Specify harness.deployment.image if you intend to use a prebuilt image."
+            )
+        return False
 
     def _buildable_tasks(self, app: CHApp) -> list[CHAppTask]:
         return [t for t in app.tasks.values() if t.dockerfile.exists()]
@@ -1089,11 +1107,21 @@ class CHProject:
         final_allvalues.setdefault("namespace", "")
         if self.config.tag:
             final_allvalues["tag"] = self.config.tag
+        registry = dict(project_values.get("registry") or {})
+        if self.config.local:
+            registry["secret"] = None
         if self.config.registry:
-            registry = {"name": self.config.registry}
-            if self.config.registry_secret_name:
-                registry["secret"] = {"name": self.config.registry_secret_name}
+            registry["name"] = self.config.registry
+        if self.config.registry_secret_name:
+            if not isinstance(registry.get("secret"), dict):
+                registry["secret"] = {}
+            registry["secret"]["name"] = self.config.registry_secret_name
+        if registry:
+            registry.setdefault("name", self.config.registry)
             final_allvalues["registry"] = registry
+
+        for warning in self.validate():
+            logging.warning(warning)
 
         helm_values = HarnessMainConfig.from_dict(final_allvalues)
         helm_values._ch_project = self
@@ -1104,6 +1132,46 @@ class CHProject:
             ).write(helm_values.to_dict())
 
         return helm_values
+
+    def validate(self) -> list[str]:
+        warnings: list[str] = []
+        deployed = {app.name for app in self._concrete_involved_apps}
+        for app in self._concrete_involved_apps:
+            secrets = app.secrets
+            if not isinstance(secrets, dict):
+                raise ValuesValidationError(
+                    f"Bad secrets specified for application {app.name}: expected a map of secret definitions"
+                )
+            for name, definition in secrets.items():
+                error = secret_definition_error(definition)
+                if error:
+                    raise ValuesValidationError(
+                        f"Bad definition for secret {name} of application {app.name}: {error}"
+                    )
+
+            volume = resolve_path(app.harness_config, "deployment.volume") or {}
+            if volume.get("usenfs"):
+                if volume.get("storageClass"):
+                    warnings.append(
+                        f"Volume {volume.get('name')} of application {app.name} sets usenfs and storageClass "
+                        f"{volume['storageClass']}: the nfs server storage class prevails."
+                    )
+                if volume.get("writeMany") is False:
+                    warnings.append(
+                        f"Volume {volume.get('name')} of application {app.name} sets usenfs and writeMany false: "
+                        "nfs volumes are always mounted ReadWriteMany."
+                    )
+
+            use_services = resolve_path(app.harness_config, "use_services") or []
+            not_found = {
+                s["name"] for s in use_services if s.get("name") not in deployed
+            }
+            if not_found:
+                warnings.append(
+                    f"Service proxy (use_services) dependencies for application {app.name} are not deployed: "
+                    f"{','.join(not_found)}. Proxies to these services will not be created."
+                )
+        return warnings
 
 
 @dataclass

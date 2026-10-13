@@ -16,7 +16,11 @@ from ch_cli_tools.ng.api import (
     create_vscode_debug_configuration,
     hosts_info,
 )
-from ch_cli_tools.ng.model import DependencyUnknownError
+from ch_cli_tools.ng.model import (
+    CHDockerfile,
+    DependencyUnknownError,
+    ValuesValidationError,
+)
 from ch_cli_tools.ng.skaffold import CHSkaffold
 from conftest import (
     CLOUDHARNESS_ROOT,
@@ -49,6 +53,18 @@ def test_base_images_with_arg_based_from(resources_project):
     base_images = resources_project["newapp1"].dockerfile.base_images
     assert base_images == {"mybase": "foo:bar", "mybase2": "spam:egg"}
     assert "mybase3" not in base_images
+
+
+def test_base_images_arg_value_with_multiple_equals_signs(tmp_path):
+    dockerfile = tmp_path / "Dockerfile"
+    dockerfile.write_text("ARG BASE=foo=bar\nFROM $BASE\n")
+    assert CHDockerfile(dockerfile, None).base_images == {"BASE": "foo=bar"}
+
+
+def test_base_images_bare_arg_with_no_name_is_ignored(tmp_path):
+    dockerfile = tmp_path / "Dockerfile"
+    dockerfile.write_text("ARG\nFROM scratch\n")
+    assert CHDockerfile(dockerfile, None).base_images == {}
 
 
 def test_app_and_task_dockerfiles_are_found(resources_project):
@@ -657,3 +673,140 @@ def test_create_vscode_debug_configuration_preserves_other_configurations_and_re
         conf for conf in launch["configurations"] if conf["name"] == "CloudHarness: Run/Debug"
     ]
     assert "stale" not in cloudharness_conf
+
+
+def test_app_harness_config_defaults_to_empty_dict_when_no_harness_key(tmp_path):
+    project = minimal_project(tmp_path)
+    assert project["myapp"].harness_config == {}
+
+
+def test_hard_dependency_excluded_from_deployment_raises(tmp_path):
+    root = tmp_path
+    (root / "deployment-configuration").mkdir(parents=True)
+    (root / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\n"
+    )
+    (root / "applications" / "dependee").mkdir(parents=True)
+    deploy_dir = root / "applications" / "depender" / "deploy"
+    deploy_dir.mkdir(parents=True)
+    deploy_dir.joinpath("values.yaml").write_text(
+        "harness:\n  dependencies:\n    hard:\n      - dependee\n"
+    )
+
+    project = CHProject(root, config=CHDeployConfig(excludes=["dependee"]))
+
+    with pytest.raises(DependencyUnknownError):
+        project["depender"].hard_dependencies
+
+
+def test_auto_deploy_app_without_dockerfile_or_image_raises(tmp_path):
+    root = tmp_path
+    (root / "deployment-configuration").mkdir(parents=True)
+    (root / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\n"
+    )
+    deploy_dir = root / "applications" / "noimage" / "deploy"
+    deploy_dir.mkdir(parents=True)
+    deploy_dir.joinpath("values.yaml").write_text(
+        "harness:\n  deployment:\n    auto: true\n"
+    )
+
+    project = CHProject(root, config=CHDeployConfig())
+
+    with pytest.raises(ValuesValidationError):
+        project._is_buildable_app(project["noimage"])
+
+
+def test_registry_merges_project_fields_and_clears_secret_when_local(tmp_path):
+    root = tmp_path
+    (root / "deployment-configuration").mkdir(parents=True)
+    (root / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\nmainapp: myapp\n"
+        "registry:\n  pullPolicy: Always\n  secret:\n    name: existing-secret\n"
+    )
+    app_dir = root / "applications" / "myapp"
+    app_dir.mkdir(parents=True)
+    (app_dir / "Dockerfile").write_text("FROM scratch\n")
+
+    project = CHProject(root, config=CHDeployConfig(local=True, registry="myregistry"))
+    values = project.build_final_helm_values(write_on_disk=False)
+
+    assert values.registry.name == "myregistry"
+    assert values.registry.secret is None
+    assert values.registry.additional_properties.get("pullPolicy") == "Always"
+
+
+def test_registry_absent_when_nothing_registry_related_is_configured(tmp_path):
+    root = tmp_path
+    (root / "deployment-configuration").mkdir(parents=True)
+    (root / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\nmainapp: myapp\n"
+    )
+    app_dir = root / "applications" / "myapp"
+    app_dir.mkdir(parents=True)
+    (app_dir / "Dockerfile").write_text("FROM scratch\n")
+
+    project = CHProject(root, config=CHDeployConfig())
+    values = project.build_final_helm_values(write_on_disk=False)
+    assert values.registry is None
+
+
+def test_validate_raises_on_malformed_secret_definition(tmp_path):
+    root = tmp_path
+    (root / "deployment-configuration").mkdir(parents=True)
+    (root / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\n"
+    )
+    deploy_dir = root / "applications" / "myapp" / "deploy"
+    deploy_dir.mkdir(parents=True)
+    deploy_dir.joinpath("values.yaml").write_text(
+        "harness:\n  secrets:\n    mySecret:\n      manager: 123\n"
+    )
+
+    project = CHProject(root, config=CHDeployConfig())
+
+    with pytest.raises(ValuesValidationError):
+        project.validate()
+
+
+def test_validate_warns_on_nfs_storage_class_and_write_many_collisions(tmp_path):
+    root = tmp_path
+    (root / "deployment-configuration").mkdir(parents=True)
+    (root / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\n"
+    )
+    deploy_dir = root / "applications" / "myapp" / "deploy"
+    deploy_dir.mkdir(parents=True)
+    deploy_dir.joinpath("values.yaml").write_text(
+        "harness:\n"
+        "  deployment:\n"
+        "    volume:\n"
+        "      name: myapp-data\n"
+        "      usenfs: true\n"
+        "      writeMany: false\n"
+        "      storageClass: efs-sc\n"
+    )
+
+    project = CHProject(root, config=CHDeployConfig())
+    warnings = project.validate()
+
+    assert any("the nfs server storage class prevails" in w for w in warnings)
+    assert any("always mounted ReadWriteMany" in w for w in warnings)
+
+
+def test_validate_warns_on_use_services_dependency_not_deployed(tmp_path):
+    root = tmp_path
+    (root / "deployment-configuration").mkdir(parents=True)
+    (root / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: testproj\n"
+    )
+    deploy_dir = root / "applications" / "myapp" / "deploy"
+    deploy_dir.mkdir(parents=True)
+    deploy_dir.joinpath("values.yaml").write_text(
+        "harness:\n  use_services:\n    - name: idonotexist\n"
+    )
+
+    project = CHProject(root, config=CHDeployConfig(includes=["myapp"]))
+    warnings = project.validate()
+
+    assert any("idonotexist" in w for w in warnings)
