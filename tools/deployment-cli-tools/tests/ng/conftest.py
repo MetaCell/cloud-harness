@@ -9,14 +9,7 @@ WRONG_DEPENDENCIES = RESOURCES / "wrong-dependencies"
 
 
 def chain(*roots, config=None):
-    """Build a CHProject chain bottom-up from lowest to highest priority root -
-    mirrors how ng.api.create_helm_chart builds one from root_paths. Returns
-    the top of the chain.
-    """
-    project = None
-    for root in roots:
-        project = CHProject(root, base=project, config=config)
-    return project
+    return CHProject.init(roots, config=config)
 
 
 def minimal_project(tmp_path, **config_kwargs):

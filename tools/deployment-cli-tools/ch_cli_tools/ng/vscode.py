@@ -75,8 +75,9 @@ class CHVSCodeDebugTemplate(CHValues):
 
 @register_file("vscode_debug", lambda root: Path(".vscode/launch.json"))
 class CHVSCodeDebug(CHValues):
-    def generate(self, helm_values) -> dict:
+    def generate(self) -> dict:
         project = self.project
+        helm_values = project.build_final_helm_values(write_on_disk=False)
         launch = dict_merge(_LAUNCH_JSON_DEFAULT, _load_json(self.path))
         debug_conf = dict(project.vscode_debug_template.all_values())
         debug_conf["debug"] = []
@@ -88,13 +89,17 @@ class CHVSCodeDebug(CHValues):
         ] + [debug_conf]
 
         for name, app in helm_values.apps.items():
-            if not (app.harness and app.harness.deployment and app.harness.deployment.image):
+            if not (
+                app.harness and app.harness.deployment and app.harness.deployment.image
+            ):
                 continue
             setup_py = next(project[name].path.rglob("setup.py"), None)
             if setup_py is None:
                 continue
             source_dir = setup_py.parent
-            workspace_path = source_dir.resolve().relative_to(Path.cwd().resolve(), walk_up=True)
+            workspace_path = source_dir.resolve().relative_to(
+                Path.cwd().resolve(), walk_up=True
+            )
             debug_conf["debug"].append(
                 {
                     "image": app.harness.deployment.image,

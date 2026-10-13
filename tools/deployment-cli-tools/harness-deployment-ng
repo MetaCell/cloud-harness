@@ -1,36 +1,12 @@
 #!/usr/bin/env python
 import logging
-import os
 import sys
 from pathlib import Path
 
-# HERE = os.path.dirname(os.path.realpath(__file__)).replace(os.path.sep, "/")
-# ROOT = os.path.dirname(os.path.dirname(HERE)).replace(os.path.sep, "/")
-from ch_cli_tools.ng.model import CHDeployConfig, CHProject
+from cloudharness_utils.constants import DEPLOYMENT_PATH
 
-# from ch_cli_tools.codefresh import create_codefresh_deployment_scripts, write_env_file
-# from ch_cli_tools.configurationgenerator import hosts_info
-# from ch_cli_tools.dockercompose import create_docker_compose_configuration
-# from ch_cli_tools.helm import create_helm_chart, deploy
-# from ch_cli_tools.migration import perform_migration
-# from ch_cli_tools.preprocessing import (
-#     generate_hash_based_image_tags,
-#     preprocess_build_overrides,
-# )
-# from ch_cli_tools.skaffold import (
-#     create_skaffold_configuration,
-#     create_vscode_debug_configuration,
-# )
-# from ch_cli_tools.tilt import create_tilt_configuration
-# from ch_cli_tools.utils import merge_app_directories, merge_to_yaml_file
-from cloudharness_utils.constants import (
-    COMPOSE,
-    COMPOSE_ENGINE,
-    DEPLOYMENT_PATH,
-    HELM_ENGINE,
-    HELM_PATH,
-    VALUES_MANUAL_PATH,
-)
+from ch_cli_tools.ng.api import hosts_info
+from ch_cli_tools.ng.model import CHDeployConfig, CHProject
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -237,107 +213,47 @@ if __name__ == "__main__":
         print(f"unknown: {unknown}")
         sys.exit(2)
 
-    project = CHProject(root_paths[0], cloudharness_path=root_paths[0])
+    if args.docker_compose:
+        logging.error("docker-compose generation isn't implemented in ng yet.")
+        sys.exit(2)
+    if args.migration or args.migration_accept_all:
+        logging.warning("--migrate isn't implemented in ng yet, skipping.")
+    if args.deploy:
+        logging.warning("--deploy isn't implemented in ng yet, skipping.")
 
-#             merge_app_directories(root_paths, destination=args.merge)
-#             root_paths = [args.merge]
-#
-#         if args.migration_accept_all:
-#             perform_migration(root_paths, accept_all=True)
-#         elif args.migration:
-#             perform_migration(root_paths, accept_all=False)
-#
-#         chart_fn = (
-#             create_helm_chart
-#             if not args.docker_compose
-#             else create_docker_compose_configuration
-#         )
-#
-#         chart_args = dict(
-#             root_paths=root_paths,
-#             tag=args.tag,
-#             registry=args.registry,
-#             domain=args.domain,
-#             local=args.local,
-#             secured=not args.unsecured,
-#             output_path=args.output_path,
-#             exclude=args.exclude,
-#             include=args.include,
-#             registry_secret_name=args.registry_secret_name,
-#             tls=not args.no_tls,
-#             env=envs,
-#             namespace=args.namespace,
-#         )
-#
-#         if not args.docker_compose:
-#             chart_args.update(
-#                 dict(
-#                     name=args.name,
-#                     chart_version=args.chart_version,
-#                     app_version=args.app_version,
-#                 )
-#             )
-#
-#         helm_values = chart_fn(**chart_args)
-#
-#         merged_root_paths = preprocess_build_overrides(
-#             root_paths=root_paths, helm_values=helm_values
-#         )
-#
-#         # If tags are content hashes (tag omitted in non-local mode), recompute
-#         # only image tags after overrides are merged so hashes reflect merged
-#         # build contexts without rerunning chart generation.
-#         if args.tag is None and not args.local:
-#             helm_values = generate_hash_based_image_tags(
-#                 root_paths=root_paths, helm_values=helm_values
-#             )
-#             # Overwrite the values.yaml saved in the previous step with updated image tags
-#             templates_path = COMPOSE if args.docker_compose else HELM_PATH
-#             values_path = os.path.join(
-#                 args.output_path, templates_path, VALUES_MANUAL_PATH
-#             )
-#             merge_to_yaml_file(
-#                 helm_values.to_dict()
-#                 if hasattr(helm_values, "to_dict")
-#                 else helm_values,
-#                 values_path,
-#             )
-#
-#         if not args.no_cd_gen and envs and not args.docker_compose:
-#             create_codefresh_deployment_scripts(
-#                 merged_root_paths,
-#                 include=args.include,
-#                 exclude=args.exclude,
-#                 envs=envs,
-#                 base_image_name=helm_values["name"],
-#                 helm_values=helm_values,
-#             )
-#
-#         if args.write_env:
-#             write_env_file(
-#                 helm_values,
-#                 os.path.join(root_paths[-1], DEPLOYMENT_PATH, ".env"),
-#                 args.image_cache_url,
-#             )
-#
-#         create_skaffold_configuration(
-#             merged_root_paths,
-#             helm_values,
-#             backend_deploy=COMPOSE_ENGINE if args.docker_compose else HELM_ENGINE,
-#             env=envs,
-#         )
-#         create_tilt_configuration(
-#             merged_root_paths,
-#             helm_values,
-#             name=args.namespace,
-#             namespace=args.namespace,
-#             domain=args.domain,
-#         )
-#
-#         if not args.docker_compose:
-#             create_vscode_debug_configuration(root_paths, helm_values)
-#
-#             hosts_info(helm_values)
-#
-#     if args.deploy:
-#         deploy(args.namespace, args.output_path)
+    config = CHDeployConfig(
+        includes=args.include,
+        excludes=args.exclude,
+        registry=args.registry,
+        tag=args.tag,
+        local=args.local,
+        namespace=args.namespace,
+        registry_secret_name=args.registry_secret_name,
+        output_path=args.output_path,
+        tls=not args.no_tls,
+        secured_gatekeepers=not args.unsecured,
+        domain=args.domain,
+        env=envs or None,
+        chart_name=args.name,
+        chart_version=args.chart_version,
+        app_version=args.app_version,
+    )
+
+    project = CHProject.init(root_paths, config=config)
+
+    project.helm_chart.generate()
+    helm_values = project.build_final_helm_values()
+
+    if not args.no_cd_gen and envs:
+        project.codefresh.generate()
+
+    if args.write_env:
+        project.codefresh.write_env_file(
+            root_paths[-1] / DEPLOYMENT_PATH / ".env",
+            args.image_cache_url,
+        )
+
+    project.skaffold.generate()
+
+    project.vscode_debug.generate()
+    hosts_info(helm_values)

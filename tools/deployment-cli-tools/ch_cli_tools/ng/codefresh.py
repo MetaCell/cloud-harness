@@ -152,38 +152,6 @@ def _extract_tag(image: str) -> str:
     return image.split(":")[1] if ":" in image else "latest"
 
 
-def write_env_file(helm_values, filename, image_cache_endpoint_url=None) -> None:
-    env: dict[str, int | str] = {}
-
-    def record(name: str, image: str) -> None:
-        tag = _extract_tag(image)
-        env[_tag_variable(name)] = tag
-        chunks = image.split(":")[0].split("/")
-        has_registry_host = "." in chunks[0]
-        registry = chunks[0] if has_registry_host else "docker.io"
-        image_name = "/".join(chunks[1:] if has_registry_host else chunks)
-        exists = check_image_exists_in_registry(
-            registry, image_name, tag, endpoint_url=image_cache_endpoint_url
-        )
-        env[_tag_variable(name) + ("_EXISTS" if exists else "_NEW")] = 1
-
-    for app_name, app in helm_values.apps.items():
-        if app.harness and app.harness.deployment.image:
-            record(app_name, app.harness.deployment.image)
-
-    for name, image in helm_values[KEY_TASK_IMAGES].items():
-        record(name, image)
-
-    project = helm_values._ch_project
-    for name, test_image in project.test_images.items():
-        if not test_image.dockerfile.exists():
-            continue
-        record(name, project.qualify_image(test_image))
-
-    with open(filename, "w", encoding="utf-8") as f:
-        f.writelines(f"{key}={value}\n" for key, value in env.items())
-
-
 @register_file(
     "codefresh_template",
     lambda root: root / "deployment-configuration" / "codefresh-template.yaml",
@@ -204,6 +172,38 @@ class CHCodefreshTemplate(CHValues):
 class CHCodefresh(CHValues):
     def qualify(self, image_name):
         return "${{REGISTRY}}/%s" % image_name
+
+    def write_env_file(self, filename, image_cache_endpoint_url=None) -> None:
+        project = self.project
+        helm_values = project.build_final_helm_values(write_on_disk=False)
+        env: dict[str, int | str] = {}
+
+        def record(name: str, image: str) -> None:
+            tag = _extract_tag(image)
+            env[_tag_variable(name)] = tag
+            chunks = image.split(":")[0].split("/")
+            has_registry_host = "." in chunks[0]
+            registry = chunks[0] if has_registry_host else "docker.io"
+            image_name = "/".join(chunks[1:] if has_registry_host else chunks)
+            exists = check_image_exists_in_registry(
+                registry, image_name, tag, endpoint_url=image_cache_endpoint_url
+            )
+            env[_tag_variable(name) + ("_EXISTS" if exists else "_NEW")] = 1
+
+        for app_name, app in helm_values.apps.items():
+            if app.harness and app.harness.deployment.image:
+                record(app_name, app.harness.deployment.image)
+
+        for name, image in helm_values[KEY_TASK_IMAGES].items():
+            record(name, image)
+
+        for name, test_image in project.test_images.items():
+            if not test_image.dockerfile.exists():
+                continue
+            record(name, project.qualify_image(test_image))
+
+        with open(filename, "w", encoding="utf-8") as f:
+            f.writelines(f"{key}={value}\n" for key, value in env.items())
 
     def _context_for(self, entity):
         return entity.dockerfile.resolve_context(self.path.parent).resolve_for_build(

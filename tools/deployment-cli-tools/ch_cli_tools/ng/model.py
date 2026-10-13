@@ -789,6 +789,14 @@ class CHProject:
         self.test_images = dict(base.test_images) if base is not None else {}
         self.test_images.update(self.own_test_images)
 
+    @classmethod
+    def init(cls, root_paths, config: "CHDeployConfig | None" = None) -> "CHProject":
+        project = None
+        for path in root_paths:
+            project = cls(path, base=project, config=config)
+        assert project is not None, "root_paths must be non-empty"
+        return project
+
     def all_layers(self) -> list["CHProject"]:
         layers = []
         layer = self

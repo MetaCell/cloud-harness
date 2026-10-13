@@ -16,7 +16,6 @@ import logging
 
 from ch_cli_tools.utils import get_cluster_ip  # type: ignore
 
-from . import codefresh
 from .model import CHDeployConfig, CHProject
 
 # --- ch_cli_tools/helm.py ---
@@ -63,10 +62,7 @@ def create_helm_chart(
         config_kwargs["domain"] = domain
 
     config = CHDeployConfig(**config_kwargs)
-    project = None
-    for path in root_paths:  # lowest priority first, most specific last
-        project = CHProject(path, base=project, config=config)
-    assert project, "Couldn't build the project root representation"
+    project = CHProject.init(root_paths, config=config)
     project.helm_chart.generate()
     return project.build_final_helm_values()
 
@@ -155,7 +151,7 @@ def create_skaffold_configuration(
 
 def create_vscode_debug_configuration(root_paths, helm_values):
     project = helm_values._ch_project
-    return project.vscode_debug.generate(helm_values)
+    return project.vscode_debug.generate()
 
 
 # --- ch_cli_tools/tilt.py ---
@@ -191,7 +187,8 @@ def create_codefresh_deployment_scripts(
 
 
 def write_env_file(helm_values, filename, image_cache_endpoint_url=None):
-    return codefresh.write_env_file(helm_values, filename, image_cache_endpoint_url)
+    project = helm_values._ch_project
+    return project.codefresh.write_env_file(filename, image_cache_endpoint_url)
 
 
 # --- ch_cli_tools/preprocessing.py ---
