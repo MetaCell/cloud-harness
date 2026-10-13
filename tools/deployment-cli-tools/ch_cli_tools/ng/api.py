@@ -13,6 +13,8 @@ ConfigurationGenerator/HarnessMainConfig machinery.
 """
 
 import logging
+import subprocess
+from pathlib import Path
 
 from ch_cli_tools.utils import get_cluster_ip  # type: ignore
 
@@ -68,7 +70,12 @@ def create_helm_chart(
 
 
 def deploy(namespace, output_path="./deployment"):
-    pass
+    helm_path = Path(output_path) / "helm"
+    logging.info("Deploying helm chart %s", helm_path)
+    subprocess.run("helm dependency update".split(), cwd=helm_path)
+    subprocess.run(
+        f"helm upgrade {namespace} {helm_path} -n {namespace} --install --reset-values".split()
+    )
 
 
 # --- ch_cli_tools/dockercompose.py ---
@@ -166,7 +173,12 @@ def create_tilt_configuration(
     namespace="",
     domain="",
 ):
-    pass
+    # root_paths/manage_task_images/name/namespace/domain: accepted for
+    # signature compat only - same reasoning as create_skaffold_configuration
+    # above, the real CLI always passes the namespace/domain already baked
+    # into helm_values's own project config, never a different one.
+    project = helm_values._ch_project
+    return project.tilt.generate(output_path=output_path)
 
 
 # --- ch_cli_tools/codefresh.py ---

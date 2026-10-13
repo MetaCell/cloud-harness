@@ -5,7 +5,7 @@ from pathlib import Path
 
 from cloudharness_utils.constants import DEPLOYMENT_PATH
 
-from ch_cli_tools.ng.api import hosts_info
+from ch_cli_tools.ng.api import deploy, hosts_info
 from ch_cli_tools.ng.model import CHDeployConfig, CHProject
 
 HERE = Path(__file__).resolve().parent
@@ -218,8 +218,6 @@ if __name__ == "__main__":
         sys.exit(2)
     if args.migration or args.migration_accept_all:
         logging.warning("--migrate isn't implemented in ng yet, skipping.")
-    if args.deploy:
-        logging.warning("--deploy isn't implemented in ng yet, skipping.")
 
     config = CHDeployConfig(
         includes=args.include,
@@ -254,6 +252,10 @@ if __name__ == "__main__":
         )
 
     project.skaffold.generate()
+    project.tilt.generate()
 
     project.vscode_debug.generate()
     hosts_info(helm_values)
+
+    if args.deploy:
+        deploy(args.namespace, args.output_path)

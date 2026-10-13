@@ -15,6 +15,7 @@ from ch_cli_tools.ng import CHDeployConfig, CHProject
 from ch_cli_tools.ng.api import (
     create_helm_chart,
     create_vscode_debug_configuration,
+    deploy,
     hosts_info,
 )
 from ch_cli_tools.ng.model import (
@@ -916,3 +917,20 @@ def test_content_hash_changes_when_dependency_commit_changes(tmp_path):
     (repo / "file.txt").write_text("b")
     _git("commit", "-am", "update", cwd=repo)
     assert content_hash(tmp_path) != before
+
+
+def test_deploy_runs_helm_dependency_update_then_upgrade(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        "ch_cli_tools.ng.api.subprocess.run",
+        lambda cmd, **kwargs: calls.append((cmd, kwargs)),
+    )
+
+    deploy("test", output_path=str(tmp_path))
+
+    helm_path = tmp_path / "helm"
+    assert calls[0] == (["helm", "dependency", "update"], {"cwd": helm_path})
+    assert calls[1] == (
+        ["helm", "upgrade", "test", str(helm_path), "-n", "test", "--install", "--reset-values"],
+        {},
+    )
