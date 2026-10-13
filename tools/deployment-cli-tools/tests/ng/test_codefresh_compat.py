@@ -38,6 +38,7 @@ from ch_cli_tools.ng.api import (
     write_env_file,
 )
 from conftest import CLOUDHARNESS_ROOT, RESOURCES
+from test_util_ng import write_tree_from_yaml
 
 
 def _build_steps(cf):
@@ -176,11 +177,12 @@ def test_create_codefresh_configuration_source_images_override_wins_on_collision
     # CLOUDHARNESS_FLASK is also a build dependency of myapp: a project-level
     # source_images override for it must win over the dependency-derived
     # build argument, not be shadowed by it.
-    override_root = tmp_path / "override"
-    (override_root / "deployment-configuration").mkdir(parents=True)
-    (override_root / "deployment-configuration" / "values-template.yaml").write_text(
-        "source_images:\n  CLOUDHARNESS_FLASK: myoverride/cloudharness-flask:9.9\n"
-    )
+    override_root = write_tree_from_yaml(tmp_path / "override", """
+        deployment-configuration:
+          values-template.yaml: |
+            source_images:
+              CLOUDHARNESS_FLASK: myoverride/cloudharness-flask:9.9
+    """)
 
     roots = [CLOUDHARNESS_ROOT, RESOURCES, override_root]
     values = create_helm_chart(
@@ -516,25 +518,26 @@ def test_create_codefresh_configuration_secret_filtering(tmp_path):
     Adds a third, override-only layer on top of the real [CLOUDHARNESS_ROOT,
     RESOURCES] chain so myapp's real fixture values.yaml doesn't need to carry
     every exotic secret shape itself."""
-    override_root = tmp_path / "override"
-    app_dir = override_root / "applications" / "myapp" / "deploy"
-    app_dir.mkdir(parents=True)
-    (app_dir / "values.yaml").write_text(
-        "harness:\n"
-        "  secrets:\n"
-        "    plain_secret: null\n"
-        '    static_random: ""\n'
-        "    rich_secret:\n"
-        "      default: null\n"
-        "    rich_static_random:\n"
-        "      manager: cloudharness\n"
-        '      default: ""\n'
-        "    op_secret:\n"
-        "      manager: onepassword\n"
-        "      path: vaults/v/items/i\n"
-        "    unmanaged_secret:\n"
-        "      manager: null\n"
-    )
+    override_root = write_tree_from_yaml(tmp_path / "override", """
+        applications:
+          myapp:
+            deploy:
+              values.yaml: |
+                harness:
+                  secrets:
+                    plain_secret: null
+                    static_random: ""
+                    rich_secret:
+                      default: null
+                    rich_static_random:
+                      manager: cloudharness
+                      default: ""
+                    op_secret:
+                      manager: onepassword
+                      path: vaults/v/items/i
+                    unmanaged_secret:
+                      manager: null
+    """)
 
     roots = [CLOUDHARNESS_ROOT, RESOURCES, override_root]
     values = create_helm_chart(
@@ -570,14 +573,15 @@ def test_create_codefresh_configuration_secret_value_containing_quotes(tmp_path)
     # a pipeline-variable reference is - so a value containing quotes must
     # produce exactly the same entry shape as any other secret, with no
     # escaping/quoting issue leaking through.
-    override_root = tmp_path / "override"
-    app_dir = override_root / "applications" / "myapp" / "deploy"
-    app_dir.mkdir(parents=True)
-    (app_dir / "values.yaml").write_text(
-        "harness:\n"
-        "  secrets:\n"
-        "    settings_secret: \"SECRET_KEY='replace-with-strong-shared-secret'\"\n"
-    )
+    override_root = write_tree_from_yaml(tmp_path / "override", """
+        applications:
+          myapp:
+            deploy:
+              values.yaml: |
+                harness:
+                  secrets:
+                    settings_secret: "SECRET_KEY='replace-with-strong-shared-secret'"
+    """)
 
     roots = [CLOUDHARNESS_ROOT, RESOURCES, override_root]
     values = create_helm_chart(
@@ -686,12 +690,17 @@ def test_create_codefresh_configuration_test_image_found_across_root_boundary(
     # found and built, not missed because the two live in different layers.
     # An override-only third layer enables myapp's e2e tests without
     # permanently changing its real fixture values.yaml.
-    override_root = tmp_path / "override"
-    app_dir = override_root / "applications" / "myapp" / "deploy"
-    app_dir.mkdir(parents=True)
-    (app_dir / "values.yaml").write_text(
-        "harness:\n  test:\n    e2e:\n      enabled: true\n      smoketest: false\n"
-    )
+    override_root = write_tree_from_yaml(tmp_path / "override", """
+        applications:
+          myapp:
+            deploy:
+              values.yaml: |
+                harness:
+                  test:
+                    e2e:
+                      enabled: true
+                      smoketest: false
+    """)
 
     roots = [CLOUDHARNESS_ROOT, RESOURCES, override_root]
     values = create_helm_chart(
@@ -749,58 +758,62 @@ def test_create_codefresh_configuration_no_build_for_app_with_prebuilt_image(tmp
     # single per-Dockerfile loop that also generates git-clone/unit/api/e2e
     # steps, so a non-buildable app gets none of those either - only a
     # buildable app alongside it does.
-    (tmp_path / "deployment-configuration").mkdir(parents=True)
-    (tmp_path / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\nmainapp: appa\n"
-    )
-    appa_dir = tmp_path / "applications" / "appa"
-    (appa_dir / "deploy").mkdir(parents=True)
-    (appa_dir / "Dockerfile").write_text("FROM scratch\n")
-    (appa_dir / "deploy" / "values.yaml").write_text(
-        "harness:\n"
-        "  test:\n"
-        "    unit:\n"
-        "      enabled: true\n"
-        "      commands: ['pytest tests/appa']\n"
-        "    api:\n"
-        "      enabled: false\n"
-        "      autotest: false\n"
-        "      checks: []\n"
-        "    e2e:\n"
-        "      enabled: false\n"
-        "      smoketest: false\n"
-        "  dependencies:\n"
-        "    git:\n"
-        "      - url: https://github.com/a/b.git\n"
-        "        branch_tag: main\n"
-    )
-
-    appb_dir = tmp_path / "applications" / "appb"
-    (appb_dir / "deploy").mkdir(parents=True)
-    (appb_dir / "Dockerfile").write_text("FROM scratch\n")
-    (appb_dir / "deploy" / "values.yaml").write_text(
-        "harness:\n"
-        "  deployment:\n"
-        "    image: external/prebuilt:1.0\n"
-        "  subdomain: appb\n"
-        "  test:\n"
-        "    unit:\n"
-        "      enabled: true\n"
-        "      commands: ['pytest tests/appb']\n"
-        "    api:\n"
-        "      enabled: true\n"
-        "      autotest: false\n"
-        "      checks: []\n"
-        "    e2e:\n"
-        "      enabled: true\n"
-        "      smoketest: false\n"
-        "  dependencies:\n"
-        "    git:\n"
-        "      - url: https://github.com/x/y.git\n"
-        "        branch_tag: main\n"
-    )
-    (appb_dir / "api").mkdir(parents=True)
-    (appb_dir / "api" / "openapi.yaml").write_text("servers:\n  - url: /api\n")
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+            mainapp: appa
+        applications:
+          appa:
+            Dockerfile: |
+              FROM scratch
+            deploy:
+              values.yaml: |
+                harness:
+                  test:
+                    unit:
+                      enabled: true
+                      commands: ['pytest tests/appa']
+                    api:
+                      enabled: false
+                      autotest: false
+                      checks: []
+                    e2e:
+                      enabled: false
+                      smoketest: false
+                  dependencies:
+                    git:
+                      - url: https://github.com/a/b.git
+                        branch_tag: main
+          appb:
+            Dockerfile: |
+              FROM scratch
+            deploy:
+              values.yaml: |
+                harness:
+                  deployment:
+                    image: external/prebuilt:1.0
+                  subdomain: appb
+                  test:
+                    unit:
+                      enabled: true
+                      commands: ['pytest tests/appb']
+                    api:
+                      enabled: true
+                      autotest: false
+                      checks: []
+                    e2e:
+                      enabled: true
+                      smoketest: false
+                  dependencies:
+                    git:
+                      - url: https://github.com/x/y.git
+                        branch_tag: main
+            api:
+              openapi.yaml: |
+                servers:
+                  - url: /api
+    """)
 
     values = create_helm_chart(
         [tmp_path],
@@ -880,13 +893,16 @@ def test_create_codefresh_deployment_scripts_save_writes_under_deployment_dir(tm
     # output_path="." default didn't match CHCodefresh.path's actual location.
     # Uses its own synthetic single-root project, not the shared
     # [CLOUDHARNESS_ROOT, RESOURCES] fixture _generate_cf relies on.
-    (tmp_path / "deployment-configuration").mkdir(parents=True)
-    (tmp_path / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\nmainapp: myapp\n"
-    )
-    app_dir = tmp_path / "applications" / "myapp"
-    app_dir.mkdir(parents=True)
-    (app_dir / "Dockerfile").write_text("FROM scratch\n")
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+            mainapp: myapp
+        applications:
+          myapp:
+            Dockerfile: |
+              FROM scratch
+    """)
 
     values = create_helm_chart(
         [tmp_path],

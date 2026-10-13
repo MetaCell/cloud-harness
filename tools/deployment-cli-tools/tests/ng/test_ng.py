@@ -29,6 +29,7 @@ from conftest import (
     chain,
     minimal_project,
 )
+from test_util_ng import write_tree, write_tree_from_yaml
 
 
 @pytest.fixture(scope="module")
@@ -56,15 +57,13 @@ def test_base_images_with_arg_based_from(resources_project):
 
 
 def test_base_images_arg_value_with_multiple_equals_signs(tmp_path):
-    dockerfile = tmp_path / "Dockerfile"
-    dockerfile.write_text("ARG BASE=foo=bar\nFROM $BASE\n")
-    assert CHDockerfile(dockerfile, None).base_images == {"BASE": "foo=bar"}
+    write_tree(tmp_path, {"Dockerfile": "ARG BASE=foo=bar\nFROM $BASE\n"})
+    assert CHDockerfile(tmp_path / "Dockerfile", None).base_images == {"BASE": "foo=bar"}
 
 
 def test_base_images_bare_arg_with_no_name_is_ignored(tmp_path):
-    dockerfile = tmp_path / "Dockerfile"
-    dockerfile.write_text("ARG\nFROM scratch\n")
-    assert CHDockerfile(dockerfile, None).base_images == {}
+    write_tree(tmp_path, {"Dockerfile": "ARG\nFROM scratch\n"})
+    assert CHDockerfile(tmp_path / "Dockerfile", None).base_images == {}
 
 
 def test_app_and_task_dockerfiles_are_found(resources_project):
@@ -177,16 +176,22 @@ def test_same_app_values_precedence_across_roots_and_env():
 # of an app has no Dockerfile of its own, its cloud-harness default is used instead
 # of the app silently ending up with no Dockerfile at all.
 def test_app_dockerfile_falls_back_to_cloudharness_default(tmp_path):
-    ch = tmp_path / "ch"
-    proj = tmp_path / "proj"
-    (ch / "applications" / "myapp").mkdir(parents=True)
-    (ch / "applications" / "myapp" / "Dockerfile").write_text("FROM scratch\n")
-    (proj / "applications" / "myapp" / "deploy").mkdir(parents=True)
-    (proj / "applications" / "myapp" / "deploy" / "values.yaml").write_text("a: 1\n")
-    (proj / "deployment-configuration").mkdir(parents=True)
-    (proj / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
+    ch = write_tree_from_yaml(tmp_path / "ch", """
+        applications:
+          myapp:
+            Dockerfile: |
+              FROM scratch
+    """)
+    proj = write_tree_from_yaml(tmp_path / "proj", """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          myapp:
+            deploy:
+              values.yaml: |
+                a: 1
+    """)
 
     project = chain(ch, proj, config=CHDeployConfig())
     app = project["myapp"]
@@ -205,12 +210,16 @@ def test_app_dockerfile_falls_back_to_cloudharness_default(tmp_path):
 # it separate from sibling non-Docker concerns at the app's top level.
 def test_app_dockerfile_found_under_a_conventional_subdirectory(tmp_path):
     app_dir = tmp_path / "applications" / "myapp"
-    (app_dir / "server").mkdir(parents=True)
-    (app_dir / "server" / "Dockerfile").write_text("FROM scratch\n")
-    (tmp_path / "deployment-configuration").mkdir(parents=True)
-    (tmp_path / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          myapp:
+            server:
+              Dockerfile: |
+                FROM scratch
+    """)
 
     project = CHProject(tmp_path, config=CHDeployConfig())
     app = project["myapp"]
@@ -221,13 +230,18 @@ def test_app_dockerfile_found_under_a_conventional_subdirectory(tmp_path):
 
 def test_app_dockerfile_prefers_top_level_over_a_conventional_subdirectory(tmp_path):
     app_dir = tmp_path / "applications" / "myapp"
-    (app_dir / "server").mkdir(parents=True)
-    (app_dir / "server" / "Dockerfile").write_text("FROM scratch\n")
-    (app_dir / "Dockerfile").write_text("FROM scratch\n")
-    (tmp_path / "deployment-configuration").mkdir(parents=True)
-    (tmp_path / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          myapp:
+            Dockerfile: |
+              FROM scratch
+            server:
+              Dockerfile: |
+                FROM scratch
+    """)
 
     project = CHProject(tmp_path, config=CHDeployConfig())
     app = project["myapp"]
@@ -240,14 +254,19 @@ def test_app_dockerfile_picks_shortest_path_among_equal_depth_candidates(tmp_pat
     # explicit priority between them - this only pins down the deterministic
     # tiebreak (alphabetical), not a meaningful real-world precedence.
     app_dir = tmp_path / "applications" / "myapp"
-    (app_dir / "backend").mkdir(parents=True)
-    (app_dir / "backend" / "Dockerfile").write_text("FROM scratch\n")
-    (app_dir / "src").mkdir(parents=True)
-    (app_dir / "src" / "Dockerfile").write_text("FROM scratch\n")
-    (tmp_path / "deployment-configuration").mkdir(parents=True)
-    (tmp_path / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          myapp:
+            backend:
+              Dockerfile: |
+                FROM scratch
+            src:
+              Dockerfile: |
+                FROM scratch
+    """)
 
     project = CHProject(tmp_path, config=CHDeployConfig())
     app = project["myapp"]
@@ -258,13 +277,17 @@ def test_app_dockerfile_picks_shortest_path_among_equal_depth_candidates(tmp_pat
 def test_app_dockerfile_ignores_tasks_subtree(tmp_path):
     # tasks/ is a structural concept of its own (CHAppTask) - a task's
     # Dockerfile must never be picked up as the owning app's own.
-    app_dir = tmp_path / "applications" / "myapp"
-    (app_dir / "tasks" / "mytask").mkdir(parents=True)
-    (app_dir / "tasks" / "mytask" / "Dockerfile").write_text("FROM scratch\n")
-    (tmp_path / "deployment-configuration").mkdir(parents=True)
-    (tmp_path / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          myapp:
+            tasks:
+              mytask:
+                Dockerfile: |
+                  FROM scratch
+    """)
 
     project = CHProject(tmp_path, config=CHDeployConfig())
     app = project["myapp"]
@@ -331,33 +354,35 @@ def test_unresolved_build_dependency_raises_at_skaffold_generation():
 
 
 def _write_app(root, name, *, values=None, dockerfile="FROM scratch\n", tasks=()):
-    app_dir = root / "applications" / name
+    app_spec = {}
     if dockerfile is not None:
-        (app_dir).mkdir(parents=True, exist_ok=True)
-        (app_dir / "Dockerfile").write_text(dockerfile)
+        app_spec["Dockerfile"] = dockerfile
     if values is not None:
-        (app_dir / "deploy").mkdir(parents=True, exist_ok=True)
-        (app_dir / "deploy" / "values.yaml").write_text(values)
-    for task_name, task_dockerfile in tasks:
-        task_dir = app_dir / "tasks" / task_name
-        task_dir.mkdir(parents=True, exist_ok=True)
-        (task_dir / "Dockerfile").write_text(task_dockerfile)
-    return app_dir
+        app_spec["deploy"] = {"values.yaml": values}
+    if tasks:
+        app_spec["tasks"] = {
+            task_name: {"Dockerfile": task_dockerfile}
+            for task_name, task_dockerfile in tasks
+        }
+    write_tree(root, {"applications": {name: app_spec}})
+    return root / "applications" / name
 
 
 def three_layer_project(tmp_path, **config_kwargs):
     base, mid, top = tmp_path / "base", tmp_path / "mid", tmp_path / "top"
     for root, name in ((base, "baseproj"), (mid, "midproj"), (top, "topproj")):
-        (root / "deployment-configuration").mkdir(parents=True)
-        (root / "deployment-configuration" / "values-template.yaml").write_text(
-            f"name: {name}\n"
+        write_tree(
+            root,
+            {"deployment-configuration": {"values-template.yaml": f"name: {name}\n"}},
         )
 
-    (base / "deployment-configuration" / "value-template.yaml").write_text(
-        "harness:\n  from_base: true\n"
+    write_tree(
+        base,
+        {"deployment-configuration": {"value-template.yaml": "harness:\n  from_base: true\n"}},
     )
-    (top / "deployment-configuration" / "value-template.yaml").write_text(
-        "harness:\n  from_top: true\n"
+    write_tree(
+        top,
+        {"deployment-configuration": {"value-template.yaml": "harness:\n  from_top: true\n"}},
     )
 
     # onlybase: exists only at the bottom - a pure pass-through app from top's
@@ -383,10 +408,17 @@ def three_layer_project(tmp_path, **config_kwargs):
         (mid, ["onlymid-img"]),
         (top, ["shared-img"]),
     ):
-        for image_name in images:
-            image_dir = root / "infrastructure" / "base-images" / image_name
-            image_dir.mkdir(parents=True)
-            (image_dir / "Dockerfile").write_text("FROM scratch\n")
+        write_tree(
+            root,
+            {
+                "infrastructure": {
+                    "base-images": {
+                        image_name: {"Dockerfile": "FROM scratch\n"}
+                        for image_name in images
+                    }
+                }
+            },
+        )
 
     return chain(base, mid, top, config=CHDeployConfig(**config_kwargs))
 
@@ -502,19 +534,23 @@ def test_app_test_fragment_falls_back_to_defaults(resources_project):
 
 
 def test_app_test_fragment_commands_empty_when_unit_tests_disabled(tmp_path):
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
-    app_dir = root / "applications" / "myapp"
-    (app_dir / "deploy").mkdir(parents=True)
-    (app_dir / "Dockerfile").write_text("FROM scratch\n")
-    (app_dir / "deploy" / "values.yaml").write_text(
-        "harness:\n  test:\n    unit:\n      enabled: false\n"
-        "      commands: ['pytest tests/']\n"
-    )
-    project = chain(root, root, config=CHDeployConfig())
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          myapp:
+            Dockerfile: |
+              FROM scratch
+            deploy:
+              values.yaml: |
+                harness:
+                  test:
+                    unit:
+                      enabled: false
+                      commands: ['pytest tests/']
+    """)
+    project = chain(tmp_path, tmp_path, config=CHDeployConfig())
     assert project["myapp"].test.unit.commands == []
 
 
@@ -589,30 +625,27 @@ def test_hosts_info_falls_back_to_localhost_when_cluster_ip_unavailable(tmp_path
 
 
 def _vscode_debug_project(tmp_path):
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: vscodetest\nmainapp: debugapp\n"
-    )
-    (root / "deployment-configuration" / "vscode-debug-template.json").write_text(
-        json.dumps(
-            {
-                "name": "CloudHarness: Run/Debug",
-                "type": "cloudcode.kubernetes",
-                "debug": [],
-            }
-        )
-    )
-    server_dir = root / "applications" / "debugapp" / "server"
-    server_dir.mkdir(parents=True)
-    (server_dir / "Dockerfile").write_text("FROM scratch\n")
-    (server_dir / "setup.py").write_text("")
-    deploy_dir = root / "applications" / "debugapp" / "deploy"
-    deploy_dir.mkdir(parents=True)
-    deploy_dir.joinpath("values.yaml").write_text(
-        "harness:\n  sourceRoot: /custom/src\n"
-    )
-    return root
+    return write_tree(tmp_path, {
+        "deployment-configuration": {
+            "values-template.yaml": "name: vscodetest\nmainapp: debugapp\n",
+            "vscode-debug-template.json": json.dumps(
+                {
+                    "name": "CloudHarness: Run/Debug",
+                    "type": "cloudcode.kubernetes",
+                    "debug": [],
+                }
+            ),
+        },
+        "applications": {
+            "debugapp": {
+                "server": {
+                    "Dockerfile": "FROM scratch\n",
+                    "setup.py": "",
+                },
+                "deploy": {"values.yaml": "harness:\n  sourceRoot: /custom/src\n"},
+            },
+        },
+    })
 
 
 def test_create_vscode_debug_configuration_adds_debug_entry_for_deployed_app(
@@ -647,19 +680,19 @@ def test_create_vscode_debug_configuration_preserves_other_configurations_and_re
 ):
     root = _vscode_debug_project(tmp_path)
     monkeypatch.chdir(root)
-    vscode_dir = root / ".vscode"
-    vscode_dir.mkdir()
-    vscode_dir.joinpath("launch.json").write_text(
-        json.dumps(
-            {
-                "version": "0.2.0",
-                "configurations": [
-                    {"name": "Some other debugger", "type": "python"},
-                    {"name": "CloudHarness: Run/Debug", "stale": True},
-                ],
-            }
-        )
-    )
+    write_tree(root, {
+        ".vscode": {
+            "launch.json": json.dumps(
+                {
+                    "version": "0.2.0",
+                    "configurations": [
+                        {"name": "Some other debugger", "type": "python"},
+                        {"name": "CloudHarness: Run/Debug", "stale": True},
+                    ],
+                }
+            ),
+        },
+    })
     values = create_helm_chart(
         [root], output_path=tmp_path / "out", domain="my.local", namespace="test",
         local=False, tag=1, registry="reg",
@@ -681,54 +714,64 @@ def test_app_harness_config_defaults_to_empty_dict_when_no_harness_key(tmp_path)
 
 
 def test_hard_dependency_excluded_from_deployment_raises(tmp_path):
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
-    (root / "applications" / "dependee").mkdir(parents=True)
-    deploy_dir = root / "applications" / "depender" / "deploy"
-    deploy_dir.mkdir(parents=True)
-    deploy_dir.joinpath("values.yaml").write_text(
-        "harness:\n  dependencies:\n    hard:\n      - dependee\n"
-    )
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          dependee: {}
+          depender:
+            deploy:
+              values.yaml: |
+                harness:
+                  dependencies:
+                    hard:
+                      - dependee
+    """)
 
-    project = CHProject(root, config=CHDeployConfig(excludes=["dependee"]))
+    project = CHProject(tmp_path, config=CHDeployConfig(excludes=["dependee"]))
 
     with pytest.raises(DependencyUnknownError):
         project["depender"].hard_dependencies
 
 
 def test_auto_deploy_app_without_dockerfile_or_image_raises(tmp_path):
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
-    deploy_dir = root / "applications" / "noimage" / "deploy"
-    deploy_dir.mkdir(parents=True)
-    deploy_dir.joinpath("values.yaml").write_text(
-        "harness:\n  deployment:\n    auto: true\n"
-    )
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          noimage:
+            deploy:
+              values.yaml: |
+                harness:
+                  deployment:
+                    auto: true
+    """)
 
-    project = CHProject(root, config=CHDeployConfig())
+    project = CHProject(tmp_path, config=CHDeployConfig())
 
     with pytest.raises(ValuesValidationError):
         project._is_buildable_app(project["noimage"])
 
 
 def test_registry_merges_project_fields_and_clears_secret_when_local(tmp_path):
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\nmainapp: myapp\n"
-        "registry:\n  pullPolicy: Always\n  secret:\n    name: existing-secret\n"
-    )
-    app_dir = root / "applications" / "myapp"
-    app_dir.mkdir(parents=True)
-    (app_dir / "Dockerfile").write_text("FROM scratch\n")
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+            mainapp: myapp
+            registry:
+              pullPolicy: Always
+              secret:
+                name: existing-secret
+        applications:
+          myapp:
+            Dockerfile: |
+              FROM scratch
+    """)
 
-    project = CHProject(root, config=CHDeployConfig(local=True, registry="myregistry"))
+    project = CHProject(tmp_path, config=CHDeployConfig(local=True, registry="myregistry"))
     values = project.build_final_helm_values(write_on_disk=False)
 
     assert values.registry.name == "myregistry"
@@ -737,57 +780,62 @@ def test_registry_merges_project_fields_and_clears_secret_when_local(tmp_path):
 
 
 def test_registry_absent_when_nothing_registry_related_is_configured(tmp_path):
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\nmainapp: myapp\n"
-    )
-    app_dir = root / "applications" / "myapp"
-    app_dir.mkdir(parents=True)
-    (app_dir / "Dockerfile").write_text("FROM scratch\n")
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+            mainapp: myapp
+        applications:
+          myapp:
+            Dockerfile: |
+              FROM scratch
+    """)
 
-    project = CHProject(root, config=CHDeployConfig())
+    project = CHProject(tmp_path, config=CHDeployConfig())
     values = project.build_final_helm_values(write_on_disk=False)
     assert values.registry is None
 
 
 def test_validate_raises_on_malformed_secret_definition(tmp_path):
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
-    deploy_dir = root / "applications" / "myapp" / "deploy"
-    deploy_dir.mkdir(parents=True)
-    deploy_dir.joinpath("values.yaml").write_text(
-        "harness:\n  secrets:\n    mySecret:\n      manager: 123\n"
-    )
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          myapp:
+            deploy:
+              values.yaml: |
+                harness:
+                  secrets:
+                    mySecret:
+                      manager: 123
+    """)
 
-    project = CHProject(root, config=CHDeployConfig())
+    project = CHProject(tmp_path, config=CHDeployConfig())
 
     with pytest.raises(ValuesValidationError):
         project.validate()
 
 
 def test_validate_warns_on_nfs_storage_class_and_write_many_collisions(tmp_path):
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
-    deploy_dir = root / "applications" / "myapp" / "deploy"
-    deploy_dir.mkdir(parents=True)
-    deploy_dir.joinpath("values.yaml").write_text(
-        "harness:\n"
-        "  deployment:\n"
-        "    volume:\n"
-        "      name: myapp-data\n"
-        "      usenfs: true\n"
-        "      writeMany: false\n"
-        "      storageClass: efs-sc\n"
-    )
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          myapp:
+            deploy:
+              values.yaml: |
+                harness:
+                  deployment:
+                    volume:
+                      name: myapp-data
+                      usenfs: true
+                      writeMany: false
+                      storageClass: efs-sc
+    """)
 
-    project = CHProject(root, config=CHDeployConfig())
+    project = CHProject(tmp_path, config=CHDeployConfig())
     warnings = project.validate()
 
     assert any("the nfs server storage class prevails" in w for w in warnings)
@@ -795,18 +843,20 @@ def test_validate_warns_on_nfs_storage_class_and_write_many_collisions(tmp_path)
 
 
 def test_validate_warns_on_use_services_dependency_not_deployed(tmp_path):
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
-    deploy_dir = root / "applications" / "myapp" / "deploy"
-    deploy_dir.mkdir(parents=True)
-    deploy_dir.joinpath("values.yaml").write_text(
-        "harness:\n  use_services:\n    - name: idonotexist\n"
-    )
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          myapp:
+            deploy:
+              values.yaml: |
+                harness:
+                  use_services:
+                    - name: idonotexist
+    """)
 
-    project = CHProject(root, config=CHDeployConfig(includes=["myapp"]))
+    project = CHProject(tmp_path, config=CHDeployConfig(includes=["myapp"]))
     warnings = project.validate()
 
     assert any("idonotexist" in w for w in warnings)

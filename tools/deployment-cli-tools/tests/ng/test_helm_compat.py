@@ -6,6 +6,7 @@ from ch_cli_tools.ng.model import DependencyUnknownError
 from ch_cli_tools.configurationgenerator import *
 from ch_cli_tools import configurationgenerator
 from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
+from test_util_ng import write_tree
 import logging
 import os
 import pytest
@@ -220,10 +221,12 @@ def test_collect_helm_values_multiple_envs(tmp_path):
 
 def test_collect_app_defaults_env_specific(tmp_path):
     """value-template-[env].yaml overrides value-template.yaml application defaults"""
-    conf_path = tmp_path / DEPLOYMENT_CONFIGURATION_PATH
-    conf_path.mkdir(parents=True)
-    (conf_path / 'value-template.yaml').write_text('base: 1\nenv-defaults: base\n')
-    (conf_path / 'value-template-dev.yaml').write_text('env-defaults: dev\n')
+    write_tree(tmp_path, {
+        DEPLOYMENT_CONFIGURATION_PATH: {
+            'value-template.yaml': 'base: 1\nenv-defaults: base\n',
+            'value-template-dev.yaml': 'env-defaults: dev\n',
+        },
+    })
 
     assert collect_app_defaults(tmp_path, env=('dev',)) == {
         'base': 1, 'env-defaults': 'dev'}
@@ -236,18 +239,19 @@ def test_collect_app_defaults_env_specific(tmp_path):
 def test_init_app_values_env_specific_defaults(tmp_path, monkeypatch):
     """Cloudharness application defaults, including the environment specific ones,
     apply to the applications of any root, and are overridden by the current root"""
-    ch_root = tmp_path / 'cloudharness'
-    (ch_root / DEPLOYMENT_CONFIGURATION_PATH).mkdir(parents=True)
-    (ch_root / DEPLOYMENT_CONFIGURATION_PATH /
-     'value-template.yaml').write_text('ch-defaults: base\nenv-defaults: ch-base\n')
-    (ch_root / DEPLOYMENT_CONFIGURATION_PATH /
-     'value-template-dev.yaml').write_text('ch-env-defaults: ch-dev\nenv-defaults: ch-dev\n')
+    ch_root = write_tree(tmp_path / 'cloudharness', {
+        DEPLOYMENT_CONFIGURATION_PATH: {
+            'value-template.yaml': 'ch-defaults: base\nenv-defaults: ch-base\n',
+            'value-template-dev.yaml': 'ch-env-defaults: ch-dev\nenv-defaults: ch-dev\n',
+        },
+    })
 
-    deployment_root = tmp_path / 'deployment'
-    (deployment_root / APPS_PATH / 'myapp').mkdir(parents=True)
-    (deployment_root / DEPLOYMENT_CONFIGURATION_PATH).mkdir(parents=True)
-    (deployment_root / DEPLOYMENT_CONFIGURATION_PATH /
-     'value-template-dev.yaml').write_text('env-defaults: root-dev\n')
+    deployment_root = write_tree(tmp_path / 'deployment', {
+        APPS_PATH: {'myapp': {}},
+        DEPLOYMENT_CONFIGURATION_PATH: {
+            'value-template-dev.yaml': 'env-defaults: root-dev\n',
+        },
+    })
 
     monkeypatch.setattr(configurationgenerator, 'CH_ROOT', str(ch_root))
 

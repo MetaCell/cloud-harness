@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from ch_cli_tools.ng import CHDeployConfig, CHProject
+from test_util_ng import write_tree_from_yaml
 
 HERE = Path(__file__).parent
 RESOURCES = HERE.parent / "resources"
@@ -13,14 +14,17 @@ def chain(*roots, config=None):
 
 
 def minimal_project(tmp_path, **config_kwargs):
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
-    app_dir = root / "applications" / "myapp"
-    (app_dir / "tasks" / "mytask").mkdir(parents=True)
-    (app_dir / "Dockerfile").write_text("FROM scratch\n")
-    (app_dir / "tasks" / "mytask" / "Dockerfile").write_text("FROM scratch\n")
-
-    return chain(root, root, config=CHDeployConfig(**config_kwargs))
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          myapp:
+            Dockerfile: |
+              FROM scratch
+            tasks:
+              mytask:
+                Dockerfile: |
+                  FROM scratch
+    """)
+    return chain(tmp_path, tmp_path, config=CHDeployConfig(**config_kwargs))

@@ -6,6 +6,7 @@ scoped to the slice of behavior the ng model currently supports. See test_ng.py
 from ch_cli_tools.ng import CHDeployConfig, CHProject, skaffold
 from ch_cli_tools.ng.utils import dockerfile_variable_reference, parse_dockerfile
 from conftest import CLOUDHARNESS_ROOT, RESOURCES, chain, minimal_project
+from test_util_ng import write_tree, write_tree_from_yaml
 
 
 def test_build_dependency_on_app_produces_requires_entry():
@@ -239,22 +240,31 @@ def _multi_env_project(tmp_path, env):
     # Deliberately deterministic, not RESOURCES: a, b, c let us tell apart
     # "later env wins" from "earlier env's untouched keys survive" from
     # "base's own untouched keys survive both env layers".
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
-    app_dir = root / "applications" / "myapp"
-    app_dir.mkdir(parents=True)
-    (app_dir / "Dockerfile").write_text("FROM scratch\n")
-    (app_dir / "dev.Dockerfile").write_text("FROM dev-image\n")
-    (app_dir / "test.Dockerfile").write_text("FROM test-image\n")
-    (app_dir / "deploy").mkdir()
-    (app_dir / "deploy" / "values.yaml").write_text("a: base\nb: base\nc: base\n")
-    (app_dir / "deploy" / "values-dev.yaml").write_text("a: dev\nb: dev\n")
-    (app_dir / "deploy" / "values-test.yaml").write_text("a: test\n")
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          myapp:
+            Dockerfile: |
+              FROM scratch
+            dev.Dockerfile: |
+              FROM dev-image
+            test.Dockerfile: |
+              FROM test-image
+            deploy:
+              values.yaml: |
+                a: base
+                b: base
+                c: base
+              values-dev.yaml: |
+                a: dev
+                b: dev
+              values-test.yaml: |
+                a: test
+    """)
 
-    return chain(root, root, config=CHDeployConfig(env=env))
+    return chain(tmp_path, tmp_path, config=CHDeployConfig(env=env))
 
 
 def test_multi_env_layers_in_order_later_env_wins(tmp_path):
@@ -368,21 +378,21 @@ def test_ssh_default_set_on_every_artifact(tmp_path):
 def _entrypoint_app_project(
     tmp_path, dockerfile_text="", requirements_text=None, main_dirs=()
 ):
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
-    app_dir = root / "applications" / "myapp"
-    app_dir.mkdir(parents=True)
-    (app_dir / "Dockerfile").write_text(dockerfile_text or "FROM scratch\n")
+    app_spec = {"Dockerfile": dockerfile_text or "FROM scratch\n"}
     if requirements_text is not None:
-        (app_dir / "requirements.txt").write_text(requirements_text)
+        app_spec["requirements.txt"] = requirements_text
     for main_dir in main_dirs:
-        (app_dir / main_dir).mkdir(parents=True)
-        (app_dir / main_dir / "__main__.py").write_text("")
+        node = app_spec
+        for part in main_dir.split("/"):
+            node = node.setdefault(part, {})
+        node["__main__.py"] = ""
 
-    return chain(root, root, config=CHDeployConfig())
+    write_tree(tmp_path, {
+        "deployment-configuration": {"values-template.yaml": "name: testproj\n"},
+        "applications": {"myapp": app_spec},
+    })
+
+    return chain(tmp_path, tmp_path, config=CHDeployConfig())
 
 
 def test_entrypoint_prefers_shortest_path_over_decoys(tmp_path):
@@ -429,19 +439,23 @@ def test_entrypoint_none_without_main(tmp_path):
 
 
 def test_unit_test_commands_requires_the_enabled_flag(tmp_path):
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
-    app_dir = root / "applications" / "myapp"
-    (app_dir / "deploy").mkdir(parents=True)
-    (app_dir / "Dockerfile").write_text("FROM scratch\n")
-    (app_dir / "deploy" / "values.yaml").write_text(
-        "harness:\n  test:\n    unit:\n      enabled: false\n"
-        "      commands: ['pytest tests/']\n"
-    )
-    project = chain(root, root, config=CHDeployConfig())
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          myapp:
+            Dockerfile: |
+              FROM scratch
+            deploy:
+              values.yaml: |
+                harness:
+                  test:
+                    unit:
+                      enabled: false
+                      commands: ['pytest tests/']
+    """)
+    project = chain(tmp_path, tmp_path, config=CHDeployConfig())
     assert project["myapp"].test.unit.commands == []
 
 
@@ -472,26 +486,23 @@ def test_parse_dockerfile_missing_file_returns_empty_list(tmp_path):
 
 
 def test_parse_dockerfile_skips_comments_and_blank_lines(tmp_path):
-    dockerfile = tmp_path / "Dockerfile"
-    dockerfile.write_text("# a comment\n\nFROM scratch\n\n# another\n")
-    assert parse_dockerfile(dockerfile) == [("FROM", "scratch")]
+    write_tree(tmp_path, {"Dockerfile": "# a comment\n\nFROM scratch\n\n# another\n"})
+    assert parse_dockerfile(tmp_path / "Dockerfile") == [("FROM", "scratch")]
 
 
 def test_parse_dockerfile_from_with_and_without_alias(tmp_path):
-    dockerfile = tmp_path / "Dockerfile"
-    dockerfile.write_text(
-        "FROM python:3.12 AS builder\nFROM --platform=linux/amd64 scratch\n"
-    )
-    assert parse_dockerfile(dockerfile) == [
+    write_tree(tmp_path, {
+        "Dockerfile": "FROM python:3.12 AS builder\nFROM --platform=linux/amd64 scratch\n",
+    })
+    assert parse_dockerfile(tmp_path / "Dockerfile") == [
         ("FROM", "python:3.12", "builder"),
         ("FROM", "scratch"),
     ]
 
 
 def test_parse_dockerfile_from_normalizes_variable_references(tmp_path):
-    dockerfile = tmp_path / "Dockerfile"
-    dockerfile.write_text("FROM $BASE AS one\nFROM ${BASE}\nFROM python:3.12\n")
-    assert parse_dockerfile(dockerfile) == [
+    write_tree(tmp_path, {"Dockerfile": "FROM $BASE AS one\nFROM ${BASE}\nFROM python:3.12\n"})
+    assert parse_dockerfile(tmp_path / "Dockerfile") == [
         ("FROM", "BASE", "one"),
         ("FROM", "BASE"),
         ("FROM", "python:3.12"),  # a literal image is left untouched
@@ -499,35 +510,31 @@ def test_parse_dockerfile_from_normalizes_variable_references(tmp_path):
 
 
 def test_parse_dockerfile_arg_with_and_without_default(tmp_path):
-    dockerfile = tmp_path / "Dockerfile"
-    dockerfile.write_text("ARG NO_DEFAULT\nARG WITH_DEFAULT=value\n")
-    assert parse_dockerfile(dockerfile) == [
+    write_tree(tmp_path, {"Dockerfile": "ARG NO_DEFAULT\nARG WITH_DEFAULT=value\n"})
+    assert parse_dockerfile(tmp_path / "Dockerfile") == [
         ("ARG", "NO_DEFAULT"),
         ("ARG", "WITH_DEFAULT", "value"),
     ]
 
 
 def test_parse_dockerfile_exec_form_vs_shell_form(tmp_path):
-    dockerfile = tmp_path / "Dockerfile"
-    dockerfile.write_text('CMD ["gunicorn", "app:app"]\nRUN pip install gunicorn\n')
-    assert parse_dockerfile(dockerfile) == [
+    write_tree(tmp_path, {"Dockerfile": 'CMD ["gunicorn", "app:app"]\nRUN pip install gunicorn\n'})
+    assert parse_dockerfile(tmp_path / "Dockerfile") == [
         ("CMD", "gunicorn", "app:app"),
         ("RUN", "pip", "install", "gunicorn"),
     ]
 
 
 def test_parse_dockerfile_line_continuation(tmp_path):
-    dockerfile = tmp_path / "Dockerfile"
-    dockerfile.write_text("RUN apt-get update && \\\n    apt-get install -y curl\n")
-    assert parse_dockerfile(dockerfile) == [
+    write_tree(tmp_path, {"Dockerfile": "RUN apt-get update && \\\n    apt-get install -y curl\n"})
+    assert parse_dockerfile(tmp_path / "Dockerfile") == [
         ("RUN", "apt-get", "update", "&&", "apt-get", "install", "-y", "curl")
     ]
 
 
 def test_parse_dockerfile_copy_strips_leading_flags_only(tmp_path):
-    dockerfile = tmp_path / "Dockerfile"
-    dockerfile.write_text("COPY --from=builder /app/dist /app/dist\n")
-    assert parse_dockerfile(dockerfile) == [("COPY", "/app/dist", "/app/dist")]
+    write_tree(tmp_path, {"Dockerfile": "COPY --from=builder /app/dist /app/dist\n"})
+    assert parse_dockerfile(tmp_path / "Dockerfile") == [("COPY", "/app/dist", "/app/dist")]
 
 
 def test_parse_dockerfile_command_is_case_insensitive():
@@ -544,9 +551,8 @@ def test_parse_dockerfile_command_is_case_insensitive():
 
 
 def test_parse_dockerfile_lowercase_instructions_are_normalized(tmp_path):
-    dockerfile = tmp_path / "Dockerfile"
-    dockerfile.write_text("from scratch\n")
-    assert parse_dockerfile(dockerfile) == [("FROM", "scratch")]
+    write_tree(tmp_path, {"Dockerfile": "from scratch\n"})
+    assert parse_dockerfile(tmp_path / "Dockerfile") == [("FROM", "scratch")]
 
 
 def test_dockerfile_variable_reference_dollar_and_braces_are_equivalent():
@@ -634,27 +640,29 @@ def test_skaffold_template_flags_pass_through_to_output():
 
 
 def test_multiple_apps_unit_tests_all_aggregate_into_test_array(tmp_path):
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
-    for name, command in [
-        ("appone", "pytest appone/test"),
-        ("apptwo", "pytest apptwo/test"),
-    ]:
-        app_dir = root / "applications" / name
-        (app_dir / "deploy").mkdir(parents=True)
-        (app_dir / "Dockerfile").write_text("FROM scratch\n")
-        (app_dir / "deploy" / "values.yaml").write_text(
-            "harness:\n"
-            "  test:\n"
-            "    unit:\n"
-            "      enabled: true\n"
-            f"      commands: ['{command}']\n"
-        )
+    write_tree(tmp_path, {
+        "deployment-configuration": {"values-template.yaml": "name: testproj\n"},
+        "applications": {
+            name: {
+                "Dockerfile": "FROM scratch\n",
+                "deploy": {
+                    "values.yaml": (
+                        "harness:\n"
+                        "  test:\n"
+                        "    unit:\n"
+                        "      enabled: true\n"
+                        f"      commands: ['{command}']\n"
+                    ),
+                },
+            }
+            for name, command in [
+                ("appone", "pytest appone/test"),
+                ("apptwo", "pytest apptwo/test"),
+            ]
+        },
+    })
 
-    project = chain(root, root, config=CHDeployConfig())
+    project = chain(tmp_path, tmp_path, config=CHDeployConfig())
     test_entries = project.skaffold.generate(write_on_disk=False)["test"]
 
     assert len(test_entries) == 2
@@ -666,25 +674,27 @@ def test_build_dependency_artifact_respects_env_dockerfile(tmp_path):
     # _collect_build_dependency_artifact goes through the same env-aware
     # .dockerfile property as an app's own artifact - never exercised with an
     # env active until now.
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          helper:
+            Dockerfile: |
+              FROM scratch
+            dev.Dockerfile: |
+              FROM dev-base
+          consumer:
+            Dockerfile: |
+              FROM scratch
+            deploy:
+              values.yaml: |
+                harness:
+                  dependencies:
+                    build: ['helper']
+    """)
 
-    helper_dir = root / "applications" / "helper"
-    helper_dir.mkdir(parents=True)
-    (helper_dir / "Dockerfile").write_text("FROM scratch\n")
-    (helper_dir / "dev.Dockerfile").write_text("FROM dev-base\n")
-
-    consumer_dir = root / "applications" / "consumer"
-    (consumer_dir / "deploy").mkdir(parents=True)
-    (consumer_dir / "Dockerfile").write_text("FROM scratch\n")
-    (consumer_dir / "deploy" / "values.yaml").write_text(
-        "harness:\n  dependencies:\n    build: ['helper']\n"
-    )
-
-    project = chain(root, root, config=CHDeployConfig(includes=["consumer"], env="dev"))
+    project = chain(tmp_path, tmp_path, config=CHDeployConfig(includes=["consumer"], env="dev"))
     artifacts = project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
     helper_artifact = next(a for a in artifacts if a["image"] == "testproj/helper")
     assert helper_artifact["docker"]["dockerfile"] == "dev.Dockerfile"
@@ -721,20 +731,22 @@ def test_base_dependencies_survives_a_leading_comment(tmp_path):
     # The old guess_build_dependencies_from_dockerfile() would find nothing
     # here at all: a leading comment breaks its "leading run of ARG lines"
     # scan before it ever reaches the ARG below.
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
-    base_dir = root / "applications" / "base"
-    base_dir.mkdir(parents=True)
-    (base_dir / "Dockerfile").write_text("FROM scratch\n")
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          base:
+            Dockerfile: |
+              FROM scratch
+          consumer:
+            Dockerfile: |
+              # license header
+              ARG BASE
+              FROM $BASE
+    """)
 
-    app_dir = root / "applications" / "consumer"
-    app_dir.mkdir(parents=True)
-    (app_dir / "Dockerfile").write_text("# license header\nARG BASE\nFROM $BASE\n")
-
-    project = chain(root, root, config=CHDeployConfig())
+    project = chain(tmp_path, tmp_path, config=CHDeployConfig())
     [dep] = project["consumer"].dockerfile.base_dependencies
     assert dep.path == project["base"].dockerfile.path
 
@@ -742,35 +754,38 @@ def test_base_dependencies_survives_a_leading_comment(tmp_path):
 def test_base_dependencies_finds_an_arg_after_a_defaulted_one(tmp_path):
     # ARG A=default / ARG B (no default), both used in FROM - the old
     # heuristic would stop at A (has "=") and never see B at all.
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
-    b_dir = root / "applications" / "b"
-    b_dir.mkdir(parents=True)
-    (b_dir / "Dockerfile").write_text("FROM scratch\n")
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          b:
+            Dockerfile: |
+              FROM scratch
+          consumer:
+            Dockerfile: |
+              ARG A=default
+              ARG B
+              FROM $A AS stage1
+              FROM $B
+    """)
 
-    app_dir = root / "applications" / "consumer"
-    app_dir.mkdir(parents=True)
-    (app_dir / "Dockerfile").write_text(
-        "ARG A=default\nARG B\nFROM $A AS stage1\nFROM $B\n"
-    )
-
-    project = chain(root, root, config=CHDeployConfig())
+    project = chain(tmp_path, tmp_path, config=CHDeployConfig())
     deps = project["consumer"].dockerfile.base_dependencies
     assert deps[0] == "a"  # unresolved - no scanned app/base-image named "a"
     assert deps[1].path == project["b"].dockerfile.path
 
 
 def test_base_dependencies_empty_without_a_dockerfile(tmp_path):
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
-    (root / "applications" / "noimg" / "deploy").mkdir(parents=True)
-    project = chain(root, root, config=CHDeployConfig())
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          noimg:
+            deploy: {}
+    """)
+    project = chain(tmp_path, tmp_path, config=CHDeployConfig())
     assert project["noimg"].dockerfile.base_dependencies == []
 
 
@@ -829,27 +844,30 @@ def test_app_with_explicit_deployment_image_is_never_built(tmp_path):
     # declares harness.deployment.image has a prebuilt/external image, so skaffold
     # must skip its artifact, entrypoint override and unit tests entirely - but
     # its task still builds normally.
-    root = tmp_path
-    (root / "deployment-configuration").mkdir(parents=True)
-    (root / "deployment-configuration" / "values-template.yaml").write_text(
-        "name: testproj\n"
-    )
-    app_dir = root / "applications" / "myapp"
-    (app_dir / "tasks" / "mytask").mkdir(parents=True)
-    (app_dir / "Dockerfile").write_text("FROM scratch\n")
-    (app_dir / "tasks" / "mytask" / "Dockerfile").write_text("FROM scratch\n")
-    (app_dir / "deploy").mkdir(parents=True)
-    (app_dir / "deploy" / "values.yaml").write_text(
-        "harness:\n"
-        "  deployment:\n"
-        "    image: someregistry/prebuilt:latest\n"
-        "  test:\n"
-        "    unit:\n"
-        "      enabled: true\n"
-        "      commands: ['pytest']\n"
-    )
+    write_tree_from_yaml(tmp_path, """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        applications:
+          myapp:
+            Dockerfile: |
+              FROM scratch
+            tasks:
+              mytask:
+                Dockerfile: |
+                  FROM scratch
+            deploy:
+              values.yaml: |
+                harness:
+                  deployment:
+                    image: someregistry/prebuilt:latest
+                  test:
+                    unit:
+                      enabled: true
+                      commands: ['pytest']
+    """)
 
-    project = chain(root, root, config=CHDeployConfig())
+    project = chain(tmp_path, tmp_path, config=CHDeployConfig())
     result = project.skaffold.generate(write_on_disk=False)
     artifacts = result["build"]["artifacts"]
     images = [a["image"] for a in artifacts]
