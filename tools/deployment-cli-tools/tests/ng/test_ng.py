@@ -6,11 +6,16 @@ skaffold generator tests, and tests/test_utils.py/tests/test_helm.py for the
 originals.
 """
 
+import json
 import logging
 
 import pytest
 from ch_cli_tools.ng import CHDeployConfig, CHProject
-from ch_cli_tools.ng.api import create_helm_chart, hosts_info
+from ch_cli_tools.ng.api import (
+    create_helm_chart,
+    create_vscode_debug_configuration,
+    hosts_info,
+)
 from ch_cli_tools.ng.model import DependencyUnknownError
 from ch_cli_tools.ng.skaffold import CHSkaffold
 from conftest import (
@@ -565,3 +570,90 @@ def test_hosts_info_falls_back_to_localhost_when_cluster_ip_unavailable(tmp_path
 
     assert "Cannot get cluster ip" in caplog.text
     assert "127.0.0.1\tmy.local mysubdomain.my.local" in caplog.text
+
+
+def _vscode_debug_project(tmp_path):
+    root = tmp_path
+    (root / "deployment-configuration").mkdir(parents=True)
+    (root / "deployment-configuration" / "values-template.yaml").write_text(
+        "name: vscodetest\nmainapp: debugapp\n"
+    )
+    (root / "deployment-configuration" / "vscode-debug-template.json").write_text(
+        json.dumps(
+            {
+                "name": "CloudHarness: Run/Debug",
+                "type": "cloudcode.kubernetes",
+                "debug": [],
+            }
+        )
+    )
+    server_dir = root / "applications" / "debugapp" / "server"
+    server_dir.mkdir(parents=True)
+    (server_dir / "Dockerfile").write_text("FROM scratch\n")
+    (server_dir / "setup.py").write_text("")
+    deploy_dir = root / "applications" / "debugapp" / "deploy"
+    deploy_dir.mkdir(parents=True)
+    deploy_dir.joinpath("values.yaml").write_text(
+        "harness:\n  sourceRoot: /custom/src\n"
+    )
+    return root
+
+
+def test_create_vscode_debug_configuration_adds_debug_entry_for_deployed_app(
+    tmp_path, monkeypatch
+):
+    root = _vscode_debug_project(tmp_path)
+    monkeypatch.chdir(root)
+    values = create_helm_chart(
+        [root], output_path=tmp_path / "out", domain="my.local", namespace="test",
+        local=False, tag=1, registry="reg",
+    )
+
+    launch = create_vscode_debug_configuration([root], values)
+
+    assert launch["version"] == "0.2.0"
+    [conf] = launch["configurations"]
+    assert conf["name"] == "CloudHarness: Run/Debug"
+    assert conf["debug"] == [
+        {
+            "image": "reg/vscodetest/debugapp:1",
+            "sourceFileMap": {
+                "justMyCode": False,
+                "${workspaceFolder}/applications/debugapp/server": "/custom/src",
+            },
+        }
+    ]
+    assert json.loads((root / ".vscode" / "launch.json").read_text()) == launch
+
+
+def test_create_vscode_debug_configuration_preserves_other_configurations_and_replaces_its_own(
+    tmp_path, monkeypatch
+):
+    root = _vscode_debug_project(tmp_path)
+    monkeypatch.chdir(root)
+    vscode_dir = root / ".vscode"
+    vscode_dir.mkdir()
+    vscode_dir.joinpath("launch.json").write_text(
+        json.dumps(
+            {
+                "version": "0.2.0",
+                "configurations": [
+                    {"name": "Some other debugger", "type": "python"},
+                    {"name": "CloudHarness: Run/Debug", "stale": True},
+                ],
+            }
+        )
+    )
+    values = create_helm_chart(
+        [root], output_path=tmp_path / "out", domain="my.local", namespace="test",
+        local=False, tag=1, registry="reg",
+    )
+
+    launch = create_vscode_debug_configuration([root], values)
+
+    names = [conf["name"] for conf in launch["configurations"]]
+    assert names == ["Some other debugger", "CloudHarness: Run/Debug"]
+    [cloudharness_conf] = [
+        conf for conf in launch["configurations"] if conf["name"] == "CloudHarness: Run/Debug"
+    ]
+    assert "stale" not in cloudharness_conf
