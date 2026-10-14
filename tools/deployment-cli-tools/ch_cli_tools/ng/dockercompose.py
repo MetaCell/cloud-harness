@@ -61,10 +61,8 @@ class CHDockerCompose(CHHelmChart):
         collect_and_merge_env_specific_files(dest, project.config.envs)
 
         values = project.build_final_helm_values(write_on_disk=False).to_dict()
-        CHValues(dest / "values.yaml", project).write(values)
-        CHValues(dest / "allvalues.yaml", project).write(
-            self._secrets_stripped(values)
-        )
+        CHValues.write_on_disk(dest / "values.yaml", values)
+        CHValues.write_on_disk(dest / "allvalues.yaml", self._secrets_stripped(values))
 
         self._render(dest)
 

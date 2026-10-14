@@ -385,13 +385,17 @@ class CHValues:
         return dict_merge(base.merge_with_base_and_envs(), own)
 
     def write(self, base, output_path=None):
-        if output_path is None:
-            target = self.path
-        else:
-            target = Path(output_path) / self.path.name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        with target.open("w", encoding="utf-8") as f:
-            yaml.dump(base, f)
+        target = (
+            self.path if output_path is None else Path(output_path) / self.path.name
+        )
+        self.write_on_disk(target, base)
+
+    @classmethod
+    def write_on_disk(cls, path: Path, data: dict) -> None:
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as f:
+            yaml.dump(data, f)
 
 
 class CHTemplate:
@@ -1127,9 +1131,10 @@ class CHProject:
         helm_values._ch_project = self
 
         if write_on_disk:
-            CHValues(
-                Path(self.config.output_path) / "helm" / "values.yaml", self
-            ).write(helm_values.to_dict())
+            CHValues.write_on_disk(
+                Path(self.config.output_path) / "helm" / "values.yaml",
+                helm_values.to_dict(),
+            )
 
         return helm_values
 
