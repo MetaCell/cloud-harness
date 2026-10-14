@@ -97,7 +97,29 @@ def create_docker_compose_configuration(
     env=None,
     namespace=None,
 ):
-    pass
+    root_paths = list(root_paths)
+
+    config_kwargs = {
+        "includes": list(include or []),
+        "excludes": list(exclude or []),
+        "registry": registry,
+        "tag": str(tag) if tag is not None else None,
+        "local": local,
+        "namespace": namespace,
+        "registry_secret_name": registry_secret_name,
+        "output_path": output_path,
+        "tls": tls,
+        "secured_gatekeepers": secured,
+        "backend": "compose",
+    }
+    if env:
+        config_kwargs["env"] = env
+    if domain:
+        config_kwargs["domain"] = domain
+
+    project = CHProject.init(root_paths, config=CHDeployConfig(**config_kwargs))
+    project.docker_compose.generate()
+    return project.build_final_helm_values()
 
 
 # --- ch_cli_tools/configurationgenerator.py ---

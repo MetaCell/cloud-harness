@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import logging
 import sys
 from pathlib import Path
 
@@ -213,9 +212,6 @@ if __name__ == "__main__":
         print(f"unknown: {unknown}")
         sys.exit(2)
 
-    if args.docker_compose:
-        logging.error("docker-compose generation isn't implemented in ng yet.")
-        sys.exit(2)
     if args.migration_accept_all:
         perform_migration(root_paths, accept_all=True)
     elif args.migration:
@@ -239,12 +235,18 @@ if __name__ == "__main__":
         app_version=args.app_version,
     )
 
+    if args.docker_compose:
+        config.backend = "compose"
+
     project = CHProject.init(root_paths, config=config)
 
-    project.helm_chart.generate()
+    if args.docker_compose:
+        project.docker_compose.generate()
+    else:
+        project.helm_chart.generate()
     helm_values = project.build_final_helm_values()
 
-    if not args.no_cd_gen and envs:
+    if not args.no_cd_gen and envs and not args.docker_compose:
         project.codefresh.generate()
 
     if args.write_env:
@@ -256,8 +258,9 @@ if __name__ == "__main__":
     project.skaffold.generate()
     project.tilt.generate()
 
-    project.vscode_debug.generate()
-    hosts_info(helm_values)
+    if not args.docker_compose:
+        project.vscode_debug.generate()
+        hosts_info(helm_values)
 
     if args.deploy:
         deploy(args.namespace, args.output_path)
