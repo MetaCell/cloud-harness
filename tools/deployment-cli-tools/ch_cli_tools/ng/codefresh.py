@@ -14,7 +14,7 @@ values - a value resolved at generation time instead would silently go stale
 the next time that variable changes without a matching regeneration.
 
 CH model concepts this relies on:
-- CHProject.involved_apps / `._is_buildable_app` scope build+publish steps to
+- CHProject.involved_apps / `CHApp.is_buildable` scope build+publish steps to
   what's actually deployed and buildable, the same closure skaffold.py uses.
 - CHProject._combined_dependencies gives each build step's `dependencies:`
   (explicit harness.dependencies.build plus the Dockerfile's own guessed
@@ -277,7 +277,7 @@ class CHCodefresh(CHValues):
     def _collect_git_clone_steps(self, project):
         steps = {}
         for app in project.involved_apps:
-            if isinstance(app, str) or not project._is_buildable_app(app):
+            if isinstance(app, str) or not app.is_buildable:
                 continue
             for dep in app.git_dependencies:
                 url = dep["url"]
@@ -349,7 +349,7 @@ class CHCodefresh(CHValues):
     def _collect_unit_test_steps(self, project):
         steps = {}
         for app in project.involved_apps:
-            if isinstance(app, str) or not project._is_buildable_app(app):
+            if isinstance(app, str) or not app.is_buildable:
                 continue
             commands = app.test.unit.commands
             if not commands:
@@ -498,7 +498,7 @@ class CHCodefresh(CHValues):
     def _collect_api_test_steps(self, project) -> dict:
         scale = {}
         for app in project.involved_apps:
-            if isinstance(app, str) or not project._is_buildable_app(app):
+            if isinstance(app, str) or not app.is_buildable:
                 continue
             if not (app.test.api.enabled and app.harness_config.get("subdomain")):
                 continue
@@ -519,7 +519,7 @@ class CHCodefresh(CHValues):
     def _collect_e2e_test_steps(self, project) -> dict:
         scale = {}
         for app in project.involved_apps:
-            if isinstance(app, str) or not project._is_buildable_app(app):
+            if isinstance(app, str) or not app.is_buildable:
                 continue
             if not (app.test.e2e.enabled and app.harness_config.get("subdomain")):
                 continue
@@ -607,7 +607,7 @@ class CHCodefresh(CHValues):
             if isinstance(app, str):
                 continue
 
-            if project._is_buildable_app(app):
+            if app.is_buildable:
                 key, step = self._collect_build_step(app)
                 build_steps[key] = step
                 pkey, pstep = self._collect_publish_step(app)

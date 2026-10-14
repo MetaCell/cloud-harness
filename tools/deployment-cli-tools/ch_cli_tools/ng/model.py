@@ -1,3 +1,4 @@
+import copy
 import hashlib
 import itertools
 import logging
@@ -146,6 +147,9 @@ class CHApp:
             task = CHAppTask(t, self)
             tasks[task.name] = task
         self._tasks = tasks
+        self.instances: dict[str, CHAppInstance] = {
+            name: CHAppInstance(self, name) for name in self.instance_names
+        }
 
     def exists(self):
         return self.path.exists()
@@ -199,6 +203,29 @@ class CHApp:
             for name, task in self._tasks.items()
             if name not in self.project.config.excludes
         }
+
+    @property
+    def own_instance_names(self) -> set[str]:
+        instances_dir = self.path / "deploy" / "instances"
+        envs = self.project.config.envs
+        names = set()
+        for p in instances_dir.glob("*/"):
+            if p.name.startswith("."):
+                continue
+            candidates = (
+                p / "values.yaml",
+                *(p / f"values-{env}.yaml" for env in envs),
+            )
+            if any(c.exists() for c in candidates):
+                names.add(p.name)
+        return names
+
+    @property
+    def instance_names(self) -> set[str]:
+        names = set(self.own_instance_names)
+        if self.base is not None:
+            names |= self.base.instance_names
+        return names
 
     @property
     def templates(self) -> list["CHTemplate"]:
@@ -315,8 +342,143 @@ class CHApp:
             )
         }"
 
+    @property
+    def is_buildable(self) -> bool:
+        if self.dockerfile.exists():
+            return not self.deployment_config.get("image")
+        if self.deployment_config.get("image"):
+            return False
+        if self.deployment_config.get("auto"):
+            raise ValuesValidationError(
+                f"At least one Dockerfile must be specified for application {self.name}. "
+                "Specify harness.deployment.image if you intend to use a prebuilt image."
+            )
+        return False
+
+    @property
+    def buildable_image(self) -> str | None:
+        return self.project.qualify_image(self) if self.is_buildable else None
+
+    @property
+    def buildable_tasks(self) -> list["CHAppTask"]:
+        return [t for t in self.tasks.values() if t.dockerfile.exists()]
+
+    @property
+    def task_images(self) -> dict[str, str]:
+        return {
+            task.name: self.project.qualify_image(task) for task in self.buildable_tasks
+        }
+
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.name!r} at {hex(id(self))}>"
+
+
+def instance_app_key(app_name: str, instance_name: str) -> str:
+    return f"{app_name}-{instance_name}"
+
+
+class CHAppInstance(CHApp):
+    _HOST_KEYS = ("subdomain", "aliases", "domain")
+    _NAMED_RESOURCES = ("service", "deployment", "database")
+
+    def __init__(self, parent_app: CHApp, instance_name: str):
+        self.parent_app = parent_app
+        self.instance_name = instance_name
+        self.name = instance_app_key(parent_app.name, instance_name)
+        self.path = parent_app.path / "deploy" / "instances" / instance_name
+        self.parent = parent_app.containing_project
+        self.base = (
+            parent_app.base.instances.get(instance_name)
+            if parent_app.base is not None
+            else None
+        )
+        self._dockerfile = CHDockerfile(self.path / ".instance-never-builds", self)
+        self.app_basevalues_template = CHValues(self.path / "values.yaml", self)
+        self.openapi = parent_app.openapi
+        self._tasks = {}
+
+    @lru_cache
+    def all_values(self) -> dict:
+        return self._build_values(self.parent_app.all_values(), self.raw_values())
+
+    @property
+    def is_buildable(self) -> bool:
+        return False
+
+    @property
+    def buildable_image(self) -> str | None:
+        own = self.deployment_config.get("image") or self.all_values().get("image")
+        if own:
+            return own
+        return self.parent_app.buildable_image or self.parent_app.deployment_config.get(
+            "image"
+        )
+
+    @staticmethod
+    def _instance_sets(values: dict, *path: str) -> bool:
+        node = values
+        for key in path[:-1]:
+            if not isinstance(node, dict):
+                return False
+            node = node.get(key)
+        return isinstance(node, dict) and path[-1] in node
+
+    def _build_values(self, app_values: dict, instance_values: dict) -> dict:
+        instance_app = copy.deepcopy(app_values)
+        harness = instance_app.setdefault("harness", {})
+
+        for key in self._HOST_KEYS:
+            harness.pop(key, None)
+        harness.pop("name", None)
+        for key in self._NAMED_RESOURCES:
+            resource = harness.get(key)
+            if isinstance(resource, dict):
+                resource.pop("name", None)
+
+        instance_app = dict_merge(instance_app, instance_values)
+        harness = instance_app["harness"]
+
+        if "subdomain" not in (instance_values.get("harness") or {}):
+            harness["subdomain"] = self.instance_name
+
+        volume = (harness.get("deployment") or {}).get("volume") or {}
+        if (
+            volume.get("name")
+            and volume.get("auto", True)
+            and not self._instance_sets(
+                instance_values, "harness", "deployment", "volume", "name"
+            )
+        ):
+            volume["name"] = f"{self.instance_name}-{volume['name']}"
+
+        database = harness.get("database") or {}
+        if database.get("connect_string") and not self._instance_sets(
+            instance_values, "harness", "database", "connect_string"
+        ):
+            database["connect_string"] = ""
+
+        parent_database = (app_values.get("harness") or {}).get("database") or {}
+        if database.get("name") and database["name"] == (
+            parent_database.get("name") or f"{self.parent_app.name}-db"
+        ):
+            for database_type, type_config in database.items():
+                if (
+                    isinstance(type_config, dict)
+                    and type_config.get("initialdb")
+                    and not self._instance_sets(
+                        instance_values,
+                        "harness",
+                        "database",
+                        database_type,
+                        "initialdb",
+                    )
+                ):
+                    type_config["initialdb"] = self.name.replace("-", "_")
+
+        instance_app["build"] = False
+        instance_app[KEY_TASK_IMAGES] = {}
+
+        return instance_app
 
 
 class CHValues:
@@ -718,7 +880,9 @@ def _finalize_app_values(
             **harness,
             "deployment": {**(harness.get("deployment") or {}), "image": image},
         }
-    value = {**value, "harness": harness, "build": not bool(deployment_image)}
+    # An instance's own values already say build: False - an inherited image must not flip it back to True just because one is now known.
+    build = False if value.get("build") is False else not bool(deployment_image)
+    value = {**value, "harness": harness, "build": build}
     if task_images:
         value["task-images"] = task_images
     return _promote_legacy_top_level_fields(value, harness)
@@ -848,22 +1012,57 @@ class CHProject:
 
     @property
     def involved_apps(self):
-        return set(
+        base = set(
             itertools.chain(self.entrypoint_apps().values(), *self.all_dependencies())
         )
+        involved_names = {app.name for app in base if not isinstance(app, str)}
+        instances = {
+            instance
+            for instance in self.all_instances().values()
+            if instance.parent_app.name in involved_names
+            and instance.name not in self.config.excludes
+        }
+        return base | instances
+
+    @lru_cache
+    def all_instances(self) -> dict[str, CHAppInstance]:
+        instances = {
+            instance.name: instance
+            for app in self.scanned_apps.values()
+            if app.name not in self.config.excludes
+            for instance in app.instances.values()
+        }
+        collisions = sorted(set(instances) & set(self.scanned_apps))
+        if collisions:
+            raise ValuesValidationError(
+                f"Instance(s) {', '.join(collisions)} collide with an existing application "
+                "name - rename the instance or the application"
+            )
+        return instances
 
     def entrypoint_apps(self):
-        includes = self.config.includes
+        includes = self._includes_with_instances()
         excludes = self.config.excludes
         is_included = lambda app: (
             (len(includes) > 0 and app in includes) or len(includes) == 0
         )
         is_not_excluded = lambda app: app not in excludes
+        candidates = {**self.scanned_apps, **self.all_instances()}
         return {
             app_name: app
-            for app_name, app in self.scanned_apps.items()
+            for app_name, app in candidates.items()
             if is_included(app_name) and is_not_excluded(app_name)
         }
+
+    def _includes_with_instances(self) -> set[str]:
+        includes = set(self.config.includes)
+        if not includes:
+            return includes
+        for instance in self.all_instances().values():
+            if instance.parent_app.name in includes or instance.name in includes:
+                includes.add(instance.parent_app.name)
+                includes.add(instance.name)
+        return includes
 
     def all_dependencies(self):
         softs: set[CHApp | str] = set()
@@ -955,27 +1154,12 @@ class CHProject:
     def _concrete_involved_apps(self) -> tuple[CHApp, ...]:
         return tuple(app for app in self.involved_apps if not isinstance(app, str))
 
-    def _is_buildable_app(self, app: CHApp) -> bool:
-        if app.dockerfile.exists():
-            return not app.deployment_config.get("image")
-        if app.deployment_config.get("image"):
-            return False
-        if app.deployment_config.get("auto"):
-            raise ValuesValidationError(
-                f"At least one Dockerfile must be specified for application {app.name}. "
-                "Specify harness.deployment.image if you intend to use a prebuilt image."
-            )
-        return False
-
-    def _buildable_tasks(self, app: CHApp) -> list[CHAppTask]:
-        return [t for t in app.tasks.values() if t.dockerfile.exists()]
-
     def _hashable_entities(self) -> dict[str, CHApp | CHBaseImage | CHAppTask]:
         entities: dict[str, CHApp | CHBaseImage | CHAppTask] = {}
         for app in self._concrete_involved_apps:
-            if self._is_buildable_app(app):
+            if app.is_buildable:
                 entities[app.name] = app
-            entities.update({t.name: t for t in self._buildable_tasks(app)})
+            entities.update({t.name: t for t in app.buildable_tasks})
         entities.update(self.all_build_dependencies())
         return entities
 
@@ -1015,18 +1199,13 @@ class CHProject:
             resolve(entity)
         return tags
 
-    def qualify_image(self, entity: "CHApp | CHBaseImage | CHAppTask") -> str:
+    def qualify_image(self, entity: CHApp | CHBaseImage | CHAppTask) -> str:
         qualified = self.qualify(entity.image_name)
         if self._use_content_hash_tag:
             tag = self._content_hash_tags().get(entity.name)
         else:
             tag = self.config.tag
         return f"{qualified}:{tag}" if tag else qualified
-
-    def _app_task_images(self, app: "CHApp") -> dict[str, str]:
-        return {
-            task.name: self.qualify_image(task) for task in self._buildable_tasks(app)
-        }
 
     def all_task_images(self) -> dict[str, str]:
         already_deployed = tuple(app.name for app in self._concrete_involved_apps)
@@ -1037,7 +1216,7 @@ class CHProject:
             ).items()
         }
         for app in self._concrete_involved_apps:
-            images.update(self._app_task_images(app))
+            images.update(app.task_images)
         return images
 
     @lru_cache
@@ -1066,9 +1245,6 @@ class CHProject:
     def base_image_name(self):
         return self.all_values()["name"]
 
-    def _buildable_image(self, app: "CHApp") -> str | None:
-        return self.qualify_image(app) if self._is_buildable_app(app) else None
-
     def build_final_helm_values(self, write_on_disk=True) -> HarnessMainConfig:
         involved_apps = {app.name: app for app in self._concrete_involved_apps}
         values = self.all_values()
@@ -1076,8 +1252,8 @@ class CHProject:
             name: _finalize_app_values(
                 name,
                 value,
-                self._buildable_image(involved_apps[name]),
-                self._app_task_images(involved_apps[name]),
+                involved_apps[name].buildable_image,
+                involved_apps[name].task_images,
             )
             for name, value in values.items()
             if name in involved_apps

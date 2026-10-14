@@ -1,7 +1,7 @@
 import shutil
 from pathlib import Path
 
-from .model import CHValues, register_file
+from .model import CHAppInstance, CHValues, register_file
 from .utils import (  # type: ignore
     _merge_base_chain,
     collect_and_merge_env_specific_files,
@@ -45,6 +45,9 @@ class CHHelmChart(CHValues):
         for app in project.involved_apps:
             if isinstance(app, str):
                 continue
+            if isinstance(app, CHAppInstance):
+                self._collect_instance_deploy_directories(app, dest)
+                continue
             _merge_base_chain(
                 app,
                 lambda a: a.path / "deploy" / "templates",
@@ -59,3 +62,15 @@ class CHHelmChart(CHValues):
                 app, lambda a: a.path / "deploy" / "charts", dest / "charts" / app.name
             )
         collect_and_merge_env_specific_files(dest, project.config.envs)
+
+    def _collect_instance_deploy_directories(self, instance: CHAppInstance, dest: Path) -> None:
+        parent, own = instance.parent_app, instance.instance_name
+        for kind in ("templates", "resources", "charts"):
+            _merge_base_chain(
+                parent, lambda a, kind=kind: a.path / "deploy" / kind, dest / kind / instance.name
+            )
+            _merge_base_chain(
+                parent,
+                lambda a, kind=kind: a.path / "deploy" / "instances" / own / kind,
+                dest / kind / instance.name,
+            )

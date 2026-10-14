@@ -784,7 +784,7 @@ def test_create_codefresh_configuration_no_build_for_app_with_prebuilt_image(tmp
     # instead of a locally-built one, even if it also has a Dockerfile
     # checked in - legacy's own `build` flag (ch_cli_tools/helm.py:374) is
     # `not bool(deployment_image)`, which ng already derives the same way via
-    # CHProject._is_buildable_app. In legacy this same flag lives inside the
+    # CHApp.is_buildable. In legacy this same flag lives inside the
     # single per-Dockerfile loop that also generates git-clone/unit/api/e2e
     # steps, so a non-buildable app gets none of those either - only a
     # buildable app alongside it does.
@@ -1066,18 +1066,19 @@ def test_write_env_file(tmp_path):
     env_file = tmp_path / "test.env"
     with patch(
         "ch_cli_tools.ng.codefresh.check_image_exists_in_registry",
-        side_effect=[True, False, True, False, True, False, True],
+        side_effect=[True, False, True, False, True, False, True, False],
     ) as mock_check:
         write_env_file(values, str(env_file))
 
     lines = env_file.read_text().splitlines()
     env = dict(line.split("=", 1) for line in lines)
 
-    # myapp itself, its own task, a declared build dependency
-    # (cloudharness-flask, via task-images), and the test-api/test-e2e runner
-    # images (read straight from the model, never part of helm_values itself)
-    # all get a tag line.
+    # myapp itself, its instance (running the same image), its own task, a
+    # declared build dependency (cloudharness-flask, via task-images), and the
+    # test-api/test-e2e runner images (read straight from the model, never
+    # part of helm_values itself) all get a tag line.
     assert env["MYAPP_TAG"] == "1"
+    assert env["MYAPP_INST1_TAG"] == "1"
     assert env["MYAPP_MYTASK_TAG"] == "1"
     assert env["CLOUDHARNESS_FLASK_TAG"] == "1"
     assert env["TEST_API_TAG"] == "1"
@@ -1085,8 +1086,8 @@ def test_write_env_file(tmp_path):
 
     # Registry-existence check drives the _EXISTS/_NEW suffix, one call per
     # recorded image - alternating True/False above must split the same way.
-    assert mock_check.call_count == 7
+    assert mock_check.call_count == 8
     exists_suffixes = [k for k in env if k.endswith("_EXISTS")]
     new_suffixes = [k for k in env if k.endswith("_NEW")]
     assert len(exists_suffixes) == 4
-    assert len(new_suffixes) == 3
+    assert len(new_suffixes) == 4

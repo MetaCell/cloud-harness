@@ -102,7 +102,10 @@ def test_qualify_prefixes_registry(tmp_path):
 def test_no_include_means_every_scanned_app_is_entrypoint():
     project = chain(CLOUDHARNESS_ROOT, RESOURCES, config=CHDeployConfig())
 
-    assert set(project.entrypoint_apps().keys()) == set(project.scanned_apps.keys())
+    # ... plus the instances every scanned app declares (myapp's, unconditionally).
+    assert set(project.entrypoint_apps().keys()) == set(
+        project.scanned_apps.keys()
+    ) | set(project.all_instances().keys())
     assert "jupyterhub" in project.entrypoint_apps()
 
 
@@ -114,7 +117,9 @@ def test_include_exclude_and_transitive_dependencies():
     )
 
     entrypoints = set(project.entrypoint_apps().keys())
-    assert entrypoints == {"samples", "myapp"}
+    # myapp-inst1 is declared unconditionally and included along with myapp; samples'
+    # own instance is declared only for env=test, so it does not show up here.
+    assert entrypoints == {"samples", "myapp", "myapp-inst1"}
 
     involved = {a if isinstance(a, str) else a.name for a in project.involved_apps}
 
@@ -646,9 +651,22 @@ def test_hosts_info_prints_port_forward_and_hosts_lines(
     out = capsys.readouterr().out
     # myapp's own values.yaml sets harness.subdomain: mysubdomain; service
     # name/port (myapp/80) come from the default app-values template cascade.
+    # myapp-inst1 (myapp's instance) is deployed too, so both host lines are
+    # set-built (order not guaranteed) - check token membership, not position.
     assert "kubectl port-forward -n test service/myapp 80:80" in out
-    assert "127.0.0.1\tmyapp.test" in out
-    assert "10.0.0.5\tmy.local mysubdomain.my.local" in caplog.text
+    service_hosts_line = next(
+        line for line in out.splitlines() if line.startswith("127.0.0.1\t")
+    )
+    assert "myapp.test" in service_hosts_line.split("\t")[1].split()
+
+    domain_hosts_line = next(
+        line for line in caplog.text.splitlines() if line.startswith("10.0.0.5\t")
+    )
+    assert set(domain_hosts_line.split("\t")[1].split()) == {
+        "my.local",
+        "myinstance.my.local",
+        "mysubdomain.my.local",
+    }
 
 
 def test_hosts_info_falls_back_to_localhost_when_cluster_ip_unavailable(
@@ -674,7 +692,16 @@ def test_hosts_info_falls_back_to_localhost_when_cluster_ip_unavailable(
         hosts_info(values)
 
     assert "Cannot get cluster ip" in caplog.text
-    assert "127.0.0.1\tmy.local mysubdomain.my.local" in caplog.text
+    # myapp-inst1 (myapp's instance) gets its own host too - set-built, so order
+    # isn't guaranteed.
+    hosts_line = next(
+        line for line in caplog.text.splitlines() if line.startswith("127.0.0.1\t")
+    )
+    assert set(hosts_line.split("\t")[1].split()) == {
+        "my.local",
+        "myinstance.my.local",
+        "mysubdomain.my.local",
+    }
 
 
 def _vscode_debug_project(tmp_path):
@@ -829,7 +856,7 @@ def test_auto_deploy_app_without_dockerfile_or_image_raises(tmp_path):
     project = CHProject(tmp_path, config=CHDeployConfig())
 
     with pytest.raises(ValuesValidationError):
-        project._is_buildable_app(project["noimage"])
+        project["noimage"].is_buildable
 
 
 def test_registry_merges_project_fields_and_clears_secret_when_local(tmp_path):

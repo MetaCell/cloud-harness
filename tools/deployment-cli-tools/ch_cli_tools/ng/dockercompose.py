@@ -10,7 +10,7 @@ import subprocess
 from pathlib import Path
 
 from .helm import CHHelmChart
-from .model import CHValues, register_file
+from .model import CHAppInstance, CHValues, register_file
 from .utils import (  # type: ignore
     _merge_base_chain,
     collect_and_merge_env_specific_files,
@@ -18,10 +18,12 @@ from .utils import (  # type: ignore
 )
 
 
-def _merge_helper_templates(app, destination: Path) -> None:
+def _merge_helper_templates(
+    app, destination: Path, templates_dir_of=lambda a: a.path / "deploy" / "templates"
+) -> None:
     if app.base is not None:
-        _merge_helper_templates(app.base, destination)
-    templates_dir = app.path / "deploy" / "templates"
+        _merge_helper_templates(app.base, destination, templates_dir_of)
+    templates_dir = templates_dir_of(app)
     if not templates_dir.exists():
         return
     destination.mkdir(parents=True, exist_ok=True)
@@ -47,6 +49,9 @@ class CHDockerCompose(CHHelmChart):
         for app in project.involved_apps:
             if isinstance(app, str):
                 continue
+            if isinstance(app, CHAppInstance):
+                self._collect_instance_deploy_directories(app, dest)
+                continue
             _merge_base_chain(
                 app,
                 lambda a: a.path / "deploy" / "templates-compose",
@@ -65,6 +70,32 @@ class CHDockerCompose(CHHelmChart):
         CHValues.write_on_disk(dest / "allvalues.yaml", self._secrets_stripped(values))
 
         self._render(dest)
+
+    def _collect_instance_deploy_directories(self, instance: CHAppInstance, dest: Path) -> None:
+        parent, own = instance.parent_app, instance.instance_name
+        destination = dest / "templates" / instance.name
+        _merge_base_chain(
+            parent, lambda a: a.path / "deploy" / "templates-compose", destination
+        )
+        _merge_helper_templates(parent, destination)
+        _merge_base_chain(
+            parent,
+            lambda a, own=own: a.path / "deploy" / "instances" / own / "templates-compose",
+            destination,
+        )
+        _merge_helper_templates(
+            parent,
+            destination,
+            lambda a, own=own: a.path / "deploy" / "instances" / own / "templates",
+        )
+        _merge_base_chain(
+            parent, lambda a: a.path / "deploy" / "resources", dest / "resources" / instance.name
+        )
+        _merge_base_chain(
+            parent,
+            lambda a, own=own: a.path / "deploy" / "instances" / own / "resources",
+            dest / "resources" / instance.name,
+        )
 
     def _secrets_stripped(self, values: dict) -> dict:
         apps = {
