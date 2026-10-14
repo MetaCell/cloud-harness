@@ -9,7 +9,7 @@ import pytest
 from conftest import CLOUDHARNESS_ROOT, RESOURCES
 from test_util_ng import write_tree
 
-from ch_cli_tools.ng.api import create_helm_chart
+from ch_cli_tools.ng.api import create_docker_compose_configuration, create_helm_chart
 from ch_cli_tools.ng.model import ValuesValidationError
 
 
@@ -91,3 +91,27 @@ def test_deployment_image_ref_to_an_image_not_built_fails(tmp_path):
     solution = _image_ref_solution(tmp_path, image_ref="not-built")
     with pytest.raises(ValuesValidationError, match="not-built"):
         _chart(tmp_path, solution, include=["refapp"])
+
+
+@pytest.mark.parametrize("include", [["refapp"], []], ids=["include", "noinclude"])
+def test_deployment_image_ref_runs_an_image_of_the_build_through_dockercompose(
+    tmp_path, include
+):
+    """Same resolution (CHApp.is_buildable/buildable_image) as the helm path above,
+    reached through the dockercompose entrypoint instead."""
+    solution = _image_ref_solution(tmp_path)
+    values = create_docker_compose_configuration(
+        [CLOUDHARNESS_ROOT, RESOURCES, solution],
+        output_path=tmp_path / "out",
+        include=include,
+        domain="my.local",
+        namespace="test",
+        local=False,
+        tag="1",
+        registry="reg",
+    ).to_dict()
+
+    base_image = values["task-images"]["cloudharness-base"]
+    app = values["apps"]["refapp"]
+    assert app["image"] == base_image
+    assert app["harness"]["deployment"]["image"] == base_image

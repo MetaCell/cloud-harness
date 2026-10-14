@@ -104,6 +104,15 @@ def test_instance_declared_for_an_environment_only(tmp_path):
     assert "samples-instance1" in apps
 
 
+def test_instances_expand_without_include(tmp_path):
+    """An instance auto-expands even with no --include at all, same as its parent."""
+    apps = _chart(tmp_path, env="test")
+    instance = apps["samples-instance1"]
+    assert instance["harness"]["subdomain"] == "samples1"
+    assert instance["build"] is False
+    assert instance["image"] == apps["samples"]["image"]
+
+
 def test_instance_renders_its_own_manifests(tmp_path):
     """The instance gets the full set of manifests on its own subdomain, backed by its
     own workload - a values-dict assertion can't tell real resource isolation (own PVC,
@@ -236,6 +245,63 @@ def test_instance_inherits_the_application_merged_across_roots(tmp_path):
     assert instance["subdomain"] == "myinstance"
     assert instance["deployment"]["replicas"] == 4
     assert apps["myapp"]["harness"]["deployment"]["replicas"] == 1
+
+
+def test_instance_merges_the_roots_declaring_the_same_instance(tmp_path):
+    """When two different roots declare the same instance directory, the higher-priority
+    root's values win and what it does not override is kept - same merge rule as an
+    application overridden across roots, applied to an instance."""
+    first_root, second_root = tmp_path / "first", tmp_path / "second"
+    write_tree_from_yaml(
+        first_root,
+        """
+        applications:
+          myapp:
+            deploy:
+              instances:
+                inst:
+                  values.yaml: |
+                    harness:
+                      subdomain: myappinst
+                      deployment:
+                        replicas: 1
+                    first: true
+        """,
+    )
+    write_tree_from_yaml(
+        second_root,
+        """
+        applications:
+          myapp:
+            deploy:
+              instances:
+                inst:
+                  values.yaml: |
+                    harness:
+                      deployment:
+                        replicas: 2
+                    second: true
+        """,
+    )
+
+    apps = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES, first_root, second_root],
+        output_path=tmp_path,
+        include=["myapp"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    ).to_dict()["apps"]
+
+    instance = apps["myapp-inst"]
+    assert instance["harness"]["deployment"]["replicas"] == 2, "a later root wins"
+    assert instance["harness"]["subdomain"] == "myappinst", (
+        "what a later root does not override is kept"
+    )
+    assert instance["first"] and instance["second"]
 
 
 def test_auto_tag_reaches_instance_images(tmp_path):
