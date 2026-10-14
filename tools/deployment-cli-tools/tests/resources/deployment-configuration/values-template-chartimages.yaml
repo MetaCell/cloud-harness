@@ -1,0 +1,5 @@
+# Helm-native sub-chart override: keyed by the vendored sub-chart's Chart.yaml name.
+# Only the tag is overridden; registry/repository come from the vendored defaults.
+vendored-thing:
+  image:
+    tag: "9.9.9"

@@ -105,7 +105,7 @@ spec:
       # Holds the pod until the volume-migration job has copied the legacy volume data into
       # the statefulset volume. Delete the legacy PVC after verifying the migration.
       - name: volume-migration
-        image: busybox:1.36
+        image: {{ .root.Values.volumeMigration.wait.image | default "busybox:1.36" }}
         command: ['sh', '-c', 'until [ -f /migration/target/.cloudharness-volume-migrated ]; do echo "waiting for the volume migration job"; sleep 5; done']
         volumeMounts:
           - name: {{ .app.harness.database.name | quote }}

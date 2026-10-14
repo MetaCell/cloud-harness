@@ -7,6 +7,8 @@
   - [Work with local deployments](./build-deploy/local-deploy/README.md)
     - [Debug your applications](./build-deploy/local-deploy/debug.md)
     - [Setting up Minikube](./build-deploy/local-deploy/minikube.md)
+- [Define image sources, e.g. a private registry](./image-sources.md)
+- [Define and use base and common images](./base-common-images.md)
 - [Create and configure applications](./applications)
   - [Generate a new application](./applications/harness-application.md)
   - [Override applications values and files](./applications/overridings.md)

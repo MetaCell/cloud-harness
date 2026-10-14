@@ -8,17 +8,18 @@ import logging
 from hashlib import sha1
 import subprocess
 
-from cloudharness_utils.constants import VALUES_MANUAL_PATH, HELM_CHART_PATH
+from cloudharness_utils.constants import VALUES_MANUAL_PATH, VALUES_OVERRIDES_PATH, HELM_CHART_PATH
 from .utils import get_cluster_ip, get_dockerfile_baseimg_args, get_git_commit_hash, get_image_name, image_name_from_dockerfile_path, \
     get_template, merge_to_yaml_file, dict_merge, app_name_from_path, \
-    find_dockerfiles_paths, yaml
+    find_dockerfiles_paths, is_buildable_dockerfile_path, write_values_overrides, yaml
 
 from .models import HarnessMainConfig
 
-from .configurationgenerator import ConfigurationGenerator, get_included_builds, validate_helm_values, resolve_task_image_owner, \
+from .configuration.configurationgenerator import ConfigurationGenerator, get_included_builds, validate_helm_values, resolve_task_image_owner, \
     clear_unused_volume_configuration, \
     KEY_HARNESS, KEY_SERVICE, KEY_DATABASE, KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES, KEY_DEPLOYMENT, DEFAULT_IGNORE, \
-    values_from_legacy, values_set_legacy, get_included_applications, create_env_variables, collect_apps_helm_templates, generate_tag_from_content, guess_build_dependencies_from_dockerfile
+    values_from_legacy, values_set_legacy, get_included_applications, create_env_variables, collect_apps_helm_templates, generate_tag_from_content, guess_build_dependencies_from_dockerfile, \
+    deployment_image_ref, resolve_deployment_image_ref
 
 
 def deploy(namespace, output_path='./deployment'):
@@ -137,6 +138,8 @@ class CloudHarnessHelm(ConfigurationGenerator):
             # Collect all source_images and move them to the root
             self._aggregate_source_images(self.base_images, helm_values)
 
+        self._inherit_instance_images(helm_values)
+
         self.create_tls_certificate(helm_values)
 
         # Adjust dependencies from static (common) images
@@ -145,6 +148,9 @@ class CloudHarnessHelm(ConfigurationGenerator):
         for root_path in self.root_paths:
             collect_apps_helm_templates(root_path, exclude=self.exclude, include=self.include,
                                         dest_helm_chart_path=self.dest_deployment_path, envs=self.env)
+
+        # Collect every image the chart pulls into values-overrides.yaml, in Helm-native structure
+        write_values_overrides(helm_values, self.dest_deployment_path)
 
         # Save values file for manual helm chart
         merged_values = merge_to_yaml_file(helm_values, os.path.join(
@@ -277,6 +283,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
             # Only include applications that are specified in the include list and their dependencies
             self.include = get_included_applications(
                 values, set(self.include))
+            self.include = self._include_application_instances(values)
 
             self.include -= set(self.exclude)
 
@@ -300,6 +307,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
                         owner = resolve_task_image_owner(dep_name, set(apps))
                         if owner and owner in apps:
                             included_apps[owner] = apps[owner]
+                self._keep_included_instances(apps, included_apps)
                 values[KEY_APPS] = included_apps
             else:
                 # Original single-pass mode: filter apps and aggregate task images
@@ -326,6 +334,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
                             if key in included_builds or app_name in self.include:
                                 values[KEY_TASK_IMAGES][key] = apps[app_name][KEY_TASK_IMAGES][key]
 
+                self._keep_included_instances(apps, included_apps)
                 values[KEY_APPS] = included_apps
         elif not defer_task_images:
             for v in apps:
@@ -359,7 +368,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
                             values[KEY_HARNESS]['name'])
 
         image_paths = [path for path in find_dockerfiles_paths(
-            f"{app_path}") if 'tasks/' not in path and 'subapps' not in path]
+            f"{app_path}") if is_buildable_dockerfile_path(path)]
         if len(image_paths) > 1:
             logging.warning('Multiple Dockerfiles found in application %s. Picking the first one: %s', app_name,
                             image_paths[0])
@@ -371,18 +380,20 @@ class CloudHarnessHelm(ConfigurationGenerator):
 
         deployment_values = values.get(KEY_HARNESS, {}).get(KEY_DEPLOYMENT, {})
         deployment_image = deployment_values.get('image', None) or values.get('image', None)
+        image_ref = deployment_image_ref(values)
         values['build'] = not bool(deployment_image)  # Used by skaffold and ci/cd to determine if the image should be built
 
         image_name = get_image_name(values.get(KEY_HARNESS, {}).get('image_name', ''), base_image_name)
-        if len(image_paths) > 0 and not deployment_image:
+        if len(image_paths) > 0 and not deployment_image and not image_ref:
             values['source_images'] = get_dockerfile_baseimg_args(app_path)
             image_name = image_name or image_name_from_dockerfile_path(os.path.relpath(image_paths[0], app_path.parent), base_name=base_image_name)
             values['image'] = self.image_tag(
                 image_name, build_context_path=app_path, dependencies=build_dependencies)
-        elif KEY_HARNESS in values and not deployment_image and values[
+        elif KEY_HARNESS in values and not deployment_image and not image_ref and values[
                 KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('auto', False):
             raise Exception(f"At least one Dockerfile must be specified on application {app_name}. "
-                            f"Specify harness.deployment.image value if you intend to use a prebuilt image.")
+                            f"Specify harness.deployment.image value if you intend to use a prebuilt image, "
+                            f"or harness.deployment.image_ref to run an image of the build.")
 
         task_images_paths = [path for path in find_dockerfiles_paths(
             f"{app_path}") if 'tasks/' in path]
@@ -400,6 +411,8 @@ class CloudHarnessHelm(ConfigurationGenerator):
 
             values[KEY_TASK_IMAGES][task_name] = self.image_tag(
                 task_img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys())
+
+        resolve_deployment_image_ref(app_name, values)
 
         return values
 
@@ -443,7 +456,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
         values = app_values
 
         image_paths = [path for path in find_dockerfiles_paths(
-            f"{app_path}") if 'tasks/' not in path and 'subapps' not in path]
+            f"{app_path}") if is_buildable_dockerfile_path(path)]
         if len(image_paths) > 1:
             logging.warning('Multiple Dockerfiles found in application %s. Picking the first one: %s', app_name,
                             image_paths[0])
@@ -456,18 +469,20 @@ class CloudHarnessHelm(ConfigurationGenerator):
         # Check both YAML-declared pre-built image and already-computed image
         # (from a previous root_path finalization)
         deployment_image = deployment_values.get('image', None) or values.get('image', None)
+        image_ref = deployment_image_ref(values)
 
         image_name = get_image_name(values.get(KEY_HARNESS, {}).get('image_name', ''), base_image_name)
-        if len(image_paths) > 0 and not deployment_image:
+        if len(image_paths) > 0 and not deployment_image and not image_ref:
             values['build'] = True
             values['source_images'] = get_dockerfile_baseimg_args(app_path)
             image_name = image_name or image_name_from_dockerfile_path(os.path.relpath(image_paths[0], app_path.parent), base_image_name)
             values['image'] = self.image_tag(
                 image_name, build_context_path=app_path, dependencies=build_dependencies)
-        elif KEY_HARNESS in values and not deployment_image and values[
+        elif KEY_HARNESS in values and not deployment_image and not image_ref and values[
                 KEY_HARNESS].get(KEY_DEPLOYMENT, {}).get('auto', False):
             raise Exception(f"At least one Dockerfile must be specified on application {app_name}. "
-                            f"Specify harness.deployment.image value if you intend to use a prebuilt image.")
+                            f"Specify harness.deployment.image value if you intend to use a prebuilt image, "
+                            f"or harness.deployment.image_ref to run an image of the build.")
         elif 'build' not in values:
             values['build'] = not bool(deployment_image)
 
@@ -488,5 +503,7 @@ class CloudHarnessHelm(ConfigurationGenerator):
             values['source_images'] = get_dockerfile_baseimg_args(app_path)
             values[KEY_TASK_IMAGES][task_name] = self.image_tag(
                 task_img_name, build_context_path=task_path, dependencies=values[KEY_TASK_IMAGES].keys())
+
+        resolve_deployment_image_ref(app_name, values)
 
         return values

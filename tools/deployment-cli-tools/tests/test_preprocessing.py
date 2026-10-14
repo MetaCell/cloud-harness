@@ -4,7 +4,7 @@ import os
 import tempfile
 
 from ch_cli_tools.helm import *
-from ch_cli_tools.preprocessing import *
+from ch_cli_tools.configuration.preprocessing import *
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')

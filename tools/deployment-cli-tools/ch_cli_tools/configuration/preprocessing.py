@@ -7,10 +7,10 @@ import shutil
 from glob import glob
 from os.path import join, basename, dirname, isabs, relpath
 
-from .helm import KEY_APPS, KEY_TASK_IMAGES, KEY_HARNESS, KEY_DEPLOYMENT
+from ..constants import KEY_APPS, KEY_TASK_IMAGES, KEY_HARNESS, KEY_DEPLOYMENT
 from .configurationgenerator import DEFAULT_IGNORE, generate_tag_from_content
 
-from .utils import app_name_from_path, merge_app_directories, merge_configuration_directories, find_subdirs, read_dockerignore, guess_build_dependencies_from_dockerfile
+from ..utils import app_name_from_path, merge_app_directories, merge_configuration_directories, find_subdirs, read_dockerignore, guess_build_dependencies_from_dockerfile
 from cloudharness_utils.constants import APPS_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, DEFAULT_MERGE_PATH, EXCLUDE_PATHS
 
 
@@ -19,10 +19,9 @@ def preprocess_build_overrides(root_paths, helm_values, merge_build_path=DEFAULT
         merge_build_path = join(os.getcwd(), merge_build_path)
     if len(root_paths) < 2:
         return root_paths
-    if not os.path.exists(merge_build_path):
-        os.makedirs(merge_build_path)
-    else:
+    if os.path.exists(merge_build_path):
         shutil.rmtree(merge_build_path)
+    os.makedirs(merge_build_path)
     merged = False
     artifacts = {}
 
@@ -257,9 +256,11 @@ def generate_hash_based_image_tags(root_paths, helm_values, merge_build_path=DEF
                 calculated_tags[image_key] = sha1(content_hash.encode('utf-8')).hexdigest()
                 pending.remove(image_key)
 
+    retagged_images = {}
     for image_key, image_tag in calculated_tags.items():
         image_spec = image_specs[image_key]
         retagged = _set_image_tag(image_spec['image'], image_tag)
+        retagged_images[image_spec['image']] = retagged
 
         if image_spec['kind'] == KEY_APPS and image_key in helm_values[KEY_APPS]:
             app_values = helm_values[KEY_APPS][image_key]
@@ -269,4 +270,32 @@ def generate_hash_based_image_tags(root_paths, helm_values, merge_build_path=DEF
         elif image_spec['kind'] == KEY_TASK_IMAGES and image_key in helm_values[KEY_TASK_IMAGES]:
             helm_values[KEY_TASK_IMAGES][image_key] = retagged
 
+    apply_retagged_images(helm_values, retagged_images)
+
     return helm_values
+
+
+def apply_retagged_images(helm_values, retagged_images):
+    """Carry the recomputed tags over to the applications running an image they do not build.
+
+    An instance declares no build of its own, so no tag is computed for it: it is left holding the
+    untagged image name the chart was generated with, and would be deployed without a tag. An
+    application still referencing the bare name of an image that was just tagged runs that very
+    image, so it takes its tag. One pinning a tag of its own does not match, and keeps it.
+    """
+    if not retagged_images:
+        return
+
+    for app_values in helm_values.get(KEY_APPS, {}).values():
+        holders = [app_values, (app_values.get(KEY_HARNESS) or {}).get(KEY_DEPLOYMENT) or {}]
+        for holder in holders:
+            retagged = retagged_images.get(holder.get('image'))
+            if retagged:
+                holder['image'] = retagged
+        # The application's own copy of the images of its build, which `harness.database.image_ref`
+        # is looked up in by the templates: left bare, the database would run an untagged image.
+        # Assigned back whole, since a model hands out a copy of a mapping field on every read.
+        task_images = dict(app_values.get(KEY_TASK_IMAGES) or {})
+        if any(image in retagged_images for image in task_images.values()):
+            app_values[KEY_TASK_IMAGES] = {image_key: retagged_images.get(image, image)
+                                           for image_key, image in task_images.items()}

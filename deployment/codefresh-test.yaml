@@ -55,9 +55,9 @@ steps:
         buildkit: true
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/accounts
@@ -82,9 +82,9 @@ steps:
         buildkit: true
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/cloudharness-base
@@ -109,9 +109,9 @@ steps:
         buildkit: true
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/cloudharness-frontend-build
@@ -136,9 +136,9 @@ steps:
         buildkit: true
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/nfsserver
@@ -163,9 +163,9 @@ steps:
         buildkit: true
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/test-e2e
@@ -197,9 +197,9 @@ steps:
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
         - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/cloudharness-django
@@ -225,9 +225,9 @@ steps:
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
         - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/cloudharness-flask
@@ -253,9 +253,9 @@ steps:
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
         - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/jupyterhub
@@ -281,9 +281,9 @@ steps:
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
         - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/sampleapp-print-file
@@ -309,9 +309,9 @@ steps:
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
         - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/sampleapp-secret
@@ -337,9 +337,9 @@ steps:
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
         - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/test-api
@@ -366,9 +366,9 @@ steps:
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
         - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/workflows-extract-download
@@ -394,9 +394,9 @@ steps:
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
         - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/workflows-notify-queue
@@ -422,9 +422,9 @@ steps:
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
         - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/workflows-send-result-event
@@ -455,9 +455,9 @@ steps:
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
         - CLOUDHARNESS_FLASK=${{REGISTRY}}/cloud-harness/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/common
@@ -484,9 +484,9 @@ steps:
         - NOCACHE=${{CF_BUILD_ID}}
         - CLOUDHARNESS_FRONTEND_BUILD=${{REGISTRY}}/cloud-harness/cloudharness-frontend-build:${{CLOUDHARNESS_FRONTEND_BUILD_TAG}}
         - CLOUDHARNESS_FLASK=${{REGISTRY}}/cloud-harness/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/sampleapp
@@ -512,9 +512,9 @@ steps:
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
         - CLOUDHARNESS_FLASK=${{REGISTRY}}/cloud-harness/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/volumemanager
@@ -540,9 +540,9 @@ steps:
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
         - CLOUDHARNESS_FLASK=${{REGISTRY}}/cloud-harness/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/workflows
@@ -573,9 +573,9 @@ steps:
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
         - SAMPLES=${{REGISTRY}}/cloud-harness/sampleapp:${{SAMPLES_TAG}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - NODE=node:22-alpine
         - PYTHON=python:3.12-slim-trixie
         image_name: cloud-harness/sampleapp-sum
@@ -618,6 +618,7 @@ steps:
       custom_value_files:
       - ./deployment/helm/values.yaml
       custom_values:
+      - 'apps_samples-instance1_harness_secrets_asecret="${{ASECRET}}"'
       - 'apps_samples_harness_secrets_asecret="${{ASECRET}}"'
   wait_deployment:
     stage: qa
@@ -627,10 +628,11 @@ steps:
     commands:
     - kubectl config use-context ${{CLUSTER_NAME}}
     - kubectl config set-context --current --namespace=test-${{NAMESPACE_BASENAME}}
+    - kubectl rollout status deployment/volumemanager
+    - kubectl rollout status deployment/samples-instance1
+    - kubectl rollout status deployment/accounts
     - kubectl rollout status statefulset/samples
     - kubectl rollout status deployment/common
-    - kubectl rollout status deployment/volumemanager
-    - kubectl rollout status deployment/accounts
     - kubectl rollout status deployment/workflows
     - sleep 60
   tests_nfs_failover:

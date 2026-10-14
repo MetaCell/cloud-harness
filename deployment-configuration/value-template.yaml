@@ -32,6 +32,9 @@ harness:
     replicas: 1
     # -- Docker image url. Leave blank to leave Cloudharness automatic image name assignment.
     image:
+    # -- image ref for running an image of the build instead of building one, e.g. image_ref: my-base-image.
+    # The image must be a build dependency (or a task image of the application). Takes precedence over image.
+    image_ref:
     # -- Deployment name. Leave blank to leave Cloudharness automatic image name assignment.
     name:
     # -- Deployment port.
@@ -202,8 +205,9 @@ harness:
       # -- Maximum size of payload in MB
       max:
     gatekeeper:
-      # -- Default gatekeeper image
-      image: "quay.io/gogatekeeper/gatekeeper:4.6.0"
+      # -- Overrides source_images.GATEKEEPER for this application only. Left unset so that the
+      # gatekeeper image is configured once, at source_images.GATEKEEPER.
+      image:
       # -- Default number of gatekeeper replicas
       replicas: 1
       # -- Native Gatekeeper proxy.yml settings. Kebab-case keys follow the

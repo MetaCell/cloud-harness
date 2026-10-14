@@ -1345,6 +1345,12 @@ components:
                                 Docker file
                             pattern: '(?:[a-z]+/)?([a-z]+)(?::[0-9]+)?'
                             type: string
+                        image_ref:
+                            description: >-
+                                Used for running an image from the build instead of building one: a build
+                                dependency or a task image of the application. Takes precedence over image
+                            type: string
+                            example: 'image_ref: my-base-image'
                         resources:
                             $ref: '#/components/schemas/DeploymentResourcesConf'
                             description: Deployment resources

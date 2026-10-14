@@ -1,9 +1,9 @@
-from ch_cli_tools.preprocessing import preprocess_build_overrides
+from ch_cli_tools.configuration.preprocessing import preprocess_build_overrides
 
 from ch_cli_tools.helm import *
-from ch_cli_tools.configurationgenerator import *
+from ch_cli_tools.configuration.configurationgenerator import *
 from ch_cli_tools.codefresh import *
-from ch_cli_tools.secrets import is_cloudharness_managed, is_secret_config, secret_manager, secret_value
+from ch_cli_tools.configuration.secrets import is_cloudharness_managed, is_secret_config, secret_manager, secret_value
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')
@@ -554,6 +554,9 @@ def test_codefresh_db_connect_string_secret():
                                                  envs=['dev'],
                                                  base_image_name=values['name'],
                                                  helm_values=values, save=False)
+        # values-overrides.yaml is a reference for discovering image paths, not applied automatically
+        assert cf['steps']['deployment']['arguments']['custom_value_files'] == [
+            './deployment/helm/values.yaml']
         custom_values = cf['steps']['deployment']['arguments']['custom_values']
         expected = "apps_myapp_harness_database_connect__string=\"${{MYAPP_DB_CONNECT_STRING}}\""
         assert expected in custom_values, \

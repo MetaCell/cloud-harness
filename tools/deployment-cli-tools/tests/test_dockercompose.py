@@ -1,9 +1,10 @@
 from ch_cli_tools.dockercompose import *
-from ch_cli_tools.configurationgenerator import *
-from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
+from ch_cli_tools.configuration.configurationgenerator import *
+from ch_cli_tools.configuration.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
 import pytest
 import shutil
 import subprocess
+from io import StringIO
 from ch_cli_tools.utils import yaml
 
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -134,7 +135,9 @@ def test_compose_gatekeeper_native_configuration_rendering(tmp_path):
             stderr=subprocess.PIPE,
             text=True,
         )
-        for document in yaml.load_all(completed.stdout):
+        with StringIO(completed.stdout) as stream:
+            documents = list(yaml.load_all(stream))
+        for document in documents:
             metadata = (document or {}).get('cloudharness-metadata', {})
             if metadata.get('path') == 'resources/generated/samples-gk/proxy.yml':
                 return yaml.load(document['data'])
@@ -490,3 +493,26 @@ def test_compose_secrets_use_local_defaults(tmp_path):
     assert (generated / 'richSecret').read_text() == 'a local value'
     # nothing is known locally about an unmanaged secret: a random value is generated
     assert len((generated / 'unmanagedSecret').read_text()) == 20
+
+
+@pytest.mark.parametrize('include', [['refapp'], []], ids=['include', 'noinclude'])
+def test_deployment_image_ref_runs_an_image_of_the_build(tmp_path, include):
+    """An application referencing a build image runs that image and builds nothing itself."""
+    app_path = tmp_path / 'solution' / APPS_PATH / 'refapp'
+    (app_path / 'deploy').mkdir(parents=True)
+    (app_path / 'deploy' / 'values.yaml').write_text(
+        'harness:\n'
+        '  deployment:\n'
+        '    auto: true\n'
+        '    image_ref: cloudharness-base\n'
+        '  dependencies:\n'
+        '    build:\n'
+        '      - cloudharness-base\n')
+    values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES, str(tmp_path / 'solution')],
+                                                 output_path=tmp_path / 'out', include=include,
+                                                 domain="my.local", namespace='test', local=False, tag=1,
+                                                 registry='reg')
+
+    base_image = values[KEY_TASK_IMAGES]['cloudharness-base']
+    assert values[KEY_APPS]['refapp']['image'] == base_image
+    assert values[KEY_APPS]['refapp'][KEY_HARNESS][KEY_DEPLOYMENT]['image'] == base_image

@@ -1,20 +1,19 @@
-from ch_cli_tools.helm import *
-from ch_cli_tools.configurationgenerator import *
-from ch_cli_tools import configurationgenerator
-from ch_cli_tools.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
+from io import StringIO
 import logging
 import pytest
 import shutil
 import subprocess
 
-import pytest
-from ch_cli_tools import configurationgenerator
-from ch_cli_tools.configurationgenerator import *
-from ch_cli_tools.helm import *
-from ch_cli_tools.preprocessing import (
+from ch_cli_tools.configuration import configurationgenerator
+from ch_cli_tools.configuration.configurationgenerator import *
+from ch_cli_tools.configuration.instances import *
+from ch_cli_tools.configuration.preprocessing import (
+    apply_retagged_images,
     generate_hash_based_image_tags,
     preprocess_build_overrides,
 )
+from ch_cli_tools.helm import *
+from ch_cli_tools.utils import ChartImageRef, find_chart_images
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, 'resources')
@@ -25,15 +24,18 @@ def exists(path):
     return path.exists()
 
 
-def render_helm_chart(chart_path):
+def render_helm_chart(chart_path, values_files=(), set_values=()):
     completed = subprocess.run(
-        ["helm", "template", str(chart_path)],
+        ["helm", "template", str(chart_path),
+         *(arg for f in values_files for arg in ("-f", str(f))),
+         *(arg for v in set_values for arg in ("--set", v))],
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
     )
-    return [manifest for manifest in yaml.load_all(completed.stdout) if manifest]
+    with StringIO(completed.stdout) as stream:
+        return [manifest for manifest in yaml.load_all(stream) if manifest]
 
 
 def find_manifest(manifests, kind, name):
@@ -203,6 +205,8 @@ def test_collect_helm_values_noreg_noinclude(tmp_path):
         "mybase": "foo:bar",
         "mybase2": "spam:egg",
         "NODE": "node:22-alpine",
+        # Declared by CloudHarness itself: the gatekeeper is configured in one place
+        "GATEKEEPER": "quay.io/gogatekeeper/gatekeeper:4.6.0",
     }
 
 
@@ -1428,3 +1432,975 @@ def test_collect_helm_values_source_images_merge_no_include(tmp_path):
     source_images = values.get("source_images")
     assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
     assert "NODE" in source_images
+
+
+def test_values_overrides_helm_native_structure(tmp_path):
+    out_path = tmp_path / 'test_values_overrides_helm_native_structure'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, include=['chartimgapp'],
+                               domain="my.local", namespace='test', env='dev', local=False, tag=1, registry='reg')
+
+    helm_path = out_path / HELM_CHART_PATH
+    with open(helm_path / VALUES_OVERRIDES_PATH) as f:
+        overrides = yaml.load(f)
+
+    # Build-argument base images are listed too, as aggregated at the root
+    assert overrides["source_images"] == values["source_images"]
+
+    # The vendored sub-chart's images are keyed by its Chart.yaml name (how Helm passes parent
+    # values to a sub-chart), not by the app/dir name; the empty tag resolves to the appVersion
+    assert overrides["vendored-thing"]["image"] == {"registry": "docker.io", "repository": "someorg/somerepo", "tag": "2.0.0"}
+    assert "chartimgapp" not in overrides
+
+    # Inline images declared in the app's own values keep their path under apps.<app>
+    assert overrides[KEY_APPS]["chartimgapp"]["worker"]["image"] == "docker.io/baz/qux:9"
+    assert overrides[KEY_APPS]["chartimgapp"]["sidecar"]["image"] == {"name": "quay.io/foo/bar", "tag": "1.2.3"}
+    # The CloudHarness-built image (root image / harness.deployment.image) is not an image source
+    assert "image" not in overrides[KEY_APPS]["chartimgapp"]
+    assert "image" not in overrides[KEY_APPS]["chartimgapp"].get(KEY_HARNESS, {}).get(KEY_DEPLOYMENT, {})
+    # The gatekeeper image is configured once at source_images.GATEKEEPER, so it is not repeated
+    # under every application
+    assert overrides["source_images"]["GATEKEEPER"].startswith("quay.io/gogatekeeper")
+    assert "proxy" not in overrides[KEY_APPS]["chartimgapp"].get(KEY_HARNESS, {})
+
+    # No inert aggregated listing in values.yaml
+    assert "chart_images" not in values
+
+    # Rendering the chart with the overrides file selects exactly the listed image
+    manifests = render_helm_chart(helm_path, values_files=[helm_path / VALUES_OVERRIDES_PATH])
+    assert find_manifest(manifests, "ConfigMap", "vendored-thing-image")["data"]["image"] == "docker.io/someorg/somerepo:2.0.0"
+
+
+def test_values_overrides_edit_overrides_subchart_image(tmp_path):
+    out_path = tmp_path / 'test_values_overrides_edit'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, include=['chartimgapp'],
+                      domain="my.local", namespace='test', env='dev', local=False, tag=1, registry='reg')
+    helm_path = out_path / HELM_CHART_PATH
+    overrides_path = helm_path / VALUES_OVERRIDES_PATH
+
+    # Editing the generated file is enough to change the deployed image: Helm applies it after values.yaml
+    with open(overrides_path) as f:
+        overrides = yaml.load(f)
+    overrides["vendored-thing"]["image"] = {"registry": "myregistry.io", "repository": "other/repo", "tag": "7"}
+    with open(overrides_path, "w") as f:
+        yaml.dump(overrides, f)
+
+    manifests = render_helm_chart(helm_path, values_files=[overrides_path])
+    assert find_manifest(manifests, "ConfigMap", "vendored-thing-image")["data"]["image"] == "myregistry.io/other/repo:7"
+
+
+def test_values_overrides_from_values_template(tmp_path):
+    out_path = tmp_path / 'test_values_overrides_from_values_template'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, include=['chartimgapp'],
+                               domain="my.local", namespace='test', env='chartimages', local=False, tag=1, registry='reg')
+    helm_path = out_path / HELM_CHART_PATH
+
+    # values-template-chartimages.yaml overrides only the tag: the overrides file shows the merged result
+    with open(helm_path / VALUES_OVERRIDES_PATH) as f:
+        overrides = yaml.load(f)
+    assert overrides["vendored-thing"]["image"] == {"registry": "docker.io", "repository": "someorg/somerepo", "tag": "9.9.9"}
+
+    # ...and, being Helm-native, the override in values.yaml alone already reaches the sub-chart
+    assert values["vendored-thing"]["image"]["tag"] == "9.9.9"
+    manifests = render_helm_chart(helm_path)
+    assert find_manifest(manifests, "ConfigMap", "vendored-thing-image")["data"]["image"] == "docker.io/someorg/somerepo:9.9.9"
+
+
+def test_values_overrides_no_include_lists_vendored_charts(tmp_path):
+    out_path = tmp_path / 'test_values_overrides_no_include'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, domain="my.local",
+                               namespace='test', env='dev', local=False, tag=1)
+    with open(out_path / HELM_CHART_PATH / VALUES_OVERRIDES_PATH) as f:
+        overrides = yaml.load(f)
+
+    assert overrides["vendored-thing"]["image"]["repository"] == "someorg/somerepo"
+    # Real vendored sub-charts, keyed by their Chart.yaml names
+    assert overrides["argo-workflows"]["controller"]["image"]["repository"] == "argoproj/workflow-controller"
+    assert overrides["argo-workflows"]["controller"]["image"]["tag"]  # resolved from the sub-chart appVersion
+    assert overrides["kafka-ui"]["image"]["repository"] == "provectuslabs/kafka-ui"
+    # Inline images of real applications
+    assert overrides[KEY_APPS]["events"]["kafka"]["image"].startswith("docker.io/apache/kafka")
+    assert overrides[KEY_APPS]["jupyterhub"]["hub"]["image"]["name"] == "quay.io/jupyterhub/k8s-hub"
+
+    # Database images, which live under the application's harness configuration
+    assert overrides[KEY_APPS]["accounts"][KEY_HARNESS]["database"]["postgres"]["image"] == "postgres:17"
+    assert overrides[KEY_APPS]["neo4j"][KEY_HARNESS]["database"]["neo4j"]["image"] == "neo4j:5"
+    # The gatekeeper image is configured once at source_images.GATEKEEPER, so it is listed there
+    # and not repeated on the applications that rely on it, nor at the root proxy configuration
+    assert overrides["source_images"]["GATEKEEPER"].startswith("quay.io/gogatekeeper")
+    assert "gatekeeper" not in overrides.get("proxy", {})
+    # An application only appears here when it explicitly overrides its own gatekeeper, in which
+    # case that value is the effective one; the rest carry nothing
+    repeated = {app_name for app_name, app in overrides[KEY_APPS].items()
+                if "gatekeeper" in app.get(KEY_HARNESS, {}).get("proxy", {})}
+    explicit = {app_name for app_name, app in values[KEY_APPS].items()
+                if (((app.get(KEY_HARNESS) or {}).get("proxy") or {}).get("gatekeeper") or {}).get("image")}
+    assert repeated == explicit, f"gatekeeper image reported for {repeated - explicit}"
+    assert len(repeated) < len(overrides[KEY_APPS]), "gatekeeper image repeated on every application"
+    # Images the generated resources themselves run
+    assert overrides["backup"]["image"] == "prodrigestivill/postgres-backup-local"
+    assert overrides["volumeMigration"]["image"].startswith("alpine/k8s")
+    assert overrides["volumeMigration"]["wait"]["image"].startswith("busybox")
+
+    # The images CloudHarness builds are not image sources and must not be listed
+    for app_name, app in overrides[KEY_APPS].items():
+        if values[KEY_APPS].get(app_name, {}).get('build') is False:
+            continue
+        assert "image" not in app, f"built image of {app_name} leaked into the overrides"
+        assert "image" not in app.get(KEY_HARNESS, {}).get(KEY_DEPLOYMENT, {}), app_name
+
+
+def test_gatekeeper_image_comes_from_source_images(tmp_path):
+    out_path = tmp_path / 'test_gatekeeper_source_images'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, include=['samples', 'argo'],
+                      domain="my.local", namespace='test', env='dev', local=False, tag=1, secured=True)
+    helm_path = out_path / HELM_CHART_PATH
+
+    def gatekeeper_images(*set_values):
+        found = {}
+        for manifest in render_helm_chart(helm_path, set_values=set_values):
+            name = manifest.get("metadata", {}).get("name", "")
+            if manifest.get("kind") != "Deployment" or not name.endswith("-gk"):
+                continue
+            for container in (manifest["spec"]["template"]["spec"].get("containers") or []):
+                found[name] = container.get("image")
+        return found
+
+    # A gatekeeper without an application-specific override takes the single source_images entry
+    default_image = "quay.io/gogatekeeper/gatekeeper:4.6.0"
+    baseline = gatekeeper_images()
+    assert baseline, "no gatekeeper deployment was rendered"
+    shared = {name for name, image in baseline.items() if image == default_image}
+    assert shared, f"no gatekeeper used source_images.GATEKEEPER, got {baseline}"
+
+    # Overriding that one entry moves every gatekeeper that relies on it, and only those
+    overridden = gatekeeper_images(f"source_images.GATEKEEPER=myreg.io/gk:9.9.9")
+    assert {name for name, image in overridden.items() if image == "myreg.io/gk:9.9.9"} == shared
+    assert {name: image for name, image in overridden.items() if name not in shared} == \
+           {name: image for name, image in baseline.items() if name not in shared}
+
+    # A single application can still opt out, without affecting the others
+    opted_out = next(iter(shared))
+    per_app = gatekeeper_images("source_images.GATEKEEPER=myreg.io/gk:9.9.9",
+                                f"apps.argo.harness.proxy.gatekeeper.image=argoonly/gk:1")
+    assert per_app["argo-gk"] == "argoonly/gk:1"
+    assert all(per_app[name] == "myreg.io/gk:9.9.9" for name in shared if name != "argo-gk")
+    assert opted_out
+
+
+def test_values_overrides_omits_shadowed_gatekeeper_path(tmp_path):
+    """proxy.gatekeeper.image no longer overrides anything, so it must not be advertised."""
+    solution = tmp_path / 'solution'
+    (solution / 'deployment-configuration').mkdir(parents=True)
+    (solution / 'deployment-configuration' / 'values-template.yaml').write_text(
+        'proxy:\n  gatekeeper:\n    image: "legacyroot/gk:1"\n')
+
+    out_path = tmp_path / 'out'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, str(solution)], output_path=out_path,
+                      include=['samples'], domain="my.local", namespace='test', local=False,
+                      tag=1, secured=True)
+    helm_path = out_path / HELM_CHART_PATH
+    overrides = yaml.load(open(helm_path / VALUES_OVERRIDES_PATH))
+
+    # The inert path is not reported, the one that works is
+    assert "gatekeeper" not in overrides.get("proxy", {})
+    assert overrides["source_images"]["GATEKEEPER"].startswith("quay.io/gogatekeeper")
+
+    # ...and no gatekeeper container actually uses the inert value
+    images = {manifest["metadata"]["name"]: container.get("image")
+              for manifest in render_helm_chart(helm_path)
+              if manifest.get("kind") == "Deployment" and manifest["metadata"]["name"].endswith("-gk")
+              for container in (manifest["spec"]["template"]["spec"].get("containers") or [])}
+    assert images, "no gatekeeper deployment was rendered"
+    assert "legacyroot/gk:1" not in images.values()
+
+
+def test_values_overrides_omits_database_image_shadowed_by_image_ref(tmp_path):
+    """A database built from an image_ref ignores the type's image, so it is not an override."""
+    def overrides_for(app_values, name):
+        solution = tmp_path / name
+        (solution / 'applications' / 'myapp' / 'deploy').mkdir(parents=True)
+        (solution / 'applications' / 'myapp' / 'deploy' / 'values.yaml').write_text(app_values)
+        out_path = tmp_path / f'out-{name}'
+        create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, str(solution)], output_path=out_path,
+                          include=['myapp'], exclude=['events'], domain="my.local",
+                          namespace='test', local=False, tag=1)
+        loaded = yaml.load(open(out_path / HELM_CHART_PATH / VALUES_OVERRIDES_PATH))
+        return (loaded.get(KEY_APPS, {}).get('myapp', {}).get(KEY_HARNESS) or {})
+
+    database = 'harness:\n  database:\n    auto: true\n    type: postgres\n    postgres:\n      image: "postgres:17"\n'
+
+    # Without image_ref the database image is the effective one, so it is reported
+    assert overrides_for(database, 'plain')['database']['postgres']['image'] == 'postgres:17'
+
+    # With image_ref the built task image wins, so the shadowed value is not reported
+    with_ref = database.replace('    type: postgres\n', '    type: postgres\n    image_ref: myapp-mytask\n')
+    assert 'database' not in overrides_for(with_ref, 'withref')
+
+
+def test_values_overrides_includes_prebuilt_deployment_image(tmp_path):
+    out_path = tmp_path / 'test_values_overrides_prebuilt'
+    values = create_helm_chart([RESOURCES], output_path=out_path, include=['myapp'], exclude=['events'],
+                               domain="my.local", namespace='test', env='nobuild', local=False, tag=1)
+
+    # An application declaring a prebuilt image is not built, so that image IS an overridable
+    # source, unlike the image CloudHarness would have built for it
+    assert values[KEY_APPS]['myapp']['build'] is False
+    with open(out_path / HELM_CHART_PATH / VALUES_OVERRIDES_PATH) as f:
+        overrides = yaml.load(f)
+    assert overrides[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DEPLOYMENT]['image'] == 'custom-image'
+
+
+def test_find_chart_images_shapes():
+    refs = {ref.path: ref.value for ref in find_chart_images({
+        'flat': {'image': 'docker.io/x/y:1'},
+        'flat_with_tag': {'image': 'docker.elastic.co/es/es', 'imageTag': '8.17.0', 'imagePullPolicy': 'IfNotPresent'},
+        'registry_shape': {'image': {'registry': 'quay.io', 'repository': 'a/b', 'tag': '2', 'pullPolicy': 'Always'}},
+        'name_shape': {'image': {'name': 'quay.io/a/b', 'tag': '3', 'pullPolicy': 'Always'}},
+    })}
+    assert refs == {
+        ('flat', 'image'): 'docker.io/x/y:1',
+        ('flat_with_tag', 'image'): 'docker.elastic.co/es/es',
+        ('flat_with_tag', 'imageTag'): '8.17.0',
+        ('registry_shape', 'image'): {'registry': 'quay.io', 'repository': 'a/b', 'tag': '2'},
+        ('name_shape', 'image'): {'name': 'quay.io/a/b', 'tag': '3'},
+    }
+
+
+def test_find_chart_images_excludes_pull_policy_traps():
+    # Plural "images" key (argo's shape) must never match
+    assert find_chart_images({'images': {'pullPolicy': 'Always', 'pullSecrets': []}}) == []
+    # Singular "image" with neither "repository" nor "name" must never match
+    assert find_chart_images({'component': {'image': {'pullPolicy': 'Always', 'pullSecrets': []}}}) == []
+    assert find_chart_images({'imagePullSecrets': [{'name': 'x'}], 'imagePullSecret': {'registry': 'r'}}) == []
+
+
+def test_find_chart_images_prunes_skip_paths():
+    node = {
+        'harness': {
+            'deployment': {'image': 'the-built-image:1'},
+            'database': {'postgres': {'image': 'postgres:17'}},
+            'proxy': {'gatekeeper': {'image': 'quay.io/gogatekeeper/gatekeeper:4.6.0'}},
+        },
+        'image': 'the-built-image:1',
+        'worker': {'image': 'a-real-runtime-image:1'},
+    }
+    # A built application: only its own image is not an overridable source, while the images it
+    # merely pulls under harness (database, gatekeeper) are
+    skip = frozenset({('image',), ('harness', 'deployment', 'image')})
+    assert sorted(find_chart_images(node, skip_paths=skip), key=lambda r: r.path) == [
+        ChartImageRef(path=('harness', 'database', 'postgres', 'image'), value='postgres:17'),
+        ChartImageRef(path=('harness', 'proxy', 'gatekeeper', 'image'), value='quay.io/gogatekeeper/gatekeeper:4.6.0'),
+        ChartImageRef(path=('worker', 'image'), value='a-real-runtime-image:1'),
+    ]
+    # Pruning nothing: a prebuilt application (build: false), or a sub-chart's own values.yaml
+    assert ChartImageRef(path=('image',), value='the-built-image:1') in find_chart_images(node)
+
+
+def test_find_chart_images_resolves_empty_tag_from_app_version():
+    assert find_chart_images({'image': {'repository': 'a/b', 'tag': ''}}, app_version='9.9.9') == [
+        ChartImageRef(path=('image',), value={'repository': 'a/b', 'tag': '9.9.9'}),
+    ]
+    # Without an appVersion the tag is simply left out rather than emitted empty
+    assert find_chart_images({'image': {'repository': 'a/b', 'tag': ''}}) == [
+        ChartImageRef(path=('image',), value={'repository': 'a/b'}),
+    ]
+def test_instances_expand_into_applications(tmp_path):
+    """An instance is deployed as an application of its own, inheriting the parent's configuration."""
+    out_folder = tmp_path / 'test_instances_expand_into_applications'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples'],
+                               domain="my.local", namespace='test', env='test', local=False, tag=1, registry='reg')
+
+    apps = values[KEY_APPS]
+    assert 'samples-instance1' in apps, 'including an application includes its instances'
+    instance = apps['samples-instance1']
+    parent = apps['samples']
+
+    # Its own host: the parent's subdomain and aliases are never inherited
+    assert instance[KEY_HARNESS]['subdomain'] == 'samples1'
+    assert not instance[KEY_HARNESS]['aliases']
+    assert parent[KEY_HARNESS]['subdomain'] == 'www'
+    assert parent[KEY_HARNESS]['aliases'] == ['samples']
+
+    # Its own resources
+    assert instance[KEY_HARNESS]['name'] == 'samples-instance1'
+    assert instance[KEY_HARNESS]['service']['name'] == 'samples-instance1'
+    assert instance[KEY_HARNESS][KEY_DEPLOYMENT]['name'] == 'samples-instance1'
+    assert instance[KEY_HARNESS][KEY_DATABASE]['name'] == 'samples-instance1-db'
+    assert instance[KEY_HARNESS][KEY_DEPLOYMENT]['volume']['name'] == \
+        'instance1-my-shared-volume', 'an instance must not mount the parent claim'
+    assert parent[KEY_HARNESS][KEY_DEPLOYMENT]['volume']['name'] == 'my-shared-volume'
+
+    # The parent's image, built once
+    assert instance['build'] is False
+    assert instance['image'] == parent['image']
+    assert instance[KEY_HARNESS][KEY_DEPLOYMENT]['image'] == parent[KEY_HARNESS][KEY_DEPLOYMENT]['image']
+    assert not instance[KEY_TASK_IMAGES]
+
+    # Inherited configuration, with the instance's own values merged over it
+    assert instance[KEY_HARNESS]['secured'] == parent[KEY_HARNESS]['secured']
+    assert instance[KEY_HARNESS][KEY_DEPLOYMENT]['replicas'] == 1
+    assert parent[KEY_HARNESS][KEY_DEPLOYMENT]['replicas'] == 2
+    assert instance[KEY_HARNESS]['envmap']['ENVIRONMENT_TEST_B'] == 123
+
+
+def test_instances_expand_without_include(tmp_path):
+    out_folder = tmp_path / 'test_instances_expand_without_include'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
+                               namespace='test', env='test', local=False, tag=1, registry='reg')
+
+    instance = values[KEY_APPS]['samples-instance1']
+    assert instance[KEY_HARNESS]['subdomain'] == 'samples1'
+    assert instance['build'] is False
+    assert instance['image'] == values[KEY_APPS]['samples']['image']
+
+
+def test_instance_excluded_individually(tmp_path):
+    """A single instance is left out with --exclude, without affecting its parent."""
+    out_folder = tmp_path / 'test_instance_excluded_individually'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples'],
+                               exclude=['samples-instance1'], domain="my.local", namespace='test', env='test',
+                               local=False, tag=1, registry='reg')
+
+    assert 'samples-instance1' not in values[KEY_APPS]
+    assert 'samples' in values[KEY_APPS]
+    # an excluded instance leaves no collected files behind either
+    assert not (out_folder / HELM_CHART_PATH / 'resources' / 'samples-instance1').exists()
+
+
+def test_instance_include_pulls_in_its_parent(tmp_path):
+    """Including an instance alone deploys the application it inherits its image from too."""
+    out_folder = tmp_path / 'test_instance_include_pulls_in_its_parent'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder,
+                               include=['samples-instance1'], domain="my.local", namespace='test', env='test',
+                               local=False, tag=1, registry='reg')
+
+    assert 'samples-instance1' in values[KEY_APPS]
+    assert 'samples' in values[KEY_APPS]
+    assert values[KEY_APPS]['samples-instance1']['image'] == values[KEY_APPS]['samples']['image']
+
+
+def test_instance_resources_are_overlaid_on_the_application(tmp_path):
+    """An instance's resources override the application's file by file, and it inherits the rest."""
+    out_folder = tmp_path / 'test_instance_resources'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples'],
+                      domain="my.local", namespace='test', env='test', local=False, tag=1, registry='reg')
+
+    helm_path = out_folder / HELM_CHART_PATH
+    instance_resources = helm_path / 'resources' / 'samples-instance1'
+    assert (instance_resources / 'example.yaml').exists()
+    assert (instance_resources / 'myConfig.json').exists(), \
+        'a resource the instance does not override is inherited'
+
+    shutil.rmtree(helm_path / 'charts', ignore_errors=True)
+    manifests = render_helm_chart(helm_path)
+
+    # the overridden resource carries the instance's content...
+    overridden = find_manifest(manifests, 'ConfigMap', 'samples-instance1-example')
+    assert 'an instance overridden' in overridden['data']['important_config.yaml']
+    # ...the inherited one the application's, and it is not empty (the configmap is looked up
+    # by deployment name, so a missing instance directory renders an empty value)
+    inherited = find_manifest(manifests, 'ConfigMap', 'samples-instance1-my-config')
+    parent_config = find_manifest(manifests, 'ConfigMap', 'samples-my-config')
+    assert inherited['data']['myConfig.json'].strip()
+    assert inherited['data'] == parent_config['data']
+    # the application keeps its own
+    parent = find_manifest(manifests, 'ConfigMap', 'samples-example')
+    assert 'an instance overridden' not in parent['data']['important_config.yaml']
+
+
+def test_instance_templates_are_overlaid_on_the_application(tmp_path):
+    """An instance's helm templates are collected over the application's."""
+    out_folder = tmp_path / 'test_instance_templates'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
+                      domain="my.local", namespace='test', env='dev', local=False, tag=1, registry='reg')
+
+    helm_path = out_folder / HELM_CHART_PATH
+    assert (helm_path / 'templates' / 'myapp-inst1' / 'mytemplate.yaml').exists()
+    assert (helm_path / 'resources' / 'myapp-inst1' / 'instanceonly.txt').exists()
+    assert (helm_path / 'resources' / 'myapp-inst1' / 'aresource.txt').exists()
+
+    shutil.rmtree(helm_path / 'charts', ignore_errors=True)
+    manifests = render_helm_chart(helm_path)
+    rendered = find_manifest(manifests, 'ConfigMap', 'myapp-inst1-instance-template')
+    assert rendered['data']['subdomain'] == 'myinstance'
+
+
+def test_instance_gets_its_own_automatic_volume():
+    """An automatic volume is a claim created for the application: the instance gets one of its
+    own, named after the instance. A non-automatic volume is a pre-existing claim, left shared."""
+    def volume_of(parent_volume, instance_values={}):
+        parent = {KEY_HARNESS: {KEY_DEPLOYMENT: {'volume': parent_volume}}}
+        return build_instance_values(parent, 'samples', 'instance1', instance_values)[KEY_HARNESS][KEY_DEPLOYMENT]['volume']
+
+    assert volume_of({'name': 'shared', 'auto': True})['name'] == 'instance1-shared'
+    assert volume_of({'name': 'shared'})['name'] == 'instance1-shared', 'volumes are automatic by default'
+    assert volume_of({'name': 'existing-claim', 'auto': False})['name'] == 'existing-claim'
+    assert volume_of({'name': 'shared', 'auto': True},
+                     {KEY_HARNESS: {KEY_DEPLOYMENT: {'volume': {'name': 'mine'}}}})['name'] == 'mine'
+
+
+def test_instance_sharing_the_parent_database_server_gets_its_own_database():
+    """By default an instance gets a database server of its own. Declaring the parent's database
+    name shares the server, and the initial database is then named after the instance application
+    so the data is not shared. Underscores, as hyphens need quoting in SQL identifiers."""
+    parent = {KEY_HARNESS: {KEY_DATABASE: {
+        'type': 'postgres', 'auto': True, 'postgres': {'initialdb': 'cloudharness'}, 'mongo': {'image': 'mongo:5'}}}}
+
+    def database_of(instance_database):
+        return build_instance_values(parent, 'samples', 'instance1',
+                                     {KEY_HARNESS: {KEY_DATABASE: instance_database}})[KEY_HARNESS][KEY_DATABASE]
+
+    own_server = database_of({})
+    assert 'name' not in own_server, 'named after the instance when the deployment is finalized'
+    assert own_server['postgres']['initialdb'] == 'cloudharness'
+
+    shared_server = database_of({'name': 'samples-db'})
+    assert shared_server['postgres']['initialdb'] == 'samples_instance1'
+    assert shared_server['mongo'] == {'image': 'mongo:5'}
+    assert parent[KEY_HARNESS][KEY_DATABASE]['postgres']['initialdb'] == 'cloudharness'
+
+    assert database_of({'name': 'samples-db', 'postgres': {'initialdb': 'mine'}})['postgres']['initialdb'] == 'mine'
+    assert database_of({'name': 'other-db'})['postgres']['initialdb'] == 'cloudharness'
+
+    # a parent naming its database explicitly is matched on that name
+    parent[KEY_HARNESS][KEY_DATABASE]['name'] = 'central-db'
+    assert database_of({'name': 'central-db'})['postgres']['initialdb'] == 'samples_instance1'
+    assert database_of({'name': 'samples-db'})['postgres']['initialdb'] == 'cloudharness'
+
+
+def test_instance_does_not_inherit_the_parent_connect_string(tmp_path):
+    """A connection string points at one database: an instance never inherits the parent's."""
+    out_folder = tmp_path / 'test_instance_connect_string'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples'],
+                               domain="my.local", namespace='test', env='test', local=False, tag=1, registry='reg')
+
+    instance_db = values[KEY_APPS]['samples-instance1'][KEY_HARNESS][KEY_DATABASE]
+    parent_db = values[KEY_APPS]['samples'][KEY_HARNESS][KEY_DATABASE]
+    assert instance_db['connect_string'] != parent_db['connect_string']
+
+    # an instance that declares none is left with an empty one, to be supplied per instance at
+    # deploy time, rather than silently connecting to the parent's database
+    parent = {KEY_HARNESS: {KEY_DATABASE: {'type': 'postgres', 'connect_string': 'parent connection'}}}
+    instance = build_instance_values(parent, 'myapp', 'i1', {KEY_HARNESS: {'subdomain': 'myapp1'}})
+    assert instance[KEY_HARNESS][KEY_DATABASE]['connect_string'] == ''
+    assert parent[KEY_HARNESS][KEY_DATABASE]['connect_string'] == 'parent connection'
+
+
+def test_instance_renders_its_own_manifests(tmp_path):
+    """The instance gets the full set of manifests on its own subdomain, backed by its own workload."""
+    out_folder = tmp_path / 'test_instance_renders_its_own_manifests'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples'],
+                      domain="my.local", namespace='test', env='test', local=False, tag=1, registry='reg')
+
+    helm_path = out_folder / HELM_CHART_PATH
+    shutil.rmtree(helm_path / 'charts', ignore_errors=True)
+    manifests = render_helm_chart(helm_path)
+
+    # the fixture instance opts out of the parent's statefulset, so it is a plain Deployment
+    workload = find_manifest(manifests, 'Deployment', 'samples-instance1')
+    find_manifest(manifests, 'Service', 'samples-instance1')
+
+    containers = workload['spec']['template']['spec']['containers']
+    app_container = next(c for c in containers if c['name'] == 'samples-instance1')
+    env = {e['name']: e.get('value') for e in app_container['env']}
+    assert env['CH_CURRENT_APP_NAME'] == 'samples-instance1', \
+        'the instance must read its own configuration, not the parent one'
+
+    # Its own claim, named after the instance: sharing the parent's would give it the parent's data
+    find_manifest(manifests, 'PersistentVolumeClaim', 'instance1-my-shared-volume')
+    claims = {v['persistentVolumeClaim']['claimName']
+              for v in workload['spec']['template']['spec'].get('volumes', []) if 'persistentVolumeClaim' in v}
+    parent_claims = {c['metadata']['name']
+                     for c in find_manifest(manifests, 'StatefulSet', 'samples')['spec'].get('volumeClaimTemplates', [])}
+    assert claims == {'instance1-my-shared-volume'} and not claims & parent_claims
+
+    # Its own database secret
+    instance_secret = find_manifest(manifests, 'Secret', 'samples-instance1-db')
+    parent_secret = find_manifest(manifests, 'Secret', 'samples-db')
+    assert instance_secret['stringData']['connect_string'] != parent_secret['stringData']['connect_string']
+
+    # Its own host, served by its own gatekeeper
+    hosts = {}
+    for manifest in manifests:
+        if manifest.get('kind') != 'Ingress':
+            continue
+        for rule in manifest['spec']['rules']:
+            for path in rule['http']['paths']:
+                hosts.setdefault(rule['host'], set()).add(path['backend']['service']['name'])
+
+    assert 'samples1.my.local' in hosts
+    assert 'samples-instance1' in hosts['samples1.my.local']
+    assert 'samples1-gk' in hosts['samples1.my.local']
+    # the parent keeps its own hosts, and the instance never serves them
+    assert 'samples-instance1' not in hosts['samples.my.local']
+    assert 'samples-instance1' not in hosts['www.my.local']
+
+    gatekeeper = find_manifest(manifests, 'ConfigMap', 'samples1-gk')
+    proxy_config = yaml.load(gatekeeper['data']['proxy.yml'])
+    assert proxy_config['redirection-url'] == 'https://samples1.my.local'
+    assert proxy_config['upstream-url'].startswith('http://samples-instance1.')
+
+
+def test_instance_colliding_with_an_application_is_rejected(tmp_path):
+    """An instance and an application under the same key would be merged into one, whichever
+    root path declares each of them."""
+    first, second = tmp_path / 'first', tmp_path / 'second'
+    instance_path = first / APPS_PATH / 'myapp' / 'deploy' / INSTANCES_PATH / 'other'
+    instance_path.mkdir(parents=True)
+    (instance_path / 'values.yaml').write_text('')
+    (second / APPS_PATH / 'myapp-other' / 'deploy').mkdir(parents=True)
+
+    check_instance_collisions([first])
+    check_instance_collisions([second])
+    with pytest.raises(ValuesValidationException, match='myapp-other'):
+        check_instance_collisions([first, second])
+    with pytest.raises(ValuesValidationException, match='myapp-other'):
+        check_instance_collisions([second, first])
+    check_instance_collisions([first, second], exclude=['myapp-other'])
+
+    # the check is made by the generator before anything is read
+    with pytest.raises(ValuesValidationException, match='myapp-other'):
+        create_helm_chart([CLOUDHARNESS_ROOT, first, second], output_path=tmp_path / 'out', include=['myapp'],
+                          domain="my.local", namespace='test', local=False, tag=1, registry='reg')
+
+
+def test_collect_instances_skips_hidden_directories(tmp_path):
+    instances_dir = tmp_path / APPS_PATH / 'myapp' / 'deploy' / INSTANCES_PATH
+    (instances_dir / '.hidden').mkdir(parents=True)
+    (instances_dir / 'real').mkdir(parents=True)
+    (instances_dir / 'real' / 'values.yaml').write_text('harness:\n  subdomain: real\n')
+
+    assert set(collect_instances('myapp', [tmp_path])) == {'real'}
+
+
+def test_instance_declared_for_an_environment_only(tmp_path):
+    """An instance with a `values-[env].yaml` alone is deployed in that environment only; the
+    `samples` fixture declares `instance1` for `test`."""
+    instances_dir = Path(CLOUDHARNESS_ROOT) / APPS_PATH / 'samples' / 'deploy' / INSTANCES_PATH / 'instance1'
+    assert (instances_dir / 'values-test.yaml').exists() and not (instances_dir / 'values.yaml').exists()
+
+    assert instance_names('samples', [CLOUDHARNESS_ROOT]) == set()
+    assert instance_names('samples', [CLOUDHARNESS_ROOT], envs=['test']) == {'instance1'}
+    assert collect_instances('samples', [CLOUDHARNESS_ROOT]) == {}
+    assert collect_instances('samples', [CLOUDHARNESS_ROOT], envs=['test'])['instance1'][KEY_HARNESS]['subdomain'] == 'samples1'
+
+    out_folder = tmp_path / 'test_instance_env_only'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples'],
+                               domain="my.local", namespace='test', local=False, tag=1, registry='reg')
+    assert 'samples-instance1' not in values[KEY_APPS]
+    assert not (out_folder / HELM_CHART_PATH / 'resources' / 'samples-instance1').exists(), \
+        'an instance not deployed leaves no collected files behind'
+
+
+def test_instance_directory_without_values_is_ignored(tmp_path):
+    instance_path = tmp_path / APPS_PATH / 'myapp' / 'deploy' / INSTANCES_PATH / 'inst'
+    (instance_path / 'resources').mkdir(parents=True)
+    assert collect_instances('myapp', [tmp_path], envs=['dev']) == {}
+
+    (instance_path / 'values.yaml').write_text('')
+    assert collect_instances('myapp', [tmp_path]) == {'inst': {}}, 'an empty values file declares it'
+
+
+def test_collect_instances_of_an_application_without_any(tmp_path):
+    (tmp_path / APPS_PATH / 'myapp' / 'deploy').mkdir(parents=True)
+    assert collect_instances('myapp', [tmp_path]) == {}
+    assert collect_instances('missing', [tmp_path]) == {}, 'an application absent from a root declares nothing there'
+
+
+def test_collect_instances_merges_the_roots_declaring_the_same_instance(tmp_path):
+    for root, replicas in (('first', 1), ('second', 2)):
+        instance_path = tmp_path / root / APPS_PATH / 'myapp' / 'deploy' / INSTANCES_PATH / 'inst'
+        instance_path.mkdir(parents=True)
+        (instance_path / 'values.yaml').write_text(f'harness:\n  deployment:\n    replicas: {replicas}\n{root}: true\n')
+
+    instances = collect_instances('myapp', [tmp_path / 'first', tmp_path / 'second'])
+    assert instances['inst'][KEY_HARNESS][KEY_DEPLOYMENT]['replicas'] == 2, 'a later root wins'
+    assert instances['inst']['first'] and instances['inst']['second'], 'what a root does not override is kept'
+
+
+def test_instance_values_replace_parent_lists():
+    """An instance's lists replace the parent's rather than adding to them.
+
+    `uri_role_mapping` is what the gatekeeper whitelists, so the two semantics differ in
+    what an instance leaves open: pinned here because the merge rule is documented.
+    """
+    parent_mapping = [
+        {'uri': '/', 'white-listed': True},
+        {'uri': '/api/ping', 'white-listed': True},
+    ]
+    parent_app = {
+        KEY_HARNESS: {
+            'uri_role_mapping': parent_mapping,
+            'env': [{'name': 'WORKERS', 'value': '3'}],
+            'envmap': {'A': 'parent', 'B': 'kept'},
+        }
+    }
+    instance = build_instance_values(parent_app, 'myapp', 'i1', {
+        KEY_HARNESS: {
+            'subdomain': 'myapp1',
+            'uri_role_mapping': [{'uri': '/*', 'roles': ['administrator']}],
+            'envmap': {'A': 'instance'},
+        }
+    })[KEY_HARNESS]
+    parent = parent_app[KEY_HARNESS]
+
+    # lists are replaced as a whole
+    assert instance['uri_role_mapping'] == [{'uri': '/*', 'roles': ['administrator']}]
+    assert parent['uri_role_mapping'] == parent_mapping
+    # a list the instance does not override is inherited
+    assert instance['env'] == [{'name': 'WORKERS', 'value': '3'}]
+    # mappings are merged key by key
+    assert instance['envmap'] == {'A': 'instance', 'B': 'kept'}
+    assert parent['envmap'] == {'A': 'parent', 'B': 'kept'}
+
+
+def test_instances_are_collected_with_the_application_they_belong_to(tmp_path):
+    """An instance is added to the deployment as soon as its application is read: the values
+    collected from a root path hold the instances next to the applications, derived from the
+    application's values as merged so far."""
+    generator = CloudHarnessHelm([CLOUDHARNESS_ROOT, RESOURCES],
+                                 output_path=tmp_path / 'test_instances_collected',
+                                 domain="my.local", namespace='test', env=['dev'],
+                                 local=False, tag=1, registry='reg')
+    merged_so_far = {KEY_APPS: {'myapp': {KEY_HARNESS: {'secured': True, 'subdomain': 'earlier'}}}}
+
+    values = generator.collect_app_values(Path(RESOURCES) / APPS_PATH, helm_values=merged_so_far)
+
+    instance = values['myapp-inst1']
+    assert instance[KEY_HARNESS]['subdomain'] == 'myinstance'
+    assert instance[KEY_HARNESS]['secured'] is True, 'derived from the application merged so far'
+    assert instance['a'] == 'instance-dev-b', 'with the instance values on top'
+    assert instance['build'] is False
+    assert 'accounts-inst1' not in values, 'applications declaring no instance get none'
+    # nothing in the values tells the instance apart: the directories are the only record
+    assert instance_names('myapp', [RESOURCES]) == {'inst1'}
+    assert instance_names('accounts', [RESOURCES]) == set()
+
+
+def test_values_vocabulary_is_re_exported():
+    """The values keys live in `constants` and the validation exception lives in `common_types`,
+    and both are read from `configurationgenerator` by the other cli tools and by these tests:
+    dropping the re-export breaks them with an ImportError far from where it was caused."""
+    from ch_cli_tools import common_types, constants
+
+    for name in ('KEY_HARNESS', 'KEY_SERVICE', 'KEY_DATABASE', 'KEY_DEPLOYMENT', 'KEY_APPS',
+                 'KEY_TASK_IMAGES', 'KEY_TEST_IMAGES'):
+        assert getattr(configurationgenerator, name) is getattr(constants, name), \
+            f"{name} must stay importable from configurationgenerator"
+
+    assert configurationgenerator.ValuesValidationException is common_types.ValuesValidationException, \
+        "ValuesValidationException must stay importable from configurationgenerator"
+
+
+def test_instance_subdomain_defaults_to_its_directory_name():
+    """Creating the directory is enough to reach an instance: without a subdomain of its own it
+    answers on its name. An explicit null opts out of the ingress."""
+    def subdomain_of(instance_values):
+        parent = {KEY_HARNESS: {'subdomain': 'www', 'aliases': ['samples']}}
+        return build_instance_values(parent, 'samples', 'instance1', instance_values)[KEY_HARNESS].get('subdomain', '<absent>')
+
+    assert subdomain_of({}) == 'instance1'
+    assert subdomain_of({KEY_HARNESS: {'replicas': 2}}) == 'instance1'
+    assert subdomain_of({KEY_HARNESS: {'subdomain': 'samples1'}}) == 'samples1'
+    assert subdomain_of({KEY_HARNESS: {'subdomain': None}}) is None
+
+
+def test_instance_values_precedence(tmp_path):
+    """Values are layered instance env > instance > application env > application.
+
+    The `myapp` fixture sets `a` in all four files and `dev` only in the application's
+    environment values, so the winner and the inheritance are both visible.
+    """
+    out_folder = tmp_path / 'test_instance_values_precedence'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
+                               domain="my.local", namespace='test', env='dev', local=False, tag=1, registry='reg')
+
+    instance = values[KEY_APPS]['myapp-inst1']
+    parent = values[KEY_APPS]['myapp']
+
+    # the instance's environment values win over everything
+    assert instance['a'] == 'instance-dev-b'
+    assert instance[KEY_HARNESS][KEY_DEPLOYMENT]['replicas'] == 4, \
+        'the instance values-dev.yaml overrides its values.yaml'
+    # what no instance file sets is inherited, environment values included
+    assert instance['dev'] is True
+    # the application keeps its own
+    assert parent['a'] == 'b'
+    assert parent[KEY_HARNESS]['subdomain'] == 'mysubdomain'
+
+
+def test_instance_without_env_values_still_layers_over_the_application(tmp_path):
+    """Without the environment, the instance's values.yaml is the top of the chain."""
+    out_folder = tmp_path / 'test_instance_values_precedence_noenv'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['myapp'],
+                               domain="my.local", namespace='test', local=False, tag=1, registry='reg')
+
+    instance = values[KEY_APPS]['myapp-inst1']
+    assert instance['a'] == 'instance-b'
+    assert instance[KEY_HARNESS][KEY_DEPLOYMENT]['replicas'] == 3
+    assert 'dev' not in instance
+
+
+def test_instance_inherits_the_application_merged_across_roots(tmp_path):
+    """An instance inherits the application's final configuration, not the one of the root its
+    directory happens to live in.
+
+    An instance is derived again in every root path that reads its application, from the
+    application as merged up to that root and the instance's values from every root: a
+    scaffolding overriding an application reaches its instances, and the instance's own values
+    still win over it.
+    """
+    overriding_root = tmp_path / 'overriding_root'
+    app_deploy = overriding_root / APPS_PATH / 'myapp' / 'deploy'
+    app_deploy.mkdir(parents=True)
+    (app_deploy / 'values.yaml').write_text(
+        'harness:\n  secured: true\n  deployment:\n    port: 9999\n    replicas: 1\n')
+
+    out_folder = tmp_path / 'test_instance_inherits_merged'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, overriding_root], output_path=out_folder,
+                               include=['myapp'], domain="my.local", namespace='test', env='dev',
+                               local=False, tag=1, registry='reg')
+
+    # the instance is declared in RESOURCES, the override comes from a later root
+    instance = values[KEY_APPS]['myapp-inst1'][KEY_HARNESS]
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DEPLOYMENT]['port'] == 9999
+    assert instance[KEY_DEPLOYMENT]['port'] == 9999
+    assert instance['secured'] is True
+    # and what the instance sets for itself still wins over the later root's application values
+    assert instance['subdomain'] == 'myinstance'
+    assert instance[KEY_DEPLOYMENT]['replicas'] == 4
+    assert values[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DEPLOYMENT]['replicas'] == 1
+
+
+def test_auto_tag_reaches_instance_images(tmp_path):
+    """An instance runs the image built for its application, so it carries that image's tag.
+
+    Instances declare no build, so no hash tag is computed for them: without carrying the
+    application's over they would be deployed with a bare, untagged image name.
+    """
+    out_folder = str(tmp_path / 'test_auto_tag_reaches_instance_images')
+    merge_build_path = str(tmp_path / '.overrides')
+
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder,
+                               include=['samples', 'myapp'], exclude=['events'], domain="my.local",
+                               namespace='test', env='test', local=False, tag=None, registry='reg')
+    # tag omitted: the chart is generated with bare image names, tags come from the content hash
+    assert values[KEY_APPS]['samples-instance1'][KEY_HARNESS][KEY_DEPLOYMENT]['image'] == \
+        values[KEY_APPS]['samples'][KEY_HARNESS][KEY_DEPLOYMENT]['image']
+
+    preprocess_build_overrides([CLOUDHARNESS_ROOT, RESOURCES], values, merge_build_path=merge_build_path)
+    generate_hash_based_image_tags([CLOUDHARNESS_ROOT, RESOURCES], values, merge_build_path=merge_build_path)
+
+    for app_name, instance_key in (('samples', 'samples-instance1'), ('myapp', 'myapp-inst1')):
+        parent_image = values[KEY_APPS][app_name][KEY_HARNESS][KEY_DEPLOYMENT]['image']
+        instance = values[KEY_APPS][instance_key]
+        assert ':' in parent_image, f'{app_name} should be tagged with its content hash'
+        assert instance['image'] == parent_image
+        assert instance[KEY_HARNESS][KEY_DEPLOYMENT]['image'] == parent_image
+
+
+def test_auto_tag_leaves_a_pinned_image_alone(tmp_path):
+    """An application running a prebuilt image keeps it: only bare names of images that were
+    just tagged are carried over."""
+    values = {
+        KEY_APPS: {
+            'builder': {'image': 'reg/app:abc123',
+                        KEY_HARNESS: {KEY_DEPLOYMENT: {'image': 'reg/app:abc123'}}},
+            'inherits': {'image': 'reg/app',
+                         KEY_HARNESS: {KEY_DEPLOYMENT: {'image': 'reg/app'}}},
+            'pinned': {'image': 'reg/app:v1.0',
+                       KEY_HARNESS: {KEY_DEPLOYMENT: {'image': 'reg/app:v1.0'}}},
+            'unrelated': {'image': 'nginx:1.0',
+                          KEY_HARNESS: {KEY_DEPLOYMENT: {'image': 'nginx:1.0'}}},
+        }
+    }
+    apply_retagged_images(values, {'reg/app': 'reg/app:abc123'})
+
+    assert values[KEY_APPS]['inherits']['image'] == 'reg/app:abc123'
+    assert values[KEY_APPS]['inherits'][KEY_HARNESS][KEY_DEPLOYMENT]['image'] == 'reg/app:abc123'
+    assert values[KEY_APPS]['pinned']['image'] == 'reg/app:v1.0'
+    assert values[KEY_APPS]['unrelated']['image'] == 'nginx:1.0'
+    assert values[KEY_APPS]['builder']['image'] == 'reg/app:abc123'
+
+
+def image_ref_solution(tmp_path, image_ref='cloudharness-base', dockerfile=False, instance=False):
+    """A solution with one application, refapp, running an image of the build through image_ref."""
+    solution = tmp_path / 'image_ref_solution'
+    app_path = solution / APPS_PATH / 'refapp'
+    (app_path / 'deploy').mkdir(parents=True)
+    (app_path / 'deploy' / 'values.yaml').write_text(
+        'harness:\n'
+        '  subdomain: refapp\n'
+        '  deployment:\n'
+        '    auto: true\n'
+        f'    image_ref: {image_ref}\n'
+        '  dependencies:\n'
+        '    build:\n'
+        '      - cloudharness-base\n')
+    if dockerfile:
+        (app_path / 'Dockerfile').write_text('FROM scratch\n')
+    if instance:
+        (app_path / 'deploy' / 'instances' / 'one').mkdir(parents=True)
+        (app_path / 'deploy' / 'instances' / 'one' / 'values.yaml').write_text('harness:\n  subdomain: one\n')
+    return str(solution)
+
+
+def test_deployment_image_ref_runs_an_image_of_the_build(tmp_path):
+    """An application referencing a build image deploys that image and builds nothing itself."""
+    solution = image_ref_solution(tmp_path)
+    out_path = tmp_path / 'out'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, solution], output_path=out_path, include=['refapp'],
+                               domain="my.local", namespace='test', local=False, tag=1, registry='reg')
+
+    base_image = values[KEY_TASK_IMAGES]['cloudharness-base']
+    app = values[KEY_APPS]['refapp']
+    assert app['build'] is False
+    assert app['image'] == base_image
+    assert app[KEY_HARNESS][KEY_DEPLOYMENT]['image'] == base_image
+
+    containers = [container
+                  for manifest in render_helm_chart(out_path / HELM_CHART_PATH)
+                  if manifest.get('kind') == 'Deployment' and manifest['metadata']['name'] == 'refapp'
+                  for container in manifest['spec']['template']['spec']['containers']]
+    assert [c['image'] for c in containers] == [base_image]
+
+
+def test_deployment_image_ref_without_include(tmp_path):
+    """Without --include every application goes through the single pass, not the finalization."""
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, image_ref_solution(tmp_path)],
+                               output_path=tmp_path / 'out', domain="my.local", namespace='test', local=False,
+                               tag=1, registry='reg')
+
+    app = values[KEY_APPS]['refapp']
+    assert app['build'] is False
+    assert app[KEY_HARNESS][KEY_DEPLOYMENT]['image'] == values[KEY_TASK_IMAGES]['cloudharness-base']
+
+
+def test_deployment_image_ref_wins_over_a_dockerfile(tmp_path):
+    solution = image_ref_solution(tmp_path, dockerfile=True)
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, solution], output_path=tmp_path / 'out',
+                               include=['refapp'], domain="my.local", namespace='test', local=False, tag=1,
+                               registry='reg')
+
+    app = values[KEY_APPS]['refapp']
+    assert app['build'] is False
+    assert app[KEY_HARNESS][KEY_DEPLOYMENT]['image'] == values[KEY_TASK_IMAGES]['cloudharness-base']
+
+
+def test_deployment_image_ref_takes_the_content_hash_tag(tmp_path):
+    """Without a tag, images are tagged with their content hash after the chart is generated:
+    the referenced image's tag must reach the application running it, and the application's own
+    copy of its build images, which database.image_ref is looked up in."""
+    root_paths = [CLOUDHARNESS_ROOT, RESOURCES, image_ref_solution(tmp_path, instance=True)]
+    merge_build_path = str(tmp_path / '.overrides')
+    values = create_helm_chart(root_paths, output_path=tmp_path / 'out', include=['refapp'], domain="my.local",
+                               namespace='test', env='test', local=False, tag=None, registry='reg')
+    preprocess_build_overrides(root_paths, values, merge_build_path=merge_build_path)
+    generate_hash_based_image_tags(root_paths, values, merge_build_path=merge_build_path)
+
+    base_image = values[KEY_TASK_IMAGES]['cloudharness-base']
+    assert ':' in base_image, 'cloudharness-base should be tagged with its content hash'
+    for app_key in ('refapp', 'refapp-one'):
+        app = values[KEY_APPS][app_key]
+        assert app['image'] == base_image
+        assert app[KEY_HARNESS][KEY_DEPLOYMENT]['image'] == base_image
+    assert values[KEY_APPS]['refapp'][KEY_TASK_IMAGES]['cloudharness-base'] == base_image
+
+
+def test_deployment_image_ref_to_an_image_not_built_fails(tmp_path):
+    solution = image_ref_solution(tmp_path, image_ref='not-built')
+    with pytest.raises(ValuesValidationException, match='not-built'):
+        create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, solution], output_path=tmp_path / 'out',
+                          include=['refapp'], domain="my.local", namespace='test', local=False, tag=1)
+
+
+def test_deployment_command_and_args_render_lists_and_strings(tmp_path):
+    """A list is rendered as a list, rather than as one string of its items joined by spaces; a
+    string is kept verbatim, as it always was."""
+    app_path = tmp_path / 'solution' / APPS_PATH / 'cmdapp'
+    (app_path / 'deploy').mkdir(parents=True)
+    (app_path / 'deploy' / 'values.yaml').write_text(
+        'harness:\n'
+        '  deployment:\n'
+        '    auto: true\n'
+        '    image: custom-image\n'
+        '    command: ["node", "dist/server.js"]\n'
+        '    args: \'["--port", "8080"]\'\n')
+    out_path = tmp_path / 'out'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, str(tmp_path / 'solution')], output_path=out_path,
+                      include=['cmdapp'], domain="my.local", namespace='test', local=False, tag=1)
+
+    containers = [container
+                  for manifest in render_helm_chart(out_path / HELM_CHART_PATH)
+                  if manifest.get('kind') == 'Deployment' and manifest['metadata']['name'] == 'cmdapp'
+                  for container in manifest['spec']['template']['spec']['containers']]
+    assert [(c['command'], c['args']) for c in containers] == [(['node', 'dist/server.js'], ['--port', '8080'])]
+
+
+def test_values_overrides_omits_deployment_image_ref(tmp_path):
+    """The referenced image is built by CloudHarness, so it is not an image source to redirect."""
+    out_path = tmp_path / 'out'
+    create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, image_ref_solution(tmp_path)], output_path=out_path,
+                      include=['refapp'], domain="my.local", namespace='test', local=False, tag=1)
+    with open(out_path / HELM_CHART_PATH / VALUES_OVERRIDES_PATH) as f:
+        overrides = yaml.load(f)
+    app_overrides = (overrides.get(KEY_APPS) or {}).get('refapp') or {}
+    assert 'image' not in app_overrides
+    assert 'image' not in ((app_overrides.get(KEY_HARNESS) or {}).get(KEY_DEPLOYMENT) or {})
+
+
+def test_instances_of_a_dependency_are_included(tmp_path):
+    """An application is more often pulled in as another's dependency than named on the command
+    line, and its instances are deployed with it either way.
+
+    Instances build nothing, so they are absent from the build closure the applications are
+    selected from: resolved too early, or filtered by that closure alone, they silently vanish
+    while their templates and resources are still collected into the chart.
+    """
+    dependent_root = tmp_path / 'dependent_root'
+    app_deploy = dependent_root / APPS_PATH / 'needsmyapp' / 'deploy'
+    app_deploy.mkdir(parents=True)
+    (app_deploy / 'values.yaml').write_text(
+        'harness:\n'
+        '  subdomain: needsmyapp\n'
+        '  dependencies:\n'
+        '    soft: [myapp]\n'
+        '  deployment:\n'
+        '    auto: true\n'
+        '    image: reg/needsmyapp:1\n'
+    )
+
+    out_folder = tmp_path / 'test_instances_of_a_dependency'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, dependent_root], output_path=out_folder,
+                               include=['needsmyapp'], domain="my.local", namespace='test', env='dev',
+                               local=False, tag=1, registry='reg')
+
+    apps = values[KEY_APPS]
+    assert 'myapp' in apps, 'the dependency itself is included'
+    assert 'myapp-inst1' in apps, 'and so are its instances'
+    assert apps['myapp-inst1'][KEY_HARNESS]['subdomain'] == 'myinstance'
+    assert apps['myapp-inst1']['image'] == apps['myapp']['image']
+
+
+def test_instance_of_a_dependency_can_still_be_excluded(tmp_path):
+    dependent_root = tmp_path / 'dependent_root'
+    app_deploy = dependent_root / APPS_PATH / 'needsmyapp' / 'deploy'
+    app_deploy.mkdir(parents=True)
+    (app_deploy / 'values.yaml').write_text(
+        'harness:\n'
+        '  subdomain: needsmyapp\n'
+        '  dependencies:\n'
+        '    soft: [myapp]\n'
+        '  deployment:\n'
+        '    auto: true\n'
+        '    image: reg/needsmyapp:1\n'
+    )
+
+    out_folder = tmp_path / 'test_instance_of_a_dependency_excluded'
+    values = create_helm_chart([CLOUDHARNESS_ROOT, RESOURCES, dependent_root], output_path=out_folder,
+                               include=['needsmyapp'], exclude=['myapp-inst1'], domain="my.local",
+                               namespace='test', env='dev', local=False, tag=1, registry='reg')
+
+    assert 'myapp' in values[KEY_APPS]
+    assert 'myapp-inst1' not in values[KEY_APPS]
+    assert not (out_folder / HELM_CHART_PATH / 'resources' / 'myapp-inst1').exists()

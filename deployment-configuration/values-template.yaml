@@ -1,1 +1,6 @@
 debug: false
+
+source_images:
+  # -- Gatekeeper image, pulled by the gatekeeper deployment generated for every secured
+  # application. Set here rather than per application so that it is configured in one place.
+  GATEKEEPER: quay.io/gogatekeeper/gatekeeper:4.6.0

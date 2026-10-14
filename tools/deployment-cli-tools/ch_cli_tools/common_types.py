@@ -3,6 +3,10 @@ from dataclasses import dataclass
 from typing import Union
 
 
+class ValuesValidationException(Exception):
+    """Raised when the values of a deployment do not make a valid configuration."""
+
+
 try:
     from enum import StrEnum
 except ImportError:

@@ -1,0 +1,10 @@
+harness:
+  subdomain: chartimgapp
+
+worker:
+  image: docker.io/baz/qux:9
+
+sidecar:
+  image:
+    name: quay.io/foo/bar
+    tag: "1.2.3"

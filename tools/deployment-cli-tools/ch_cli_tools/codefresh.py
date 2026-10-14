@@ -11,8 +11,8 @@ from ruamel.yaml.scalarstring import SingleQuotedScalarString
 from cloudharness_utils.testing.util import get_app_environment
 from .models import HarnessMainConfig, ApplicationTestConfig, ApplicationHarnessConfig
 from cloudharness_utils.constants import *
-from .configurationgenerator import KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES
-from .secrets import is_cloudharness_managed, is_secret_config, secret_value
+from .constants import KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES
+from .configuration.secrets import is_cloudharness_managed, is_secret_config, secret_value
 from .utils import check_image_exists_in_registry, find_dockerfiles_paths, get_app_relative_to_base_path, guess_build_dependencies_from_dockerfile, \
     get_template, dict_merge, app_name_from_path, clean_path, strip_registry_tag, get_image_source, yaml, yaml_rt
 from cloudharness_utils.testing.api import get_api_filename, get_schemathesis_command, get_urls_from_api_file
