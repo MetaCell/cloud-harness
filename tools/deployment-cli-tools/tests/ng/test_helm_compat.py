@@ -32,9 +32,15 @@ def exists(path):
     return path.exists()
 
 
-def render_helm_chart(chart_path):
+def render_helm_chart(chart_path, values_files=(), set_values=()):
     completed = subprocess.run(
-        ["helm", "template", str(chart_path)],
+        [
+            "helm",
+            "template",
+            str(chart_path),
+            *(arg for f in values_files for arg in ("-f", str(f))),
+            *(arg for v in set_values for arg in ("--set", v)),
+        ],
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -2105,6 +2111,107 @@ def test_collect_helm_values_source_images_merge(tmp_path):
     source_images = values.get("source_images")
     assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
     assert "NODE" in source_images
+
+
+def test_gatekeeper_image_comes_from_source_images(tmp_path):
+    out_path = tmp_path / "test_gatekeeper_source_images"
+    create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=out_path,
+        include=["samples", "argo"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag=1,
+        secured=True,
+    )
+    helm_path = out_path / "helm"
+
+    def gatekeeper_images(*set_values):
+        found = {}
+        for manifest in render_helm_chart(helm_path, set_values=set_values):
+            name = manifest.get("metadata", {}).get("name", "")
+            if manifest.get("kind") != "Deployment" or not name.endswith("-gk"):
+                continue
+            for container in (
+                manifest["spec"]["template"]["spec"].get("containers") or []
+            ):
+                found[name] = container.get("image")
+        return found
+
+    # A gatekeeper without an application-specific override takes the single source_images entry
+    default_image = "quay.io/gogatekeeper/gatekeeper:4.6.0"
+    baseline = gatekeeper_images()
+    assert baseline, "no gatekeeper deployment was rendered"
+    shared = {name for name, image in baseline.items() if image == default_image}
+    assert shared, f"no gatekeeper used source_images.GATEKEEPER, got {baseline}"
+
+    # Overriding that one entry moves every gatekeeper that relies on it, and only those
+    overridden = gatekeeper_images("source_images.GATEKEEPER=myreg.io/gk:9.9.9")
+    assert {
+        name for name, image in overridden.items() if image == "myreg.io/gk:9.9.9"
+    } == shared
+    assert {
+        name: image for name, image in overridden.items() if name not in shared
+    } == {name: image for name, image in baseline.items() if name not in shared}
+
+    # A single application can still opt out, without affecting the others
+    opted_out = next(iter(shared))
+    per_app = gatekeeper_images(
+        "source_images.GATEKEEPER=myreg.io/gk:9.9.9",
+        "apps.argo.harness.proxy.gatekeeper.image=argoonly/gk:1",
+    )
+    assert per_app["argo-gk"] == "argoonly/gk:1"
+    assert all(
+        per_app[name] == "myreg.io/gk:9.9.9" for name in shared if name != "argo-gk"
+    )
+    assert opted_out
+
+
+def test_deployment_command_and_args_render_lists_and_strings(tmp_path):
+    """A list is rendered as a list, rather than as one string of its items joined by
+    spaces; a string is kept verbatim, as it always was."""
+    write_tree(
+        tmp_path / "solution",
+        {
+            "applications": {
+                "cmdapp": {
+                    "deploy": {
+                        "values.yaml": (
+                            "harness:\n"
+                            "  deployment:\n"
+                            "    auto: true\n"
+                            "    image: custom-image\n"
+                            '    command: ["node", "dist/server.js"]\n'
+                            "    args: '[\"--port\", \"8080\"]'\n"
+                        )
+                    }
+                }
+            }
+        },
+    )
+    out_path = tmp_path / "out"
+    create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES, tmp_path / "solution"],
+        output_path=out_path,
+        include=["cmdapp"],
+        domain="my.local",
+        namespace="test",
+        local=False,
+        tag=1,
+    )
+
+    containers = [
+        container
+        for manifest in render_helm_chart(out_path / "helm")
+        if manifest.get("kind") == "Deployment"
+        and manifest["metadata"]["name"] == "cmdapp"
+        for container in manifest["spec"]["template"]["spec"]["containers"]
+    ]
+    assert [(c["command"], c["args"]) for c in containers] == [
+        (["node", "dist/server.js"], ["--port", "8080"])
+    ]
 
 
 def test_collect_helm_values_source_images_merge_no_include(tmp_path):

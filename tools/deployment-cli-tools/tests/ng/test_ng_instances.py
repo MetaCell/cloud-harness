@@ -6,12 +6,15 @@ instance each: samples/deploy/instances/instance1 (env=test only) and
 myapp/deploy/instances/inst1 (unconditional, this repo's own test fixture).
 """
 
+import shutil
 from types import SimpleNamespace
 
 from conftest import CLOUDHARNESS_ROOT, RESOURCES, chain
 
 from ch_cli_tools.ng.api import create_helm_chart
 from ch_cli_tools.ng.model import CHAppInstance, ValuesValidationError, instance_app_key
+from ch_cli_tools.ng.utils import get_yaml_parser
+from test_helm_compat import find_manifest, render_helm_chart
 from test_util_ng import write_tree_from_yaml
 
 
@@ -99,6 +102,85 @@ def test_instance_declared_for_an_environment_only(tmp_path):
 
     apps = _chart(tmp_path, include=["samples"], env="test")
     assert "samples-instance1" in apps
+
+
+def test_instance_renders_its_own_manifests(tmp_path):
+    """The instance gets the full set of manifests on its own subdomain, backed by its
+    own workload - a values-dict assertion can't tell real resource isolation (own PVC,
+    own DB secret, own Ingress) from a config that merely looks right."""
+    out_folder = tmp_path / "test_instance_renders_its_own_manifests"
+    create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=out_folder,
+        include=["samples"],
+        domain="my.local",
+        namespace="test",
+        env="test",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+
+    helm_path = out_folder / "helm"
+    shutil.rmtree(helm_path / "charts", ignore_errors=True)
+    manifests = render_helm_chart(helm_path)
+
+    # the fixture instance opts out of the parent's statefulset, so it is a plain Deployment
+    workload = find_manifest(manifests, "Deployment", "samples-instance1")
+    find_manifest(manifests, "Service", "samples-instance1")
+
+    containers = workload["spec"]["template"]["spec"]["containers"]
+    app_container = next(c for c in containers if c["name"] == "samples-instance1")
+    env = {e["name"]: e.get("value") for e in app_container["env"]}
+    assert env["CH_CURRENT_APP_NAME"] == "samples-instance1", (
+        "the instance must read its own configuration, not the parent one"
+    )
+
+    # Its own claim, named after the instance: sharing the parent's would give it the parent's data
+    find_manifest(manifests, "PersistentVolumeClaim", "instance1-my-shared-volume")
+    claims = {
+        v["persistentVolumeClaim"]["claimName"]
+        for v in workload["spec"]["template"]["spec"].get("volumes", [])
+        if "persistentVolumeClaim" in v
+    }
+    parent_claims = {
+        c["metadata"]["name"]
+        for c in find_manifest(manifests, "StatefulSet", "samples")["spec"].get(
+            "volumeClaimTemplates", []
+        )
+    }
+    assert claims == {"instance1-my-shared-volume"} and not claims & parent_claims
+
+    # Its own database secret
+    instance_secret = find_manifest(manifests, "Secret", "samples-instance1-db")
+    parent_secret = find_manifest(manifests, "Secret", "samples-db")
+    assert (
+        instance_secret["stringData"]["connect_string"]
+        != parent_secret["stringData"]["connect_string"]
+    )
+
+    # Its own host, served by its own gatekeeper
+    hosts = {}
+    for manifest in manifests:
+        if manifest.get("kind") != "Ingress":
+            continue
+        for rule in manifest["spec"]["rules"]:
+            for path in rule["http"]["paths"]:
+                hosts.setdefault(rule["host"], set()).add(
+                    path["backend"]["service"]["name"]
+                )
+
+    assert "samples1.my.local" in hosts
+    assert "samples-instance1" in hosts["samples1.my.local"]
+    assert "samples1-gk" in hosts["samples1.my.local"]
+    # the parent keeps its own hosts, and the instance never serves them
+    assert "samples-instance1" not in hosts["samples.my.local"]
+    assert "samples-instance1" not in hosts["www.my.local"]
+
+    gatekeeper = find_manifest(manifests, "ConfigMap", "samples1-gk")
+    proxy_config = get_yaml_parser().load(gatekeeper["data"]["proxy.yml"])
+    assert proxy_config["redirection-url"] == "https://samples1.my.local"
+    assert proxy_config["upstream-url"].startswith("http://samples-instance1.")
 
 
 def test_instance_values_precedence_env_over_plain_over_application(tmp_path):

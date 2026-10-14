@@ -7,6 +7,7 @@ only check that ng's own build_final_helm_values() output feeds it correctly.
 """
 
 from conftest import CLOUDHARNESS_ROOT, RESOURCES
+from test_helm_compat import render_helm_chart, find_manifest
 from test_util_ng import write_tree, write_tree_from_yaml
 
 from ch_cli_tools.ng.api import create_helm_chart
@@ -54,6 +55,43 @@ def test_values_overrides_helm_native_structure(tmp_path):
     # Configured once at source_images.GATEKEEPER, not repeated per application
     assert overrides["source_images"]["GATEKEEPER"].startswith("quay.io/gogatekeeper")
     assert "proxy" not in overrides["apps"]["chartimgapp"].get("harness", {})
+
+
+def test_values_overrides_edit_overrides_subchart_image(tmp_path):
+    """Editing the generated file is enough to change the deployed image: Helm applies it
+    after values.yaml - a dict-shape assertion alone can't tell a well-formed override file
+    from one that Helm would actually ignore."""
+    out_path = tmp_path / "test_values_overrides_edit"
+    create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=out_path,
+        include=["chartimgapp"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+    helm_path = out_path / "helm"
+    overrides_path = helm_path / "values-overrides.yaml"
+
+    yaml = get_yaml_parser()
+    with overrides_path.open() as f:
+        overrides = yaml.load(f)
+    overrides["vendored-thing"]["image"] = {
+        "registry": "myregistry.io",
+        "repository": "other/repo",
+        "tag": "7",
+    }
+    with overrides_path.open("w") as f:
+        yaml.dump(overrides, f)
+
+    manifests = render_helm_chart(helm_path, values_files=[overrides_path])
+    assert (
+        find_manifest(manifests, "ConfigMap", "vendored-thing-image")["data"]["image"]
+        == "myregistry.io/other/repo:7"
+    )
 
 
 def test_values_overrides_from_values_template(tmp_path):
