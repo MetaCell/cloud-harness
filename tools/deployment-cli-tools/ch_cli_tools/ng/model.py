@@ -33,23 +33,23 @@ _ENTRYPOINT_OVERRIDE_PATTERN = re.compile(
 
 
 class TaskUnknownError(KeyError):
-    ...
+    pass
 
 
 class AppUnknownError(KeyError):
-    ...
+    pass
 
 
 class DependencyUnknownError(Exception):
-    ...
+    pass
 
 
 class InvalidVolumeConfigurationError(Exception):
-    ...
+    pass
 
 
 class ValuesValidationError(Exception):
-    ...
+    pass
 
 
 class CHUnitTest:
