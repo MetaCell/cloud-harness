@@ -1,6 +1,8 @@
 import shutil
 from pathlib import Path
 
+from ch_cli_tools.utils import write_values_overrides  # type: ignore
+
 from .model import CHAppInstance, CHValues, register_file
 from .utils import (  # type: ignore
     _merge_base_chain,
@@ -63,11 +65,18 @@ class CHHelmChart(CHValues):
             )
         collect_and_merge_env_specific_files(dest, project.config.envs)
 
-    def _collect_instance_deploy_directories(self, instance: CHAppInstance, dest: Path) -> None:
+        values = project.build_final_helm_values(write_on_disk=False).to_dict()
+        write_values_overrides(values, dest)
+
+    def _collect_instance_deploy_directories(
+        self, instance: CHAppInstance, dest: Path
+    ) -> None:
         parent, own = instance.parent_app, instance.instance_name
         for kind in ("templates", "resources", "charts"):
             _merge_base_chain(
-                parent, lambda a, kind=kind: a.path / "deploy" / kind, dest / kind / instance.name
+                parent,
+                lambda a, kind=kind: a.path / "deploy" / kind,
+                dest / kind / instance.name,
             )
             _merge_base_chain(
                 parent,

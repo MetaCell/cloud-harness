@@ -357,3 +357,22 @@ def test_instance_does_not_inherit_the_parent_connect_string():
     )
     assert instance["harness"]["database"]["connect_string"] == ""
     assert parent["harness"]["database"]["connect_string"] == "parent connection"
+
+
+def test_dockerfile_dropped_inside_an_instance_is_never_the_parents_own(tmp_path):
+    """A Dockerfile under deploy/instances/<name>/ must not be picked up as the
+    application's own buildable Dockerfile - instances never build."""
+    write_tree_from_yaml(
+        tmp_path,
+        """
+        applications:
+          myapp:
+            deploy:
+              instances:
+                foo:
+                  Dockerfile: |
+                    FROM scratch
+        """,
+    )
+    project = chain(tmp_path)
+    assert not project["myapp"].dockerfile.exists()

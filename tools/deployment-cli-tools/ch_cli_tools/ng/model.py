@@ -344,6 +344,8 @@ class CHApp:
 
     @property
     def is_buildable(self) -> bool:
+        if self.deployment_config.get("image_ref"):
+            return False
         if self.dockerfile.exists():
             return not self.deployment_config.get("image")
         if self.deployment_config.get("image"):
@@ -357,6 +359,21 @@ class CHApp:
 
     @property
     def buildable_image(self) -> str | None:
+        image_ref = self.deployment_config.get("image_ref")
+        if image_ref:
+            dependency_images = {
+                dep.name: self.project.qualify_image(dep)
+                for dep in self.build_dependencies()
+                if not isinstance(dep, str)
+            }
+            image = self.task_images.get(image_ref) or dependency_images.get(image_ref)
+            if not image:
+                raise ValuesValidationError(
+                    f"harness.deployment.image_ref of application {self.name} is "
+                    f"{image_ref!r}, which is not an image built for it: add it to "
+                    "harness.dependencies.build, or name one of the application's task images"
+                )
+            return image
         return self.project.qualify_image(self) if self.is_buildable else None
 
     @property
@@ -875,13 +892,17 @@ def _finalize_app_values(
     harness = _drop_mountpathless_volume(harness)
     harness = _clear_unused_db_configuration(harness)
     deployment_image = resolve_path(harness, "deployment.image") or value.get("image")
+    image_ref = resolve_path(harness, "deployment.image_ref")
     if image is not None:
         harness = {
             **harness,
             "deployment": {**(harness.get("deployment") or {}), "image": image},
         }
-    # An instance's own values already say build: False - an inherited image must not flip it back to True just because one is now known.
-    build = False if value.get("build") is False else not bool(deployment_image)
+    build = (
+        False
+        if (value.get("build") is False or image_ref)
+        else not bool(deployment_image)
+    )
     value = {**value, "harness": harness, "build": build}
     if task_images:
         value["task-images"] = task_images

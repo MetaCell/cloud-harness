@@ -260,7 +260,7 @@ def content_hash(path: Path) -> str:
     return digest
 
 
-_EXCLUDED_DOCKERFILE_SEGMENTS = {"tasks", "dependencies", "subapps"}
+_EXCLUDED_DOCKERFILE_SEGMENTS = {"tasks", "dependencies", "subapps", "instances"}
 
 
 def own_dockerfile_path(path: Path) -> Path:
