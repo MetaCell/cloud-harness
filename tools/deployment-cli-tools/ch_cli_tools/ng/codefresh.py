@@ -388,8 +388,8 @@ class CHCodefresh(CHValues):
             app_key = app.name.replace("_", "__")
             for secret, definition in app.secrets.items():
                 if (
-                    not is_cloudharness_managed(definition)
-                    or secret_value(definition) == ""
+                    not is_cloudharness_managed(definition) or
+                    secret_value(definition) == ""
                 ):
                     continue
                 secret_name = secret.replace("_", "__")
@@ -491,8 +491,8 @@ class CHCodefresh(CHValues):
     def _e2e_test_volumes(self, app) -> list[str]:
         app_path = self._repo_relative(app.path)
         return [
-            "${{CF_REPO_NAME}}/"
-            + f"{app_path}/test/e2e:/home/test/__tests__/{app.name}"
+            "${{CF_REPO_NAME}}/" +
+            f"{app_path}/test/e2e:/home/test/__tests__/{app.name}"
         ]
 
     def _collect_api_test_steps(self, project) -> dict:
@@ -573,9 +573,9 @@ class CHCodefresh(CHValues):
         result = {}
         for name, step in steps.items():
             if (
-                isinstance(step, dict)
-                and step.get("type") == "parallel"
-                and isinstance(step.get("steps"), dict)
+                isinstance(step, dict) and
+                step.get("type") == "parallel" and
+                isinstance(step.get("steps"), dict)
             ):
                 step = {**step, "steps": dict(sorted(step["steps"].items()))}
             result[name] = step

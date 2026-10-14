@@ -155,8 +155,8 @@ def hosts_info(values):
         logging.warning("Cannot get cluster ip")
         ip = "127.0.0.1"
     logging.info(
-        "\nTo test locally, update your hosts file"
-        + f"\n{ip}\t{values.domain + ' ' + ' '.join(sd + '.' + values.domain for sd in subdomains)}"
+        "\nTo test locally, update your hosts file" +
+        f"\n{ip}\t{values.domain + ' ' + ' '.join(sd + '.' + values.domain for sd in subdomains)}"
     )
 
 

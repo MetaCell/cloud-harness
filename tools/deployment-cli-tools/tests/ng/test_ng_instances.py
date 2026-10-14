@@ -164,8 +164,8 @@ def test_instance_renders_its_own_manifests(tmp_path):
     instance_secret = find_manifest(manifests, "Secret", "samples-instance1-db")
     parent_secret = find_manifest(manifests, "Secret", "samples-db")
     assert (
-        instance_secret["stringData"]["connect_string"]
-        != parent_secret["stringData"]["connect_string"]
+        instance_secret["stringData"]["connect_string"] !=
+        parent_secret["stringData"]["connect_string"]
     )
 
     # Its own host, served by its own gatekeeper
@@ -465,8 +465,8 @@ def test_instance_gets_its_own_automatic_volume_named_after_it():
         volume_of(
             {"name": "shared", "auto": True},
             {"harness": {"deployment": {"volume": {"name": "mine"}}}},
-        )["name"]
-        == "mine"
+        )["name"] ==
+        "mine"
     )
 
 

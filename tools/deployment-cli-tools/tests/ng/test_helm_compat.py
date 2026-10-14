@@ -52,8 +52,8 @@ def render_helm_chart(chart_path, values_files=(), set_values=()):
 def find_manifest(manifests, kind, name):
     for manifest in manifests:
         if (
-            manifest.get("kind") == kind
-            and manifest.get("metadata", {}).get("name") == name
+            manifest.get("kind") == kind and
+            manifest.get("metadata", {}).get("name") == name
         ):
             return manifest
     raise AssertionError(f"Could not find {kind}/{name}")
@@ -92,8 +92,8 @@ def test_collect_helm_values(tmp_path):
     assert "events" not in values[KEY_APPS]
 
     assert (
-        values[KEY_APPS]["myapp"][KEY_HARNESS]["deployment"]["image"]
-        == "reg/testprojectname/myapp:1"
+        values[KEY_APPS]["myapp"][KEY_HARNESS]["deployment"]["image"] ==
+        "reg/testprojectname/myapp:1"
     )
     assert values[KEY_APPS]["myapp"]["build"] == True
     assert (
@@ -102,8 +102,8 @@ def test_collect_helm_values(tmp_path):
     assert values[KEY_APPS]["myapp"][KEY_HARNESS]["name"] == "myapp"
     assert values[KEY_APPS]["legacy"][KEY_HARNESS]["name"] == "legacy"
     assert (
-        values[KEY_APPS]["accounts"][KEY_HARNESS]["deployment"]["image"]
-        == "reg/testprojectname/accounts:1"
+        values[KEY_APPS]["accounts"][KEY_HARNESS]["deployment"]["image"] ==
+        "reg/testprojectname/accounts:1"
     )
 
     # Base values kept
@@ -139,15 +139,15 @@ def test_collect_helm_values(tmp_path):
     assert values[KEY_TASK_IMAGES]
     assert "cloudharness-base" in values[KEY_TASK_IMAGES]
     assert (
-        values[KEY_TASK_IMAGES]["cloudharness-base"]
-        == "reg/testprojectname/cloudharness-base:1"
+        values[KEY_TASK_IMAGES]["cloudharness-base"] ==
+        "reg/testprojectname/cloudharness-base:1"
     )
     assert (
         values[KEY_TASK_IMAGES]["myapp-mytask"] == "reg/testprojectname/myapp-mytask:1"
     )
     assert (
-        values[KEY_TASK_IMAGES]["cloudharness-flask"]
-        == "reg/testprojectname/cloudharness-flask:1"
+        values[KEY_TASK_IMAGES]["cloudharness-flask"] ==
+        "reg/testprojectname/cloudharness-flask:1"
     )
     assert "cloudharness-base-debian" not in values[KEY_TASK_IMAGES]
 
@@ -193,12 +193,12 @@ def test_collect_helm_values_harness_image_name_override(tmp_path):
     )
 
     assert (
-        values[KEY_APPS]["myapp"][KEY_HARNESS]["deployment"]["image"]
-        == "reg/testprojectname/custom-myapp:1"
+        values[KEY_APPS]["myapp"][KEY_HARNESS]["deployment"]["image"] ==
+        "reg/testprojectname/custom-myapp:1"
     )
     assert (
-        values[KEY_APPS]["myapp"][KEY_TASK_IMAGES]["myapp-mytask"]
-        == "reg/testprojectname/custom-myapp-mytask:1"
+        values[KEY_APPS]["myapp"][KEY_TASK_IMAGES]["myapp-mytask"] ==
+        "reg/testprojectname/custom-myapp-mytask:1"
     )
 
 
@@ -215,14 +215,14 @@ def test_collect_helm_values_noreg_noinclude(tmp_path):
     )
 
     assert (
-        values[KEY_APPS]["myapp"][KEY_HARNESS]["deployment"]["image"]
-        == "testprojectname/myapp:1"
+        values[KEY_APPS]["myapp"][KEY_HARNESS]["deployment"]["image"] ==
+        "testprojectname/myapp:1"
     )
     assert values[KEY_APPS]["myapp"][KEY_HARNESS]["name"] == "myapp"
     assert values[KEY_APPS]["legacy"][KEY_HARNESS]["name"] == "legacy"
     assert (
-        values[KEY_APPS]["accounts"][KEY_HARNESS]["deployment"]["image"]
-        == "testprojectname/accounts:1"
+        values[KEY_APPS]["accounts"][KEY_HARNESS]["deployment"]["image"] ==
+        "testprojectname/accounts:1"
     )
 
     # First level include apps
@@ -246,8 +246,8 @@ def test_collect_helm_values_noreg_noinclude(tmp_path):
         values[KEY_APPS]["accounts"][KEY_HARNESS]["deployment"]["port"] == "overridden"
     )
     assert (
-        values[KEY_APPS]["events"]["kafka"]["resources"]["limits"]["memory"]
-        == "overridden"
+        values[KEY_APPS]["events"]["kafka"]["resources"]["limits"]["memory"] ==
+        "overridden"
     )
 
     # Environment specific overriding
@@ -271,8 +271,8 @@ def test_collect_helm_values_noreg_noinclude(tmp_path):
     assert values[KEY_TASK_IMAGES]
     assert "cloudharness-base" in values[KEY_TASK_IMAGES]
     assert (
-        values[KEY_TASK_IMAGES]["cloudharness-base"]
-        == "testprojectname/cloudharness-base:1"
+        values[KEY_TASK_IMAGES]["cloudharness-base"] ==
+        "testprojectname/cloudharness-base:1"
     )
     assert values[KEY_TASK_IMAGES]["myapp-mytask"] == "testprojectname/myapp-mytask:1"
     assert values[KEY_TASK_IMAGES]["my-common"] == "testprojectname/my-common:1"
@@ -306,12 +306,12 @@ def test_collect_helm_values_precedence(tmp_path):
 
     # Values.yaml from current app must override values-prod.yaml from cloudharness
     assert (
-        values[KEY_APPS]["events"]["kafka"]["resources"]["limits"]["memory"]
-        == "overridden"
+        values[KEY_APPS]["events"]["kafka"]["resources"]["limits"]["memory"] ==
+        "overridden"
     )
     assert (
-        values[KEY_APPS]["events"]["kafka"]["resources"]["limits"]["cpu"]
-        == "overridden-prod"
+        values[KEY_APPS]["events"]["kafka"]["resources"]["limits"]["cpu"] ==
+        "overridden-prod"
     )
 
 
@@ -769,8 +769,8 @@ def test_statefulset_option(tmp_path):
     assert not any(
         m
         for m in manifests
-        if m.get("kind") == "PersistentVolumeClaim"
-        and m.get("metadata", {}).get("name") == "myapp-data"
+        if m.get("kind") == "PersistentVolumeClaim" and
+        m.get("metadata", {}).get("name") == "myapp-data"
     )
 
     db_sts = find_manifest(manifests, "StatefulSet", db_name)
@@ -783,8 +783,8 @@ def test_statefulset_option(tmp_path):
     assert not any(
         m
         for m in manifests
-        if m.get("kind") == "PersistentVolumeClaim"
-        and m.get("metadata", {}).get("name") == db_name
+        if m.get("kind") == "PersistentVolumeClaim" and
+        m.get("metadata", {}).get("name") == db_name
     )
     find_manifest(manifests, "Service", db_name)
     # without a legacy PVC no migration resources are rendered
@@ -905,8 +905,8 @@ def test_volume_write_many(tmp_path):
     assert (
         find_manifest(manifests, "PersistentVolumeClaim", "myapp-data")["spec"][
             "storageClassName"
-        ]
-        == "efs-sc"
+        ] ==
+        "efs-sc"
     )
 
     # ReadWriteMany volumes are shared: a statefulset keeps mounting the common PVC by
@@ -1131,8 +1131,8 @@ def test_database_storage_class(tmp_path):
     assert (
         find_manifest(manifests, "PersistentVolumeClaim", db_name)["spec"][
             "storageClassName"
-        ]
-        == "gp3"
+        ] ==
+        "gp3"
     )
 
     # statefulset databases provision their volume through volumeClaimTemplates
@@ -1151,8 +1151,8 @@ def test_database_storage_class(tmp_path):
     database["storageClass"] = "gp3"
     manifests = render()
     assert (
-        find_manifest(manifests, "Cluster", db_name)["spec"]["storage"]["storageClass"]
-        == "gp3"
+        find_manifest(manifests, "Cluster", db_name)["spec"]["storage"]["storageClass"] ==
+        "gp3"
     )
     database["storageClass"] = None
     manifests = render()
@@ -1221,8 +1221,8 @@ def test_statefulset_leader_service(tmp_path):
     rw_service = find_manifest(manifests, "Service", rw_name)
     assert rw_service["spec"]["selector"]["app"] == dep_name
     assert (
-        rw_service["spec"]["selector"]["statefulset.kubernetes.io/pod-name"]
-        == f"{dep_name}-0"
+        rw_service["spec"]["selector"]["statefulset.kubernetes.io/pod-name"] ==
+        f"{dep_name}-0"
     )
     main_service = find_manifest(manifests, "Service", service_name)
     assert rw_service["spec"]["ports"] == main_service["spec"]["ports"]
@@ -1393,8 +1393,8 @@ def test_collect_helm_values_auto_tag(tmp_path):
     assert "reg/testprojectname/myapp:" in values.apps["myapp"].harness.deployment.image
     assert "testprojectname/myapp-mytask" in values[KEY_TASK_IMAGES]["myapp-mytask"]
     assert (
-        values[KEY_APPS]["myapp"][KEY_HARNESS]["deployment"]["image"]
-        == values.apps["myapp"].harness.deployment.image
+        values[KEY_APPS]["myapp"][KEY_HARNESS]["deployment"]["image"] ==
+        values.apps["myapp"].harness.deployment.image
     )
     v1 = values.apps["myapp"].harness.deployment.image
     c1 = values["task-images"]["my-common"]
@@ -1641,8 +1641,8 @@ def find_manifests(manifests, kind, name=None):
     return [
         manifest
         for manifest in manifests
-        if manifest.get("kind") == kind
-        and (name is None or manifest.get("metadata", {}).get("name") == name)
+        if manifest.get("kind") == kind and
+        (name is None or manifest.get("metadata", {}).get("name") == name)
     ]
 
 
@@ -2205,8 +2205,8 @@ def test_deployment_command_and_args_render_lists_and_strings(tmp_path):
     containers = [
         container
         for manifest in render_helm_chart(out_path / "helm")
-        if manifest.get("kind") == "Deployment"
-        and manifest["metadata"]["name"] == "cmdapp"
+        if manifest.get("kind") == "Deployment" and
+        manifest["metadata"]["name"] == "cmdapp"
         for container in manifest["spec"]["template"]["spec"]["containers"]
     ]
     assert [(c["command"], c["args"]) for c in containers] == [

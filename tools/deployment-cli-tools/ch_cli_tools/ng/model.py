@@ -1,3 +1,15 @@
+from .utils import (
+    MERGE_DIRNAME,
+    _merge_base_chain,
+    content_hash,
+    dict_merge,  # type: ignore
+    env_suffixed_path,
+    get_yaml_parser,
+    merge_with_layer,
+    own_dockerfile_path,
+    parse_dockerfile,
+    resolve_path,
+)
 import copy
 import hashlib
 import itertools
@@ -20,33 +32,24 @@ _ENTRYPOINT_OVERRIDE_PATTERN = re.compile(
 )
 
 
-from .utils import (
-    MERGE_DIRNAME,
-    _merge_base_chain,
-    content_hash,
-    dict_merge,  # type: ignore
-    env_suffixed_path,
-    get_yaml_parser,
-    merge_with_layer,
-    own_dockerfile_path,
-    parse_dockerfile,
-    resolve_path,
-)
+class TaskUnknownError(Exception):
+    ...
 
 
-class TaskUnknownError(Exception): ...
+class AppUnknownError(Exception):
+    ...
 
 
-class AppUnknownError(Exception): ...
+class DependencyUnknownError(Exception):
+    ...
 
 
-class DependencyUnknownError(Exception): ...
+class InvalidVolumeConfigurationError(Exception):
+    ...
 
 
-class InvalidVolumeConfigurationError(Exception): ...
-
-
-class ValuesValidationError(Exception): ...
+class ValuesValidationError(Exception):
+    ...
 
 
 class CHUnitTest:
@@ -274,9 +277,9 @@ class CHApp:
 
     def build_dependencies(self) -> list["CHApp | CHBaseImage | CHAppTask | str"]:
         return [
-            self.project.scanned_apps.get(dep)
-            or self.project.base_images.get(dep)
-            or self.project.all_buildable_tasks().get(dep, dep)
+            self.project.scanned_apps.get(dep) or
+            self.project.base_images.get(dep) or
+            self.project.all_buildable_tasks().get(dep, dep)
             for dep in cast(
                 list[str],
                 resolve_path(self.harness_config, "dependencies.build", default=[]),
@@ -460,9 +463,9 @@ class CHAppInstance(CHApp):
 
         volume = (harness.get("deployment") or {}).get("volume") or {}
         if (
-            volume.get("name")
-            and volume.get("auto", True)
-            and not self._instance_sets(
+            volume.get("name") and
+            volume.get("auto", True) and
+            not self._instance_sets(
                 instance_values, "harness", "deployment", "volume", "name"
             )
         ):
@@ -480,9 +483,9 @@ class CHAppInstance(CHApp):
         ):
             for database_type, type_config in database.items():
                 if (
-                    isinstance(type_config, dict)
-                    and type_config.get("initialdb")
-                    and not self._instance_sets(
+                    isinstance(type_config, dict) and
+                    type_config.get("initialdb") and
+                    not self._instance_sets(
                         instance_values,
                         "harness",
                         "database",
@@ -583,7 +586,8 @@ class CHTemplate:
         self.project = parent
 
 
-class CHInstance: ...
+class CHInstance:
+    ...
 
 
 class CHContext:
@@ -806,9 +810,9 @@ class CHDockerfile:
 
             name = ref.lower().replace("_", "-")
             entity = (
-                project.scanned_apps.get(name)
-                or project.base_images.get(name)
-                or project.all_buildable_tasks().get(name)
+                project.scanned_apps.get(name) or
+                project.base_images.get(name) or
+                project.all_buildable_tasks().get(name)
             )
             dependencies.append(entity.dockerfile if entity is not None else name)
         return dependencies
@@ -1040,8 +1044,8 @@ class CHProject:
         instances = {
             instance
             for instance in self.all_instances().values()
-            if instance.parent_app.name in involved_names
-            and instance.name not in self.config.excludes
+            if instance.parent_app.name in involved_names and
+            instance.name not in self.config.excludes
         }
         return base | instances
 
@@ -1064,10 +1068,11 @@ class CHProject:
     def entrypoint_apps(self):
         includes = self._includes_with_instances()
         excludes = self.config.excludes
-        is_included = lambda app: (
+
+        def is_included(app): return (
             (len(includes) > 0 and app in includes) or len(includes) == 0
         )
-        is_not_excluded = lambda app: app not in excludes
+        def is_not_excluded(app): return app not in excludes
         candidates = {**self.scanned_apps, **self.all_instances()}
         return {
             app_name: app

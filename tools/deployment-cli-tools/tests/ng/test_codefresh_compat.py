@@ -115,8 +115,8 @@ def test_create_codefresh_configuration_build_steps(tmp_path):
     base_step = steps["cloudharness-base"]
     assert ".overrides" in base_step["working_directory"]
     assert (
-        base_step["dockerfile"]
-        == "infrastructure/base-images/cloudharness-base/Dockerfile"
+        base_step["dockerfile"] ==
+        "infrastructure/base-images/cloudharness-base/Dockerfile"
     )
     assert "testprojectname/" in base_step["image_name"]
 
@@ -162,12 +162,12 @@ def test_create_codefresh_configuration_build_arguments(tmp_path):
     # baking in today's resolved value would silently go stale - matching
     # legacy's own image_tag_with_variables exactly.
     assert (
-        myapp_args["CLOUDHARNESS_FLASK"]
-        == "${{REGISTRY}}/testprojectname/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}"
+        myapp_args["CLOUDHARNESS_FLASK"] ==
+        "${{REGISTRY}}/testprojectname/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}"
     )
     assert (
-        myapp_args["MY_COMMON"]
-        == "${{REGISTRY}}/testprojectname/my-common:${{MY_COMMON_TAG}}"
+        myapp_args["MY_COMMON"] ==
+        "${{REGISTRY}}/testprojectname/my-common:${{MY_COMMON_TAG}}"
     )
 
     # Globally ARG-pinned source images (from real cloud-harness base images'
@@ -277,10 +277,10 @@ def test_parallel_build_steps_sorted_alphabetically(tmp_path):
 
     for step_name, step in cf["steps"].items():
         if (
-            step
-            and isinstance(step, dict)
-            and step.get("type") == "parallel"
-            and "steps" in step
+            step and
+            isinstance(step, dict) and
+            step.get("type") == "parallel" and
+            "steps" in step
         ):
             sub_step_names = list(step["steps"].keys())
             assert sub_step_names == sorted(sub_step_names), (
@@ -303,8 +303,8 @@ def test_steps_ordered_by_stage_in_generated_config(tmp_path):
     ]
 
     assert step_stage_indices == sorted(step_stage_indices), (
-        "Steps are not ordered by stage. Got stages: "
-        + str(
+        "Steps are not ordered by stage. Got stages: " +
+        str(
             [
                 step.get("stage")
                 for step in steps.values()
@@ -331,8 +331,8 @@ def test_create_codefresh_configuration_publish_steps(tmp_path):
     # the literal ${{REGISTRY}} pipeline variable, not a resolved string -
     # see CHCodefresh.qualify's own docstring for why.
     assert (
-        myapp_publish["candidate"]
-        == "${{REGISTRY}}/testprojectname/myapp:${{MYAPP_TAG}}"
+        myapp_publish["candidate"] ==
+        "${{REGISTRY}}/testprojectname/myapp:${{MYAPP_TAG}}"
     )
     assert myapp_publish["tags"] == ["${{DEPLOYMENT_PUBLISH_TAG}}", "latest"]
     assert myapp_publish["registry"] == "${{REGISTRY_PUBLISH_URL}}"
@@ -349,8 +349,8 @@ def test_create_codefresh_configuration_publish_steps(tmp_path):
     # identically regardless of entity kind, matching legacy verbatim.
     base_publish = publish_steps["publish_cloudharness-base"]
     assert (
-        base_publish["when"]["condition"]["all"]["skipPublish"]
-        == "includes('${{CLOUDHARNESS_BASE_PUBLISH_SKIP}}', "
+        base_publish["when"]["condition"]["all"]["skipPublish"] ==
+        "includes('${{CLOUDHARNESS_BASE_PUBLISH_SKIP}}', "
         "'{{CLOUDHARNESS_BASE_PUBLISH_SKIP}}') == true"
     )
 
@@ -661,8 +661,8 @@ def test_create_codefresh_configuration_api_and_e2e_test_steps(tmp_path):
     # The runner image's own tag reference is appended - same convention as
     # every other image reference embedded in codefresh.yaml.
     assert (
-        cf["steps"]["tests_api"]["image"]
-        == build_steps["test-api"]["image_name"] + ":${{TEST_API_TAG}}"
+        cf["steps"]["tests_api"]["image"] ==
+        build_steps["test-api"]["image_name"] + ":${{TEST_API_TAG}}"
     )
 
     e2e_steps = cf["steps"]["tests_e2e"]["scale"]
@@ -673,8 +673,8 @@ def test_create_codefresh_configuration_api_and_e2e_test_steps(tmp_path):
         "applications/samples/test/e2e:/home/test/__tests__/samples"
     )
     assert (
-        cf["steps"]["tests_e2e"]["image"]
-        == build_steps["test-e2e"]["image_name"] + ":${{TEST_E2E_TAG}}"
+        cf["steps"]["tests_e2e"]["image"] ==
+        build_steps["test-e2e"]["image_name"] + ":${{TEST_E2E_TAG}}"
     )
 
 

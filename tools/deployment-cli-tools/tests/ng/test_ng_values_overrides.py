@@ -89,8 +89,8 @@ def test_values_overrides_edit_overrides_subchart_image(tmp_path):
 
     manifests = render_helm_chart(helm_path, values_files=[overrides_path])
     assert (
-        find_manifest(manifests, "ConfigMap", "vendored-thing-image")["data"]["image"]
-        == "myregistry.io/other/repo:7"
+        find_manifest(manifests, "ConfigMap", "vendored-thing-image")["data"]["image"] ==
+        "myregistry.io/other/repo:7"
     )
 
 
@@ -119,8 +119,8 @@ def test_values_overrides_no_include_lists_vendored_charts(tmp_path):
         "docker.io/apache/kafka"
     )
     assert (
-        overrides["apps"]["jupyterhub"]["hub"]["image"]["name"]
-        == "quay.io/jupyterhub/k8s-hub"
+        overrides["apps"]["jupyterhub"]["hub"]["image"]["name"] ==
+        "quay.io/jupyterhub/k8s-hub"
     )
 
     assert overrides["apps"]["accounts"]["harness"]["database"]["postgres"][
@@ -218,8 +218,8 @@ def test_values_overrides_omits_database_image_shadowed_by_image_ref(tmp_path):
     )
 
     assert (
-        overrides_for(database, "plain")["database"]["postgres"]["image"]
-        == "postgres:17"
+        overrides_for(database, "plain")["database"]["postgres"]["image"] ==
+        "postgres:17"
     )
 
     with_ref = database.replace(
@@ -282,4 +282,3 @@ def test_values_overrides_omits_deployment_image_ref(tmp_path):
     app_overrides = (overrides.get("apps") or {}).get("refapp") or {}
     assert "image" not in app_overrides
     assert "image" not in ((app_overrides.get("harness") or {}).get("deployment") or {})
-

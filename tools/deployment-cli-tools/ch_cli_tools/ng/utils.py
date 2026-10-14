@@ -150,7 +150,7 @@ def pipeline_relative_path(
                 return Path(*rel_parts)
         abs_parts = path.resolve().parts
         if CLOUD_HARNESS_DIR_NAME in abs_parts:
-            return Path(*abs_parts[abs_parts.index(CLOUD_HARNESS_DIR_NAME) :])
+            return Path(*abs_parts[abs_parts.index(CLOUD_HARNESS_DIR_NAME):])
     return Path(*rel_parts) if rel_parts else Path(".")
 
 

@@ -69,9 +69,9 @@ def test_create_skaffold_configuration(tmp_path):
         )
     )
     assert len(artifact_images) == (
-        len(exp_apps)
-        + len(artifact_overrides[KEY_TASK_IMAGES])
-        + build_dependency_count
+        len(exp_apps) +
+        len(artifact_overrides[KEY_TASK_IMAGES]) +
+        build_dependency_count
     )
 
     assert any("reg" in image and "cloudharness" in image for image in artifact_images)
@@ -83,8 +83,8 @@ def test_create_skaffold_configuration(tmp_path):
     assert overrides[KEY_APPS]["samples"][KEY_HARNESS][KEY_DEPLOYMENT]["args"]
 
     assert (
-        "reg"
-        == artifact_overrides[KEY_APPS]["accounts"][KEY_HARNESS][KEY_DEPLOYMENT][
+        "reg" ==
+        artifact_overrides[KEY_APPS]["accounts"][KEY_HARNESS][KEY_DEPLOYMENT][
             "image"
         ][0:3]
     )
@@ -221,8 +221,8 @@ def test_create_skaffold_configuration_with_conflicting_dependencies(tmp_path):
 
     myapp_config = release["overrides"]["apps"]["myapp"]
     assert (
-        myapp_config["harness"]["deployment"]["args"][0]
-        == "/usr/src/app/myapp_code/__main__.py"
+        myapp_config["harness"]["deployment"]["args"][0] ==
+        "/usr/src/app/myapp_code/__main__.py"
     )
 
 
@@ -257,8 +257,8 @@ def test_create_skaffold_configuration_with_conflicting_dependencies_requirement
 
     myapp_config = release["overrides"]["apps"]["myapp2"]
     assert (
-        myapp_config["harness"]["deployment"]["args"][0]
-        == "/usr/src/app/myapp_code/__main__.py"
+        myapp_config["harness"]["deployment"]["args"][0] ==
+        "/usr/src/app/myapp_code/__main__.py"
     )
 
 
