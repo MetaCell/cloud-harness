@@ -9,7 +9,7 @@ import os
 
 from conftest import CLOUDHARNESS_ROOT, RESOURCES
 
-from ch_cli_tools.configurationgenerator import *
+from ch_cli_tools.configuration.configurationgenerator import *
 from ch_cli_tools.ng.api import create_helm_chart, create_skaffold_configuration
 
 RESOURCES_BUGGY = os.path.join(os.path.dirname(RESOURCES), "resources_buggy")
@@ -450,9 +450,12 @@ def test_skaffold_imgarg_retrieval(tmp_path):
     # keycloak:26.5), matching legacy exactly.
     project = values._ch_project
     source_images = project.all_source_images()
-    assert len(source_images) == 2
+    assert len(source_images) == 3
     assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
     assert source_images["NODE"] == "node:22-alpine"
+    # Not a build argument of any Dockerfile: declared by CloudHarness so that the
+    # gatekeeper image is configured in a single place.
+    assert source_images["GATEKEEPER"] == "quay.io/gogatekeeper/gatekeeper:4.6.0"
 
 
 def test_skaffold_imgarg(tmp_path):

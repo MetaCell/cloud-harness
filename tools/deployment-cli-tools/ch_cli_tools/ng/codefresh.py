@@ -97,7 +97,7 @@ exactly the kind of fact that can't be baked into the committed file.
 import re
 from functools import lru_cache
 
-from ch_cli_tools.secrets import is_cloudharness_managed, is_secret_config, secret_value
+from ch_cli_tools.configuration.secrets import is_cloudharness_managed, is_secret_config, secret_value
 from ch_cli_tools.utils import check_image_exists_in_registry  # type: ignore
 
 from .model import KEY_TASK_IMAGES, CHValues, register_file

@@ -11,7 +11,7 @@ from typing import Literal, cast
 
 from cloudharness_model import HarnessMainConfig  # type: ignore
 
-from ch_cli_tools.secrets import secret_definition_error  # type: ignore
+from ch_cli_tools.configuration.secrets import secret_definition_error  # type: ignore
 
 KEY_TASK_IMAGES = "task-images"
 _ENTRYPOINT_OVERRIDE_PATTERN = re.compile(
