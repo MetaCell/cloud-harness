@@ -11,6 +11,15 @@ import logging
 import subprocess
 
 import pytest
+from conftest import (
+    CLOUDHARNESS_ROOT,
+    RESOURCES,
+    WRONG_DEPENDENCIES,
+    chain,
+    minimal_project,
+)
+from test_util_ng import write_tree, write_tree_from_yaml
+
 from ch_cli_tools.ng import CHDeployConfig, CHProject
 from ch_cli_tools.ng.api import (
     create_helm_chart,
@@ -23,16 +32,8 @@ from ch_cli_tools.ng.model import (
     DependencyUnknownError,
     ValuesValidationError,
 )
-from ch_cli_tools.ng.utils import content_hash, own_dockerfile_path
 from ch_cli_tools.ng.skaffold import CHSkaffold
-from conftest import (
-    CLOUDHARNESS_ROOT,
-    RESOURCES,
-    WRONG_DEPENDENCIES,
-    chain,
-    minimal_project,
-)
-from test_util_ng import write_tree, write_tree_from_yaml
+from ch_cli_tools.ng.utils import content_hash, own_dockerfile_path
 
 
 @pytest.fixture(scope="module")
@@ -61,7 +62,9 @@ def test_base_images_with_arg_based_from(resources_project):
 
 def test_base_images_arg_value_with_multiple_equals_signs(tmp_path):
     write_tree(tmp_path, {"Dockerfile": "ARG BASE=foo=bar\nFROM $BASE\n"})
-    assert CHDockerfile(tmp_path / "Dockerfile", None).base_images == {"BASE": "foo=bar"}
+    assert CHDockerfile(tmp_path / "Dockerfile", None).base_images == {
+        "BASE": "foo=bar"
+    }
 
 
 def test_base_images_bare_arg_with_no_name_is_ignored(tmp_path):
@@ -179,13 +182,18 @@ def test_same_app_values_precedence_across_roots_and_env():
 # of an app has no Dockerfile of its own, its cloud-harness default is used instead
 # of the app silently ending up with no Dockerfile at all.
 def test_app_dockerfile_falls_back_to_cloudharness_default(tmp_path):
-    ch = write_tree_from_yaml(tmp_path / "ch", """
+    ch = write_tree_from_yaml(
+        tmp_path / "ch",
+        """
         applications:
           myapp:
             Dockerfile: |
               FROM scratch
-    """)
-    proj = write_tree_from_yaml(tmp_path / "proj", """
+    """,
+    )
+    proj = write_tree_from_yaml(
+        tmp_path / "proj",
+        """
         deployment-configuration:
           values-template.yaml: |
             name: testproj
@@ -194,7 +202,8 @@ def test_app_dockerfile_falls_back_to_cloudharness_default(tmp_path):
             deploy:
               values.yaml: |
                 a: 1
-    """)
+    """,
+    )
 
     project = chain(ch, proj, config=CHDeployConfig())
     app = project["myapp"]
@@ -213,7 +222,9 @@ def test_app_dockerfile_falls_back_to_cloudharness_default(tmp_path):
 # it separate from sibling non-Docker concerns at the app's top level.
 def test_app_dockerfile_found_under_a_conventional_subdirectory(tmp_path):
     app_dir = tmp_path / "applications" / "myapp"
-    write_tree_from_yaml(tmp_path, """
+    write_tree_from_yaml(
+        tmp_path,
+        """
         deployment-configuration:
           values-template.yaml: |
             name: testproj
@@ -222,7 +233,8 @@ def test_app_dockerfile_found_under_a_conventional_subdirectory(tmp_path):
             server:
               Dockerfile: |
                 FROM scratch
-    """)
+    """,
+    )
 
     project = CHProject(tmp_path, config=CHDeployConfig())
     app = project["myapp"]
@@ -233,7 +245,9 @@ def test_app_dockerfile_found_under_a_conventional_subdirectory(tmp_path):
 
 def test_app_dockerfile_prefers_top_level_over_a_conventional_subdirectory(tmp_path):
     app_dir = tmp_path / "applications" / "myapp"
-    write_tree_from_yaml(tmp_path, """
+    write_tree_from_yaml(
+        tmp_path,
+        """
         deployment-configuration:
           values-template.yaml: |
             name: testproj
@@ -244,7 +258,8 @@ def test_app_dockerfile_prefers_top_level_over_a_conventional_subdirectory(tmp_p
             server:
               Dockerfile: |
                 FROM scratch
-    """)
+    """,
+    )
 
     project = CHProject(tmp_path, config=CHDeployConfig())
     app = project["myapp"]
@@ -257,7 +272,9 @@ def test_app_dockerfile_picks_shortest_path_among_equal_depth_candidates(tmp_pat
     # explicit priority between them - this only pins down the deterministic
     # tiebreak (alphabetical), not a meaningful real-world precedence.
     app_dir = tmp_path / "applications" / "myapp"
-    write_tree_from_yaml(tmp_path, """
+    write_tree_from_yaml(
+        tmp_path,
+        """
         deployment-configuration:
           values-template.yaml: |
             name: testproj
@@ -269,7 +286,8 @@ def test_app_dockerfile_picks_shortest_path_among_equal_depth_candidates(tmp_pat
             src:
               Dockerfile: |
                 FROM scratch
-    """)
+    """,
+    )
 
     project = CHProject(tmp_path, config=CHDeployConfig())
     app = project["myapp"]
@@ -280,7 +298,9 @@ def test_app_dockerfile_picks_shortest_path_among_equal_depth_candidates(tmp_pat
 def test_app_dockerfile_ignores_tasks_subtree(tmp_path):
     # tasks/ is a structural concept of its own (CHAppTask) - a task's
     # Dockerfile must never be picked up as the owning app's own.
-    write_tree_from_yaml(tmp_path, """
+    write_tree_from_yaml(
+        tmp_path,
+        """
         deployment-configuration:
           values-template.yaml: |
             name: testproj
@@ -290,7 +310,8 @@ def test_app_dockerfile_ignores_tasks_subtree(tmp_path):
               mytask:
                 Dockerfile: |
                   FROM scratch
-    """)
+    """,
+    )
 
     project = CHProject(tmp_path, config=CHDeployConfig())
     app = project["myapp"]
@@ -381,11 +402,19 @@ def three_layer_project(tmp_path, **config_kwargs):
 
     write_tree(
         base,
-        {"deployment-configuration": {"value-template.yaml": "harness:\n  from_base: true\n"}},
+        {
+            "deployment-configuration": {
+                "value-template.yaml": "harness:\n  from_base: true\n"
+            }
+        },
     )
     write_tree(
         top,
-        {"deployment-configuration": {"value-template.yaml": "harness:\n  from_top: true\n"}},
+        {
+            "deployment-configuration": {
+                "value-template.yaml": "harness:\n  from_top: true\n"
+            }
+        },
     )
 
     # onlybase: exists only at the bottom - a pure pass-through app from top's
@@ -537,7 +566,9 @@ def test_app_test_fragment_falls_back_to_defaults(resources_project):
 
 
 def test_app_test_fragment_commands_empty_when_unit_tests_disabled(tmp_path):
-    write_tree_from_yaml(tmp_path, """
+    write_tree_from_yaml(
+        tmp_path,
+        """
         deployment-configuration:
           values-template.yaml: |
             name: testproj
@@ -552,7 +583,8 @@ def test_app_test_fragment_commands_empty_when_unit_tests_disabled(tmp_path):
                     unit:
                       enabled: false
                       commands: ['pytest tests/']
-    """)
+    """,
+    )
     project = chain(tmp_path, tmp_path, config=CHDeployConfig())
     assert project["myapp"].test.unit.commands == []
 
@@ -592,11 +624,20 @@ def test_app_database_connect_string_unset_when_not_declared():
     assert project["events"].database.get("connect_string") is None
 
 
-def test_hosts_info_prints_port_forward_and_hosts_lines(tmp_path, monkeypatch, capsys, caplog):
+def test_hosts_info_prints_port_forward_and_hosts_lines(
+    tmp_path, monkeypatch, capsys, caplog
+):
     monkeypatch.setattr("ch_cli_tools.ng.api.get_cluster_ip", lambda local: "10.0.0.5")
     values = create_helm_chart(
-        [CLOUDHARNESS_ROOT, RESOURCES], output_path=tmp_path, include=["myapp"], exclude=["legacy"],
-        domain="my.local", namespace="test", local=False, tag=1, registry="reg",
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=tmp_path,
+        include=["myapp"],
+        exclude=["legacy"],
+        domain="my.local",
+        namespace="test",
+        local=False,
+        tag=1,
+        registry="reg",
     )
 
     with caplog.at_level(logging.INFO):
@@ -610,14 +651,23 @@ def test_hosts_info_prints_port_forward_and_hosts_lines(tmp_path, monkeypatch, c
     assert "10.0.0.5\tmy.local mysubdomain.my.local" in caplog.text
 
 
-def test_hosts_info_falls_back_to_localhost_when_cluster_ip_unavailable(tmp_path, monkeypatch, caplog):
+def test_hosts_info_falls_back_to_localhost_when_cluster_ip_unavailable(
+    tmp_path, monkeypatch, caplog
+):
     def _raise(local):
         raise RuntimeError("no cluster reachable")
 
     monkeypatch.setattr("ch_cli_tools.ng.api.get_cluster_ip", _raise)
     values = create_helm_chart(
-        [CLOUDHARNESS_ROOT, RESOURCES], output_path=tmp_path, include=["myapp"], exclude=["legacy"],
-        domain="my.local", namespace="test", local=False, tag=1, registry="reg",
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=tmp_path,
+        include=["myapp"],
+        exclude=["legacy"],
+        domain="my.local",
+        namespace="test",
+        local=False,
+        tag=1,
+        registry="reg",
     )
 
     with caplog.at_level(logging.INFO):
@@ -628,27 +678,30 @@ def test_hosts_info_falls_back_to_localhost_when_cluster_ip_unavailable(tmp_path
 
 
 def _vscode_debug_project(tmp_path):
-    return write_tree(tmp_path, {
-        "deployment-configuration": {
-            "values-template.yaml": "name: vscodetest\nmainapp: debugapp\n",
-            "vscode-debug-template.json": json.dumps(
-                {
-                    "name": "CloudHarness: Run/Debug",
-                    "type": "cloudcode.kubernetes",
-                    "debug": [],
-                }
-            ),
-        },
-        "applications": {
-            "debugapp": {
-                "server": {
-                    "Dockerfile": "FROM scratch\n",
-                    "setup.py": "",
+    return write_tree(
+        tmp_path,
+        {
+            "deployment-configuration": {
+                "values-template.yaml": "name: vscodetest\nmainapp: debugapp\n",
+                "vscode-debug-template.json": json.dumps(
+                    {
+                        "name": "CloudHarness: Run/Debug",
+                        "type": "cloudcode.kubernetes",
+                        "debug": [],
+                    }
+                ),
+            },
+            "applications": {
+                "debugapp": {
+                    "server": {
+                        "Dockerfile": "FROM scratch\n",
+                        "setup.py": "",
+                    },
+                    "deploy": {"values.yaml": "harness:\n  sourceRoot: /custom/src\n"},
                 },
-                "deploy": {"values.yaml": "harness:\n  sourceRoot: /custom/src\n"},
             },
         },
-    })
+    )
 
 
 def test_create_vscode_debug_configuration_adds_debug_entry_for_deployed_app(
@@ -657,8 +710,13 @@ def test_create_vscode_debug_configuration_adds_debug_entry_for_deployed_app(
     root = _vscode_debug_project(tmp_path)
     monkeypatch.chdir(root)
     values = create_helm_chart(
-        [root], output_path=tmp_path / "out", domain="my.local", namespace="test",
-        local=False, tag=1, registry="reg",
+        [root],
+        output_path=tmp_path / "out",
+        domain="my.local",
+        namespace="test",
+        local=False,
+        tag=1,
+        registry="reg",
     )
 
     launch = create_vscode_debug_configuration([root], values)
@@ -683,22 +741,30 @@ def test_create_vscode_debug_configuration_preserves_other_configurations_and_re
 ):
     root = _vscode_debug_project(tmp_path)
     monkeypatch.chdir(root)
-    write_tree(root, {
-        ".vscode": {
-            "launch.json": json.dumps(
-                {
-                    "version": "0.2.0",
-                    "configurations": [
-                        {"name": "Some other debugger", "type": "python"},
-                        {"name": "CloudHarness: Run/Debug", "stale": True},
-                    ],
-                }
-            ),
+    write_tree(
+        root,
+        {
+            ".vscode": {
+                "launch.json": json.dumps(
+                    {
+                        "version": "0.2.0",
+                        "configurations": [
+                            {"name": "Some other debugger", "type": "python"},
+                            {"name": "CloudHarness: Run/Debug", "stale": True},
+                        ],
+                    }
+                ),
+            },
         },
-    })
+    )
     values = create_helm_chart(
-        [root], output_path=tmp_path / "out", domain="my.local", namespace="test",
-        local=False, tag=1, registry="reg",
+        [root],
+        output_path=tmp_path / "out",
+        domain="my.local",
+        namespace="test",
+        local=False,
+        tag=1,
+        registry="reg",
     )
 
     launch = create_vscode_debug_configuration([root], values)
@@ -706,7 +772,9 @@ def test_create_vscode_debug_configuration_preserves_other_configurations_and_re
     names = [conf["name"] for conf in launch["configurations"]]
     assert names == ["Some other debugger", "CloudHarness: Run/Debug"]
     [cloudharness_conf] = [
-        conf for conf in launch["configurations"] if conf["name"] == "CloudHarness: Run/Debug"
+        conf
+        for conf in launch["configurations"]
+        if conf["name"] == "CloudHarness: Run/Debug"
     ]
     assert "stale" not in cloudharness_conf
 
@@ -717,7 +785,9 @@ def test_app_harness_config_defaults_to_empty_dict_when_no_harness_key(tmp_path)
 
 
 def test_hard_dependency_excluded_from_deployment_raises(tmp_path):
-    write_tree_from_yaml(tmp_path, """
+    write_tree_from_yaml(
+        tmp_path,
+        """
         deployment-configuration:
           values-template.yaml: |
             name: testproj
@@ -730,7 +800,8 @@ def test_hard_dependency_excluded_from_deployment_raises(tmp_path):
                   dependencies:
                     hard:
                       - dependee
-    """)
+    """,
+    )
 
     project = CHProject(tmp_path, config=CHDeployConfig(excludes=["dependee"]))
 
@@ -739,7 +810,9 @@ def test_hard_dependency_excluded_from_deployment_raises(tmp_path):
 
 
 def test_auto_deploy_app_without_dockerfile_or_image_raises(tmp_path):
-    write_tree_from_yaml(tmp_path, """
+    write_tree_from_yaml(
+        tmp_path,
+        """
         deployment-configuration:
           values-template.yaml: |
             name: testproj
@@ -750,7 +823,8 @@ def test_auto_deploy_app_without_dockerfile_or_image_raises(tmp_path):
                 harness:
                   deployment:
                     auto: true
-    """)
+    """,
+    )
 
     project = CHProject(tmp_path, config=CHDeployConfig())
 
@@ -759,7 +833,9 @@ def test_auto_deploy_app_without_dockerfile_or_image_raises(tmp_path):
 
 
 def test_registry_merges_project_fields_and_clears_secret_when_local(tmp_path):
-    write_tree_from_yaml(tmp_path, """
+    write_tree_from_yaml(
+        tmp_path,
+        """
         deployment-configuration:
           values-template.yaml: |
             name: testproj
@@ -772,9 +848,12 @@ def test_registry_merges_project_fields_and_clears_secret_when_local(tmp_path):
           myapp:
             Dockerfile: |
               FROM scratch
-    """)
+    """,
+    )
 
-    project = CHProject(tmp_path, config=CHDeployConfig(local=True, registry="myregistry"))
+    project = CHProject(
+        tmp_path, config=CHDeployConfig(local=True, registry="myregistry")
+    )
     values = project.build_final_helm_values(write_on_disk=False)
 
     assert values.registry.name == "myregistry"
@@ -783,7 +862,9 @@ def test_registry_merges_project_fields_and_clears_secret_when_local(tmp_path):
 
 
 def test_registry_absent_when_nothing_registry_related_is_configured(tmp_path):
-    write_tree_from_yaml(tmp_path, """
+    write_tree_from_yaml(
+        tmp_path,
+        """
         deployment-configuration:
           values-template.yaml: |
             name: testproj
@@ -792,7 +873,8 @@ def test_registry_absent_when_nothing_registry_related_is_configured(tmp_path):
           myapp:
             Dockerfile: |
               FROM scratch
-    """)
+    """,
+    )
 
     project = CHProject(tmp_path, config=CHDeployConfig())
     values = project.build_final_helm_values(write_on_disk=False)
@@ -800,7 +882,9 @@ def test_registry_absent_when_nothing_registry_related_is_configured(tmp_path):
 
 
 def test_validate_raises_on_malformed_secret_definition(tmp_path):
-    write_tree_from_yaml(tmp_path, """
+    write_tree_from_yaml(
+        tmp_path,
+        """
         deployment-configuration:
           values-template.yaml: |
             name: testproj
@@ -812,7 +896,8 @@ def test_validate_raises_on_malformed_secret_definition(tmp_path):
                   secrets:
                     mySecret:
                       manager: 123
-    """)
+    """,
+    )
 
     project = CHProject(tmp_path, config=CHDeployConfig())
 
@@ -821,7 +906,9 @@ def test_validate_raises_on_malformed_secret_definition(tmp_path):
 
 
 def test_validate_warns_on_nfs_storage_class_and_write_many_collisions(tmp_path):
-    write_tree_from_yaml(tmp_path, """
+    write_tree_from_yaml(
+        tmp_path,
+        """
         deployment-configuration:
           values-template.yaml: |
             name: testproj
@@ -836,7 +923,8 @@ def test_validate_warns_on_nfs_storage_class_and_write_many_collisions(tmp_path)
                       usenfs: true
                       writeMany: false
                       storageClass: efs-sc
-    """)
+    """,
+    )
 
     project = CHProject(tmp_path, config=CHDeployConfig())
     warnings = project.validate()
@@ -846,7 +934,9 @@ def test_validate_warns_on_nfs_storage_class_and_write_many_collisions(tmp_path)
 
 
 def test_validate_warns_on_use_services_dependency_not_deployed(tmp_path):
-    write_tree_from_yaml(tmp_path, """
+    write_tree_from_yaml(
+        tmp_path,
+        """
         deployment-configuration:
           values-template.yaml: |
             name: testproj
@@ -857,7 +947,8 @@ def test_validate_warns_on_use_services_dependency_not_deployed(tmp_path):
                 harness:
                   use_services:
                     - name: idonotexist
-    """)
+    """,
+    )
 
     project = CHProject(tmp_path, config=CHDeployConfig(includes=["myapp"]))
     warnings = project.validate()
@@ -866,29 +957,37 @@ def test_validate_warns_on_use_services_dependency_not_deployed(tmp_path):
 
 
 def test_own_dockerfile_path_ignores_cloned_dependency_dockerfile(tmp_path):
-    write_tree_from_yaml(tmp_path, """
+    write_tree_from_yaml(
+        tmp_path,
+        """
         dependencies:
           somerepo:
             Dockerfile: |
               FROM scratch
-    """)
+    """,
+    )
     assert own_dockerfile_path(tmp_path) == tmp_path / "Dockerfile"
 
 
 def test_own_dockerfile_path_ignores_subapps_dockerfile(tmp_path):
-    write_tree_from_yaml(tmp_path, """
+    write_tree_from_yaml(
+        tmp_path,
+        """
         subapps:
           widget:
             Dockerfile: |
               FROM scratch
-    """)
+    """,
+    )
     assert own_dockerfile_path(tmp_path) == tmp_path / "Dockerfile"
 
 
 def _git(*args, cwd):
     subprocess.run(
         ["git", "-c", "user.email=t@t.com", "-c", "user.name=t", *args],
-        cwd=cwd, check=True, capture_output=True,
+        cwd=cwd,
+        check=True,
+        capture_output=True,
     )
 
 
@@ -931,6 +1030,15 @@ def test_deploy_runs_helm_dependency_update_then_upgrade(tmp_path, monkeypatch):
     helm_path = tmp_path / "helm"
     assert calls[0] == (["helm", "dependency", "update"], {"cwd": helm_path})
     assert calls[1] == (
-        ["helm", "upgrade", "test", str(helm_path), "-n", "test", "--install", "--reset-values"],
+        [
+            "helm",
+            "upgrade",
+            "test",
+            str(helm_path),
+            "-n",
+            "test",
+            "--install",
+            "--reset-values",
+        ],
         {},
     )

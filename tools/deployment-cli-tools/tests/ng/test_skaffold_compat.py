@@ -5,10 +5,12 @@
 # unrelated/unused) - merging an overridden app/base-image's directory across
 # layers now happens transparently inside CHSkaffold.generate(), via
 # CHContext.copy_my_context_to(), the moment such an artifact is collected.
+import os
+
+from conftest import CLOUDHARNESS_ROOT, RESOURCES
+
 from ch_cli_tools.configurationgenerator import *
 from ch_cli_tools.ng.api import create_helm_chart, create_skaffold_configuration
-from conftest import CLOUDHARNESS_ROOT, RESOURCES
-import os
 
 RESOURCES_BUGGY = os.path.join(os.path.dirname(RESOURCES), "resources_buggy")
 
@@ -67,7 +69,9 @@ def test_create_skaffold_configuration(tmp_path):
         )
     )
     assert len(artifact_images) == (
-        len(exp_apps) + len(artifact_overrides[KEY_TASK_IMAGES]) + build_dependency_count
+        len(exp_apps)
+        + len(artifact_overrides[KEY_TASK_IMAGES])
+        + build_dependency_count
     )
 
     assert any("reg" in image and "cloudharness" in image for image in artifact_images)
@@ -150,12 +154,12 @@ def test_create_skaffold_configuration(tmp_path):
         project.root / myapp_artifact["context"],
         os.path.join(RESOURCES, "applications/myapp"),
     )
-    assert myapp_artifact["hooks"][
-        "before"
-    ], "The hook for dependencies should be included"
-    assert (
-        len(myapp_artifact["hooks"]["before"]) == 2
-    ), "The hook for dependencies should include 2 clone commands"
+    assert myapp_artifact["hooks"]["before"], (
+        "The hook for dependencies should be included"
+    )
+    assert len(myapp_artifact["hooks"]["before"]) == 2, (
+        "The hook for dependencies should include 2 clone commands"
+    )
 
     accounts_artifact = next(
         a
@@ -174,9 +178,9 @@ def test_create_skaffold_configuration(tmp_path):
     # Custom unit tests
     assert len(sk["test"]) == 2, "Unit tests should be included"
     samples_test = next(t for t in sk["test"] if t["image"] == expected_samples_image)
-    assert (
-        "samples/test" in samples_test["custom"][0]["command"]
-    ), "The test command must come from values.yaml test/unit/commands"
+    assert "samples/test" in samples_test["custom"][0]["command"], (
+        "The test command must come from values.yaml test/unit/commands"
+    )
 
     myapp_test = next(
         t for t in sk["test"] if t["image"] == "reg/testprojectname/myapp"
@@ -216,7 +220,10 @@ def test_create_skaffold_configuration_with_conflicting_dependencies(tmp_path):
     assert "matplotlib" not in release["overrides"]["apps"]
 
     myapp_config = release["overrides"]["apps"]["myapp"]
-    assert myapp_config["harness"]["deployment"]["args"][0] == "/usr/src/app/myapp_code/__main__.py"
+    assert (
+        myapp_config["harness"]["deployment"]["args"][0]
+        == "/usr/src/app/myapp_code/__main__.py"
+    )
 
 
 def test_create_skaffold_configuration_with_conflicting_dependencies_requirements_file(
@@ -249,7 +256,10 @@ def test_create_skaffold_configuration_with_conflicting_dependencies_requirement
     assert "matplotlib" not in release["overrides"]["apps"]
 
     myapp_config = release["overrides"]["apps"]["myapp2"]
-    assert myapp_config["harness"]["deployment"]["args"][0] == "/usr/src/app/myapp_code/__main__.py"
+    assert (
+        myapp_config["harness"]["deployment"]["args"][0]
+        == "/usr/src/app/myapp_code/__main__.py"
+    )
 
 
 def test_create_skaffold_configuration_nobuild(tmp_path):
@@ -305,20 +315,20 @@ def test_env_dockerfile(tmp_path):
     myapp_artifact = next(
         a for a in sk["build"]["artifacts"] if a["image"] == "reg/testprojectname/myapp"
     )
-    assert myapp_artifact["docker"]["dockerfile"].endswith(
-        "dev.Dockerfile"
-    ), f"Expected dev.Dockerfile but got {myapp_artifact['docker']['dockerfile']}"
+    assert myapp_artifact["docker"]["dockerfile"].endswith("dev.Dockerfile"), (
+        f"Expected dev.Dockerfile but got {myapp_artifact['docker']['dockerfile']}"
+    )
 
     expected_samples_image = f"reg/{project['samples'].image_name}"
     samples_artifact = next(
         a for a in sk["build"]["artifacts"] if a["image"] == expected_samples_image
     )
-    assert samples_artifact["docker"]["dockerfile"].endswith(
-        "Dockerfile"
-    ), f"Expected Dockerfile but got {samples_artifact['docker']['dockerfile']}"
-    assert not samples_artifact["docker"]["dockerfile"].endswith(
-        "dev.Dockerfile"
-    ), "samples should not use dev.Dockerfile"
+    assert samples_artifact["docker"]["dockerfile"].endswith("Dockerfile"), (
+        f"Expected Dockerfile but got {samples_artifact['docker']['dockerfile']}"
+    )
+    assert not samples_artifact["docker"]["dockerfile"].endswith("dev.Dockerfile"), (
+        "samples should not use dev.Dockerfile"
+    )
 
 
 def test_env_dockerfile_fallback(tmp_path):
@@ -346,12 +356,12 @@ def test_env_dockerfile_fallback(tmp_path):
     myapp_artifact = next(
         a for a in sk["build"]["artifacts"] if a["image"] == "reg/testprojectname/myapp"
     )
-    assert myapp_artifact["docker"]["dockerfile"].endswith(
-        "Dockerfile"
-    ), f"Expected Dockerfile but got {myapp_artifact['docker']['dockerfile']}"
-    assert not myapp_artifact["docker"]["dockerfile"].endswith(
-        "dev.Dockerfile"
-    ), "Should not use dev.Dockerfile when no env is specified"
+    assert myapp_artifact["docker"]["dockerfile"].endswith("Dockerfile"), (
+        f"Expected Dockerfile but got {myapp_artifact['docker']['dockerfile']}"
+    )
+    assert not myapp_artifact["docker"]["dockerfile"].endswith("dev.Dockerfile"), (
+        "Should not use dev.Dockerfile when no env is specified"
+    )
 
 
 def test_app_depends_on_app(tmp_path):
@@ -379,15 +389,15 @@ def test_app_depends_on_app(tmp_path):
         "There should be 7 build artifacts (base+common, dependantapp plus its 2 "
         "tasks, myapp, myapp-mytask)"
     )
-    assert any(
-        img.endswith("myapp-mytask") for img in artifact_images
-    ), "the cross-app task image myapp-mytask must have a build artifact"
+    assert any(img.endswith("myapp-mytask") for img in artifact_images), (
+        "the cross-app task image myapp-mytask must have a build artifact"
+    )
     assert len(releases) == 1
 
     release = releases[0]
-    assert (
-        "myapp" not in release["overrides"]["apps"]
-    ), "myapp should not be included in the overrides because it's a build only dependency"
+    assert "myapp" not in release["overrides"]["apps"], (
+        "myapp should not be included in the overrides because it's a build only dependency"
+    )
 
 
 def test_skaffold_builds_cross_app_task_image(tmp_path):
@@ -410,9 +420,9 @@ def test_skaffold_builds_cross_app_task_image(tmp_path):
     )
 
     artifact_images = [a["image"] for a in sk["build"]["artifacts"]]
-    assert any(
-        img.endswith("myapp-mytask") for img in artifact_images
-    ), "the cross-app task image myapp-mytask must have a build artifact"
+    assert any(img.endswith("myapp-mytask") for img in artifact_images), (
+        "the cross-app task image myapp-mytask must have a build artifact"
+    )
 
 
 def test_skaffold_imgarg_retrieval(tmp_path):

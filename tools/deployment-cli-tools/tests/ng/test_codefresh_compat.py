@@ -32,13 +32,14 @@ import shutil
 import tempfile
 from unittest.mock import patch
 
-from ch_cli_tools.ng.api import (
-    create_helm_chart,
-    create_codefresh_deployment_scripts,
-    write_env_file,
-)
 from conftest import CLOUDHARNESS_ROOT, RESOURCES
 from test_util_ng import write_tree_from_yaml
+
+from ch_cli_tools.ng.api import (
+    create_codefresh_deployment_scripts,
+    create_helm_chart,
+    write_env_file,
+)
 
 
 def _build_steps(cf):
@@ -113,14 +114,19 @@ def test_create_codefresh_configuration_build_steps(tmp_path):
     # cross-layer merge CHSkaffold already relies on for its own artifacts.
     base_step = steps["cloudharness-base"]
     assert ".overrides" in base_step["working_directory"]
-    assert base_step["dockerfile"] == "infrastructure/base-images/cloudharness-base/Dockerfile"
+    assert (
+        base_step["dockerfile"]
+        == "infrastructure/base-images/cloudharness-base/Dockerfile"
+    )
     assert "testprojectname/" in base_step["image_name"]
 
     # my-common: a common-image local to RESOURCES, never overridden - builds
     # straight from its own directory, dockerfile name alone (context == its own dir).
     common_step = steps["my-common"]
     assert common_step["dockerfile"] == "Dockerfile"
-    assert common_step["working_directory"].endswith("infrastructure/common-images/my-common")
+    assert common_step["working_directory"].endswith(
+        "infrastructure/common-images/my-common"
+    )
 
     # myapp's own task gets its own build step too, alongside the app.
     assert "myapp-mytask" in steps
@@ -159,7 +165,10 @@ def test_create_codefresh_configuration_build_arguments(tmp_path):
         myapp_args["CLOUDHARNESS_FLASK"]
         == "${{REGISTRY}}/testprojectname/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}"
     )
-    assert myapp_args["MY_COMMON"] == "${{REGISTRY}}/testprojectname/my-common:${{MY_COMMON_TAG}}"
+    assert (
+        myapp_args["MY_COMMON"]
+        == "${{REGISTRY}}/testprojectname/my-common:${{MY_COMMON_TAG}}"
+    )
 
     # Globally ARG-pinned source images (from real cloud-harness base images'
     # own Dockerfiles) are merged in too - the same value on every build step,
@@ -177,12 +186,15 @@ def test_create_codefresh_configuration_source_images_override_wins_on_collision
     # CLOUDHARNESS_FLASK is also a build dependency of myapp: a project-level
     # source_images override for it must win over the dependency-derived
     # build argument, not be shadowed by it.
-    override_root = write_tree_from_yaml(tmp_path / "override", """
+    override_root = write_tree_from_yaml(
+        tmp_path / "override",
+        """
         deployment-configuration:
           values-template.yaml: |
             source_images:
               CLOUDHARNESS_FLASK: myoverride/cloudharness-flask:9.9
-    """)
+    """,
+    )
 
     roots = [CLOUDHARNESS_ROOT, RESOURCES, override_root]
     values = create_helm_chart(
@@ -318,7 +330,10 @@ def test_create_codefresh_configuration_publish_steps(tmp_path):
     # exact image the deployed Helm chart actually references. Registry is
     # the literal ${{REGISTRY}} pipeline variable, not a resolved string -
     # see CHCodefresh.qualify's own docstring for why.
-    assert myapp_publish["candidate"] == "${{REGISTRY}}/testprojectname/myapp:${{MYAPP_TAG}}"
+    assert (
+        myapp_publish["candidate"]
+        == "${{REGISTRY}}/testprojectname/myapp:${{MYAPP_TAG}}"
+    )
     assert myapp_publish["tags"] == ["${{DEPLOYMENT_PUBLISH_TAG}}", "latest"]
     assert myapp_publish["registry"] == "${{REGISTRY_PUBLISH_URL}}"
     assert (
@@ -435,7 +450,9 @@ def test_create_codefresh_configuration_rollout_wait_commands(tmp_path):
 
     # Template-provided context-setup commands survive untouched, first.
     assert commands[0] == "kubectl config use-context ${{CLUSTER_NAME}}"
-    assert commands[1] == "kubectl config set-context --current --namespace=${{NAMESPACE}}"
+    assert (
+        commands[1] == "kubectl config set-context --current --namespace=${{NAMESPACE}}"
+    )
 
     assert "kubectl rollout status statefulset/samples" in commands
     assert "kubectl rollout status deployment/www-gk" in commands
@@ -518,7 +535,9 @@ def test_create_codefresh_configuration_secret_filtering(tmp_path):
     Adds a third, override-only layer on top of the real [CLOUDHARNESS_ROOT,
     RESOURCES] chain so myapp's real fixture values.yaml doesn't need to carry
     every exotic secret shape itself."""
-    override_root = write_tree_from_yaml(tmp_path / "override", """
+    override_root = write_tree_from_yaml(
+        tmp_path / "override",
+        """
         applications:
           myapp:
             deploy:
@@ -537,7 +556,8 @@ def test_create_codefresh_configuration_secret_filtering(tmp_path):
                       path: vaults/v/items/i
                     unmanaged_secret:
                       manager: null
-    """)
+    """,
+    )
 
     roots = [CLOUDHARNESS_ROOT, RESOURCES, override_root]
     values = create_helm_chart(
@@ -573,7 +593,9 @@ def test_create_codefresh_configuration_secret_value_containing_quotes(tmp_path)
     # a pipeline-variable reference is - so a value containing quotes must
     # produce exactly the same entry shape as any other secret, with no
     # escaping/quoting issue leaking through.
-    override_root = write_tree_from_yaml(tmp_path / "override", """
+    override_root = write_tree_from_yaml(
+        tmp_path / "override",
+        """
         applications:
           myapp:
             deploy:
@@ -581,7 +603,8 @@ def test_create_codefresh_configuration_secret_value_containing_quotes(tmp_path)
                 harness:
                   secrets:
                     settings_secret: "SECRET_KEY='replace-with-strong-shared-secret'"
-    """)
+    """,
+    )
 
     roots = [CLOUDHARNESS_ROOT, RESOURCES, override_root]
     values = create_helm_chart(
@@ -606,7 +629,9 @@ def test_create_codefresh_configuration_secret_value_containing_quotes(tmp_path)
         for v in custom_values
         if v.startswith("apps_myapp_harness_secrets_settings__secret=")
     )
-    assert entry == 'apps_myapp_harness_secrets_settings__secret="${{SETTINGS__SECRET}}"'
+    assert (
+        entry == 'apps_myapp_harness_secrets_settings__secret="${{SETTINGS__SECRET}}"'
+    )
 
 
 def test_create_codefresh_configuration_api_and_e2e_test_steps(tmp_path):
@@ -644,7 +669,9 @@ def test_create_codefresh_configuration_api_and_e2e_test_steps(tmp_path):
     e2e_step = e2e_steps["samples_e2e_test"]
     assert e2e_step["environment"] == ["APP_URL=https://www.${{DOMAIN}}"]
     assert len(e2e_step["volumes"]) == 1
-    assert e2e_step["volumes"][0].endswith("applications/samples/test/e2e:/home/test/__tests__/samples")
+    assert e2e_step["volumes"][0].endswith(
+        "applications/samples/test/e2e:/home/test/__tests__/samples"
+    )
     assert (
         cf["steps"]["tests_e2e"]["image"]
         == build_steps["test-e2e"]["image_name"] + ":${{TEST_E2E_TAG}}"
@@ -690,7 +717,9 @@ def test_create_codefresh_configuration_test_image_found_across_root_boundary(
     # found and built, not missed because the two live in different layers.
     # An override-only third layer enables myapp's e2e tests without
     # permanently changing its real fixture values.yaml.
-    override_root = write_tree_from_yaml(tmp_path / "override", """
+    override_root = write_tree_from_yaml(
+        tmp_path / "override",
+        """
         applications:
           myapp:
             deploy:
@@ -700,7 +729,8 @@ def test_create_codefresh_configuration_test_image_found_across_root_boundary(
                     e2e:
                       enabled: true
                       smoketest: false
-    """)
+    """,
+    )
 
     roots = [CLOUDHARNESS_ROOT, RESOURCES, override_root]
     values = create_helm_chart(
@@ -758,7 +788,9 @@ def test_create_codefresh_configuration_no_build_for_app_with_prebuilt_image(tmp
     # single per-Dockerfile loop that also generates git-clone/unit/api/e2e
     # steps, so a non-buildable app gets none of those either - only a
     # buildable app alongside it does.
-    write_tree_from_yaml(tmp_path, """
+    write_tree_from_yaml(
+        tmp_path,
+        """
         deployment-configuration:
           values-template.yaml: |
             name: testproj
@@ -813,7 +845,8 @@ def test_create_codefresh_configuration_no_build_for_app_with_prebuilt_image(tmp
               openapi.yaml: |
                 servers:
                   - url: /api
-    """)
+    """,
+    )
 
     values = create_helm_chart(
         [tmp_path],
@@ -893,7 +926,9 @@ def test_create_codefresh_deployment_scripts_save_writes_under_deployment_dir(tm
     # output_path="." default didn't match CHCodefresh.path's actual location.
     # Uses its own synthetic single-root project, not the shared
     # [CLOUDHARNESS_ROOT, RESOURCES] fixture _generate_cf relies on.
-    write_tree_from_yaml(tmp_path, """
+    write_tree_from_yaml(
+        tmp_path,
+        """
         deployment-configuration:
           values-template.yaml: |
             name: testproj
@@ -902,7 +937,8 @@ def test_create_codefresh_deployment_scripts_save_writes_under_deployment_dir(tm
           myapp:
             Dockerfile: |
               FROM scratch
-    """)
+    """,
+    )
 
     values = create_helm_chart(
         [tmp_path],

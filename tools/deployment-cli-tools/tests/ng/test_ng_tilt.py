@@ -3,13 +3,18 @@ structural/model tests these build on, and ch_cli_tools/ng/tilt.py's own
 module docstring for the generation algorithm.
 """
 
-from ch_cli_tools.ng import CHDeployConfig, CHProject
 from conftest import CLOUDHARNESS_ROOT, RESOURCES, chain
 from test_util_ng import write_tree_from_yaml
 
+from ch_cli_tools.ng import CHDeployConfig, CHProject
 
-def _tilt_project(tmp_path, *, subdomain="mysubdomain", service_auto=True, deployment_auto=False):
-    write_tree_from_yaml(tmp_path, f"""
+
+def _tilt_project(
+    tmp_path, *, subdomain="mysubdomain", service_auto=True, deployment_auto=False
+):
+    write_tree_from_yaml(
+        tmp_path,
+        f"""
         deployment-configuration:
           values-template.yaml: |
             name: testproj
@@ -30,7 +35,8 @@ def _tilt_project(tmp_path, *, subdomain="mysubdomain", service_auto=True, deplo
                     auto: {str(service_auto).lower()}
                   deployment:
                     auto: {str(deployment_auto).lower()}
-    """)
+    """,
+    )
     return CHProject(tmp_path, config=CHDeployConfig())
 
 
@@ -84,8 +90,14 @@ def test_task_build_sets_match_in_env_vars(tmp_path):
     project = _tilt_project(tmp_path)
     tiltfile = project.tilt.generate(write_on_disk=False)
     assert "ref='testproj/myapp-mytask'" in tiltfile
-    assert "match_in_env_vars=True" in tiltfile.split("ref='testproj/myapp-mytask'")[1].split("\n")[0]
-    assert "match_in_env_vars=True" not in tiltfile.split("ref='testproj/myapp'")[1].split("\n")[0]
+    assert (
+        "match_in_env_vars=True"
+        in tiltfile.split("ref='testproj/myapp-mytask'")[1].split("\n")[0]
+    )
+    assert (
+        "match_in_env_vars=True"
+        not in tiltfile.split("ref='testproj/myapp'")[1].split("\n")[0]
+    )
 
 
 def test_base_images_are_always_included_even_without_a_deployed_dependent():
