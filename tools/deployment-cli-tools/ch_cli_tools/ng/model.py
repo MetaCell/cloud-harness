@@ -32,11 +32,11 @@ _ENTRYPOINT_OVERRIDE_PATTERN = re.compile(
 )
 
 
-class TaskUnknownError(Exception):
+class TaskUnknownError(KeyError):
     ...
 
 
-class AppUnknownError(Exception):
+class AppUnknownError(KeyError):
     ...
 
 

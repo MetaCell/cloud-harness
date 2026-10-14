@@ -173,7 +173,7 @@ def test_values_overrides_omits_shadowed_gatekeeper_path(tmp_path):
                 image: "legacyroot/gk:1"
         """,
     )
-    values = create_helm_chart(
+    create_helm_chart(
         [CLOUDHARNESS_ROOT, RESOURCES, solution],
         output_path=tmp_path / "out",
         include=["samples"],
@@ -182,7 +182,7 @@ def test_values_overrides_omits_shadowed_gatekeeper_path(tmp_path):
         local=False,
         tag="1",
         secured=True,
-    ).to_dict()
+    )
     with (tmp_path / "out" / "helm" / "values-overrides.yaml").open() as f:
         overrides = get_yaml_parser().load(f)
 

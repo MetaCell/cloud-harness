@@ -6,7 +6,7 @@ scoped to the slice of behavior the ng model currently supports. See test_ng.py
 from conftest import CLOUDHARNESS_ROOT, RESOURCES, chain, minimal_project
 from test_util_ng import write_tree, write_tree_from_yaml
 
-from ch_cli_tools.ng import CHDeployConfig, CHProject, skaffold
+from ch_cli_tools.ng import CHDeployConfig, skaffold
 from ch_cli_tools.ng.utils import dockerfile_variable_reference, parse_dockerfile
 
 

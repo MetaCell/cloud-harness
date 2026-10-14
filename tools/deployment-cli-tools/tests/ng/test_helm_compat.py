@@ -13,10 +13,6 @@ from ch_cli_tools.configuration import configurationgenerator
 from ch_cli_tools.configuration.configurationgenerator import *
 from ch_cli_tools.ng.api import create_helm_chart
 from ch_cli_tools.ng.model import DependencyUnknownError
-from ch_cli_tools.configuration.preprocessing import (
-    generate_hash_based_image_tags,
-    preprocess_build_overrides,
-)
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 # HERE is tests/ng - one level deeper than the legacy tests/test_helm.py this
