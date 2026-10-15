@@ -1021,6 +1021,53 @@ def test_create_codefresh_configuration_paths_are_cwd_independent(tmp_path):
         assert not os.path.isabs(wd), f"'{name}' working_directory is absolute: {wd}"
 
 
+def test_create_codefresh_configuration_top_level_app_working_directory(tmp_path):
+    """An app declared directly under the TOP project's own root (not a
+    RESOURCES-nested fixture, and not overridden from a lower layer) must get
+    a plain, project-root-relative working_directory. Using deployment/
+    instead of the project root as the relativization base silently prepends
+    a spurious '../' here - the regression a real multi-root deployment hit,
+    since every fixture elsewhere in this file lives outside the project
+    root it's layered under and so never exercises this path."""
+    top_root = tmp_path / "top"
+    write_tree_from_yaml(
+        top_root,
+        """
+        applications:
+          ownapp:
+            Dockerfile: |
+              FROM scratch
+            deploy:
+              values.yaml: |
+                harness:
+                  subdomain: ownapp
+                  deployment:
+                    auto: true
+        """,
+    )
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, top_root],
+        output_path=tmp_path / "out",
+        include=["ownapp"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+    cf = create_codefresh_deployment_scripts(
+        [CLOUDHARNESS_ROOT, top_root],
+        envs=["dev"],
+        helm_values=values,
+        save=False,
+    )
+
+    step = _build_steps(cf)["ownapp"]
+    assert step["working_directory"] == "applications/ownapp"
+    assert step["dockerfile"] == "Dockerfile"
+
+
 def test_create_codefresh_configuration_multienv(tmp_path):
     # Multiple envs merge in order - later envs win on a shared key, each
     # env's own keys are additive. RESOURCES' own codefresh-template-{dev,test}

@@ -97,7 +97,11 @@ exactly the kind of fact that can't be baked into the committed file.
 import re
 from functools import lru_cache
 
-from ch_cli_tools.configuration.secrets import is_cloudharness_managed, is_secret_config, secret_value
+from ch_cli_tools.configuration.secrets import (
+    is_cloudharness_managed,
+    is_secret_config,
+    secret_value,
+)
 from ch_cli_tools.utils import check_image_exists_in_registry  # type: ignore
 
 from .model import KEY_TASK_IMAGES, CHValues, register_file
@@ -214,12 +218,14 @@ class CHCodefresh(CHValues):
         abs_context_path = (self.path.parent / context.path).resolve()
         return str(
             pipeline_relative_path(
-                abs_context_path, self.path.parent, boundary=self.project.root
+                abs_context_path, self.project.root, boundary=self.project.root
             )
         )
 
     def _repo_relative(self, path) -> str:
-        return str(path.resolve().relative_to(self.path.parent.resolve(), walk_up=True))
+        return str(
+            path.resolve().relative_to(self.project.root.resolve(), walk_up=True)
+        )
 
     def _build_arguments(self, entity) -> list[str]:
         args: dict[str, str] = {}
@@ -388,8 +394,8 @@ class CHCodefresh(CHValues):
             app_key = app.name.replace("_", "__")
             for secret, definition in app.secrets.items():
                 if (
-                    not is_cloudharness_managed(definition) or
-                    secret_value(definition) == ""
+                    not is_cloudharness_managed(definition)
+                    or secret_value(definition) == ""
                 ):
                     continue
                 secret_name = secret.replace("_", "__")
@@ -491,8 +497,8 @@ class CHCodefresh(CHValues):
     def _e2e_test_volumes(self, app) -> list[str]:
         app_path = self._repo_relative(app.path)
         return [
-            "${{CF_REPO_NAME}}/" +
-            f"{app_path}/test/e2e:/home/test/__tests__/{app.name}"
+            "${{CF_REPO_NAME}}/"
+            + f"{app_path}/test/e2e:/home/test/__tests__/{app.name}"
         ]
 
     def _collect_api_test_steps(self, project) -> dict:
@@ -573,9 +579,9 @@ class CHCodefresh(CHValues):
         result = {}
         for name, step in steps.items():
             if (
-                isinstance(step, dict) and
-                step.get("type") == "parallel" and
-                isinstance(step.get("steps"), dict)
+                isinstance(step, dict)
+                and step.get("type") == "parallel"
+                and isinstance(step.get("steps"), dict)
             ):
                 step = {**step, "steps": dict(sorted(step["steps"].items()))}
             result[name] = step
