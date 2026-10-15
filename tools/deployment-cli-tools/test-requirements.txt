@@ -1,3 +1,4 @@
 -e ../../libraries/models
 -e ../../libraries/cloudharness-utils
+-e ../../libraries/cloudharness-common
 -e .[dev]
