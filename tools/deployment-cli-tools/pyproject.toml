@@ -18,8 +18,18 @@ dependencies = [
     "cloudharness_utils",
     "dirhash",
     "jinja2",
-    "textual",
     "StrEnum ; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "coverage",
+    "nose",
+    "randomize",
+    "pyparsing",
+    "autopep8",
 ]
 
 [tool.setuptools]
