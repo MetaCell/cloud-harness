@@ -1704,6 +1704,8 @@ def test_find_chart_images_resolves_empty_tag_from_app_version():
     assert find_chart_images({'image': {'repository': 'a/b', 'tag': ''}}) == [
         ChartImageRef(path=('image',), value={'repository': 'a/b'}),
     ]
+
+
 def test_instances_expand_into_applications(tmp_path):
     """An instance is deployed as an application of its own, inheriting the parent's configuration."""
     out_folder = tmp_path / 'test_instances_expand_into_applications'

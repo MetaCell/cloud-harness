@@ -104,6 +104,37 @@ def test_on_exit_notify_with_queue_and_payload():
     print("✓ Test passed: Backward compatibility works correctly")
 
 
+def test_on_exit_notify_supports_command_override():
+    """A custom exit image can replace its default startup command."""
+    task = tasks.CustomTask('test-task', 'busybox')
+    command = ['python', '-m', 'example.notifier']
+    operation = operations.PipelineOperation(
+        'test-command-exit', [task],
+        on_exit_notify={
+            'image': 'application-image',
+            'command': command,
+            'queue': 'results',
+            'payload': '{"ingestion_id": "example"}',
+        },
+    )
+
+    workflow = operation.to_workflow()
+    exit_template = next(
+        template for template in workflow['spec']['templates']
+        if template['name'] == 'exit-handler'
+    )
+    environment = {
+        item['name']: item['value']
+        for item in exit_template['container']['env'] if 'value' in item
+    }
+
+    assert workflow['spec']['onExit'] == 'exit-handler'
+    assert exit_template['container']['command'] == command
+    assert environment['workflow_result'] == '{{workflow.status}}'
+    assert environment['queue_name'] == 'results'
+    assert environment['payload'] == '{"ingestion_id": "example"}'
+
+
 def test_on_exit_notify_mixed_usage():
     """Test mixed usage with some optional parameters"""
     print("Testing on_exit_notify with mixed usage (queue but no payload)...")
@@ -179,5 +210,6 @@ def test_on_exit_notify_default_image():
 
     # Should use default image
     assert 'workflows-notify-queue' in exit_template['container']['image'], f"Should use default image, got {exit_template['container']['image']}"
+    assert 'command' not in exit_template['container']
 
     print("✓ Test passed: Default image works correctly")
