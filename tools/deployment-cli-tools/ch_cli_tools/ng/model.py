@@ -1,3 +1,81 @@
+"""ch_cli_tools.ng.model - the CloudHarness deployment model.
+
+A deployment is built from one or more root directories (cloud-harness itself, a
+platform layer, a project layer, ...), each scanned into its own CHProject and
+layered over the previous one via `.base` (`.project` is the top of that chain).
+Every entity that can be overridden - CHApp, CHBaseImage, CHAppTask, CHValues -
+mirrors this layering through its own `.base`, so a higher layer can override or
+merge whatever a lower layer already declared, without reconstructing it.
+
+CHApp is an application CHProject found on disk - not necessarily one that ends up
+deployed (CHApp.is_involved answers that, from the project's include/exclude config
+and dependency graph). CHAppInstance is a named instance of an app
+(deploy/instances/<name>/), deployed as its own app, inheriting the parent's build.
+
+CHBaseImage/CHTestImage are shared images built outside of any application
+(infrastructure/base-images, infrastructure/common-images, test/); CHAppTask is a
+buildable task owned by an app or base image. All three resolve their own
+CHDockerfile and can produce a CHContext - their build context, merged across base
+layers - to actually build it.
+
+CHValues wraps one values.yaml-shaped file, resolved across environments
+(values-<env>.yaml) and, for project-level files, across base layers too.
+CHDeployConfig carries the deploy-time knobs (includes/excludes/env/tag/...) shared
+by the whole chain.
+
+```mermaid
+classDiagram
+    class CHDeployConfig
+    class CHProject {
+        +base: CHProject
+        +config: CHDeployConfig
+        +scanned_apps: Dict~CHApp~
+        +base_images: Dict~CHBaseImage~
+        +involved_apps
+    }
+    class CHApp {
+        +base: CHApp
+        +is_buildable
+        +is_involved
+        +buildable_image
+    }
+    class CHAppInstance {
+        +parent_app: CHApp
+    }
+    class CHBaseImage {
+        +base: CHBaseImage
+    }
+    class CHTestImage
+    class CHAppTask {
+        +base: CHAppTask
+    }
+    class CHDockerfile
+    class CHContext
+    class CHValues
+    class CHOpenAPI
+    class CHTemplate
+
+    CHProject --> CHDeployConfig : config
+    CHProject "0..1" --> "0..1" CHProject : base
+    CHProject "1" o-- "*" CHApp : scanned_apps
+    CHProject "1" o-- "*" CHBaseImage : base_images
+    CHBaseImage <|-- CHTestImage
+    CHApp <|-- CHAppInstance
+    CHApp "1" o-- "*" CHAppTask : tasks
+    CHApp "1" o-- "*" CHAppInstance : instances
+    CHApp "0..1" --> "0..1" CHApp : base
+    CHApp --> CHDockerfile : dockerfile
+    CHApp --> CHValues : app_basevalues_template
+    CHApp --> CHOpenAPI : openapi
+    CHApp --> CHTemplate : templates
+    CHBaseImage --> CHDockerfile : dockerfile
+    CHBaseImage "0..1" --> "0..1" CHBaseImage : base
+    CHAppTask --> CHDockerfile : dockerfile
+    CHAppTask "0..1" --> "0..1" CHAppTask : base
+    CHDockerfile --> CHContext : resolve_context()
+```
+"""
+
 import copy
 import hashlib
 import itertools
