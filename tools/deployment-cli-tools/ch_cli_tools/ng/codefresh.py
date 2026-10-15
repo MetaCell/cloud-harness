@@ -136,8 +136,10 @@ def _git_main_domain(url: str) -> str:
     return "github"
 
 
-def _to_codefresh_path(path, relative_to) -> str:
-    return str(pipeline_relative_path(path, relative_to))
+def _to_codefresh_path(path, relative_to, cloudharness_root=None) -> str:
+    return str(
+        pipeline_relative_path(path, relative_to, cloudharness_root=cloudharness_root)
+    )
 
 
 def _env_key(name: str) -> str:
@@ -218,7 +220,10 @@ class CHCodefresh(CHValues):
         abs_context_path = (self.path.parent / context.path).resolve()
         return str(
             pipeline_relative_path(
-                abs_context_path, self.project.root, boundary=self.project.root
+                abs_context_path,
+                self.project.root,
+                boundary=self.project.root,
+                cloudharness_root=self.project.all_layers()[-1].root,
             )
         )
 
@@ -426,8 +431,9 @@ class CHCodefresh(CHValues):
         params = [f"-i {inc}" for inc in config.includes] + [
             f"-ex {exc}" for exc in config.excludes
         ]
+        cloudharness_root = project.all_layers()[-1].root
         paths = " ".join(
-            _to_codefresh_path(layer.root, project.root)
+            _to_codefresh_path(layer.root, project.root, cloudharness_root)
             for layer in reversed(project.all_layers())
         )
         replacements = {

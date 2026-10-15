@@ -139,7 +139,10 @@ CLOUD_HARNESS_DIR_NAME = "cloud-harness"
 
 
 def pipeline_relative_path(
-    path: Path, relative_to: Path, boundary: Path | None = None
+    path: Path,
+    relative_to: Path,
+    boundary: Path | None = None,
+    cloudharness_root: Path | None = None,
 ) -> Path:
     rel_parts = path.resolve().relative_to(relative_to.resolve(), walk_up=True).parts
     if rel_parts and rel_parts[0] == "..":
@@ -150,9 +153,13 @@ def pipeline_relative_path(
                 pass
             else:
                 return Path(*rel_parts)
-        abs_parts = path.resolve().parts
-        if CLOUD_HARNESS_DIR_NAME in abs_parts:
-            return Path(*abs_parts[abs_parts.index(CLOUD_HARNESS_DIR_NAME):])
+        if cloudharness_root is not None:
+            try:
+                suffix = path.resolve().relative_to(cloudharness_root.resolve())
+            except ValueError:
+                pass
+            else:
+                return Path(CLOUD_HARNESS_DIR_NAME, *suffix.parts)
     return Path(*rel_parts) if rel_parts else Path(".")
 
 
