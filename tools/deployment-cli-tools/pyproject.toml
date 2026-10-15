@@ -41,7 +41,6 @@ script-files = [
     "harness-application",
     "harness-migrate",
     "harness-deployment-ng",
-    "harness-tui",
 ]
 
 [tool.setuptools.packages.find]
