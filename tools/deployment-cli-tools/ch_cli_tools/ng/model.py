@@ -1,15 +1,3 @@
-from .utils import (
-    MERGE_DIRNAME,
-    _merge_base_chain,
-    content_hash,
-    dict_merge,  # type: ignore
-    env_suffixed_path,
-    get_yaml_parser,
-    merge_with_layer,
-    own_dockerfile_path,
-    parse_dockerfile,
-    resolve_path,
-)
 import copy
 import hashlib
 import itertools
@@ -26,6 +14,19 @@ from cloudharness_model import HarnessMainConfig  # type: ignore
 
 from ch_cli_tools.configuration.secrets import secret_definition_error  # type: ignore
 
+from .utils import (
+    MERGE_DIRNAME,
+    _merge_base_chain,
+    content_hash,
+    dict_merge,  # type: ignore
+    env_suffixed_path,
+    get_yaml_parser,
+    merge_with_layer,
+    own_dockerfile_path,
+    parse_dockerfile,
+    resolve_path,
+)
+
 KEY_TASK_IMAGES = "task-images"
 _ENTRYPOINT_OVERRIDE_PATTERN = re.compile(
     r"CLOUDHARNESS_FLASK|gunicorn|CLOUDHARNESS_DJANGO", re.IGNORECASE
@@ -33,26 +34,28 @@ _ENTRYPOINT_OVERRIDE_PATTERN = re.compile(
 
 
 class TaskUnknownError(KeyError):
-    pass
+    """Raised when an app has no such task."""
 
 
 class AppUnknownError(KeyError):
-    pass
+    """Raised when no app matches a lookup."""
 
 
 class DependencyUnknownError(Exception):
-    pass
+    """Raised when a declared dependency can't be resolved."""
 
 
 class InvalidVolumeConfigurationError(Exception):
-    pass
+    """Raised for a malformed volume configuration."""
 
 
 class ValuesValidationError(Exception):
-    pass
+    """Raised when harness values fail validation."""
 
 
 class CHUnitTest:
+    """harness.test.unit configuration."""
+
     def __init__(self, config: dict):
         self._config = config
 
@@ -68,6 +71,8 @@ class CHUnitTest:
 
 
 class CHApiTest:
+    """harness.test.api configuration."""
+
     def __init__(self, config: dict):
         self._config = config
 
@@ -89,6 +94,8 @@ class CHApiTest:
 
 
 class CHE2ETest:
+    """harness.test.e2e configuration."""
+
     def __init__(self, config: dict):
         self._config = config
 
@@ -110,6 +117,8 @@ class CHE2ETest:
 
 
 class CHTest:
+    """harness.test configuration (unit/api/e2e)."""
+
     def __init__(self, config: dict):
         self._config = config or {}
 
@@ -130,7 +139,10 @@ yaml = get_yaml_parser()
 
 
 class CHApp:
+    """An application belonging to a CHProject, not necessarily part of the final deployment - see is_involved."""
+
     def __init__(self, path: Path, parent: "CHProject"):
+        """Resolves the app's Dockerfile and base layer, then scans its own tasks and instances."""
         self.path = path
         self.parent = parent
         self.name = self.path.name
@@ -159,6 +171,7 @@ class CHApp:
 
     @property
     def dockerfile(self) -> "CHDockerfile":
+        """This app's Dockerfile, own or inherited from its base layer."""
         own = self._dockerfile.resolved
         if not own.exists() and self.base:
             return self.base.dockerfile
@@ -187,6 +200,7 @@ class CHApp:
 
     @lru_cache
     def raw_values(self):
+        """This app's own values merged over its base layer's."""
         own = self.app_basevalues_template.merge_with_envs(self.project.config.envs)
         if self.base is None:
             return own
@@ -194,6 +208,7 @@ class CHApp:
 
     @lru_cache
     def all_values(self):
+        """Project-wide app defaults merged under this app's raw values."""
         return dict_merge(
             self.project.app_defaults.merge_with_base_and_envs(),
             self.raw_values(),
@@ -209,6 +224,7 @@ class CHApp:
 
     @property
     def own_instance_names(self) -> set[str]:
+        """This app's own instance directories that declare values for the active environment."""
         instances_dir = self.path / "deploy" / "instances"
         envs = self.project.config.envs
         names = set()
@@ -252,6 +268,7 @@ class CHApp:
 
     @property
     def soft_dependencies(self) -> list["CHApp | str"]:
+        """Soft dependency names resolved to known apps, excluded ones dropped."""
         return [
             self.project.scanned_apps.get(dep, dep)
             for dep in cast(
@@ -263,6 +280,7 @@ class CHApp:
 
     @property
     def hard_dependencies(self) -> list["CHApp | str"]:
+        """Hard dependency, resolved to known apps; raises an exception if one is excluded."""
         deps = []
         for dep in cast(
             list[str],
@@ -276,6 +294,7 @@ class CHApp:
         return deps
 
     def build_dependencies(self) -> list["CHApp | CHBaseImage | CHAppTask | str"]:
+        """Build dependencies, resolved against apps, base images and tasks."""
         return [
             self.project.scanned_apps.get(dep) or
             self.project.base_images.get(dep) or
@@ -320,6 +339,7 @@ class CHApp:
 
     @property
     def app_entrypoint(self) -> Path | None:
+        """Where the app's __main__.py lives, if its Dockerfile/requirements call for overriding the entrypoint."""
         candidates = sorted(
             self.build_context.glob("**/__main__.py"), key=lambda p: len(p.parts)
         )
@@ -347,6 +367,7 @@ class CHApp:
 
     @property
     def is_buildable(self) -> bool:
+        """Whether CloudHarness should build this app's image."""
         if self.deployment_config.get("image_ref"):
             return False
         if self.dockerfile.exists():
@@ -362,6 +383,7 @@ class CHApp:
 
     @property
     def buildable_image(self) -> str | None:
+        """The image this app will be built as, if it builds one."""
         image_ref = self.deployment_config.get("image_ref")
         if image_ref:
             dependency_images = {
@@ -389,6 +411,13 @@ class CHApp:
             task.name: self.project.qualify_image(task) for task in self.buildable_tasks
         }
 
+    @property
+    def is_involved(self) -> bool:
+        """Whether this app is actually part of the final deployment."""
+        return self.name in {
+            app.name for app in self.project.involved_apps if not isinstance(app, str)
+        }
+
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.name!r} at {hex(id(self))}>"
 
@@ -398,10 +427,13 @@ def instance_app_key(app_name: str, instance_name: str) -> str:
 
 
 class CHAppInstance(CHApp):
+    """A named instance of an application, deployed as its own app."""
+
     _HOST_KEYS = ("subdomain", "aliases", "domain")
     _NAMED_RESOURCES = ("service", "deployment", "database")
 
     def __init__(self, parent_app: CHApp, instance_name: str):
+        """Mirrors CHApp's layout for an instance directory instead of an app one."""
         self.parent_app = parent_app
         self.instance_name = instance_name
         self.name = instance_app_key(parent_app.name, instance_name)
@@ -427,6 +459,7 @@ class CHAppInstance(CHApp):
 
     @property
     def buildable_image(self) -> str | None:
+        """The image this instance runs: its own, or the one its parent app builds."""
         own = self.deployment_config.get("image") or self.all_values().get("image")
         if own:
             return own
@@ -436,6 +469,7 @@ class CHAppInstance(CHApp):
 
     @staticmethod
     def _instance_sets(values: dict, *path: str) -> bool:
+        """Whether the instance's own values explicitly set this path."""
         node = values
         for key in path[:-1]:
             if not isinstance(node, dict):
@@ -444,6 +478,7 @@ class CHAppInstance(CHApp):
         return isinstance(node, dict) and path[-1] in node
 
     def _build_values(self, app_values: dict, instance_values: dict) -> dict:
+        """The instance's values: the parent's, without its identity (host, names), with the instance's own overrides on top."""
         instance_app = copy.deepcopy(app_values)
         harness = instance_app.setdefault("harness", {})
 
@@ -502,6 +537,8 @@ class CHAppInstance(CHApp):
 
 
 class CHValues:
+    """A values.yaml file, resolved across environments and base layers."""
+
     def __init__(
         self,
         path: Path,
@@ -534,6 +571,7 @@ class CHValues:
 
     @classmethod
     def path_for_env(cls, path, env):
+        """The env-suffixed sibling of path (values.yaml -> values-dev.yaml)."""
         suffix = env if isinstance(env, str) else "-".join(env)
         return env_suffixed_path(path, suffix)
 
@@ -547,6 +585,7 @@ class CHValues:
         return merge_with_layer(self, other)
 
     def merge_with_envs(self, envs: list[str]) -> dict:
+        """Base values merged with each environment-specific layer, in order."""
         result = self.all_raw_values() if self.exists() else {}
         for env in envs:
             layer = self.for_env(env)
@@ -555,6 +594,7 @@ class CHValues:
         return result
 
     def merge_with_base_and_envs(self) -> dict:
+        """This file, merged with its counterpart in every base layer."""
         layer = self.containing_project
         own = self.merge_with_envs(self.project.config.envs)
         if layer.base is None:
@@ -581,16 +621,16 @@ class CHValues:
 
 
 class CHTemplate:
+    """A Helm template file owned by an app."""
+
     def __init__(self, path: Path, parent: "CHProject | CHApp"):
         self.path = path
         self.project = parent
 
 
-class CHInstance:
-    ...
-
-
 class CHContext:
+    """A Docker build context, relocatable across merged base layers."""
+
     def __init__(self, path: Path, dockerfile: "CHDockerfile"):
         self.path = path
         self.dockerfile = dockerfile
@@ -600,6 +640,7 @@ class CHContext:
         return CHContext(context, self.dockerfile)
 
     def resolve_for_build(self, relative_to: Path) -> "CHContext":
+        """This entity's build context, merged across its base layers."""
         entity = self.dockerfile.app
         if entity.base is None:
             return self
@@ -613,6 +654,8 @@ class CHContext:
 
 
 class CHBaseImage:
+    """A base/common image under infrastructure/."""
+
     def __init__(self, path: Path, parent: "CHProject"):
         self.path = path
         self.app = parent
@@ -624,6 +667,7 @@ class CHBaseImage:
 
     @property
     def base(self) -> "CHBaseImage | None":
+        """This base image's counterpart one layer down, if any."""
         lower = self.containing_project.base
         if lower is None:
             return None
@@ -639,6 +683,7 @@ class CHBaseImage:
 
     @property
     def dockerfile(self) -> "CHDockerfile":
+        """This image's Dockerfile, own or inherited from its base layer."""
         own = self._dockerfile.resolved
         if not own.exists() and self.base:
             return self.base.dockerfile
@@ -646,6 +691,7 @@ class CHBaseImage:
 
     @property
     def build_context(self) -> Path:
+        """Shared base images build from the project root; the rest build from their own directory."""
         if self.path.parent.name != "base-images":
             return self.path
         return self.containing_project.root
@@ -662,11 +708,15 @@ class CHBaseImage:
 
 
 class CHTestImage(CHBaseImage):
+    """A base image under test/."""
+
     def _lower_registry(self, lower: "CHProject") -> dict:
         return lower.test_images
 
 
 class CHAppTask:
+    """A buildable task owned by an app or base image."""
+
     def __init__(self, path: Path, parent: "CHApp | CHBaseImage"):
         self.path = path
         self.app = parent
@@ -691,6 +741,7 @@ class CHAppTask:
 
     @property
     def dockerfile(self) -> "CHDockerfile":
+        """This task's Dockerfile, own or inherited from its base layer."""
         own = self._dockerfile.resolved
         if not own.exists() and self.base:
             return self.base.dockerfile
@@ -716,6 +767,8 @@ class CHAppTask:
 
 
 class CHOpenAPI:
+    """An app's openapi.yaml spec."""
+
     def __init__(self, path: Path, parent: "CHApp"):
         self.path = path
         self.app = parent
@@ -737,7 +790,9 @@ class CHOpenAPI:
 
 
 class CHDockerfile:
-    def __init__(self, path: Path, parent: "CHApp | CHAppTask | CHBaseImage"):
+    """A Dockerfile, resolved across env and base overrides."""
+
+    def __init__(self, path: Path, parent: CHApp | CHAppTask | CHBaseImage):
         self.path = path
         self.app = parent
 
@@ -746,13 +801,15 @@ class CHDockerfile:
 
     @property
     def resolved(self) -> "CHDockerfile":
+        """The env-specific Dockerfile sibling, if one exists for the active environment."""
         for env in self.app.project.config.envs:
             env_path = self.path.with_name(f"{env}.Dockerfile")
             if env_path.exists():
                 return CHDockerfile(env_path, self.app)
         return self
 
-    def resolve_context(self, relative_to: Path) -> "CHContext":
+    def resolve_context(self, relative_to: Path) -> CHContext:
+        """The build context and Dockerfile path, both relative to the given root."""
         context = self.app.build_context.resolve().relative_to(
             relative_to.resolve(), walk_up=True
         )
@@ -791,6 +848,7 @@ class CHDockerfile:
 
     @property
     def base_dependencies(self) -> list["CHApp | CHBaseImage | CHAppTask | str"]:
+        """Apps, base images or tasks referenced via ARG in a FROM line."""
         if not self.exists():
             return []
 
@@ -819,6 +877,7 @@ class CHDockerfile:
 
 
 def _default_test_unit_enabled(harness: dict) -> dict:
+    """Defaults harness.test.unit.enabled to False when the block exists but doesn't say."""
     unit = resolve_path(harness, "test.unit")
     if isinstance(unit, dict) and "enabled" not in unit:
         return dict_merge(harness, {"test": {"unit": {"enabled": False}}})
@@ -826,6 +885,7 @@ def _default_test_unit_enabled(harness: dict) -> dict:
 
 
 def _finalize_app_names(name: str, harness: dict) -> dict:
+    """Defaults the service/deployment/database resource names to the app's name."""
     harness = {**harness, "name": name}
     for key, default_name in (("service", name), ("deployment", name)):
         block = harness.get(key)
@@ -839,6 +899,7 @@ def _finalize_app_names(name: str, harness: dict) -> dict:
 
 
 def _drop_mountpathless_volume(harness: dict) -> dict:
+    """Drops an auto volume lacking a mountpath; rejects one that was otherwise configured."""
     deployment = harness.get("deployment")
     if not isinstance(deployment, dict):
         return harness
@@ -854,6 +915,7 @@ def _drop_mountpathless_volume(harness: dict) -> dict:
 
 
 def _clear_unused_db_configuration(harness: dict) -> dict:
+    """Drops every database type's config except the one actually selected."""
     database = harness.get("database")
     if not isinstance(database, dict):
         return harness
@@ -873,6 +935,7 @@ def _clear_unused_db_configuration(harness: dict) -> dict:
 
 
 def _promote_legacy_top_level_fields(value: dict, harness: dict) -> dict:
+    """Copies a few deployment fields to the top level for legacy compatibility."""
     value = {**value, "name": harness["name"]}
     deployment = harness.get("deployment") or {}
     if deployment.get("image"):
@@ -890,6 +953,7 @@ def _finalize_app_values(
     image: str | None = None,
     task_images: dict[str, str] | None = None,
 ) -> dict:
+    """Applies every per-app values finalization step and resolves its build flag."""
     harness = dict(value.get("harness") or {})
     harness = _default_test_unit_enabled(harness)
     harness = _finalize_app_names(name, harness)
@@ -914,6 +978,7 @@ def _finalize_app_values(
 
 
 def register_file(key: str, path: Callable[[Path], Path], only_env: bool = False):
+    """Registers an extra values file CHProject.__init__ should load for every layer."""
 
     def clsdescr(cls):
         CHProject._extregister.append((cls, key, path, only_env))
@@ -923,6 +988,8 @@ def register_file(key: str, path: Callable[[Path], Path], only_env: bool = False
 
 
 class CHProject:
+    """A deployment root, optionally layered over a base CHProject."""
+
     _extregister: list[tuple[type, str, Callable[[Path], Path], bool]] = []
 
     def __init__(
@@ -931,6 +998,7 @@ class CHProject:
         base: "CHProject | None" = None,
         config: "CHDeployConfig | None" = None,
     ):
+        """Scans this project's own apps, base images and test images, merging them over its base layer's."""
         self.root = Path(root)
         resolved_config = config if config else CHDeployConfig()
         self.base = base
@@ -993,6 +1061,7 @@ class CHProject:
 
     @classmethod
     def init(cls, root_paths, config: "CHDeployConfig | None" = None) -> "CHProject":
+        """Builds the layer chain bottom-up from root_paths, lowest priority first."""
         project = None
         for path in root_paths:
             project = cls(path, base=project, config=config)
@@ -1022,6 +1091,7 @@ class CHProject:
 
     @property
     def project(self) -> "CHProject":
+        """The top of the layer chain."""
         top = self
         while top._overlay is not None:
             top = top._overlay
@@ -1037,6 +1107,7 @@ class CHProject:
 
     @property
     def involved_apps(self):
+        """Every entrypoint, its dependencies, and their instances."""
         base = set(
             itertools.chain(self.entrypoint_apps().values(), *self.all_dependencies())
         )
@@ -1051,6 +1122,7 @@ class CHProject:
 
     @lru_cache
     def all_instances(self) -> dict[str, CHAppInstance]:
+        """Every app's instances, keyed by their deployment key; raises on a name collision with a real app."""
         instances = {
             instance.name: instance
             for app in self.scanned_apps.values()
@@ -1066,13 +1138,16 @@ class CHProject:
         return instances
 
     def entrypoint_apps(self):
+        """Apps and instances selected by --include/--exclude; instances always follow their parent."""
         includes = self._includes_with_instances()
         excludes = self.config.excludes
 
-        def is_included(app): return (
-            (len(includes) > 0 and app in includes) or len(includes) == 0
-        )
-        def is_not_excluded(app): return app not in excludes
+        def is_included(app):
+            return (len(includes) > 0 and app in includes) or len(includes) == 0
+
+        def is_not_excluded(app):
+            return app not in excludes
+
         candidates = {**self.scanned_apps, **self.all_instances()}
         return {
             app_name: app
@@ -1081,6 +1156,7 @@ class CHProject:
         }
 
     def _includes_with_instances(self) -> set[str]:
+        """config.includes, expanded so naming an app or one of its instances pulls in the other."""
         includes = set(self.config.includes)
         if not includes:
             return includes
@@ -1091,6 +1167,7 @@ class CHProject:
         return includes
 
     def all_dependencies(self):
+        """Every soft and hard dependency reachable from the entrypoint apps."""
         softs: set[CHApp | str] = set()
         hards: set[CHApp | str] = set()
         seen: set[str] = set()
@@ -1115,6 +1192,7 @@ class CHProject:
         return tasks
 
     def all_source_images(self) -> dict[str, str]:
+        """Every externally-sourced image: Dockerfile ARGs plus the source_images overrides."""
         images: dict[str, str] = {}
         for app in self.involved_apps:
             if isinstance(app, str):
@@ -1126,6 +1204,7 @@ class CHProject:
         return images
 
     def _combined_dependencies(self, entity: CHApp | CHBaseImage | CHAppTask):
+        """An entity's explicit build dependencies plus the ones guessed from its Dockerfile."""
         explicit = entity.build_dependencies()
         for dep in explicit:
             if isinstance(dep, str):
@@ -1138,14 +1217,13 @@ class CHProject:
         return [*explicit, *guessed]
 
     def _is_suppressed_orphan_task(self, dependency) -> bool:
+        """Whether a task belongs to an app that isn't actually being deployed."""
         if self.config.manage_task_images or not isinstance(dependency, CHAppTask):
             return False
-        involved_names = {
-            app.name for app in self.involved_apps if not isinstance(app, str)
-        }
-        return dependency.app.name not in involved_names
+        return not dependency.app.is_involved
 
     def all_build_dependencies(self, already_covered=()):
+        """Every build dependency reachable from the involved apps, transitively."""
         needed = {}
         stack = []
         for app in self.involved_apps:
@@ -1181,6 +1259,7 @@ class CHProject:
         return tuple(app for app in self.involved_apps if not isinstance(app, str))
 
     def _hashable_entities(self) -> dict[str, CHApp | CHBaseImage | CHAppTask]:
+        """Every entity whose image needs a content-hash tag."""
         entities: dict[str, CHApp | CHBaseImage | CHAppTask] = {}
         for app in self._concrete_involved_apps:
             if app.is_buildable:
@@ -1191,6 +1270,7 @@ class CHProject:
 
     @lru_cache
     def _content_hash_tags(self) -> dict[str, str]:
+        """Content-hash tags per entity, folding in each dependency's own hash; cycle-safe."""
         entities = self._hashable_entities()
         tags: dict[str, str] = {}
         own_hashes: dict[str, str] = {}
@@ -1234,6 +1314,7 @@ class CHProject:
         return f"{qualified}:{tag}" if tag else qualified
 
     def all_task_images(self) -> dict[str, str]:
+        """Qualified images for every build dependency and task, deployed or not."""
         already_deployed = tuple(app.name for app in self._concrete_involved_apps)
         images = {
             name: self.qualify_image(dependency)
@@ -1247,6 +1328,7 @@ class CHProject:
 
     @lru_cache
     def all_values(self):
+        """Every involved app's values merged under the project's own defaults and overrides."""
         app_values = {}
         for app in self.involved_apps:
             if isinstance(app, str):
@@ -1272,6 +1354,7 @@ class CHProject:
         return self.all_values()["name"]
 
     def build_final_helm_values(self, write_on_disk=True) -> HarnessMainConfig:
+        """Assembles the final Helm values for every involved app and the project as a whole."""
         involved_apps = {app.name: app for app in self._concrete_involved_apps}
         values = self.all_values()
         apps = {
@@ -1341,6 +1424,7 @@ class CHProject:
         return helm_values
 
     def validate(self) -> list[str]:
+        """Non-fatal deployment warnings (nfs/use_services issues); raises on invalid secrets."""
         warnings: list[str] = []
         deployed = {app.name for app in self._concrete_involved_apps}
         for app in self._concrete_involved_apps:
@@ -1383,6 +1467,8 @@ class CHProject:
 
 @dataclass
 class CHDeployConfig:
+    """Deployment-wide configuration options."""
+
     env: str | list[str] | None = field(default=None, kw_only=True)
     includes: list[str] = field(default_factory=list, kw_only=True)
     excludes: list[str] = field(default_factory=list, kw_only=True)
