@@ -26,6 +26,36 @@ def check_wf(wf):
     assert "spec" in wf
 
 
+def test_custom_task_supports_secret_environment_entries():
+    secret_environment = [
+        {
+            "name": name,
+            "valueFrom": {
+                "secretKeyRef": {
+                    "name": "database-credentials",
+                    "key": key,
+                }
+            },
+        }
+        for name, key in (("DB_USER", "username"), ("DB_PASS", "password"))
+    ]
+    task = tasks.CustomTask(
+        'secret-task', 'busybox', secret_envs=secret_environment,
+        DB_HOST='database',
+    )
+    workflow = operations.SingleTaskOperation('secret-operation-', task).to_workflow()
+    environment = {
+        item['name']: item
+        for item in workflow['spec']['templates'][0]['container']['env']
+    }
+
+    assert environment['DB_HOST']['value'] == 'database'
+    assert environment['DB_USER'] == secret_environment[0]
+    assert environment['DB_PASS'] == secret_environment[1]
+    assert 'secret_envs' not in environment
+    assert 'value' not in environment['DB_PASS']
+
+
 def test_volume_affinity_check():
     assert not utils.volume_requires_affinity("a")
     assert utils.volume_requires_affinity("a:b")
