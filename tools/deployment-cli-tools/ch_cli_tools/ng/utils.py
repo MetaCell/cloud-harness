@@ -6,6 +6,8 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import dirhash
+import xxhash
 from cloudharness.utils import dict_merge  # type: ignore
 from ruamel.yaml import YAML
 
@@ -213,7 +215,7 @@ _DEFAULT_IGNORE = (
     ".dockerignore",
     ".hypothesis",
     "__pycache__",
-    ".node_modules",
+    "node_modules",
     "dist",
     "build",
     ".coverage",
@@ -230,9 +232,16 @@ def _cloned_dependency_repos(directory: Path):
             yield from _cloned_dependency_repos(child)
 
 
-def content_hash(path: Path) -> str:
-    from dirhash import dirhash
+class _PruningFilter(dirhash.Filter):
+    def include(self, recursion_path):
+        if recursion_path.is_dir():
+            if recursion_path.is_symlink() and not self.linked_dirs:
+                return False
+            return self.match_file(recursion_path.relative)
+        return super().include(recursion_path)
 
+
+def content_hash(path: Path) -> str:
     ignore = set(_DEFAULT_IGNORE)
     dockerignore = path / ".dockerignore"
     if dockerignore.exists():
@@ -252,7 +261,12 @@ def content_hash(path: Path) -> str:
             if (commit_hash := get_git_commit_hash(repo))
         ]
 
-    digest = dirhash(str(path), "sha1", ignore=ignore, allow_cyclic_links=True)
+    match_patterns = dirhash.get_match_patterns(ignore=ignore)
+    filter_ = _PruningFilter(match_patterns=match_patterns)
+    protocol = dirhash.Protocol(allow_cyclic_links=True)
+    digest = dirhash.dirhash_impl(
+        str(path), xxhash.xxh3_64, filter_=filter_, protocol=protocol
+    )
     if git_hashes:
         digest = hashlib.sha1(
             (digest + "".join(git_hashes)).encode("utf-8")
@@ -260,15 +274,27 @@ def content_hash(path: Path) -> str:
     return digest
 
 
-_EXCLUDED_DOCKERFILE_SEGMENTS = {"tasks", "dependencies", "subapps", "instances"}
+_EXCLUDED_WALK_SEGMENTS = {
+    "tasks",
+    "dependencies",
+    "subapps",
+    "instances",
+    "node_modules",
+    ".git",
+}
+
+
+def find_files(path: Path, filename: str) -> list[Path]:
+    candidates = []
+    for root, dirs, files in path.walk():
+        dirs[:] = [d for d in dirs if d not in _EXCLUDED_WALK_SEGMENTS]
+        if filename in files:
+            candidates.append(root / filename)
+    return candidates
 
 
 def own_dockerfile_path(path: Path) -> Path:
-    candidates = [
-        p
-        for p in path.rglob("Dockerfile")
-        if _EXCLUDED_DOCKERFILE_SEGMENTS.isdisjoint(p.relative_to(path).parts[:-1])
-    ]
+    candidates = find_files(path, "Dockerfile")
     if not candidates:
         return path / "Dockerfile"
     return min(candidates, key=lambda p: (len(p.parts), str(p)))

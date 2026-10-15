@@ -98,6 +98,7 @@ from .utils import (
     content_hash,
     dict_merge,  # type: ignore
     env_suffixed_path,
+    find_files,
     get_yaml_parser,
     merge_with_layer,
     own_dockerfile_path,
@@ -419,7 +420,7 @@ class CHApp:
     def app_entrypoint(self) -> Path | None:
         """Where the app's __main__.py lives, if its Dockerfile/requirements call for overriding the entrypoint."""
         candidates = sorted(
-            self.build_context.glob("**/__main__.py"), key=lambda p: len(p.parts)
+            find_files(self.build_context, "__main__.py"), key=lambda p: len(p.parts)
         )
         if not candidates:
             return None

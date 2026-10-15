@@ -7,7 +7,7 @@ name = "cloudharness-cli-tools"
 version = "3.0.0"
 description = "CloudHarness deploy and code generation tools"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 keywords = ["Cloud", "Kubernetes", "Helm", "Deploy"]
 authors = [{ email = "cloudharness@metacell.us" }]
 dependencies = [
@@ -17,6 +17,7 @@ dependencies = [
     "cloudharness_model",
     "cloudharness_utils",
     "dirhash",
+    "xxhash",
     "jinja2",
     "StrEnum ; python_version < '3.11'",
 ]
