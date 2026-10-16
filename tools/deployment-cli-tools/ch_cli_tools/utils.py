@@ -186,16 +186,21 @@ def get_host_address():
     return s.getsockname()[0]
 
 
+_JSON_COMMENT = re.compile(r"(?<!:)//.*$")
+_JSON_TRAILING_COMMA = re.compile(r",(\s*[}\]])")
+
+
 def robust_load_json(json_path):
     """
-    Supports json with // comments
+    Supports json with // comments and trailing commas
     """
     try:
         with open(json_path) as f:
             return json.load(f)
     except:
         with open(json_path) as f:
-            return json.loads("".join(line for line in f if "//" not in line))
+            text = "\n".join(_JSON_COMMENT.sub("", line) for line in f)
+        return json.loads(_JSON_TRAILING_COMMA.sub(r"\1", text))
 
 
 def get_json_template(json_path, base_default=False):
