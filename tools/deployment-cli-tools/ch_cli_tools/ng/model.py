@@ -217,6 +217,17 @@ class CHTest:
 yaml = get_yaml_parser()
 
 
+def _base_chain(entity):
+    """`entity` followed by every entity reachable by repeatedly following
+    `.base` - shared by CHProject.all_layers and CHApp.all_layers, since both
+    are the same walk over a different `.base`-linked type."""
+    chain = []
+    while entity is not None:
+        chain.append(entity)
+        entity = entity.base
+    return chain
+
+
 class CHApp:
     """An application belonging to a CHProject, not necessarily part of the final deployment - see is_involved."""
 
@@ -496,6 +507,14 @@ class CHApp:
         return self.name in {
             app.name for app in self.project.involved_apps if not isinstance(app, str)
         }
+
+    def all_layers(self) -> list["CHApp"]:
+        """This app and every layer it overrides, nearest first, this app included."""
+        return _base_chain(self)
+
+    def all_sub_layers(self) -> list["CHApp"]:
+        """Every layer this app overrides, nearest first, this app not included."""
+        return _base_chain(self.base)
 
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.name!r} at {hex(id(self))}>"
@@ -1148,12 +1167,12 @@ class CHProject:
         return project
 
     def all_layers(self) -> list["CHProject"]:
-        layers = []
-        layer = self
-        while layer is not None:
-            layers.append(layer)
-            layer = layer.base
-        return layers
+        """This project and every layer it overrides, nearest first, this project included."""
+        return _base_chain(self)
+
+    def all_sub_layers(self) -> list["CHProject"]:
+        """Every layer this project overrides, nearest first, this project not included."""
+        return _base_chain(self.base)
 
     def __getitem__(self, key) -> "CHApp":
         try:
