@@ -44,11 +44,31 @@
 #      write should disappear entirely; the check asserts ≥50 lines land.
 #      Documents the tradeoff, it does not prevent the race.
 #
+#   4f. Export table clean after restart
+#      `exportfs -r` must exit 0 once mount-all has regenerated
+#      /etc/exports.d/, and no loop attach may have lost its free device
+#      (EBUSY) to a concurrent mount-all worker.
+#
 #   7. PVC delete cleanup
 #      Delete the PVC and verify the /etc/exports.d/<pv>.exports fragment is
 #      removed on the server. Proves the provisioner's Delete path correctly
 #      invokes `nfsvol delete` (which removes the fragment and runs
-#      `exportfs -r`).
+#      `exportfs -r`). Also checks no .quota is left behind (mount-all would
+#      remount it on the next restart) and the image is archived when the
+#      storage class says so.
+#
+#   8. Provisioning while another export is broken  ***regression***
+#      Plant an export fragment for a regular file, so `exportfs -r` exits 1,
+#      then require a new PVC to Bind. Reproduces the osb2 outage (Sep–Oct
+#      2026): nfsvol create took that exit code as its own failure, its retry
+#      turned the new mountpoint into a regular file, and no PVC could be
+#      provisioned again.
+#
+#   9. PVC delete after an interrupted `nfsvol delete`  ***regression***
+#      Unmount and remove a bound volume's mountpoint, leaving only its .quota
+#      (what a delete killed mid-way leaves), check the watchdog does not
+#      bring it back, then delete the PVC and require the PV and .quota to be
+#      gone. The provisioner used to skip such a delete and orphan the volume.
 #
 # What is NOT covered
 # -------------------
@@ -82,6 +102,11 @@ PVC="${PREFIX}-pvc"
 WRITER_A="${PREFIX}-writer-a"
 WRITER_B="${PREFIX}-writer-b"
 WRITER_C="${PREFIX}-writer-c"
+PVC_BROKEN_EXPORT="${PREFIX}-pvc-broken-export"
+PVC_INTERRUPTED="${PREFIX}-pvc-interrupted-delete"
+# Regular file with an export fragment, planted by test 8.
+POISON="/exports/${NAMESPACE}-${PREFIX}-poison"
+POISON_FRAGMENT="/etc/exports.d/${NAMESPACE}-${PREFIX}-poison.exports"
 
 log()  { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
 pass() { printf '[%s] PASS: %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
@@ -92,7 +117,12 @@ k() { kubectl -n "$NAMESPACE" "$@"; }
 cleanup() {
     log "cleanup: removing test fixtures"
     k delete pod "$WRITER_A" "$WRITER_B" "$WRITER_C" --ignore-not-found --grace-period=0 --force --wait=false 2>/dev/null || true
-    k delete pvc "$PVC" --ignore-not-found --wait=false 2>/dev/null || true
+    k delete pvc "$PVC" "$PVC_BROKEN_EXPORT" "$PVC_INTERRUPTED" --ignore-not-found --wait=false 2>/dev/null || true
+    local pod
+    pod=$(k get pod -l app=nfs-server -o jsonpath='{.items[0].metadata.name}' 2>/dev/null) || pod=""
+    if [ -n "$pod" ]; then
+        k exec "$pod" -- sh -c "rm -f '$POISON' '$POISON_FRAGMENT' && /usr/sbin/exportfs -r" >/dev/null 2>&1 || true
+    fi
 }
 trap cleanup EXIT
 
@@ -105,6 +135,35 @@ wait_for() {
         sleep 2
     done
     return 1
+}
+
+apply_pvc() {
+    # apply_pvc <name>: create a 100Mi RWX claim against $STORAGE_CLASS
+    cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: $1
+  namespace: $NAMESPACE
+  labels:
+    app: $PREFIX
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: $STORAGE_CLASS
+  resources:
+    requests:
+      storage: 100Mi
+EOF
+}
+
+wait_bound() {
+    # wait_bound <pvc> <seconds>
+    wait_for "$2" sh -c "[ \"\$(kubectl -n $NAMESPACE get pvc $1 -o jsonpath='{.status.phase}' 2>/dev/null)\" = Bound ]"
+}
+
+server_mountpoint() {
+    # server_mountpoint <nfs-pod> <pv>: the volume's mountpoint on the server
+    k exec "$1" -- sh -c "ls -d /exports/*-$2 2>/dev/null" | head -1
 }
 
 # -----------------------------------------------------------------------------
@@ -131,24 +190,8 @@ log "initial nfs-server pod: $INITIAL_NFS_POD"
 log "test 1: provision RWX PVC via $STORAGE_CLASS"
 # -----------------------------------------------------------------------------
 
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: $PVC
-  namespace: $NAMESPACE
-  labels:
-    app: $PREFIX
-spec:
-  accessModes: [ReadWriteMany]
-  storageClassName: $STORAGE_CLASS
-  resources:
-    requests:
-      storage: 100Mi
-EOF
-
-wait_for 60 sh -c "[ \"\$(kubectl -n $NAMESPACE get pvc $PVC -o jsonpath='{.status.phase}' 2>/dev/null)\" = Bound ]" \
-    || fail "PVC did not Bind within 60s"
+apply_pvc "$PVC"
+wait_bound "$PVC" 60 || fail "PVC did not Bind within 60s"
 PV_NAME=$(k get pvc "$PVC" -o jsonpath='{.spec.volumeName}')
 pass "PVC bound to $PV_NAME"
 
@@ -322,6 +365,20 @@ fi
 pass "loop device count $loop_count <= quota count $quota_count + $tolerance (no stale accumulation)"
 
 # -----------------------------------------------------------------------------
+log "test 4f: export table clean and no loop-device races after restart"
+# -----------------------------------------------------------------------------
+# mount-all regenerates /etc/exports.d/ from the quota files. One fragment for
+# a path that is not a directory makes every `exportfs -r` exit 1, which
+# blocked all provisioning on osb2. Its workers also used to race for the same
+# free loop device and lose with EBUSY.
+
+k exec "$NEW_NFS_POD" -- /usr/sbin/exportfs -r \
+    || fail "exportfs -r fails after restart -- a broken export fragment blocks all provisioning"
+busy=$(k logs "$NEW_NFS_POD" 2>/dev/null | grep -c 'LOOP_SET_FD.*device or resource busy' || true)
+[ "${busy:-0}" -eq 0 ] || fail "$busy loop attaches lost their device to a concurrent worker (EBUSY)"
+pass "exportfs -r exits 0 and no loop attach raced after restart"
+
+# -----------------------------------------------------------------------------
 log "test 4e: new client mount after server restart (rpc.mountd availability)"
 # -----------------------------------------------------------------------------
 # Spin up a fresh pod AFTER the server has restarted. This exercises the
@@ -418,6 +475,8 @@ NFS_POD=$(k get pod -l app=nfs-server -o jsonpath='{.items[0].metadata.name}')
 # mountpoint basename (which contains $PV_NAME inside it). Find it by listing.
 FRAGMENT=$(k exec "$NFS_POD" -- sh -c "ls /etc/exports.d/ 2>/dev/null" | grep -F "$PV_NAME" | head -1 || true)
 
+MP7=$(server_mountpoint "$NFS_POD" "$PV_NAME")
+
 if [ -z "$FRAGMENT" ]; then
     log "WARN: no exports fragment for $PV_NAME before PVC delete — skipping test 7"
 else
@@ -430,6 +489,78 @@ else
     wait_for 30 fragment_gone \
         || fail "exports fragment $FRAGMENT not removed after PVC delete"
     pass "exports fragment $FRAGMENT removed on PVC delete"
+
+    if [ -n "$MP7" ]; then
+        # nfsvol delete leaves the image as a regular file for the provisioner
+        # to archive or remove; a leftover .quota is remounted on restart.
+        quota_gone() { ! k exec "$NFS_POD" -- test -e "$MP7.quota"; }
+        wait_for 30 quota_gone || fail "$MP7.quota left behind after PVC delete"
+        if k exec "$NFS_POD" -- test -d "$MP7"; then
+            fail "$MP7 is still a directory after PVC delete"
+        fi
+        archive=$(kubectl get storageclass "$STORAGE_CLASS" -o jsonpath='{.parameters.archiveOnDelete}')
+        on_delete=$(kubectl get storageclass "$STORAGE_CLASS" -o jsonpath='{.parameters.onDelete}')
+        if [ "$archive" = true ] && [ -z "$on_delete" ]; then
+            archived() { k exec "$NFS_POD" -- test -f "/exports/archived-${MP7##*/}"; }
+            wait_for 30 archived || fail "volume image not archived to /exports/archived-${MP7##*/}"
+        fi
+        pass "no .quota left behind; volume image handed to the storage class's delete policy"
+    fi
 fi
+
+# -----------------------------------------------------------------------------
+log "test 8: provisioning while another volume's export is broken"
+# -----------------------------------------------------------------------------
+# Reproduces the osb2 outage (Sep–Oct 2026): an export fragment for a path
+# that is not a directory makes `exportfs -r` exit 1. nfsvol create took that
+# as its own failure, its retry turned the new mountpoint into a regular file,
+# and no PVC could be provisioned again.
+
+k exec "$NFS_POD" -- sh -c "echo image > '$POISON' && echo '$POISON *(rw,insecure,no_subtree_check)' > '$POISON_FRAGMENT'" \
+    || fail "could not plant the broken export"
+if k exec "$NFS_POD" -- /usr/sbin/exportfs -r >/dev/null 2>&1; then
+    fail "exportfs -r succeeded with a non-directory export -- test setup did not take"
+fi
+
+apply_pvc "$PVC_BROKEN_EXPORT"
+wait_bound "$PVC_BROKEN_EXPORT" 90 \
+    || fail "PVC not provisioned while another export is broken -- see 'unable to create directory' in nfs-server logs"
+PV8=$(k get pvc "$PVC_BROKEN_EXPORT" -o jsonpath='{.spec.volumeName}')
+MP8=$(server_mountpoint "$NFS_POD" "$PV8")
+k exec "$NFS_POD" -- test -d "$MP8" || fail "mountpoint of $PV8 is not a directory: '$MP8'"
+
+k exec "$NFS_POD" -- sh -c "rm -f '$POISON' '$POISON_FRAGMENT' && /usr/sbin/exportfs -r" \
+    || fail "exportfs -r still failing after removing the broken export"
+pass "PVC provisioned while another export was broken"
+
+# -----------------------------------------------------------------------------
+log "test 9: PVC delete after an interrupted nfsvol delete"
+# -----------------------------------------------------------------------------
+# nfsvol delete killed (e.g. by a spot preemption) after removing the
+# mountpoint but before renaming the .quota onto it. The watchdog used to
+# recreate and remount such a volume, and the provisioner skipped the delete
+# ("path ... does not exist, deletion skipped"), deleting the PV and orphaning
+# the .quota.
+
+apply_pvc "$PVC_INTERRUPTED"
+wait_bound "$PVC_INTERRUPTED" 60 || fail "PVC $PVC_INTERRUPTED did not Bind within 60s"
+PV9=$(k get pvc "$PVC_INTERRUPTED" -o jsonpath='{.spec.volumeName}')
+MP9=$(server_mountpoint "$NFS_POD" "$PV9")
+[ -n "$MP9" ] || fail "could not locate server-side mountpoint for $PV9"
+
+k exec "$NFS_POD" -- sh -c "umount -l '$MP9' && rmdir '$MP9'" \
+    || fail "could not simulate the interrupted delete of $MP9"
+sleep 45  # one watchdog cycle (30 s) plus margin
+if k exec "$NFS_POD" -- test -e "$MP9"; then
+    fail "watchdog brought back half-deleted volume $MP9"
+fi
+
+k delete pvc "$PVC_INTERRUPTED" --wait=true
+pv_gone() { ! kubectl get pv "$PV9" >/dev/null 2>&1; }
+wait_for 60 pv_gone || fail "PV $PV9 not deleted"
+if k exec "$NFS_POD" -- test -e "$MP9.quota"; then
+    fail "$MP9.quota orphaned -- the provisioner skipped the delete"
+fi
+pass "interrupted delete completed by PVC delete; nothing orphaned"
 
 log "ALL TESTS PASSED"
