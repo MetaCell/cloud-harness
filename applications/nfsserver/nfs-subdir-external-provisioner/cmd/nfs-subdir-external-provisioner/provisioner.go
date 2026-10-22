@@ -154,7 +154,7 @@ func (p *nfsProvisioner) Delete(ctx context.Context, volume *v1.PersistentVolume
 	// Derive the local path by substituting the NFS export root with the local mount path.
 	oldPath := strings.Replace(path, p.path, mountPath, 1)
 
-	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
+	if !volumeExists(oldPath) {
 		glog.Warningf("path %s does not exist, deletion skipped", oldPath)
 		return nil
 	}
@@ -200,6 +200,19 @@ func (p *nfsProvisioner) Delete(ctx context.Context, volume *v1.PersistentVolume
 	archivePath := filepath.Join(mountPath, "archived-"+basePath)
 	glog.V(4).Infof("archiving path %s to %s", oldPath, archivePath)
 	return os.Rename(oldPath, archivePath)
+}
+
+// volumeExists reports whether anything of the quota-backed volume at path is
+// still on disk: the mountpoint, or the .quota backing file that an interrupted
+// `nfsvol delete` had not yet renamed onto it. Skipping deletion in that state
+// would delete the PV and orphan the volume.
+func volumeExists(path string) bool {
+	for _, p := range []string{path, path + ".quota"} {
+		if _, err := os.Stat(p); !os.IsNotExist(err) {
+			return true
+		}
+	}
+	return false
 }
 
 // getClassForVolume returns StorageClass.
