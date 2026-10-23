@@ -129,3 +129,51 @@ def test_task_file_changes_trigger_different_tag():
         f"Task image tag for '{task_key}' did not change after modifying task files. "
         f"Before: {tag_before}, After: {tag_after}"
     )
+
+
+def test_test_image_file_changes_trigger_different_tag():
+    """Test images must get a hash-based tag that follows their content: left
+    untagged they resolve to `latest`, which already exists in the registry, so a
+    changed e2e test would never be rebuilt."""
+
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT], output_path=OUT, include=['samples'],
+        domain="my.local", namespace='test', env='dev', local=False,
+        tag=None, registry='reg',
+    )
+    assert values[KEY_TEST_IMAGES]['test-e2e'] == 'reg/cloud-harness/test-e2e'
+
+    preprocess_build_overrides(
+        root_paths=[CLOUDHARNESS_ROOT], helm_values=values,
+        merge_build_path=MERGE_BUILD_DIR,
+    )
+    values_before = copy.deepcopy(values)
+    generate_hash_based_image_tags(
+        root_paths=[CLOUDHARNESS_ROOT], helm_values=values_before,
+        merge_build_path=MERGE_BUILD_DIR,
+    )
+    tag_before = values_before[KEY_TEST_IMAGES]['test-e2e']
+    assert tag_before.startswith('reg/cloud-harness/test-e2e:')
+    assert ':' in values_before[KEY_TEST_IMAGES]['test-api']
+
+    tmp_file = os.path.join(CLOUDHARNESS_ROOT, 'test', 'test-e2e', '__tests__', '_tag_test_tmp_file')
+    try:
+        with open(tmp_file, 'w') as f:
+            f.write('trigger-tag-change')
+
+        values_after = copy.deepcopy(values)
+        generate_hash_based_image_tags(
+            root_paths=[CLOUDHARNESS_ROOT], helm_values=values_after,
+            merge_build_path=MERGE_BUILD_DIR,
+        )
+        tag_after = values_after[KEY_TEST_IMAGES]['test-e2e']
+    finally:
+        if os.path.exists(tmp_file):
+            os.remove(tmp_file)
+        if os.path.exists(MERGE_BUILD_DIR):
+            shutil.rmtree(MERGE_BUILD_DIR)
+
+    assert tag_before != tag_after, (
+        f"Test image tag for 'test-e2e' did not change after modifying its files. "
+        f"Before: {tag_before}, After: {tag_after}"
+    )

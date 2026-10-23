@@ -7,11 +7,11 @@ import shutil
 from glob import glob
 from os.path import join, basename, dirname, isabs, relpath
 
-from ..constants import KEY_APPS, KEY_TASK_IMAGES, KEY_HARNESS, KEY_DEPLOYMENT
+from ..constants import KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES, KEY_HARNESS, KEY_DEPLOYMENT
 from .configurationgenerator import DEFAULT_IGNORE, generate_tag_from_content
 
-from ..utils import app_name_from_path, merge_app_directories, merge_configuration_directories, find_subdirs, read_dockerignore, guess_build_dependencies_from_dockerfile
-from cloudharness_utils.constants import APPS_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, DEFAULT_MERGE_PATH, EXCLUDE_PATHS
+from ..utils import app_name_from_path, merge_app_directories, merge_configuration_directories, find_subdirs, read_dockerignore, guess_build_dependencies_from_dockerfile, find_dockerfiles_paths
+from cloudharness_utils.constants import APPS_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, TEST_IMAGES_PATH, DEFAULT_MERGE_PATH, EXCLUDE_PATHS
 
 
 def preprocess_build_overrides(root_paths, helm_values, merge_build_path=DEFAULT_MERGE_PATH):
@@ -167,8 +167,8 @@ def generate_hash_based_image_tags(root_paths, helm_values, merge_build_path=DEF
     """Recalculate hash-based tags for buildable images using merged build paths.
 
     This should be called after preprocess_build_overrides. It updates only
-    images that are marked to be built in values and keeps existing registry/
-    image names unchanged.
+    images that are marked to be built in values, plus the test images, and keeps
+    existing registry/image names unchanged.
     """
 
     build_paths = get_build_paths(root_paths=root_paths, helm_values=helm_values, merge_build_path=merge_build_path)
@@ -215,6 +215,27 @@ def generate_hash_based_image_tags(root_paths, helm_values, merge_build_path=DEF
             'dependencies': list(guess_build_dependencies_from_dockerfile(build_paths[image_key])),
         }
 
+    # Test images (test-e2e, test-api) are hashed on their own directory, the last
+    # root path winning as in the first-pass tagging. Without a hash tag they fall back
+    # to `latest`, which always exists in the registry, so they would never be rebuilt.
+    # test-api is built from the root context: that content is covered by chaining the
+    # cloudharness-base tag, which is hashed on the root context.
+    test_image_paths = {}
+    for root_path in root_paths:
+        for test_path in find_dockerfiles_paths(join(root_path, TEST_IMAGES_PATH)):
+            test_image_paths[basename(test_path)] = test_path
+
+    for image_key, image_name in helm_values.get(KEY_TEST_IMAGES, {}).items():
+        if image_key not in test_image_paths or not image_name:
+            continue
+
+        image_specs[image_key] = {
+            'kind': KEY_TEST_IMAGES,
+            'image': image_name,
+            'context': test_image_paths[image_key],
+            'dependencies': list(guess_build_dependencies_from_dockerfile(test_image_paths[image_key])),
+        }
+
     if not image_specs:
         return helm_values
 
@@ -256,6 +277,8 @@ def generate_hash_based_image_tags(root_paths, helm_values, merge_build_path=DEF
                 calculated_tags[image_key] = sha1(content_hash.encode('utf-8')).hexdigest()
                 pending.remove(image_key)
 
+    # test-images is not a model field: item access returns a copy, so it is assigned back whole
+    test_images = dict(helm_values.get(KEY_TEST_IMAGES) or {})
     retagged_images = {}
     for image_key, image_tag in calculated_tags.items():
         image_spec = image_specs[image_key]
@@ -269,6 +292,11 @@ def generate_hash_based_image_tags(root_paths, helm_values, merge_build_path=DEF
                 app_values[KEY_HARNESS][KEY_DEPLOYMENT]['image'] = retagged
         elif image_spec['kind'] == KEY_TASK_IMAGES and image_key in helm_values[KEY_TASK_IMAGES]:
             helm_values[KEY_TASK_IMAGES][image_key] = retagged
+        elif image_spec['kind'] == KEY_TEST_IMAGES:
+            test_images[image_key] = retagged
+
+    if test_images:
+        helm_values[KEY_TEST_IMAGES] = test_images
 
     apply_retagged_images(helm_values, retagged_images)
 
