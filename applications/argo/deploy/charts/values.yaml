@@ -5,6 +5,10 @@ images:
   pullSecrets: []
   # - name: argo-pull-secret
 
+# Keep controller and server pod naming consistent with CloudHarness log lookup.
+# This controls POD_NAMES for both components; POD_NAMES entries in extraEnv are ignored.
+podNameVersion: v1
+
 createAggregateRoles: true
 
 ## String to partially override "argo-workflows.fullname" template
@@ -149,10 +153,7 @@ controller:
   ## extraEnv:
   ##   - name: FOO
   ##     value: "bar"
-  extraEnv:
-    # Preserve CloudHarness pod-name and log lookup behavior.
-    - name: POD_NAMES
-      value: v1
+  extraEnv: []
 
   # Extra arguments to be added to the controller
   extraArgs: []
@@ -264,9 +265,7 @@ server:
   ## extraEnv:
   ##   - name: FOO
   ##     value: "bar"
-  extraEnv:
-    - name: POD_NAMES
-      value: v1
+  extraEnv: []
 
   # Extra arguments to provide to the Argo server binary.
   extraArgs:

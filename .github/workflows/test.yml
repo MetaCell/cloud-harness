@@ -32,7 +32,12 @@ jobs:
       - name: Install dependencies
         run: |
           curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-          pip install tox
+          pip install tox pytest PyYAML
+
+      - name: Test Argo component compatibility
+        run: |
+          helm lint applications/argo/deploy/charts
+          python -m pytest -q applications/argo/tests/test_components.py
 
       - name: Run tox - models
         run: tox -c libraries/models/

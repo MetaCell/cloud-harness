@@ -7,6 +7,7 @@ from .test_env import set_test_environment
 set_test_environment()
 set_debug()
 
+
 def test_integer_ttl_keeps_public_inputs_and_serializes_argo_duration():
     ttl = {'secondsAfterSuccess': 86400, 'secondsAfterFailure': 3600}
     operation = operations.PipelineOperation(

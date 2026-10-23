@@ -131,13 +131,14 @@ class ContainerizedOperation(ManagedOperation):
             delay = pod_gc.get('deleteDelayDuration')
             if type(delay) is int:
                 pod_gc['deleteDelayDuration'] = f"{delay}s"
+        image_pull_secret = config.CloudharnessConfig.get_registry_secret()
         spec = {
             'entrypoint': self.entrypoint,
             'ttlStrategy': self.ttl_strategy,
             'templates': [self.modify_template(template) for template in self.templates],
             'tolerations': [V1Toleration(key='cloudharness/temporary-job', operator='Equal', value='true').to_dict()],
             'serviceAccountName': SERVICE_ACCOUNT,
-            'imagePullSecrets': [{'name': config.CloudharnessConfig.get_registry_secret()}],
+            'imagePullSecrets': [{'name': image_pull_secret}] if image_pull_secret else [],
             'podGC': pod_gc,
             'volumes': [{
                 # mount allvalues so we can use the cloudharness Python library

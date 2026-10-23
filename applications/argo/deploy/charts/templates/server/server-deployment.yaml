@@ -60,6 +60,8 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 20
           env:
+            - name: POD_NAMES
+              value: {{ .Values.podNameVersion | quote }}
             - name: IN_CLUSTER
               value: "true"
             - name: ARGO_NAMESPACE
@@ -69,8 +71,10 @@ spec:
                   fieldPath: metadata.namespace
             - name: ARGO_BASE_HREF
               value: {{ .Values.server.baseHref | quote }}
-          {{- with .Values.server.extraEnv }}
-            {{- toYaml . | nindent 12 }}
+          {{- range .Values.server.extraEnv }}
+          {{- if ne .name "POD_NAMES" }}
+            {{- toYaml (list .) | nindent 12 }}
+          {{- end }}
           {{- end }}
           resources:
             {{- toYaml .Values.server.resources | nindent 12 }}

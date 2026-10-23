@@ -4,6 +4,7 @@ from cloudharness.workflows import argo_service
 from cloudharness import set_debug
 from cloudharness.workflows import operations, tasks, utils
 import requests
+import pytest
 import yaml
 
 from cloudharness.workflows.utils import is_accounts_present
@@ -18,6 +19,15 @@ execute = False
 verbose = True
 
 assert 'registry' in CloudharnessConfig.get_configuration()
+
+
+@pytest.mark.parametrize("secret_name", [None, "", "private-registry"])
+def test_default_command_task_uses_only_a_configured_pull_secret(monkeypatch, secret_name):
+    monkeypatch.setattr(CloudharnessConfig, "get_registry_secret", lambda: secret_name)
+    task = tasks.CustomTask("default-command", "busybox")
+    workflow = operations.SingleTaskOperation("pull-secret-", task).to_workflow()
+    assert "command" not in workflow["spec"]["templates"][0]["container"]
+    assert workflow["spec"]["imagePullSecrets"] == ([{"name": secret_name}] if secret_name else [])
 
 
 def check_wf(wf):

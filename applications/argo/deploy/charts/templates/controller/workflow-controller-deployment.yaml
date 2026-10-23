@@ -55,6 +55,8 @@ spec:
           securityContext:
             {{- toYaml .Values.controller.securityContext | nindent 12 }}
           env:
+            - name: POD_NAMES
+              value: {{ .Values.podNameVersion | quote }}
             - name: ARGO_NAMESPACE
               valueFrom:
                 fieldRef:
@@ -65,8 +67,10 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.name
-          {{- with .Values.controller.extraEnv }}
-            {{- toYaml . | nindent 12 }}
+          {{- range .Values.controller.extraEnv }}
+          {{- if ne .name "POD_NAMES" }}
+            {{- toYaml (list .) | nindent 12 }}
+          {{- end }}
           {{- end }}
           resources:
             {{- toYaml .Values.controller.resources | nindent 12 }}

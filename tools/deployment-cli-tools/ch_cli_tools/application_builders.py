@@ -266,7 +266,7 @@ class AppBuilderPipeline(ApplicationBuilder):
         for template in self.templates:
             run_merge = (
                 app_builder.handle_merge
-                if (app_builder: = self.app_builders.get(template, None))
+                if (app_builder := self.app_builders.get(template, None))
                 else lambda: self.merge_template_directories(template)
             )
             run_merge()
