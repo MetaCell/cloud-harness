@@ -250,16 +250,16 @@ def test_init_app_values_env_specific_defaults(tmp_path, monkeypatch):
     apply to the applications of any root, and are overridden by the current root"""
     ch_root = tmp_path / 'cloudharness'
     (ch_root / DEPLOYMENT_CONFIGURATION_PATH).mkdir(parents=True)
-    (ch_root / DEPLOYMENT_CONFIGURATION_PATH
-     / 'value-template.yaml').write_text('ch-defaults: base\nenv-defaults: ch-base\n')
-    (ch_root / DEPLOYMENT_CONFIGURATION_PATH
-     / 'value-template-dev.yaml').write_text('ch-env-defaults: ch-dev\nenv-defaults: ch-dev\n')
+    (ch_root / DEPLOYMENT_CONFIGURATION_PATH /
+     'value-template.yaml').write_text('ch-defaults: base\nenv-defaults: ch-base\n')
+    (ch_root / DEPLOYMENT_CONFIGURATION_PATH /
+     'value-template-dev.yaml').write_text('ch-env-defaults: ch-dev\nenv-defaults: ch-dev\n')
 
     deployment_root = tmp_path / 'deployment'
     (deployment_root / APPS_PATH / 'myapp').mkdir(parents=True)
     (deployment_root / DEPLOYMENT_CONFIGURATION_PATH).mkdir(parents=True)
-    (deployment_root / DEPLOYMENT_CONFIGURATION_PATH
-     / 'value-template-dev.yaml').write_text('env-defaults: root-dev\n')
+    (deployment_root / DEPLOYMENT_CONFIGURATION_PATH /
+     'value-template-dev.yaml').write_text('env-defaults: root-dev\n')
 
     monkeypatch.setattr(configurationgenerator, 'CH_ROOT', str(ch_root))
 
@@ -1121,8 +1121,8 @@ def test_app_depends_on_task_only(tmp_path):
 
 def find_manifests(manifests, kind, name=None):
     return [manifest for manifest in manifests
-            if manifest.get("kind") == kind
-            and (name is None or manifest.get("metadata", {}).get("name") == name)]
+            if manifest.get("kind") == kind and
+            (name is None or manifest.get("metadata", {}).get("name") == name)]
 
 
 def render_with_secrets(tmp_path, name, secrets, secretmanagers=None, app='myapp', include=None, patch=None):

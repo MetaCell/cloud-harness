@@ -93,7 +93,6 @@ controller:
   #    ttlStrategy:
   #      secondsAfterCompletion: 84600
   # workflowWorkers: 32
-  # podWorkers: 32
   workflowRestrictions: {} # Only valid for 2.9+
   #  templateReferencing: Strict|Secure
   telemetryConfig:

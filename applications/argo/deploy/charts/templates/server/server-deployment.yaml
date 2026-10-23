@@ -60,6 +60,16 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 20
           env:
+            {{- $hasPodNames := false }}
+            {{- range .Values.server.extraEnv }}
+              {{- if eq .name "POD_NAMES" }}
+                {{- $hasPodNames = true }}
+              {{- end }}
+            {{- end }}
+            {{- if not $hasPodNames }}
+            - name: POD_NAMES
+              value: "v1"
+            {{- end }}
             - name: IN_CLUSTER
               value: "true"
             - name: ARGO_NAMESPACE

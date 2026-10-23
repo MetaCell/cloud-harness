@@ -1,13 +1,16 @@
-# Argo sub chart
+# Argo Workflows
 
-TODO change this to a chart dependency whenever this is fixed: https://github.com/argoproj/argo-helm/issues/521
+CloudHarness uses Argo to run container workflows with the PNS executor.
+Configure the vendored [Helm chart](charts/) through `argo-workflows` values;
+see [values.yaml](charts/values.yaml) for options.
 
-To use as add dependency, add the following to Chart.yaml
-```
-dependencies:
-- name: argo
-  version: ">=0.14.0"
-  repository: https://argoproj.github.io/argo-helm
-  condition: true
-  alias: apps-argo
+Tasks report progress by writing `N/M` to `ARGO_PROGRESS_FILE`.
+Keep component image versions aligned and apply matching [CRDs](charts/crds/)
+explicitly when upgrading; Helm does not update existing CRDs.
+
+Run chart checks from the repository root:
+
+```sh
+helm lint applications/argo/deploy/charts
+python -m pytest -q applications/argo/tests/test_components.py
 ```
