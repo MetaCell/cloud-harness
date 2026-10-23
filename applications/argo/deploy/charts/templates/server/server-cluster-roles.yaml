@@ -101,6 +101,9 @@ rules:
     - sensors
     - workflows
     - workfloweventbindings
+    - workflowtaskresults
+    - workflowtasksets
+    - workflowartifactgctasks
     - workflowtemplates
     - cronworkflows
   verbs:

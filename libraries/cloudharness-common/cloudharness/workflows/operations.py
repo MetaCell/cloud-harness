@@ -120,6 +120,17 @@ class ContainerizedOperation(ManagedOperation):
         }
 
     def spec(self):
+        pod_gc = self.pod_gc or {
+            'strategy': 'OnWorkflowSuccess',
+            'deleteDelayDuration': self.ttl_strategy['secondsAfterSuccess'] if self.ttl_strategy else "600s",
+        }
+        # Keep integer seconds in caller inputs; Argo requires a duration string.
+        # Preserve SDK-model inputs and avoid mutating caller dictionaries.
+        if isinstance(pod_gc, dict):
+            pod_gc = dict(pod_gc)
+            delay = pod_gc.get('deleteDelayDuration')
+            if type(delay) is int:
+                pod_gc['deleteDelayDuration'] = f"{delay}s"
         spec = {
             'entrypoint': self.entrypoint,
             'ttlStrategy': self.ttl_strategy,
@@ -127,10 +138,7 @@ class ContainerizedOperation(ManagedOperation):
             'tolerations': [V1Toleration(key='cloudharness/temporary-job', operator='Equal', value='true').to_dict()],
             'serviceAccountName': SERVICE_ACCOUNT,
             'imagePullSecrets': [{'name': config.CloudharnessConfig.get_registry_secret()}],
-            'podGC': self.pod_gc or {
-                'strategy': 'OnWorkflowSuccess',
-                'deleteDelayDuration': self.ttl_strategy['secondsAfterSuccess'] if self.ttl_strategy else "600s",
-            },
+            'podGC': pod_gc,
             'volumes': [{
                 # mount allvalues so we can use the cloudharness Python library
                 'name': 'cloudharness-allvalues',

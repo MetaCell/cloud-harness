@@ -93,7 +93,6 @@ controller:
   #    ttlStrategy:
   #      secondsAfterCompletion: 84600
   # workflowWorkers: 32
-  # podWorkers: 32
   workflowRestrictions: {} # Only valid for 2.9+
   #  templateReferencing: Strict|Secure
   telemetryConfig:
@@ -115,12 +114,7 @@ controller:
   # account and RBAC resources will be created. If unspecified, will run in the default namespace.
   workflowNamespaces:
     - default
-  containerRuntimeExecutor: pns
-  # containerRuntimeExecutors:
-  #   - name: emissary
-  #     selector:
-  #       matchLabels:
-  #         workflows.argoproj.io/container-runtime-executor: emissary
+  # Argo >=3.4 uses Emissary; legacy executor selection is not rendered.
   instanceID:
     # `instanceID.enabled` configures the controller to filter workflow submissions
     # to only those which have a matching instanceID attribute.
@@ -155,7 +149,10 @@ controller:
   ## extraEnv:
   ##   - name: FOO
   ##     value: "bar"
-  extraEnv: []
+  extraEnv:
+    # Preserve CloudHarness pod-name and log lookup behavior.
+    - name: POD_NAMES
+      value: v1
 
   # Extra arguments to be added to the controller
   extraArgs: []
@@ -267,7 +264,9 @@ server:
   ## extraEnv:
   ##   - name: FOO
   ##     value: "bar"
-  extraEnv: []
+  extraEnv:
+    - name: POD_NAMES
+      value: v1
 
   # Extra arguments to provide to the Argo server binary.
   extraArgs:

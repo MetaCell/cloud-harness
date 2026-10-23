@@ -74,6 +74,29 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - argoproj.io
+  resources:
+  - workflowtaskresults
+  - workflowtasksets
+  - workflowtasksets/finalizers
+  - workflowartifactgctasks
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - argoproj.io
+  resources:
+  - workflowtasksets/status
+  - workflowartifactgctasks/status
+  verbs:
+  - patch
+  - update
+- apiGroups:
   - ""
   resources:
   - events
