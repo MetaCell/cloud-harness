@@ -49,16 +49,22 @@ spec:
           - "--workflow-workers"
           - {{ . | quote }}
           {{- end }}
-          {{- with .Values.controller.podWorkers }}
-          - "--pod-workers"
-          - {{ . | quote }}
-          {{- end }}
           {{- with .Values.controller.extraArgs }}
             {{- toYaml . | nindent 10 }}
           {{- end }}
           securityContext:
             {{- toYaml .Values.controller.securityContext | nindent 12 }}
           env:
+            {{- $hasPodNames := false }}
+            {{- range .Values.controller.extraEnv }}
+              {{- if eq .name "POD_NAMES" }}
+                {{- $hasPodNames = true }}
+              {{- end }}
+            {{- end }}
+            {{- if not $hasPodNames }}
+            - name: POD_NAMES
+              value: "v1"
+            {{- end }}
             - name: ARGO_NAMESPACE
               valueFrom:
                 fieldRef:
