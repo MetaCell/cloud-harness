@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cloudharness-cli-tools"
+version = "3.0.0"
+description = "CloudHarness deploy and code generation tools"
+readme = "README.md"
+requires-python = ">=3.12"
+keywords = ["Cloud", "Kubernetes", "Helm", "Deploy"]
+authors = [{ email = "cloudharness@metacell.us" }]
+dependencies = [
+    "ruamel.yaml",
+    "docker",
+    "six",
+    "cloudharness_model",
+    "cloudharness_utils",
+    "dirhash",
+    "xxhash",
+    "jinja2",
+    "StrEnum ; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "coverage",
+    "nose",
+    "randomize",
+    "pyparsing",
+    "autopep8",
+]
+
+[tool.setuptools]
+include-package-data = true
+script-files = [
+    "harness-deployment",
+    "harness-generate",
+    "harness-application",
+    "harness-migrate",
+    "harness-deployment-ng",
+]
+
+[tool.setuptools.packages.find]
+exclude = ["*.tests", "*.tests.*", "tests.*", "tests"]
