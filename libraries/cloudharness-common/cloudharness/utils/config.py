@@ -70,7 +70,10 @@ class CloudharnessConfig:
 
     @classmethod
     def get_registry_secret(cls):
-        return cls.get_configuration()['registry'].get('secret', {}).get('name', '')
+        secret = cls.get_configuration()['registry'].get('secret') or {}
+        if not isinstance(secret, dict):
+            return ''
+        return secret.get('name') or ''
 
     @classmethod
     def is_secured(cls):
