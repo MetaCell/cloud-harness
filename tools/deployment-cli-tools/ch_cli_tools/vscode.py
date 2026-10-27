@@ -10,9 +10,11 @@ single "CloudHarness: Run/Debug" entry it owns, merged onto whatever other
 configurations are already there, never discarding them.
 
 CH model concepts this relies on:
-- CHProject[name] resolves an app the same way scanned_apps/the dependency
-  closure already does, giving the real, physically-owning layer's `.path`
-  for a pass-through app (not necessarily the top layer's own directory).
+- values.apps also holds every deployed app instance (e.g. "samples-instance1"),
+  which CHProject[name]/scanned_apps doesn't know about - resolved instead via
+  scanned_apps/all_instances(), same as entrypoint_apps() does. An instance's
+  own `.path` is its deploy/instances/<name> override folder, not where its
+  backend lives, so its setup.py search uses its parent app's `.path` instead.
 - values.apps (the already-built HarnessMainConfig) is the source of both
   which apps are actually deployed and each one's final, qualified image tag
   (harness.deployment.image - populated for every buildable app, not just
@@ -47,7 +49,7 @@ from pathlib import Path
 
 from ch_cli_tools.utils import robust_load_json  # type: ignore
 
-from .model import CHValues, register_file
+from .model import CHAppInstance, CHValues, register_file
 from .utils import dict_merge  # type: ignore
 
 _LAUNCH_JSON_DEFAULT = {"version": "0.2.0", "configurations": []}
@@ -93,7 +95,13 @@ class CHVSCodeDebug(CHValues):
                 app.harness and app.harness.deployment and app.harness.deployment.image
             ):
                 continue
-            setup_py = next(project[name].path.rglob("setup.py"), None)
+            entity = project.scanned_apps.get(name) or project.all_instances().get(name)
+            if entity is None:
+                continue
+            source_root = (
+                entity.parent_app.path if isinstance(entity, CHAppInstance) else entity.path
+            )
+            setup_py = next(source_root.rglob("setup.py"), None)
             if setup_py is None:
                 continue
             source_dir = setup_py.parent

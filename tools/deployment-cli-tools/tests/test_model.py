@@ -763,6 +763,42 @@ def test_create_vscode_debug_configuration_adds_debug_entry_for_deployed_app(
     assert json.loads((root / ".vscode" / "launch.json").read_text()) == launch
 
 
+def test_create_vscode_debug_configuration_includes_an_app_instance(tmp_path, monkeypatch):
+    """A deployed app instance (e.g. "debugapp-instance1") is in values.apps but not in
+    scanned_apps/CHProject[name] - it must still get a debug entry, pointing at its
+    parent app's own source directory (deploy/instances/<name> holds no backend code)."""
+    root = _vscode_debug_project(tmp_path)
+    write_tree(
+        root,
+        {"applications": {"debugapp": {"deploy": {"instances": {"instance1": {
+            "values.yaml": "harness:\n  subdomain: instance1\n",
+        }}}}}},
+    )
+    monkeypatch.chdir(root)
+    values = create_helm_chart(
+        [root],
+        output_path=tmp_path / "out",
+        domain="my.local",
+        namespace="test",
+        local=False,
+        tag=1,
+        registry="reg",
+    )
+
+    launch = create_vscode_debug_configuration([root], values)
+
+    [conf] = launch["configurations"]
+    assert conf["debug"] == [
+        {
+            "image": "reg/vscodetest/debugapp:1",
+            "sourceFileMap": {
+                "justMyCode": False,
+                "${workspaceFolder}/applications/debugapp/server": "/custom/src",
+            },
+        }
+    ] * 2, "the instance runs the parent's own image/source - generation must not crash"
+
+
 def test_create_vscode_debug_configuration_preserves_other_configurations_and_replaces_its_own(
     tmp_path, monkeypatch
 ):
