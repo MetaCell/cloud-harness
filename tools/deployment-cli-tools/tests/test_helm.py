@@ -333,10 +333,6 @@ def test_collect_helm_values_multiple_envs(tmp_path):
     assert values[KEY_APPS]["myapp"]["a"] == "test", "values-test not overriding"
 
 
-
-
-
-
 def test_collect_app_defaults_env_specific_chart(tmp_path):
     """The deployment root value-template-[env].yaml lands in the generated chart values"""
     out_folder = tmp_path / "test_collect_app_defaults_env_specific_chart"
@@ -427,8 +423,6 @@ def test_collect_helm_values_wrong_dependencies_validate(tmp_path):
         )
     except DependencyUnknownError:
         pytest.fail("Should not error because of missing use_services dependency")
-
-
 
 
 def test_collect_helm_values_build_dependencies(tmp_path):
@@ -887,8 +881,6 @@ def test_volume_storage_class_default(tmp_path):
     )
 
 
-
-
 def test_volume_usenfs_prevails(tmp_path):
     out_folder = tmp_path / "test_volume_usenfs_prevails"
     create_helm_chart(
@@ -931,8 +923,6 @@ def test_volume_usenfs_prevails(tmp_path):
     assert pvc["spec"]["accessModes"] == ["ReadWriteMany"]
     dep = find_manifest(manifests, "Deployment", harness["deployment"]["name"])
     assert "affinity" not in dep["spec"]["template"]["spec"]
-
-
 
 
 def test_database_storage_class(tmp_path):
@@ -1178,8 +1168,6 @@ def test_clear_all_dbconfig_if_nodb(tmp_path):
 
     db_config = values[KEY_APPS]["myapp"][KEY_HARNESS][KEY_DATABASE]
     assert db_config is None
-
-
 
 
 # Legacy's two-phase shape (a tag-less first pass, then
@@ -1874,7 +1862,6 @@ def test_secrets_definitions_survive_the_values_generation(tmp_path):
 #     assert find_manifests(manifests, 'OnePasswordItem', 'myapp-richsecret')
 #
 #
-
 
 
 def test_collect_helm_values_source_images_merge(tmp_path):
