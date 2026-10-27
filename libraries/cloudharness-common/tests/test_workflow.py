@@ -1,4 +1,8 @@
 """Notice, this test needs a fully operating kubernetes with argo environment in the container running the test"""
+from unittest.mock import patch
+
+import pytest
+
 from cloudharness.utils.config import CloudharnessConfig
 from cloudharness.workflows import argo_service
 from cloudharness import set_debug
@@ -24,6 +28,42 @@ def check_wf(wf):
 
     assert wf["kind"] == "Workflow"
     assert "spec" in wf
+
+
+@pytest.mark.parametrize('secret', [None, {}, {'name': ''}, {'name': None}, ''])
+def test_unconfigured_registry_secret(secret):
+    with patch.object(
+        CloudharnessConfig, 'get_configuration',
+        return_value={'registry': {'secret': secret}},
+    ):
+        assert CloudharnessConfig.get_registry_secret() == ''
+
+
+def test_missing_registry_secret():
+    with patch.object(CloudharnessConfig, 'get_configuration', return_value={'registry': {}}):
+        assert CloudharnessConfig.get_registry_secret() == ''
+
+
+def test_configured_registry_secret():
+    with patch.object(
+        CloudharnessConfig, 'get_configuration',
+        return_value={'registry': {'secret': {'name': 'private-registry'}}},
+    ):
+        assert CloudharnessConfig.get_registry_secret() == 'private-registry'
+
+
+@pytest.mark.parametrize('registry_secret', ['', 'private-registry'])
+def test_workflow_optional_image_pull_secret(registry_secret):
+    task = tasks.CustomTask('registry-task', 'busybox')
+    operation = operations.SingleTaskOperation('registry-operation-', task)
+
+    with patch.object(CloudharnessConfig, 'get_registry_secret', return_value=registry_secret):
+        workflow = operation.to_workflow()
+
+    if registry_secret:
+        assert workflow['spec']['imagePullSecrets'] == [{'name': registry_secret}]
+    else:
+        assert 'imagePullSecrets' not in workflow['spec']
 
 
 def test_volume_affinity_check():

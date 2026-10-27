@@ -12,7 +12,11 @@ import (
 )
 
 // Directory scanned by rpc.mountd for fragment exports files.
-const exportsConfigDir = "/etc/exports.d"
+// Variables rather than constants so tests can point them at a temp dir.
+var exportsConfigDir = "/etc/exports.d"
+
+// Table of active exports, rewritten by every `exportfs` run.
+var etabPath = "/var/lib/nfs/etab"
 
 // fsidFromPVName derives a stable uint32 NFS fsid from the given PV name.
 // 0 and 1 are reserved by NFS (0 = NFSv4 pseudo-root, 1 = unused) so values
@@ -72,14 +76,47 @@ func RemoveExport(mountpoint string) error {
 	return nil
 }
 
+// runExportfs runs `exportfs -r`; a variable so tests can replace it.
+var runExportfs = func() ([]byte, error) {
+	return exec.Command("exportfs", "-r").CombinedOutput()
+}
+
 // ReloadExports has the kernel re-read /etc/exports and /etc/exports.d/.
 // Safe to call whether or not rpc.mountd is running yet.
 func ReloadExports() error {
-	cmd := exec.Command("exportfs", "-r")
-	if out, err := cmd.CombinedOutput(); err != nil {
+	if out, err := runExportfs(); err != nil {
 		return fmt.Errorf("exportfs -r: %w\n%s", err, out)
 	}
 	return nil
+}
+
+// reloadExportsFor runs ReloadExports and succeeds if mountpoint ends up in the
+// active export table even when exportfs exits non-zero. exportfs only warns
+// about a bad entry (e.g. a path that is not a directory), still writes etab and
+// flushes the kernel cache, then exits 1 — so a bad fragment belonging to some
+// other volume must not fail operations on this one.
+func reloadExportsFor(mountpoint string) error {
+	err := ReloadExports()
+	if err == nil || !isExported(mountpoint) {
+		return err
+	}
+	log.Printf("%s is exported; ignoring exportfs failure: %v", mountpoint, err)
+	return nil
+}
+
+// isExported reports whether path is listed in the active export table.
+func isExported(path string) bool {
+	data, err := os.ReadFile(etabPath)
+	if err != nil {
+		return false
+	}
+	path = filepath.Clean(path)
+	for _, line := range strings.Split(string(data), "\n") {
+		if f := strings.Fields(line); len(f) > 0 && f[0] == path {
+			return true
+		}
+	}
+	return false
 }
 
 // RegenerateExportsFromQuotas rewrites /etc/exports.d/ to match the set of
@@ -96,6 +133,13 @@ func RegenerateExportsFromQuotas(exportsBase string) error {
 	wanted := make(map[string]bool, len(quotaFiles))
 	for _, qf := range quotaFiles {
 		mp := strings.TrimSuffix(qf, ".quota")
+		// Export only directories. A single fragment for a missing path or a
+		// regular file (left by a failed Create) makes every `exportfs -r`
+		// exit non-zero. Leaving it out of `wanted` also drops a stale one.
+		if !isDir(mp) {
+			log.Printf("mount-all: not exporting %s: not a directory", mp)
+			continue
+		}
 		pvName := filepath.Base(mp)
 		wanted[pvExportFile(pvName)] = true
 		if err := WriteExport(mp); err != nil {
