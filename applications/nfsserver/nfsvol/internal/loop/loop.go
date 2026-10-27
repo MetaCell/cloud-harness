@@ -1,18 +1,32 @@
 package loop
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"golang.org/x/sys/unix"
 )
 
 const loopControlPath = "/dev/loop-control"
 
-// GetFree returns the index of the next free loop device as allocated by the kernel.
-// The kernel atomically reserves the device so concurrent callers get distinct indices.
+// attachRetries bounds how many times Attach asks for a new free device after
+// losing one to a concurrent attacher.
+const attachRetries = 10
+
+// attachMu serialises GetFree → LOOP_SET_FD within this process, so the
+// concurrent mount-all and watchdog workers do not all race for the same free
+// device. It cannot serialise other processes (e.g. an `nfsvol create` run by
+// the provisioner); the retry in Attach covers those.
+var attachMu sync.Mutex
+
+// GetFree returns the index of a loop device that is currently unbound,
+// allocating a new one if none is. The kernel does NOT reserve it: concurrent
+// callers get the same index until one of them binds it, after which
+// LOOP_SET_FD fails with EBUSY for the others (see Attach).
 func GetFree() (int, error) {
 	ctrl, err := os.OpenFile(loopControlPath, os.O_RDWR, 0)
 	if err != nil {
@@ -43,6 +57,35 @@ func EnsureDevice(n int) error {
 
 // Attach attaches backingFile to a free loop device and returns the loop device path.
 func Attach(backingFile string) (string, error) {
+	bf, err := os.OpenFile(backingFile, os.O_RDWR, 0)
+	if err != nil {
+		return "", fmt.Errorf("open backing file %s: %w", backingFile, err)
+	}
+	defer bf.Close()
+
+	attachMu.Lock()
+	defer attachMu.Unlock()
+
+	for attempt := 0; ; attempt++ {
+		loopPath, err := attachFree(bf)
+		if err == nil {
+			return loopPath, nil
+		}
+		// EBUSY: another attacher bound the device between GetFree and
+		// LOOP_SET_FD. ENXIO: the device went away in that same window.
+		// Either way, ask the kernel for a new free device.
+		if attempt < attachRetries && (errors.Is(err, unix.EBUSY) || errors.Is(err, unix.ENXIO)) {
+			continue
+		}
+		return "", err
+	}
+}
+
+// attachFree binds bf to a free loop device; a variable so tests can replace it.
+var attachFree = attachFreeDevice
+
+// attachFreeDevice binds bf to the loop device GetFree currently reports as free.
+func attachFreeDevice(bf *os.File) (string, error) {
 	n, err := GetFree()
 	if err != nil {
 		return "", err
@@ -51,12 +94,6 @@ func Attach(backingFile string) (string, error) {
 		return "", fmt.Errorf("ensure device loop%d: %w", n, err)
 	}
 	loopPath := DevPath(n)
-
-	bf, err := os.OpenFile(backingFile, os.O_RDWR, 0)
-	if err != nil {
-		return "", fmt.Errorf("open backing file %s: %w", backingFile, err)
-	}
-	defer bf.Close()
 
 	lf, err := os.OpenFile(loopPath, os.O_RDWR, 0)
 	if err != nil {

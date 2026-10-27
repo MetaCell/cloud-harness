@@ -26,6 +26,13 @@ describe("Sandbox", () => {
         .on('requestfailed', (request: any) => {
 
           console.warn(`${request.failure().errorText} ${request.url()}`);
+          // ERR_ABORTED is the browser cancelling the request itself (navigation away from
+          // the page, AbortController, a download), not a network or server failure: e.g.
+          // the JupyterHub spawn progress stream is dropped when the page redirects to the
+          // started server. Server errors are already caught by the response check above.
+          if (request.failure().errorText === 'net::ERR_ABORTED') {
+            return;
+          }
           if (!process.env.IGNORE_REQUEST_ERRORS) {
             throw new Error("Request failure -- " + request.failure().errorText);
           }
