@@ -1,684 +1,704 @@
-import os
+"""Generates codefresh.yaml from a CHProject.
+
+Codefresh is the CI/CD pipeline that actually builds, tests, publishes and
+deploys a CH project, but unlike `skaffold dev` (used locally, right after
+being generated, on the same machine) codefresh.yaml is generated once
+(dev-time or a CI pre-step) and then committed - Codefresh parses the whole
+pipeline definition before any step of it runs, so there's no regenerating it
+mid-run. Generation must therefore statically lay out every build/publish/test
+step the deployment could need, in dependency order, batched into parallel
+groups, with the pieces that can only be known at pipeline-run time (which
+images already exist, what the registry currently resolves to) left as
+Codefresh's own `${{VAR}}` pipeline-variable references rather than baked-in
+values - a value resolved at generation time instead would silently go stale
+the next time that variable changes without a matching regeneration.
+
+CH model concepts this relies on:
+- CHProject.involved_apps / `CHApp.is_buildable` scope build+publish steps to
+  what's actually deployed and buildable, the same closure skaffold.py uses.
+- CHProject._combined_dependencies gives each build step's `dependencies:`
+  (explicit harness.dependencies.build plus the Dockerfile's own guessed
+  FROM/ARG chain), used both for build args and for ordering.
+- Every task under an involved app and every base image in the project gets
+  its own build+publish step unconditionally, regardless of whether its
+  owning app is itself deployed - codefresh always builds/publishes the full
+  image universe a deployment might later reuse, a wider net than skaffold's
+  manage_task_images gate.
+- app.test.unit/api/e2e (commands, autotest, checks, run_params, smoketest/
+  console/request-error flags) and app.openapi.server_urls drive the unit,
+  API and E2E test steps; app.harness_config (subdomain, secured, accounts)
+  drives their domain URLs, credentials and the gatekeeper/rollout-wait
+  commands.
+- app.secrets/app.database and CHDeployConfig.registry_secret_name decide
+  which cloudharness-managed secret/connect-string/registry-secret values
+  need exporting into the deployment step's custom_values, each as a
+  reference to a Codefresh pipeline variable, not a resolved value.
+- app.git_dependencies become pre-build git-clone steps.
+- CHDeployConfig (includes/excludes/envs/local/debug/secured_gatekeepers)
+  holds the deployment-target knobs substituted into prepare_deployment's
+  harness-deployment command and the build args.
+- pipeline_relative_path rewrites any path that crosses the project's own
+  root into the literal "cloud-harness/..." alias - codefresh.yaml is
+  committed and may run against a differently laid out checkout, unlike a
+  skaffold.yaml path (consumed immediately, same machine, real path only).
+
+CHCodefresh.generate() algorithm:
+
+1. Start from the merged codefresh-template.yaml (CH default + project
+   override, composed across the full project layer chain).
+2. For every involved, buildable app: collect a build step (qualified image,
+   Dockerfile, alias-rewritten working_directory, DEBUG/source_images/
+   dependency build args, a cache-busting NOCACHE arg, a skip-when condition
+   keyed off that image's already-exists/force-rebuild pipeline variables)
+   and a matching publish step (skip-when a per-app publish-skip variable is
+   set, tagged with DEPLOYMENT_PUBLISH_TAG and latest).
+3. Every task of every involved app, and every base image in the project,
+   gets the same build+publish step pair unconditionally (step 2's gating
+   doesn't apply to them).
+4. Unit test steps: one per buildable app with test.unit.commands, run
+   inside that app's own freshly-tagged image.
+5. API/E2E test steps: one scale entry per buildable app with test.api/
+   test.e2e enabled and a subdomain (schemathesis/pytest commands or
+   test/e2e volume mounts, a domain URL, and env for credentials/smoketest/
+   console/request-error flags). The shared test-api/test-e2e runner image
+   only gets a build step and its image wired in if at least one app
+   contributed a scale entry; otherwise the whole container step is pruned.
+6. Git-clone steps: one per app's declared git_dependencies, host-detected
+   (github/gitlab/bitbucket) and working-directory-rewritten the same way
+   build steps are.
+7. Build steps are batched into dependency-ordered parallel groups - a step
+   only joins a group once every build it depends on is already in an
+   earlier group. A dependency cycle (which legacy recurses forever on) is
+   dumped into one final group instead.
+8. Deployment-adjacent wiring: wait_deployment gets a kubectl rollout-status
+   command per auto-deployed app/gatekeeper; the deployment step's
+   custom_values get one entry per secret/connect-string/registry-secret
+   value that needs exporting from Codefresh's own pipeline variables;
+   prepare_deployment's harness-deployment command gets its $ENV/$PARAMS/
+   $PATHS placeholders substituted from the project's env list, include/
+   exclude config and layered root paths.
+9. Every step left falsy (an unfilled template placeholder) or an empty
+   parallel container is pruned, matching legacy's own "remove useless
+   steps" filter; surviving parallel containers get their inner steps
+   key-sorted for a stable diff; if the template declares a `stages` list,
+   the whole step dict is finally re-ordered to match it.
+10. Every image reference emitted anywhere (build/publish/test/task args)
+    uses the literal `${{REGISTRY}}` pipeline-variable placeholder
+    (CHCodefresh.qualify), never a concretely resolved registry string - see
+    the module-level rationale above.
+
+write_env_file() is a separate, related entry point: it writes the
+per-image TAG/EXISTS variables (consumed by step 2's skip-when condition and
+step 8's $PATHS-adjacent exports) at *pipeline run time*, by checking what
+already exists in the registry - never at generation time, since that's
+exactly the kind of fact that can't be baked into the committed file.
+"""
+
 import re
-from os.path import join, relpath, exists, dirname, basename, abspath
-from cloudharness_model.models.git_dependency_config import GitDependencyConfig
+from functools import lru_cache
 
-import logging
-from cloudharness_model.models.api_tests_config import ApiTestsConfig
+from ch_cli_tools.configuration.secrets import (
+    is_cloudharness_managed,
+    is_secret_config,
+    secret_value,
+)
+from ch_cli_tools.utils import check_image_exists_in_registry  # type: ignore
 
-from ruamel.yaml.scalarstring import SingleQuotedScalarString
+from .model import KEY_TASK_IMAGES, CHValues, register_file
+from .utils import dict_merge, pipeline_relative_path  # type: ignore
 
-from cloudharness_utils.testing.util import get_app_environment
-from .models import HarnessMainConfig, ApplicationTestConfig, ApplicationHarnessConfig
-from cloudharness_utils.constants import *
-from .constants import KEY_APPS, KEY_TASK_IMAGES, KEY_TEST_IMAGES
-from .configuration.secrets import is_cloudharness_managed, is_secret_config, secret_value
-from .utils import check_image_exists_in_registry, find_dockerfiles_paths, get_app_relative_to_base_path, guess_build_dependencies_from_dockerfile, \
-    get_template, dict_merge, app_name_from_path, clean_path, strip_registry_tag, get_image_source, yaml, yaml_rt
-from cloudharness_utils.testing.api import get_api_filename, get_schemathesis_command, get_urls_from_api_file
+KEY_BUILD_PARALLEL = "build_application_images"
+KEY_UNIT_TESTS = "tests_unit"
+KEY_CLONE_DEPENDENCIES = "post_main_clone"
+KEY_WAIT_DEPLOYMENT = "wait_deployment"
+KEY_API_TESTS = "tests_api"
+KEY_E2E_TESTS = "tests_e2e"
+KEY_PREPARE_DEPLOYMENT = "prepare_deployment"
+KEY_PUBLISH = "publish"
+KEY_DEPLOYMENT = "deployment"
 
-logging.getLogger().setLevel(logging.INFO)
-
-CLOUD_HARNESS_PATH = "cloud-harness"
-ROLLOUT_CMD_TPL = "kubectl rollout status %s/%s"
-
-
-def _to_codefresh_path(path: str) -> str:
-    """Return the Codefresh-friendly path for any path pointing into the cloud-harness tree.
-
-    In Codefresh pipelines cloud-harness is always cloned into ./cloud-harness.
-    Resolves *path* to a relative path from CWD, then skips over any leading '..'
-    components. If the first real directory name after those is 'cloud-harness',
-    the path is rewritten to start with 'cloud-harness/' — regardless of how many
-    levels up cloud-harness lives or whether an absolute path was passed.
-    All other paths are returned unchanged (as their relpath from CWD).
-    """
-    rel = os.path.relpath(os.path.abspath(path), '.')
-    parts = rel.replace('\\', '/').split('/')
-    # Skip all leading '..' components
-    i = 0
-    while i < len(parts) and parts[i] == '..':
-        i += 1
-    # If we crossed at least one '..' and the next component is cloud-harness, rewrite
-    if i > 0 and i < len(parts) and parts[i] == CLOUD_HARNESS_PATH:
-        return '/'.join([CLOUD_HARNESS_PATH] + parts[i + 1:])
-    return rel
+_INVALID_STEP_KEY_CHARS = re.compile(r"[^a-zA-Z0-9_]")
 
 
-def clean_step_key(s: str) -> str:
-    """Normalize a string to a valid Codefresh step key (alphanumeric + underscore)."""
-    return re.sub(r'[^a-zA-Z0-9_]', '_', s)
+def _clean_step_key(name: str) -> str:
+    return _INVALID_STEP_KEY_CHARS.sub("_", name)
 
 
-def dockerfile_selector_candidates(base_path: str, dockerfile_path: str) -> set[str]:
-    """Return stable identifiers that may be used with include/exclude selectors."""
-    relative_to_base = get_app_relative_to_base_path(base_path, dockerfile_path)
-    parent_name = relative_to_base.split("/")[0] if relative_to_base else ""
-    return {
-        candidate for candidate in (
-            relative_to_base,
-            app_name_from_path(relative_to_base),
-            parent_name,
-        ) if candidate
-    }
-
-
-def path_contains_excluded_segment(path: str, excluded_segments) -> bool:
-    normalized_path = f"/{path.replace(os.path.sep, '/')}/"
-    return any(f"/{segment}/" in normalized_path for segment in excluded_segments)
-
-
-def get_main_domain(url):
+def _git_main_domain(url: str) -> str:
     try:
-        url = url.split("//")[1].split("/")[0]
-        if "gitlab" in url:
-            return "gitlab"
-        if "bitbucket" in url:
-            return "bitbucket"
-        return "github"
-    except:
+        host = url.split("//")[1].split("/")[0]
+    except IndexError:
         return "${{ DEFAULT_REPO }}"
+    if "gitlab" in host:
+        return "gitlab"
+    if "bitbucket" in host:
+        return "bitbucket"
+    return "github"
 
 
-def clone_step_spec(conf: GitDependencyConfig, context_path: str):
-    return {
-        "title": f"Cloning {os.path.basename(conf.url)} repository...",
-        "type": "git-clone",
-        "repo": conf.url,
-        "revision": conf.branch_tag,
-        "working_directory": join(context_path, "dependencies", conf.path or ""),
-        "git": get_main_domain(conf.url)  # Cannot really tell what's the git config name, usually the name of the repo
-    }
+def _to_codefresh_path(path, relative_to, cloudharness_root=None) -> str:
+    return str(
+        pipeline_relative_path(path, relative_to, cloudharness_root=cloudharness_root)
+    )
 
 
-def write_env_file(helm_values: HarnessMainConfig, filename, image_cache_endpoint_url=None):
-    env = {}
-    logging.info("Create env file with image info %s", filename)
-
-    def extract_tag(image_name):
-        return image_name.split(":")[1] if ":" in image_name else "latest"
-
-    def check_image_exists(name, image):
-        tag = extract_tag(image)
-        chunks = image.split(":")[0].split("/")
-        registry = chunks[0] if "." in chunks[0] else "docker.io"
-        image_name = "/".join(chunks[1::] if "." in chunks[0] else chunks[0::])
-        exists = check_image_exists_in_registry(registry, image_name, tag, endpoint_url=image_cache_endpoint_url)
-        logging.info("Image %s exists check: %s", image, exists)
-        if exists:
-            # TODO the hash might be the same but not the parent's hash
-            env[app_specific_tag_variable(name) + "_EXISTS"] = 1
-        else:
-            env[app_specific_tag_variable(name) + "_NEW"] = 1
-
-    for app in helm_values.apps.values():
-        if app.harness and app.harness.deployment.image:
-            env[app_specific_tag_variable(app.name)] = extract_tag(app.harness.deployment.image)
-            check_image_exists(app.name, app.harness.deployment.image)
-
-    for k, task_image in helm_values[KEY_TASK_IMAGES].items():
-        env[app_specific_tag_variable(k)] = extract_tag(task_image)
-        check_image_exists(k, task_image)
-
-    for k, task_image in helm_values[KEY_TEST_IMAGES].items():
-        env[app_specific_tag_variable(k)] = extract_tag(task_image)
-        check_image_exists(k, task_image)
-
-    logging.info("Writing env file %s", filename)
-    with open(filename, 'w') as f:
-        for k, v in env.items():
-            f.write(f"{k}={v}\n")
+def _env_key(name: str) -> str:
+    return name.replace("-", "_").upper()
 
 
-def create_codefresh_deployment_scripts(root_paths, envs=(), include=(), exclude=(),
-                                        template_name=CF_TEMPLATE_PATH, base_image_name=None,
-                                        helm_values: HarnessMainConfig = None, save=True):
-    """
-    Entry point to create deployment scripts for codefresh: codefresh.yaml and helm chart
-    """
-    build_included = [app['harness']['name']
-                      for app in helm_values['apps'].values() if 'harness' in app]
-    out_filename = f"codefresh-{'-'.join(envs)}.yaml"
+def _tag_variable(name: str) -> str:
+    return f"{_env_key(name)}_TAG"
 
-    if base_image_name is None:
-        base_image_name = helm_values['name']
 
-    if build_included:
-        logging.info(
-            'Including the following subpaths to the build: %s.', ', '
-            .join(build_included)
+def _tag_reference(name: str) -> str:
+    return "${{%s}}" % _tag_variable(name)
+
+
+def _extract_tag(image: str) -> str:
+    return image.split(":")[1] if ":" in image else "latest"
+
+
+@register_file(
+    "codefresh_template",
+    lambda root: root / "deployment-configuration" / "codefresh-template.yaml",
+)
+class CHCodefreshTemplate(CHValues):
+    @lru_cache
+    def all_values(self):
+        layer = self.containing_project
+        own = self.merge_with_envs(self.project.config.envs)
+        if layer.base is None:
+            return own
+        return dict_merge(layer.base.codefresh_template.all_values(), own)
+
+
+@register_file(
+    "codefresh", lambda root: root / "deployment" / "codefresh.yaml", only_env=True
+)
+class CHCodefresh(CHValues):
+    def qualify(self, image_name):
+        return "${{REGISTRY}}/%s" % image_name
+
+    def write_env_file(self, filename, image_cache_endpoint_url=None) -> None:
+        project = self.project
+        helm_values = project.build_final_helm_values(write_on_disk=False)
+        env: dict[str, int | str] = {}
+
+        def record(name: str, image: str) -> None:
+            tag = _extract_tag(image)
+            env[_tag_variable(name)] = tag
+            chunks = image.split(":")[0].split("/")
+            has_registry_host = "." in chunks[0]
+            registry = chunks[0] if has_registry_host else "docker.io"
+            image_name = "/".join(chunks[1:] if has_registry_host else chunks)
+            exists = check_image_exists_in_registry(
+                registry, image_name, tag, endpoint_url=image_cache_endpoint_url
+            )
+            env[_tag_variable(name) + ("_EXISTS" if exists else "_NEW")] = 1
+
+        for app_name, app in helm_values.apps.items():
+            if app.harness and app.harness.deployment.image:
+                record(app_name, app.harness.deployment.image)
+
+        for name, image in helm_values[KEY_TASK_IMAGES].items():
+            record(name, image)
+
+        for name, test_image in project.test_images.items():
+            if not test_image.dockerfile.exists():
+                continue
+            record(name, project.qualify_image(test_image))
+
+        with open(filename, "w", encoding="utf-8") as f:
+            f.writelines(f"{key}={value}\n" for key, value in env.items())
+
+    def _context_for(self, entity):
+        return entity.dockerfile.resolve_context(self.path.parent).resolve_for_build(
+            self.path.parent
         )
 
-    if exclude:
-        logging.info(
-            'Excluding the following subpaths to the build: %s.', ', '
-            .join(exclude)
+    def _working_directory_for(self, context) -> str:
+        abs_context_path = (self.path.parent / context.path).resolve()
+        return str(
+            pipeline_relative_path(
+                abs_context_path,
+                self.project.root,
+                boundary=self.project.root,
+                cloudharness_root=self.project.all_layers()[-1].root,
+            )
         )
 
-    codefresh = {}
+    def _repo_relative(self, path) -> str:
+        return str(
+            path.resolve().relative_to(self.project.root.resolve(), walk_up=True)
+        )
 
-    for e in envs:
-        template_name = f"codefresh-template-{e}.yaml"
-        codefresh = dict_merge(codefresh, get_template(template_name, True))
+    def _build_arguments(self, entity) -> list[str]:
+        args: dict[str, str] = {}
+        if self.project.config.local or self.project.config.debug:
+            args["DEBUG"] = "true"
+        for dep in self.project._combined_dependencies(entity):
+            if isinstance(dep, str):
+                continue
+            args[_env_key(dep.name)] = (
+                f"{self.qualify(dep.image_name)}:{_tag_reference(dep.name)}"
+            )
+        args.update(self.project.all_source_images())
+        return [f"{key}={value}" for key, value in args.items()]
 
-    for root_path in root_paths:
-        for e in envs:
-            template_name = f"codefresh-template-{e}.yaml"
-            template_path = join(root_path, DEPLOYMENT_CONFIGURATION_PATH, template_name)
-            tpl = get_template(template_path)
-            if tpl:
-                logging.info("Codefresh template found: %s", template_path)
-                codefresh = dict_merge(codefresh, tpl)
+    def _build_skip_when_condition(self, name) -> dict:
+        tag_var = _tag_variable(name)
+        exists_var = f"{tag_var}_EXISTS"
+        force_var = f"{tag_var}_FORCE_BUILD"
+        return {
+            "condition": {
+                "any": {
+                    "buildDoesNotExist": "includes('${{%s}}', '{{%s}}') == true"
+                    % (exists_var, exists_var),
+                    "forceNoCache": "includes('${{%s}}', '{{%s}}') == false"
+                    % (force_var, force_var),
+                }
+            }
+        }
 
-    steps = {}
-    build_steps = {}
-    has_overrides = any(DEFAULT_MERGE_PATH in root_path for root_path in root_paths)
+    def _collect_build_step(self, entity):
+        context = self._context_for(entity)
+        step = {
+            "title": f"Building {entity.name}",
+            "type": "build",
+            "stage": "build",
+            "registry": "${{CODEFRESH_REGISTRY}}",
+            "buildkit": True,
+            "image_name": self.qualify(entity.image_name),
+            "working_directory": self._working_directory_for(context),
+            "dockerfile": str(context.dockerfile.path),
+            "tag": _tag_reference(entity.name),
+            "build_arguments": [
+                "NOCACHE=${{CF_BUILD_ID}}",
+                *self._build_arguments(entity),
+            ],
+            "when": self._build_skip_when_condition(entity.name),
+        }
+        step["dependencies"] = [
+            dep.name
+            for dep in self.project._combined_dependencies(entity)
+            if not isinstance(dep, str)
+        ]
+        return entity.name, step
 
-    if 'steps' in codefresh:
-        steps = codefresh['steps']
-
-    for i in range(len(root_paths)):
-
-        root_path = root_paths[i]
-        base_name = base_image_name
-
-        if not steps:
-            continue
-
-        def get_app_domain(app_config: ApplicationHarnessConfig):
-            base_domain = [c for c in codefresh['steps']['prepare_deployment']['commands'] if 'harness-deployment' in c][0].split("-d ")[1].split(" ")[0]
-            return f"https://{app_config.subdomain}.{base_domain}"
-
-        def e2e_test_environment(app_config: ApplicationHarnessConfig, app_domain: str = None):
-            if app_domain is None:
-                app_domain = get_app_domain(app_config)
-            env = get_app_environment(app_config, app_domain, False)
-            return [f"{k}={env[k]}" for k in env]
-
-        def codefresh_app_build_spec(app_name, full_image_name, app_context_path, dockerfile_path="Dockerfile",
-                                     helm_values: HarnessMainConfig = {}, dependencies=None, additional_tags=()):
-            logging.info('Generating build script for ' + app_name)
-            title = app_name.capitalize().replace(
-                '-', ' ').replace('/', ' ').replace('.', ' ').strip()
-
-            build = codefresh_template_spec(
-                template_path=CF_BUILD_PATH,
-                image_name=strip_registry_tag(
-                    full_image_name, helm_values.registry.name
-                ),
-                title=title,
-                working_directory='./' + _to_codefresh_path(app_context_path),
-                dockerfile=dockerfile_path)
-
-            tag = app_specific_tag_variable(app_name)
-            build["tags"] = [
-                "${{%s}}" % tag,
-                "${{DEPLOYMENT_PUBLISH_TAG}}-dev",
-                "${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}",
-                *additional_tags,
-            ]
-
-            specific_build_template_path = join(app_context_path, 'build.yaml')
-            if exists(specific_build_template_path):
-                logging.info("Specific build template found: %s" %
-                             (specific_build_template_path))
-                with open(specific_build_template_path) as f:
-                    build_specific = yaml.load(f)
-
-                build_specific.pop(
-                    'build_arguments') if 'build_arguments' in build_specific else []
-
-            build['dependencies'] = dependencies
-
-            def get_other_image_name(app_name):
-                full_image_name = helm_values.apps[app_name].image if app_name in helm_values.apps \
-                    else helm_values[KEY_TASK_IMAGES][app_name] if app_name in helm_values[KEY_TASK_IMAGES] \
-                    else f"{base_name}/{app_name}"
-                return image_tag_with_variables(full_image_name, helm_values.registry.name, app_specific_tag_variable(app_name))
-
-            def add_arg_dependencies(dependencies):
-                arg_dependencies = [f"{d.upper().replace('-', '_')}={get_other_image_name(d)}"
-                                    for d in dependencies]
-                build['build_arguments'].extend(arg_dependencies)
-
-            values_key = app_name
-            if dependencies is not None:
-                add_arg_dependencies(dependencies)
-            elif values_key in helm_values.apps:
-                try:
-                    add_arg_dependencies(
-                        helm_values.apps[values_key].harness.dependencies.build)
-                except (KeyError, AttributeError):
-                    add_arg_dependencies(helm_values['task-images'])
-
-            source_images = get_image_source(helm_values)
-            if source_images:
-                existing_arg_keys = {arg.split('=', 1)[0]: i for i, arg in enumerate(build['build_arguments'])}
-                for key, value in source_images.items():
-                    arg = f"{key}={value}"
-                    if key in existing_arg_keys:
-                        build['build_arguments'][existing_arg_keys[key]] = arg
-                    else:
-                        build['build_arguments'].append(arg)
-
-            when_condition = existing_build_when_condition(tag)
-            build["when"] = when_condition
-            return build
-
-        def resolve_dockerfile_name(dockerfile_dir):
-            """Return the dockerfile filename, preferring [env].Dockerfile over Dockerfile."""
-            for env_name in envs:
-                env_dockerfile = os.path.join(dockerfile_dir, f'{env_name}.Dockerfile')
-                if exists(env_dockerfile):
-                    return f'{env_name}.Dockerfile'
-            return 'Dockerfile'
-
-        def codefresh_steps_from_base_path(base_path, fixed_context=None, include=build_included, publish=True):
-            found = False
-            for dockerfile_path in find_dockerfiles_paths(base_path):
-                dockerfile_relative_to_root = relpath(dockerfile_path, '.')
-                dockerfile_relative_to_base = get_app_relative_to_base_path(base_path, dockerfile_path)
-                selector_candidates = dockerfile_selector_candidates(base_path, dockerfile_path)
-                app_name = app_name_from_path(dockerfile_relative_to_base)
-                app_key = app_name
-                app_config: ApplicationHarnessConfig = app_key in helm_values.apps and helm_values.apps[app_key].harness
-                full_image_name = helm_values.apps[app_key].image if app_key in helm_values.apps\
-                    else helm_values[KEY_TASK_IMAGES][app_key] if app_key in helm_values[KEY_TASK_IMAGES]\
-                    else f"{base_name}/{app_name}"
-
-                if include and not any(inc in selector_candidates for inc in include):
-                    # Skip not included apps
-                    continue
-
-                if any(ex in selector_candidates for ex in exclude):
-                    # Skip explicitly excluded apps/images
-                    continue
-
-                if path_contains_excluded_segment(dockerfile_relative_to_root, EXCLUDE_PATHS):
-                    # Skip excluded apps
-                    continue
-
-                if app_config and not helm_values.apps[app_key].get('build', True):
-                    continue
-
-                if app_config and app_config.dependencies and app_config.dependencies.git and DEFAULT_MERGE_PATH not in root_path:
-                    for dep in app_config.dependencies.git:
-                        step_name = clean_step_key(f"clone_{basename(dep.url)}_{dep.branch_tag}_{basename(dockerfile_relative_to_root)}")
-                        steps[CD_STEP_CLONE_DEPENDENCIES]['steps'][step_name] = clone_step_spec(dep, dockerfile_relative_to_root)
-
-                build = None
-                if CD_BUILD_STEP_PARALLEL in steps:
-                    dockerfile_name = resolve_dockerfile_name(dockerfile_path)
-                    dependencies = guess_build_dependencies_from_dockerfile(
-                        join(dockerfile_path, dockerfile_name)
-                    )
-                    build = codefresh_app_build_spec(
-                        app_name=app_name,
-                        full_image_name=full_image_name,
-                        app_context_path=relpath(
-                            fixed_context, '.') if fixed_context else dockerfile_relative_to_root,
-                        dockerfile_path=join(
-                            relpath(
-                                dockerfile_path, root_path) if fixed_context else '',
-                            dockerfile_name),
-                        helm_values=helm_values,
-                        dependencies=dependencies,
-                        additional_tags=('latest',) if not publish else ()
-                    )
-
-                    build_steps[app_name] = build
-                    found = True
-
-                if CD_STEP_PUBLISH in steps and steps[CD_STEP_PUBLISH] and publish:
-                    if not type(steps[CD_STEP_PUBLISH]['steps']) == dict:
-                        steps[CD_STEP_PUBLISH]['steps'] = {}
-                    image_name = helm_values.apps[app_name].image if app_name in helm_values.apps else helm_values[KEY_TASK_IMAGES].get(app_name, None)
-                    if app_name:
-                        steps[CD_STEP_PUBLISH]['steps']['publish_' + app_name] = codefresh_app_publish_spec(
-                            full_src_image=image_name,
-                            build_tag=build and build['tags'][0],
-                            registry=helm_values.registry.name,
-                            app_name=app_name
-                        )
-                        found = True
-                    else:
-                        logging.warning("Detected image %s which is not part of the deployment", app_name)
-
-                if CD_UNIT_TEST_STEP in steps and app_config:
-                    add_unit_test_step(app_config)
-
-                if CD_API_TEST_STEP in steps and app_config and app_config.test.api.enabled:
-                    tests_path = join(
-                        base_path, dockerfile_relative_to_base, "test", API_TESTS_DIRNAME)
-                    api_filename = get_api_filename(dockerfile_relative_to_base)
-                    if app_config.subdomain:
-                        server_urls = get_urls_from_api_file(
-                            os.path.join(root_path, APPS_PATH, api_filename))
-                        for app_domain in server_urls:
-                            if "http" not in app_domain:
-                                app_domain = get_app_domain(
-                                    app_config) + app_domain
-                            steps[CD_API_TEST_STEP]['scale'][f"{app_name}_api_test"] = dict(
-                                title=f"{app_name} api test",
-                                volumes=api_test_volumes(clean_path(
-                                    dockerfile_relative_to_root)),
-                                environment=e2e_test_environment(
-                                    app_config, app_domain),
-                                commands=api_tests_commands(
-                                    app_config, exists(tests_path), app_domain)
-                            )
-                        found = True
-
-                if CD_E2E_TEST_STEP in steps and app_config and app_config.test.e2e.enabled:
-                    tests_path = join(
-                        base_path, dockerfile_relative_to_base, "test", E2E_TESTS_DIRNAME)
-
-                    if app_config.subdomain:
-
-                        steps[CD_E2E_TEST_STEP]['scale'][f"{app_name}_e2e_test"] = dict(
-                            title=f"{app_name} e2e test",
-                            volumes=e2e_test_volumes(
-                                clean_path(dockerfile_relative_to_root), app_name),
-                            environment=e2e_test_environment(app_config)
-                        )
-                        found = True
-            return found
-
-        def add_unit_test_step(app_config: ApplicationHarnessConfig):
-            # Create a run step for each application with tests/unit.yaml file using the corresponding image built at the previous step
-
-            test_config: ApplicationTestConfig = app_config.test
-            app_name = app_config.name
-            full_image_name = helm_values.apps[app_name].image if app_name in helm_values.apps else helm_values[KEY_TASK_IMAGES][app_name]
-
-            if test_config.unit.enabled and test_config.unit.commands:
-                tag = app_specific_tag_variable(app_name)
-                steps[CD_UNIT_TEST_STEP]['steps'][f"{app_name}_ut"] = dict(
-                    title=f"Unit tests for {app_name}",
-                    commands=test_config.unit.commands,
-                    image=image_tag_with_variables(full_image_name, helm_values.registry.name, tag),
+    def _collect_git_clone_steps(self, project):
+        steps = {}
+        for app in project.involved_apps:
+            if isinstance(app, str) or not app.is_buildable:
+                continue
+            for dep in app.git_dependencies:
+                url = dep["url"]
+                branch_tag = dep.get("branch_tag")
+                repo_name = url.rsplit("/", 1)[-1]
+                step_name = _clean_step_key(
+                    f"clone_{repo_name}_{branch_tag}_{app.name}"
                 )
+                destination = app.path / "dependencies" / (dep.get("path") or "")
+                steps[step_name] = {
+                    "title": f"Cloning {repo_name} repository...",
+                    "type": "git-clone",
+                    "repo": url,
+                    "revision": branch_tag,
+                    "working_directory": self._repo_relative(destination),
+                    "git": _git_main_domain(url),
+                }
+        return steps
 
-        if helm_values[KEY_TASK_IMAGES]:
-            codefresh_steps_from_base_path(join(root_path, BASE_IMAGES_PATH),
-                                           fixed_context=relpath(root_path, os.getcwd()), include=helm_values[KEY_TASK_IMAGES].keys())
-            codefresh_steps_from_base_path(join(root_path, STATIC_IMAGES_PATH),
-                                           include=helm_values[KEY_TASK_IMAGES].keys())
-            codefresh_steps_from_base_path(join(root_path, APPS_PATH), include=helm_values[KEY_TASK_IMAGES].keys())
-        codefresh_steps_from_base_path(join(root_path, APPS_PATH), include=build_included)
+    def _collect_publish_step(self, entity):
+        title = (
+            entity.name.capitalize()
+            .replace("-", " ")
+            .replace("/", " ")
+            .replace(".", " ")
+            .strip()
+        )
+        skip_variable = f"{_env_key(entity.name)}_PUBLISH_SKIP"
+        step = {
+            "title": title,
+            "type": "push",
+            "stage": "publish",
+            "candidate": f"{self.qualify(entity.image_name)}:{_tag_reference(entity.name)}",
+            "tags": ["${{DEPLOYMENT_PUBLISH_TAG}}", "latest"],
+            "registry": "${{REGISTRY_PUBLISH_URL}}",
+            "when": {
+                "condition": {
+                    "all": {
+                        "skipPublish": "includes('${{%s}}', '{{%s}}') == true"
+                        % (skip_variable, skip_variable),
+                    }
+                }
+            },
+        }
+        return f"publish_{entity.name}", step
 
-    # Search all root_paths for test images after scale is fully populated from all apps.
-    # Test images (test-e2e, test-api) may live in a different root_path than the apps that use them.
-    if CD_E2E_TEST_STEP in steps and steps[CD_E2E_TEST_STEP].get("scale"):
-        name = "test-e2e"
-        for root_path in root_paths:
-            if codefresh_steps_from_base_path(join(root_path, TEST_IMAGES_PATH), include=(name,), publish=False):
-                steps[CD_E2E_TEST_STEP]["image"] = image_tag_with_variables(
-                    f"{base_image_name}/{name}", helm_values.registry.name, app_specific_tag_variable(name))
+    def _collect_task_build_steps(self, app):
+        build_steps, publish_steps = {}, {}
+        for task in app.tasks.values():
+            if not task.dockerfile.exists():
+                continue
+            key, step = self._collect_build_step(task)
+            build_steps[key] = step
+            pkey, pstep = self._collect_publish_step(task)
+            publish_steps[pkey] = pstep
+        return build_steps, publish_steps
 
-    if CD_API_TEST_STEP in steps and steps[CD_API_TEST_STEP].get("scale"):
-        name = "test-api"
-        for root_path in root_paths:
-            if codefresh_steps_from_base_path(join(root_path, TEST_IMAGES_PATH), include=(name,), fixed_context=relpath(root_path, os.getcwd()), publish=False):
-                steps[CD_API_TEST_STEP]["image"] = image_tag_with_variables(
-                    f"{base_image_name}/{name}", helm_values.registry.name, app_specific_tag_variable(name))
+    def _collect_base_image_build_steps(self, project):
+        build_steps, publish_steps = {}, {}
+        for base_image in project.base_images.values():
+            if not base_image.dockerfile.exists():
+                continue
+            key, step = self._collect_build_step(base_image)
+            build_steps[key] = step
+            pkey, pstep = self._collect_publish_step(base_image)
+            publish_steps[pkey] = pstep
+        return build_steps, publish_steps
 
-    if build_steps:
+    def _collect_unit_test_steps(self, project):
+        steps = {}
+        for app in project.involved_apps:
+            if isinstance(app, str) or not app.is_buildable:
+                continue
+            commands = app.test.unit.commands
+            if not commands:
+                continue
+            steps[f"{app.name}_ut"] = {
+                "title": f"Unit tests for {app.name}",
+                "commands": commands,
+                "image": f"{self.qualify(app.image_name)}:{_tag_reference(app.name)}",
+            }
+        return steps
 
-        def adjust_build_steps(index):
-            """
-            Adjust the build steps to be parallel
-            """
-            new_step = dict(**steps[CD_BUILD_STEP_PARALLEL])
-            new_step['title'] = "Build parallel step %d" % (index + 1)
-            new_step['steps'] = {}
-            steps[f"{CD_BUILD_STEP_PARALLEL}_{index}"] = new_step
-            remaining_steps = set(build_steps.keys())
-            for step_name in remaining_steps:
-                step = build_steps[step_name]
-                if not step["dependencies"] or not any(d for d in step["dependencies"] if d in remaining_steps):
-                    new_step['steps'][step_name] = step
-                    del step["dependencies"]
-                    del build_steps[step_name]
-
-            if build_steps:
-                adjust_build_steps(index + 1)
-        adjust_build_steps(0)
-
-    if not codefresh:
-        logging.warning(
-            "No template file found. Codefresh script not created.")
-        return
-
-    # Remove useless steps
-    codefresh['steps'] = {k: step for k, step in steps.items() if step and
-                          ('type' not in step or step['type'] != 'parallel' or (
-                              step['steps'] if 'steps' in step else []))}
-
-    # Add custom secrets to the environment of the deployment step
-    deployment_step = codefresh["steps"].get("deployment")
-    if deployment_step:
-        arguments = deployment_step.get("arguments")
-        if arguments:
-            if "custom_values" not in arguments:
-                arguments["custom_values"] = []
-            for app_name, app in helm_values.apps.items():
-                if app.harness.secrets:
-                    # Secrets handled by a manager other than CloudHarness must not be overridden:
-                    # their value doesn't come from the pipeline, and setting it would replace the
-                    # manager definition with a plain string
-                    for secret, definition in app.harness.secrets.items():
-                        if not is_cloudharness_managed(definition) or secret_value(definition) == "":
-                            continue
-                        secret_name = secret.replace("_", "__")
-                        # the rich form nests the value under `default`
-                        value_path = f"{secret_name}_default" if is_secret_config(definition) else secret_name
-                        arguments["custom_values"].append(
-                            'apps_%s_harness_secrets_%s="${{%s}}"' % (app_name.replace("_", "__"), value_path, secret_name.upper())
-                        )
-            for app_name, app in helm_values.apps.items():
-                if app.harness.database and app.harness.database.get("connect_string") == "":
-                    var_name = f"{app_name.upper().replace('-', '_')}_DB_CONNECT_STRING"
-                    arguments["custom_values"].append(
-                        "apps_%s_harness_database_connect__string=\"${{%s}}\"" % (
-                            app_name.replace("_", "__"), var_name)
-                    )
-            # Add registry secret value secret if registry secret name is set
-            registry = getattr(helm_values, "registry", None)
-            secret = getattr(registry, "secret", None)
-            registry_secret_name = getattr(secret, "name", None)
-            if registry_secret_name:
-                arguments["custom_values"].append(
-                    'registry_secret_value="${{K8S_SA_JSON}}"'
-                )
-
-    cmds = codefresh['steps']['prepare_deployment']['commands']
-
-    params = [f"-i {inc}" for inc in include] + [f"-ex {ex}" for ex in exclude]
-
-    for i in range(len(cmds)):
-        cmds[i] = cmds[i].replace("$ENV", "-".join(envs))
-        cmds[i] = cmds[i].replace("$PARAMS", " ".join(params))
-        cmds[i] = cmds[i].replace("$PATHS", " ".join(
-            _to_codefresh_path(root_path)
-            for root_path in root_paths if DEFAULT_MERGE_PATH not in root_path))
-
-    steps = codefresh["steps"]
-    if CD_E2E_TEST_STEP in steps and not steps[CD_E2E_TEST_STEP]["scale"]:
-        del steps[CD_E2E_TEST_STEP]
-
-    if CD_API_TEST_STEP in steps and not steps[CD_API_TEST_STEP]["scale"]:
-        del steps[CD_API_TEST_STEP]
-
-    if CD_E2E_TEST_STEP not in steps and not CD_API_TEST_STEP not in steps and CD_WAIT_STEP in steps:
-        del steps[CD_WAIT_STEP]
-    if CD_WAIT_STEP in steps:
-        rollout_commands = steps[CD_WAIT_STEP]['commands']
-        for app_key in helm_values[KEY_APPS]:
-            app: ApplicationHarnessConfig = helm_values[KEY_APPS][app_key].harness
-            if app.deployment.auto:
-                kind = "statefulset" if app.deployment.statefulset else "deployment"
-                rollout_commands.append(
-                    ROLLOUT_CMD_TPL % (kind, app.deployment.name))
-            if app.secured and helm_values.secured_gatekeepers:
+    def _collect_rollout_wait_commands(self, project) -> list[str]:
+        secured_gatekeepers = project.config.secured_gatekeepers
+        commands = []
+        for app in project.involved_apps:
+            if isinstance(app, str):
+                continue
+            deployment = app.deployment_config
+            if deployment.get("auto"):
+                kind = "statefulset" if deployment.get("statefulset") else "deployment"
+                name = deployment.get("name") or app.name
+                commands.append(f"kubectl rollout status {kind}/{name}")
+            if app.harness_config.get("secured") and secured_gatekeepers:
                 # gatekeepers are always rendered as deployments
-                rollout_commands.append(
-                    ROLLOUT_CMD_TPL % ("deployment", f"{app.subdomain}-gk"))
-        # some time to the certificates to settle
-        rollout_commands.append("sleep 60")
+                subdomain = app.harness_config.get("subdomain")
+                commands.append(f"kubectl rollout status deployment/{subdomain}-gk")
+        if commands:
+            commands.append("sleep 60")  # give the certificates time to settle
+        return commands
 
-    codefresh['steps'] = sort_parallel_steps(codefresh['steps'])
+    def _collect_deployment_secret_values(self, project) -> list[str]:
+        values = []
+        for app in project.involved_apps:
+            if isinstance(app, str):
+                continue
+            app_key = app.name.replace("_", "__")
+            for secret, definition in app.secrets.items():
+                if (
+                    not is_cloudharness_managed(definition) or
+                    secret_value(definition) == ""
+                ):
+                    continue
+                secret_name = secret.replace("_", "__")
+                # the rich form nests the value under `default`
+                value_path = (
+                    f"{secret_name}_default"
+                    if is_secret_config(definition)
+                    else secret_name
+                )
+                values.append(
+                    'apps_%s_harness_secrets_%s="${{%s}}"'
+                    % (app_key, value_path, secret_name.upper())
+                )
+            if app.database.get("connect_string") == "":
+                var_name = f"{_env_key(app.name)}_DB_CONNECT_STRING"
+                values.append(
+                    'apps_%s_harness_database_connect__string="${{%s}}"'
+                    % (app_key, var_name)
+                )
+        if project.config.registry_secret_name:
+            values.append('registry_secret_value="${{K8S_SA_JSON}}"')
+        return values
 
-    if 'stages' in codefresh:
-        codefresh['steps'] = order_steps_by_stage(codefresh['steps'], codefresh['stages'])
+    def _substitute_prepare_deployment_placeholders(
+        self, project, commands
+    ) -> list[str]:
+        config = project.config
+        params = [f"-i {inc}" for inc in config.includes] + [
+            f"-ex {exc}" for exc in config.excludes
+        ]
+        cloudharness_root = project.all_layers()[-1].root
+        paths = " ".join(
+            _to_codefresh_path(layer.root, project.root, cloudharness_root)
+            for layer in reversed(project.all_layers())
+        )
+        replacements = {
+            "$ENV": "-".join(config.envs),
+            "$PARAMS": " ".join(params),
+            "$PATHS": paths,
+        }
+        result = []
+        for command in commands:
+            for placeholder, value in replacements.items():
+                command = command.replace(placeholder, value)
+            result.append(command)
+        return result
 
-    if save:
-        codefresh_abs_path = join(
-            os.getcwd(), DEPLOYMENT_PATH, out_filename)
-        codefresh_dir = dirname(codefresh_abs_path)
-        if not exists(codefresh_dir):
-            os.makedirs(codefresh_dir)
-        deployment_step = codefresh.get("steps", {}).get("deployment", {})
-        arguments = deployment_step.get("arguments", {})
-        if "custom_values" in arguments:
-            arguments["custom_values"] = [
-                SingleQuotedScalarString(v) if isinstance(v, str) else v
-                for v in arguments["custom_values"]
+    def _app_domain(self, app) -> str:
+        subdomain = app.harness_config.get("subdomain")
+        return f"https://{subdomain}." + "${{DOMAIN}}"
+
+    def _test_environment(self, app, app_domain: str) -> list[str]:
+        env: dict[str, str] = {"APP_URL": app_domain}
+        users = app.harness_config.get("accounts", {}).get("users") or []
+        if users:
+            main_user = users[0]
+            env["USERNAME"] = main_user.get("username")
+            env["PASSWORD"] = main_user.get("password") or "test"
+        e2e = app.test.e2e
+        if not e2e.smoketest:
+            env["SKIP_SMOKETEST"] = "true"
+        if e2e.ignore_console_errors:
+            env["IGNORE_CONSOLE_ERRORS"] = "true"
+        if e2e.ignore_request_errors:
+            env["IGNORE_REQUEST_ERRORS"] = "true"
+        return [f"{key}={value}" for key, value in env.items()]
+
+    def _schemathesis_command(self, app, app_domain: str) -> str:
+        api = app.test.api
+        params = ["--base-url", app_domain]
+        for check in api.checks:
+            params += ["-c", check]
+        params += api.run_params
+        return " ".join(
+            [
+                "st",
+                "--pre-run",
+                "cloudharness_test.apitest_init",
+                "run",
+                "api/openapi.yaml",
+                *params,
             ]
+        )
 
-        # Round trip handler: the codefresh steps are deliberately ordered by stage,
-        # a sorting representer would scramble them.
-        with open(codefresh_abs_path, 'w') as f:
-            yaml_rt.dump(codefresh, f)
-    return codefresh
+    def _api_test_commands(self, app, app_domain: str) -> list[str]:
+        commands = []
+        if app.test.api.autotest:
+            commands.append(self._schemathesis_command(app, app_domain))
+        if (app.path / "test" / "api").exists():
+            commands.append("pytest -v test/api")
+        return commands
 
+    def _api_test_volumes(self, app) -> list[str]:
+        app_path = self._repo_relative(app.path)
+        return [
+            "${{CF_REPO_NAME}}/" + f"{app_path}:/home/test",
+            "${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml",
+        ]
 
-def sort_parallel_steps(steps: dict) -> dict:
-    """Sort the sub-steps of every parallel step alphabetically by name.
+    def _e2e_test_volumes(self, app) -> list[str]:
+        app_path = self._repo_relative(app.path)
+        return [
+            "${{CF_REPO_NAME}}/" +
+            f"{app_path}/test/e2e:/home/test/__tests__/{app.name}"
+        ]
 
-    Top-level step order is not affected; only the inner ``steps`` dict of each
-    parallel step is sorted.
-    """
-    result = {}
-    for name, step in steps.items():
-        if step and isinstance(step, dict) and step.get('type') == 'parallel' and 'steps' in step:
-            step = dict(step)
-            step['steps'] = dict(sorted(step['steps'].items()))
-        result[name] = step
-    return result
-
-
-def order_steps_by_stage(steps: dict, stages: list) -> dict:
-    """Re-order a flat steps dict so that steps belonging to earlier stages appear first.
-
-    Relative order within each stage is preserved (stable sort). Steps that have no
-    recognised stage are moved to the end, keeping their relative order.
-    """
-    stage_order = {stage: i for i, stage in enumerate(stages)}
-    no_stage_index = len(stages)
-
-    def stage_key(item):
-        step = item[1]
-        if step and isinstance(step, dict):
-            stage = step.get('stage')
-            if stage is not None:
-                return stage_order.get(stage, no_stage_index)
-        return no_stage_index
-
-    return dict(sorted(steps.items(), key=stage_key))
-
-
-def codefresh_template_spec(template_path, **kwargs):
-    """
-    Create Codefresh build specification
-    :return:
-    """
-
-    build = get_template(template_path, True)
-
-    build.update(kwargs)
-    return build
-
-
-def api_tests_commands(app_config: ApplicationHarnessConfig, run_custom_tests, api_url):
-    api_config: ApiTestsConfig = app_config.test.api
-    commands = []
-    if api_config.autotest:
-        commands.append(" ".join(get_schemathesis_command(
-            get_api_filename(""), app_config, api_url)))
-    if run_custom_tests:
-        commands.append(f"pytest -v test/api")
-    return commands
-
-
-def e2e_test_volumes(app_relative_to_root, app_name, dirname=E2E_TESTS_DIRNAME):
-    return [r"${{CF_REPO_NAME}}/" + f"{app_relative_to_root}/test/{dirname}:/home/test/__tests__/{app_name}"]
-
-
-def api_test_volumes(app_relative_to_root):
-    return [
-        r"${{CF_REPO_NAME}}/" + f"{app_relative_to_root}:/home/test",
-        "${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml"
-    ]
-
-
-def codefresh_app_publish_spec(app_name, full_src_image, build_tag, registry):
-    title = app_name.capitalize().replace(
-        '-', ' ').replace('/', ' ').replace('.', ' ').strip()
-
-    step_spec = codefresh_template_spec(
-        template_path=CF_TEMPLATE_PUBLISH_PATH,
-        candidate="${{REGISTRY}}/%s:%s" % (strip_registry_tag(
-            full_src_image, registry), build_tag or '${{DEPLOYMENT_TAG}}'),
-        title=title,
-    )
-    step_spec["when"] = existing_publish_when_condition(
-        app_specific_publish_skip_variable(app_name)
-    )
-    step_spec['tags'].append('latest')
-    return step_spec
-
-
-def image_tag_with_variables(app_name, registry_name, build_tag):
-    return "${{REGISTRY}}/%s:${{%s}}" % (strip_registry_tag(
-        app_name, registry_name), build_tag or '${{DEPLOYMENT_TAG}}')
-
-
-def app_specific_tag_variable(app_name):
-    return "%s_TAG" % app_name.replace('-', '_').upper().strip()
-
-
-def app_specific_publish_skip_variable(app_name):
-    return "%s_PUBLISH_SKIP" % app_name.replace('-', '_').upper().strip()
-
-
-def existing_build_when_condition(tag):
-    """
-    See https://codefresh.io/docs/docs/pipelines/conditional-execution-of-steps/#execute-steps-according-to-the-presence-of-a-variable
-    the _EXISTS variable is added in the preparation step
-    the _FORCE_BUILD variable may be added manually by the user to force the build of a specific image
-    """
-    is_built = tag + "_EXISTS"
-    force_build = tag + "_FORCE_BUILD"
-    when_condition = {
-        "condition": {
-            "any": {
-                "buildDoesNotExist": "includes('${{%s}}', '{{%s}}') == true" % (is_built, is_built),
-                "forceNoCache": "includes('${{%s}}', '{{%s}}') == false" % (force_build, force_build),
+    def _collect_api_test_steps(self, project) -> dict:
+        scale = {}
+        for app in project.involved_apps:
+            if isinstance(app, str) or not app.is_buildable:
+                continue
+            if not (app.test.api.enabled and app.harness_config.get("subdomain")):
+                continue
+            server_urls = app.openapi.server_urls
+            if not server_urls:
+                continue
+            app_domain = server_urls[-1]
+            if "http" not in app_domain:
+                app_domain = self._app_domain(app) + app_domain
+            scale[f"{app.name}_api_test"] = {
+                "title": f"{app.name} api test",
+                "volumes": self._api_test_volumes(app),
+                "environment": self._test_environment(app, app_domain),
+                "commands": self._api_test_commands(app, app_domain),
             }
-        }
-    }
+        return scale
 
-    return when_condition
-
-
-def existing_publish_when_condition(skip_publish_variable):
-    return {
-        "condition": {
-            "all": {
-                "skipPublish": "includes('${{%s}}', '{{%s}}') == true" % (
-                    skip_publish_variable, skip_publish_variable
-                ),
+    def _collect_e2e_test_steps(self, project) -> dict:
+        scale = {}
+        for app in project.involved_apps:
+            if isinstance(app, str) or not app.is_buildable:
+                continue
+            if not (app.test.e2e.enabled and app.harness_config.get("subdomain")):
+                continue
+            app_domain = self._app_domain(app)
+            scale[f"{app.name}_e2e_test"] = {
+                "title": f"{app.name} e2e test",
+                "volumes": self._e2e_test_volumes(app),
+                "environment": self._test_environment(app, app_domain),
             }
+        return scale
+
+    def _wire_test_image(self, project, steps, key, name, build_steps):
+        if not steps[key]["scale"]:
+            del steps[key]
+            return
+        test_image = project.test_images.get(name)
+        if test_image is None or not test_image.dockerfile.exists():
+            return
+        build_key, build_step = self._collect_build_step(test_image)
+        build_steps[build_key] = build_step
+        steps[key]["image"] = (
+            f"{self.qualify(test_image.image_name)}:{_tag_reference(test_image.name)}"
+        )
+
+    def _batch_build_steps(self, build_steps: dict) -> list[dict]:
+        remaining = dict(build_steps)
+        groups = []
+        while remaining:
+            group = {
+                name: step
+                for name, step in remaining.items()
+                if not any(dep in remaining for dep in step.get("dependencies") or ())
+            }
+            if not group:
+                # Dependency cycle - legacy recurses forever on this; we don't.
+                group, remaining = dict(remaining), {}
+            for name, step in group.items():
+                step.pop("dependencies", None)
+                remaining.pop(name, None)
+            groups.append(group)
+        return groups
+
+    def _prune_useless_steps(self, steps: dict) -> dict:
+        return {
+            name: step
+            for name, step in steps.items()
+            if step and (step.get("type") != "parallel" or step.get("steps"))
         }
-    }
+
+    def _sort_parallel_steps(self, steps: dict) -> dict:
+        result = {}
+        for name, step in steps.items():
+            if (
+                isinstance(step, dict) and
+                step.get("type") == "parallel" and
+                isinstance(step.get("steps"), dict)
+            ):
+                step = {**step, "steps": dict(sorted(step["steps"].items()))}
+            result[name] = step
+        return result
+
+    def _order_steps_by_stage(self, steps: dict, stages: list) -> dict:
+        stage_order = {stage: i for i, stage in enumerate(stages)}
+        unknown = len(stages)
+
+        def stage_key(item):
+            step = item[1]
+            return (
+                stage_order.get(step.get("stage"), unknown)
+                if isinstance(step, dict)
+                else unknown
+            )
+
+        return dict(sorted(steps.items(), key=stage_key))
+
+    def generate(self, write_on_disk=True, output_path=None):
+        project = self.project
+
+        base = project.codefresh_template.all_values()
+        steps = base.setdefault("steps", {})
+
+        build_steps = {}
+        publish_steps = {}
+        for app in project.involved_apps:
+            if isinstance(app, str):
+                continue
+
+            if app.is_buildable:
+                key, step = self._collect_build_step(app)
+                build_steps[key] = step
+                pkey, pstep = self._collect_publish_step(app)
+                publish_steps[pkey] = pstep
+
+            task_builds, task_publishes = self._collect_task_build_steps(app)
+            build_steps.update(task_builds)
+            publish_steps.update(task_publishes)
+        base_builds, base_publishes = self._collect_base_image_build_steps(project)
+        build_steps.update(base_builds)
+        publish_steps.update(base_publishes)
+
+        publish_container = steps.setdefault(
+            KEY_PUBLISH, {"type": "parallel", "steps": {}}
+        )
+        if publish_container is not None:
+            publish_container.setdefault("steps", {}).update(publish_steps)
+
+        unit_test_steps = self._collect_unit_test_steps(project)
+        unit_test_container = steps.setdefault(
+            KEY_UNIT_TESTS, {"type": "parallel", "steps": {}}
+        )
+        if unit_test_container is not None:
+            unit_test_container.setdefault("steps", {}).update(unit_test_steps)
+
+        clone_steps = self._collect_git_clone_steps(project)
+        if clone_steps:
+            clone_container = steps.setdefault(
+                KEY_CLONE_DEPENDENCIES, {"type": "parallel", "steps": {}}
+            )
+            if clone_container is not None:
+                clone_container.setdefault("steps", {}).update(clone_steps)
+
+        for key, image_name, collect in (
+            (KEY_API_TESTS, "test-api", self._collect_api_test_steps),
+            (KEY_E2E_TESTS, "test-e2e", self._collect_e2e_test_steps),
+        ):
+            if steps.get(key):
+                steps[key].setdefault("scale", {}).update(collect(project))
+                self._wire_test_image(project, steps, key, image_name, build_steps)
+
+        build_parallel_container = steps.setdefault(
+            KEY_BUILD_PARALLEL, {"type": "parallel", "steps": {}}
+        )
+        if build_parallel_container is not None:
+            for index, group in enumerate(self._batch_build_steps(build_steps)):
+                group_step = dict(build_parallel_container)
+                group_step["title"] = f"Build parallel step {index + 1}"
+                group_step["steps"] = group
+                steps[f"{KEY_BUILD_PARALLEL}_{index}"] = group_step
+
+        if steps.get(KEY_WAIT_DEPLOYMENT):
+            steps[KEY_WAIT_DEPLOYMENT].setdefault("commands", []).extend(
+                self._collect_rollout_wait_commands(project)
+            )
+
+        deployment_step = steps.get(KEY_DEPLOYMENT)
+        if deployment_step is not None:
+            arguments = deployment_step.setdefault("arguments", {})
+            arguments.setdefault("custom_values", []).extend(
+                self._collect_deployment_secret_values(project)
+            )
+
+        prepare_deployment = steps.get(KEY_PREPARE_DEPLOYMENT)
+        if prepare_deployment and prepare_deployment.get("commands"):
+            prepare_deployment["commands"] = (
+                self._substitute_prepare_deployment_placeholders(
+                    project, prepare_deployment["commands"]
+                )
+            )
+
+        steps = self._prune_useless_steps(steps)
+        steps = self._sort_parallel_steps(steps)
+        stages = base.get("stages")
+        if stages:
+            steps = self._order_steps_by_stage(steps, stages)
+        base["steps"] = steps
+
+        if write_on_disk:
+            self.write(base, output_path=output_path)
+
+        return base

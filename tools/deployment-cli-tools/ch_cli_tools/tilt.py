@@ -1,214 +1,187 @@
-import os
+"""Generates a Tiltfile from a CHProject.
 
-from os.path import join, relpath, basename
+Actual deployment logic is delegated to a project-supplied, static
+deployment-configuration/tilt-deploy.ext (Starlark, never generated) - this
+generator's job is narrower: describe what to build (docker_build calls) and
+how to link each deployed app's Tilt UI (k8s_resource/cmd_button), the same
+build-artifact data CHSkaffold already assembles, reshaped for Tilt instead
+of skaffold.yaml.
+
+CHTilt.generate() algorithm:
+1. Every base/common image in the project (CHProject.base_images - already
+   unconditional, not dependency-scoped, matching legacy's own breadth here)
+   gets a build artifact.
+2. Every involved app that's buildable gets one too, plus every one of its
+   tasks unconditionally (own_build_args only applies to the app itself, not
+   its tasks, matching legacy).
+3. Any further transitive build dependency not already covered gets pulled
+   in the same way CHSkaffold does.
+4. is_app is whether the app's harness.service.auto is set (matches legacy
+   exactly, not harness.deployment.auto - these are independent flags in the
+   schema); its Tilt UI link uses the app's subdomain (display only). Tasks
+   carry their owning app's real name as parent_app_name, matched against
+   that same stable key (app_key) in the template - legacy itself matched
+   against the parent's subdomain-swapped display name there, which silently
+   breaks the task/parent link whenever an app's subdomain differs from its
+   own name; fixed here instead of reproduced, since this file was already
+   being copied into ng's own territory rather than merely referenced.
+"""
+
+from pathlib import Path
+
 from jinja2 import Environment, PackageLoader, select_autoescape
-from cloudharness_model import HarnessMainConfig, GitDependencyConfig
 
-from cloudharness_utils.constants import APPS_PATH, BASE_IMAGES_PATH, \
-    STATIC_IMAGES_PATH
-from .helm import KEY_TASK_IMAGES
-from .utils import find_dockerfiles_paths, app_name_from_path, get_image_name, \
-    guess_build_dependencies_from_dockerfile, get_image_source
+from .model import CHValues, register_file
+from .skaffold import _CLONE_SH
+from .utils import resolve_path  # type: ignore
 
-from . import HERE, CH_ROOT
-
-
-env = Environment(
+_env = Environment(
     loader=PackageLoader(package_name="ch_cli_tools", package_path="templates/tilt"),
-    autoescape=select_autoescape()
+    autoescape=select_autoescape(),
 )
 
 
-def relpath_if(p1, p2):
-    if os.path.isabs(p1):
-        return p1
-    return relpath(p1, p2)
+@register_file("tilt", lambda root: root / "Tiltfile")
+class CHTilt(CHValues):
+    def qualify(self, image_name):
+        return self.project.qualify(image_name)
 
+    def _context_for(self, entity):
+        return entity.dockerfile.resolve_context(self.path.parent).resolve_for_build(
+            self.path.parent
+        )
 
-def get_all_images(helm_values: HarnessMainConfig) -> dict[str, str]:
-    all_images = {**helm_values[KEY_TASK_IMAGES]}
-    for app_name, app in helm_values.apps.items():
-        if app.harness.deployment and app.harness.deployment.image:
-            all_images[app_name] = app.harness.deployment.image
-    return all_images
-
-
-def create_tilt_configuration(root_paths, helm_values: HarnessMainConfig, manage_task_images=True, output_path='.', name='', namespace='', domain=''):
-    template_name = 'tilt-template.tpl'
-    tilt_template = env.get_template(template_name)
-    apps = helm_values.apps
-    artifacts = {}
-    overrides = {}
-
-    all_images = get_all_images(helm_values)
-
-    def remove_tag(image_name):
-        return image_name.split(":")[0]
-
-    def get_image_tag(name):
-        return remove_tag(all_images[name])
-
-    builds = {}
-
-    def build_artifact(
-        app_name: str,
-        context_path: str,
-        requirements: list[str] = None,
-        dockerfile_path: str = '',
-        additional_build_args: dict[str, str] = None,
-        is_app: bool = False,
-        is_task: bool = False,
-        parent_app_name: str = None,
-        app_key: str = None,
-    ) -> dict:
-        app_key = app_key or app_name
-        build_args = {
-            'DEBUG': 'true' if helm_values.local or helm_values.debug else ''
-        }
-
-        if additional_build_args:
-            build_args.update(additional_build_args)
-
-        if requirements:
-            for req in requirements:
-                build_args.update({req.replace('-', '_').upper(): get_image_tag(req)})
-
-        build_args.update(get_image_source(helm_values))
-
-        image_name = get_image_tag(app_key)
-
-        artifact_spec = {
-            'name': app_name,
-            'app_key': app_key,
-            'image': image_name,
-            'context': context_path,
-            'is_app': is_app,
-            'is_task': is_task,
-            'parent_app_name': parent_app_name,
-            'docker': {
-                'dockerfile': join(dockerfile_path, 'Dockerfile'),
-                'buildArgs': build_args
-            }
-        }
-        return artifact_spec
-
-    base_images = set()
-
-    def process_build_dockerfile(
-        dockerfile_path: str,
-        root_path: str,
-        global_context: bool = False,
-        requirements: list[str] = None,
-        app_name: str = None,
-        app_key: str = None,
-        is_app: bool = True
-    ) -> None:
-        if app_name is None:
-            app_name = app_name_from_path(basename(dockerfile_path))
-            is_app = False
-        app_key = app_key or app_name
-        if app_key in helm_values.apps and not helm_values.apps[app_key]['build']:
-            return
-        if app_name in helm_values[KEY_TASK_IMAGES] or app_key in helm_values.apps:
-            context_path = relpath_if(root_path, output_path) if global_context else relpath_if(dockerfile_path, output_path)
-
-            builds[app_name] = context_path
-            base_images.add(get_image_name(app_key))
-
-            artifacts[app_name] = build_artifact(
-                app_name,
-                context_path,
-                dockerfile_path=relpath(dockerfile_path, output_path),
-                requirements=requirements or guess_build_dependencies_from_dockerfile(dockerfile_path),
-                additional_build_args=get_additional_build_args(helm_values, app_key),
-                is_app=is_app,
-                app_key=app_key
-            )
-
-            if app_key in helm_values.apps and helm_values.apps[app_key].harness.dependencies and helm_values.apps[app_key].harness.dependencies.git:
-                artifacts[app_name]['hooks'] = {
-                    'before': [git_clone_hook(conf, context_path) for conf in helm_values.apps[app_key].harness.dependencies.git]
+    def _collect_git_clone_hooks(self, app, context_path):
+        git_deps = app.git_dependencies
+        if not git_deps:
+            return None
+        before = []
+        for dep in git_deps:
+            url = dep["url"]
+            repo_name = Path(url).name.split(".")[0]
+            clone_dir = context_path / "dependencies"
+            if dep.get("path"):
+                clone_dir = clone_dir / dep["path"]
+            clone_dir = clone_dir / repo_name
+            before.append(
+                {
+                    "command": [
+                        "sh",
+                        str(_CLONE_SH),
+                        dep.get("branch_tag"),
+                        url,
+                        str(clone_dir),
+                    ]
                 }
+            )
+        return {"before": before}
 
-    images = set()
-    for root_path in root_paths:
-        base_dockerfiles = find_dockerfiles_paths(
-            join(root_path, BASE_IMAGES_PATH))
+    def _build_args(self, dependencies, own_build_args=None):
+        args = {}
+        if self.project.config.local or self.project.config.debug:
+            args["DEBUG"] = "true"
+        for dep in dependencies:
+            if isinstance(dep, str):
+                continue
+            args[dep.name.replace("-", "_").upper()] = self.qualify(dep.image_name)
+        if own_build_args:
+            args.update(own_build_args)
+        args.update(self.project.all_source_images())
+        return args
 
-        for dockerfile_path in base_dockerfiles:
-            process_build_dockerfile(dockerfile_path, root_path, global_context=True)
+    def _artifact(
+        self,
+        entity,
+        *,
+        is_app=False,
+        is_task=False,
+        parent_app_name=None,
+        name=None,
+        own_build_args=None,
+    ):
+        context = self._context_for(entity)
+        dependencies = self.project._combined_dependencies(entity)
+        artifact = {
+            "name": name or entity.name,
+            "app_key": entity.name,
+            "image": self.qualify(entity.image_name),
+            "context": str(context.path),
+            "is_app": is_app,
+            "is_task": is_task,
+            "parent_app_name": parent_app_name,
+            "docker": {
+                "dockerfile": str(context.dockerfile.path),
+                "buildArgs": self._build_args(dependencies, own_build_args),
+            },
+        }
+        if hasattr(entity, "git_dependencies"):
+            hooks = self._collect_git_clone_hooks(entity, context.path)
+            if hooks:
+                artifact["hooks"] = hooks
+        return artifact
 
-    for root_path in root_paths:
-        static_dockerfiles = find_dockerfiles_paths(
-            join(root_path, STATIC_IMAGES_PATH))
+    def _collect_artifacts(self) -> dict:
+        project = self.project
+        artifacts = {}
 
-        for dockerfile_path in static_dockerfiles:
-            process_build_dockerfile(dockerfile_path, root_path)
+        for base_image in project.base_images.values():
+            if not base_image.dockerfile.exists():
+                continue
+            artifacts[base_image.name] = self._artifact(base_image)
 
-    for root_path in root_paths:
-        apps_path = join(root_path, APPS_PATH)
-
-        # Get all dockerfiles in the applications directory, including those in subdirectories
-        app_dockerfiles = find_dockerfiles_paths(apps_path)
-
-        for dockerfile_path in app_dockerfiles:
-            app_relative_to_skaffold = os.path.relpath(
-                dockerfile_path, output_path)
-            app_relative_to_base = os.path.relpath(dockerfile_path, apps_path)
-            app_name = app_name_from_path(app_relative_to_base)
-            app_key = app_name
-
-            if app_key not in apps:
-                if 'tasks' in app_relative_to_base and manage_task_images:
-                    parent_app_name = app_name_from_path(
-                        app_relative_to_base.split('/tasks')[0])
-                    parent_app_key = parent_app_name
-
-                    if parent_app_key in apps:
-                        artifacts[app_key] = build_artifact(
-                            app_name,
-                            app_relative_to_skaffold,
-                            guess_build_dependencies_from_dockerfile(dockerfile_path),
-                            dockerfile_path=dockerfile_path,
-                            is_task=True,
-                            parent_app_name=parent_app_name)
-                elif app_name in helm_values[KEY_TASK_IMAGES]:
-                    process_build_dockerfile(dockerfile_path, root_path,
-                                             requirements=guess_build_dependencies_from_dockerfile(dockerfile_path), dockerfile_path=dockerfile_path, app_name=app_name)
+        for app in project.involved_apps:
+            if isinstance(app, str):
                 continue
 
-            if app_name in helm_values["apps"]:
-                is_app = helm_values["apps"][app_name]["harness"]["service"]["auto"]
-                app_name = helm_values["apps"][app_name]["harness"]["subdomain"]
-            process_build_dockerfile(dockerfile_path, root_path, requirements=guess_build_dependencies_from_dockerfile(dockerfile_path), app_name=app_name, app_key=app_key, is_app=is_app)
-            app = apps[app_key]
-            if not app['build']:
+            if app.dockerfile.exists() and not app.deployment_config.get("image"):
+                is_app = bool(resolve_path(app.harness_config, "service.auto"))
+                subdomain = resolve_path(app.harness_config, "subdomain")
+                artifacts[app.name] = self._artifact(
+                    app,
+                    is_app=is_app,
+                    name=subdomain or app.name,
+                    own_build_args=app.build_args,
+                )
+
+            for task in app.tasks.values():
+                if not task.dockerfile.exists():
+                    continue
+                artifacts[task.name] = self._artifact(
+                    task, is_task=True, parent_app_name=app.name
+                )
+
+        for dependency in project.all_build_dependencies(set(artifacts)).values():
+            if isinstance(dependency, str) or dependency.name in artifacts:
                 continue
+            artifacts[dependency.name] = self._artifact(dependency)
 
-    images = [artifact for artifact in artifacts.values() if artifact['image']]
-    apps = [artifact for artifact in artifacts.values() if artifact['is_app']]
-    with open(os.path.join(output_path, 'Tiltfile'), "w") as f:
-        f.write(tilt_template.render(ch_root=CH_ROOT, name=name, namespace=namespace, images=images, apps=apps, domain=domain))
-    return None
+        return artifacts
 
+    def generate(self, write_on_disk=True, output_path=".") -> str:
+        project = self.project
+        artifacts = self._collect_artifacts()
+        images = list(artifacts.values())
+        apps = [a for a in images if a["is_app"]]
 
-def git_clone_hook(conf: GitDependencyConfig, context_path: str):
-    return {
-        'command': [
-            'sh',
-            join(os.path.dirname(os.path.dirname(HERE)), 'clone.sh'),
-            conf.branch_tag,
-            conf.url,
-            join(context_path, "dependencies", conf.path or os.path.basename(conf.url).split('.')[0])
-        ]
-    }
+        config = project.config
+        tiltfile = _env.get_template("tilt-template.tpl").render(
+            ch_root=str(project.all_layers()[-1].root),
+            name=config.namespace or "",
+            namespace=config.namespace or "",
+            domain=config.domain,
+            images=images,
+            apps=apps,
+        )
 
+        if write_on_disk:
+            self.write(tiltfile, output_path=output_path)
 
-def get_additional_build_args(helm_values: HarnessMainConfig, app_key: str) -> dict[str, str]:
-    if app_key not in helm_values.apps:
-        return None
+        return tiltfile
 
-    if not (helm_values.apps[app_key].harness.dockerfile and helm_values.apps[app_key].harness.dockerfile.build_args):
-        return None
-
-    return helm_values.apps[app_key].harness.dockerfile.build_args
+    def write(self, base, output_path=None) -> None:
+        if output_path is None:
+            target = self.path
+        else:
+            target = Path(output_path) / self.path.name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(base)

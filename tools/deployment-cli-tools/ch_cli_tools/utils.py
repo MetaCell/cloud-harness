@@ -1,44 +1,333 @@
-
-import contextlib
-import pathlib
-import socket
+import collections
+import fileinput
 import glob
+import hashlib
+import json
+import logging
+import os
+import re
+import shlex
+import shutil
+import socket
 import subprocess
 from dataclasses import dataclass
-from typing import Any, Union
+from os.path import basename, dirname, exists, isdir, join
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Union
+
+import dirhash
+import pathspec
 import requests
-import os
-from functools import cache
-from os.path import join, dirname, isdir, basename, exists, relpath, sep, dirname as dn
-import json
-import collections
-import re
+import xxhash
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
-import shutil
-import logging
-import fileinput
-import pathspec
-from pathlib import Path
 
-from cloudharness_utils.constants import NEUTRAL_PATHS, DEPLOYMENT_CONFIGURATION_PATH, BASE_IMAGES_PATH, STATIC_IMAGES_PATH, \
-    APPS_PATH, EXCLUDE_PATHS, VALUES_OVERRIDES_PATH
+from cloudharness_utils.constants import DEPLOYMENT_CONFIGURATION_PATH, EXCLUDE_PATHS, VALUES_OVERRIDES_PATH
 from . import CH_ROOT
 
-# Single YAML handler for the whole toolchain: ruamel.yaml.
-# `yaml` loads/dumps plain Python types; block style is forced so that generated
-# files never come out as inline `{a: 1, b: 2}` flow mappings.
+if TYPE_CHECKING:
+    from .model import CHValues
+
+
+def resolve_path(d, p, default=None):
+    obj = d
+    for frag in p.split("."):
+        if obj is None:
+            return default
+        obj = obj.get(frag)
+    return obj if obj is not None else default
+
+
+def merge_with_layer(base: "CHValues", layer: "CHValues"):
+
+    if base is layer or layer.env is None:
+        return base.all_raw_values() if base.exists() else {}
+    match base.exists(), layer.exists():
+        case True, True:
+            return dict_merge(base.all_raw_values(), layer.all_raw_values())
+        case False, True:
+            return layer.all_raw_values()
+        case True, False:
+            return base.all_raw_values()
+        case False, False:
+            return {}
+
+
+# Commands whose argument can be either a JSON exec-form array
+# (`CMD ["gunicorn", "app:app"]`) or a plain shell-form string
+# (`CMD gunicorn app:app`).
+_EXEC_FORM_COMMANDS = {"RUN", "CMD", "ENTRYPOINT", "SHELL", "HEALTHCHECK"}
+
+_LINE_CONTINUATION = re.compile(r"\\\s*$")
+_FROM_ALIAS = re.compile(r"\s+AS\s+", re.IGNORECASE)
+_LEADING_FLAG = re.compile(r"^--[\w-]+(=\S*)?$")
+_VAR_REFERENCE = re.compile(r"^\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?$")
+
+
+def dockerfile_variable_reference(token: str) -> str | None:
+    match = _VAR_REFERENCE.match(token)
+    return match.group(1) if match else None
+
+
+def parse_dockerfile(path: Path) -> list[tuple[str, ...]]:
+    if not path.exists():
+        return []
+
+    instructions: list[tuple[str, ...]] = []
+    pending = ""
+    for raw_line in path.read_text().splitlines():
+        line = raw_line.strip()
+        if pending:
+            line = f"{pending} {line}".strip()
+            pending = ""
+        if not line or line.startswith("#"):
+            continue
+        if _LINE_CONTINUATION.search(line):
+            pending = _LINE_CONTINUATION.sub("", line).strip()
+            continue
+
+        command, _, rest = line.partition(" ")
+        command = command.upper()
+        rest = rest.strip()
+        if not rest:
+            instructions.append((command,))
+            continue
+
+        if command == "FROM":
+            instructions.append((command, *_parse_from(rest)))
+        elif command == "ARG":
+            instructions.append((command, *_parse_arg(rest)))
+        elif command in _EXEC_FORM_COMMANDS and rest.startswith("["):
+            instructions.append((command, *_parse_exec_form(rest)))
+        else:
+            instructions.append((command, *_split_args(rest)))
+
+    return instructions
+
+
+def _strip_leading_flags(tokens: list[str]) -> list[str]:
+    while tokens and _LEADING_FLAG.match(tokens[0]):
+        tokens.pop(0)
+    return tokens
+
+
+def _split_args(rest: str) -> list[str]:
+    try:
+        tokens = shlex.split(rest)
+    except ValueError:
+        tokens = rest.split()
+    return _strip_leading_flags(tokens)
+
+
+def _parse_from(rest: str) -> tuple[str, ...]:
+    # FROM [--platform=<platform>] <image> [AS <name>]
+    tokens = _strip_leading_flags(rest.split())
+    parts = [part.strip() for part in _FROM_ALIAS.split(" ".join(tokens), maxsplit=1)]
+    reference = dockerfile_variable_reference(parts[0])
+    if reference is not None:
+        parts[0] = reference
+    return tuple(parts)
+
+
+def _parse_arg(rest: str) -> tuple[str, ...]:
+    # ARG <name>[=<default>]
+    name, has_default, default = rest.partition("=")
+    if has_default:
+        return (name.strip(), default.strip())
+    return (name.strip(),)
+
+
+def _parse_exec_form(rest: str) -> tuple[str, ...]:
+    try:
+        parsed = json.loads(rest)
+    except ValueError:
+        return (rest,)
+    if isinstance(parsed, list):
+        return tuple(str(item) for item in parsed)
+    return (rest,)
+
+
+CLOUD_HARNESS_DIR_NAME = "cloud-harness"
+
+
+def pipeline_relative_path(
+    path: Path,
+    relative_to: Path,
+    boundary: Path | None = None,
+    cloudharness_root: Path | None = None,
+) -> Path:
+    rel_parts = path.resolve().relative_to(relative_to.resolve(), walk_up=True).parts
+    if rel_parts and rel_parts[0] == "..":
+        if boundary is not None:
+            try:
+                path.resolve().relative_to(boundary.resolve())
+            except ValueError:
+                pass
+            else:
+                return Path(*rel_parts)
+        if cloudharness_root is not None:
+            try:
+                suffix = path.resolve().relative_to(cloudharness_root.resolve())
+            except ValueError:
+                pass
+            else:
+                return Path(CLOUD_HARNESS_DIR_NAME, *suffix.parts)
+    return Path(*rel_parts) if rel_parts else Path(".")
+
+
+MERGE_DIRNAME = ".overrides"
+_MERGE_COPY_IGNORE = shutil.ignore_patterns(
+    MERGE_DIRNAME, ".git", "node_modules", ".tox"
+)
+
+
+def _merge_base_chain(entity, source_of, destination: Path) -> None:
+    if entity.base is not None:
+        _merge_base_chain(entity.base, source_of, destination)
+    source = source_of(entity)
+    if source.exists():
+        shutil.copytree(
+            source, destination, dirs_exist_ok=True, ignore=_MERGE_COPY_IGNORE
+        )
+
+
+_yaml = YAML(typ="safe")
+
+
+def get_yaml_parser():
+    return _yaml
+
+
+_MERGEABLE_SUFFIXES = {".yaml": _yaml, ".yml": _yaml, ".json": json}
+
+
+def env_suffixed_path(path: Path, suffix: str) -> Path:
+    """The env-specific sibling of path (values.yaml, dev -> values-dev.yaml)
+    - the one naming convention CHValues.path_for_env and
+    collect_and_merge_env_specific_files both need."""
+    return path.with_name(f"{path.stem}-{suffix}{path.suffix}")
+
+
+def collect_and_merge_env_specific_files(directory: Path, envs: list[str]) -> None:
+    if not envs or not directory.exists():
+        return
+    for path in directory.rglob("*"):
+        codec = _MERGEABLE_SUFFIXES.get(path.suffix.lower())
+        if not path.is_file() or codec is None:
+            continue
+        if any(path.stem.endswith(f"-{env}") for env in envs):
+            continue
+        for env in envs:
+            env_path = env_suffixed_path(path, env)
+            if not env_path.exists():
+                continue
+            with path.open("r", encoding="utf-8") as f:
+                base = codec.load(f) or {}
+            with env_path.open("r", encoding="utf-8") as f:
+                override = codec.load(f) or {}
+            with path.open("w", encoding="utf-8") as f:
+                codec.dump(dict_merge(base, override), f)
+
+
+_DEFAULT_IGNORE = (
+    "/tasks",
+    ".dockerignore",
+    ".hypothesis",
+    "__pycache__",
+    "node_modules",
+    "dist",
+    "build",
+    ".coverage",
+)
+
+
+def _cloned_dependency_repos(directory: Path):
+    for child in directory.iterdir():
+        if not child.is_dir():
+            continue
+        if (child / ".git").is_dir():
+            yield child
+        else:
+            yield from _cloned_dependency_repos(child)
+
+
+class _PruningFilter(dirhash.Filter):
+    def include(self, recursion_path):
+        if recursion_path.is_dir():
+            if recursion_path.is_symlink() and not self.linked_dirs:
+                return False
+            return self.match_file(recursion_path.relative)
+        return super().include(recursion_path)
+
+
+def content_hash(path: Path) -> str:
+    ignore = set(_DEFAULT_IGNORE)
+    dockerignore = path / ".dockerignore"
+    if dockerignore.exists():
+        ignore |= {
+            line.strip()
+            for line in dockerignore.read_text().splitlines()
+            if line.strip() and not line.startswith("#")
+        }
+
+    git_hashes = []
+    dependencies_path = path / "dependencies"
+    if dependencies_path.is_dir():
+        ignore.add("/dependencies")
+        git_hashes = [
+            commit_hash
+            for repo in _cloned_dependency_repos(dependencies_path)
+            if (commit_hash := get_git_commit_hash(repo))
+        ]
+
+    match_patterns = dirhash.get_match_patterns(ignore=ignore)
+    filter_ = _PruningFilter(match_patterns=match_patterns)
+    protocol = dirhash.Protocol(allow_cyclic_links=True)
+    digest = dirhash.dirhash_impl(
+        str(path), xxhash.xxh3_64, filter_=filter_, protocol=protocol
+    )
+    if git_hashes:
+        digest = hashlib.sha1(
+            (digest + "".join(git_hashes)).encode("utf-8")
+        ).hexdigest()
+    return digest
+
+
+_EXCLUDED_WALK_SEGMENTS = {
+    "tasks",
+    "dependencies",
+    "subapps",
+    "instances",
+    "node_modules",
+    ".git",
+}
+
+
+def find_files(path: Path, filename: str) -> list[Path]:
+    candidates = []
+    for root, dirs, files in path.walk():
+        dirs[:] = [d for d in dirs if d not in _EXCLUDED_WALK_SEGMENTS]
+        if filename in files:
+            candidates.append(root / filename)
+    return candidates
+
+
+def own_dockerfile_path(path: Path) -> Path:
+    candidates = find_files(path, "Dockerfile")
+    if not candidates:
+        return path / "Dockerfile"
+    return min(candidates, key=lambda p: (len(p.parts), str(p)))
+
+
+# --- Shared with ch_cli_tools.old: imported there by old/helm.py, old/codefresh.py,
+# old/dockercompose.py, old/skaffold.py, old/configuration/* and ch_cli_tools.old.utils
+# itself, as well as by the unrelated openapi.py/application_builders.py/manifest.py
+# (harness-generate/harness-application), none of which are part of the ng/old split.
+
 yaml = YAML(typ='safe')
 yaml.default_flow_style = False
 
-# Round trip handler, for the cases where the key order of the source document
-# (or of the dumped dictionary) must be preserved: the safe representer above
-# sorts mapping keys alphabetically.
-yaml_rt = YAML()
-yaml_rt.default_flow_style = False
-
 BASE_TEMPLATES_PATH = CH_ROOT
-
 
 REPLACE_TEXT_FILES_EXTENSIONS = (
     '.js', '.md', '.py', '.js', '.ts', '.tsx', '.txt', 'Dockerfile', 'yaml', 'json', '.ejs'
@@ -47,89 +336,8 @@ REPLACE_TEXT_FILES_EXTENSIONS = (
 SKIP_DIRS = ('node_modules',)
 
 
-def image_name_from_dockerfile_path(dockerfile_path, base_name=None) -> str:
-    return get_image_name(app_name_from_path(dockerfile_path), base_name)
-
-
-def app_name_from_path(dockerfile_path):
-    return "-".join(p for p in dockerfile_path.split("/") if p not in NEUTRAL_PATHS)
-
-
-def clean_path(path):
-    return "/".join(p for p in path.split("/") if p not in NEUTRAL_PATHS)
-
-
-def get_app_relative_to_base_path(base_path, dockerfile_path):
-    return clean_path(relpath(dockerfile_path, base_path))
-
-
 def get_sub_paths(base_path):
     return tuple(path for path in glob.glob(base_path + "/*") if isdir(path))
-
-
-def find_file_paths(base_directory, file_name):
-    return tuple(dirname(path).replace(sep, "/") for path in
-                 glob.glob(f"{base_directory}/**/{file_name}", recursive=True))
-
-
-def find_subdirs(base_path):
-    if exists(base_path):
-        return (join(base_path, d) for d in os.listdir(base_path) if isdir(join(base_path, d)))
-    return tuple()
-
-
-def find_dockerfiles_paths(base_directory: str) -> tuple[str, ...]:
-    all_dockerfiles = find_file_paths(base_directory, 'Dockerfile')
-
-    # We want to remove all dockerfiles that are not in a git repository
-    # This will exclude the cloned dependencies and other repos cloned for convenience
-    dockerfiles_without_git: list[str] = []
-
-    for dockerfile in all_dockerfiles:
-        directory = dockerfile
-        while not os.path.samefile(directory, base_directory):
-            if os.path.exists(os.path.join(directory, '.git')):
-                break
-            directory = os.path.dirname(directory)
-        else:
-            dockerfiles_without_git.append(dockerfile.replace(os.sep, "/"))
-
-    return tuple(p for p in dockerfiles_without_git if not re.search(r'(^|/).*dependencies.*/', p + '/'))
-
-
-# Directory names that hold Dockerfiles belonging to something other than the application's own
-# buildable image: task images, deprecated subapps, and instance overrides.
-NON_BUILDABLE_DOCKERFILE_SEGMENTS = frozenset({'tasks', 'subapps', 'instances'})
-
-
-def is_buildable_dockerfile_path(path: str) -> bool:
-    """Whether a Dockerfile path belongs to the application's own buildable image, i.e. is not
-    nested under a `tasks`, `subapps` or `instances` directory.
-
-    Matches by path segment rather than substring, so an application or resource directory whose
-    name merely contains one of these words (e.g. `myinstances`) is not excluded by mistake.
-    """
-    return not (set(Path(path).parts) & NON_BUILDABLE_DOCKERFILE_SEGMENTS)
-
-
-def get_parent_app_name(app_relative_path):
-    return app_relative_path.split("/")[0] if "/" in app_relative_path else ""
-
-
-def strip_registry_tag(full_image_name, registry_url=""):
-    if not full_image_name:
-        return None
-    return full_image_name.replace(registry_url, "").split(":")[0]
-
-
-def get_image_name(app_name, base_name=None):
-    if not app_name:
-        return None
-    return (base_name + '/' + app_name) if base_name else app_name
-
-
-def env_variable(name, value):
-    return {'name': f"{name}".upper(), 'value': str(value)}
 
 
 def get_cluster_ip(local=False):
@@ -216,54 +424,12 @@ def get_json_template(json_path, base_default=False):
     return dict_template or {}
 
 
-def get_template(yaml_path, base_default=False):
-    default_template_path = join(
-        BASE_TEMPLATES_PATH, DEPLOYMENT_CONFIGURATION_PATH, basename(yaml_path))
-    dict_template = {}
-    if base_default and exists(default_template_path):
-        with open(default_template_path) as f:
-            dict_template = yaml.load(f)
-    if exists(yaml_path):
-        with open(yaml_path) as f:
-            override_tpl = yaml.load(f)
-            if override_tpl:
-                dict_template = dict_merge(dict_template or {}, override_tpl)
-    return dict_template or {}
-
-
-def replaceindir(root_src_dir, source, replace):
-    """
-    Does copy and merge (shutil.copytree requires that the destination does not exist)
-    :param root_src_dir:
-    :param root_dst_dir:
-    :return:
-    """
-    logging.info('Replacing in directory %s to %s', source, replace)
-    for src_dir, dirs, files in os.walk(root_src_dir):
-        if any(path in src_dir for path in EXCLUDE_PATHS):
-            continue
-
-        for dirname in dirs:
-            if source in dirname:
-                dirpath = join(src_dir, dirname)
-                movedircontent(dirpath, dirpath.replace(
-                    source, to_python_module(replace)))
-
-    for src_dir, dirs, files in os.walk(root_src_dir):
-        for file_ in files:
-            if not any(file_.endswith(ext) for ext in REPLACE_TEXT_FILES_EXTENSIONS):
-                continue
-
-            src_file = pathlib.Path(src_dir) / file_
-            replace_in_file(src_file, source, replace)
-
-
 def confirm(question):
     answer = input(f"{question} (Y/n): ").casefold()
     return answer == "y" if answer else True
 
 
-def replace_in_file(src_file: pathlib.Path, source: str, replacement) -> None:
+def replace_in_file(src_file: Path, source: str, replacement) -> None:
     if src_file.name.endswith('.py') or src_file.name == 'Dockerfile':
         replacement = to_python_module(str(replacement))
 
@@ -291,7 +457,34 @@ def replace_in_dict(src_dict: dict, source: str, replacement: str) -> dict:
     }
 
 
-def copymergedir(source_root_directory: pathlib.Path, destination_root_directory: pathlib.Path) -> None:
+def replaceindir(root_src_dir, source, replace):
+    """
+    Does copy and merge (shutil.copytree requires that the destination does not exist)
+    :param root_src_dir:
+    :param root_dst_dir:
+    :return:
+    """
+    logging.info('Replacing in directory %s to %s', source, replace)
+    for src_dir, dirs, files in os.walk(root_src_dir):
+        if any(path in src_dir for path in EXCLUDE_PATHS):
+            continue
+
+        for name in dirs:
+            if source in name:
+                dirpath = join(src_dir, name)
+                movedircontent(dirpath, dirpath.replace(
+                    source, to_python_module(replace)))
+
+    for src_dir, dirs, files in os.walk(root_src_dir):
+        for file_ in files:
+            if not any(file_.endswith(ext) for ext in REPLACE_TEXT_FILES_EXTENSIONS):
+                continue
+
+            src_file = Path(src_dir) / file_
+            replace_in_file(src_file, source, replace)
+
+
+def copymergedir(source_root_directory: Path, destination_root_directory: Path) -> None:
     """
     Does copy and merge (shutil.copytree requires that the destination does not exist)
     :param source_root_directory:
@@ -300,9 +493,9 @@ def copymergedir(source_root_directory: pathlib.Path, destination_root_directory
     """
     logging.info(f'Copying directory {source_root_directory} to {destination_root_directory}')
 
-    for source_directory, dirs, files in os.walk(source_root_directory):  # source_root_directory.walk() from Python 3.12
+    for source_directory, dirs, files in os.walk(source_root_directory):
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
-        source_directory = pathlib.Path(source_directory)
+        source_directory = Path(source_directory)
         destination_directory = destination_root_directory / source_directory.relative_to(source_root_directory)
         destination_directory.mkdir(parents=True, exist_ok=True)
 
@@ -342,8 +535,8 @@ def movedircontent(root_src_dir, root_dst_dir):
     shutil.rmtree(root_src_dir)
 
 
-def merge_configuration_directories(source: Union[str, pathlib.Path], destination: Union[str, pathlib.Path], envs=(), exclude=EXCLUDE_PATHS) -> None:
-    source_path, destination_path = pathlib.Path(source), pathlib.Path(destination)
+def merge_configuration_directories(source: Union[str, Path], destination: Union[str, Path], envs=(), exclude=EXCLUDE_PATHS) -> None:
+    source_path, destination_path = Path(source), Path(destination)
 
     if source_path == destination_path and not envs:
         return
@@ -361,7 +554,7 @@ def merge_configuration_directories(source: Union[str, pathlib.Path], destinatio
         merge_roots_set = set(merge_roots)
 
         def _ignore(directory, contents):
-            rel_dir = pathlib.Path(directory).relative_to(source_path)
+            rel_dir = Path(directory).relative_to(source_path)
             ignored = []
             for c in contents:
                 if str(rel_dir) == '.' and c in merge_roots_set:
@@ -373,17 +566,17 @@ def merge_configuration_directories(source: Union[str, pathlib.Path], destinatio
     else:
         copy_single_files = True
 
-    for source_directory, dirs, files in os.walk(source_path):  # source_path.walk() from Python 3.12
+    for source_directory, dirs, files in os.walk(source_path):
         _merge_configuration_directory(
-            source_path, destination_path, pathlib.Path(source_directory),
+            source_path, destination_path, Path(source_directory),
             files, envs, spec, copy_single_files=copy_single_files
         )
 
 
 def _merge_configuration_directory(
-        source: pathlib.Path,
-        destination: pathlib.Path,
-        source_directory: pathlib.Path,
+        source: Path,
+        destination: Path,
+        source_directory: Path,
         files: list[str],
         envs=(),
         spec: pathspec.PathSpec = None,
@@ -465,7 +658,7 @@ merge_operations = {
 }
 
 
-def _merge_configuration_file(source_file_path: pathlib.Path, destination_file_path: pathlib.Path, envs=(), copy_single_files: bool = False) -> None:
+def _merge_configuration_file(source_file_path: Path, destination_file_path: Path, envs=(), copy_single_files: bool = False) -> None:
     if not exists(destination_file_path):
         shutil.copy2(source_file_path, destination_file_path)
     ext = source_file_path.suffix.lower()
@@ -486,7 +679,7 @@ def _merge_configuration_file(source_file_path: pathlib.Path, destination_file_p
     if merge_files is not None:
         # override eventually with environment specific files
         for e in envs:
-            env_specific_file = pathlib.Path(str(source_file_path).replace(f'{ext}', f'-{e}{ext}'))
+            env_specific_file = Path(str(source_file_path).replace(f'{ext}', f'-{e}{ext}'))
             if exists(env_specific_file):
                 try:
                     merge_files(env_specific_file, destination_file_path)
@@ -536,95 +729,8 @@ def dict_merge(dct, merge_dct, add_keys=True):
     return dct
 
 
-def merge_app_directories(root_paths, destination) -> None:
-    """ Merge directories if they refer to the same application
-
-    Directories are merged in the destination from the root_paths list. The latter overrides the former.
-    Yaml files are merged, other files are overwritten.
-    """
-    if not exists(destination):
-        os.makedirs(destination)
-    else:
-        shutil.rmtree(destination)
-
-    for rpath in root_paths:
-        merge_configuration_directories(join(rpath, BASE_IMAGES_PATH),
-                                        join(destination, BASE_IMAGES_PATH))
-        merge_configuration_directories(join(rpath, STATIC_IMAGES_PATH),
-                                        join(destination, STATIC_IMAGES_PATH))
-        merge_configuration_directories(join(rpath, APPS_PATH),
-                                        join(destination, APPS_PATH))
-        merge_configuration_directories(join(rpath, 'libraries'),
-                                        join(destination, 'libraries'))
-        merge_configuration_directories(join(rpath, 'client'),
-                                        join(destination, 'client'))
-        merge_configuration_directories(join(rpath, 'deployment-configuration'),
-                                        join(destination, 'deployment-configuration'))
-
-
-def read_dockerignore(base_path: Union[str, pathlib.Path]) -> tuple:
-    dockerignore = pathlib.Path(base_path) / '.dockerignore'
-    if not dockerignore.exists():
-        return None
-    with dockerignore.open() as f:
-        lines = [line.strip() for line in f if line.strip() and not line.startswith('#')]
-    return tuple(lines) if lines else ()
-
-
 def to_python_module(name):
     return name.replace('-', '_')
-
-
-@cache
-def guess_build_dependencies_from_dockerfile(filename):
-    dependencies = []
-    if "Dockerfile" not in str(filename):
-        filename = join(filename, "Dockerfile")
-    if not os.path.exists(filename):
-        return dependencies
-    with open(filename) as f:
-        for line in f:
-            if line.startswith("ARG") and not "=" in line:
-                dependencies.append(line.split()[1].lower().replace("_", "-"))
-            else:
-                break
-    return dependencies
-
-
-@cache
-def get_dockerfile_baseimg_args(filename: str) -> dict[str, str]:
-    """Gets the ARGS from a Dockerfile image (if ARGS is used directly in the FROM of the Dockerfile)"""
-    file = Path(filename)
-    if file.is_dir() and file.name != "Dockerfile":
-        file /= "Dockerfile"
-    if not file.exists():
-        return {}
-    content = file.read_text()
-    found_args = {}
-    args: dict[str, str] = {}
-    for line in content.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        cmd, *rest = line.split()
-        arg = rest[0] if len(rest) > 0 else ""
-        match cmd:
-            case "ARG" if "=" in rest[0]:
-                key, val = arg.split("=")
-                found_args[key] = val
-            case "FROM" if arg[1:] in found_args:  # $NAME case
-                key = arg[1:]
-                args[key] = found_args[key]
-            case "FROM" if arg[2:-1] in found_args:  # ${NAME} case
-                key = arg[2:-1]
-                args[key] = found_args[key]
-            case _:
-                continue
-    return args
-
-
-def get_image_source(helm_values) -> dict[str, str]:
-    return helm_values.get("source_images", {})
 
 
 @dataclass(frozen=True)
@@ -703,7 +809,7 @@ def find_chart_images(node: dict, *, skip_paths: frozenset = frozenset(),
     return found
 
 
-def write_values_overrides(helm_values: dict, dest_deployment_path: pathlib.Path) -> None:
+def write_values_overrides(helm_values: dict, dest_deployment_path: Path) -> None:
     """Writes values-overrides.yaml next to values.yaml: every image the chart pulls but does
     not build, in the structure Helm consumes. It is a reference for looking a path up and
     trying an image out by passing the file to helm explicitly; no pipeline applies it, since it
@@ -891,12 +997,12 @@ def get_git_commit_hash(path):
         return None
 
 
-def load_yaml(yaml_file: pathlib.Path) -> dict:
+def load_yaml(yaml_file: Path) -> dict:
     with yaml_file.open('r') as file:
         return yaml.load(file)
 
 
-def save_yaml(yaml_file: pathlib.Path, data: dict) -> None:
+def save_yaml(yaml_file: Path, data: dict) -> None:
     with yaml_file.open('w') as file:
         yaml.dump(data, file)
 
@@ -909,7 +1015,7 @@ def _sorted_deep(value):
     return value
 
 
-def save_yaml_with_comments(yaml_file: pathlib.Path, data: dict, header: str = None,
+def save_yaml_with_comments(yaml_file: Path, data: dict, header: str = None,
                             key_comments: dict[str, str] = None) -> None:
     """Writes data as YAML (keys sorted at every level, like `save_yaml`), with a comment block
     before the document and, optionally, a comment before each named top-level key."""
@@ -936,10 +1042,3 @@ def get_apps_paths(root, app_name) -> tuple[str]:
         logging.info('### Generating server stubs for all applications ###')
         apps_path = [path for path in root.glob('applications/*') if path.is_dir()]
     return apps_path
-
-
-def clean_image_name(image_name: str) -> str:
-    """
-    Cleans the image name by removing all unallowed characters and converting it to lowercase.
-    """
-    return re.sub(r'[^a-zA-Z0-9-]', '', image_name.lower()).strip('-')  # Remove unallowed characters and trim

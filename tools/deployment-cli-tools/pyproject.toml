@@ -37,10 +37,10 @@ dev = [
 include-package-data = true
 script-files = [
     "harness-deployment",
+    "harness-deployment-legacy",
     "harness-generate",
     "harness-application",
     "harness-migrate",
-    "harness-deployment-ng",
 ]
 
 [tool.setuptools.packages.find]

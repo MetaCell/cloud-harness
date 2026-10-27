@@ -9,10 +9,7 @@ watch = cfg.get('watch', False)
 if setup_infrastructure:
     # setup ingress
     print("Installing ingress controller")
-    # local("cd infrastructure/cluster-configuration && source cluster-init.sh")
     local("kubectl get namespace ingress-nginx 2>/dev/null 1>/dev/null || bash -c 'helm upgrade --install ingress-nginx ingress-nginx --repo https://kubernetes.github.io/ingress-nginx --namespace ingress-nginx --create-namespace --version v4.2.5 --wait --wait-for-jobs'")
-    # print("Let's wait a few seconds...")
-    # local("sleep 30")
 else:
     print("To setup the infrastructure (f.e. ingress controller)")
     print("run: tilt up -- --setup-infrastructure")
@@ -29,10 +26,10 @@ docker_build(ref='{{image.image}}', context='{{image.context}}', dockerfile='{{i
 extra_env = {}
 {% for image in images -%}
 {% if image.is_app -%}
-extra_env.setdefault("{{ image.name }}", [])
+extra_env.setdefault("{{ image.app_key }}", [])
 {% for task in images -%}
-{% if task.is_task and task.parent_app_name == image.name -%}
-extra_env["{{ image.name }}"].append("{{ task.image }}")
+{% if task.is_task and task.parent_app_name == image.app_key -%}
+extra_env["{{ image.app_key }}"].append("{{ task.image }}")
 {% endif -%}
 {% endfor -%}
 {% endif -%}
@@ -42,7 +39,7 @@ extra_env["{{ image.name }}"].append("{{ task.image }}")
 deploy(name='{{name}}', namespace='{{namespace}}', extra_env=extra_env, watch=watch)
 
 {% for app in apps -%}
-# Add Tilt ui elements for: {{app.name}}
+# Add Tilt ui elements for: {{app.app_key}}
 k8s_resource(
     '{{app.app_key}}',
     links=[link('http://{{app.name}}.{{domain}}', 'Open {{app.name}} page')]
