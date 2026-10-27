@@ -1,6 +1,6 @@
 """ch_cli_tools.dockercompose generator tests. Exercises the real `helm`
 binary (used as a template engine, see dockercompose.py's module docstring)
-against a minimal throwaway compose chart - see test_ng.py in this folder for
+against a minimal throwaway compose chart - see test_model.py in this folder for
 the structural/model tests the values computation itself builds on.
 """
 
@@ -10,7 +10,7 @@ from io import StringIO
 
 import pytest
 from conftest import CLOUDHARNESS_ROOT, RESOURCES
-from test_util_ng import write_tree_from_yaml
+from test_util import write_tree_from_yaml
 
 from ch_cli_tools import CHDeployConfig, CHProject
 from ch_cli_tools.api import create_docker_compose_configuration

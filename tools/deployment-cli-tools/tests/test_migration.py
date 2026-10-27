@@ -4,7 +4,7 @@ directly against a throwaway app tree, using the real, shipped migration
 rule file (ch_cli_tools/migrations/1_migration.json).
 """
 
-from test_util_ng import write_tree_from_yaml
+from test_util import write_tree_from_yaml
 
 from ch_cli_tools.api import perform_migration
 

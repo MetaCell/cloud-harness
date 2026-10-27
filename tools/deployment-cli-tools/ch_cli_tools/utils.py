@@ -319,10 +319,10 @@ def own_dockerfile_path(path: Path) -> Path:
     return min(candidates, key=lambda p: (len(p.parts), str(p)))
 
 
-# --- Shared with ch_cli_tools.old: imported there by old/helm.py, old/codefresh.py,
-# old/dockercompose.py, old/skaffold.py, old/configuration/* and ch_cli_tools.old.utils
-# itself, as well as by the unrelated openapi.py/application_builders.py/manifest.py
-# (harness-generate/harness-application), none of which are part of the ng/old split.
+# Legacy-derived utilities, imported as-is rather than reimplemented: write_values_overrides
+# is used directly by helm.py's own generate(); find_chart_images/ChartImageRef are unit-tested
+# directly (see tests/test_helm.py); the rest is shared with openapi.py/application_builders.py/
+# manifest.py (harness-generate/harness-application), unrelated to the deployment generator.
 
 yaml = YAML(typ='safe')
 yaml.default_flow_style = False

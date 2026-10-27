@@ -1,10 +1,10 @@
 """ch_cli_tools.skaffold generator tests. Ports of tests/test_skaffold.py,
-scoped to the slice of behavior the ng model currently supports. See test_ng.py
+scoped to the slice of behavior the ng model currently supports. See test_model.py
 (this folder) for the structural/model tests these build on.
 """
 
 from conftest import CLOUDHARNESS_ROOT, RESOURCES, chain, minimal_project
-from test_util_ng import write_tree, write_tree_from_yaml
+from test_util import write_tree, write_tree_from_yaml
 
 from ch_cli_tools import CHDeployConfig, skaffold
 from ch_cli_tools.utils import dockerfile_variable_reference, parse_dockerfile

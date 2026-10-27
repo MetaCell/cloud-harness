@@ -1,18 +1,25 @@
-# NG-COMPAT-TODO: retargeted at ch_cli_tools.api.create_helm_chart instead of
-# the legacy ch_cli_tools.old.helm one - only create_helm_chart is actually used
-# from that module in this file (checked: no CloudHarnessHelm/deploy() usage).
 import logging
 import os
 import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
-from test_util_ng import write_tree
+from test_util import write_tree
 
-from ch_cli_tools.old.configuration import configurationgenerator
-from ch_cli_tools.old.configuration.configurationgenerator import *
 from ch_cli_tools.api import create_helm_chart
-from ch_cli_tools.model import DependencyUnknownError
+from ch_cli_tools.model import (
+    DependencyUnknownError,
+    KEY_APPS,
+    KEY_DATABASE,
+    KEY_DEPLOYMENT,
+    KEY_HARNESS,
+    KEY_SERVICE,
+    KEY_TASK_IMAGES,
+    KEY_TEST_IMAGES,
+)
+from ch_cli_tools.utils import ChartImageRef, find_chart_images, yaml
+from cloudharness_utils.constants import APPS_PATH, DEPLOYMENT_CONFIGURATION_PATH, HELM_CHART_PATH
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 RESOURCES = os.path.join(HERE, "resources")
@@ -326,68 +333,8 @@ def test_collect_helm_values_multiple_envs(tmp_path):
     assert values[KEY_APPS]["myapp"]["a"] == "test", "values-test not overriding"
 
 
-def test_collect_app_defaults_env_specific(tmp_path):
-    """value-template-[env].yaml overrides value-template.yaml application defaults"""
-    write_tree(
-        tmp_path,
-        {
-            DEPLOYMENT_CONFIGURATION_PATH: {
-                "value-template.yaml": "base: 1\nenv-defaults: base\n",
-                "value-template-dev.yaml": "env-defaults: dev\n",
-            },
-        },
-    )
-
-    assert collect_app_defaults(tmp_path, env=("dev",)) == {
-        "base": 1,
-        "env-defaults": "dev",
-    }
-    assert collect_app_defaults(tmp_path, env=("other",)) == {
-        "base": 1,
-        "env-defaults": "base",
-    }, "value-template-dev.yaml loaded for the wrong environment"
-    assert collect_app_defaults(tmp_path) == {"base": 1, "env-defaults": "base"}, (
-        "value-template-dev.yaml loaded without environment"
-    )
 
 
-def test_init_app_values_env_specific_defaults(tmp_path, monkeypatch):
-    """Cloudharness application defaults, including the environment specific ones,
-    apply to the applications of any root, and are overridden by the current root"""
-    ch_root = write_tree(
-        tmp_path / "cloudharness",
-        {
-            DEPLOYMENT_CONFIGURATION_PATH: {
-                "value-template.yaml": "ch-defaults: base\nenv-defaults: ch-base\n",
-                "value-template-dev.yaml": "ch-env-defaults: ch-dev\nenv-defaults: ch-dev\n",
-            },
-        },
-    )
-
-    deployment_root = write_tree(
-        tmp_path / "deployment",
-        {
-            APPS_PATH: {"myapp": {}},
-            DEPLOYMENT_CONFIGURATION_PATH: {
-                "value-template-dev.yaml": "env-defaults: root-dev\n",
-            },
-        },
-    )
-
-    monkeypatch.setattr(configurationgenerator, "CH_ROOT", str(ch_root))
-
-    values = init_app_values(deployment_root, exclude=(), env=("dev",))
-    assert values["myapp"]["ch-defaults"] == "base"
-    assert values["myapp"]["ch-env-defaults"] == "ch-dev", (
-        "cloudharness value-template-dev.yaml not applied"
-    )
-    assert values["myapp"]["env-defaults"] == "root-dev", (
-        "current root must take precedence"
-    )
-
-    values = init_app_values(deployment_root, exclude=(), env=())
-    assert "ch-env-defaults" not in values["myapp"]
-    assert values["myapp"]["env-defaults"] == "ch-base"
 
 
 def test_collect_app_defaults_env_specific_chart(tmp_path):
@@ -420,7 +367,7 @@ def test_collect_app_defaults_env_specific_chart(tmp_path):
     assert "env-defaults" not in values[KEY_APPS]["myapp"]
 
 
-# NG-COMPAT-TODO: ng raises ch_cli_tools.model.DependencyUnknownError, not
+# ng raises ch_cli_tools.model.DependencyUnknownError, not
 # legacy's ValuesValidationException - a different exception class by design
 # (see model.py's CHProject.all_values()/_combined_dependencies()). The build
 # dependency case used to be unchecked by create_helm_chart entirely (that
@@ -482,28 +429,6 @@ def test_collect_helm_values_wrong_dependencies_validate(tmp_path):
         pytest.fail("Should not error because of missing use_services dependency")
 
 
-def test_validate_dependencies_accepts_app_local_build_images():
-    values = {
-        KEY_APPS: {
-            "portal": {
-                KEY_HARNESS: {
-                    "dependencies": {
-                        "soft": [],
-                        "hard": [],
-                        "build": ["cloudharness-base", "cloudharness-django"],
-                    },
-                    "use_services": [],
-                },
-                KEY_TASK_IMAGES: {
-                    "cloudharness-base": "reg/project/cloudharness-base:1",
-                    "cloudharness-django": "reg/project/cloudharness-django:1",
-                },
-            }
-        },
-        KEY_TASK_IMAGES: {},
-    }
-
-    validate_dependencies(values)
 
 
 def test_collect_helm_values_build_dependencies(tmp_path):
@@ -962,26 +887,6 @@ def test_volume_storage_class_default(tmp_path):
     )
 
 
-def test_volume_without_mountpath_is_rejected():
-    harness = {
-        "name": "myapp",
-        KEY_DEPLOYMENT: {"volume": {"name": "myapp-data", "size": "1Gi"}},
-    }
-    with pytest.raises(ValuesValidationException):
-        clear_unused_volume_configuration(harness)
-
-    # the defaults alone are dropped, a declared volume is kept
-    harness = {
-        "name": "myapp",
-        KEY_DEPLOYMENT: {"volume": {"storageClass": "standard"}},
-    }
-    clear_unused_volume_configuration(harness)
-    assert "volume" not in harness[KEY_DEPLOYMENT]
-
-    volume = {"name": "myapp-data", "mountpath": "/data", "storageClass": "standard"}
-    harness = {"name": "myapp", KEY_DEPLOYMENT: {"volume": volume}}
-    clear_unused_volume_configuration(harness)
-    assert harness[KEY_DEPLOYMENT]["volume"] == volume
 
 
 def test_volume_usenfs_prevails(tmp_path):
@@ -1028,59 +933,6 @@ def test_volume_usenfs_prevails(tmp_path):
     assert "affinity" not in dep["spec"]["template"]["spec"]
 
 
-def test_validate_volumes_warns_on_nfs_collisions(caplog):
-    volume = {
-        "name": "myapp-data",
-        "usenfs": True,
-        "writeMany": False,
-        "storageClass": "efs-sc",
-    }
-    values = {"apps": {"myapp": {KEY_HARNESS: {"deployment": {"volume": volume}}}}}
-
-    with caplog.at_level(logging.WARNING):
-        validate_volumes(values)
-    assert "the nfs server storage class prevails" in caplog.text
-    assert "always mounted ReadWriteMany" in caplog.text
-
-    # no collision: nothing to warn about
-    caplog.clear()
-    with caplog.at_level(logging.WARNING):
-        validate_volumes(
-            {
-                "apps": {
-                    "myapp": {
-                        KEY_HARNESS: {
-                            "deployment": {
-                                "volume": {
-                                    "name": "myapp-data",
-                                    "usenfs": True,
-                                    "writeMany": True,
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        )
-        validate_volumes(
-            {
-                "apps": {
-                    "myapp": {
-                        KEY_HARNESS: {
-                            "deployment": {
-                                "volume": {
-                                    "name": "myapp-data",
-                                    "storageClass": "efs-sc",
-                                    "writeMany": True,
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        )
-        validate_volumes({"apps": {"myapp": {KEY_HARNESS: {"deployment": {}}}}})
-    assert not caplog.text
 
 
 def test_database_storage_class(tmp_path):
@@ -1328,30 +1180,9 @@ def test_clear_all_dbconfig_if_nodb(tmp_path):
     assert db_config is None
 
 
-def test_tag_hash_generation():
-    v1 = generate_tag_from_content(RESOURCES)
-    v2 = generate_tag_from_content(RESOURCES, ignore=["myapp"])
-    assert v1 != v2
-    v3 = generate_tag_from_content(RESOURCES, ignore=["*/myapp/*"])
-    assert v3 != v1
-    v4 = generate_tag_from_content(RESOURCES, ignore=["applications/myapp/*"])
-    assert v4 == v3
-    v5 = generate_tag_from_content(RESOURCES, ignore=["/applications/myapp/*"])
-    assert v5 == v4
-
-    fname = Path(RESOURCES) / "applications" / "myapp" / "afile.txt"
-    try:
-        fname.write_text("a")
-
-        v6 = generate_tag_from_content(RESOURCES, ignore=["/applications/myapp/*"])
-        assert v6 == v5
-        v7 = generate_tag_from_content(RESOURCES)
-        assert v7 != v1
-    finally:
-        fname.unlink()
 
 
-# NG-COMPAT-TODO: legacy's two-phase shape (a tag-less first pass, then
+# Legacy's two-phase shape (a tag-less first pass, then
 # preprocess_build_overrides + generate_hash_based_image_tags mutating the
 # result in place) doesn't apply to ng - CHProject.qualify_image() computes
 # the content-hash tag directly, in the same single create_helm_chart() call,
@@ -1603,7 +1434,7 @@ def test_app_depends_on_app(tmp_path):
     )
 
 
-# NG-COMPAT-TODO: needs actual `helm template` rendering (no ng Chart.yaml/templates generator)
+# Needs actual `helm template` rendering (no ng Chart.yaml/templates generator)
 def test_app_depends_on_task_only(tmp_path):
     out_folder = tmp_path / "test_app_depends_on_task_only"
 
@@ -1684,7 +1515,7 @@ def secrets_volume(manifests, app="myapp"):
     return volumes[0]
 
 
-# NG-COMPAT-TODO: fails identically on the real, unported legacy test
+# Fails identically on the real, unported legacy test
 # (tests/test_helm.py::test_secrets_simple_definitions, part of the accepted
 # pre-existing baseline) - confirmed by running it directly: 'secureSecret'
 # (a bare `null` value, not the rich/manager form) never reaches $managed in
@@ -1737,7 +1568,7 @@ def test_secrets_rich_definition_defaults_to_cloudharness(tmp_path):
     }
 
 
-# NG-COMPAT-TODO: fails identically on the real, unported legacy test
+# Fails identically on the real, unported legacy test
 # (tests/test_helm.py::test_secrets_unmanaged, part of the accepted
 # pre-existing baseline) - same root cause as test_secrets_simple_definitions
 # above (an explicit `{'manager': None}` isn't recognized as unmanaged by
@@ -1754,7 +1585,7 @@ def test_secrets_rich_definition_defaults_to_cloudharness(tmp_path):
 #     assert secrets_volume(manifests) == {'name': 'secrets', 'secret': {'secretName': 'myapp', 'optional': True}}
 
 
-# NG-COMPAT-TODO: same root cause as test_secrets_unmanaged above - fails
+# Same root cause as test_secrets_unmanaged above - fails
 # identically on the real, unported legacy test (part of the accepted
 # pre-existing baseline). Not an ng gap.
 # def test_secrets_unmanaged_mixed_with_cloudharness(tmp_path):
@@ -2043,48 +1874,7 @@ def test_secrets_definitions_survive_the_values_generation(tmp_path):
 #     assert find_manifests(manifests, 'OnePasswordItem', 'myapp-richsecret')
 #
 #
-def secret_values(secrets):
-    return {KEY_APPS: {"myapp": {KEY_HARNESS: {"secrets": secrets}}}}
 
-
-def test_validate_secrets_accepts_both_definition_forms():
-    validate_secrets(
-        secret_values(
-            {
-                "plain": "a value",
-                "tobeset": None,
-                "static": "",
-                "dynamic": "?",
-                "rich": {"default": "a value"},
-                "managed": {"manager": "onepassword", "path": "vaults/v/items/i"},
-                "unmanaged": {"manager": None},
-                # unknown managers are valid: applications can contribute their own
-                "custom": {"manager": "my-own-manager", "whatever": {"nested": True}},
-            }
-        )
-    )
-    validate_secrets(secret_values({}))
-    validate_secrets(secret_values(None))
-
-
-def test_validate_secrets_rejects_malformed_definitions():
-    with pytest.raises(
-        ValuesValidationException, match="secret alist of application myapp"
-    ):
-        validate_secrets(secret_values({"alist": ["a", "b"]}))
-
-    with pytest.raises(ValuesValidationException, match="`manager` must be"):
-        validate_secrets(
-            secret_values({"badmanager": {"manager": {"name": "onepassword"}}})
-        )
-
-    with pytest.raises(ValuesValidationException, match="`default` must be"):
-        validate_secrets(secret_values({"baddefault": {"default": {"a": "b"}}}))
-
-    with pytest.raises(
-        ValuesValidationException, match="expected a map of secret definitions"
-    ):
-        validate_secrets(secret_values(["a", "b"]))
 
 
 def test_collect_helm_values_source_images_merge(tmp_path):
@@ -2223,3 +2013,59 @@ def test_collect_helm_values_source_images_merge_no_include(tmp_path):
     source_images = values.get("source_images")
     assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
     assert "NODE" in source_images
+
+
+def test_find_chart_images_shapes():
+    refs = {ref.path: ref.value for ref in find_chart_images({
+        'flat': {'image': 'docker.io/x/y:1'},
+        'flat_with_tag': {'image': 'docker.elastic.co/es/es', 'imageTag': '8.17.0', 'imagePullPolicy': 'IfNotPresent'},
+        'registry_shape': {'image': {'registry': 'quay.io', 'repository': 'a/b', 'tag': '2', 'pullPolicy': 'Always'}},
+        'name_shape': {'image': {'name': 'quay.io/a/b', 'tag': '3', 'pullPolicy': 'Always'}},
+    })}
+    assert refs == {
+        ('flat', 'image'): 'docker.io/x/y:1',
+        ('flat_with_tag', 'image'): 'docker.elastic.co/es/es',
+        ('flat_with_tag', 'imageTag'): '8.17.0',
+        ('registry_shape', 'image'): {'registry': 'quay.io', 'repository': 'a/b', 'tag': '2'},
+        ('name_shape', 'image'): {'name': 'quay.io/a/b', 'tag': '3'},
+    }
+
+
+def test_find_chart_images_excludes_pull_policy_traps():
+    # Plural "images" key (argo's shape) must never match
+    assert find_chart_images({'images': {'pullPolicy': 'Always', 'pullSecrets': []}}) == []
+    # Singular "image" with neither "repository" nor "name" must never match
+    assert find_chart_images({'component': {'image': {'pullPolicy': 'Always', 'pullSecrets': []}}}) == []
+    assert find_chart_images({'imagePullSecrets': [{'name': 'x'}], 'imagePullSecret': {'registry': 'r'}}) == []
+
+
+def test_find_chart_images_prunes_skip_paths():
+    node = {
+        'harness': {
+            'deployment': {'image': 'the-built-image:1'},
+            'database': {'postgres': {'image': 'postgres:17'}},
+            'proxy': {'gatekeeper': {'image': 'quay.io/gogatekeeper/gatekeeper:4.6.0'}},
+        },
+        'image': 'the-built-image:1',
+        'worker': {'image': 'a-real-runtime-image:1'},
+    }
+    # A built application: only its own image is not an overridable source, while the images it
+    # merely pulls under harness (database, gatekeeper) are
+    skip = frozenset({('image',), ('harness', 'deployment', 'image')})
+    assert sorted(find_chart_images(node, skip_paths=skip), key=lambda r: r.path) == [
+        ChartImageRef(path=('harness', 'database', 'postgres', 'image'), value='postgres:17'),
+        ChartImageRef(path=('harness', 'proxy', 'gatekeeper', 'image'), value='quay.io/gogatekeeper/gatekeeper:4.6.0'),
+        ChartImageRef(path=('worker', 'image'), value='a-real-runtime-image:1'),
+    ]
+    # Pruning nothing: a prebuilt application (build: false), or a sub-chart's own values.yaml
+    assert ChartImageRef(path=('image',), value='the-built-image:1') in find_chart_images(node)
+
+
+def test_find_chart_images_resolves_empty_tag_from_app_version():
+    assert find_chart_images({'image': {'repository': 'a/b', 'tag': ''}}, app_version='9.9.9') == [
+        ChartImageRef(path=('image',), value={'repository': 'a/b', 'tag': '9.9.9'}),
+    ]
+    # Without an appVersion the tag is simply left out rather than emitted empty
+    assert find_chart_images({'image': {'repository': 'a/b', 'tag': ''}}) == [
+        ChartImageRef(path=('image',), value={'repository': 'a/b'}),
+    ]

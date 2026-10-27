@@ -14,8 +14,8 @@ from conftest import CLOUDHARNESS_ROOT, RESOURCES, chain
 from ch_cli_tools.api import create_helm_chart
 from ch_cli_tools.model import CHAppInstance, ValuesValidationError, instance_app_key
 from ch_cli_tools.utils import get_yaml_parser
-from test_helm_compat import find_manifest, render_helm_chart
-from test_util_ng import write_tree_from_yaml
+from test_helm import find_manifest, render_helm_chart
+from test_util import write_tree_from_yaml
 
 
 def _fake_instance(parent_name, instance_name):

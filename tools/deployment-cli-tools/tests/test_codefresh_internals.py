@@ -1,7 +1,7 @@
 """ch_cli_tools.codefresh generator tests, scoped to internal mechanics
 that don't go through the public create_helm_chart/create_codefresh_deployment_scripts
-facade - that end-to-end behavior belongs in test_codefresh_compat.py instead.
-See test_ng.py (this folder) for the structural/model tests these build on.
+facade - that end-to-end behavior belongs in test_codefresh.py instead.
+See test_model.py (this folder) for the structural/model tests these build on.
 """
 
 from conftest import minimal_project

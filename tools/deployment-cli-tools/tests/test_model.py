@@ -1,7 +1,7 @@
 """Ports of the legacy ch_cli_tools structural tests onto the ch_cli_tools model.
 
 Only tests about project/app structure (discovery, naming, Dockerfile parsing) are
-ported here - not generator output. See test_ng_skaffold.py (this folder) for the
+ported here - not generator output. See test_skaffold_internals.py (this folder) for the
 skaffold generator tests, and tests/test_utils.py/tests/test_helm.py for the
 originals.
 """
@@ -18,7 +18,7 @@ from conftest import (
     chain,
     minimal_project,
 )
-from test_util_ng import write_tree, write_tree_from_yaml
+from test_util import write_tree, write_tree_from_yaml
 
 from ch_cli_tools import CHDeployConfig, CHProject
 from ch_cli_tools.api import (

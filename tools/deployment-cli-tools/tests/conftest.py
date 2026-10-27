@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from ch_cli_tools import CHDeployConfig, CHProject
-from test_util_ng import write_tree_from_yaml
+from test_util import write_tree_from_yaml
 
 HERE = Path(__file__).parent
 RESOURCES = HERE / "resources"

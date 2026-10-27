@@ -1,10 +1,7 @@
-# NG-COMPAT-TODO: retargeted at ch_cli_tools.api.create_helm_chart/
-# create_codefresh_deployment_scripts instead of the legacy ch_cli_tools.old.helm/
-# ch_cli_tools.old.codefresh ones (ported from tests/test_codefresh.py). No
-# preprocess_build_overrides() call - merging an overridden app/base-image's
-# directory across layers happens transparently inside CHCodefresh.generate(),
-# via CHContext.resolve_for_build(), the same mechanism create_skaffold_configuration
-# already relies on.
+# Merging an overridden app/base-image's directory across layers happens
+# transparently inside CHCodefresh.generate(), via CHContext.resolve_for_build(),
+# the same mechanism create_skaffold_configuration relies on - no separate
+# preprocess_build_overrides() call is needed.
 #
 # Scope of this file: the per-app/task/base-image/test-runner build steps
 # (including their dependency/source-image build_arguments, their own
@@ -23,17 +20,17 @@
 # steps.wait_deployment.commands / steps.deployment.arguments.custom_values /
 # steps.prepare_deployment.commands).
 # That's the full feature set - nothing else is deliberately left out, with
-# one exception: legacy's per-app build.yaml override (ch_cli_tools/old/codefresh.py
-# ~221-229) reads the file and discards the result (`build_specific` is never
-# merged anywhere) - dead code, untested anywhere in the legacy test suite
-# either. Not ported here; there's no working behavior to match.
+# one exception: a per-app build.yaml override once read the file and
+# discarded the result (`build_specific` was never merged anywhere) - dead
+# code, untested anywhere; not implemented here, there's no working behavior
+# to match.
 import os
 import shutil
 import tempfile
 from unittest.mock import patch
 
 from conftest import CLOUDHARNESS_ROOT, RESOURCES
-from test_util_ng import write_tree_from_yaml
+from test_util import write_tree_from_yaml
 
 from ch_cli_tools.api import (
     create_codefresh_deployment_scripts,

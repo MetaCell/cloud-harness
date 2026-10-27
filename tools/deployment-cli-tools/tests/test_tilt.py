@@ -1,10 +1,10 @@
-"""ch_cli_tools.tilt generator tests. See test_ng.py (this folder) for the
+"""ch_cli_tools.tilt generator tests. See test_model.py (this folder) for the
 structural/model tests these build on, and ch_cli_tools/tilt.py's own
 module docstring for the generation algorithm.
 """
 
 from conftest import CLOUDHARNESS_ROOT, RESOURCES, chain
-from test_util_ng import write_tree_from_yaml
+from test_util import write_tree_from_yaml
 
 from ch_cli_tools import CHDeployConfig, CHProject
 

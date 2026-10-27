@@ -1,16 +1,13 @@
-# NG-COMPAT-TODO: retargeted at ch_cli_tools.api.create_helm_chart/
-# create_skaffold_configuration instead of the legacy ch_cli_tools.old.helm/
-# ch_cli_tools.old.skaffold ones (ported from tests/test_skaffold.py). There's no
-# separate preprocess_build_overrides() call (ng.api's own stub of that name is
-# unrelated/unused) - merging an overridden app/base-image's directory across
-# layers now happens transparently inside CHSkaffold.generate(), via
-# CHContext.copy_my_context_to(), the moment such an artifact is collected.
+# Merging an overridden app/base-image's directory across layers happens
+# transparently inside CHSkaffold.generate(), via CHContext.copy_my_context_to(),
+# the moment such an artifact is collected - no separate
+# preprocess_build_overrides() call is needed.
 import os
 
 from conftest import CLOUDHARNESS_ROOT, RESOURCES
 
-from ch_cli_tools.old.configuration.configurationgenerator import *
 from ch_cli_tools.api import create_helm_chart, create_skaffold_configuration
+from ch_cli_tools.model import KEY_APPS, KEY_DEPLOYMENT, KEY_HARNESS, KEY_TASK_IMAGES
 
 RESOURCES_BUGGY = os.path.join(os.path.dirname(RESOURCES), "resources_buggy")
 
@@ -47,9 +44,9 @@ def test_create_skaffold_configuration(tmp_path):
     for app in exp_apps:
         assert app in artifact_overrides[KEY_APPS]
 
-    # NG-COMPAT-TODO: values[KEY_TASK_IMAGES] isn't populated by
+    # values[KEY_TASK_IMAGES] isn't populated by
     # ng.api.create_helm_chart (no task-images aggregation yet - see
-    # test_helm_compat.py's test_collect_helm_values). artifactOverrides'
+    # test_helm.py's test_collect_helm_values). artifactOverrides'
     # task-images comes straight from ng.skaffold.CHSkaffold's own generation
     # instead, which is what's actually under test here.
     assert artifact_overrides[KEY_TASK_IMAGES], "task image overrides should be present"

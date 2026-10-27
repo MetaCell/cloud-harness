@@ -7,8 +7,8 @@ only check that ng's own build_final_helm_values() output feeds it correctly.
 """
 
 from conftest import CLOUDHARNESS_ROOT, RESOURCES
-from test_helm_compat import render_helm_chart, find_manifest
-from test_util_ng import write_tree, write_tree_from_yaml
+from test_helm import render_helm_chart, find_manifest
+from test_util import write_tree, write_tree_from_yaml
 
 from ch_cli_tools.api import create_helm_chart
 from ch_cli_tools.utils import get_yaml_parser

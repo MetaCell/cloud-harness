@@ -7,7 +7,7 @@ test_deployment_image_ref_* in tests/test_helm.py.
 
 import pytest
 from conftest import CLOUDHARNESS_ROOT, RESOURCES
-from test_util_ng import write_tree
+from test_util import write_tree
 
 from ch_cli_tools.api import create_docker_compose_configuration, create_helm_chart
 from ch_cli_tools.model import ValuesValidationError
