@@ -1045,6 +1045,34 @@ def test_content_hash_changes_when_dependency_commit_changes(tmp_path):
     assert content_hash(tmp_path) != before
 
 
+def test_test_image_gets_a_content_hash_tag_that_follows_its_content(tmp_path):
+    """Left untagged, a test image resolves to `latest`, which already exists in
+    the registry, so a changed test would never trigger a rebuild."""
+    write_tree_from_yaml(
+        tmp_path,
+        """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        test:
+          test-e2e:
+            Dockerfile: |
+              FROM scratch
+            afile.txt: a
+        """,
+    )
+    project = chain(tmp_path, config=CHDeployConfig(registry="reg"))
+    assert "test-e2e" in project.test_images
+
+    before = project.qualify_image(project.test_images["test-e2e"])
+    assert ":" in before, "expected a content-hash tag, got an untagged reference"
+
+    (tmp_path / "test" / "test-e2e" / "afile.txt").write_text("b")
+    project = chain(tmp_path, config=CHDeployConfig(registry="reg"))
+    after = project.qualify_image(project.test_images["test-e2e"])
+    assert after != before
+
+
 def test_deploy_runs_helm_dependency_update_then_upgrade(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(

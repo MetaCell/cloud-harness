@@ -1370,6 +1370,9 @@ class CHProject:
                 entities[app.name] = app
             entities.update({t.name: t for t in app.buildable_tasks})
         entities.update(self.all_build_dependencies())
+        # Left untagged, a test image resolves to `latest`, which already exists
+        # in the registry, so a changed test would never trigger a rebuild.
+        entities.update(self.test_images)
         return entities
 
     @lru_cache
