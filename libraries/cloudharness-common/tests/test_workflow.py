@@ -513,3 +513,10 @@ def test_gpu_workflow():
     if verbose:
         print('\n', yaml.dump(wf))
     assert "nvidia.com/gpu" in wf['spec']['templates'][1]["container"]["resources"]["limits"]
+
+
+@pytest.mark.parametrize('ttl_strategy, expected', [(None, "600s"), ({"secondsAfterSuccess": 86400}, "86400s")])
+def test_pod_gc_delay_is_a_duration(ttl_strategy, expected):
+    task = tasks.CustomTask('duration-task', 'busybox')
+    operation = operations.SingleTaskOperation('duration-operation-', task, ttl_strategy=ttl_strategy)
+    assert operation.spec()['podGC']['deleteDelayDuration'] == expected

@@ -1,3 +1,4 @@
+{{- if .Values.controller.rbac.create }}
 apiVersion: rbac.authorization.k8s.io/v1
 {{- if .Values.singleNamespace }}
 kind: Role
@@ -6,6 +7,9 @@ kind: ClusterRole
 {{- end }}
 metadata:
   name: {{ template "argo-workflows.controller.fullname" . }}
+  {{- if .Values.singleNamespace }}
+  namespace: {{ include "argo-workflows.namespace" . | quote }}
+  {{- end }}
   labels:
     {{- include "argo-workflows.labels" (dict "context" . "component" .Values.controller.name "name" .Values.controller.name) | nindent 4 }}
 rules:
@@ -13,7 +17,6 @@ rules:
   - ""
   resources:
   - pods
-  - pods/exec
   verbs:
   - create
   - get
@@ -25,7 +28,14 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - pods/exec
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resources:
   - configmaps
+  - namespaces
   verbs:
   - get
   - watch
@@ -34,16 +44,21 @@ rules:
   - ""
   resources:
   - persistentvolumeclaims
+  - persistentvolumeclaims/finalizers
   verbs:
-  - get
-  - list
   - create
+  - update
   - delete
+  - get
 - apiGroups:
   - argoproj.io
   resources:
   - workflows
   - workflows/finalizers
+  - workflowtasksets
+  - workflowtasksets/finalizers
+  - workflowtasksets/status
+  - workflowartifactgctasks
   verbs:
   - get
   - list
@@ -61,6 +76,15 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - argoproj.io
+  resources:
+  - workflowtaskresults
+  - workflowtaskresults/finalizers
+  verbs:
+  - list
+  - watch
+  - deletecollection
 - apiGroups:
   - argoproj.io
   resources:
@@ -103,7 +127,9 @@ rules:
   resourceNames:
   {{- if .Values.controller.persistence.postgresql }}
   - {{ .Values.controller.persistence.postgresql.userNameSecret.name }}
-  - {{ .Values.controller.persistence.postgresql.passwordSecret.name }}
+  {{- with .Values.controller.persistence.postgresql.passwordSecret }}
+  - {{ .name }}
+  {{- end}}
   {{- end}}
   {{- if .Values.controller.persistence.mysql }}
   - {{ .Values.controller.persistence.mysql.userNameSecret.name }}
@@ -141,13 +167,55 @@ rules:
   - update
   - patch
   - delete
+{{- if .Values.controller.rbac.writeConfigMaps }}
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - update
+{{- end}}
+{{- if .Values.controller.rbac.accessAllSecrets }}
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+{{- else }}
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  resourceNames:
+  {{- /* for HTTP templates */}}
+  - argo-workflows-agent-ca-certificates
+{{- with .Values.controller.rbac.secretWhitelist }}
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+  resourceNames: {{- toYaml . | nindent 4 }}
+{{- end }}
+{{- end }}
 
-{{- if .Values.controller.clusterWorkflowTemplates.enabled }}
+{{- if and .Values.controller.clusterWorkflowTemplates.enabled (not .Values.singleNamespace) }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: {{ template "argo-workflows.controller.fullname" . }}-cluster-template
+  labels:
+    {{- include "argo-workflows.labels" (dict "context" . "component" .Values.controller.name "name" .Values.controller.name) | nindent 4 }}
 rules:
 - apiGroups:
   - argoproj.io
@@ -158,4 +226,5 @@ rules:
   - get
   - list
   - watch
+{{- end }}
 {{- end }}

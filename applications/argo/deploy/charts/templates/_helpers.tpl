@@ -27,13 +27,13 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 */}}
 {{- define "argo-workflows.fullname" -}}
 {{- if .Values.fullnameOverride -}}
-{{- printf "%s-%s" .Values.fullnameOverride .Release.Namespace | trunc 63 | trimSuffix "-" -}}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
 {{- else -}}
 {{- $name := default .Chart.Name .Values.nameOverride -}}
 {{- if contains $name .Release.Name -}}
-{{- printf "%s-%s" .Release.Namespace .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
 {{- else -}}
-{{- printf "%s-%s-%s" .Release.Namespace .Release.Name $name | trunc 63 | trimSuffix "-" -}}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
@@ -46,6 +46,32 @@ Create chart name and version as used by the chart label.
 {{- end -}}
 
 {{/*
+Create kubernetes friendly chart version label for the controller.
+Examples:
+image.tag = v3.4.4
+output    = v3.4.4
+
+image.tag = v3.4.4@sha256:d06860f1394a94ac3ff8401126ef32ba28915aa6c3c982c7e607ea0b4dadb696
+output    = v3.4.4
+*/}}
+{{- define "argo-workflows.controller_chart_version_label" -}}
+{{- regexReplaceAll "[^a-zA-Z0-9-_.]+" (regexReplaceAll "@sha256:[a-f0-9]+" (default (include "argo-workflows.defaultTag" .) .Values.controller.image.tag) "") "" | trunc 63 | quote -}}
+{{- end -}}
+
+{{/*
+Create kubernetes friendly chart version label for the server.
+Examples:
+image.tag = v3.4.4
+output    = v3.4.4
+
+image.tag = v3.4.4@sha256:d06860f1394a94ac3ff8401126ef32ba28915aa6c3c982c7e607ea0b4dadb696
+output    = v3.4.4
+*/}}
+{{- define "argo-workflows.server_chart_version_label" -}}
+{{- regexReplaceAll "[^a-zA-Z0-9-_.]+" (regexReplaceAll "@sha256:[a-f0-9]+" (default (include "argo-workflows.defaultTag" .) .Values.server.image.tag) "") "" | trunc 63 | quote -}}
+{{- end -}}
+
+{{/*
 Common labels
 */}}
 {{- define "argo-workflows.labels" -}}
@@ -53,6 +79,9 @@ helm.sh/chart: {{ include "argo-workflows.chart" .context }}
 {{ include "argo-workflows.selectorLabels" (dict "context" .context "component" .component "name" .name) }}
 app.kubernetes.io/managed-by: {{ .context.Release.Service }}
 app.kubernetes.io/part-of: argo-workflows
+{{- with .context.Values.commonLabels }}
+{{ toYaml .}}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -61,12 +90,20 @@ Selector labels
 {{- define "argo-workflows.selectorLabels" -}}
 {{- if .name -}}
 app.kubernetes.io/name: {{ include "argo-workflows.name" .context }}-{{ .name }}
-{{ end -}}
+{{- end }}
 app.kubernetes.io/instance: {{ .context.Release.Name }}
 {{- if .component }}
 app.kubernetes.io/component: {{ .component }}
+app: {{ .component }}
 {{- end }}
 {{- end }}
+
+{{/*
+Create the name of the controller configMap
+*/}}
+{{- define "argo-workflows.controller.config-map.name" -}}
+{{- .Values.controller.configMap.name | default (printf "%s-%s" (include "argo-workflows.controller.fullname" .) "configmap") | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
 
 {{/*
 Create the name of the server service account to use
@@ -108,4 +145,95 @@ Return the target Kubernetes version
 */}}
 {{- define "argo-workflows.kubeVersion" -}}
   {{- default .Capabilities.KubeVersion.Version .Values.kubeVersionOverride }}
+{{- end -}}
+
+{{/*
+Return the default Argo Workflows app version
+*/}}
+{{- define "argo-workflows.defaultTag" -}}
+  {{- default .Chart.AppVersion .Values.images.tag }}
+{{- end -}}
+
+{{/*
+Return full image name including or excluding registry based on existence
+*/}}
+{{- define "argo-workflows.image" -}}
+{{- if and .image.registry .image.repository -}}
+  {{ .image.registry }}/{{ .image.repository }}
+{{- else -}}
+  {{ .image.repository }}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Return the appropriate apiVersion for autoscaling
+*/}}
+{{- define "argo-workflows.apiVersion.autoscaling" -}}
+{{- if .Values.apiVersionOverrides.autoscaling -}}
+{{- print .Values.apiVersionOverrides.autoscaling -}}
+{{- else if semverCompare "<1.23-0" (include "argo-workflows.kubeVersion" .) -}}
+{{- print "autoscaling/v2beta1" -}}
+{{- else -}}
+{{- print "autoscaling/v2" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Return the appropriate apiVersion for GKE resources
+*/}}
+{{- define "argo-workflows.apiVersions.cloudgoogle" -}}
+{{- if .Values.apiVersionOverrides.cloudgoogle -}}
+{{- print .Values.apiVersionOverrides.cloudgoogle -}}
+{{- else if .Capabilities.APIVersions.Has "cloud.google.com/v1" -}}
+{{- print "cloud.google.com/v1" -}}
+{{- else -}}
+{{- print "cloud.google.com/v1beta1" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Return the appropriate apiVersion for monitoring CRDs
+*/}}
+{{- define "argo-workflows.apiVersions.monitoring" -}}
+{{- if .Values.apiVersionOverrides.monitoring -}}
+{{- print .Values.apiVersionOverrides.monitoring -}}
+{{- else -}}
+{{- print "monitoring.coreos.com/v1" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Expand the namespace of the release.
+Allows overriding it for multi-namespace deployments in combined charts.
+*/}}
+{{- define "argo-workflows.namespace" -}}
+{{- default .Release.Namespace .Values.namespaceOverride | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
+{{/*
+Set helm.sh/resource-policy (crds.keep) and crds.annotations on the workflows CRDs
+*/}}
+{{- define "argo-workflows.insertCRDAnnotations" -}}
+{{- $crd := fromYaml .input -}}
+{{- if $crd.Error -}}
+  {{- fail (printf "argo-workflows: failed to parse CRD as YAML: %s" $crd.Error) -}}
+{{- end -}}
+{{- $annotations := dict -}}
+{{- if .keep -}}
+  {{- $_ := set $annotations "helm.sh/resource-policy" "keep" -}}
+{{- end -}}
+{{- $annotations = merge $annotations (.annotations | default dict) -}}
+{{- $metadata := $crd.metadata | default dict -}}
+{{- $_ := set $metadata "annotations" $annotations -}}
+{{- $_ := set $crd "metadata" $metadata -}}
+{{- toYaml $crd -}}
+{{- end -}}
+
+{{/*
+Compute checksum of controller config ConfigMap data for pod restart annotation.
+*/}}
+{{- define "argo-workflows.controller.config.checksum" -}}
+{{- $rendered := include (print .context.Template.BasePath .path) .context | fromYaml -}}
+{{- $data := merge (dict) (dig "data" dict $rendered) (dig "stringData" dict $rendered) -}}
+{{- $data | toYaml | sha256sum -}}
 {{- end -}}

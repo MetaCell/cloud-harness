@@ -2406,3 +2406,25 @@ def test_instance_of_a_dependency_can_still_be_excluded(tmp_path):
     assert 'myapp' in values[KEY_APPS]
     assert 'myapp-inst1' not in values[KEY_APPS]
     assert not (out_folder / HELM_CHART_PATH / 'resources' / 'myapp-inst1').exists()
+
+
+def test_official_argo_chart_keeps_cloudharness_service_and_naming_defaults(tmp_path):
+    out_path = tmp_path / "official_argo"
+    values = create_helm_chart([CLOUDHARNESS_ROOT], output_path=out_path, include=["argo"],
+                               domain="argo.test", namespace="argo-contract", local=False,
+                               tls=False, secured=False, tag="test")
+    chart = out_path / HELM_CHART_PATH
+    metadata = get_template(chart / "charts" / "argo" / "Chart.yaml")
+    assert metadata["version"] == "2.0.14"
+    assert values["argo-workflows"]["singleNamespace"] is True
+    assert values[KEY_APPS]["argo"]["serviceaccount"] == "argo-workflows"
+    manifests = render_helm_chart(chart)
+    server = next(item for item in manifests if item["kind"] == "Deployment" and
+                  item["metadata"]["name"].endswith("-server"))
+    service = find_manifest(manifests, "Service", "argo-server")
+    assert all(server["spec"]["template"]["metadata"]["labels"][key] == value
+               for key, value in service["spec"]["selector"].items())
+    assert find_manifest(manifests, "ConfigMap", "argo-cloudharness-env")["data"]["POD_NAMES"] == "v1"
+    jobs = [item for item in manifests if item["kind"] == "Job"]
+    assert any(item["metadata"].get("annotations", {}).get("helm.sh/hook") == "pre-install,pre-upgrade"
+               for item in jobs)
