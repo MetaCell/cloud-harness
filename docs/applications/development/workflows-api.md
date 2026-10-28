@@ -247,17 +247,25 @@ op = operations.ParallelOperation(..., on_exit_notify=on_exit_notify)
 
 Synchronous operation types use this mechanism to wait for the result and get the value.
 
-To customize the onExit strategy an additional `image` parameter can be specified. 
+Use `image` to select a custom exit-handler image (default: `workflows-notify-queue`).
+The optional `command` parameter is a list of strings that overrides the image's startup command,
+just as for a `CustomTask`. If `command` is omitted or `None`, the image's default startup behavior is preserved.
 
 ```Python
 import json
 on_exit_notify={
     'queue': 'my_queue',
-    'payload': json.dumps({'insert': 1})
-    'image': "my-image"
+    'payload': json.dumps({'insert': 1}),
+    'image': 'my-image',
+    'command': ['python', '-m', 'myapp.notify_exit']
 }
 op = operations.ParallelOperation(..., on_exit_notify=on_exit_notify)
 ```
+
+The custom handler receives the workflow status in the `workflow_result` environment variable
+(`{{workflow.status}}`). The `queue` and `payload` settings are optional; when provided, they are
+passed as the `queue_name` and `payload` environment variables. The command above runs a
+`myapp.notify_exit` module supplied by the custom image, which can read these variables.
 
 ## Free template customization
 
