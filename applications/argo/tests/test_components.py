@@ -74,7 +74,7 @@ class ArgoComponentsTests(unittest.TestCase):
                 result_rules = [rule for rule in workflow["rules"] if "workflowtaskresults" in rule["resources"]]
                 self.assertEqual(result_rules, [{"apiGroups": ["argoproj.io"],
                                                 "resources": ["workflowtaskresults"],
-                                                "verbs": ["create", "patch"]}])
+                                                 "verbs": ["create", "patch"]}])
                 self.assertTrue(any("pods" in rule["resources"] and "patch" in rule["verbs"]
                                     for rule in workflow["rules"]))
                 self.assertFalse(any("workflowartifactgctasks" in rule["resources"] for rule in controller["rules"]))
@@ -89,7 +89,6 @@ class ArgoComponentsTests(unittest.TestCase):
         self.assertTrue(version["served"] and version["storage"])
         self.assertEqual(version["schema"]["openAPIV3Schema"]["properties"]["progress"]["type"], "string")
 
-
     def test_cloudharness_uses_built_controller_and_preserves_image_overrides(self):
         import shutil
         import tempfile
@@ -101,7 +100,7 @@ class ArgoComponentsTests(unittest.TestCase):
                 shutil.copytree(CHART, parent / "charts" / "argo-workflows")
                 shutil.copytree(CHART.parent / "templates", parent / "templates")
                 values = {"apps": {"argo": {"image": "registry.example/argo:content-hash",
-                                           "serviceaccount": "argo-workflows"}},
+                                            "serviceaccount": "argo-workflows"}},
                           "registry": {"secret": {"name": "build-registry"}},
                           "argo-workflows": {"controller": {"image": override}}}
                 value_file = parent / "test-values.yaml"
