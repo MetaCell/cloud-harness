@@ -1,67 +1,54 @@
 # Argo compatibility checks
 
-The chart tests run without a cluster and cover official component versions,
-removed executor settings, legacy pod naming, image overrides, CRDs and executor
-RBAC. CI runs them alongside the existing CloudHarness library and CLI tests.
+Chart regressions verify the exact upstream release, CloudHarness service and
+pod-naming defaults, image overrides, CRD hooks and executor RBAC:
 
 ```sh
 python -m unittest discover -s applications/argo/tests -v
 ```
 
-The optional `test_emissary_integration.py` exercises the existing CloudHarness
-Python client against a real Argo API. It verifies submission, listing, status,
-live Workflow progress, a file-backed output parameter, exit handlers after
-success/failure, log lookup, implicit image entrypoint resolution and deletion.
-It writes `1/10` and `7/10` for 75 seconds each, so the test exercises the default
-one-minute reporting interval without executor tuning. Allow about five minutes.
+The opt-in integration test uses the CloudHarness Python API against a real
+Argo server. It covers submission, listing, status, live progress, file outputs,
+exit handlers after success/failure, logs, implicit image entrypoints, deletion,
+script tasks and a shared-volume pipeline that retries a failed step.
+It writes `1/10` and `7/10` for 75 seconds each to exercise the default reporting
+interval. Allow about five minutes.
 
-This test is restricted to `docker-desktop` or a disposable `kind-argo-sdk-*`
-context, a loopback API endpoint and a namespace starting with `argo-`. It creates and deletes only its own workflows;
-use a dedicated test namespace. Install the repository's models/common packages,
-PyYAML and Helm 3 before running it.
+Use a disposable `kind-argo-sdk-*` cluster or a dedicated Docker Desktop test
+namespace starting with `argo-`. Install the repository's models, common and CLI
+packages, Helm 3, kubectl and PyYAML first. Generate and install the real
+CloudHarness parent chart, so its compatibility templates are included:
 
 ```sh
-CONTEXT=docker-desktop
-NAMESPACE=argo-compatibility
-CHART=applications/argo/deploy/charts
-
-kubectl --context "$CONTEXT" create namespace "$NAMESPACE"
-kubectl --context "$CONTEXT" apply --server-side -f "$CHART/crds/"
-helm template compatibility "$CHART" --namespace "$NAMESPACE" \
-  --set createAggregateRoles=false \
-  --set controller.clusterWorkflowTemplates.enabled=false \
-  --set server.clusterWorkflowTemplates.enabled=false \
-  --set workflow.serviceAccount.create=true \
-  --set workflow.serviceAccount.name=emissary-executor \
-  | kubectl --context "$CONTEXT" -n "$NAMESPACE" apply -f -
-kubectl --context "$CONTEXT" -n "$NAMESPACE" create configmap \
-  cloudharness-allvalues --from-literal='allvalues.yaml={}'
+export CONTEXT=kind-argo-sdk-chart-test
+export NAMESPACE=argo-compatibility
+# Point KUBECONFIG at this disposable cluster.
+harness-deployment . -i argo -n "$NAMESPACE" -d argo.test -u -dtls -N \
+  -o /tmp/argo-compatibility
+helm upgrade --install "$NAMESPACE" /tmp/argo-compatibility/helm \
+  --namespace "$NAMESPACE" --create-namespace --kube-context "$CONTEXT" --wait
 kubectl --context "$CONTEXT" -n "$NAMESPACE" port-forward \
   service/argo-server 27461:2746 --address 127.0.0.1
 ```
 
-In another terminal:
+In another terminal, with the same `KUBECONFIG`:
 
 ```sh
-ARGO_SMOKE_URL=http://127.0.0.1:27461 \
+ARGO_SMOKE_CONTEXT=kind-argo-sdk-chart-test \
 ARGO_SMOKE_NAMESPACE=argo-compatibility \
+ARGO_SMOKE_URL=http://127.0.0.1:27461 \
 python -m unittest discover -s applications/argo/tests \
   -p test_emissary_integration.py -v
 ```
 
-Optional settings are `ARGO_SMOKE_CONTEXT` (defaults to `docker-desktop`),
-`ARGO_SMOKE_IMAGE` (defaults to `busybox:1.37`),
-`ARGO_SMOKE_SERVICE_ACCOUNT` (defaults to `emissary-executor`) and
-`ARGO_SMOKE_EVIDENCE` (a JSON output filename for observed progress and terminal
-statuses). The chosen image must provide `sh`, `echo` and `sleep`; changing it
-also changes the implicit-entrypoint test.
+The test rejects non-loopback API endpoints and other cluster contexts. It
+creates and deletes its own workflows. Optional settings are `ARGO_SMOKE_IMAGE`
+(default `busybox:1.37`), `ARGO_SMOKE_SERVICE_ACCOUNT` (default `argo-workflows`)
+and `ARGO_SMOKE_EVIDENCE` (JSON evidence filename). The image must provide
+`sh`, `echo` and `sleep`; changing it also changes the implicit-entrypoint test.
+Delete the disposable cluster after collecting results.
 
-After collecting diagnostics, delete the dedicated test namespace. Keep the
-matching CRDs when another local Argo installation still needs them.
-
-The SDK request/response regressions run without Kubernetes and verify raw
-workflow submission, native progress, optional fields, partial responses,
-pagination, numeric fields and CloudHarness exceptions:
+SDK request/response regressions run without Kubernetes:
 
 ```sh
 python -m pytest -q libraries/cloudharness-common/tests/test_argo_client.py

@@ -1,4 +1,4 @@
-{{- if .Values.server.enabled }}
+{{- if and .Values.server.enabled .Values.server.rbac.create}}
 apiVersion: rbac.authorization.k8s.io/v1
   {{- if .Values.singleNamespace }}
 kind: Role
@@ -7,6 +7,9 @@ kind: ClusterRole
   {{- end }}
 metadata:
   name: {{ template "argo-workflows.server.fullname" . }}
+  {{- if .Values.singleNamespace }}
+  namespace: {{ include "argo-workflows.namespace" . | quote }}
+  {{- end }}
   labels:
     {{- include "argo-workflows.labels" (dict "context" . "component" .Values.server.name "name" .Values.server.name) | nindent 4 }}
 rules:
@@ -23,14 +26,19 @@ rules:
   - ""
   resources:
   - pods
-  - pods/exec
-  - pods/log
   verbs:
   - get
   - list
   - watch
   - delete
-  {{- if .Values.server.sso }}
+- apiGroups:
+  - ""
+  resources:
+  - pods/log
+  verbs:
+  - get
+  - list
+{{- if .Values.server.sso.enabled }}
 - apiGroups:
   - ""
   resources:
@@ -39,14 +47,13 @@ rules:
   - sso
   verbs:
   - get
-  - update
 - apiGroups:
   - ""
   resources:
   - secrets
   verbs:
   - create
-    {{- if .Values.server.sso.rbac }}
+  {{- if .Values.server.sso.rbac.enabled }}
 - apiGroups:
   - ""
   resources:
@@ -54,19 +61,18 @@ rules:
   verbs:
   - get
   - list
-    {{- end }}
+  - watch
   {{- end }}
+{{- end }}
 - apiGroups:
   - ""
   resources:
   - secrets
   verbs:
   - get
-{{- if .Values.server.sso }}
-  {{- if .Values.server.sso.rbac }}
-    {{- with .Values.server.sso.rbac.secretWhitelist }}
+{{- if and .Values.server.sso.enabled .Values.server.sso.rbac.enabled }}
+  {{- with .Values.server.sso.rbac.secretWhitelist }}
   resourceNames: {{- toYaml . | nindent 4 }}
-    {{- end }}
   {{- end }}
 {{- end }}
 - apiGroups:
@@ -85,7 +91,9 @@ rules:
   resourceNames:
   {{- with .Values.controller.persistence.postgresql }}
   - {{ .userNameSecret.name }}
-  - {{ .passwordSecret.name }}
+  {{- with .passwordSecret }}
+  - {{ .name }}
+  {{- end}}
   {{- end}}
   {{- with .Values.controller.persistence.mysql }}
   - {{ .userNameSecret.name }}
@@ -103,7 +111,6 @@ rules:
     - workfloweventbindings
     - workflowtemplates
     - cronworkflows
-    - cronworkflows/finalizers
   verbs:
     - create
     - get
@@ -113,7 +120,7 @@ rules:
     - patch
     - delete
 
-{{- if .Values.server.clusterWorkflowTemplates.enabled }}
+{{- if and .Values.server.clusterWorkflowTemplates.enabled (not .Values.singleNamespace) }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

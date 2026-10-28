@@ -1,18 +1,621 @@
-# Argo Workflows chart
+# Argo Workflows Chart
 
-CloudHarness vendors this chart and uses official Argo Workflows **v4.1.6**
-images with the Emissary executor. See the [deployment and upgrade guide](../README.md)
-for CRD updates, migration from PNS and compatibility checks.
+This is a **community maintained** chart. It is used to set up argo and its needed dependencies through one command. This is used in conjunction with [helm](https://github.com/kubernetes/helm).
 
-`values.yaml` configures the controller, server, executor, service accounts and
-RBAC. Image overrides remain under `controller.image`, `server.image` and
-`executor.image`. Keep all component versions aligned.
+If you want your deployment of this helm chart to most closely match the [argo CLI](https://github.com/argoproj/argo-workflows), you should deploy it in the `argo` namespace.
 
-By default, `singleNamespace: true` limits the controller and server to their
-release namespace. Set `singleNamespace: false` only when cluster-scoped workflow
-management is required. `controller.instanceID` can further select participating
-workflows when multiple controllers share that scope.
+## Pre-Requisites
 
-The eight files in `crds/` are generated official minimal CRDs from Argo v4.1.6.
-Helm installs them for a new release but does not upgrade existing CRDs; apply
-the matching files separately before rolling out new component images.
+### Custom resource definitions
+
+#### Full vs Minified CRDs
+
+This chart supports two CRD variants:
+
+- **Full CRDs** (default): Include complete OpenAPI schemas for better validation and type safety. These are approximately 11MB total uncompressed.
+- **Minified CRDs**: Use `x-kubernetes-preserve-unknown-fields` to accept any fields. Smaller but provide almost no validation.
+
+As of Argo Workflows version 4, full CRDs are the default, matching upstream.
+
+To use minified CRDs instead:
+
+```bash
+helm install my-release argo/argo-workflows --set crds.full=false
+```
+
+#### How the full CRDs are installed
+
+Full CRDs are too large to include directly in Helm templates (they would exceed the Kubernetes Secret size limit that Helm uses to store releases). Instead, this chart uses a **pre-install/pre-upgrade hook Job** that runs the upstream [CRD installer image](https://argo-workflows.readthedocs.io/en/latest/crd-installer/), `quay.io/argoproj/argo-workflows-crdinstaller`. That image bundles `kubectl` together with the full CRDs for its own version and applies them with `kubectl apply --server-side --force-conflicts`.
+
+This means `helm install` works out of the box with full CRDs — no manual steps required. The hook Job requires:
+
+- Access to the CRD installer image, tagged with the chart's app version (overridable via `crds.upgradeJob.image`)
+- ClusterRole permissions to create/update CRDs (created automatically as hook resources)
+
+Because the CRDs travel inside the image, the Job needs no network access beyond your registry, so it works in air-gapped clusters. You can customize the image, image pull secrets, and the rest of the pod spec via `crds.upgradeJob` values (see values table below).
+
+#### Using Argo CD
+
+Argo CD supports Helm hooks natively by converting them to Argo CD PreSync hooks. The CRD install hook Job will run automatically during Argo CD sync — no special configuration is required.
+
+#### Installing CRDs Outside the Chart
+
+Some users would prefer to install the CRDs _outside_ of the chart. You can disable the CRD installation of this chart by using `--set crds.install=false` when installing the chart.
+
+Helm cannot upgrade custom resource definitions in the `<chart>/crds` folder [by design](https://helm.sh/docs/chart_best_practices/custom_resource_definitions/#some-caveats-and-explanations). Starting with 3.4.0 (chart version 0.19.0), the CRDs have been moved to `<chart>/templates` to address this design decision.
+
+If you are managing CRDs outside the chart, apply them manually:
+
+```bash
+# For full CRDs (requires Server Side Apply due to size)
+kubectl apply --server-side --force-conflicts -k "https://github.com/argoproj/argo-workflows/manifests/base/crds/full?ref=<appVersion>"
+
+# Eg. version v4.0.2
+kubectl apply --server-side --force-conflicts -k "https://github.com/argoproj/argo-workflows/manifests/base/crds/full?ref=v4.0.2"
+
+# For minified CRDs (standard apply works fine)
+kubectl apply -k "https://github.com/argoproj/argo-workflows/manifests/base/crds/minimal?ref=<appVersion>"
+```
+
+### ServiceAccount for Workflow Spec
+
+The workflow executor needs RBAC to report status back to the controller (creating and patching `workflowtaskresults.argoproj.io`). The default ServiceAccount in a namespace does not have this permission, so submitting a workflow without any setup fails with:
+
+```
+workflowtaskresults.argoproj.io is forbidden: User "system:serviceaccount:<namespace>:default" cannot create resource "workflowtaskresults"
+```
+
+To have the chart create a workflow ServiceAccount with the required RBAC in the release namespace (and any `controller.workflowNamespaces`), configure `values.yaml` like below, and submit workflows with that ServiceAccount (`argo submit --serviceaccount argo-workflow ...` or `spec.serviceAccountName`).
+
+```yaml
+workflow:
+  serviceAccount:
+    create: true
+    name: "argo-workflow"
+  rbac:
+    create: true
+controller:
+  workflowNamespaces:
+    - default
+    - foo
+    - bar
+```
+
+Set ServiceAccount on Workflow.
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: hello-world-
+spec:
+  entrypoint: whalesay
+  serviceAccountName: argo-workflow # Set ServiceAccount
+  templates:
+    - name: whalesay
+      container:
+        image: docker/whalesay
+        command: [ cowsay ]
+        args: [ "hello world" ]
+```
+
+## Installing the Chart
+
+To install the chart with the release name `my-release`:
+
+```console
+$ helm repo add argo https://argoproj.github.io/argo-helm
+"argo" has been added to your repositories
+
+$ helm install my-release argo/argo-workflows
+NAME: my-release
+...
+```
+
+## Changelog
+
+For full list of changes, please check ArtifactHub [changelog].
+
+## Usage Notes
+
+### High Availability
+
+This chart installs the non-HA version of Argo Workflows by default. If you want to run in HA mode, you can use [these example values](ci/ha-values.yaml) as a starting point.
+Please see the upstream [Operator Manual's High Availability page](https://argo-workflows.readthedocs.io/en/stable/high-availability/) to understand how to scale Argo Workflows in depth.
+
+### Workflow controller
+
+This chart defaults to setting the `controller.instanceID.enabled` to `false` now, which means the deployed controller will act upon any workflow deployed to the cluster. If you would like to limit the behavior and deploy multiple workflow controllers, please use the `controller.instanceID.enabled` attribute along with one of its configuration options to set the `instanceID` of the workflow controller to be properly scoped for your needs.
+
+### Init-less pod layout (beta)
+
+Argo Workflows v4.1+ supports an opt-in [init-less pod layout], where the executor is provided to workflow pods through an [image volume] instead of an init container copying the binary. Enable it with `controller.initlessPod.enabled: true`.
+
+Requirements and caveats:
+
+- Requires the `ImageVolume` feature gate to be enabled on the kube-apiserver and all kubelets running workflow pods. Image volumes are beta in Kubernetes v1.33-1.35 and enabled by default from v1.36. If the cluster does not support them, workflow pod creation will fail.
+- A custom `executor.image` must provide a manifest list covering every node architecture in the cluster.
+- Workflows whose `main` container sets `securityContext.readOnlyRootFilesystem: true` may fail to load input artifacts placed on the read-only root filesystem in this mode.
+
+### OpenTelemetry tracing (beta)
+
+Argo Workflows v4.1+ can emit [OpenTelemetry traces] from the workflow controller and the executor. Tracing is configured entirely through standard `OTEL_*` environment variables and is enabled by setting an OTLP endpoint; the chart already provides the necessary hooks:
+
+```yaml
+controller:
+  # Traces from the workflow controller
+  extraEnv:
+    - name: OTEL_EXPORTER_OTLP_ENDPOINT
+      value: http://otel-collector:4318
+    - name: OTEL_EXPORTER_OTLP_PROTOCOL
+      value: http/protobuf
+
+# Traces from the executor in workflow pods
+executor:
+  env:
+    - name: OTEL_EXPORTER_OTLP_ENDPOINT
+      value: http://otel-collector:4318
+    - name: OTEL_EXPORTER_OTLP_PROTOCOL
+      value: http/protobuf
+
+# Optional: expose the OTEL configuration to your own code in main containers
+mainContainer:
+  env:
+    - name: OTEL_EXPORTER_OTLP_ENDPOINT
+      value: http://otel-collector:4318
+    - name: OTEL_EXPORTER_OTLP_PROTOCOL
+      value: http/protobuf
+```
+
+The Argo Server is not instrumented for tracing.
+
+### Argo Workflows server authentication
+
+Argo Workflows server provides some choices for authentication mechanism and you can configure `.Values.server.authModes`. By default, authentication mode is `[server]`, for local development purposes or cases where your gateway authentication is covered by some other means.
+Please refer to [Argo Server Auth Mode] for more details.
+
+Argo Workflows server also supports SSO and you can enable it to configure `.Values.server.sso` and `.Values.server.authModes`. In order to manage access levels, you can optionally add RBAC to SSO. Please refer to [SSO RBAC] for more details.
+
+### Ingress Configuration
+
+Argo Workflows server can be exposed using Kubernetes Ingress or Gateway API HTTPRoute.
+
+#### Traditional Kubernetes Ingress
+
+See the `server.ingress` section in values.yaml for standard Ingress configuration.
+
+#### Gateway API HTTPRoute
+
+The Gateway API provides a modern, extensible way to configure ingress traffic routing. This chart supports HTTPRoute resources as an alternative to traditional Ingress.
+
+> **Note:**
+> Gateway API support is **EXPERIMENTAL**. Support depends on your Gateway controller implementation. Some controllers may require additional configuration (e.g., BackendTLSPolicy for HTTPS backends). Refer to [Gateway API implementations](https://gateway-api.sigs.k8s.io/implementations/) for controller-specific details.
+
+```yaml
+server:
+  httproute:
+    enabled: true
+    parentRefs:
+      - name: example-gateway
+        namespace: gateway-system
+        sectionName: https
+    hostnames:
+      - argoworkflows.example.com
+```
+
+##### Gateway API with TLS backend
+
+For HTTPS backends with Gateway API (when `server.secure: true`), you may need to configure BackendTLSPolicy (experimental, v1alpha3):
+
+> **Warning:**
+> BackendTLSPolicy is in **EXPERIMENTAL** status. Not all Gateway controllers support this resource (e.g., Cilium does not yet support it).
+
+```yaml
+server:
+  secure: true
+
+  httproute:
+    enabled: true
+    parentRefs:
+      - name: example-gateway
+        namespace: gateway-system
+
+  backendTLSPolicy:
+    enabled: true
+    targetRefs:
+      - group: ""
+        kind: Service
+        name: argo-workflows-server
+    validation:
+      hostname: argo-workflows-server.argo.svc.cluster.local
+      wellKnownCACertificates: System
+```
+
+## Values
+
+The `values.yaml` contains items used to tweak a deployment of this chart.
+Fields to note:
+
+- `controller.instanceID.enabled`: If set to true, the Argo Controller will **ONLY** monitor Workflow submissions with a `--instanceid` attribute
+- `controller.instanceID.useReleaseName`: If set to true then chart set controller instance id to release name
+- `controller.instanceID.explicitID`: Allows customization of an instance id for the workflow controller to monitor
+- `singleNamespace`:  When true, restricts the workflow controller to operate
+  in just the single namespace (that one of the Helm release).
+- `controller.workflowNamespaces`: This is a list of namespaces where the
+  workflow controller will manage workflows. Only valid when `singleNamespace`
+  is false.
+
+### General parameters
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| apiVersionOverrides.autoscaling | string | `""` | String to override apiVersion of autoscaling rendered by this helm chart |
+| apiVersionOverrides.cloudgoogle | string | `""` | String to override apiVersion of GKE resources rendered by this helm chart |
+| apiVersionOverrides.monitoring | string | `""` | String to override apiVersion of monitoring CRDs (ServiceMonitor) rendered by this helm chart |
+| commonLabels | object | `{}` | Labels to set on all resources |
+| crds.annotations | object | `{}` | Annotations to be added to all CRDs (only applies when crds.full=false) |
+| crds.full | bool | `true` | Use full CRDs with complete OpenAPI schemas. When false, uses minified CRDs with x-kubernetes-preserve-unknown-fields. Full CRDs are very large and are installed via a pre-install/pre-upgrade hook Job that uses server-side apply. |
+| crds.install | bool | `true` | Install and upgrade CRDs |
+| crds.keep | bool | `true` | Keep CRDs on chart uninstall |
+| crds.upgradeJob.extraEnv | list | `[]` | Extra environment variables to provide to the CRD install Job container |
+| crds.upgradeJob.image | object | `{"registry":"quay.io","repository":"argoproj/argo-workflows-crdinstaller","tag":""}` | Image for the container that applies the full CRDs. It bundles the CRDs for its own tag, so keep it in step with the app version. |
+| crds.upgradeJob.image.registry | string | `"quay.io"` | Registry to use for the CRD installer |
+| crds.upgradeJob.image.repository | string | `"argoproj/argo-workflows-crdinstaller"` | Repository to use for the CRD installer |
+| crds.upgradeJob.image.tag | string | `""` | Image tag for the CRD installer. Defaults to `.Values.images.tag`. |
+| crds.upgradeJob.imagePullSecrets | list | `.Values.images.pullSecrets` | Image pull secrets for the CRD install Job |
+| crds.upgradeJob.nodeSelector | object | `{}` | Node selector for the CRD install Job |
+| crds.upgradeJob.podLabels | object | `{}` | Optional labels to add to the CRD install Job pod |
+| crds.upgradeJob.podSecurityContext | object | `{}` | Pod security context for the CRD install Job pod |
+| crds.upgradeJob.resources | object | `{}` | Resources for the CRD install Job containers |
+| crds.upgradeJob.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true,"runAsGroup":8737,"runAsNonRoot":true,"runAsUser":8737,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the CRD install Job container |
+| crds.upgradeJob.tolerations | list | `[]` | Tolerations for the CRD install Job |
+| createAggregateRoles | bool | `true` | Create ClusterRoles that extend existing ClusterRoles to interact with Argo Workflows CRDs. |
+| emissary.images | list | `[]` | The command/args for each image on workflow, needed when the command is not specified and the emissary executor is used. |
+| extraObjects | list | `[]` | Array of extra K8s manifests to deploy |
+| fullnameOverride | string | `nil` | String to fully override "argo-workflows.fullname" template |
+| images.pullPolicy | string | `"Always"` | imagePullPolicy to apply to all containers |
+| images.pullSecrets | list | `[]` | Secrets with credentials to pull images from a private registry |
+| images.tag | string | `""` | Common tag for Argo Workflows images. Defaults to `.Chart.AppVersion`. |
+| kubeVersionOverride | string | `""` | Override the Kubernetes version, which is used to evaluate certain manifests |
+| nameOverride | string | `nil` | String to partially override "argo-workflows.fullname" template |
+| namespaceOverride | string | `.Release.Namespace` | Override the namespace |
+| singleNamespace | bool | `false` | Restrict Argo to operate only in a single namespace (the namespace of the Helm release) by apply Roles and RoleBindings instead of the Cluster equivalents, and start workflow-controller with the --namespaced flag. Use it in clusters with strict access policy. |
+
+### Workflow
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| workflow.namespace | string | `nil` | Deprecated; use controller.workflowNamespaces instead. |
+| workflow.rbac.agentPermissions | bool | `false` | Allows permissions for the Argo Agent. Only required if using http/plugin templates |
+| workflow.rbac.artifactGC | bool | `false` | Allows permissions for the Argo Artifact GC pod. Only required if using artifact gc |
+| workflow.rbac.create | bool | `true` | Adds Role and RoleBinding for the above specified service account to be able to run workflows. A Role and Rolebinding pair is also created for each namespace in controller.workflowNamespaces (see below) |
+| workflow.rbac.rules | list | `[]` | Additional rules for the service account that runs the workflows. |
+| workflow.rbac.serviceAccounts | list | `[]` | Extra service accounts to be added to the RoleBinding |
+| workflow.serviceAccount.annotations | object | `{}` | Annotations applied to created service account |
+| workflow.serviceAccount.create | bool | `false` | Specifies whether a service account should be created |
+| workflow.serviceAccount.createSecret | bool | `false` | Specifies whether a secret for each service account should be created |
+| workflow.serviceAccount.labels | object | `{}` | Labels applied to created service account |
+| workflow.serviceAccount.name | string | `"argo-workflow"` | Service account which is used to run workflows |
+| workflow.serviceAccount.pullSecrets | list | `[]` | Secrets with credentials to pull images from a private registry. Same format as `.Values.images.pullSecrets` |
+
+### Workflow Controller
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| controller.affinity | object | `{}` | Assign custom [affinity] rules |
+| controller.clusterWorkflowTemplates.enabled | bool | `true` | Create a ClusterRole and CRB for the controller to access ClusterWorkflowTemplates. |
+| controller.clusterWorkflowTemplates.serviceAccounts | list | `[]` | Extra service accounts to be added to the ClusterRoleBinding |
+| controller.columns | list | `[]` | Configure Argo Server to show custom [columns] |
+| controller.configMap.annotations | object | `{}` | ConfigMap annotations |
+| controller.configMap.create | bool | `true` | Create a ConfigMap for the controller |
+| controller.configMap.name | string | `""` | ConfigMap name |
+| controller.configMap.restartOnChange | bool | `false` | Add checksum/config pod annotation to restart the controller when the ConfigMap changes. Alternative to the built-in config watcher; does not cover semaphore ConfigMaps. |
+| controller.cronWorkflowWorkers | string | `nil` | Number of cron workflow workers Only valid for 3.5+ |
+| controller.deploymentAnnotations | object | `{}` | deploymentAnnotations is an optional map of annotations to be applied to the controller Deployment |
+| controller.disableAgentPodCreation | bool | `false` | Disable the creation of agent pods, which are used for HTTP and Plugin templates. When enabled, HTTP and Plugin templates will not be processed by this controller. Only valid for 4.1+ |
+| controller.dnsConfig | object | `{}` | [DNS configuration](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config) for controller pods |
+| controller.dnsPolicy | string | `""` | Alternative DNS policy for controller pods |
+| controller.envFrom | list | `[]` | envFrom to pass to the controller container |
+| controller.extraArgs | list | `[]` | Extra arguments to be added to the controller |
+| controller.extraContainers | list | `[]` | Extra containers to be added to the controller deployment |
+| controller.extraEnv | list | `[]` | Extra environment variables to provide to the controller container |
+| controller.extraInitContainers | list | `[]` | Enables init containers to be added to the controller deployment |
+| controller.failedPodRestart.enabled | bool | `false` | Enable to restart of pods that fail before entering Running state. |
+| controller.failedPodRestart.maxRestarts | int | `3` | Maximum number of automatic restarts per node before giving up. |
+| controller.image.registry | string | `"quay.io"` | Registry to use for the controller |
+| controller.image.repository | string | `"argoproj/workflow-controller"` | Registry to use for the controller |
+| controller.image.tag | string | `""` | Image tag for the workflow controller. Defaults to `.Values.images.tag`. |
+| controller.initialDelay | string | `nil` | Resolves ongoing, uncommon AWS EKS bug: https://github.com/argoproj/argo-workflows/pull/4224 |
+| controller.initlessPod.enabled | bool | `false` | Enable the init-less pod layout (beta), which provides the executor to workflow pods through an image volume instead of an init container. Only valid for 4.1+. Requires the `ImageVolume` feature gate on the kube-apiserver and all kubelets (beta in Kubernetes v1.33-1.35, enabled by default from v1.36). |
+| controller.instanceID.enabled | bool | `false` | Configures the controller to filter workflow submissions to only those which have a matching instanceID attribute. |
+| controller.instanceID.explicitID | string | `""` | Use a custom instanceID |
+| controller.instanceID.useReleaseName | bool | `false` | Use ReleaseName as instanceID |
+| controller.kubeConfig | object | `{}` (See [values.yaml]) | Configure when workflow controller runs in a different k8s cluster with the workflow workloads, or needs to communicate with the k8s apiserver using an out-of-cluster kubeconfig secret. |
+| controller.links | list | `[]` | Configure Argo Server to show custom [links] |
+| controller.livenessProbe | object | See [values.yaml] | Configure liveness [probe] for the controller |
+| controller.loadBalancerClass | string | `""` | The class of the load balancer implementation |
+| controller.loadBalancerSourceRanges | list | `[]` | Source ranges to allow access to service from. Only applies to service type `LoadBalancer` |
+| controller.logging.format | string | `"text"` | Set the logging format (one of: `text`, `json`) |
+| controller.logging.globallevel | string | `"0"` | Set the glog logging level |
+| controller.logging.level | string | `"info"` | Set the logging level (one of: `debug`, `info`, `warn`, `error`) |
+| controller.metricsConfig.enabled | bool | `false` | Enables prometheus metrics server |
+| controller.metricsConfig.headlessService | bool | `false` | Flag to enable headless service |
+| controller.metricsConfig.honorLabels | bool | `false` | When true, honorLabels preserves the metric’s labels when they collide with the target’s labels. |
+| controller.metricsConfig.ignoreErrors | bool | `false` | Flag that instructs prometheus to ignore metric emission errors. |
+| controller.metricsConfig.interval | string | `"30s"` | Frequency at which prometheus scrapes metrics |
+| controller.metricsConfig.metricRelabelings | list | `[]` | ServiceMonitor metric relabel configs to apply to samples before ingestion |
+| controller.metricsConfig.metricsTTL | string | `""` | How often custom metrics are cleared from memory |
+| controller.metricsConfig.modifiers | object | `{}` | Manipulate the metrics created by the workflow controller |
+| controller.metricsConfig.path | string | `"/metrics"` | Path is the path where metrics are emitted. Must start with a "/". |
+| controller.metricsConfig.port | int | `9090` | Port is the port where metrics are emitted |
+| controller.metricsConfig.portName | string | `"metrics"` | Container metrics port name |
+| controller.metricsConfig.relabelings | list | `[]` | ServiceMonitor relabel configs to apply to samples before scraping |
+| controller.metricsConfig.scheme | string | `"http"` | serviceMonitor scheme |
+| controller.metricsConfig.scrapeTimeout | string | `""` | Prometheus ServiceMonitor scrapeTimeout. If empty, Prometheus uses the global scrape timeout unless it is less than the target's scrape interval value in which the latter is used. |
+| controller.metricsConfig.secure | bool | `false` | Flag that use a self-signed cert for TLS |
+| controller.metricsConfig.servicePort | int | `8080` | Service metrics port |
+| controller.metricsConfig.servicePortName | string | `"metrics"` | Service metrics port name |
+| controller.metricsConfig.targetLabels | list | `[]` | ServiceMonitor will add labels from the service to the Prometheus metric |
+| controller.name | string | `"workflow-controller"` | Workflow controller name string |
+| controller.namespaceParallelism | string | `nil` | Limits the maximum number of incomplete workflows in a namespace |
+| controller.navColor | string | `""` | Set ui navigation bar background color |
+| controller.nodeEvents.enabled | bool | `true` | Enable to emit events on node completion. |
+| controller.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | [Node selector] |
+| controller.parallelism | string | `nil` | parallelism dictates how many workflows can be running at the same time |
+| controller.pdb.enabled | bool | `false` | Configure [Pod Disruption Budget] for the controller pods |
+| controller.persistence | object | `{}` | enable Workflow Archive to store the status of workflows. Postgres, MySQL (>= 5.7.8) and MariaDB (>= 10.2.7, requires Argo Workflows v4.1+) are available. |
+| controller.podAnnotations | object | `{}` | podAnnotations is an optional map of annotations to be applied to the controller Pods |
+| controller.podCleanupWorkers | string | `nil` | Number of pod cleanup workers |
+| controller.podGCDeleteDelayDuration | string | `5s` (Argo Workflows default) | The duration in seconds before the pods in the GC queue get deleted. A zero value indicates that the pods will be deleted immediately. |
+| controller.podGCGracePeriodSeconds | string | `30` seconds (Kubernetes default) | Specifies the duration in seconds before a terminating pod is forcefully killed. A zero value indicates that the pod will be forcefully terminated immediately. |
+| controller.podLabels | object | `{}` | Optional labels to add to the controller pods |
+| controller.podSecurityContext | object | `{}` | SecurityContext to set on the controller pods |
+| controller.priorityClassName | string | `""` | Leverage a PriorityClass to ensure your pods survive resource shortages. |
+| controller.rbac.accessAllSecrets | bool | `false` | Allows controller to get, list and watch all k8s secrets. Can only be used if secretWhitelist is empty. |
+| controller.rbac.create | bool | `true` | Adds Role and RoleBinding for the controller. |
+| controller.rbac.secretWhitelist | list | `[]` | Allows controller to get, list, and watch certain k8s secrets |
+| controller.rbac.writeConfigMaps | bool | `false` | Allows controller to create and update ConfigMaps. Enables memoization feature |
+| controller.replicas | int | `1` | The number of controller pods to run |
+| controller.resourceRateLimit | object | `{}` | Globally limits the rate at which pods are created. This is intended to mitigate flooding of the Kubernetes API server by workflows with a large amount of parallel nodes. |
+| controller.resources | object | `{}` | Resource limits and requests for the controller |
+| controller.retentionPolicy | object | `{}` | Workflow retention by number of workflows |
+| controller.revisionHistoryLimit | int | `10` | The number of revisions to keep. |
+| controller.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true,"runAsNonRoot":true}` | the controller container's securityContext |
+| controller.serviceAccount.annotations | object | `{}` | Annotations applied to created service account |
+| controller.serviceAccount.create | bool | `true` | Create a service account for the controller |
+| controller.serviceAccount.labels | object | `{}` | Labels applied to created service account |
+| controller.serviceAccount.name | string | `""` | Service account name |
+| controller.serviceAnnotations | object | `{}` | Annotations to be applied to the controller Service |
+| controller.serviceLabels | object | `{}` | Optional labels to add to the controller Service |
+| controller.serviceMonitor.additionalLabels | object | `{}` | Prometheus ServiceMonitor labels |
+| controller.serviceMonitor.enabled | bool | `false` | Enable a prometheus ServiceMonitor |
+| controller.serviceMonitor.namespace | string | `""` | Prometheus ServiceMonitor namespace |
+| controller.serviceType | string | `"ClusterIP"` | Service type of the controller Service |
+| controller.synchronization | object | `{}` | enable Synchronization to use a database.  Postgres and MySQL (>= 5.7.8) are available. |
+| controller.telemetryConfig.enabled | bool | `false` | Enables prometheus telemetry server |
+| controller.telemetryConfig.ignoreErrors | bool | `false` | Flag that instructs prometheus to ignore metric emission errors. |
+| controller.telemetryConfig.interval | string | `"30s"` | Frequency at which prometheus scrapes telemetry data |
+| controller.telemetryConfig.metricsTTL | string | `""` | How often custom metrics are cleared from memory |
+| controller.telemetryConfig.path | string | `"/telemetry"` | telemetry path |
+| controller.telemetryConfig.port | int | `8081` | telemetry container port |
+| controller.telemetryConfig.scheme | string | `"http"` | telemetry serviceMonitor scheme to use |
+| controller.telemetryConfig.scrapeTimeout | string | `""` | Prometheus ServiceMonitor scrapeTimeout. If empty, Prometheus uses the global scrape timeout unless it is less than the target's scrape interval value in which the latter is used. |
+| controller.telemetryConfig.secure | bool | `false` | Flag that use a self-signed cert for TLS |
+| controller.telemetryConfig.servicePort | int | `8081` | telemetry service port |
+| controller.telemetryConfig.servicePortName | string | `"telemetry"` | telemetry service port name |
+| controller.tolerations | list | `[]` | [Tolerations] for use with node taints |
+| controller.topologySpreadConstraints | list | `[]` | Assign custom [TopologySpreadConstraints] rules to the workflow controller |
+| controller.volumeMounts | list | `[]` | Additional volume mounts to the controller main container |
+| controller.volumes | list | `[]` | Additional volumes to the controller pod |
+| controller.workflowDefaults | object | `{}` | Default values that will apply to all Workflows from this controller, unless overridden on the Workflow-level. Only valid for 2.7+ |
+| controller.workflowEvents.enabled | bool | `true` | Enable to emit events on workflow status changes. |
+| controller.workflowNamespaces | list | `["default"]` | Specify all namespaces where this workflow controller instance will manage workflows. This controls where the service account and RBAC resources will be created. Only valid when singleNamespace is false. |
+| controller.workflowRestrictions | object | `{}` | Restricts the Workflows that the controller will process. Only valid for 2.9+ |
+| controller.workflowTTLWorkers | string | `nil` | Number of workflow TTL workers |
+| controller.workflowWorkers | string | `nil` | Number of workflow workers |
+
+### Workflow Main Container
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| mainContainer.env | list | `[]` | Adds environment variables for the Workflow main container |
+| mainContainer.envFrom | list | `[]` | Adds reference environment variables for the Workflow main container |
+| mainContainer.imagePullPolicy | string | `""` | imagePullPolicy to apply to Workflow main container. Defaults to `.Values.images.pullPolicy`. |
+| mainContainer.resources | object | `{}` | Resource limits and requests for the Workflow main container |
+| mainContainer.securityContext | object | `{}` | sets security context for the Workflow main container |
+
+### Workflow Executor
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| executor.args | list | `[]` | Passes arguments to the executor processes |
+| executor.env | list | `[]` | Adds environment variables for the executor. |
+| executor.image.nonroot | bool | `false` | Use the `-nonroot` executor image variant. When enabled, the `-nonroot` suffix is appended to the resolved image tag. |
+| executor.image.pullPolicy | string | `""` | Image PullPolicy to use for the Workflow Executors. Defaults to `.Values.images.pullPolicy`. |
+| executor.image.registry | string | `"quay.io"` | Registry to use for the Workflow Executors |
+| executor.image.repository | string | `"argoproj/argoexec"` | Repository to use for the Workflow Executors |
+| executor.image.tag | string | `""` | Image tag for the workflow executor. Defaults to `.Values.images.tag`. |
+| executor.resources | object | `{}` | Resource limits and requests for the Workflow Executors |
+| executor.securityContext | object | `{}` | sets security context for the executor container |
+
+### Workflow Server
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| server.GKEbackendConfig.enabled | bool | `false` | Enable BackendConfig custom resource for Google Kubernetes Engine |
+| server.GKEbackendConfig.spec | object | `{}` | [BackendConfigSpec] |
+| server.GKEfrontendConfig.enabled | bool | `false` | Enable FrontConfig custom resource for Google Kubernetes Engine |
+| server.GKEfrontendConfig.spec | object | `{}` | [FrontendConfigSpec] |
+| server.GKEmanagedCertificate.domains | list | `["argoworkflows.example.com"]` | Domains for the Google Managed Certificate |
+| server.GKEmanagedCertificate.enabled | bool | `false` | Enable ManagedCertificate custom resource for Google Kubernetes Engine. |
+| server.affinity | object | `{}` | Assign custom [affinity] rules |
+| server.authMode | string | `""` | Deprecated; use server.authModes instead. |
+| server.authModes | list | `[]` | A list of supported authentication modes. Available values are `server`, `client`, or `sso`. If you provide sso, please configure `.Values.server.sso` as well. |
+| server.autoscaling.behavior | object | `{}` | Configures the scaling behavior of the target in both Up and Down directions. This is only available on HPA apiVersion `autoscaling/v2beta2` and newer |
+| server.autoscaling.enabled | bool | `false` | Enable Horizontal Pod Autoscaler ([HPA]) for the Argo Server |
+| server.autoscaling.maxReplicas | int | `5` | Maximum number of replicas for the Argo Server [HPA] |
+| server.autoscaling.minReplicas | int | `1` | Minimum number of replicas for the Argo Server [HPA] |
+| server.autoscaling.targetCPUUtilizationPercentage | int | `50` | Average CPU utilization percentage for the Argo Server [HPA] |
+| server.autoscaling.targetMemoryUtilizationPercentage | int | `50` | Average memory utilization percentage for the Argo Server [HPA] |
+| server.backendTLSPolicy.annotations | object | `{}` | Additional BackendTLSPolicy annotations |
+| server.backendTLSPolicy.enabled | bool | `false` | Enable BackendTLSPolicy resource for Argo Workflows server (Gateway API) |
+| server.backendTLSPolicy.labels | object | `{}` | Additional BackendTLSPolicy labels |
+| server.backendTLSPolicy.targetRefs | list | `[]` (See [values.yaml]) | Target references for the BackendTLSPolicy |
+| server.backendTLSPolicy.validation | object | `{}` (See [values.yaml]) | TLS validation configuration |
+| server.baseHref | string | `"/"` | Value for base href in index.html. Used if the server is running behind reverse proxy under subpath different from /. |
+| server.clusterWorkflowTemplates.enableEditing | bool | `true` | Give the server permissions to edit ClusterWorkflowTemplates. |
+| server.clusterWorkflowTemplates.enabled | bool | `true` | Create a ClusterRole and CRB for the server to access ClusterWorkflowTemplates. |
+| server.deploymentAnnotations | object | `{}` | optional map of annotations to be applied to the ui Deployment |
+| server.dnsConfig | object | `{}` | [DNS configuration](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config) for server pods |
+| server.dnsPolicy | string | `""` | Alternative DNS policy for server pods |
+| server.enabled | bool | `true` | Deploy the Argo Server |
+| server.envFrom | list | `[]` | envFrom to pass to the argo-server container |
+| server.extraArgs | list | `[]` | Extra arguments to provide to the Argo server binary. |
+| server.extraContainers | list | `[]` | Extra containers to be added to the server deployment |
+| server.extraEnv | list | `[]` | Extra environment variables to provide to the argo-server container |
+| server.extraInitContainers | list | `[]` | Enables init containers to be added to the server deployment |
+| server.hostAliases | list | `[]` | Mapping between IP and hostnames that will be injected as entries in the pod's hosts files |
+| server.httproute.annotations | object | `{}` | Additional HTTPRoute annotations |
+| server.httproute.enabled | bool | `false` | Enable HTTPRoute resource for Argo Workflows server (Gateway API) |
+| server.httproute.hostnames | list | `[]` (See [values.yaml]) | List of hostnames for the HTTPRoute |
+| server.httproute.labels | object | `{}` | Additional HTTPRoute labels |
+| server.httproute.parentRefs | list | `[]` (See [values.yaml]) | Gateway API parentRefs for the HTTPRoute |
+| server.httproute.rules | list | `[]` (See [values.yaml]) | HTTPRoute rules configuration |
+| server.image.registry | string | `"quay.io"` | Registry to use for the server |
+| server.image.repository | string | `"argoproj/argocli"` | Repository to use for the server |
+| server.image.tag | string | `""` | Image tag for the Argo Workflows server. Defaults to `.Values.images.tag`. |
+| server.ingress.annotations | object | `{}` | Additional ingress annotations |
+| server.ingress.enabled | bool | `false` | Enable an ingress resource |
+| server.ingress.extraPaths | list | `[]` | Additional ingress paths |
+| server.ingress.hosts | list | `[]` | List of ingress hosts |
+| server.ingress.ingressClassName | string | `""` | Defines which ingress controller will implement the resource |
+| server.ingress.labels | object | `{}` | Additional ingress labels |
+| server.ingress.pathType | string | `"Prefix"` | Ingress path type. One of `Exact`, `Prefix` or `ImplementationSpecific` |
+| server.ingress.paths | list | `["/"]` | List of ingress paths |
+| server.ingress.tls | list | `[]` | Ingress TLS configuration |
+| server.lifecycle | object | `{}` | Specify postStart and preStop lifecycle hooks for server container |
+| server.livenessProbe.enabled | bool | `false` | Enable Kubernetes liveness probe for server |
+| server.livenessProbe.failureThreshold | int | `3` | Minimum consecutive failures for the [probe] to be considered failed after having succeeded |
+| server.livenessProbe.httpGet.path | string | `"/"` | Http path to use for the liveness probe |
+| server.livenessProbe.httpGet.port | int | `2746` | Http port to use for the liveness probe |
+| server.livenessProbe.initialDelaySeconds | int | `10` | Number of seconds after the container has started before [probe] is initiated |
+| server.livenessProbe.periodSeconds | int | `10` | How often (in seconds) to perform the [probe] |
+| server.livenessProbe.successThreshold | int | `1` | Minimum consecutive successes for the [probe] to be considered successful after having failed |
+| server.livenessProbe.timeoutSeconds | int | `1` | Number of seconds after which the [probe] times out |
+| server.loadBalancerClass | string | `""` | The class of the load balancer implementation |
+| server.loadBalancerIP | string | `""` | Static IP address to assign to loadBalancer service type `LoadBalancer` |
+| server.loadBalancerSourceRanges | list | `[]` | Source ranges to allow access to service from. Only applies to service type `LoadBalancer` |
+| server.logging.format | string | `"text"` | Set the logging format (one of: `text`, `json`) |
+| server.logging.globallevel | string | `"0"` | Set the glog logging level |
+| server.logging.level | string | `"info"` | Set the logging level (one of: `debug`, `info`, `warn`, `error`) |
+| server.name | string | `"server"` | Server name string |
+| server.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | [Node selector] |
+| server.pdb.enabled | bool | `false` | Configure [Pod Disruption Budget] for the server pods |
+| server.podAnnotations | object | `{}` | optional map of annotations to be applied to the ui Pods |
+| server.podLabels | object | `{}` | Optional labels to add to the UI pods |
+| server.podSecurityContext | object | `{}` | SecurityContext to set on the server pods |
+| server.priorityClassName | string | `""` | Leverage a PriorityClass to ensure your pods survive resource shortages |
+| server.rbac.create | bool | `true` | Adds Role and RoleBinding for the server. |
+| server.replicas | int | `1` | The number of server pods to run |
+| server.resources | object | `{}` | Resource limits and requests for the server |
+| server.revisionHistoryLimit | int | `10` | The number of revisions to keep. |
+| server.secure | bool | `false` | Run the argo server in "secure" mode. Configure this value instead of `--secure` in extraArgs. |
+| server.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":false,"runAsNonRoot":true}` | Servers container-level security context |
+| server.serviceAccount.annotations | object | `{}` | Annotations applied to created service account |
+| server.serviceAccount.create | bool | `true` | Create a service account for the server |
+| server.serviceAccount.labels | object | `{}` | Labels applied to created service account |
+| server.serviceAccount.name | string | `""` | Service account name |
+| server.serviceAnnotations | object | `{}` | Annotations to be applied to the UI Service |
+| server.serviceLabels | object | `{}` | Optional labels to add to the UI Service |
+| server.serviceNodePort | string | `nil` | Service node port |
+| server.servicePort | int | `2746` | Service port for server |
+| server.servicePortName | string | `""` | Service port name |
+| server.serviceTargetPort | int | `2746` | Service target port for server |
+| server.serviceType | string | `"ClusterIP"` | Service type for server pods |
+| server.sso.clientId.key | string | `"client-id"` | Key of secret to retrieve the app OIDC client ID |
+| server.sso.clientId.name | string | `"argo-server-sso"` | Name of secret to retrieve the app OIDC client ID |
+| server.sso.clientSecret.key | string | `"client-secret"` | Key of a secret to retrieve the app OIDC client secret |
+| server.sso.clientSecret.name | string | `"argo-server-sso"` | Name of a secret to retrieve the app OIDC client secret |
+| server.sso.customGroupClaimName | string | `""` | Override claim name for OIDC groups |
+| server.sso.enabled | bool | `false` | Create SSO configuration. If you set `true` , please also set `.Values.server.authModes` as `sso`. |
+| server.sso.filterGroupsRegex | list | `[]` | Filter the groups returned by the OIDC provider |
+| server.sso.insecureSkipVerify | bool | `false` | Skip TLS verification for the HTTP client |
+| server.sso.issuer | string | `"https://accounts.google.com"` | The root URL of the OIDC identity provider |
+| server.sso.issuerAlias | string | `""` | Alternate root URLs that can be included for some OIDC providers |
+| server.sso.rbac.enabled | bool | `true` | Adds ServiceAccount Policy to server (Cluster)Role. |
+| server.sso.rbac.secretWhitelist | list | `[]` | Whitelist to allow server to fetch Secrets |
+| server.sso.redirectUrl | string | `""` | The OIDC redirect URL. Should be in the form <argo-root-url>/oauth2/callback. |
+| server.sso.rootCA | string | `""` | Custom PEM encoded CA certificate file contents used to validate the OIDC provider's certificate |
+| server.sso.scopes | list | `[]` | Scopes requested from the SSO ID provider |
+| server.sso.sessionExpiry | string | `""` | Define how long your login is valid for (in hours) |
+| server.sso.userInfoPath | string | `""` | Specify the user info endpoint that contains the groups claim |
+| server.terminationGracePeriodSeconds | int | `30` | terminationGracePeriodSeconds for container lifecycle hook |
+| server.tmpVolume | object | `{"emptyDir":{}}` | Volume to be mounted in Pods for temporary files. |
+| server.tolerations | list | `[]` | [Tolerations] for use with node taints |
+| server.topologySpreadConstraints | list | `[]` | Assign custom [TopologySpreadConstraints] rules to the argo server |
+| server.volumeMounts | list | `[]` | Additional volume mounts to the server main container. |
+| server.volumes | list | `[]` | Additional volumes to the server pod. |
+
+### Artifact Repository
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| artifactRepository.archiveLogs | bool | `false` | Archive the main container logs as an artifact |
+| artifactRepository.azure | object | `{}` (See [values.yaml]) | Store artifact in Azure Blob Storage |
+| artifactRepository.gcs | object | `{}` (See [values.yaml]) | Store artifact in a GCS object store |
+| artifactRepository.s3 | object | See [values.yaml] | Store artifact in a S3-compliant object store |
+| artifactRepositoryRef | object | `{}` (See [values.yaml]) | The section of [artifact repository ref](https://argo-workflows.readthedocs.io/en/stable/artifact-repository-ref/). Each map key is the name of configmap |
+| customArtifactRepository | object | `{}` | The section of custom artifact repository. Utilize a custom artifact repository that is not one of the current base ones (s3, gcs, azure) |
+| useStaticCredentials | bool | `true` | Use static credentials for S3 (eg. when not using AWS IRSA) |
+
+## Upgrading
+
+### To 2.0.0
+
+The full CRDs are now installed by the upstream [CRD installer image], `quay.io/argoproj/argo-workflows-crdinstaller`, instead of a stock `kubectl` image that downloaded the CRD YAML from GitHub. This removes the GitHub egress requirement, but the `crds.upgradeJob` values changed shape:
+
+* `crds.upgradeJob.image.repository` and `crds.upgradeJob.image.tag` now refer to the CRD installer image, and `crds.upgradeJob.image.registry` was added. The tag defaults to the chart's app version. If you overrode these to pin a `kubectl` image, drop the override.
+* `crds.upgradeJob.crdBaseURL` was removed. The CRDs are bundled in the image, so there is nothing to download.
+* `crds.upgradeJob.hostPath` was removed. It only existed to feed the Job from local files in CI, which the image makes unnecessary.
+* `crds.upgradeJob.securityContext.runAsUser` and `runAsGroup` default to `8737` to match the image.
+
+This requires app version v4.1.0 or later, the first release to publish the CRD installer image. Set `crds.full=false` to use the minified CRDs, which are unaffected.
+
+## Breaking changes from the deprecated `argo` chart
+
+1. the `installCRD` value has been removed. CRDs are now only installed from the conventional crds/ directory
+1. the CRDs were updated to `apiextensions.k8s.io/v1`
+1. the container image registry/project/tag format was changed to be more in line with the more common
+
+   ```yaml
+   image:
+     registry: quay.io
+     repository: argoproj/argocli
+     tag: v3.0.1
+   ```
+
+   this also makes it easier for automatic update tooling (eg. renovate bot) to detect and update images.
+
+1. switched to quay.io as the default registry for all images
+1. removed any included usage of Minio
+1. aligned the configuration of serviceAccounts with the argo-cd chart, ie: what used to be `server.createServiceAccount` is now `server.serviceAccount.create`
+1. moved the field previously known as `telemetryServicePort` inside the `telemetryConfig` as `telemetryConfig.servicePort` - same for `metricsConfig`
+
+[affinity]: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+[BackendConfigSpec]: https://cloud.google.com/kubernetes-engine/docs/concepts/backendconfig#backendconfigspec_v1beta1_cloudgooglecom
+[FrontendConfigSpec]: https://cloud.google.com/kubernetes-engine/docs/how-to/ingress-features#configuring_ingress_features_through_frontendconfig_parameters
+[links]: https://argo-workflows.readthedocs.io/en/stable/links/
+[columns]: https://github.com/argoproj/argo-workflows/pull/10693
+[Node selector]: https://kubernetes.io/docs/user-guide/node-selection/
+[Pod Disruption Budget]: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+[probe]: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes
+[Tolerations]: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+[TopologySpreadConstraints]: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
+[values.yaml]: values.yaml
+[changelog]: https://artifacthub.io/packages/helm/argo/argo-workflows?modal=changelog
+[SSO RBAC]: https://argo-workflows.readthedocs.io/en/stable/argo-server-sso/
+[Argo Server Auth Mode]: https://argo-workflows.readthedocs.io/en/stable/argo-server-auth-mode/
+[init-less pod layout]: https://argo-workflows.readthedocs.io/en/latest/initless-pod/
+[image volume]: https://kubernetes.io/docs/tasks/configure-pod-container/image-volumes/
+[OpenTelemetry traces]: https://argo-workflows.readthedocs.io/en/latest/telemetry-configuration/
+[CRD installer image]: https://argo-workflows.readthedocs.io/en/latest/crd-installer/

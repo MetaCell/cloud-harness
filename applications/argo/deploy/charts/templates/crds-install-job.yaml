@@ -1,0 +1,116 @@
+{{- if and .Values.crds.install .Values.crds.full }}
+{{- $crdInstallName := printf "%s-crd-install" (include "argo-workflows.fullname" . | trunc 51 | trimSuffix "-") }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $crdInstallName }}
+  namespace: {{ include "argo-workflows.namespace" . }}
+  labels:
+    {{- include "argo-workflows.labels" (dict "context" . "component" "crds" "name" "crd-install") | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $crdInstallName }}
+  labels:
+    {{- include "argo-workflows.labels" (dict "context" . "component" "crds" "name" "crd-install") | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+rules:
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["create", "get", "list", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $crdInstallName }}
+  labels:
+    {{- include "argo-workflows.labels" (dict "context" . "component" "crds" "name" "crd-install") | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+subjects:
+  - kind: ServiceAccount
+    name: {{ $crdInstallName }}
+    namespace: {{ include "argo-workflows.namespace" . }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $crdInstallName }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $crdInstallName }}
+  namespace: {{ include "argo-workflows.namespace" . }}
+  labels:
+    {{- include "argo-workflows.labels" (dict "context" . "component" "crds" "name" "crd-install") | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "argo-workflows.labels" (dict "context" . "component" "crds" "name" "crd-install") | nindent 8 }}
+        {{- with .Values.crds.upgradeJob.podLabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ $crdInstallName }}
+      {{- with .Values.crds.upgradeJob.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.crds.upgradeJob.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.crds.upgradeJob.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with (default .Values.images.pullSecrets .Values.crds.upgradeJob.imagePullSecrets) }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      containers:
+        - name: apply
+          # The image bundles the full CRDs for its own version and applies them
+          # with server-side apply by default, so it needs no command or network
+          # access to GitHub.
+          image: "{{- include "argo-workflows.image" (dict "context" . "image" .Values.crds.upgradeJob.image) }}:{{ default (include "argo-workflows.defaultTag" .) .Values.crds.upgradeJob.image.tag }}"
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          {{- with .Values.crds.upgradeJob.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.crds.upgradeJob.extraEnv }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            # The image sets HOME=/tmp so that kubectl can write its discovery
+            # cache, which needs somewhere writable under readOnlyRootFilesystem.
+            - name: tmp
+              mountPath: /tmp
+          {{- with .Values.crds.upgradeJob.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      restartPolicy: Never
+  backoffLimit: 3
+{{- end }}
