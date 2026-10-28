@@ -182,6 +182,7 @@ class ContainerizedOperation(ManagedOperation):
         exit_task = CustomTask(
             name="exit-handler",
             image_name=self.on_exit_notify.get('image', 'workflows-notify-queue'),
+            command=self.on_exit_notify.get('command'),
             **env_args
         )
         spec['onExit'] = 'exit-handler'
