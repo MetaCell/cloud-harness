@@ -1,7 +1,7 @@
-ARG GOLANG=golang:1.19.13-bullseye
+ARG ARGO_GOLANG=golang:1.19.13-bullseye
 ARG ARGO_CONTROLLER=quay.io/argoproj/workflow-controller:v3.3.10
 
-FROM $GOLANG AS build
+FROM $ARGO_GOLANG AS build
 WORKDIR /src
 # Pin the official 3.3.10 source; only the TaskResult event handler is backported.
 RUN git init && git remote add origin https://github.com/argoproj/argo-workflows.git \
