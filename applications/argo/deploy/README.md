@@ -4,9 +4,10 @@ CloudHarness uses the official **Argo Workflows v4.1.6** controller, server and
 executor images. **Emissary** is Argo's executor; PNS is no longer supported.
 There is no CloudHarness controller image, source patch or image build.
 
-The CloudHarness workflow API and pinned Python client are unchanged. Existing
-operations, tasks, submission, status and log methods continue to use the Argo
-REST API. `POD_NAMES=v1` preserves the pod names used by CloudHarness log lookup;
+The CloudHarness workflow API is unchanged. The Python client is pinned to
+`argo-workflows==6.7.18`; SDK and Argo runtime versions have separate numbering.
+Existing operations, tasks, submission, status and log methods continue to use
+the Argo REST API. `POD_NAMES=v1` preserves the pod names used by CloudHarness log lookup;
 explicit `controller.extraEnv` and `server.extraEnv` settings still take precedence.
 The internal pod-GC delay is serialized as a duration (`86400s`) rather than an
 integer; callers continue to supply TTL values in seconds.

@@ -1,4 +1,4 @@
-"""Opt-in CloudHarness/Emissary smoke test on Docker Desktop only."""
+"""Opt-in CloudHarness/Emissary smoke test on an isolated local cluster."""
 import json
 import os
 from pathlib import Path
@@ -17,7 +17,9 @@ class EmissaryIntegrationTests(unittest.TestCase):
         self.assertEqual(urlparse(url).hostname, "127.0.0.1")
         namespace = os.environ["ARGO_SMOKE_NAMESPACE"]
         self.assertTrue(namespace.startswith("argo-"))
-        kube = ["kubectl", "--context", "docker-desktop", "-n", namespace]
+        context = os.environ.get("ARGO_SMOKE_CONTEXT", "docker-desktop")
+        self.assertTrue(context == "docker-desktop" or context.startswith("kind-argo-sdk-"))
+        kube = ["kubectl", "--context", context, "-n", namespace]
         settings = json.loads(subprocess.check_output(kube + ["config", "view", "--minify", "--raw", "-o", "json"]))
         self.assertEqual(urlparse(settings["clusters"][0]["cluster"]["server"]).hostname, "127.0.0.1")
         with tempfile.TemporaryDirectory() as folder:
@@ -31,7 +33,7 @@ class EmissaryIntegrationTests(unittest.TestCase):
                 self.exercise(kube, namespace, url)
 
     def exercise(self, kube, namespace, url):
-        from argo.workflows.client import Configuration
+        from argo_workflows import Configuration
         from cloudharness.utils.config import CloudharnessConfig
         from cloudharness.workflows import argo_service, operations, tasks
         CloudharnessConfig.allvalues = {"namespace": namespace, "apps": {}, "task-images": {},

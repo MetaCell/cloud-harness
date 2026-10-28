@@ -21,7 +21,7 @@ REQUIREMENTS = [
     'sentry-sdk[flask]>=0.14.4',
     'python-keycloak >= 4.7.0',
     'cloudharness_model',
-    'argo-workflows==5.0.0',
+    'argo-workflows==6.7.18',
     'cachetools >= 5.3.2',
     'blinker >= 1.7.0',
     'jinja2 >= 3.1.4',

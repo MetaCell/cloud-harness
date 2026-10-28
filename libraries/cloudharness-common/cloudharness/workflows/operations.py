@@ -2,8 +2,6 @@ import time
 from collections.abc import Iterable
 from typing import List, Union
 
-import argo.workflows
-import argo.workflows.client
 import yaml
 
 from cloudharness import log
@@ -12,7 +10,7 @@ from cloudharness.utils import env, config
 from . import argo_service
 from .tasks import Task, SendResultTask, CustomTask
 from .utils import PodExecutionContext, affinity_spec, is_accounts_present, name_from_path, volume_mount_template, volume_requires_affinity
-from argo.workflows.client import V1Toleration
+from argo_workflows.model.toleration import Toleration as V1Toleration
 
 POLLING_WAIT_SECONDS = 1
 SERVICE_ACCOUNT = 'argo-workflows'

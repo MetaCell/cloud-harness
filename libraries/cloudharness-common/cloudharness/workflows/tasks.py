@@ -1,11 +1,18 @@
-import argo.workflows
 from cloudharness.utils import dict_merge
 from . import argo_service
-from argo.workflows.client import V1alpha1Template
+from argo_workflows.model.io_argoproj_workflow_v1alpha1_template import IoArgoprojWorkflowV1alpha1Template
 from cloudharness.utils.env import get_cloudharness_variables, get_image_full_tag
 from .utils import WORKFLOW_NAME_VARIABLE_NAME, PodExecutionContext, affinity_spec, is_accounts_present, volume_mount_template, volume_requires_affinity
 
 SERVICE_ACCOUNT = 'argo-workflows'
+
+
+class V1alpha1Template(IoArgoprojWorkflowV1alpha1Template):
+    """Preserve CloudHarness's free-form template overrides."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("_check_type", False)
+        super().__init__(*args, **kwargs)
 
 
 class Task(argo_service.ArgoObject):

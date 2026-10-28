@@ -15,8 +15,8 @@ success/failure, log lookup, implicit image entrypoint resolution and deletion.
 It writes `1/10` and `7/10` for 75 seconds each, so the test exercises the default
 one-minute reporting interval without executor tuning. Allow about five minutes.
 
-This test is restricted to `docker-desktop`, a loopback API endpoint and a
-namespace starting with `argo-`. It creates and deletes only its own workflows;
+This test is restricted to `docker-desktop` or a disposable `kind-argo-sdk-*`
+context, a loopback API endpoint and a namespace starting with `argo-`. It creates and deletes only its own workflows;
 use a dedicated test namespace. Install the repository's models/common packages,
 PyYAML and Helm 3 before running it.
 
@@ -49,7 +49,8 @@ python -m unittest discover -s applications/argo/tests \
   -p test_emissary_integration.py -v
 ```
 
-Optional settings are `ARGO_SMOKE_IMAGE` (defaults to `busybox:1.37`),
+Optional settings are `ARGO_SMOKE_CONTEXT` (defaults to `docker-desktop`),
+`ARGO_SMOKE_IMAGE` (defaults to `busybox:1.37`),
 `ARGO_SMOKE_SERVICE_ACCOUNT` (defaults to `emissary-executor`) and
 `ARGO_SMOKE_EVIDENCE` (a JSON output filename for observed progress and terminal
 statuses). The chosen image must provide `sh`, `echo` and `sleep`; changing it
@@ -57,3 +58,11 @@ also changes the implicit-entrypoint test.
 
 After collecting diagnostics, delete the dedicated test namespace. Keep the
 matching CRDs when another local Argo installation still needs them.
+
+The SDK request/response regressions run without Kubernetes and verify raw
+workflow submission, native progress, optional fields, partial responses,
+pagination, numeric fields and CloudHarness exceptions:
+
+```sh
+python -m pytest -q libraries/cloudharness-common/tests/test_argo_client.py
+```
