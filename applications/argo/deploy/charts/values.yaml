@@ -93,7 +93,6 @@ controller:
   #    ttlStrategy:
   #      secondsAfterCompletion: 84600
   # workflowWorkers: 32
-  # podWorkers: 32
   workflowRestrictions: {} # Only valid for 2.9+
   #  templateReferencing: Strict|Secure
   telemetryConfig:
@@ -115,12 +114,7 @@ controller:
   # account and RBAC resources will be created. If unspecified, will run in the default namespace.
   workflowNamespaces:
     - default
-  containerRuntimeExecutor: pns
-  # containerRuntimeExecutors:
-  #   - name: emissary
-  #     selector:
-  #       matchLabels:
-  #         workflows.argoproj.io/container-runtime-executor: emissary
+  # Emissary is the only executor supported by Argo 4.1.
   instanceID:
     # `instanceID.enabled` configures the controller to filter workflow submissions
     # to only those which have a matching instanceID attribute.

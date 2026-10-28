@@ -1,8 +1,8 @@
 annotations:
   artifacthub.io/changes: |
-    - "[Added]: Also test with default values"
+    - "[Changed]: Official Argo Workflows v4.1.6 with Emissary execution"
 apiVersion: v2
-appVersion: v3.1.15
+appVersion: v4.1.6
 description: A Helm chart for Argo Workflows
 home: https://github.com/argoproj/argo-helm
 icon: https://raw.githubusercontent.com/argoproj/argo-workflows/master/docs/assets/argo.png
@@ -15,4 +15,4 @@ name: argo-workflows
 sources:
 - https://github.com/argoproj/argo-workflows
 type: application
-version: 0.7.1
+version: 0.8.0

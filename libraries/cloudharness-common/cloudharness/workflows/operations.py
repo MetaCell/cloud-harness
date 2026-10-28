@@ -129,7 +129,7 @@ class ContainerizedOperation(ManagedOperation):
             'serviceAccountName': SERVICE_ACCOUNT,
             'podGC': self.pod_gc or {
                 'strategy': 'OnWorkflowSuccess',
-                'deleteDelayDuration': self.ttl_strategy['secondsAfterSuccess'] if self.ttl_strategy else "600s",
+                'deleteDelayDuration': f"{self.ttl_strategy['secondsAfterSuccess']}s" if self.ttl_strategy else "600s",
             },
             'volumes': [{
                 # mount allvalues so we can use the cloudharness Python library
