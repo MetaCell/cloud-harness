@@ -1,0 +1,17 @@
+{{- $argo := deepCopy (index .Subcharts "argo-workflows") -}}
+{{- $image := $argo.Values.controller.image -}}
+{{- $builtImage := "" -}}
+{{- if and (eq $image.registry "quay.io") (eq $image.repository "argoproj/workflow-controller") (empty $image.tag) -}}
+{{- $builtImage = required "CloudHarness must build the Argo controller image" .Values.apps.argo.image -}}
+{{- $registry := .Values.registry | default dict -}}
+{{- $secret := $registry.secret | default dict -}}
+{{- if and (kindIs "map" $secret) $secret.name -}}
+{{- $pullSecrets := $argo.Values.images.pullSecrets | default list -}}
+{{- $hasSecret := false -}}
+{{- range $pullSecrets -}}{{- if eq .name $secret.name -}}{{- $hasSecret = true -}}{{- end -}}{{- end -}}
+{{- if not $hasSecret -}}
+{{- $_ := set $argo.Values.images "pullSecrets" (append $pullSecrets (dict "name" $secret.name)) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{ include "argo-workflows.controller.deployment" (merge (dict "ControllerImage" $builtImage) $argo) }}

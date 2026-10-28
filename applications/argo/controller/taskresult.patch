@@ -1,0 +1,38 @@
+--- a/workflow/controller/taskresult.go
++++ b/workflow/controller/taskresult.go
+@@ -11,6 +11,7 @@
+ 
+ 	wfv1 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
+ 	wfextvv1alpha1 "github.com/argoproj/argo-workflows/v3/pkg/client/informers/externalversions/workflow/v1alpha1"
++	"github.com/argoproj/argo-workflows/v3/workflow/common"
+ 	"github.com/argoproj/argo-workflows/v3/workflow/controller/indexes"
+ )
+ 
+@@ -21,7 +22,7 @@
+ 		String()
+ 	log.WithField("labelSelector", labelSelector).
+ 		Info("Watching task results")
+-	return wfextvv1alpha1.NewFilteredWorkflowTaskResultInformer(
++	informer := wfextvv1alpha1.NewFilteredWorkflowTaskResultInformer(
+ 		wfc.wfclientset,
+ 		wfc.GetManagedNamespace(),
+ 		20*time.Minute,
+@@ -32,6 +33,18 @@
+ 			options.LabelSelector = labelSelector
+ 		},
+ 	)
++	// Backport the upstream TaskResult event handlers (Argo 3.5.8).
++	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
++		AddFunc: func(obj interface{}) {
++			result := obj.(*wfv1.WorkflowTaskResult)
++			wfc.wfQueue.AddRateLimited(result.Namespace + "/" + result.Labels[common.LabelKeyWorkflow])
++		},
++		UpdateFunc: func(old, obj interface{}) {
++			result := obj.(*wfv1.WorkflowTaskResult)
++			wfc.wfQueue.AddRateLimited(result.Namespace + "/" + result.Labels[common.LabelKeyWorkflow])
++		},
++	})
++	return informer
+ }
+ 
+ func (woc *wfOperationCtx) taskResultReconciliation() {

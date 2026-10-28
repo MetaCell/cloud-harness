@@ -58,7 +58,7 @@ class ArgoComponentsTests(unittest.TestCase):
                     self.assertEqual([item for item in env if item["name"] == "POD_NAMES"],
                                      expected or [{"name": "POD_NAMES", "value": "v1"}])
 
-    def test_controller_task_results_and_legacy_executor_reporting_permissions(self):
+    def test_controller_and_executor_task_result_permissions(self):
         for single_namespace in ("true", "false"):
             with self.subTest(single_namespace=single_namespace):
                 objects = self.render("--set", f"singleNamespace={single_namespace}")
@@ -72,9 +72,9 @@ class ArgoComponentsTests(unittest.TestCase):
                                                  "verbs": ["list", "watch", "deletecollection"]}])
                 workflow = next(obj for obj in roles if obj["metadata"]["name"].endswith("-workflow"))
                 result_rules = [rule for rule in workflow["rules"] if "workflowtaskresults" in rule["resources"]]
-                # In 3.3.10, TaskResult progress updates alone do not enqueue the
-                # workflow. Keep the existing pod-annotation reporting path.
-                self.assertEqual(result_rules, [])
+                self.assertEqual(result_rules, [{"apiGroups": ["argoproj.io"],
+                                                "resources": ["workflowtaskresults"],
+                                                "verbs": ["create", "patch"]}])
                 self.assertTrue(any("pods" in rule["resources"] and "patch" in rule["verbs"]
                                     for rule in workflow["rules"]))
                 self.assertFalse(any("workflowartifactgctasks" in rule["resources"] for rule in controller["rules"]))
@@ -88,6 +88,40 @@ class ArgoComponentsTests(unittest.TestCase):
         version = crds["workflowtaskresults.argoproj.io"]["spec"]["versions"][0]
         self.assertTrue(version["served"] and version["storage"])
         self.assertEqual(version["schema"]["openAPIV3Schema"]["properties"]["progress"]["type"], "string")
+
+
+    def test_cloudharness_uses_built_controller_and_preserves_image_overrides(self):
+        import shutil
+        import tempfile
+
+        for override in ({}, {"registry": "mirror.example", "repository": "argo/controller", "tag": "patched"}):
+            with self.subTest(override=override), tempfile.TemporaryDirectory() as folder:
+                parent = Path(folder)
+                (parent / "Chart.yaml").write_text("apiVersion: v2\nname: cloudharness-argo-test\nversion: 0.1.0\n")
+                shutil.copytree(CHART, parent / "charts" / "argo-workflows")
+                shutil.copytree(CHART.parent / "templates", parent / "templates")
+                values = {"apps": {"argo": {"image": "registry.example/argo:content-hash",
+                                           "serviceaccount": "argo-workflows"}},
+                          "registry": {"secret": {"name": "build-registry"}},
+                          "argo-workflows": {"controller": {"image": override}}}
+                value_file = parent / "test-values.yaml"
+                value_file.write_text(yaml.safe_dump(values))
+                result = subprocess.run([HELM, "template", "argo-contract", str(parent),
+                                         "--namespace", "local-test", "-f", str(value_file)],
+                                        check=True, capture_output=True, text=True)
+                objects = [obj for obj in yaml.safe_load_all(result.stdout) if obj]
+                deployments = [obj for obj in objects if obj["kind"] == "Deployment"]
+                self.assertEqual(len(deployments), 2)
+                controller = next(obj for obj in deployments if obj["metadata"]["name"].endswith("workflow-controller"))
+                container = controller["spec"]["template"]["spec"]["containers"][0]
+                expected = "mirror.example/argo/controller:patched" if override else "registry.example/argo:content-hash"
+                self.assertEqual(container["image"], expected)
+                if not override:
+                    self.assertEqual(controller["spec"]["template"]["spec"]["imagePullSecrets"],
+                                     [{"name": "build-registry"}])
+                self.assertIn("quay.io/argoproj/argoexec:v3.3.10", container["args"])
+                self.assertTrue(any(obj["kind"] == "ClusterRoleBinding" and obj["roleRef"]["name"] == "cluster-admin"
+                                    for obj in objects))
 
 
 if __name__ == "__main__":

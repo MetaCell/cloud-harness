@@ -39,6 +39,9 @@ jobs:
           helm lint applications/argo/deploy/charts
           python -m pytest -q applications/argo/tests/test_components.py
 
+      - name: Test Argo controller progress backport
+        run: docker build -t cloudharness-argo-progress-test applications/argo
+
       - name: Run tox - models
         run: tox -c libraries/models/
 

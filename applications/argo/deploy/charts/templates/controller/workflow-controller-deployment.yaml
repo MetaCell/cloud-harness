@@ -1,3 +1,4 @@
+{{- define "argo-workflows.controller.deployment" -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -30,7 +31,7 @@ spec:
       {{- end }}
       containers:
         - name: controller
-          image: "{{ .Values.controller.image.registry }}/{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag | default .Chart.AppVersion }}"
+          image: {{ if .ControllerImage }}{{ .ControllerImage | quote }}{{ else }}"{{ .Values.controller.image.registry }}/{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag | default .Chart.AppVersion }}"{{ end }}
           imagePullPolicy: {{ .Values.images.pullPolicy }}
           command: [ "workflow-controller" ]
           args:
@@ -106,3 +107,7 @@ spec:
       {{- with .Values.controller.priorityClassName }}
       priorityClassName: {{ . }}
       {{- end }}
+{{- end }}
+{{- if .Chart.IsRoot }}
+{{ include "argo-workflows.controller.deployment" . }}
+{{- end }}
