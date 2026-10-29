@@ -94,6 +94,7 @@ already exists in the registry - never at generation time, since that's
 exactly the kind of fact that can't be baked into the committed file.
 """
 
+import logging
 import re
 from functools import lru_cache
 
@@ -106,6 +107,8 @@ from ch_cli_tools.utils import check_image_exists_in_registry  # type: ignore
 
 from .model import KEY_TASK_IMAGES, CHValues, register_file
 from .utils import dict_merge, pipeline_relative_path  # type: ignore
+
+logger = logging.getLogger(__name__)
 
 KEY_BUILD_PARALLEL = "build_application_images"
 KEY_UNIT_TESTS = "tests_unit"
@@ -210,6 +213,7 @@ class CHCodefresh(CHValues):
 
         with open(filename, "w", encoding="utf-8") as f:
             f.writelines(f"{key}={value}\n" for key, value in env.items())
+        logger.info("Wrote %s", filename)
 
     def _context_for(self, entity):
         return entity.dockerfile.resolve_context(self.path.parent).resolve_for_build(

@@ -1,3 +1,4 @@
+import logging
 import shutil
 from pathlib import Path
 
@@ -9,6 +10,8 @@ from .utils import (  # type: ignore
     collect_and_merge_env_specific_files,
     dict_merge,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @register_file(
@@ -67,6 +70,7 @@ class CHHelmChart(CHValues):
 
         values = project.build_final_helm_values(write_on_disk=False).to_dict()
         write_values_overrides(values, dest)
+        logger.info("Wrote %s", dest / "values-overrides.yaml")
 
     def _collect_instance_deploy_directories(
         self, instance: CHAppInstance, dest: Path

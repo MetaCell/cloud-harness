@@ -21,6 +21,8 @@ from ch_cli_tools.utils import get_cluster_ip  # type: ignore
 from . import migration
 from .model import CHDeployConfig, CHProject
 
+logger = logging.getLogger(__name__)
+
 # --- ch_cli_tools/helm.py ---
 
 
@@ -72,7 +74,7 @@ def create_helm_chart(
 
 def deploy(namespace, output_path="./deployment"):
     helm_path = Path(output_path) / "helm"
-    logging.info("Deploying helm chart %s", helm_path)
+    logger.info("Deploying helm chart %s", helm_path)
     subprocess.run("helm dependency update".split(), cwd=helm_path)
     subprocess.run(
         f"helm upgrade {namespace} {helm_path} -n {namespace} --install --reset-values".split()
@@ -132,7 +134,7 @@ def hosts_info(values):
         alias for app in apps if app.harness.aliases for alias in app.harness.aliases
     ]
 
-    logging.info("\nTo run locally some apps, also those references may be needed")
+    logger.info("\nTo run locally some apps, also those references may be needed")
     for app in apps:
         if not app.harness.service:
             continue
@@ -152,9 +154,9 @@ def hosts_info(values):
     try:
         ip = get_cluster_ip(local=values.local)
     except Exception:
-        logging.warning("Cannot get cluster ip")
+        logger.warning("Cannot get cluster ip")
         ip = "127.0.0.1"
-    logging.info(
+    logger.info(
         "\nTo test locally, update your hosts file" +
         f"\n{ip}\t{values.domain + ' ' + ' '.join(sd + '.' + values.domain for sd in subdomains)}"
     )

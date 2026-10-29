@@ -45,12 +45,15 @@ CHVSCodeDebug.generate() algorithm:
 """
 
 import json
+import logging
 from pathlib import Path
 
 from ch_cli_tools.utils import robust_load_json  # type: ignore
 
 from .model import CHAppInstance, CHValues, register_file
 from .utils import dict_merge  # type: ignore
+
+logger = logging.getLogger(__name__)
 
 _LAUNCH_JSON_DEFAULT = {"version": "0.2.0", "configurations": []}
 
@@ -123,4 +126,5 @@ class CHVSCodeDebug(CHValues):
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("w", encoding="utf-8") as f:
             json.dump(launch, f, indent=2, sort_keys=True)
+        logger.info("Wrote %s", self.path)
         return launch

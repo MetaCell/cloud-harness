@@ -5,6 +5,7 @@ cluster here. Everything about which apps/images/values go into it is
 identical to the real Helm chart (CHProject.build_final_helm_values()).
 """
 
+import logging
 import shutil
 import subprocess
 from pathlib import Path
@@ -16,6 +17,8 @@ from .utils import (  # type: ignore
     collect_and_merge_env_specific_files,
     get_yaml_parser,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _merge_helper_templates(
@@ -128,3 +131,4 @@ class CHDockerCompose(CHHelmChart):
         compose_path = dest.parent.parent / "docker-compose.yaml"
         with compose_path.open("w", encoding="utf-8") as f:
             yaml.dump(main_document, f)
+        logger.info("Wrote %s", compose_path)

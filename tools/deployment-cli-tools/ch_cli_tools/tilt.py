@@ -27,6 +27,7 @@ CHTilt.generate() algorithm:
    being copied into ng's own territory rather than merely referenced.
 """
 
+import logging
 from pathlib import Path
 
 from jinja2 import Environment, PackageLoader, select_autoescape
@@ -34,6 +35,8 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from .model import CHValues, register_file
 from .skaffold import _CLONE_SH
 from .utils import resolve_path  # type: ignore
+
+logger = logging.getLogger(__name__)
 
 _env = Environment(
     loader=PackageLoader(package_name="ch_cli_tools", package_path="templates/tilt"),
@@ -185,3 +188,4 @@ class CHTilt(CHValues):
             target = Path(output_path) / self.path.name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(base)
+        logger.info("Wrote %s", target)

@@ -106,6 +106,8 @@ from .utils import (
     resolve_path,
 )
 
+logger = logging.getLogger(__name__)
+
 KEY_HARNESS = "harness"
 KEY_SERVICE = "service"
 KEY_DATABASE = "database"
@@ -722,6 +724,7 @@ class CHValues:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", encoding="utf-8") as f:
             yaml.dump(data, f)
+        logger.info("Wrote %s", path)
 
 
 class CHTemplate:
@@ -1518,7 +1521,7 @@ class CHProject:
             final_allvalues["registry"] = registry
 
         for warning in self.validate():
-            logging.warning(warning)
+            logger.warning(warning)
 
         helm_values = HarnessMainConfig.from_dict(final_allvalues)
         helm_values._ch_project = self
