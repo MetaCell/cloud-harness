@@ -392,9 +392,9 @@ class CHApp:
     def build_dependencies(self) -> list["CHApp | CHBaseImage | CHAppTask | str"]:
         """Build dependencies, resolved against apps, base images and tasks."""
         return [
-            self.project.scanned_apps.get(dep) or
-            self.project.base_images.get(dep) or
-            self.project.all_buildable_tasks().get(dep, dep)
+            self.project.scanned_apps.get(dep)
+            or self.project.base_images.get(dep)
+            or self.project.all_buildable_tasks().get(dep, dep)
             for dep in cast(
                 list[str],
                 resolve_path(self.harness_config, "dependencies.build", default=[]),
@@ -602,9 +602,9 @@ class CHAppInstance(CHApp):
 
         volume = (harness.get("deployment") or {}).get("volume") or {}
         if (
-            volume.get("name") and
-            volume.get("auto", True) and
-            not self._instance_sets(
+            volume.get("name")
+            and volume.get("auto", True)
+            and not self._instance_sets(
                 instance_values, "harness", "deployment", "volume", "name"
             )
         ):
@@ -622,9 +622,9 @@ class CHAppInstance(CHApp):
         ):
             for database_type, type_config in database.items():
                 if (
-                    isinstance(type_config, dict) and
-                    type_config.get("initialdb") and
-                    not self._instance_sets(
+                    isinstance(type_config, dict)
+                    and type_config.get("initialdb")
+                    and not self._instance_sets(
                         instance_values,
                         "harness",
                         "database",
@@ -972,9 +972,9 @@ class CHDockerfile:
 
             name = ref.lower().replace("_", "-")
             entity = (
-                project.scanned_apps.get(name) or
-                project.base_images.get(name) or
-                project.all_buildable_tasks().get(name)
+                project.scanned_apps.get(name)
+                or project.base_images.get(name)
+                or project.all_buildable_tasks().get(name)
             )
             dependencies.append(entity.dockerfile if entity is not None else name)
         return dependencies
@@ -1219,8 +1219,8 @@ class CHProject:
         instances = {
             instance
             for instance in self.all_instances().values()
-            if instance.parent_app.name in involved_names and
-            instance.name not in self.config.excludes
+            if instance.parent_app.name in involved_names
+            and instance.name not in self.config.excludes
         }
         return base | instances
 
@@ -1513,7 +1513,8 @@ class CHProject:
                 registry["secret"] = {}
             registry["secret"]["name"] = self.config.registry_secret_name
         if registry:
-            registry.setdefault("name", self.config.registry)
+            if not registry.get("name"):
+                registry["name"] = self.config.registry
             final_allvalues["registry"] = registry
 
         for warning in self.validate():

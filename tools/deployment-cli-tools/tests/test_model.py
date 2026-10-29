@@ -944,6 +944,36 @@ def test_registry_absent_when_nothing_registry_related_is_configured(tmp_path):
     assert values.registry is None
 
 
+def test_registry_name_falls_back_to_config_when_project_declares_it_null(tmp_path):
+    # A project's own values-template.yaml may document the registry section
+    # with a null "name" placeholder, meant to be filled in by -r/--registry.
+    # dict.setdefault only fills in a *missing* key, so a present-but-null
+    # "name" used to survive untouched and fail StrictStr validation downstream
+    # (RegistryConfig.name) whenever no -r flag was passed either.
+    write_tree_from_yaml(
+        tmp_path,
+        """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+            mainapp: myapp
+            registry:
+              name:
+              secret:
+                name: existing-secret
+        applications:
+          myapp:
+            Dockerfile: |
+              FROM scratch
+    """,
+    )
+
+    project = CHProject(tmp_path, config=CHDeployConfig())
+    values = project.build_final_helm_values(write_on_disk=False)
+
+    assert values.registry.name == ""
+
+
 def test_validate_raises_on_malformed_secret_definition(tmp_path):
     write_tree_from_yaml(
         tmp_path,
