@@ -192,6 +192,7 @@ def _merge_base_chain(entity, source_of, destination: Path) -> None:
 
 
 _yaml = YAML(typ="safe")
+_yaml.default_flow_style = False
 
 
 def get_yaml_parser():
