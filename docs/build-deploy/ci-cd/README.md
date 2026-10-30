@@ -22,3 +22,22 @@ When defining an applications values you can provide details on dockerfile confi
 ## CI/CD with Codefresh
 
 [Codefresh](https://codefresh.io/) is a nice platform for CI/CD see details in the [dedicated document](./codefresh.md).
+
+## CI/CD with GitHub Actions
+
+`harness-deployment -ci github -e [ENV]` generates `.github/workflows/cloudharness-[ENV].yaml`, a workflow with
+the same stages as the Codefresh pipeline: one build job per image (skipped when the image's content-hash tag
+already exists in the registry), unit tests, helm deployment, rollout wait, API/E2E tests and publication.
+Pass `-ci codefresh -ci github` to generate both.
+
+- Templates: `deployment-configuration/github-template.yaml` (job prototypes and shared steps) plus
+  `github-template-[dev|stage|prod|test].yaml` (name, triggers, per-environment deltas), layered and overridable
+  from your project's `deployment-configuration/` like the Codefresh ones. A `jobs.build-[image]` entry in your
+  template is merged over that image's generated job (for instance to pick a bigger runner).
+- Runner: the `CH_GITHUB_RUNNER` environment variable at generation time (default `ubuntu-latest`,
+  comma-separated labels allowed); any job can still set its own `runs-on` in the template.
+- Configuration: the generator logs the repository variables (`REGISTRY`, `DOMAIN`, `NAMESPACE`, ...) and
+  secrets (`REGISTRY_USERNAME`, `REGISTRY_PASSWORD`, `KUBECONFIG`, the application secrets with the same names
+  as the Codefresh variables) the workflow expects. Approvals are GitHub environment protection rules on the
+  `publish` and `prod`/`stage` environments. `workflow_dispatch` inputs replace the `DEPLOYMENT_PUBLISH_TAG`,
+  `DEPLOYMENT_TAG`, `*_TAG_FORCE_BUILD` and `SKIP_TESTS` pipeline variables.

@@ -1,0 +1,22 @@
+# Production pipeline: deploys images published by the development or staging pipeline, nothing else.
+# Protect the `prod` environment with required reviewers to get an approval step.
+name: CloudHarness $ENV
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_tag:
+        description: Tag of the images to deploy (a tag published by the development or staging pipeline)
+        type: string
+        required: true
+jobs:
+  build: null
+  build-test-images: null
+  tests-unit: null
+  tests-api: null
+  tests-e2e: null
+  wait-deployment: null
+  publish: null
+  deploy:
+    environment: $ENV
+    env:
+      HELM_FLAGS: --wait --timeout 600s --create-namespace

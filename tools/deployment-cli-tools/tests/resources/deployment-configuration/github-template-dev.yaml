@@ -1,0 +1,12 @@
+# Test fixture: a project overlay of the dev workflow template.
+test_step: dev
+jobs:
+  prepare:
+    name: Overridden
+  build-myapp:
+    runs-on: big-runner
+  custom-job:
+    name: Custom
+    needs: [deploy]
+    steps:
+      - run: echo custom

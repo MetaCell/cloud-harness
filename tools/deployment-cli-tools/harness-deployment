@@ -1,10 +1,12 @@
 #!/usr/bin/env python
+import os
 import sys
 from pathlib import Path
 
 from cloudharness_utils.constants import DEPLOYMENT_PATH
 
 from ch_cli_tools.api import deploy, hosts_info, perform_migration
+from ch_cli_tools.ci import parse_force_build
 from ch_cli_tools.model import CHDeployConfig, CHProject
 from ch_cli_tools.utils import generation_argv
 
@@ -161,6 +163,25 @@ if __name__ == "__main__":
         help=f"Do not generate ci/cd files",
     )
     parser.add_argument(
+        "-ci",
+        "--ci-provider",
+        dest="ci_providers",
+        action="append",
+        choices=["codefresh", "github"],
+        default=None,
+        help="CI/CD system to generate the pipeline for; repeat to generate more than one "
+        "(default: codefresh). github writes .github/workflows/cloudharness-[ENV].yaml and takes "
+        "the runner from the CH_GITHUB_RUNNER environment variable (default: ubuntu-latest)",
+    )
+    parser.add_argument(
+        "--force-build",
+        dest="force_build",
+        action="store",
+        default=None,
+        help="With --write-env, report these images (comma-separated, or `all`) as not built yet "
+        "so the pipeline rebuilds them even if their tag already exists in the registry",
+    )
+    parser.add_argument(
         "-we",
         "--write-env",
         dest="write_env",
@@ -236,6 +257,7 @@ if __name__ == "__main__":
         chart_name=args.name,
         chart_version=args.chart_version,
         app_version=args.app_version,
+        ci_runner=os.environ.get("CH_GITHUB_RUNNER"),
     )
 
     if args.docker_compose:
@@ -249,13 +271,18 @@ if __name__ == "__main__":
         project.helm_chart.generate()
     helm_values = project.build_final_helm_values()
 
+    ci_providers = args.ci_providers or ["codefresh"]
     if not args.no_cd_gen and envs and not args.docker_compose:
-        project.codefresh.generate()
+        if "codefresh" in ci_providers:
+            project.codefresh.generate()
+        if "github" in ci_providers:
+            project.github_actions.generate()
 
     if args.write_env:
         project.codefresh.write_env_file(
             root_paths[-1] / DEPLOYMENT_PATH / ".env",
             args.image_cache_url,
+            force_build=parse_force_build(args.force_build),
         )
 
     project.skaffold.generate()
