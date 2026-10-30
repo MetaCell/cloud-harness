@@ -1109,7 +1109,7 @@ def test_write_env_file(tmp_path):
 
     env_file = tmp_path / "test.env"
     with patch(
-        "ch_cli_tools.codefresh.check_image_exists_in_registry",
+        "ch_cli_tools.ci.check_image_exists_in_registry",
         side_effect=[True, False, True, False, True, False, True, False],
     ) as mock_check:
         write_env_file(values, str(env_file))

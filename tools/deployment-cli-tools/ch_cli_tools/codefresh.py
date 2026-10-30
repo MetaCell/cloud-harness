@@ -94,21 +94,12 @@ already exists in the registry - never at generation time, since that's
 exactly the kind of fact that can't be baked into the committed file.
 """
 
-import logging
 import re
 from functools import lru_cache
 
-from ch_cli_tools.configuration.secrets import (
-    is_cloudharness_managed,
-    is_secret_config,
-    secret_value,
-)
-from ch_cli_tools.utils import check_image_exists_in_registry  # type: ignore
-
-from .model import KEY_TASK_IMAGES, CHValues, register_file
+from . import ci
+from .model import CHValues, register_file
 from .utils import dict_merge, pipeline_relative_path  # type: ignore
-
-logger = logging.getLogger(__name__)
 
 KEY_BUILD_PARALLEL = "build_application_images"
 KEY_UNIT_TESTS = "tests_unit"
@@ -145,20 +136,12 @@ def _to_codefresh_path(path, relative_to, cloudharness_root=None) -> str:
     )
 
 
-def _env_key(name: str) -> str:
-    return name.replace("-", "_").upper()
-
-
-def _tag_variable(name: str) -> str:
-    return f"{_env_key(name)}_TAG"
+_env_key = ci.env_key
+_tag_variable = ci.tag_variable
 
 
 def _tag_reference(name: str) -> str:
     return "${{%s}}" % _tag_variable(name)
-
-
-def _extract_tag(image: str) -> str:
-    return image.split(":")[1] if ":" in image else "latest"
 
 
 @register_file(
@@ -182,38 +165,18 @@ class CHCodefresh(CHValues):
     def qualify(self, image_name):
         return "${{REGISTRY}}/%s" % image_name
 
-    def write_env_file(self, filename, image_cache_endpoint_url=None) -> None:
-        project = self.project
-        helm_values = project.build_final_helm_values(write_on_disk=False)
-        env: dict[str, int | str] = {}
+    def write_env_file(self, filename, image_cache_endpoint_url=None, force_build=()) -> None:
+        """Write the per-image TAG/EXISTS variables consumed by the build steps' skip conditions.
 
-        def record(name: str, image: str) -> None:
-            tag = _extract_tag(image)
-            env[_tag_variable(name)] = tag
-            chunks = image.split(":")[0].split("/")
-            has_registry_host = "." in chunks[0]
-            registry = chunks[0] if has_registry_host else "docker.io"
-            image_name = "/".join(chunks[1:] if has_registry_host else chunks)
-            exists = check_image_exists_in_registry(
-                registry, image_name, tag, endpoint_url=image_cache_endpoint_url
-            )
-            env[_tag_variable(name) + ("_EXISTS" if exists else "_NEW")] = 1
-
-        for app_name, app in helm_values.apps.items():
-            if app.harness and app.harness.deployment.image:
-                record(app_name, app.harness.deployment.image)
-
-        for name, image in helm_values[KEY_TASK_IMAGES].items():
-            record(name, image)
-
-        for name, test_image in project.test_images.items():
-            if not test_image.dockerfile.exists():
-                continue
-            record(name, project.qualify_image(test_image))
-
-        with open(filename, "w", encoding="utf-8") as f:
-            f.writelines(f"{key}={value}\n" for key, value in env.items())
-        logger.info("Wrote %s", filename)
+        Run at pipeline time (prepare step), never at generation time: whether a
+        tag already exists in the registry is exactly the kind of fact that cannot
+        be baked into the committed file. Images listed in `force_build` (or all of
+        them, with `all`) are reported as new so their build runs regardless.
+        """
+        ci.write_env_file(
+            filename,
+            ci.image_tag_env(self.project, image_cache_endpoint_url, force_build),
+        )
 
     def _context_for(self, entity):
         return entity.dockerfile.resolve_context(self.path.parent).resolve_for_build(
@@ -377,73 +340,29 @@ class CHCodefresh(CHValues):
         return steps
 
     def _collect_rollout_wait_commands(self, project) -> list[str]:
-        secured_gatekeepers = project.config.secured_gatekeepers
-        commands = []
-        for app in project.involved_apps:
-            if isinstance(app, str):
-                continue
-            deployment = app.deployment_config
-            if deployment.get("auto"):
-                kind = "statefulset" if deployment.get("statefulset") else "deployment"
-                name = deployment.get("name") or app.name
-                commands.append(f"kubectl rollout status {kind}/{name}")
-            if app.harness_config.get("secured") and secured_gatekeepers:
-                # gatekeepers are always rendered as deployments
-                subdomain = app.harness_config.get("subdomain")
-                commands.append(f"kubectl rollout status deployment/{subdomain}-gk")
-        if commands:
-            commands.append("sleep 60")  # give the certificates time to settle
-        return commands
+        return ci.rollout_wait_commands(project)
 
     def _collect_deployment_secret_values(self, project) -> list[str]:
-        values = []
-        for app in project.involved_apps:
-            if isinstance(app, str):
-                continue
-            app_key = app.name.replace("_", "__")
-            for secret, definition in app.secrets.items():
-                if (
-                    not is_cloudharness_managed(definition) or
-                    secret_value(definition) == ""
-                ):
-                    continue
-                secret_name = secret.replace("_", "__")
-                # the rich form nests the value under `default`
-                value_path = (
-                    f"{secret_name}_default"
-                    if is_secret_config(definition)
-                    else secret_name
-                )
-                values.append(
-                    'apps_%s_harness_secrets_%s="${{%s}}"'
-                    % (app_key, value_path, secret_name.upper())
-                )
-            if app.database.get("connect_string") == "":
-                var_name = f"{_env_key(app.name)}_DB_CONNECT_STRING"
-                values.append(
-                    'apps_%s_harness_database_connect__string="${{%s}}"'
-                    % (app_key, var_name)
-                )
-        if project.config.registry_secret_name:
-            values.append('registry_secret_value="${{K8S_SA_JSON}}"')
-        return values
+        """custom_values entries of Codefresh's helm step: `_` separates the value path,
+        `__` escapes a literal underscore."""
+        def helm_step_key(path):
+            return "_".join(segment.replace("_", "__") for segment in path)
+
+        return [
+            '%s="${{%s}}"' % (helm_step_key(value.path), value.variable)
+            for value in ci.deployment_secret_values(project)
+        ]
 
     def _substitute_prepare_deployment_placeholders(
         self, project, commands
     ) -> list[str]:
-        config = project.config
-        params = [f"-i {inc}" for inc in config.includes] + [
-            f"-ex {exc}" for exc in config.excludes
-        ]
         cloudharness_root = project.all_layers()[-1].root
-        paths = " ".join(
-            _to_codefresh_path(layer.root, project.root, cloudharness_root)
-            for layer in reversed(project.all_layers())
-        )
         replacements = {
-            "$ENV": "-".join(config.envs),
-            "$PARAMS": " ".join(params),
-            "$PATHS": paths,
+            f"${key}": value
+            for key, value in ci.placeholder_values(
+                project,
+                lambda root: _to_codefresh_path(root, project.root, cloudharness_root),
+            ).items()
         }
         result = []
         for command in commands:
@@ -453,49 +372,15 @@ class CHCodefresh(CHValues):
         return result
 
     def _app_domain(self, app) -> str:
-        subdomain = app.harness_config.get("subdomain")
-        return f"https://{subdomain}." + "${{DOMAIN}}"
+        return ci.app_domain(app, "${{DOMAIN}}")
 
     def _test_environment(self, app, app_domain: str) -> list[str]:
-        env: dict[str, str] = {"APP_URL": app_domain}
-        users = app.harness_config.get("accounts", {}).get("users") or []
-        if users:
-            main_user = users[0]
-            env["USERNAME"] = main_user.get("username")
-            env["PASSWORD"] = main_user.get("password") or "test"
-        e2e = app.test.e2e
-        if not e2e.smoketest:
-            env["SKIP_SMOKETEST"] = "true"
-        if e2e.ignore_console_errors:
-            env["IGNORE_CONSOLE_ERRORS"] = "true"
-        if e2e.ignore_request_errors:
-            env["IGNORE_REQUEST_ERRORS"] = "true"
-        return [f"{key}={value}" for key, value in env.items()]
-
-    def _schemathesis_command(self, app, app_domain: str) -> str:
-        api = app.test.api
-        params = ["--base-url", app_domain]
-        for check in api.checks:
-            params += ["-c", check]
-        params += api.run_params
-        return " ".join(
-            [
-                "st",
-                "--pre-run",
-                "cloudharness_test.apitest_init",
-                "run",
-                "api/openapi.yaml",
-                *params,
-            ]
-        )
+        return [
+            f"{key}={value}" for key, value in ci.test_environment(app, app_domain).items()
+        ]
 
     def _api_test_commands(self, app, app_domain: str) -> list[str]:
-        commands = []
-        if app.test.api.autotest:
-            commands.append(self._schemathesis_command(app, app_domain))
-        if (app.path / "test" / "api").exists():
-            commands.append("pytest -v test/api")
-        return commands
+        return ci.api_test_commands(app, app_domain)
 
     def _api_test_volumes(self, app) -> list[str]:
         app_path = self._repo_relative(app.path)
@@ -514,16 +399,11 @@ class CHCodefresh(CHValues):
     def _collect_api_test_steps(self, project) -> dict:
         scale = {}
         for app in project.involved_apps:
-            if isinstance(app, str) or not app.is_buildable:
+            if isinstance(app, str) or not ci.has_api_tests(app):
                 continue
-            if not (app.test.api.enabled and app.harness_config.get("subdomain")):
+            app_domain = ci.api_test_url(app, "${{DOMAIN}}")
+            if app_domain is None:
                 continue
-            server_urls = app.openapi.server_urls
-            if not server_urls:
-                continue
-            app_domain = server_urls[-1]
-            if "http" not in app_domain:
-                app_domain = self._app_domain(app) + app_domain
             scale[f"{app.name}_api_test"] = {
                 "title": f"{app.name} api test",
                 "volumes": self._api_test_volumes(app),
@@ -535,9 +415,7 @@ class CHCodefresh(CHValues):
     def _collect_e2e_test_steps(self, project) -> dict:
         scale = {}
         for app in project.involved_apps:
-            if isinstance(app, str) or not app.is_buildable:
-                continue
-            if not (app.test.e2e.enabled and app.harness_config.get("subdomain")):
+            if isinstance(app, str) or not ci.has_e2e_tests(app):
                 continue
             app_domain = self._app_domain(app)
             scale[f"{app.name}_e2e_test"] = {

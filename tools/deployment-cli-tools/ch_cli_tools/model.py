@@ -79,6 +79,7 @@ classDiagram
 import copy
 import hashlib
 import itertools
+import json
 import logging
 import re
 import shutil
@@ -1381,6 +1382,20 @@ class CHProject:
         entities.update(self.test_images)
         return entities
 
+    def _hashed_build_args(self, entity) -> dict[str, str]:
+        """Build args that change an image without changing its context: the pinned
+        source images its own Dockerfile FROMs (as resolved project-wide) and the
+        app's own dockerfile.buildArgs. Folded into the content hash so bumping a
+        base image version invalidates the tag."""
+        source_images = self.all_source_images()
+        args = {
+            key: source_images[key]
+            for key in entity.dockerfile.base_images
+            if key in source_images
+        }
+        args.update(getattr(entity, "build_args", None) or {})
+        return {key: str(value) for key, value in args.items()}
+
     @lru_cache
     def _content_hash_tags(self) -> dict[str, str]:
         """Content-hash tags per entity, folding in each dependency's own hash; cycle-safe."""
@@ -1391,9 +1406,13 @@ class CHProject:
 
         def own_hash(entity) -> str:
             if entity.name not in own_hashes:
-                own_hashes[entity.name] = content_hash(
-                    entity.dockerfile.app.build_context
-                )
+                digest = content_hash(entity.dockerfile.app.build_context)
+                build_args = self._hashed_build_args(entity)
+                if build_args:
+                    digest = hashlib.sha1(
+                        (digest + json.dumps(build_args, sort_keys=True)).encode("utf-8")
+                    ).hexdigest()
+                own_hashes[entity.name] = digest
             return own_hashes[entity.name]
 
         def resolve(entity) -> str:
@@ -1601,6 +1620,7 @@ class CHDeployConfig:
     chart_name: str | None = field(default=None, kw_only=True)
     chart_version: str | None = field(default=None, kw_only=True)
     app_version: str | None = field(default=None, kw_only=True)
+    ci_runner: str | None = field(default=None, kw_only=True)
 
     @property
     def envs(self) -> list[str]:

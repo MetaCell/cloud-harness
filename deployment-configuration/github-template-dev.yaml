@@ -1,0 +1,20 @@
+# Development pipeline: build, unit tests, deployment, API/E2E tests and, when a publish tag is given,
+# publication of the images after approval (protect the `publish` environment with required reviewers).
+name: CloudHarness $ENV
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      publish_tag:
+        description: Tag to publish the images with when the run succeeds (leave empty not to publish)
+        type: string
+        default: ""
+      force_build:
+        description: Comma-separated image names to rebuild even if their tag already exists, or `all`
+        type: string
+        default: ""
+      skip_tests:
+        description: Set to `true` to skip the tests
+        type: string
+        default: ""

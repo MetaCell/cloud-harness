@@ -1,0 +1,40 @@
+# Staging pipeline: deploys images published by the development pipeline, runs the API/E2E tests and,
+# after approval, publishes them again under the given tag and tags the repository.
+name: CloudHarness $ENV
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_tag:
+        description: Tag of the images to deploy (a tag published by the development pipeline)
+        type: string
+        required: true
+      publish_tag:
+        description: Tag to publish the deployed images with after approval (leave empty not to publish)
+        type: string
+        default: ""
+      skip_tests:
+        description: Set to `true` to skip the tests
+        type: string
+        default: ""
+jobs:
+  build: null
+  build-test-images: null
+  tests-unit: null
+  deploy:
+    env:
+      HELM_FLAGS: --wait --timeout 600s --create-namespace
+  # Only once the images were actually published: publish is skipped when the deployment or a test fails.
+  git-tag:
+    name: Tag the repository
+    needs: [prepare, publish]
+    if: ${{ needs.publish.result == 'success' && needs.prepare.outputs.publish_tag != '' }}
+    permissions:
+      contents: write
+    env:
+      PUBLISH_TAG: ${{ needs.prepare.outputs.publish_tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Push the tag
+        run: |
+          git tag "$PUBLISH_TAG"
+          git push origin "refs/tags/$PUBLISH_TAG"
