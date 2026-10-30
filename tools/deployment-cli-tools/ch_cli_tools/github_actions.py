@@ -19,6 +19,9 @@ What differs from Codefresh, and shapes the template:
 - A job whose `needs` were skipped is skipped too unless its `if` says
   otherwise; since build jobs are skipped on purpose, every dependent job gets
   a guard (`apply_needs_guards`) that tolerates skipped builds but not failures.
+  A job deciding for itself - an `if` using always()/cancelled()/failure() - is
+  left alone. The template uses that for `publish`, which waits for the API/E2E
+  tests and runs only if none failed.
 
 Template mechanics (`github-template.yaml` + `github-template-<env>.yaml`, layered
 across cloud-harness and the project exactly like the Codefresh templates):
@@ -29,15 +32,22 @@ across cloud-harness and the project exactly like the Codefresh templates):
   the image being expanded.
 - A string item in a `steps` list is a fragment the generator fills:
   `$GIT_CLONES`, `$PUBLISH_STEPS`, `$HELM_SECRETS_STEPS`, `$ROLLOUT_STEPS`,
-  `$TEST_STEPS`.
+  `$TEST_STEPS`, and `$KUBE_AUTH`, the steps giving kubectl/helm access to the
+  cluster, taken from the template's own `cloudharness.kube_auth` list so a
+  project changes the authentication method in one place. The top-level
+  `cloudharness` section is for the generator only and never reaches GitHub.
 - `$ENV`, `$PARAMS` and `$PATHS` are substituted everywhere, as in Codefresh.
 - A template key matching an expanded job id (`jobs.build-myapp`) is merged over
   the generated job, so one image can get a bigger runner or extra steps; such a
   key is dropped when its image is not part of the deployment being generated.
-- `runs-on` defaults to CHDeployConfig.ci_runner (`CH_GITHUB_RUNNER` on the CLI).
+- `runs-on` defaults to the `CH_GITHUB_RUNNER` repository/organization variable
+  (build jobs: `CH_GITHUB_BUILD_RUNNER` first), read when the workflow runs,
+  falling back to CHDeployConfig.ci_runner (`CH_GITHUB_RUNNER` in the generating
+  shell, default ubuntu-latest). A template `runs-on` always wins.
 """
 
 import copy
+import json
 import logging
 import re
 from dataclasses import dataclass
@@ -52,6 +62,8 @@ from .utils import GeneratedYAML, dict_merge, pipeline_relative_path  # type: ig
 
 WORKFLOW_FILE_NAME = "cloudharness.yaml"
 DEFAULT_RUNNER = "ubuntu-latest"
+RUNNER_VARIABLE = "CH_GITHUB_RUNNER"
+BUILD_RUNNER_VARIABLE = "CH_GITHUB_BUILD_RUNNER"
 
 JOB_PREPARE = "prepare"
 JOB_BUILD = "build"
@@ -69,6 +81,10 @@ FRAGMENT_PUBLISH_STEPS = "$PUBLISH_STEPS"
 FRAGMENT_HELM_SECRETS = "$HELM_SECRETS_STEPS"
 FRAGMENT_ROLLOUT = "$ROLLOUT_STEPS"
 FRAGMENT_TEST = "$TEST_STEPS"
+FRAGMENT_KUBE_AUTH = "$KUBE_AUTH"
+
+SETTINGS_KEY = "cloudharness"  # generator-only template section, stripped from the workflow
+SETTING_KUBE_AUTH = "kube_auth"
 
 STEP_IMAGES = "images"  # prepare step appending deployment/.env to $GITHUB_OUTPUT
 STEP_CHECK = "check"  # build step asking the registry whether the image exists
@@ -82,7 +98,7 @@ DEFAULT_E2E_COMMANDS = ("npx puppeteer browsers install chrome", "yarn test")
 _INVALID_JOB_ID_CHARS = re.compile(r"[^A-Za-z0-9_-]")
 _INVALID_SECRET_CHARS = re.compile(r"[^A-Z0-9_]")
 _EXPRESSION = re.compile(r"^\$\{\{(.*)\}\}$", re.DOTALL)
-_STATUS_FUNCTION = re.compile(r"\b(always|cancelled)\(\)")
+_STATUS_FUNCTION = re.compile(r"\b(always|cancelled|failure)\(\)")
 _GITHUB_REPOSITORY = re.compile(
     r"^(?:https?://github\.com/|git@github\.com:|ssh://git@github\.com/)"
     r"([^/\s]+/[^/\s]+?)(?:\.git)?/?$"
@@ -201,7 +217,7 @@ def rewrite_needs(jobs: dict, expansions: dict[str, list[str]]) -> None:
 
 def apply_needs_guards(jobs: dict) -> None:
     """Add the `needs_guard` to every job with dependencies, except those that
-    already decide themselves with always()/cancelled()."""
+    already decide themselves with always()/cancelled()/failure()."""
     skippable = {name for name, job in jobs.items() if job.get("if")}
     for job in jobs.values():
         needs = normalize_needs(job.get("needs"))
@@ -273,6 +289,16 @@ def referenced_names(workflow) -> dict[str, set[str]]:
     return found
 
 
+def runner_expression(variables, default) -> str:
+    """A `runs-on` taking the runner from the first of the given GitHub variables
+    that is set when the workflow runs, `default` (one label or a list) otherwise."""
+    if isinstance(default, str):
+        fallback = "'%s'" % default.replace("'", "''")
+    else:
+        fallback = "fromJSON('%s')" % json.dumps(list(default)).replace("'", "''")
+    return "${{ %s }}" % " || ".join([*(f"vars.{name}" for name in variables), fallback])
+
+
 def prepare_output(key: str) -> str:
     return "${{ needs.%s.outputs.%s }}" % (JOB_PREPARE, key)
 
@@ -313,11 +339,11 @@ class CHGithubActions(CHValues):
     def qualify(self, image_name: str) -> str:
         return "${{ vars.REGISTRY }}/%s" % image_name
 
-    def _runner(self):
-        runner = self.project.config.ci_runner or DEFAULT_RUNNER
-        if isinstance(runner, str) and "," in runner:
-            return [label.strip() for label in runner.split(",") if label.strip()]
-        return runner
+    def _runner(self, *variables) -> str:
+        default = self.project.config.ci_runner or DEFAULT_RUNNER
+        if "," in default:
+            default = [label.strip() for label in default.split(",") if label.strip()]
+        return runner_expression([*variables, RUNNER_VARIABLE], default)
 
     def _pipeline_path(self, path) -> str:
         """A path as the workflow sees it: relative to the project checkout, with
@@ -513,6 +539,7 @@ class CHGithubActions(CHValues):
         tag_var = ci.tag_variable(name)
         job = self._prototype(prototype, name, entity.image_name)
         job["name"] = f"Build {name}"
+        job.setdefault("runs-on", self._runner(BUILD_RUNNER_VARIABLE))
         job["needs"] = self._specific_needs(
             prototype,
             {
@@ -630,8 +657,9 @@ class CHGithubActions(CHValues):
                 outputs[key] = "${{ steps.%s.outputs.%s }}" % (STEP_IMAGES, key)
         return outputs
 
-    def _expand_jobs(self, jobs: dict) -> dict:
+    def _expand_jobs(self, jobs: dict, settings: dict | None = None) -> dict:
         project = self.project
+        settings = settings or {}
         removed = [key for key, job in jobs.items() if job is None]
         jobs = {key: job for key, job in jobs.items() if job is not None}
 
@@ -663,6 +691,7 @@ class CHGithubActions(CHValues):
             FRAGMENT_HELM_SECRETS: self._helm_secrets_steps(),
             FRAGMENT_ROLLOUT: self._rollout_steps(),
             FRAGMENT_TEST: [],
+            FRAGMENT_KUBE_AUTH: list(settings.get(SETTING_KUBE_AUTH) or []),
         }
 
         overlays = {key: job for key, job in jobs.items() if key in generated_ids}
@@ -766,7 +795,8 @@ class CHGithubActions(CHValues):
             return {}
 
         base = substitute_vars(base, ci.placeholder_values(project, self._pipeline_path))
-        base["jobs"] = self._expand_jobs(base.get("jobs") or {})
+        settings = base.pop(SETTINGS_KEY, None) or {}
+        base["jobs"] = self._expand_jobs(base.get("jobs") or {}, settings)
         # the env template contributes name/on after the base keys: put them first
         base = {key: base[key] for key in ("name", "on") if key in base} | {
             key: value for key, value in base.items() if key not in ("name", "on")

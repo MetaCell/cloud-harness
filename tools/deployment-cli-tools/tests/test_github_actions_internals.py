@@ -14,6 +14,7 @@ from ch_cli_tools.github_actions import (
     needs_guard,
     referenced_names,
     rewrite_needs,
+    runner_expression,
     step_by_id,
     substitute_vars,
 )
@@ -97,6 +98,12 @@ def test_apply_needs_guards():
         "deploy": {"needs": ["prepare", "build-a"]},
         "tests": {"needs": ["deploy"], "if": "${{ vars.SKIP_TESTS != 'true' }}"},
         "cleanup": {"needs": ["deploy"], "if": "${{ always() }}"},
+        "publish": {
+            "needs": ["deploy", "tests"],
+            "if": "${{ !cancelled() && needs.deploy.result == 'success' }}",
+        },
+        "checked": {"needs": ["prepare", "deploy"], "if": "${{ needs.deploy.result == 'success' }}"},
+        "explicit": {"needs": ["prepare", "build-a"], "if": "${{ success() }}"},
     }
     apply_needs_guards(jobs)
 
@@ -112,8 +119,12 @@ def test_apply_needs_guards():
     # build-a keeps its exists check plus the guard on prepare
     assert "A_TAG_EXISTS != '1'" in jobs["build-a"]["if"]
     assert "needs.prepare.result == 'success'" in jobs["build-a"]["if"]
-    # a job deciding with always() is left alone
+    # a job deciding with always()/cancelled() is left alone
     assert jobs["cleanup"]["if"] == "${{ always() }}"
+    assert jobs["publish"]["if"] == "${{ !cancelled() && needs.deploy.result == 'success' }}"
+    # success() and needs.<job>.result checks do not tolerate skipped dependencies: still guarded
+    assert "needs.prepare.result == 'success'" in jobs["checked"]["if"]
+    assert "success()" in jobs["explicit"]["if"] and "!cancelled()" in jobs["explicit"]["if"]
 
 
 def test_as_literal_blocks():
@@ -147,3 +158,11 @@ def test_referenced_names():
         }
     )
     assert names == {"vars": {"REGISTRY"}, "secrets": {"TOKEN", "GH_PAT"}}
+
+
+def test_runner_expression_falls_back_through_the_variables():
+    assert runner_expression(["A", "B"], "ubuntu-latest") == "${{ vars.A || vars.B || 'ubuntu-latest' }}"
+    assert runner_expression([], "it's") == "${{ 'it''s' }}"
+    assert runner_expression(["A"], ["self-hosted", "linux"]) == (
+        """${{ vars.A || fromJSON('["self-hosted", "linux"]') }}"""
+    )

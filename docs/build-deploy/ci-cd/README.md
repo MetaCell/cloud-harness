@@ -34,10 +34,44 @@ Pass `-ci codefresh -ci github` to generate both.
   `github-template-[dev|stage|prod|test].yaml` (name, triggers, per-environment deltas), layered and overridable
   from your project's `deployment-configuration/` like the Codefresh ones. A `jobs.build-[image]` entry in your
   template is merged over that image's generated job (for instance to pick a bigger runner).
-- Runner: the `CH_GITHUB_RUNNER` environment variable at generation time (default `ubuntu-latest`,
-  comma-separated labels allowed); any job can still set its own `runs-on` in the template.
+- Runner: set the `CH_GITHUB_RUNNER` repository or organization variable to the runner label (for ARC, the
+  runner scale set name); build jobs read `CH_GITHUB_BUILD_RUNNER` first, so images can build on bigger
+  runners. Both are read when the workflow runs, so changing runners needs no regeneration. When neither is
+  set, jobs use the runner given at generation time by the `CH_GITHUB_RUNNER` environment variable (default
+  `ubuntu-latest`, comma-separated labels allowed). A `runs-on` in the template always wins.
 - Configuration: the generator logs the repository variables (`REGISTRY`, `DOMAIN`, `NAMESPACE`, ...) and
   secrets (`REGISTRY_USERNAME`, `REGISTRY_PASSWORD`, `KUBECONFIG`, the application secrets with the same names
   as the Codefresh variables) the workflow expects. Approvals are GitHub environment protection rules on the
   `publish` and `prod`/`stage` environments. `workflow_dispatch` inputs replace the `DEPLOYMENT_PUBLISH_TAG`,
   `DEPLOYMENT_TAG`, `*_TAG_FORCE_BUILD` and `SKIP_TESTS` pipeline variables.
+- Cluster credentials: the `deploy`, `wait-deployment` and test `cleanup` jobs run the steps listed under
+  `cloudharness.kube_auth` in the template. The default step uses a base64 `KUBECONFIG` secret when present and
+  the runner's own cluster access otherwise (a runner inside the target cluster with a service account bound to
+  the deployment namespaces needs no secret at all); with neither, the job fails immediately. Only `deploy`
+  targets the GitHub environment named after the CloudHarness environment (so required reviewers on
+  `stage`/`prod` approve the deployment once): `wait-deployment` and `cleanup` read repository or organization
+  secrets, which an environment secret of the same name overrides for `deploy`. For GKE with workload identity
+  federation, replace the list in your project's `github-template.yaml` and grant `id-token: write` to the jobs
+  using it (it is not granted to the whole workflow; a job-level `permissions` replaces the workflow-level one):
+
+  ```yaml
+  cloudharness:
+    kube_auth:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ vars.GKE_CLUSTER }}
+          location: ${{ vars.GKE_LOCATION }}
+  jobs:
+    deploy:
+      permissions: {contents: read, packages: write, id-token: write}
+    wait-deployment:
+      permissions: {contents: read, packages: write, id-token: write}
+  ```
+- Test failures: unit tests gate the deployment, as in Codefresh. The API/E2E tests run after the deployment
+  and never block it, but `publish` (and `git-tag` on stage) is skipped when anything failed. To publish
+  despite failing tests, as Codefresh's `fail_fast: false` does, override the `if` of `publish` in your
+  project's template and protect the `publish` environment with required reviewers.

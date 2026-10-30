@@ -27,15 +27,8 @@ jobs:
       WAIT_ON_FAIL: ${{ vars.WAIT_ON_FAIL || '0' }}
       FAILED: ${{ contains(needs.*.result, 'failure') }}
     steps:
-      - uses: azure/setup-kubectl@v4
       - uses: azure/setup-helm@v4
-      - name: Configure kubectl
-        env:
-          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
-        run: |
-          mkdir -p "$HOME/.kube"
-          echo "$KUBECONFIG_DATA" | base64 -d > "$HOME/.kube/config"
-          chmod 600 "$HOME/.kube/config"
+      - $KUBE_AUTH
       - name: Uninstall the release and delete the namespace
         run: |
           if [ "$FAILED" = "true" ] && [ "$WAIT_ON_FAIL" != "0" ]; then

@@ -10,3 +10,7 @@ jobs:
     needs: [deploy]
     steps:
       - run: echo custom
+cloudharness:
+  kube_auth:
+    - name: Custom cluster access
+      run: echo custom-auth

@@ -66,6 +66,18 @@ def test_template_layering(tmp_path):
     assert "needs.deploy.result == 'success'" in custom["if"]
     # an overlay for an expanded job id is merged over the generated job
     assert wf["jobs"]["build-myapp"]["runs-on"] == "big-runner"
+    # the generator-only section is consumed, not emitted; its kube_auth steps replace
+    # the default ones wherever a job asks for $KUBE_AUTH
+    assert "cloudharness" not in wf
+    for name in ("deploy", "wait-deployment"):
+        steps = wf["jobs"][name]["steps"]
+        assert [s for s in steps if s.get("name") == "Custom cluster access"], name
+        assert not [s for s in steps if s.get("name") == "Configure kubectl"], name
+    assert wf["jobs"]["deploy"]["environment"] == "dev"
+    # only deploy is gated by the environment's protection rules, not every job using the cluster
+    assert "environment" not in wf["jobs"]["wait-deployment"]
+    # OIDC tokens are not minted for every job
+    assert "id-token" not in wf["permissions"]
 
 
 def test_build_jobs_follow_the_dependency_graph(tmp_path):
@@ -271,6 +283,12 @@ def test_rollout_wait_and_publish_steps(tmp_path):
     assert "needs.prepare.outputs.publish_tag != ''" in publish["if"]
     assert "deploy" in publish["needs"] and "tests-e2e-samples" in publish["needs"]
     assert publish["environment"] == "publish"
+    # publication waits for the tests and never runs when the deployment or a test failed
+    assert "needs.deploy.result == 'success'" in publish["if"]
+    assert "!cancelled()" in publish["if"]
+    assert "!contains(needs.*.result, 'failure')" in publish["if"]
+    # the API/E2E tests run after the deployment, so they cannot block it
+    assert not [n for n in jobs["deploy"]["needs"] if n.startswith(("tests-api", "tests-e2e"))]
     published = {step["name"][len("Publish "):] for step in _steps(publish, "Publish ")}
     built = {name[len("build-"):] for name in jobs if name.startswith("build-")}
     assert published == built
@@ -314,6 +332,9 @@ def test_prod_deploys_only(tmp_path):
     assert list(jobs) == ["prepare", "deploy"]
     assert jobs["deploy"]["needs"] == ["prepare"]
     assert jobs["deploy"]["environment"] == "prod"
+    # the fixture's kube_auth override lives in the dev overlay only: prod keeps the
+    # default step (KUBECONFIG secret or the runner's own cluster access)
+    assert [s for s in jobs["deploy"]["steps"] if s.get("name") == "Configure kubectl"]
     assert jobs["deploy"]["env"]["HELM_FLAGS"].startswith("--wait")
     assert wf["on"]["workflow_dispatch"]["inputs"]["deployment_tag"]["required"] is True
 
@@ -327,19 +348,36 @@ def test_stage_keeps_tests_and_tags_the_repository(tmp_path):
     assert jobs["tests-api-samples"]["needs"] == ["prepare", "wait-deployment"]
     assert jobs["git-tag"]["needs"] == ["prepare", "publish"]
     assert jobs["git-tag"]["permissions"] == {"contents": "write"}
+    # the tag is pushed only when the images were published: a failed deployment or test
+    # skips publish, and a skipped publish must not let the guard through
+    tag_if = jobs["git-tag"]["if"]
+    assert "needs.publish.result == 'success'" in tag_if
+    assert "needs.prepare.outputs.publish_tag != ''" in tag_if
+    assert "needs.prepare.result == 'success'" in tag_if
 
 
 def test_runner_configuration(tmp_path):
     wf, _ = _generate(tmp_path, ["myapp"])
-    assert all(job["runs-on"] == DEFAULT_RUNNER for name, job in wf["jobs"].items() if name != "build-myapp")
-    assert wf["jobs"]["build-myapp"]["runs-on"] == "big-runner", "a template runs-on is kept"
+    jobs = wf["jobs"]
+    # the runner is a repository variable read at run time; the generation-time runner is the fallback
+    default = "${{ vars.CH_GITHUB_RUNNER || '%s' }}" % DEFAULT_RUNNER
+    build = "${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || '%s' }}" % DEFAULT_RUNNER
+    assert jobs["prepare"]["runs-on"] == default
+    assert jobs["deploy"]["runs-on"] == default
+    assert jobs["tests-unit-myapp"]["runs-on"] == default
+    builds = [name for name in jobs if name.startswith("build-") and name != "build-myapp"]
+    assert builds
+    assert all(jobs[name]["runs-on"] == build for name in builds)
+    assert jobs["build-myapp"]["runs-on"] == "big-runner", "a template runs-on is kept"
 
     project = chain(CLOUDHARNESS_ROOT, RESOURCES, config=CHDeployConfig(
         env="dev", includes=["myapp"], excludes=["events"], registry="reg", tag="1",
         output_path=str(tmp_path / "deployment"), ci_runner="self-hosted, linux",
     ))
     wf = project.github_actions.generate(write_on_disk=False)
-    assert wf["jobs"]["prepare"]["runs-on"] == ["self-hosted", "linux"]
+    assert wf["jobs"]["prepare"]["runs-on"] == (
+        """${{ vars.CH_GITHUB_RUNNER || fromJSON('["self-hosted", "linux"]') }}"""
+    )
 
 
 def test_workflow_invariants(tmp_path):

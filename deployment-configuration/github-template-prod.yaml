@@ -17,6 +17,5 @@ jobs:
   wait-deployment: null
   publish: null
   deploy:
-    environment: $ENV
     env:
       HELM_FLAGS: --wait --timeout 600s --create-namespace

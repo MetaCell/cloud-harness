@@ -21,13 +21,13 @@ jobs:
   build-test-images: null
   tests-unit: null
   deploy:
-    environment: $ENV
     env:
       HELM_FLAGS: --wait --timeout 600s --create-namespace
+  # Only once the images were actually published: publish is skipped when the deployment or a test fails.
   git-tag:
     name: Tag the repository
     needs: [prepare, publish]
-    if: ${{ needs.prepare.outputs.publish_tag != '' }}
+    if: ${{ needs.publish.result == 'success' && needs.prepare.outputs.publish_tag != '' }}
     permissions:
       contents: write
     env:

@@ -339,6 +339,24 @@ def own_dockerfile_path(path: Path) -> Path:
     return min(candidates, key=lambda p: (len(p.parts), str(p)))
 
 
+# Scaffold copied to start a new project: its CHANGE ME values are not a layer.
+_NOT_PROJECT_DIRS = {"blueprint"}
+
+
+def discover_root_paths(path: Path) -> list[Path]:
+    """Project layers found at path, lowest priority first: the direct subdirectories
+    holding a deployment-configuration (hidden ones skipped) by name, then path itself."""
+    children = sorted(
+        child for child in path.iterdir() if child.is_dir() and not child.name.startswith(".")
+    )
+    for child in children:
+        if child.name in _NOT_PROJECT_DIRS and (child / DEPLOYMENT_CONFIGURATION_PATH).is_dir():
+            logging.warning("Not using %s as a layer: it is a project scaffold", child)
+    candidates = [child for child in children if child.name not in _NOT_PROJECT_DIRS]
+    candidates.append(path)
+    return [p for p in candidates if (p / DEPLOYMENT_CONFIGURATION_PATH).is_dir()]
+
+
 # Legacy-derived utilities, imported as-is rather than reimplemented: write_values_overrides
 # is used directly by helm.py's own generate(); find_chart_images/ChartImageRef are unit-tested
 # directly (see tests/test_helm.py); the rest is shared with openapi.py/application_builders.py/
