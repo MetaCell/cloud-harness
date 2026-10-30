@@ -10,6 +10,7 @@ import shlex
 import shutil
 import socket
 import subprocess
+from contextvars import ContextVar
 from dataclasses import dataclass
 from os.path import basename, dirname, exists, isdir, join
 from pathlib import Path
@@ -191,8 +192,26 @@ def _merge_base_chain(entity, source_of, destination: Path) -> None:
         )
 
 
-_yaml = YAML(typ="safe")
+# The argv of the harness-deployment invocation generating files in this context, set by the CLI
+generation_argv: ContextVar[list[str] | None] = ContextVar("generation_argv", default=None)
+
+
+class GeneratedYAML(YAML):
+    """A YAML handler for generated files: every document it dumps starts with a comment naming
+    the command that generated it, when generation_argv is set."""
+
+    def dump(self, data, stream, **kwargs):
+        argv = generation_argv.get()
+        if argv:
+            stream.write(f"# Generated with: {shlex.join([Path(argv[0]).name, *argv[1:]])}\n")
+        super().dump(data, stream, **kwargs)
+
+
+_yaml = GeneratedYAML(typ="safe")
 _yaml.default_flow_style = False
+# Keep the key order the generators build (e.g. codefresh steps follow their stages):
+# the safe representer would otherwise sort every mapping alphabetically.
+_yaml.sort_base_mapping_type_on_output = False
 
 
 def get_yaml_parser():
@@ -1027,7 +1046,7 @@ def save_yaml_with_comments(yaml_file: Path, data: dict, header: str = None,
         if key in commented:
             # Leading blank line separates each key's comment from the previous entry
             commented.yaml_set_comment_before_after_key(key, before='\n' + comment)
-    handler = YAML()
+    handler = GeneratedYAML()
     handler.default_flow_style = False
     with yaml_file.open('w') as file:
         handler.dump(commented, file)

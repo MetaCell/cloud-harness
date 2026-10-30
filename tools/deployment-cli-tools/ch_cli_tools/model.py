@@ -1214,7 +1214,8 @@ class CHProject:
 
     @property
     def involved_apps(self):
-        """Every entrypoint, its dependencies, and their instances."""
+        """Every entrypoint, its dependencies, and their instances, sorted by name: every
+        generated file follows this order, so it must not change from run to run."""
         base = set(
             itertools.chain(self.entrypoint_apps().values(), *self.all_dependencies())
         )
@@ -1225,7 +1226,9 @@ class CHProject:
             if instance.parent_app.name in involved_names
             and instance.name not in self.config.excludes
         }
-        return base | instances
+        return sorted(
+            base | instances, key=lambda app: app if isinstance(app, str) else app.name
+        )
 
     @lru_cache
     def all_instances(self) -> dict[str, CHAppInstance]:

@@ -6,6 +6,7 @@ from cloudharness_utils.constants import DEPLOYMENT_PATH
 
 from ch_cli_tools.api import deploy, hosts_info, perform_migration
 from ch_cli_tools.model import CHDeployConfig, CHProject
+from ch_cli_tools.utils import generation_argv
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -216,6 +217,8 @@ if __name__ == "__main__":
         perform_migration(root_paths, accept_all=True)
     elif args.migration:
         perform_migration(root_paths, accept_all=False)
+
+    generation_argv.set(sys.argv)
 
     config = CHDeployConfig(
         includes=args.include,

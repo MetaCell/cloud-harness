@@ -140,6 +140,18 @@ def test_include_exclude_and_transitive_dependencies():
     assert "events" not in involved
 
 
+def test_involved_apps_are_sorted_by_name():
+    # Every generated file follows this order: a set's would change from run to run
+    project = chain(
+        CLOUDHARNESS_ROOT,
+        RESOURCES,
+        config=CHDeployConfig(includes=["samples", "myapp"], excludes=["events"]),
+    )
+
+    names = [a if isinstance(a, str) else a.name for a in project.involved_apps]
+    assert names == sorted(names)
+
+
 def test_same_named_app_in_both_roots_is_layered_not_replaced():
     project = chain(CLOUDHARNESS_ROOT, RESOURCES, config=CHDeployConfig())
     workflows = project["workflows"]
