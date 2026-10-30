@@ -4,3 +4,18 @@ harness:
     network:
       allowedNamespaces:
         - test-namespace
+  test:
+    unit:
+      enabled: true
+      commands: []
+    api:
+      enabled: false
+      autotest: true
+      runParams: []
+      checks:
+        - all
+    e2e:
+      enabled: false
+      smoketest: true
+      ignoreConsoleErrors: false
+      ignoreRequestErrors: false

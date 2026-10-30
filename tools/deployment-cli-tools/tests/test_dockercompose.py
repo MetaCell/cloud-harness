@@ -1,135 +1,171 @@
-from ch_cli_tools.dockercompose import *
-from ch_cli_tools.configuration.configurationgenerator import *
-from ch_cli_tools.configuration.preprocessing import preprocess_build_overrides, generate_hash_based_image_tags
-import pytest
+"""ch_cli_tools.dockercompose generator tests. Exercises the real `helm`
+binary (used as a template engine, see dockercompose.py's module docstring)
+against a minimal throwaway compose chart - see test_model.py in this folder for
+the structural/model tests the values computation itself builds on.
+"""
+
 import shutil
 import subprocess
 from io import StringIO
-from ch_cli_tools.utils import yaml
 
-HERE = os.path.dirname(os.path.realpath(__file__))
-RESOURCES = os.path.join(HERE, 'resources')
-CLOUDHARNESS_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-COMPOSE_PATH = COMPOSE
+import pytest
+from conftest import CLOUDHARNESS_ROOT, RESOURCES
+from test_util import write_tree_from_yaml
+
+from ch_cli_tools import CHDeployConfig, CHProject
+from ch_cli_tools.api import create_docker_compose_configuration
+from ch_cli_tools.utils import get_yaml_parser
 
 HELM_IS_INSTALLED = shutil.which("helm") is not None
 
+MINIMAL_COMPOSE_CHART = """
+    deployment-configuration:
+      values-template.yaml: |
+        name: testproj
+        mainapp: myapp
+      compose:
+        Chart.yaml: |
+          apiVersion: v2
+          name: testproj
+          version: 0.1.0
+        values.yaml: "{}"
+        templates:
+          main.yaml: |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: main
+            data:
+              hello: world
+            ---
+            cloudharness-metadata:
+              path: embedded/secret.txt
+            data: embedded-content
+    applications:
+      myapp:
+        Dockerfile: |
+          FROM scratch
+        deploy:
+          templates-compose:
+            myapp.yaml: |
+              apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: myapp-compose
+          templates:
+            _helper.tpl: |
+              {{/* a helper */}}
+"""
 
-def exists(path):
-    return path.exists()
+
+def _compose_project(tmp_path, **config_kwargs):
+    write_tree_from_yaml(tmp_path, MINIMAL_COMPOSE_CHART)
+    config_kwargs.setdefault("output_path", str(tmp_path / "deployment"))
+    return CHProject(tmp_path, config=CHDeployConfig(**config_kwargs))
 
 
-def test_collect_compose_values(tmp_path):
-    out_folder = tmp_path / 'test_collect_compose_values'
-    values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
-                                                 exclude=['events'], domain="my.local",
-                                                 namespace='test', env='dev', local=False, tag=1, registry='reg')
+def test_generate_writes_values_and_secrets_stripped_allvalues(tmp_path):
+    project = _compose_project(tmp_path)
+    project.docker_compose.generate()
 
-    # Auto values
-    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/myapp:1'
-    assert values.apps['myapp'].harness.deployment.image == 'reg/testprojectname/myapp:1'
-    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
-    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/accounts:1'
+    dest = tmp_path / "deployment" / "compose"
+    assert (dest / "values.yaml").exists()
 
-    # First level include apps
-    assert 'samples' in values[KEY_APPS]
-    assert 'myapp' in values[KEY_APPS]
+    import yaml
 
-    # Not included
-    assert 'jupyterhub' not in values[KEY_APPS]
+    allvalues = yaml.safe_load((dest / "allvalues.yaml").read_text())
+    assert allvalues["apps"]["myapp"]["harness"]["secrets"] == {}
 
-    # Dependency include first level
-    assert 'accounts' in values[KEY_APPS]
-    assert 'legacy' in values[KEY_APPS]
 
-    # Dependency include second level
-    assert 'argo' in values[KEY_APPS]
+def test_generate_uses_templates_compose_and_falls_back_to_regular_helpers(tmp_path):
+    project = _compose_project(tmp_path)
+    project.docker_compose.generate()
 
-    # Explicit exclude overrides include
-    assert 'events' not in values[KEY_APPS]
+    app_templates = tmp_path / "deployment" / "compose" / "templates" / "myapp"
+    assert (app_templates / "myapp.yaml").exists()
+    assert (app_templates / "_helper.tpl").exists()
 
-    # Base values kept
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['subdomain'] == 'accounts'
 
-    # Defaults
-    assert 'service' in values[KEY_APPS]['legacy'][KEY_HARNESS]
-    assert 'common' in values[KEY_APPS]['legacy']
-    assert 'common' in values[KEY_APPS]['accounts']
-    # Values overriding
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['port'] == 'overridden'
+def test_generate_renders_docker_compose_above_output_path_and_splits_metadata(
+    tmp_path,
+):
+    project = _compose_project(tmp_path)
+    project.docker_compose.generate()
 
-    # Environment specific overriding
-    assert values[KEY_APPS]['accounts']['a'] == 'dev'
-    assert values['a'] == 'dev'
-    assert values['database']['auto'] is False
+    compose_file = tmp_path / "docker-compose.yaml"
+    content = compose_file.read_text()
+    assert "cloudharness-metadata" not in content
+    assert content.strip()
 
-    # legacy reading
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['auto'] is True
-    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['deployment']['auto'] is False
+    embedded = tmp_path / "deployment" / "compose" / "embedded" / "secret.txt"
+    assert embedded.read_text() == "embedded-content"
 
-    compose_path = out_folder / COMPOSE_PATH
 
-    # Check files
-    assert exists(out_folder.parent / 'docker-compose.yaml')
-    assert exists(compose_path)
-    assert exists(compose_path / 'values.yaml')
-    assert exists(compose_path / 'allvalues.yaml')
-    assert exists(compose_path / 'resources' / 'accounts' / 'realm.json')
-    assert exists(compose_path / 'resources' / 'accounts' / 'aresource.txt')
-    assert exists(compose_path / 'resources' / 'myapp' / 'aresource.txt')
-    assert exists(compose_path / 'templates' / 'myapp' / 'mytemplate.yaml')
+def test_generate_merges_compose_chart_across_base_layer(tmp_path):
+    base_root = tmp_path / "base"
+    top_root = tmp_path / "top"
+    write_tree_from_yaml(base_root, MINIMAL_COMPOSE_CHART)
+    write_tree_from_yaml(
+        top_root,
+        """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+            mainapp: myapp
+        applications:
+          myapp:
+            Dockerfile: |
+              FROM scratch
+        """,
+    )
 
-    if HELM_IS_INSTALLED:
-        assert exists(compose_path / 'resources' / 'generated' / 'test.yaml')
-        assert exists(compose_path / 'resources' / 'generated' / 'test2.yaml')
-        content = (compose_path / 'resources' / 'generated' / 'test.yaml').read_text()
-        assert content == 'mykey: myvalue'
-        content = (compose_path / 'resources' / 'generated' / 'test2.yaml').read_text()
-        assert content == 'mykey2: myvalue2'
+    config = CHDeployConfig(output_path=str(top_root / "deployment"))
+    project = CHProject(base_root, config=config)
+    project = CHProject(top_root, base=project, config=config)
+    project.docker_compose.generate()
 
-    # Checl base and task images
-    assert values[KEY_TASK_IMAGES]
-    assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
-    assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'reg/testprojectname/cloudharness-base:1', "cloudharness-base image is overridden"
-    assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'reg/testprojectname/myapp-mytask:1'
-    # Not indicated as a build dependency
-    assert 'cloudharness-base-debian' not in values[KEY_TASK_IMAGES]
+    dest = top_root / "deployment" / "compose"
+    assert (dest / "Chart.yaml").exists()
+    assert (dest / "templates" / "main.yaml").exists()
 
 
 def test_compose_gatekeeper_native_configuration_rendering(tmp_path):
-    out_folder = tmp_path / 'test_compose_gatekeeper_native_configuration'
+    """Exercises the real production compose chart's gatekeeper template, not the
+    synthetic one above - a values-dict assertion can't tell whether tls/per-app
+    overrides actually reach the rendered proxy.yml."""
+    out_folder = tmp_path / "test_compose_gatekeeper_native_configuration"
     create_docker_compose_configuration(
         [CLOUDHARNESS_ROOT, RESOURCES],
         output_path=out_folder,
-        include=['samples'],
+        include=["samples"],
         domain="my.local",
         local=False,
         tls=True,
     )
 
-    compose_path = out_folder / COMPOSE_PATH
-    values_path = compose_path / 'values.yaml'
-    with open(values_path, 'r') as values_file:
+    compose_path = out_folder / "compose"
+    values_path = compose_path / "values.yaml"
+    yaml = get_yaml_parser()
+    with values_path.open() as values_file:
         values = yaml.load(values_file)
 
-    values['apps']['samples']['harness']['proxy']['gatekeeper']['configuration'] = {
-        'same-site-cookie': 'None',
-        'enable-pkce': False,
-        'http-only-cookie': True,
-        'cors-exposed-headers': ['X-Request-ID', 'X-Trace-ID'],
+    values["apps"]["samples"]["harness"]["proxy"]["gatekeeper"]["configuration"] = {
+        "same-site-cookie": "None",
+        "enable-pkce": False,
+        "http-only-cookie": True,
+        "cors-exposed-headers": ["X-Request-ID", "X-Trace-ID"],
     }
-    values['proxy']['gatekeeper']['configuration'] = {
-        'same-site-cookie': 'Strict',
-        'enable-pkce': True,
-        'max-token-size': 65536,
+    values["proxy"]["gatekeeper"]["configuration"] = {
+        "same-site-cookie": "Strict",
+        "enable-pkce": True,
+        "max-token-size": 65536,
     }
 
     def render_proxy_config():
-        with open(values_path, 'w') as values_file:
+        with values_path.open("w") as values_file:
             yaml.dump(values, values_file)
         completed = subprocess.run(
-            ['helm', 'template', str(compose_path)],
+            ["helm", "template", str(compose_path)],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -138,381 +174,59 @@ def test_compose_gatekeeper_native_configuration_rendering(tmp_path):
         with StringIO(completed.stdout) as stream:
             documents = list(yaml.load_all(stream))
         for document in documents:
-            metadata = (document or {}).get('cloudharness-metadata', {})
-            if metadata.get('path') == 'resources/generated/samples-gk/proxy.yml':
-                return yaml.load(document['data'])
-        raise AssertionError('Could not find the samples Gatekeeper proxy configuration')
+            metadata = (document or {}).get("cloudharness-metadata", {})
+            if metadata.get("path") == "resources/generated/samples-gk/proxy.yml":
+                return yaml.load(document["data"])
+        raise AssertionError(
+            "Could not find the samples Gatekeeper proxy configuration"
+        )
 
     tls_config = render_proxy_config()
-    assert tls_config['secure-cookie'] is True
-    assert tls_config['same-site-cookie'] == 'None'
-    assert tls_config['enable-pkce'] is False
-    assert tls_config['http-only-cookie'] is True
-    assert tls_config['max-token-size'] == 65536
-    assert tls_config['cors-exposed-headers'] == ['X-Request-ID', 'X-Trace-ID']
+    assert tls_config["secure-cookie"] is True
+    assert tls_config["same-site-cookie"] == "None"
+    assert tls_config["enable-pkce"] is False
+    assert tls_config["http-only-cookie"] is True
+    assert tls_config["max-token-size"] == 65536
+    assert tls_config["cors-exposed-headers"] == ["X-Request-ID", "X-Trace-ID"]
 
-    values['tls'] = False
+    values["tls"] = False
     non_tls_config = render_proxy_config()
-    assert non_tls_config['secure-cookie'] is False
-    assert non_tls_config['same-site-cookie'] == 'Lax'
-    assert non_tls_config['enable-pkce'] is False
-    assert non_tls_config['max-token-size'] == 65536
+    assert non_tls_config["secure-cookie"] is False
+    assert non_tls_config["same-site-cookie"] == "Lax"
+    assert non_tls_config["enable-pkce"] is False
+    assert non_tls_config["max-token-size"] == 65536
 
-    values['tls'] = True
-    values['apps']['samples']['harness']['proxy']['gatekeeper']['configuration'].pop('same-site-cookie')
+    values["tls"] = True
+    values["apps"]["samples"]["harness"]["proxy"]["gatekeeper"]["configuration"].pop(
+        "same-site-cookie"
+    )
     inherited_config = render_proxy_config()
-    assert inherited_config['same-site-cookie'] == 'Strict'
-    assert inherited_config['enable-pkce'] is False
-
-
-def test_compose_app_depends_on_task_only(tmp_path):
-    out_folder = tmp_path / 'test_compose_app_depends_on_task_only'
-
-    # taskdep depends on myapp-mytask, a task image owned by another app (myapp) that is
-    # not listed as a dependency itself. The owner app must be pulled in to build the task
-    # image, but must not be deployed.
-    values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder,
-                                                 include=['taskdep'], domain="my.local",
-                                                 env='', local=False, tag=1, registry='reg')
-
-    assert 'myapp-mytask' in values[KEY_TASK_IMAGES], "cross-app task image must be built"
-    assert 'myapp' not in values[KEY_APPS], "owner app must be built but not deployed"
-
-
-def test_collect_compose_values_noreg_noinclude(tmp_path):
-    out_path = tmp_path / 'test_collect_compose_values_noreg_noinclude'
-    values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_path, domain="my.local",
-                                                 namespace='test', env='dev', local=False, tag=1)
-
-    # Auto values
-    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'testprojectname/myapp:1'
-    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['name'] == 'myapp'
-    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['name'] == 'legacy'
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['image'] == 'testprojectname/accounts:1'
-
-    # First level include apps
-    assert 'samples' in values[KEY_APPS]
-    assert 'myapp' in values[KEY_APPS]
-    assert 'jupyterhub' in values[KEY_APPS]
-    assert 'accounts' in values[KEY_APPS]
-    assert 'legacy' in values[KEY_APPS]
-    assert 'argo' in values[KEY_APPS]
-    assert 'events' in values[KEY_APPS]
-
-    # Base values kept
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['subdomain'] == 'accounts'
-
-    # Defaults
-    assert 'service' in values[KEY_APPS]['legacy'][KEY_HARNESS]
-    assert 'common' in values[KEY_APPS]['legacy']
-    assert 'common' in values[KEY_APPS]['accounts']
-    # Values overriding
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['port'] == 'overridden'
-    assert values[KEY_APPS]['events']['kafka']['resources']['limits']['memory'] == 'overridden'
-
-    # Environment specific overriding
-    assert values[KEY_APPS]['accounts']['a'] == 'dev'
-    assert values['a'] == 'dev'
-    assert values['database']['auto'] is False
-
-    # legacy reading
-    assert values[KEY_APPS]['accounts'][KEY_HARNESS]['deployment']['auto'] is True
-    assert values[KEY_APPS]['legacy'][KEY_HARNESS]['deployment']['auto'] is False
-
-    compose_path = out_path / COMPOSE_PATH
-
-    # Check files
-    assert exists(out_path.parent / 'docker-compose.yaml')
-    assert exists(compose_path)
-    assert exists(compose_path / 'values.yaml')
-    assert exists(compose_path / 'allvalues.yaml')
-    assert exists(compose_path / 'resources' / 'accounts' / 'realm.json')
-    assert exists(compose_path / 'resources' / 'accounts' / 'aresource.txt')
-    assert exists(compose_path / 'resources' / 'myapp' / 'aresource.txt')
-    assert exists(compose_path / 'templates' / 'myapp' / 'mytemplate.yaml')
-
-    if HELM_IS_INSTALLED:
-        assert exists(compose_path / 'resources' / 'generated' / 'test.yaml')
-        assert exists(compose_path / 'resources' / 'generated' / 'test2.yaml')
-        content = (compose_path / 'resources' / 'generated' / 'test.yaml').read_text()
-        assert content == 'mykey: myvalue'
-        content = (compose_path / 'resources' / 'generated' / 'test2.yaml').read_text()
-        assert content == 'mykey2: myvalue2'
-    else:
-        assert False
-
-    assert values[KEY_TASK_IMAGES]
-    assert 'cloudharness-base' in values[KEY_TASK_IMAGES]
-    assert values[KEY_TASK_IMAGES]['cloudharness-base'] == 'testprojectname/cloudharness-base:1'
-    assert values[KEY_TASK_IMAGES]['myapp-mytask'] == 'testprojectname/myapp-mytask:1'
-
-
-def test_collect_compose_values_precedence(tmp_path):
-    out_folder = tmp_path / 'test_collect_compose_values_precedence'
-    values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                                                 namespace='test', env='prod', local=False, tag=1, include=["events"])
-
-    # Values.yaml from current app must override values-prod.yaml from cloudharness
-    assert values[KEY_APPS]['events']['kafka']['resources']['limits']['memory'] == 'overridden'
-    assert values[KEY_APPS]['events']['kafka']['resources']['limits']['cpu'] == 'overridden-prod'
-
-
-def test_collect_compose_values_multiple_envs(tmp_path):
-    out_folder = tmp_path / 'test_collect_compose_values_multiple_envs'
-    values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                                                 namespace='test', env=['dev', 'test'], local=False, tag=1, include=["myapp"])
-
-    assert values[KEY_APPS]['myapp']['test'] is True, 'values-test not loaded'
-    assert values[KEY_APPS]['myapp']['dev'] is True, 'values-dev not loaded'
-    assert values[KEY_APPS]['myapp']['a'] == 'test', 'values-test not overriding'
-
-
-def test_collect_compose_values_wrong_dependencies_validate(tmp_path):
-    out_folder = tmp_path / 'test_collect_helm_values_wrong_dependencies_validate'
-    with pytest.raises(ValuesValidationException):
-        create_docker_compose_configuration([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-                                            namespace='test', env='prod', local=False, tag=1, include=["wrong-hard"])
-    try:
-        create_docker_compose_configuration([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-                                            namespace='test', env='prod', local=False, tag=1, include=["wrong-soft"])
-
-    except ValuesValidationException as e:
-        pytest.fail("Should not error because of wrong soft dependency")
-
-    with pytest.raises(ValuesValidationException):
-        create_docker_compose_configuration([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-                                            namespace='test', env='prod', local=False, tag=1, include=["wrong-build"])
-    try:
-        create_docker_compose_configuration([CLOUDHARNESS_ROOT, f"{RESOURCES}/wrong-dependencies"], output_path=out_folder, domain="my.local",
-                                            namespace='test', env='prod', local=False, tag=1, include=["wrong-services"])
-    except ValuesValidationException:
-        pytest.fail("Should not error because of missing use_services dependency")
-
-
-def test_collect_compose_values_build_dependencies(tmp_path):
-    out_folder = tmp_path / 'test_collect_compose_values_build_dependencies'
-    values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                                                 namespace='test', env='prod', local=False, tag=1, include=["myapp"])
-
-    assert 'cloudharness-flask' in values[KEY_TASK_IMAGES], "Cloudharness-flask is included in the build dependencies"
-    assert 'cloudharness-base' in values[KEY_TASK_IMAGES], "Cloudharness-base is included in cloudharness-flask Dockerfile and it should be guessed"
-    assert 'cloudharness-frontend-build' not in values[KEY_TASK_IMAGES], "cloudharness-frontend-build is not included in any dependency"
-
-
-def test_collect_compose_values_build_dependencies_nodeps(tmp_path):
-    out_folder = tmp_path / 'test_collect_compose_values_build_dependencies_nodeps'
-    values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                                                 namespace='test', env='prod', local=False, tag=1, include=["events"])
-
-    assert 'cloudharness-flask' not in values[KEY_TASK_IMAGES], "Cloudharness-flask is not included in the build dependencies"
-    assert 'cloudharness-base' not in values[KEY_TASK_IMAGES], "Cloudharness-base is not included in the build dependencies"
-    assert 'cloudharness-frontend-build' not in values[KEY_TASK_IMAGES], "cloudharness-frontend-build is not included in any dependency"
-
-
-def test_collect_compose_values_build_dependencies_exclude(tmp_path):
-    out_folder = tmp_path / 'test_collect_compose_values_build_dependencies_exclude'
-    values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                                                 namespace='test', env='prod', local=False, tag=1, include=["workflows"], exclude=["workflows-extract-download"])
-
-    assert 'cloudharness-flask' in values[KEY_TASK_IMAGES], "Cloudharness-flask is included in the build dependencies"
-    assert 'cloudharness-base' in values[KEY_TASK_IMAGES], "Cloudharness-base is included in cloudharness-flask Dockerfile and it should be guessed"
-    assert 'workflows-extract-download' not in values[KEY_TASK_IMAGES], "workflows-extract-download has been explicitly excluded"
-
-
-def test_clear_unused_dbconfig(tmp_path):
-    out_folder = tmp_path / 'test_clear_unused_dbconfig'
-
-    values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                                                 env='withpostgres', local=False, include=["myapp"], exclude=["legacy"])
-
-    # There is a DB config
-    assert KEY_DATABASE in values[KEY_APPS]['myapp'][KEY_HARNESS]
-
-    db_config = values[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DATABASE]
-    # postgres is set, but other entries are not.
-    assert db_config['postgres'] is not None
-    assert db_config['postgres']['image'].startswith('postgres:')
-
-    # However, it seems that even after removing unused entries,
-    # the finale instance of the HarnessMainConfig class that is created
-    # adds back those entries and set them to None.
-    assert db_config['mongo'] is None
-    assert db_config['neo4j'] is None
-
-    values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                                                 env='withmongo', local=False, include=["myapp"], exclude=["legacy"])
-
-    assert KEY_DATABASE in values[KEY_APPS]['myapp'][KEY_HARNESS]
-    db_config = values[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DATABASE]
-
-    # mongo is set, but other entries are not.
-    assert db_config['mongo'] is not None
-    assert db_config['mongo']['image'].startswith('mongo:')
-    assert db_config['neo4j'] is None
-
-    assert db_config['postgres'] is None
-
-
-def test_clear_all_dbconfig_if_nodb(tmp_path):
-    out_folder = tmp_path / 'test_clear_all_dbconfig_if_nodb'
-
-    values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, domain="my.local",
-                                                 env='withoutdb', local=False, include=["myapp"], exclude=["legacy"])
-
-    # There is a DB config
-    assert KEY_DATABASE in values[KEY_APPS]['myapp'][KEY_HARNESS]
-
-    # But it is None
-    db_config = values[KEY_APPS]['myapp'][KEY_HARNESS][KEY_DATABASE]
-    assert db_config is None
-
-
-def test_tag_hash_generation():
-    v1 = generate_tag_from_content(RESOURCES)
-    v2 = generate_tag_from_content(RESOURCES, ignore=['myapp'])
-    assert v1 != v2
-    v3 = generate_tag_from_content(RESOURCES, ignore=['*/myapp/*'])
-    assert v3 != v1
-    v4 = generate_tag_from_content(RESOURCES, ignore=['applications/myapp/*'])
-    assert v4 == v3
-    v5 = generate_tag_from_content(RESOURCES, ignore=['/applications/myapp/*'])
-    assert v5 == v4
-
-    fname = Path(RESOURCES) / 'applications' / 'myapp' / 'afile.txt'
-    try:
-        fname.write_text('a')
-
-        v6 = generate_tag_from_content(RESOURCES, ignore=['/applications/myapp/*'])
-        assert v6 == v5
-        v7 = generate_tag_from_content(RESOURCES)
-        assert v7 != v1
-    finally:
-        fname.unlink()
-
-
-def test_collect_compose_values_auto_tag(tmp_path):
-    out_folder = tmp_path / 'test_collect_compose_values_auto_tag'
-    merge_build_path = str(tmp_path / '.overrides')
-
-    first_pass = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
-                                                     exclude=['events'], domain="my.local",
-                                                     namespace='test', env='dev', local=False, tag=None, registry='reg')
-    assert first_pass[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == 'reg/testprojectname/myapp'
-
-    def create():
-        values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder, include=['samples', 'myapp'],
-                                                     exclude=['events'], domain="my.local",
-                                                     namespace='test', env='dev', local=False, tag=None, registry='reg')
-        preprocess_build_overrides([CLOUDHARNESS_ROOT, RESOURCES], values, merge_build_path=merge_build_path)
-        generate_hash_based_image_tags([CLOUDHARNESS_ROOT, RESOURCES], values, merge_build_path=merge_build_path)
-        return values
-
-    BASE_KEY = "cloudharness-base"
-    values = create()
-
-    # Auto values are set by using the directory hash
-    assert 'reg/testprojectname/myapp:' in values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image']
-    assert 'reg/testprojectname/myapp:' in values.apps['myapp'].harness.deployment.image
-    assert 'testprojectname/myapp-mytask' in values[KEY_TASK_IMAGES]['myapp-mytask']
-    assert values[KEY_APPS]['myapp'][KEY_HARNESS]['deployment']['image'] == values.apps['myapp'].harness.deployment.image
-    v1 = values.apps['myapp'].harness.deployment.image
-    c1 = values["task-images"]["my-common"]
-    b1 = values["task-images"][BASE_KEY]
-    d1 = values["task-images"]["cloudharness-flask"]
-
-    values = create()
-    assert v1 == values.apps['myapp'].harness.deployment.image, "Nothing changed the hash value"
-    assert values["task-images"][BASE_KEY] == b1, "Base image should not change following the root .dockerignore"
-
-    fname = Path(RESOURCES) / 'applications' / 'myapp' / 'afile.txt'
-    try:
-        fname.write_text('a')
-
-        values = create()
-        assert v1 != values.apps['myapp'].harness.deployment.image, "Adding the file changed the hash value"
-        v2 = values.apps['myapp'].harness.deployment.image
-        assert values["task-images"][BASE_KEY] == b1, "Application files should be ignored for base image following the root .dockerignore"
-    finally:
-        fname.unlink()
-
-    try:
-        fname.write_text('a')
-
-        values = create()
-        assert v2 == values.apps['myapp'].harness.deployment.image, "Recreated an identical file, the hash value should be the same"
-    finally:
-        fname.unlink()
-
-    fname = Path(RESOURCES) / 'applications' / 'myapp' / 'afile.ignored'
-    try:
-        fname.write_text('a')
-
-        values = create()
-        assert values["task-images"][BASE_KEY] == b1, "2: Application files should be ignored for base image following the root .dockerignore"
-
-        assert v1 == values.apps['myapp'].harness.deployment.image, "Nothing should change the hash value as the file is ignored in the .dockerignore"
-    finally:
-        fname.unlink()
-
-    # Dependencies test: if a dependency is changed, the hash should change
-    fname = Path(RESOURCES) / 'infrastructure' / 'common-images' / 'my-common' / 'afile'
-
-    try:
-        fname.write_text('a')
-
-        values = create()
-
-        assert c1 != values["task-images"]["my-common"], "If content of a static image is changed, the hash should change"
-        assert v1 != values.apps['myapp'].harness.deployment.image, "If a static image dependency is changed, the hash should change"
-    finally:
-        fname.unlink()
-
-    fname = Path(RESOURCES) / 'atestfile'
-    try:
-        fname.write_text('a')
-
-        values = create()
-
-        assert b1 != values["task-images"][BASE_KEY], "Content for base image is changed, the hash should change"
-        assert d1 != values["task-images"]["cloudharness-flask"], "Content for base image is changed, the static image should change"
-        assert v1 != values.apps['myapp'].harness.deployment.image, "2 levels dependency: If a base image dependency is changed, the hash should change"
-    finally:
-        fname.unlink()
+    assert inherited_config["same-site-cookie"] == "Strict"
+    assert inherited_config["enable-pkce"] is False
 
 
 @pytest.mark.skipif(not HELM_IS_INSTALLED, reason="helm is not installed")
 def test_compose_secrets_use_local_defaults(tmp_path):
-    """Secret managers are not available locally: compose falls back to the secret defaults"""
-    out_folder = tmp_path / 'test_compose_secrets_use_local_defaults'
-    create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES], output_path=out_folder,
-                                        include=['myapp'], exclude=['events', 'legacy'], domain="my.local",
-                                        namespace='test', env='secrets', local=False, tag=1, registry='reg')
+    """Secret managers are not available locally: compose falls back to the secret
+    defaults - the values dict always strips secrets to {} (see
+    test_generate_writes_values_and_secrets_stripped_allvalues above), so only the real
+    rendered compose chart can confirm local defaults actually land on disk."""
+    out_folder = tmp_path / "test_compose_secrets_use_local_defaults"
+    create_docker_compose_configuration(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=out_folder,
+        include=["myapp"],
+        exclude=["events", "legacy"],
+        domain="my.local",
+        namespace="test",
+        env="secrets",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
 
-    generated = out_folder / COMPOSE_PATH / 'resources' / 'generated' / 'auth'
-    assert (generated / 'plainSecret').read_text() == 'a value'
-    assert (generated / 'richSecret').read_text() == 'a local value'
+    generated = out_folder / "compose" / "resources" / "generated" / "auth"
+    assert (generated / "plainSecret").read_text() == "a value"
+    assert (generated / "richSecret").read_text() == "a local value"
     # nothing is known locally about an unmanaged secret: a random value is generated
-    assert len((generated / 'unmanagedSecret').read_text()) == 20
-
-
-@pytest.mark.parametrize('include', [['refapp'], []], ids=['include', 'noinclude'])
-def test_deployment_image_ref_runs_an_image_of_the_build(tmp_path, include):
-    """An application referencing a build image runs that image and builds nothing itself."""
-    app_path = tmp_path / 'solution' / APPS_PATH / 'refapp'
-    (app_path / 'deploy').mkdir(parents=True)
-    (app_path / 'deploy' / 'values.yaml').write_text(
-        'harness:\n'
-        '  deployment:\n'
-        '    auto: true\n'
-        '    image_ref: cloudharness-base\n'
-        '  dependencies:\n'
-        '    build:\n'
-        '      - cloudharness-base\n')
-    values = create_docker_compose_configuration([CLOUDHARNESS_ROOT, RESOURCES, str(tmp_path / 'solution')],
-                                                 output_path=tmp_path / 'out', include=include,
-                                                 domain="my.local", namespace='test', local=False, tag=1,
-                                                 registry='reg')
-
-    base_image = values[KEY_TASK_IMAGES]['cloudharness-base']
-    assert values[KEY_APPS]['refapp']['image'] == base_image
-    assert values[KEY_APPS]['refapp'][KEY_HARNESS][KEY_DEPLOYMENT]['image'] == base_image
+    assert len((generated / "unmanagedSecret").read_text()) == 20
