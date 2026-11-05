@@ -5,7 +5,7 @@ from django.core.cache import cache
 from django.test import TestCase, override_settings
 
 from cloudharness.auth.entra import EntraConfig, EntraIdentity
-from cloudharness.auth.exceptions import InvalidToken
+from cloudharness.auth.exceptions import EntraNotConfigured, InvalidToken
 
 from cloudharness_django.models import Member
 from cloudharness_django.services import init_services, get_user_service
@@ -296,6 +296,14 @@ class OidcViewsTest(EntraTestCase):
         self.assertEqual(csrf_client.post("/oidc/logout/").status_code, 403)
         self.assertEqual(self.client.get("/api/me").status_code, 200)
 
+    def test_logout_without_entra(self):
+        self.login()
+        self.callback(FakeMsalApp(result={"id_token_claims": claims()}))
+        with mock.patch("cloudharness_django.views.get_entra_config", side_effect=EntraNotConfigured):
+            response = self.client.post("/oidc/logout/")
+        self.assertRedirects(response, "/", fetch_redirect_response=False)
+        self.assertEqual(self.client.get("/api/me").status_code, 401)
+
     def test_deactivated_user_cannot_log_in(self):
         self.login()
         self.callback(FakeMsalApp(result={"id_token_claims": claims()}))
@@ -305,3 +313,30 @@ class OidcViewsTest(EntraTestCase):
         response = self.callback(FakeMsalApp(result={"id_token_claims": claims()}))
         self.assertEqual(response.status_code, 403)
 
+
+
+class WithoutEntraTest(EntraTestCase):
+    """Entra not configured: local development with the password login."""
+
+    def setUp(self):
+        super().setUp()
+        patcher = mock.patch("cloudharness_django.views.get_entra_config", side_effect=EntraNotConfigured)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    @override_settings(PASSWORD_LOGIN_ENABLED=True, AUTHENTICATION_BACKENDS=PASSWORD_BACKENDS)
+    def test_login_redirects_to_password_login(self):
+        response = self.client.get("/admin/", HTTP_ACCEPT="text/html")
+        self.assertRedirects(response, "/oidc/login/?next=/admin/", fetch_redirect_response=False)
+        response = self.client.get("/oidc/login/?next=/admin/")
+        self.assertRedirects(response, "/admin/login/?next=/admin/", fetch_redirect_response=False)
+
+    @override_settings(PASSWORD_LOGIN_ENABLED=True, AUTHENTICATION_BACKENDS=PASSWORD_BACKENDS)
+    def test_login_unsafe_next_ignored(self):
+        response = self.client.get("/oidc/login/", {"next": "https://evil.example/"})
+        self.assertRedirects(response, "/admin/login/?next=/", fetch_redirect_response=False)
+
+    @override_settings(PASSWORD_LOGIN_ENABLED=False, AUTHENTICATION_BACKENDS=ENTRA_BACKENDS)
+    def test_login_fails_without_password_login(self):
+        with self.assertRaises(EntraNotConfigured):
+            self.client.get("/oidc/login/")

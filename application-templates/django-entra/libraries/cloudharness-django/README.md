@@ -135,7 +135,8 @@ API tests can authenticate without a real Entra user: set `entra.test_tokens: tr
 The password login of local users (e.g. created with `python manage.py createsuperuser`) bypasses
 Entra, with its MFA and conditional access policies. It is enabled only with `PASSWORD_LOGIN_ENABLED`,
 which defaults to `DEBUG` (local development): `ModelBackend` is then added to the authentication
-backends and `/admin/login/` shows the Django password form.
+backends and `/admin/login/` shows the Django password form. If Entra is not configured (no tenant and
+client id), `/oidc/login/` then redirects to `/admin/login/`, and the logout returns to `LOGIN_REDIRECT_URL`.
 
 Otherwise (the default in production) `/admin/login/` sends to the Entra login, local users cannot
 log in and their existing sessions are not accepted, and a logged-in user without the administrator

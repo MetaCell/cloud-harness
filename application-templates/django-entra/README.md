@@ -188,6 +188,8 @@ The Django admin login (`/admin/login/`) goes through Entra too: an administrato
 admin, a logged-in user without the administrator role gets a 403. Local Django accounts
 (`python manage.py createsuperuser`) can log in with a password only when `PASSWORD_LOGIN_ENABLED` is on,
 by default only with `DEBUG` (local development): they bypass Entra MFA and conditional access.
+If Entra is not configured, the login then goes to the password form and the logout only ends the
+Django session.
 Enable it in a deployment only for a break-glass account, and turn it off afterwards.
 
 ### Protecting views and API endpoints

@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 import msal
 from django.conf import settings
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
+from django.contrib.auth.views import redirect_to_login
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseRedirect
 from django.middleware.csrf import get_token
 from django.urls import reverse
@@ -15,6 +16,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 
 from cloudharness import log
 from cloudharness.auth.entra import get_entra_config
+from cloudharness.auth.exceptions import EntraNotConfigured
 
 SESSION_FLOW_KEY = "entra_auth_flow"
 SESSION_NEXT_KEY = "entra_auth_next"
@@ -41,8 +43,19 @@ def safe_next(request, url):
     return settings.LOGIN_REDIRECT_URL
 
 
+def _entra_configured():
+    try:
+        get_entra_config()
+    except EntraNotConfigured:
+        return False
+    return True
+
+
 @require_GET
 def login(request):
+    if settings.PASSWORD_LOGIN_ENABLED and not _entra_configured():
+        # local development without Entra: the password login of the local users
+        return redirect_to_login(safe_next(request, request.GET.get("next")), reverse("admin:login"))
     flow = _get_msal_app().initiate_auth_code_flow(
         SCOPES,
         redirect_uri=request.build_absolute_uri(reverse("oidc_callback")),
@@ -94,5 +107,11 @@ def logout(request):
         # links and bookmarks to the logout page get a confirmation form
         return HttpResponse(f"<h1>Log out</h1>{logout_form(request)}")
     auth_logout(request)
+    try:
+        config = get_entra_config()
+    except EntraNotConfigured:
+        # no Entra session to end (local development without Entra)
+        log.warning("Entra is not configured: logged out of the application only")
+        return HttpResponseRedirect(settings.LOGIN_REDIRECT_URL)
     query = urlencode({"post_logout_redirect_uri": request.build_absolute_uri(settings.LOGIN_REDIRECT_URL)})
-    return HttpResponseRedirect(f"{get_entra_config().logout_url}?{query}")
+    return HttpResponseRedirect(f"{config.logout_url}?{query}")
