@@ -22,6 +22,7 @@ class TemplateType(StrEnum):
     DB_MONGO = 'db-mongo'
     DJANGO_FASTAPI = 'django-fastapi'
     DJANGO_NINJA = 'django-ninja'
+    DJANGO_ENTRA = 'django-entra'
     SERVER = 'server'
 
     @classmethod
@@ -31,6 +32,11 @@ class TemplateType(StrEnum):
     @classmethod
     def django_templates(cls) -> list[str]:
         return [cls.DJANGO_FASTAPI, cls.DJANGO_NINJA]
+
+    @classmethod
+    def standalone_templates(cls) -> list[str]:
+        """Complete application templates, not combined with other templates"""
+        return [cls.DJANGO_ENTRA]
 
 
 @dataclass

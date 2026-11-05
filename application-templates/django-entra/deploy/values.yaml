@@ -1,0 +1,60 @@
+harness:
+  database:
+    auto: true
+    type: postgres
+    postgres:
+      image: postgres:17
+  dependencies:
+    hard: []
+  deployment:
+    auto: true
+    extraContainers:
+      run-migrations:
+        auto: true
+        command:
+        - python
+        - manage.py
+        - locked_migrate
+        initContainer: true
+        # mounts the CloudHarness configuration (database settings) and secrets
+        shareVolume: true
+    port: 8080
+  livenessProbe:
+    path: /api/live
+  readinessProbe:
+    path: /api/ready
+  # authentication is done by the application itself (Microsoft Entra ID), not by a gatekeeper
+  secured: false
+  secrets:
+    # Entra app registration client secret: set it in the CI/CD pipeline,
+    # with `helm --set apps.__APP_NAME__.harness.secrets.entra-client-secret=...` or via a secret manager
+    # "" and not null: helm drops null values, and the secret would not be created/kept
+    entra-client-secret: ""
+    # signs the sessions and the CSRF tokens: empty, CloudHarness generates a random value once
+    django-secret-key: ""
+  # the Kubernetes probes call the pod ip, which must be an allowed host
+  env:
+  - name: POD_IP
+    valueFrom:
+      fieldRef:
+        fieldPath: status.podIP
+  service:
+    auto: true
+    port: 8080
+  subdomain: __APP_NAME__
+  test:
+    api:
+      autotest: true
+      checks:
+      - all
+      enabled: true
+# Microsoft Entra ID (single tenant) OpenID Connect configuration
+entra:
+  # Directory (tenant) ID
+  tenant_id: ""
+  # Application (client) ID of the app registration
+  client_id: ""
+  # Audience of the access tokens accepted by the API, defaults to api://<client_id>
+  api_audience: ""
+  # Change only for national clouds
+  authority_host: https://login.microsoftonline.com

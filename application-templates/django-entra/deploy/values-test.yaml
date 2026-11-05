@@ -1,0 +1,17 @@
+harness:
+  secrets:
+    # PEM public key of the test token signing key: set by the CI/CD pipeline
+    # (generate the pair with `python test/api/entra_token.py keygen`)
+    entra-test-public-key: ""
+  test:
+    api:
+      # the CloudHarness schemathesis autotest can only authenticate through Keycloak:
+      # the schemathesis tests run instead in test/api with test tokens
+      autotest: false
+    e2e:
+      enabled: true
+      # the common CloudHarness smoke test cannot log in: test/e2e does the same checks with a test token
+      smoketest: false
+entra:
+  # accept tokens signed with the test key: test deployments only, never in production
+  test_tokens: true
