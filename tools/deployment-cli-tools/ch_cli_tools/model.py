@@ -79,13 +79,14 @@ classDiagram
 import copy
 import hashlib
 import itertools
+import json
 import logging
 import re
 import shutil
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import lru_cache
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Literal, cast
 
 from cloudharness_model import HarnessMainConfig  # type: ignore
@@ -277,7 +278,7 @@ class CHApp:
 
     @property
     def build_context(self) -> Path:
-        return self.path
+        return dockerfile_directory(self)
 
     def __getitem__(self, key) -> "CHAppTask":
         try:
@@ -457,11 +458,8 @@ class CHApp:
 
     @property
     def image_name(self):
-        return f"{self.project.base_image_name()} / {
-            resolve_path(
-                self.harness_config, 'image_name', default=self.dockerfile.app.name
-            )
-        }"
+        name = resolve_path(self.harness_config, "image_name", default=self.dockerfile.app.name)
+        return str(PurePosixPath(self.project.base_image_name(), name))
 
     @property
     def is_buildable(self) -> bool:
@@ -642,6 +640,15 @@ class CHAppInstance(CHApp):
         return instance_app
 
 
+def dockerfile_directory(entity: "CHApp | CHAppTask") -> Path:
+    """Where an app or task builds from: the directory holding its Dockerfile, which may be a
+    subdirectory (server/, ...) whose files the Dockerfile COPYs as `./...`. An inherited
+    Dockerfile gives the same subdirectory of the entity's own directory, so every layer merged
+    into .overrides/ contributes the same part of its tree."""
+    dockerfile = entity.dockerfile
+    return entity.path / dockerfile.path.resolve().parent.relative_to(dockerfile.app.path.resolve())
+
+
 class CHValues:
     """A values.yaml file, resolved across environments and base layers."""
 
@@ -805,7 +812,7 @@ class CHBaseImage:
 
     @property
     def image_name(self):
-        return f"{self.project.base_image_name()}/{self.name}"
+        return str(PurePosixPath(self.project.base_image_name(), self.name))
 
     def build_dependencies(self) -> list["CHApp | CHBaseImage | CHAppTask | str"]:
         return []
@@ -816,6 +823,14 @@ class CHBaseImage:
 
 class CHTestImage(CHBaseImage):
     """A base image under test/."""
+
+    @property
+    def build_context(self) -> Path:
+        """test-api COPYs the libraries and tools it tests with, so it builds from its layer's
+        root, like the shared base images; the other test images from their own directory."""
+        if self.name == "test-api":
+            return self.containing_project.root
+        return self.path
 
     def _lower_registry(self, lower: "CHProject") -> dict:
         return lower.test_images
@@ -856,7 +871,7 @@ class CHAppTask:
 
     @property
     def build_context(self) -> Path:
-        return self.path
+        return dockerfile_directory(self)
 
     @property
     def readme(self) -> Path:
@@ -1381,6 +1396,20 @@ class CHProject:
         entities.update(self.test_images)
         return entities
 
+    def _hashed_build_args(self, entity) -> dict[str, str]:
+        """Build args that change an image without changing its context: the pinned
+        source images its own Dockerfile FROMs (as resolved project-wide) and the
+        app's own dockerfile.buildArgs. Folded into the content hash so bumping a
+        base image version invalidates the tag."""
+        source_images = self.all_source_images()
+        args = {
+            key: source_images[key]
+            for key in entity.dockerfile.base_images
+            if key in source_images
+        }
+        args.update(getattr(entity, "build_args", None) or {})
+        return {key: str(value) for key, value in args.items()}
+
     @lru_cache
     def _content_hash_tags(self) -> dict[str, str]:
         """Content-hash tags per entity, folding in each dependency's own hash; cycle-safe."""
@@ -1391,9 +1420,13 @@ class CHProject:
 
         def own_hash(entity) -> str:
             if entity.name not in own_hashes:
-                own_hashes[entity.name] = content_hash(
-                    entity.dockerfile.app.build_context
-                )
+                digest = content_hash(entity.dockerfile.app.build_context)
+                build_args = self._hashed_build_args(entity)
+                if build_args:
+                    digest = hashlib.sha1(
+                        (digest + json.dumps(build_args, sort_keys=True)).encode("utf-8")
+                    ).hexdigest()
+                own_hashes[entity.name] = digest
             return own_hashes[entity.name]
 
         def resolve(entity) -> str:
@@ -1601,6 +1634,7 @@ class CHDeployConfig:
     chart_name: str | None = field(default=None, kw_only=True)
     chart_version: str | None = field(default=None, kw_only=True)
     app_version: str | None = field(default=None, kw_only=True)
+    ci_runner: str | None = field(default=None, kw_only=True)
 
     @property
     def envs(self) -> list[str]:

@@ -61,15 +61,28 @@ CHSkaffold.generate() algorithm:
 6. tagPolicy is envTemplate for compose or an explicit external tag, sha256
    content-hash otherwise.
 7. The deploy block is either a compose block (useCompose + image list) or
-   a helm block with per-app/task image overrides and entrypoint
-   overrides.
+   a helm block - release named after the namespace - setting each app's and
+   task's image to the one skaffold built (setValueTemplates) and the
+   entrypoint overrides. The template declares the newest skaffold schema
+   (the one of the skaffold the CI installs, CI_API_VERSION).
 """
 
+import json
+import re
+import shlex
 from functools import lru_cache
 from pathlib import Path
 
+from . import ci
 from .model import CHValues, register_file
 from .utils import dict_merge  # type: ignore
+
+BUILD_CACHE_TAG = "buildcache"
+BRANCH_TAG_VARIABLE = "CH_BRANCH_TAG"
+IMAGES_FILE_NAME = "skaffold-images.json"
+# deploy.tolerateFailuresUntilDeadline needs a v4 schema: the newest of the skaffold the CI installs (v2.25.0)
+CI_API_VERSION = "skaffold/v4beta14"
+STATUS_CHECK_DEADLINE_SECONDS = 900
 
 # tools/clone.sh, shipped alongside this package - not part of any deployed
 # project, so it's located relative to this file, not project.root/ch_path.
@@ -91,6 +104,22 @@ class CHSkaffoldTemplate(CHValues):
         if base is None:
             return own
         return dict_merge(base.skaffold_template.all_values(), own)
+
+
+def image_value_template(image: str) -> str:
+    """A helm `setValueTemplates` value skaffold fills with the image it built, tag included."""
+    return "{{.IMAGE_FULLY_QUALIFIED_%s}}" % re.sub(r"[./:-]", "_", image)
+
+
+def helm_release(project) -> dict:
+    """The name and namespace of the chart's helm release: both the configured namespace or the
+    helm values' default one, as the CI deploys; the chart's name when there is no namespace at
+    all (helm requires a release name)."""
+    values = project.all_values()
+    namespace = project.config.namespace or values.get("namespace")
+    if not namespace:
+        return {"name": values["name"]}
+    return {"name": namespace, "namespace": namespace}
 
 
 @register_file("skaffold", lambda root: root / "skaffold.yaml")
@@ -205,6 +234,10 @@ class CHSkaffold(CHValues):
                 "context": str(context.path),
                 "docker": self._build_docker_options(context.dockerfile.path),
             }
+            # a task FROMs its base image too (ARG CLOUDHARNESS_BASE): skaffold passes it by alias
+            requires = self._requires_for(task)
+            if requires:
+                artifact["requires"] = requires
             artifacts.append(artifact)
             overrides[task.name] = artifact["image"]
         return artifacts, overrides
@@ -307,7 +340,9 @@ class CHSkaffold(CHValues):
         if project.config.backend == "compose" or (
             project.config.tag and not project.config.local
         ):
-            build["tagPolicy"] = {"envTemplate": {"template": '"{{.TAG}}"'}}
+            # the configured tag, or $TAG (skaffold falls back to `latest` when unset); a quoted
+            # template would make every tag invalid, which skaffold also turns into `latest`
+            build["tagPolicy"] = {"envTemplate": {"template": project.config.tag or "{{.TAG}}"}}
         elif not build.get("tagPolicy"):
             # Checked for falsy, not just absent: the default skaffold-template.yaml
             # already ships an empty `build.tagPolicy: {}`, so a plain `setdefault`
@@ -325,15 +360,19 @@ class CHSkaffold(CHValues):
             deploy = base.setdefault("deploy", {})
             releases = deploy.setdefault("helm", {}).setdefault("releases", [{}])
             release_config = releases[0]
-            if project.config.namespace:
-                release_config["name"] = project.config.namespace
-                release_config["namespace"] = project.config.namespace
-            artifact_overrides = release_config.setdefault("artifactOverrides", {})
-            artifact_overrides["apps"] = {
-                name: {"harness": {"deployment": {"image": image}}}
+            release_config.update(helm_release(project))
+            # every built image reaches the chart through the value skaffold templates with its tag
+            images = {
+                f"apps.{name}.harness.deployment.image": image
                 for name, image in app_image_overrides.items()
             }
-            artifact_overrides["task-images"] = task_image_overrides
+            images.update(
+                {f"task-images.{name}": image for name, image in task_image_overrides.items()}
+            )
+            release_config["setValueTemplates"] = {
+                **(release_config.get("setValueTemplates") or {}),
+                **{key: image_value_template(image) for key, image in images.items()},
+            }
 
             release_config.setdefault("overrides", {})["apps"] = entrypoint_overrides
 
@@ -341,3 +380,190 @@ class CHSkaffold(CHValues):
             self.write(base, output_path=output_path)
 
         return base
+
+
+def tag_template(tags: dict[str, str]) -> str:
+    """An envTemplate tag policy giving every image its own tag: skaffold has a single
+    tag policy for all the artifacts, so it looks the image up in a table."""
+    table = " ".join(f"{json.dumps(image)} {json.dumps(tag)}" for image, tag in tags.items())
+    return "{{ index (dict %s) .IMAGE_NAME }}" % table
+
+
+def buildx_command(image: str, dockerfile: str, build_args: dict[str, str], extra_tags=()) -> str:
+    """The shell command a custom skaffold artifact builds and pushes `image` with, from its
+    context directory: tagged `$IMAGE` (skaffold's tag), the extra tags and `$CH_BRANCH_TAG`
+    when set, with the image's registry cache."""
+    cache = f"{image}:{BUILD_CACHE_TAG}"
+    parts = [
+        "docker buildx build --push",
+        f"--file {shlex.quote(dockerfile)}",
+        '--tag "$IMAGE"',
+        *(f"--tag {shlex.quote(f'{image}:{tag}')}" for tag in extra_tags),
+        f"${{{BRANCH_TAG_VARIABLE}:+--tag {image}:${BRANCH_TAG_VARIABLE}}}",
+        # value from the environment: a different one on every run busts the layers using it
+        "--build-arg NOCACHE",
+        *(f"--build-arg {shlex.quote(f'{key}={value}')}" for key, value in build_args.items()),
+        f"--cache-from type=registry,ref={cache}",
+        f"--cache-to type=registry,ref={cache},mode=max",
+        ".",
+    ]
+    return " ".join(parts)
+
+
+def unit_test_command(commands) -> str:
+    """A custom skaffold test running an app's unit test commands in its image, through the image's shell."""
+    script = "\n".join(["set -e", *commands])
+    return f'docker run --rm "$IMAGE" sh -c {shlex.quote(script)}'
+
+
+@register_file("skaffold_ci", lambda root: root / "deployment" / "skaffold-ci.yaml")
+class CHSkaffoldCI(CHValues):
+    """deployment/skaffold-ci.yaml: what a CI run still has to build, the unit tests and the deployment.
+
+    Written at pipeline run time (`harness-deployment --write-skaffold-ci`), once
+    `ci.image_tag_env` has asked the registry which tags exist: the artifacts are only
+    the images whose tag is missing or forced. Since an image's content-hash tag folds
+    in the tags of the images it is built on, a changed base image is rebuilt along
+    with everything built on it. Every base image reaches a Dockerfile as a build arg
+    naming its tag in the registry, so the ones not rebuilt are pulled; `requires`
+    lists the ones built in the same run, which skaffold builds first.
+
+    Each artifact is a custom build running `docker buildx build --push` with the
+    image's registry cache (`<image>:buildcache`, mode=max): skaffold orders the
+    builds, runs them in parallel and tags each image from the table in its tag
+    policy. Run from the project root with `skaffold build -f
+    deployment/skaffold-ci.yaml --cache-artifacts=false`; NOCACHE and
+    CH_BRANCH_TAG come from the environment.
+
+    The `test` section runs the unit tests of every app that has some, rebuilt or
+    not: `skaffold build` does not test, `skaffold test -f deployment/skaffold-ci.yaml
+    --build-artifacts deployment/skaffold-images.json` does, against the images
+    listed in skaffold-images.json - every image of the deployment with its tag. So
+    an image pushed by a run whose tests then failed is tested again on the next run.
+
+    The `deploy` section installs or upgrades the helm chart harness-deployment wrote
+    (release and namespace named after the deployment namespace), then waits until
+    its deployments and statefulsets are rolled out:
+    `skaffold deploy -f deployment/skaffold-ci.yaml --build-artifacts
+    deployment/skaffold-images.json --label skaffold.dev/run-id=<constant>`. The
+    constant label matters: skaffold labels every pod template with its run id, a new
+    one per run unless overridden, which would restart every pod on every deployment.
+    Secret values come from files the pipeline writes under ~/.cloudharness/secrets
+    (`ci.HelmSecretValue.file_name`), passed with `--set-file`.
+    """
+
+    @property
+    def images_path(self) -> Path:
+        return self.path.with_name(IMAGES_FILE_NAME)
+
+    def images(self) -> dict:
+        """Every image of the deployment with the tag it is deployed with, in skaffold's build
+        output format (`skaffold test --build-artifacts`)."""
+        project = self.project
+        entities = {**ci.build_entities(project), **ci.test_runner_images(project)}
+        return {
+            "builds": [
+                {"imageName": project.qualify(entity.image_name), "tag": project.qualify_image(entity)}
+                for entity in entities.values()
+            ]
+        }
+
+    def _tests(self) -> list[dict]:
+        return [
+            {
+                "image": self.project.qualify(app.image_name),
+                "custom": [{"command": unit_test_command(app.test.unit.commands)}],
+            }
+            for app in ci.buildable_apps(self.project)
+            if app.test.unit.commands
+        ]
+
+    def _deploy(self) -> dict:
+        project = self.project
+        release = {
+            **helm_release(project),
+            "chartPath": str(
+                (self.path.parent / "helm").resolve().relative_to(project.root.resolve(), walk_up=True)
+            ),
+            "createNamespace": True,
+            # the chart is deployed as harness-deployment wrote it: no `helm dependency build`
+            "skipBuildDependencies": True,
+        }
+        secrets = ci.deployment_secret_values(project)
+        if secrets:
+            release["setFiles"] = {
+                value.key: f"~/{ci.SECRETS_HOME_DIR}/{value.file_name}" for value in secrets
+            }
+        return {
+            "statusCheckDeadlineSeconds": STATUS_CHECK_DEADLINE_SECONDS,
+            # an app restarting while what it depends on starts up only fails at the deadline
+            "tolerateFailuresUntilDeadline": True,
+            "helm": {"releases": [release]},
+        }
+
+    def _context(self, entity) -> tuple[str, str]:
+        """The merged build context, relative to the project root (skaffold resolves contexts from
+        the directory it runs in, not from the file's), and the Dockerfile, relative to the context."""
+        root = self.project.root
+        context = entity.dockerfile.resolve_context(root).resolve_for_build(root)
+        path = (root / context.path).resolve().relative_to(root.resolve(), walk_up=True)
+        return str(path), str(context.dockerfile.path)
+
+    def _artifact(self, entity, image: str, building: dict, extra_tags=()) -> dict:
+        project = self.project
+        context, dockerfile = self._context(entity)
+        build_args = {}
+        if project.config.local or project.config.debug:
+            build_args["DEBUG"] = "true"
+        requires = []
+        for dependency in ci.build_dependencies(project, entity):
+            alias = ci.env_key(dependency.name)
+            build_args[alias] = project.qualify_image(dependency)
+            if dependency.name in building:
+                requires.append({"image": project.qualify(dependency.image_name), "alias": alias})
+        build_args.update(project.all_source_images())
+        build_args.update(getattr(entity, "build_args", None) or {})
+        artifact = {
+            "image": image,
+            "context": context,
+            "custom": {"buildCommand": buildx_command(image, dockerfile, build_args, extra_tags)},
+        }
+        if requires:
+            artifact["requires"] = requires
+        return artifact
+
+    def generate(self, image_env: dict[str, str], write_on_disk=True) -> dict:
+        project = self.project
+        test_images = ci.test_runner_images(project)
+        building = {
+            name: entity
+            for name, entity in {**ci.build_entities(project), **test_images}.items()
+            if not ci.tag_exists(image_env, name)
+        }
+        tags = {}
+        artifacts = []
+        for name, entity in building.items():
+            image = project.qualify(entity.image_name)
+            tags[image] = ci.ImageReference.parse(project.qualify_image(entity)).tag
+            # the stage pipeline, which builds nothing, runs the tests in the `latest` test images
+            extra_tags = ("latest",) if name in test_images else ()
+            artifacts.append(self._artifact(entity, image, building, extra_tags))
+
+        plan = {
+            "apiVersion": CI_API_VERSION,
+            "kind": "Config",
+            "build": {
+                "tagPolicy": {"envTemplate": {"template": tag_template(tags)}},
+                # the custom builds push; skaffold then reads each image's digest from the registry
+                "local": {"push": True, "concurrency": 0},
+                "artifacts": artifacts,
+            },
+        }
+        tests = self._tests()
+        if tests:
+            plan["test"] = tests
+        plan["deploy"] = self._deploy()
+        if write_on_disk:
+            self.write(plan)
+            self.images_path.write_text(json.dumps(self.images(), indent=2) + "\n", encoding="utf-8")
+        return plan
