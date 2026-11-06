@@ -165,6 +165,82 @@ def test_git_dependency_checkouts(tmp_path):
     assert not [s for s in _steps(jobs["build-samples"], "Clone ") if s["name"] != "Clone cloud-harness"]
 
 
+def test_merged_contexts_travel_as_their_own_artifacts(tmp_path):
+    # sentry overrides cloud-harness' own app, Dockerfile included: built from .overrides/sentry;
+    # my-base is the project's own base image, built from the project root
+    write_tree_from_yaml(
+        tmp_path,
+        """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+            mainapp: sentry
+        infrastructure:
+          base-images:
+            my-base:
+              Dockerfile: |
+                FROM scratch
+        applications:
+          sentry:
+            Dockerfile: |
+              FROM scratch
+            deploy:
+              values.yaml: |
+                harness:
+                  dependencies:
+                    build:
+                      - my-base
+                    git:
+                      - url: https://github.com/a/b.git
+                        branch_tag: master
+    """,
+    )
+    project = chain(
+        CLOUDHARNESS_ROOT,
+        tmp_path,
+        config=CHDeployConfig(env="dev", registry="reg", tag="1", output_path=str(tmp_path / "deployment")),
+    )
+    jobs = project.github_actions.generate(write_on_disk=False)["jobs"]
+
+    def artifact_steps(job, action):
+        return [step for step in job["steps"] if step.get("uses") == f"actions/{action}-artifact@v4"]
+
+    deployment, upload = artifact_steps(jobs["prepare"], "upload")
+    assert deployment["with"]["name"] == "cloudharness-deployment"
+    assert deployment["with"]["path"] == "deployment"
+    assert upload["with"] == {
+        "name": "cloudharness-overrides-sentry",
+        "path": ".overrides/sentry",
+        "include-hidden-files": True,
+        "if-no-files-found": "error",
+    }
+    assert upload["if"] == "${{ steps.images.outputs.SENTRY_TAG_EXISTS != '1' }}"
+    # prepare clones the git dependency before harness-deployment merges the context
+    step_names = [step.get("name") for step in jobs["prepare"]["steps"]]
+    assert step_names.index("Clone b") < step_names.index("Prepare helm chart")
+
+    build = jobs["build-sentry"]
+    assert _step(build, "build")["with"]["context"] == "./.overrides/sentry"
+    assert [step["with"] for step in artifact_steps(build, "download")] == [
+        {"name": "cloudharness-overrides-sentry", "path": ".overrides/sentry"}
+    ]
+    assert not _steps(build, "Clone b"), "the merged context already holds the git dependency"
+    assert _step(jobs["build-my-base"], "build")["with"]["context"] == "./."
+    for name, job in jobs.items():
+        if name.startswith("build-") and name != "build-sentry":
+            assert not artifact_steps(job, "download"), f"{name} builds from the checkout"
+    assert [step["with"] for step in artifact_steps(jobs["deploy"], "download")] == [
+        {"name": "cloudharness-deployment", "path": "deployment"}
+    ]
+
+    # prepare's harness-deployment writes .overrides/ through skaffold and tilt, not through this
+    # generator: every context it uploads must come out of those two
+    shutil.rmtree(tmp_path / ".overrides")
+    project.skaffold.generate(write_on_disk=False)
+    project.tilt.generate(write_on_disk=False)
+    assert (tmp_path / upload["with"]["path"] / "Dockerfile").exists()
+
+
 def test_prepare_outputs_cover_every_build(tmp_path):
     wf, _ = _generate(tmp_path, ["samples", "myapp"])
     outputs = wf["jobs"]["prepare"]["outputs"]
@@ -218,6 +294,9 @@ def test_api_and_e2e_test_jobs(tmp_path):
     assert "-e APP_URL" in step["run"]
     assert '-v "$GITHUB_WORKSPACE/cloud-harness/applications/samples:/home/test"' in step["run"]
     assert "/opt/cloudharness/resources/allvalues.yaml" in step["run"]
+    assert {"name": "cloudharness-deployment", "path": "deployment"} in [
+        s["with"] for s in api["steps"] if s.get("uses") == "actions/download-artifact@v4"
+    ], "the mounted values.yaml comes from the deployment artifact"
     assert "-w /home/test" in step["run"]
     commands = step["env"]["CH_TEST_COMMANDS"].splitlines()
     assert "--pre-run cloudharness_test.apitest_init" in commands[1]

@@ -14,8 +14,10 @@ What differs from Codefresh, and shapes the template:
   file goes: `.github/workflows/cloudharness-<env>.yaml` in the project root.
 - Triggers (`on:`) are part of the file, hence of the per-environment template.
 - Every job runs on a fresh runner: each one checks out what it needs, images
-  travel between jobs through the registry, the helm chart and the merged
-  `.overrides/` contexts travel as a workflow artifact.
+  travel between jobs through the registry, the helm chart travels as a
+  workflow artifact. An image built from a context merged across layers
+  (`.overrides/<image>`, written by prepare's harness-deployment) gets its own
+  artifact, downloaded only by that image's build job.
 - A job whose `needs` were skipped is skipped too unless its `if` says
   otherwise; since build jobs are skipped on purpose, every dependent job gets
   a guard (`apply_needs_guards`) that tolerates skipped builds but not failures.
@@ -31,7 +33,9 @@ across cloud-harness and the project exactly like the Codefresh templates):
   generated. Inside a prototype `$CH_NAME`, `$CH_IMAGE` and `$CH_TAG` stand for
   the image being expanded.
 - A string item in a `steps` list is a fragment the generator fills:
-  `$GIT_CLONES`, `$PUBLISH_STEPS`, `$HELM_SECRETS_STEPS`, `$ROLLOUT_STEPS`,
+  `$GIT_CLONES`, `$UPLOAD_OVERRIDES` (prepare: one artifact per merged
+  context), `$DOWNLOAD_OVERRIDES` (build: this image's merged context, if
+  any), `$PUBLISH_STEPS`, `$HELM_SECRETS_STEPS`, `$ROLLOUT_STEPS`,
   `$TEST_STEPS`, and `$KUBE_AUTH`, the steps giving kubectl/helm access to the
   cluster, taken from the template's own `cloudharness.kube_auth` list so a
   project changes the authentication method in one place. The top-level
@@ -47,6 +51,7 @@ across cloud-harness and the project exactly like the Codefresh templates):
 """
 
 import copy
+import dataclasses
 import json
 import logging
 import re
@@ -58,7 +63,7 @@ from ruamel.yaml.scalarstring import LiteralScalarString
 
 from . import ci
 from .model import CHValues, register_file
-from .utils import GeneratedYAML, dict_merge, pipeline_relative_path  # type: ignore
+from .utils import MERGE_DIRNAME, GeneratedYAML, dict_merge, pipeline_relative_path  # type: ignore
 
 WORKFLOW_FILE_NAME = "cloudharness.yaml"
 DEFAULT_RUNNER = "ubuntu-latest"
@@ -77,6 +82,8 @@ JOB_PUBLISH = "publish"
 PROTOTYPE_JOBS = (JOB_BUILD, JOB_BUILD_TEST_IMAGES, JOB_UNIT_TESTS, JOB_API_TESTS, JOB_E2E_TESTS)
 
 FRAGMENT_GIT_CLONES = "$GIT_CLONES"
+FRAGMENT_UPLOAD_OVERRIDES = "$UPLOAD_OVERRIDES"
+FRAGMENT_DOWNLOAD_OVERRIDES = "$DOWNLOAD_OVERRIDES"
 FRAGMENT_PUBLISH_STEPS = "$PUBLISH_STEPS"
 FRAGMENT_HELM_SECRETS = "$HELM_SECRETS_STEPS"
 FRAGMENT_ROLLOUT = "$ROLLOUT_STEPS"
@@ -311,6 +318,7 @@ def tag_output(name: str) -> str:
 class BuildContext:
     path: str  # docker build context, relative to the workflow's checkout root
     dockerfile: str  # Dockerfile, relative to the context
+    artifact: str | None = None  # workflow artifact carrying a merged context from prepare
 
 
 # --- generator ------------------------------------------------------------------
@@ -438,6 +446,37 @@ class CHGithubActions(CHValues):
                     )
         return steps
 
+    def _upload_overrides_steps(self, contexts: dict[str, BuildContext]) -> list[dict]:
+        return [
+            {
+                "name": f"Share the merged {name} build context",
+                # an image whose tag exists is not built, so nobody downloads its context
+                "if": combine_conditions(
+                    f"steps.{STEP_IMAGES}.outputs.{ci.tag_variable(name)}_EXISTS != '1'"
+                ),
+                "uses": "actions/upload-artifact@v4",
+                "with": {
+                    "name": context.artifact,
+                    "path": context.path,
+                    "include-hidden-files": True,
+                    "if-no-files-found": "error",
+                },
+            }
+            for name, context in contexts.items()
+            if context.artifact
+        ]
+
+    def _download_overrides_steps(self, name: str, context: BuildContext) -> list[dict]:
+        if not context.artifact:
+            return []
+        return [
+            {
+                "name": f"Download the merged {name} build context",
+                "uses": "actions/download-artifact@v4",
+                "with": {"name": context.artifact, "path": context.path},
+            }
+        ]
+
     def _publish_steps(self, entities: dict) -> list[dict]:
         steps = []
         for name, entity in entities.items():
@@ -533,7 +572,7 @@ class CHGithubActions(CHValues):
         args.update(getattr(entity, "build_args", None) or {})
         return [f"{key}={value}" for key, value in args.items()]
 
-    def _build_job(self, prototype, entity, build_ids, fragments, extra_tags=()):
+    def _build_job(self, prototype, entity, context, build_ids, fragments, extra_tags=()):
         name = entity.name
         image = self.qualify(entity.image_name)
         tag_var = ci.tag_variable(name)
@@ -559,11 +598,15 @@ class CHGithubActions(CHValues):
         )
         steps = expand_steps(
             job.get("steps"),
-            {**fragments, FRAGMENT_GIT_CLONES: self._git_clone_steps([entity])},
+            {
+                **fragments,
+                # prepare clones the git dependencies before merging: a shared context has them
+                FRAGMENT_GIT_CLONES: [] if context.artifact else self._git_clone_steps([entity]),
+                FRAGMENT_DOWNLOAD_OVERRIDES: self._download_overrides_steps(name, context),
+            },
         )
         build = step_by_id(steps, STEP_BUILD)
         if build is not None:
-            context = self._context_for(entity)
             with_ = build.setdefault("with", {})
             with_["context"] = f"./{context.path}"
             with_["file"] = f"./{context.path}/{context.dockerfile}"
@@ -679,6 +722,18 @@ class CHGithubActions(CHValues):
                 if users and image is not None and image.dockerfile.exists():
                     test_entities[name] = image
 
+        # prepare's harness-deployment merges the contexts of apps, tasks and build dependencies
+        # again (skaffold, tilt), not those of test images: only the former can be shared
+        contexts = {}
+        if JOB_BUILD in jobs:
+            for name, entity in entities.items():
+                context = self._context_for(entity)
+                if Path(context.path).parts[:1] == (MERGE_DIRNAME,):
+                    context = dataclasses.replace(context, artifact=f"cloudharness-overrides-{name}")
+                contexts[name] = context
+            for name, image in test_entities.items():
+                contexts[name] = self._context_for(image)
+
         build_ids = {name: job_id(f"{JOB_BUILD}-{name}") for name in [*entities, *test_entities]}
         unit_ids = {app.name: job_id(f"{JOB_UNIT_TESTS}-{app.name}") for app in unit_apps}
         api_ids = {app.name: job_id(f"{JOB_API_TESTS}-{app.name}") for app in api_apps}
@@ -687,6 +742,8 @@ class CHGithubActions(CHValues):
 
         fragments = {
             FRAGMENT_GIT_CLONES: self._git_clone_steps(apps),
+            FRAGMENT_UPLOAD_OVERRIDES: self._upload_overrides_steps(contexts),
+            FRAGMENT_DOWNLOAD_OVERRIDES: [],
             FRAGMENT_PUBLISH_STEPS: self._publish_steps({**entities, **test_entities}),
             FRAGMENT_HELM_SECRETS: self._helm_secrets_steps(),
             FRAGMENT_ROLLOUT: self._rollout_steps(),
@@ -720,7 +777,7 @@ class CHGithubActions(CHValues):
                     entities.items(),
                     lambda item: (
                         build_ids[item[0]],
-                        self._build_job(job, item[1], build_ids, fragments),
+                        self._build_job(job, item[1], contexts[item[0]], build_ids, fragments),
                     ),
                 )
             elif key == JOB_BUILD_TEST_IMAGES:
@@ -731,7 +788,12 @@ class CHGithubActions(CHValues):
                     lambda item: (
                         build_ids[item[0]],
                         self._build_job(
-                            prototype, item[1], build_ids, fragments, extra_tags=("latest",)
+                            prototype,
+                            item[1],
+                            contexts[item[0]],
+                            build_ids,
+                            fragments,
+                            extra_tags=("latest",),
                         ),
                     ),
                 )

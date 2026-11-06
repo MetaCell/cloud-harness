@@ -1,4 +1,4 @@
-# Generated with: harness-deployment . -i samples -e test -ci github
+# Generated with: harness-deployment . -e test -i samples -ci github
 name: CloudHarness test
 on:
   pull_request:
@@ -133,12 +133,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cloudharness-deployment
-          path: |
-            deployment
-            .overrides
+          path: deployment
           include-hidden-files: true
           if-no-files-found: error
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
   build-accounts:
     name: Build accounts
     needs:
@@ -151,10 +149,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -192,8 +186,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/accounts:${{ needs.prepare.outputs.ACCOUNTS_TAG }}
             ${{ vars.REGISTRY }}/cloud-harness/accounts:${{ needs.prepare.outputs.branch_tag }}
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',accounts,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.ACCOUNTS_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   build-common:
     name: Build common
     needs:
@@ -207,10 +201,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -249,8 +239,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/common:${{ needs.prepare.outputs.COMMON_TAG }}
             ${{ vars.REGISTRY }}/cloud-harness/common:${{ needs.prepare.outputs.branch_tag }}
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',common,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.COMMON_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   build-jupyterhub:
     name: Build jupyterhub
     needs:
@@ -264,10 +254,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -306,8 +292,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/jupyterhub:${{ needs.prepare.outputs.JUPYTERHUB_TAG }}
             ${{ vars.REGISTRY }}/cloud-harness/jupyterhub:${{ needs.prepare.outputs.branch_tag }}
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',jupyterhub,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.JUPYTERHUB_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   build-nfsserver:
     name: Build nfsserver
     needs:
@@ -320,10 +306,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -361,8 +343,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/nfsserver:${{ needs.prepare.outputs.NFSSERVER_TAG }}
             ${{ vars.REGISTRY }}/cloud-harness/nfsserver:${{ needs.prepare.outputs.branch_tag }}
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',nfsserver,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.NFSSERVER_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   build-samples:
     name: Build samples
     needs:
@@ -378,10 +360,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -423,8 +401,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/sampleapp:${{ needs.prepare.outputs.SAMPLES_TAG }}
             ${{ vars.REGISTRY }}/cloud-harness/sampleapp:${{ needs.prepare.outputs.branch_tag }}
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',samples,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.SAMPLES_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   build-samples-print-file:
     name: Build samples-print-file
     needs:
@@ -438,10 +416,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -480,8 +454,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/sampleapp-print-file:${{ needs.prepare.outputs.SAMPLES_PRINT_FILE_TAG }}
             ${{ vars.REGISTRY }}/cloud-harness/sampleapp-print-file:${{ needs.prepare.outputs.branch_tag }}
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',samples-print-file,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.SAMPLES_PRINT_FILE_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   build-samples-sum:
     name: Build samples-sum
     needs:
@@ -495,10 +469,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -537,8 +507,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/sampleapp-sum:${{ needs.prepare.outputs.SAMPLES_SUM_TAG }}
             ${{ vars.REGISTRY }}/cloud-harness/sampleapp-sum:${{ needs.prepare.outputs.branch_tag }}
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',samples-sum,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.SAMPLES_SUM_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   build-samples-secret:
     name: Build samples-secret
     needs:
@@ -552,10 +522,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -594,8 +560,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/sampleapp-secret:${{ needs.prepare.outputs.SAMPLES_SECRET_TAG }}
             ${{ vars.REGISTRY }}/cloud-harness/sampleapp-secret:${{ needs.prepare.outputs.branch_tag }}
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',samples-secret,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.SAMPLES_SECRET_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   build-volumemanager:
     name: Build volumemanager
     needs:
@@ -609,10 +575,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -651,8 +613,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/volumemanager:${{ needs.prepare.outputs.VOLUMEMANAGER_TAG }}
             ${{ vars.REGISTRY }}/cloud-harness/volumemanager:${{ needs.prepare.outputs.branch_tag }}
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',volumemanager,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.VOLUMEMANAGER_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   build-workflows:
     name: Build workflows
     needs:
@@ -666,10 +628,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -708,8 +666,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/workflows:${{ needs.prepare.outputs.WORKFLOWS_TAG }}
             ${{ vars.REGISTRY }}/cloud-harness/workflows:${{ needs.prepare.outputs.branch_tag }}
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',workflows,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.WORKFLOWS_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   build-workflows-notify-queue:
     name: Build workflows-notify-queue
     needs:
@@ -723,10 +681,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -765,8 +719,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/workflows-notify-queue:${{ needs.prepare.outputs.WORKFLOWS_NOTIFY_QUEUE_TAG }}
             ${{ vars.REGISTRY }}/cloud-harness/workflows-notify-queue:${{ needs.prepare.outputs.branch_tag }}
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',workflows-notify-queue,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.WORKFLOWS_NOTIFY_QUEUE_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   build-workflows-send-result-event:
     name: Build workflows-send-result-event
     needs:
@@ -780,10 +734,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -822,8 +772,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/workflows-send-result-event:${{ needs.prepare.outputs.WORKFLOWS_SEND_RESULT_EVENT_TAG }}
             ${{ vars.REGISTRY }}/cloud-harness/workflows-send-result-event:${{ needs.prepare.outputs.branch_tag }}
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',workflows-send-result-event,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.WORKFLOWS_SEND_RESULT_EVENT_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   build-workflows-extract-download:
     name: Build workflows-extract-download
     needs:
@@ -837,10 +787,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -879,8 +825,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/workflows-extract-download:${{ needs.prepare.outputs.WORKFLOWS_EXTRACT_DOWNLOAD_TAG }}
             ${{ vars.REGISTRY }}/cloud-harness/workflows-extract-download:${{ needs.prepare.outputs.branch_tag }}
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',workflows-extract-download,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.WORKFLOWS_EXTRACT_DOWNLOAD_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   build-cloudharness-flask:
     name: Build cloudharness-flask
     needs:
@@ -894,10 +840,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -936,8 +878,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/cloudharness-flask:${{ needs.prepare.outputs.CLOUDHARNESS_FLASK_TAG }}
             ${{ vars.REGISTRY }}/cloud-harness/cloudharness-flask:${{ needs.prepare.outputs.branch_tag }}
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',cloudharness-flask,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.CLOUDHARNESS_FLASK_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   build-cloudharness-base:
     name: Build cloudharness-base
     needs:
@@ -950,10 +892,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -991,8 +929,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/cloudharness-base:${{ needs.prepare.outputs.CLOUDHARNESS_BASE_TAG }}
             ${{ vars.REGISTRY }}/cloud-harness/cloudharness-base:${{ needs.prepare.outputs.branch_tag }}
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',cloudharness-base,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.CLOUDHARNESS_BASE_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   build-cloudharness-django:
     name: Build cloudharness-django
     needs:
@@ -1006,10 +944,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -1048,8 +982,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/cloudharness-django:${{ needs.prepare.outputs.CLOUDHARNESS_DJANGO_TAG }}
             ${{ vars.REGISTRY }}/cloud-harness/cloudharness-django:${{ needs.prepare.outputs.branch_tag }}
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',cloudharness-django,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.CLOUDHARNESS_DJANGO_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   build-cloudharness-frontend-build:
     name: Build cloudharness-frontend-build
     needs:
@@ -1062,10 +996,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -1103,8 +1033,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/cloudharness-frontend-build:${{ needs.prepare.outputs.CLOUDHARNESS_FRONTEND_BUILD_TAG }}
             ${{ vars.REGISTRY }}/cloud-harness/cloudharness-frontend-build:${{ needs.prepare.outputs.branch_tag }}
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',cloudharness-frontend-build,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.CLOUDHARNESS_FRONTEND_BUILD_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   build-test-api:
     name: Build test-api
     needs:
@@ -1118,10 +1048,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -1161,8 +1087,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/test-api:${{ needs.prepare.outputs.branch_tag }}
             ${{ vars.REGISTRY }}/cloud-harness/test-api:latest
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',test-api,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.TEST_API_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   build-test-e2e:
     name: Build test-e2e
     needs:
@@ -1175,10 +1101,6 @@ jobs:
           repository: MetaCell/cloud-harness
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -1217,8 +1139,8 @@ jobs:
             ${{ vars.REGISTRY }}/cloud-harness/test-e2e:${{ needs.prepare.outputs.branch_tag }}
             ${{ vars.REGISTRY }}/cloud-harness/test-e2e:latest
         if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',test-e2e,') }}
+    runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
     if: ${{ (needs.prepare.outputs.TEST_E2E_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
-    runs-on: ubuntu-latest
   tests-unit-samples:
     name: Unit tests samples
     needs:
@@ -1240,7 +1162,7 @@ jobs:
           docker run --rm \
             "$CH_TEST_IMAGE" sh -c "$CH_TEST_COMMANDS"
     if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
   deploy:
     name: Deploy
     needs:
@@ -1270,7 +1192,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: cloudharness-deployment
-          path: .
+          path: deployment
       - uses: azure/setup-helm@v4
       - uses: azure/setup-kubectl@v4
       - name: Configure kubectl
@@ -1305,7 +1227,7 @@ jobs:
           NAMESPACE: ${{ needs.prepare.outputs.namespace }}
         run: helm upgrade --install "$NAMESPACE" deployment/helm -n "$NAMESPACE" $HELM_FLAGS -f deployment/helm/values.yaml $HELM_SET_ARGS
     if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success' && needs.tests-unit-samples.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
   wait-deployment:
     name: Wait for the deployment
     needs:
@@ -1345,7 +1267,7 @@ jobs:
           kubectl rollout status deployment/volumemanager
           kubectl rollout status deployment/workflows
           sleep 60
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
   tests-api-common:
     name: API tests common
     needs:
@@ -1364,7 +1286,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: cloudharness-deployment
-          path: .
+          path: deployment
       - uses: docker/login-action@v3
         with:
           registry: ${{ needs.prepare.outputs.registry_host }}
@@ -1384,7 +1306,7 @@ jobs:
             -v "$GITHUB_WORKSPACE/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml" \
             -w /home/test \
             "$CH_TEST_IMAGE" sh -c "$CH_TEST_COMMANDS"
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
   tests-api-samples:
     name: API tests samples
     needs:
@@ -1403,7 +1325,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: cloudharness-deployment
-          path: .
+          path: deployment
       - uses: docker/login-action@v3
         with:
           registry: ${{ needs.prepare.outputs.registry_host }}
@@ -1428,7 +1350,7 @@ jobs:
             -v "$GITHUB_WORKSPACE/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml" \
             -w /home/test \
             "$CH_TEST_IMAGE" sh -c "$CH_TEST_COMMANDS"
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
   tests-api-workflows:
     name: API tests workflows
     needs:
@@ -1447,7 +1369,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: cloudharness-deployment
-          path: .
+          path: deployment
       - uses: docker/login-action@v3
         with:
           registry: ${{ needs.prepare.outputs.registry_host }}
@@ -1467,7 +1389,7 @@ jobs:
             -v "$GITHUB_WORKSPACE/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml" \
             -w /home/test \
             "$CH_TEST_IMAGE" sh -c "$CH_TEST_COMMANDS"
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
   tests-e2e-jupyterhub:
     name: E2E tests jupyterhub
     needs:
@@ -1502,7 +1424,7 @@ jobs:
             -v "$GITHUB_WORKSPACE/applications/jupyterhub/test/e2e:/home/test/__tests__/jupyterhub" \
             -w /home/test \
             "$CH_TEST_IMAGE" sh -c "$CH_TEST_COMMANDS"
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
   tests-e2e-samples:
     name: E2E tests samples
     needs:
@@ -1541,7 +1463,7 @@ jobs:
             -v "$GITHUB_WORKSPACE/applications/samples/test/e2e:/home/test/__tests__/samples" \
             -w /home/test \
             "$CH_TEST_IMAGE" sh -c "$CH_TEST_COMMANDS"
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
   cleanup:
     name: Delete the test deployment
     needs:
@@ -1583,4 +1505,4 @@ jobs:
           fi
           helm uninstall "$NAMESPACE" -n "$NAMESPACE" || true
           kubectl delete namespace "$NAMESPACE" --ignore-not-found
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}

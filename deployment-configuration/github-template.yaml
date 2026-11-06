@@ -111,11 +111,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cloudharness-deployment
-          path: |
-            deployment
-            .overrides
+          path: deployment
           include-hidden-files: true
           if-no-files-found: error
+      # one artifact per build context merged across layers in .overrides/, for that image's build job
+      - $UPLOAD_OVERRIDES
   build:
     name: Build
     needs: [prepare]
@@ -128,10 +128,7 @@ jobs:
           ref: ${{ env.CLOUDHARNESS_BRANCH }}
           path: cloud-harness
       - $GIT_CLONES
-      - uses: actions/download-artifact@v4
-        with:
-          name: cloudharness-deployment
-          path: .
+      - $DOWNLOAD_OVERRIDES
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -182,7 +179,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: cloudharness-deployment
-          path: .
+          path: deployment
       - uses: azure/setup-helm@v4
       - $KUBE_AUTH
       - $HELM_SECRETS_STEPS
@@ -217,7 +214,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: cloudharness-deployment
-          path: .
+          path: deployment
       - uses: docker/login-action@v3
         with:
           registry: ${{ needs.prepare.outputs.registry_host }}
