@@ -72,8 +72,6 @@ cloudharness:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
-env:
-  CLOUDHARNESS_BRANCH: ${{ vars.CLOUDHARNESS_BRANCH || 'develop' }}
 jobs:
   # prepare also builds the images and runs the unit tests ($BUILD_STEPS): a re-run asks the registry again, so
   # after a failure it only builds what the failed attempt did not push, and tests everything again.
@@ -103,19 +101,14 @@ jobs:
       force_build: ${{ steps.env.outputs.force_build }}
     steps:
       - uses: actions/checkout@v4
-      - name: Clone cloud-harness
-        uses: actions/checkout@v4
-        with:
-          repository: MetaCell/cloud-harness
-          ref: ${{ env.CLOUDHARNESS_BRANCH }}
-          path: cloud-harness
+      - $CLONE_CLOUDHARNESS
       - $GIT_CLONES
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - uses: azure/setup-helm@v4
       - name: Install cloud-harness tools
-        run: bash cloud-harness/install.sh
+        run: bash $CLOUDHARNESS_PATH/install.sh
       - name: Resolve pipeline variables
         id: env
         run: |
@@ -184,12 +177,7 @@ jobs:
       - name: Give the certificates time to settle
         run: sleep 60
       - uses: actions/checkout@v4
-      - name: Clone cloud-harness
-        uses: actions/checkout@v4
-        with:
-          repository: MetaCell/cloud-harness
-          ref: ${{ env.CLOUDHARNESS_BRANCH }}
-          path: cloud-harness
+      - $CLONE_CLOUDHARNESS
       - uses: actions/download-artifact@v4
         with:
           name: cloudharness-deployment
@@ -211,12 +199,7 @@ jobs:
       - name: Give the certificates time to settle
         run: sleep 60
       - uses: actions/checkout@v4
-      - name: Clone cloud-harness
-        uses: actions/checkout@v4
-        with:
-          repository: MetaCell/cloud-harness
-          ref: ${{ env.CLOUDHARNESS_BRANCH }}
-          path: cloud-harness
+      - $CLONE_CLOUDHARNESS
       - uses: docker/login-action@v3
         with:
           registry: ${{ needs.prepare.outputs.registry_host }}

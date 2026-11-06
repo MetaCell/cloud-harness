@@ -58,7 +58,9 @@ and publication. Pass `-ci codefresh -ci github` to generate both. Build, unit t
   secrets (`REGISTRY_USERNAME`, `REGISTRY_PASSWORD`, `KUBECONFIG`, the application secrets with the same names
   as the Codefresh variables) the workflow expects. Approvals are GitHub environment protection rules on the
   `publish` and `prod`/`stage` environments. `workflow_dispatch` inputs replace the `DEPLOYMENT_PUBLISH_TAG`,
-  `DEPLOYMENT_TAG`, `*_TAG_FORCE_BUILD` and `SKIP_TESTS` pipeline variables.
+  `DEPLOYMENT_TAG`, `*_TAG_FORCE_BUILD` and `SKIP_TESTS` pipeline variables. A project's jobs clone and install
+  the cloud-harness branch named by the `CLOUDHARNESS_BRANCH` variable (default `develop`); cloud-harness' own
+  workflow builds and tests the branch that triggered it, tools included, and does not read that variable.
 - Cluster credentials: the `deploy` and test `cleanup` jobs run the steps listed under
   `cloudharness.kube_auth` in the template. The default step uses a base64 `KUBECONFIG` secret when present and
   the runner's own cluster access otherwise (a runner inside the target cluster with a service account bound to

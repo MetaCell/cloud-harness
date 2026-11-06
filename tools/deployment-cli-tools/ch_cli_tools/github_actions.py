@@ -37,7 +37,8 @@ across cloud-harness and the project exactly like the Codefresh templates):
   job is not generated. Inside a prototype `$CH_NAME`, `$CH_IMAGE` and
   `$CH_TAG` stand for the app's image.
 - A string item in a `steps` list is a fragment the generator fills:
-  `$GIT_CLONES`, `$BUILD_STEPS`, `$PUBLISH_STEPS`, `$HELM_SECRETS_STEPS`,
+  `$CLONE_CLOUDHARNESS` (nothing in cloud-harness' own workflow, which tests
+  its checkout), `$GIT_CLONES`, `$BUILD_STEPS`, `$PUBLISH_STEPS`, `$HELM_SECRETS_STEPS`,
   `$TEST_STEPS` and `$KUBE_AUTH`. The steps of `$BUILD_STEPS` and
   `$KUBE_AUTH` come from the template's own `cloudharness.build` and
   `cloudharness.kube_auth` lists, so a project changes how images are built
@@ -45,7 +46,9 @@ across cloud-harness and the project exactly like the Codefresh templates):
   `cloudharness.build: null` builds and tests nothing (stage, prod). The
   top-level `cloudharness` section is for the generator only and never
   reaches GitHub.
-- `$ENV`, `$PARAMS` and `$PATHS` are substituted everywhere, as in Codefresh.
+- `$ENV`, `$PARAMS` and `$PATHS` are substituted everywhere, as in Codefresh, and
+  `$CLOUDHARNESS_PATH`: where the tools are installed from (`cloud-harness`,
+  `.` in cloud-harness' own workflow).
 - A template key matching an expanded job id (`jobs.tests-api-myapp`) is merged
   over the generated job, so one app can get a bigger runner or extra steps;
   such a key is dropped when its app is not part of the deployment being
@@ -83,6 +86,7 @@ JOB_PUBLISH = "publish"
 PROTOTYPE_JOBS = (JOB_API_TESTS, JOB_E2E_TESTS)
 
 FRAGMENT_GIT_CLONES = "$GIT_CLONES"
+FRAGMENT_CLONE_CLOUDHARNESS = "$CLONE_CLOUDHARNESS"
 FRAGMENT_BUILD = "$BUILD_STEPS"
 FRAGMENT_PUBLISH_STEPS = "$PUBLISH_STEPS"
 FRAGMENT_HELM_SECRETS = "$HELM_SECRETS_STEPS"
@@ -348,7 +352,28 @@ class CHGithubActions(CHValues):
             )
         )
 
+    def _cloudharness_root(self) -> Path:
+        return self.project.all_layers()[-1].root
+
     # --- generated fragments ---
+
+    def _cloudharness_clone_steps(self) -> list[dict]:
+        """A project's jobs clone cloud-harness into ./cloud-harness, at the branch the
+        CLOUDHARNESS_BRANCH variable names (default develop). cloud-harness' own workflow already
+        has it checked out at the branch that triggered the run, the version under test."""
+        if self._cloudharness_root().resolve() == self.project.root.resolve():
+            return []
+        return [
+            {
+                "name": "Clone cloud-harness",
+                "uses": "actions/checkout@v4",
+                "with": {
+                    "repository": "MetaCell/cloud-harness",
+                    "ref": "${{ vars.CLOUDHARNESS_BRANCH || 'develop' }}",
+                    "path": "cloud-harness",
+                },
+            }
+        ]
 
     def _git_clone_steps(self, entities) -> list[dict]:
         steps = []
@@ -531,6 +556,7 @@ class CHGithubActions(CHValues):
         fragments = {
             # prepare merges the build contexts (.overrides/) with the git dependencies in them
             FRAGMENT_GIT_CLONES: self._git_clone_steps(entities.values()),
+            FRAGMENT_CLONE_CLOUDHARNESS: self._cloudharness_clone_steps(),
             FRAGMENT_BUILD: build_steps,
             FRAGMENT_PUBLISH_STEPS: self._publish_steps({**entities, **test_images}),
             FRAGMENT_HELM_SECRETS: self._helm_secrets_steps(),
@@ -604,7 +630,13 @@ class CHGithubActions(CHValues):
             )
             return {}
 
-        base = substitute_vars(base, ci.placeholder_values(project, self._pipeline_path))
+        base = substitute_vars(
+            base,
+            {
+                **ci.placeholder_values(project, self._pipeline_path),
+                "CLOUDHARNESS_PATH": self._pipeline_path(self._cloudharness_root()),
+            },
+        )
         settings = base.pop(SETTINGS_KEY, None) or {}
         base["jobs"] = self._expand_jobs(base.get("jobs") or {}, settings)
         # the env template contributes name/on after the base keys: put them first

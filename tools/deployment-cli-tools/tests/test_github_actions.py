@@ -12,7 +12,7 @@ from test_util import write_tree_from_yaml
 
 from ch_cli_tools import CHDeployConfig, ci
 from ch_cli_tools.api import create_helm_chart
-from ch_cli_tools.github_actions import DEFAULT_RUNNER
+from ch_cli_tools.github_actions import DEFAULT_RUNNER, referenced_names
 
 JOB_ID = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 
@@ -125,6 +125,36 @@ def test_git_dependency_checkouts(tmp_path):
     for name, job in wf["jobs"].items():
         if name != "prepare":
             assert not [s for s in _steps(job, "Clone ") if s["name"] != "Clone cloud-harness"], name
+
+
+def test_cloudharness_is_cloned_by_projects_only(tmp_path):
+    # a project's jobs clone cloud-harness (CLOUDHARNESS_BRANCH, default develop) and install its tools
+    wf, _ = _generate(tmp_path, ["samples", "myapp"])
+    prepare = wf["jobs"]["prepare"]["steps"]
+    [clone] = [step for step in prepare if step.get("name") == "Clone cloud-harness"]
+    assert clone["with"] == {
+        "repository": "MetaCell/cloud-harness",
+        "ref": "${{ vars.CLOUDHARNESS_BRANCH || 'develop' }}",
+        "path": "cloud-harness",
+    }
+    assert _steps(wf["jobs"]["prepare"], "Install cloud-harness tools")[0]["run"] == (
+        "bash cloud-harness/install.sh"
+    )
+    assert _steps(wf["jobs"]["tests-api-samples"], "Clone cloud-harness")
+
+    # cloud-harness' own workflow tests the branch that triggered it, tools included: it never
+    # clones another branch nor reads CLOUDHARNESS_BRANCH
+    project = chain(
+        CLOUDHARNESS_ROOT,
+        config=CHDeployConfig(env="test", includes=["samples"], output_path=str(tmp_path / "deployment")),
+    )
+    wf = project.github_actions.generate(write_on_disk=False)
+    assert "CLOUDHARNESS_BRANCH" not in referenced_names(wf)["vars"]
+    assert "CLOUDHARNESS_BRANCH" not in wf.get("env", {})
+    assert not [
+        name for name, job in wf["jobs"].items() if _steps(job, "Clone cloud-harness")
+    ]
+    assert _steps(wf["jobs"]["prepare"], "Install cloud-harness tools")[0]["run"] == "bash ./install.sh"
 
 
 def test_prepare_outputs_cover_every_image(tmp_path):
