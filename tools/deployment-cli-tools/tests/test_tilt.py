@@ -1,74 +1,122 @@
-import ast
-import os
-import re
-import shutil
+"""ch_cli_tools.tilt generator tests. See test_model.py (this folder) for the
+structural/model tests these build on, and ch_cli_tools/tilt.py's own
+module docstring for the generation algorithm.
+"""
 
-from ch_cli_tools.helm import *
-from ch_cli_tools.configuration.preprocessing import preprocess_build_overrides
-from ch_cli_tools.tilt import create_tilt_configuration
+from conftest import CLOUDHARNESS_ROOT, RESOURCES, chain
+from test_util import write_tree_from_yaml
 
-HERE = os.path.dirname(os.path.realpath(__file__))
-RESOURCES = os.path.join(HERE, 'resources')
-
-CLOUDHARNESS_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
+from ch_cli_tools import CHDeployConfig, CHProject
 
 
-def test_tilt_imgarg_retrieval(tmp_path):
-    """source_images entries (global base-image overrides) must be injected as build
-    arguments for every docker_build call in the generated Tiltfile, matching skaffold."""
-    out_folder = tmp_path / "test_tilt_imgarg_retrieval"
+def _tilt_project(
+    tmp_path, *, subdomain="mysubdomain", service_auto=True, deployment_auto=False
+):
+    write_tree_from_yaml(
+        tmp_path,
+        f"""
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+            mainapp: myapp
+        applications:
+          myapp:
+            Dockerfile: |
+              FROM scratch
+            tasks:
+              mytask:
+                Dockerfile: |
+                  FROM scratch
+            deploy:
+              values.yaml: |
+                harness:
+                  subdomain: {subdomain}
+                  service:
+                    auto: {str(service_auto).lower()}
+                  deployment:
+                    auto: {str(deployment_auto).lower()}
+    """,
+    )
+    return CHProject(tmp_path, config=CHDeployConfig())
 
-    values = create_helm_chart(
-        [CLOUDHARNESS_ROOT, RESOURCES],
-        output_path=out_folder,
-        include=["samples", "myapp"],
-        domain="my.local",
-        namespace="test",
-        env="nreg",
-        local=False,
-        tag=1,
-        registry="reg",
+
+def test_app_artifact_has_build_args_and_source_images(tmp_path):
+    project = _tilt_project(tmp_path)
+    images = {a["app_key"]: a for a in project.tilt._collect_artifacts().values()}
+
+    myapp = images["myapp"]
+    assert myapp["image"] == "testproj/myapp"
+    assert myapp["docker"]["dockerfile"].endswith("Dockerfile")
+    assert myapp["docker"]["buildArgs"] == {}
+
+
+def test_task_artifact_is_marked_is_task(tmp_path):
+    project = _tilt_project(tmp_path)
+    images = {a["app_key"]: a for a in project.tilt._collect_artifacts().values()}
+
+    task = images["myapp-mytask"]
+    assert task["is_task"] is True
+    assert task["is_app"] is False
+    assert task["parent_app_name"] == "myapp"
+
+
+def test_is_app_driven_by_service_auto_not_deployment_auto(tmp_path):
+    project = _tilt_project(tmp_path, service_auto=False, deployment_auto=True)
+    images = {a["app_key"]: a for a in project.tilt._collect_artifacts().values()}
+    assert images["myapp"]["is_app"] is False
+
+    project = _tilt_project(tmp_path, service_auto=True, deployment_auto=False)
+    images = {a["app_key"]: a for a in project.tilt._collect_artifacts().values()}
+    assert images["myapp"]["is_app"] is True
+
+
+def test_rendered_tiltfile_groups_task_under_parent_app_key_even_when_subdomain_differs(
+    tmp_path,
+):
+    # myapp's Tilt UI link uses its subdomain ("totallydifferent"), but the
+    # extra_env grouping below must still key off the stable app_key ("myapp") -
+    # legacy itself matched against the subdomain-swapped display name here,
+    # which silently breaks this grouping whenever subdomain != app name.
+    project = _tilt_project(tmp_path, subdomain="totallydifferent")
+    tiltfile = project.tilt.generate(write_on_disk=False)
+
+    assert 'extra_env.setdefault("myapp", [])' in tiltfile
+    assert 'extra_env["myapp"].append("testproj/myapp-mytask")' in tiltfile
+    assert "link('http://totallydifferent." in tiltfile
+    assert "k8s_resource(\n    'myapp'," in tiltfile
+
+
+def test_task_build_sets_match_in_env_vars(tmp_path):
+    project = _tilt_project(tmp_path)
+    tiltfile = project.tilt.generate(write_on_disk=False)
+    assert "ref='testproj/myapp-mytask'" in tiltfile
+    assert (
+        "match_in_env_vars=True"
+        in tiltfile.split("ref='testproj/myapp-mytask'")[1].split("\n")[0]
+    )
+    assert (
+        "match_in_env_vars=True"
+        not in tiltfile.split("ref='testproj/myapp'")[1].split("\n")[0]
     )
 
-    source_images = values.get("source_images")
-    assert source_images["KEYCLOAK"] == "myregistry.myapp:15.3"
-    assert source_images["NODE"] == "node:22-alpine"
 
-    # CLOUDHARNESS_FLASK is also a build dependency of samples and myapp: a source_images
-    # override for it must win over the dependency-derived build arg, not be shadowed by it.
-    values["source_images"] = dict(source_images) | {"CLOUDHARNESS_FLASK": "myoverride/cloudharness-flask:9.9"}
-
-    BUILD_DIR = "/tmp/build_tilt_imgarg"
-    root_paths = preprocess_build_overrides(
-        root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
-        helm_values=values,
-        merge_build_path=BUILD_DIR,
+def test_base_images_are_always_included_even_without_a_deployed_dependent():
+    # cloudharness-base/my-common etc. must appear regardless of whether any
+    # currently-included app actually depends on them - matches legacy's own
+    # unconditional base/static-image scan.
+    project = chain(
+        CLOUDHARNESS_ROOT, RESOURCES, config=CHDeployConfig(includes=["events"])
     )
+    artifacts = project.tilt._collect_artifacts()
+    assert "cloudharness-base" in artifacts
+    assert "my-common" in artifacts
 
-    create_tilt_configuration(
-        root_paths=root_paths, helm_values=values, output_path=str(out_folder)
-    )
 
-    tiltfile_content = (out_folder / "Tiltfile").read_text()
+def test_write_on_disk_writes_plain_text_tiltfile(tmp_path):
+    project = _tilt_project(tmp_path)
+    out = tmp_path / "out"
+    project.tilt.generate(output_path=str(out))
 
-    def get_buildargs(name) -> dict:
-        pattern = re.compile(
-            r"docker_build\(ref='[^']*', context='([^']*)', dockerfile='[^']*', build_args=(\{[^}]*\})"
-        )
-        for context, args_repr in pattern.findall(tiltfile_content):
-            if f"applications/{name}" in context:
-                return ast.literal_eval(args_repr)
-        return {}
-
-    samples_buildargs = get_buildargs("samples")
-    assert samples_buildargs["KEYCLOAK"] == "myregistry.myapp:15.3"
-    assert samples_buildargs["NODE"] == "node:22-alpine"
-    assert samples_buildargs["CLOUDHARNESS_FLASK"] == "myoverride/cloudharness-flask:9.9"
-
-    myapp_buildargs = get_buildargs("myapp")
-    assert myapp_buildargs["KEYCLOAK"] == "myregistry.myapp:15.3"
-    assert myapp_buildargs["NODE"] == "node:22-alpine"
-    assert myapp_buildargs["CLOUDHARNESS_FLASK"] == "myoverride/cloudharness-flask:9.9"
-
-    shutil.rmtree(out_folder)
-    shutil.rmtree(BUILD_DIR)
+    written = (out / "Tiltfile").read_text()
+    assert written.startswith("load(")
+    assert "docker_build(ref='testproj/myapp'" in written
