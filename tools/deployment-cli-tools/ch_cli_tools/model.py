@@ -278,7 +278,7 @@ class CHApp:
 
     @property
     def build_context(self) -> Path:
-        return self.path
+        return dockerfile_directory(self)
 
     def __getitem__(self, key) -> "CHAppTask":
         try:
@@ -643,6 +643,15 @@ class CHAppInstance(CHApp):
         return instance_app
 
 
+def dockerfile_directory(entity: "CHApp | CHAppTask") -> Path:
+    """Where an app or task builds from: the directory holding its Dockerfile, which may be a
+    subdirectory (server/, ...) whose files the Dockerfile COPYs as `./...`. An inherited
+    Dockerfile gives the same subdirectory of the entity's own directory, so every layer merged
+    into .overrides/ contributes the same part of its tree."""
+    dockerfile = entity.dockerfile
+    return entity.path / dockerfile.path.resolve().parent.relative_to(dockerfile.app.path.resolve())
+
+
 class CHValues:
     """A values.yaml file, resolved across environments and base layers."""
 
@@ -857,7 +866,7 @@ class CHAppTask:
 
     @property
     def build_context(self) -> Path:
-        return self.path
+        return dockerfile_directory(self)
 
     @property
     def readme(self) -> Path:

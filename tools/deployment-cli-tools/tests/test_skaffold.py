@@ -40,19 +40,23 @@ def test_create_skaffold_configuration(tmp_path):
     # CHApp.dockerfile now checks the same conventional subdirectories.
     exp_apps = ("accounts", "samples", "workflows", "myapp", "common")
     artifact_images = [a["image"] for a in sk["build"]["artifacts"]]
-    artifact_overrides = sk["deploy"]["helm"]["releases"][0]["artifactOverrides"]
+    # each built image reaches the chart through a helm value skaffold templates with its tag
+    templates = sk["deploy"]["helm"]["releases"][0]["setValueTemplates"]
+    overridden_apps = {key.split(".")[1] for key in templates if key.startswith(f"{KEY_APPS}.")}
+    task_images = {key.split(".", 1)[1] for key in templates if key.startswith(f"{KEY_TASK_IMAGES}.")}
     for app in exp_apps:
-        assert app in artifact_overrides[KEY_APPS]
+        assert app in overridden_apps
+    assert templates["apps.myapp.harness.deployment.image"] == (
+        "{{.IMAGE_FULLY_QUALIFIED_reg_testprojectname_myapp}}"
+    )
 
     # values[KEY_TASK_IMAGES] isn't populated by
     # ng.api.create_helm_chart (no task-images aggregation yet - see
-    # test_helm.py's test_collect_helm_values). artifactOverrides'
-    # task-images comes straight from ng.skaffold.CHSkaffold's own generation
-    # instead, which is what's actually under test here.
-    assert artifact_overrides[KEY_TASK_IMAGES], "task image overrides should be present"
-    assert any(
-        image.endswith("myapp-mytask") for image in artifact_overrides[KEY_TASK_IMAGES]
-    )
+    # test_helm.py's test_collect_helm_values). The task-images templates come
+    # straight from ng.skaffold.CHSkaffold's own generation instead, which is
+    # what's actually under test here.
+    assert task_images, "task image overrides should be present"
+    assert any(image.endswith("myapp-mytask") for image in task_images)
 
     # Legacy asserted an exact artifact count (len(exp_apps) + len(task
     # images)) because its "task-images" bucket already lumped in every
@@ -61,13 +65,11 @@ def test_create_skaffold_configuration(tmp_path):
     # dependencies (base/common images pulled in via all_build_dependencies)
     # - so the equivalent total needs all three, not just the first two.
     build_dependency_count = len(
-        project.all_build_dependencies(
-            {*artifact_overrides[KEY_APPS], *artifact_overrides[KEY_TASK_IMAGES]}
-        )
+        project.all_build_dependencies({*overridden_apps, *task_images})
     )
     assert len(artifact_images) == (
         len(exp_apps) +
-        len(artifact_overrides[KEY_TASK_IMAGES]) +
+        len(task_images) +
         build_dependency_count
     )
 
@@ -79,17 +81,9 @@ def test_create_skaffold_configuration(tmp_path):
     ]
     assert overrides[KEY_APPS]["samples"][KEY_HARNESS][KEY_DEPLOYMENT]["args"]
 
-    assert (
-        "reg" ==
-        artifact_overrides[KEY_APPS]["accounts"][KEY_HARNESS][KEY_DEPLOYMENT][
-            "image"
-        ][0:3]
-    )
-    assert (
-        "harness"
-        not in artifact_overrides[KEY_APPS]["accounts"][KEY_HARNESS][KEY_DEPLOYMENT][
-            "image"
-        ]
+    # accounts comes from cloud-harness, but is the project's own image, in the project's registry
+    assert templates["apps.accounts.harness.deployment.image"] == (
+        "{{.IMAGE_FULLY_QUALIFIED_reg_testprojectname_accounts}}"
     )
 
     cloudharness_base_artifact = next(

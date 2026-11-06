@@ -189,7 +189,9 @@ def test_generate_writes_deployment_skaffold_ci(tmp_path):
     plan = YAML(typ="safe").load((tmp_path / "deployment" / "skaffold-ci.yaml").read_text())
     assert plan["apiVersion"].startswith("skaffold/")
     assert plan["kind"] == "Config"
-    assert "deploy" not in plan, "no namespace to deploy to"
+    # no namespace configured: the helm values' default one
+    [release] = plan["deploy"]["helm"]["releases"]
+    assert release["name"] == release["namespace"] == "ch"
     assert "reg/testproj/myapp" not in _artifacts(plan), "its tag exists"
     assert "reg/testproj/cloudharness-base" in _artifacts(plan)
     images = json.loads((tmp_path / "deployment" / "skaffold-images.json").read_text())

@@ -1,4 +1,4 @@
-# Generated with: harness-deployment . -e test -i samples -ci github
+# Generated with: harness-deployment . -i samples -e test -ci github
 name: CloudHarness test
 on:
   pull_request:

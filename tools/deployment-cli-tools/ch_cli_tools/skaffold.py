@@ -61,12 +61,15 @@ CHSkaffold.generate() algorithm:
 6. tagPolicy is envTemplate for compose or an explicit external tag, sha256
    content-hash otherwise.
 7. The deploy block is either a compose block (useCompose + image list) or
-   a helm block with per-app/task image overrides and entrypoint
-   overrides.
+   a helm block - release named after the namespace - setting each app's and
+   task's image to the one skaffold built (setValueTemplates) and the
+   entrypoint overrides. The template declares the newest skaffold schema
+   (the one of the skaffold the CI installs, CI_API_VERSION).
 """
 
 import json
 import os
+import re
 import shlex
 from functools import lru_cache
 from pathlib import Path
@@ -102,6 +105,22 @@ class CHSkaffoldTemplate(CHValues):
         if base is None:
             return own
         return dict_merge(base.skaffold_template.all_values(), own)
+
+
+def image_value_template(image: str) -> str:
+    """A helm `setValueTemplates` value skaffold fills with the image it built, tag included."""
+    return "{{.IMAGE_FULLY_QUALIFIED_%s}}" % re.sub(r"[./:-]", "_", image)
+
+
+def helm_release(project) -> dict:
+    """The name and namespace of the chart's helm release: both the configured namespace or the
+    helm values' default one, as the CI deploys; the chart's name when there is no namespace at
+    all (helm requires a release name)."""
+    values = project.all_values()
+    namespace = project.config.namespace or values.get("namespace")
+    if not namespace:
+        return {"name": values["name"]}
+    return {"name": namespace, "namespace": namespace}
 
 
 @register_file("skaffold", lambda root: root / "skaffold.yaml")
@@ -216,6 +235,10 @@ class CHSkaffold(CHValues):
                 "context": str(context.path),
                 "docker": self._build_docker_options(context.dockerfile.path),
             }
+            # a task FROMs its base image too (ARG CLOUDHARNESS_BASE): skaffold passes it by alias
+            requires = self._requires_for(task)
+            if requires:
+                artifact["requires"] = requires
             artifacts.append(artifact)
             overrides[task.name] = artifact["image"]
         return artifacts, overrides
@@ -318,7 +341,9 @@ class CHSkaffold(CHValues):
         if project.config.backend == "compose" or (
             project.config.tag and not project.config.local
         ):
-            build["tagPolicy"] = {"envTemplate": {"template": '"{{.TAG}}"'}}
+            # the configured tag, or $TAG (skaffold falls back to `latest` when unset); a quoted
+            # template would make every tag invalid, which skaffold also turns into `latest`
+            build["tagPolicy"] = {"envTemplate": {"template": project.config.tag or "{{.TAG}}"}}
         elif not build.get("tagPolicy"):
             # Checked for falsy, not just absent: the default skaffold-template.yaml
             # already ships an empty `build.tagPolicy: {}`, so a plain `setdefault`
@@ -336,15 +361,19 @@ class CHSkaffold(CHValues):
             deploy = base.setdefault("deploy", {})
             releases = deploy.setdefault("helm", {}).setdefault("releases", [{}])
             release_config = releases[0]
-            if project.config.namespace:
-                release_config["name"] = project.config.namespace
-                release_config["namespace"] = project.config.namespace
-            artifact_overrides = release_config.setdefault("artifactOverrides", {})
-            artifact_overrides["apps"] = {
-                name: {"harness": {"deployment": {"image": image}}}
+            release_config.update(helm_release(project))
+            # every built image reaches the chart through the value skaffold templates with its tag
+            images = {
+                f"apps.{name}.harness.deployment.image": image
                 for name, image in app_image_overrides.items()
             }
-            artifact_overrides["task-images"] = task_image_overrides
+            images.update(
+                {f"task-images.{name}": image for name, image in task_image_overrides.items()}
+            )
+            release_config["setValueTemplates"] = {
+                **(release_config.get("setValueTemplates") or {}),
+                **{key: image_value_template(image) for key, image in images.items()},
+            }
 
             release_config.setdefault("overrides", {})["apps"] = entrypoint_overrides
 
@@ -450,14 +479,10 @@ class CHSkaffoldCI(CHValues):
             if app.test.unit.commands
         ]
 
-    def _deploy(self) -> dict | None:
+    def _deploy(self) -> dict:
         project = self.project
-        namespace = project.config.namespace
-        if not namespace:
-            return None
         release = {
-            "name": namespace,
-            "namespace": namespace,
+            **helm_release(project),
             "chartPath": os.path.relpath(self.path.parent / "helm", project.root),
             "createNamespace": True,
             # the chart is deployed as harness-deployment wrote it: no `helm dependency build`
@@ -535,9 +560,7 @@ class CHSkaffoldCI(CHValues):
         tests = self._tests()
         if tests:
             plan["test"] = tests
-        deploy = self._deploy()
-        if deploy:
-            plan["deploy"] = deploy
+        plan["deploy"] = self._deploy()
         if write_on_disk:
             self.write(plan)
             self.images_path.write_text(json.dumps(self.images(), indent=2) + "\n", encoding="utf-8")
