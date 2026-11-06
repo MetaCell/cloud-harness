@@ -1,20 +1,36 @@
-"""
-Utilities to perform a migration of the deployment to the latest supported version.
+"""Applies deprecated-pattern migrations across every application in a
+CloudHarness project.
+
+Reuses the migration-rule JSON files (ch_cli_tools/migrations/*.json - a
+"deprecated" list of {keyword, to_be_replaced, patterns?} rules) and the
+existing search/replace utilities (ch_cli_tools.utils.search_word_by_pattern/
+search_word_in_folder/search_word_in_file) directly - this is a standalone
+text search-and-replace tool, independent of CHProject/values.yaml parsing,
+so there's no model concept to port, only the orchestration loop.
+
+perform_migration() algorithm:
+1. For each base root, list every applications/* subdirectory.
+2. For each migration rule file (sorted for a deterministic order), split its
+   rules into "with a glob pattern" (searched via that pattern, e.g.
+   **/Dockerfile) and "without one" (searched under each app's own deploy/,
+   tasks/ and Dockerfile only).
+3. For every match, replace each declared old->new pair, prompting per line
+   unless accept_all is set.
 """
 
-import os
 import json
+from pathlib import Path
 
-from . import HERE
-from cloudharness_utils.constants import APPS_PATH
-from .utils import (
+from ch_cli_tools.utils import (  # type: ignore
     get_sub_paths,
+    search_word_by_pattern,
     search_word_in_file,
     search_word_in_folder,
-    search_word_by_pattern,
 )
+from cloudharness_utils.constants import APPS_PATH
 
-TO_CHECK = ["deploy", "tasks", "Dockerfile"]
+TO_CHECK = ("deploy", "tasks", "Dockerfile")
+_MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
 def read_file_and_replace(file, old, new, accept_all=False):
@@ -44,108 +60,67 @@ def read_file_and_replace(file, old, new, accept_all=False):
     file_p.close()
 
 
-def perform_migration(base_root, accept_all=False):
+def _extract_migrations(migration: dict) -> tuple[list[dict], list[dict]]:
+    with_pattern, without_pattern = [], []
+    for rule in migration["deprecated"]:
+        (with_pattern if "patterns" in rule else without_pattern).append(rule)
+    return with_pattern, without_pattern
+
+
+def _replace_in_files(files, words, accept_all: bool) -> None:
+    for file_path in files:
+        for word in words:
+            read_file_and_replace(file_path, word["old"], word["new"], accept_all)
+
+
+def _run_with_pattern(app_path: str, rules: list[dict], accept_all: bool) -> list[str]:
+    detected = []
+    for rule in rules:
+        for pattern in rule["patterns"]:
+            matches = search_word_by_pattern(app_path, pattern, rule["keyword"])
+            detected.extend(matches)
+            _replace_in_files(matches, rule["to_be_replaced"], accept_all)
+    return detected
+
+
+def _run_without_pattern(app_path: str, rules: list[dict], accept_all: bool) -> list[str]:
+    detected = []
+    for sub_path in TO_CHECK:
+        to_check = Path(app_path) / sub_path
+        for rule in rules:
+            if to_check.is_dir():
+                matches = search_word_in_folder(str(to_check), rule["keyword"])
+            elif to_check.is_file():
+                matches = search_word_in_file(str(to_check), rule["keyword"])
+            else:
+                continue
+            detected.extend(matches)
+            _replace_in_files(matches, rule["to_be_replaced"], accept_all)
+    return detected
+
+
+def perform_migration(base_root, accept_all=False) -> None:
+    base_roots = base_root if isinstance(base_root, list) else [base_root]
+    app_paths = [
+        app_path
+        for root in base_roots
+        for app_path in get_sub_paths(str(Path(root) / APPS_PATH))
+    ]
+
     all_files_detected = []
+    for migration_file in sorted(_MIGRATIONS_DIR.iterdir()):
+        migration = json.loads(migration_file.read_text())
+        with_pattern, without_pattern = _extract_migrations(migration)
+        for app_path in app_paths:
+            all_files_detected.extend(_run_with_pattern(app_path, with_pattern, accept_all))
+            all_files_detected.extend(_run_without_pattern(app_path, without_pattern, accept_all))
 
-    # Iterate the list of files and replace the old word with the new word
-    def replace_in_files(app_path, files, words):
-        for file in files:
-            file_path = os.path.join(app_path, file)
-            print(f">>> Running migration on {file_path} <<<")
-            all_files_detected.append(file_path)
-            for word_to_replace in words:
-                read_file_and_replace(
-                    file_path,
-                    word_to_replace["old"],
-                    word_to_replace["new"],
-                    accept_all,
-                )
-
-    # Iterate migrations, patterns and search the keyword using the pattern given.
-    # If the keyword is found then replace the list of words given from the old to the new
-    def run_migrations_with_pattern(app_path, with_pattern):
-        for single_migration in with_pattern:
-            for pattern in single_migration["patterns"]:
-                results = search_word_by_pattern(
-                    app_path, pattern, single_migration["keyword"]
-                )
-                replace_in_files(
-                    app_path,
-                    results,
-                    single_migration["to_be_replaced"]
-                )
-
-    # Iterate the TO_CHECK array that is set to search inside the deploy and tasks folder
-    # plus the Dockerfile. If the keyword is found inside one of these folders or in the
-    # Dockerfile then replace the list of words given from the old to the new
-    def run_migrations_without_pattern(app_path, without_pattern):
-        for sub_path in TO_CHECK:
-            to_check = os.path.join(app_path, sub_path)
-            if os.path.isdir(to_check):
-                for migration_obj in without_pattern:
-                    files = search_word_in_folder(
-                        to_check,
-                        migration_obj["keyword"]
-                    )
-                    replace_in_files(
-                        app_path,
-                        files,
-                        migration_obj["to_be_replaced"]
-                    )
-            elif os.path.isfile(to_check):
-                for migration_obj in without_pattern:
-                    keyword = migration_obj["keyword"]
-                    if len(search_word_in_file(to_check, keyword)) > 0:
-                        print(f">>> Running migration on {to_check} <<<")
-                        all_files_detected.append(to_check)
-                        for word_to_replace in migration_obj["to_be_replaced"]:
-                            read_file_and_replace(
-                                to_check,
-                                word_to_replace["old"],
-                                word_to_replace["new"],
-                                accept_all,
-                            )
-
-    # Parse the migration and separate the ones with patterns and without
-    def extract_migrations(migration_obj):
-        migrations_with_pattern = []
-        migrations_without_pattern = []
-        for single_migration in migration_obj["deprecated"]:
-            if "patterns" in single_migration:
-                migrations_with_pattern.append(single_migration)
-            else:
-                migrations_without_pattern.append(single_migration)
-        return migrations_with_pattern, migrations_without_pattern
-
-    # Iterate all the migration files and run the migrations
-    for file in os.listdir(os.path.join(HERE, "migrations")):
-        with open(os.path.join(HERE, "migrations", file), "r") as f:
-            migration_dict = json.load(f)
-
-            sub_paths = []
-            # Find all the apps in the base root
-            if isinstance(base_root, list):
-                app_base_path = [
-                    os.path.join(base_root_path, APPS_PATH)
-                    for base_root_path in base_root
-                ]
-                for app_path in app_base_path:
-                    sub_paths.extend(get_sub_paths(app_path))
-            else:
-                app_base_path = os.path.join(base_root, APPS_PATH)
-                sub_paths = get_sub_paths(app_base_path)
-
-            with_pattern, without_pattern = extract_migrations(migration_dict)
-            # Iterate all the application folders and run the migrations
-            for app_path in sub_paths:
-                run_migrations_with_pattern(app_path, with_pattern)
-                run_migrations_without_pattern(app_path, without_pattern)
     print("=========================================")
     print(">>> Cloud Harness migration completed <<<")
     print("=========================================")
     print(">>>         Migration Summary         <<<")
     for file in all_files_detected:
-        print(f"{file}")
+        print(file)
     print("=========================================")
     print(">>>           End of Summary          <<<")
     print("=========================================")

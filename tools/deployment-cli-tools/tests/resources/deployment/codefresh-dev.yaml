@@ -1,0 +1,185 @@
+dev: true
+stages: [prepare, build, unittest, deploy, qa, publish]
+steps:
+  approval:
+    description: Approve build release and tagging
+    stage: publish
+    timeout: {duration: 168, finalState: denied}
+    title: Approve build
+    type: pending-approval
+  build_application_images:
+    stage: build
+    steps:
+      cloudharness-base:
+        build_arguments: [NODE=node:22-alpine]
+        dockerfile: infrastructure/base-images/cloudharness-base/Dockerfile
+        image_name: reg/testprojectname/cloudharness-base
+        tag: ${{CF_SHORT_REVISION}}
+        title: Building cloudharness-base
+        type: build
+        working_directory: .overrides/cloudharness-base
+      cloudharness-django:
+        build_arguments: [
+            CLOUDHARNESS_BASE=reg/testprojectname/cloudharness-base, 
+            NODE=node:22-alpine]
+        dockerfile: Dockerfile
+        image_name: reg/testprojectname/cloudharness-django
+        tag: ${{CF_SHORT_REVISION}}
+        title: Building cloudharness-django
+        type: build
+        working_directory: 
+          ../../../../../infrastructure/common-images/cloudharness-django
+      cloudharness-fastapi:
+        build_arguments: [
+            CLOUDHARNESS_BASE=reg/testprojectname/cloudharness-base, 
+            NODE=node:22-alpine]
+        dockerfile: Dockerfile
+        image_name: reg/testprojectname/cloudharness-fastapi
+        tag: ${{CF_SHORT_REVISION}}
+        title: Building cloudharness-fastapi
+        type: build
+        working_directory: 
+          ../../../../../infrastructure/common-images/cloudharness-fastapi
+      cloudharness-flask:
+        build_arguments: [
+            CLOUDHARNESS_BASE=reg/testprojectname/cloudharness-base, 
+            NODE=node:22-alpine]
+        dockerfile: Dockerfile
+        image_name: reg/testprojectname/cloudharness-flask
+        tag: ${{CF_SHORT_REVISION}}
+        title: Building cloudharness-flask
+        type: build
+        working_directory: 
+          ../../../../../infrastructure/common-images/cloudharness-flask
+      cloudharness-frontend-build:
+        build_arguments: [NODE=node:22-alpine]
+        dockerfile: 
+          infrastructure/base-images/cloudharness-frontend-build/Dockerfile
+        image_name: reg/testprojectname/cloudharness-frontend-build
+        tag: ${{CF_SHORT_REVISION}}
+        title: Building cloudharness-frontend-build
+        type: build
+        working_directory: ../../../../..
+      my-common:
+        build_arguments: [NODE=node:22-alpine]
+        dockerfile: Dockerfile
+        image_name: reg/testprojectname/my-common
+        tag: ${{CF_SHORT_REVISION}}
+        title: Building my-common
+        type: build
+        working_directory: ../infrastructure/common-images/my-common
+      myapp:
+        build_arguments: [
+            CLOUDHARNESS_FLASK=reg/testprojectname/cloudharness-flask, 
+            MY_COMMON=reg/testprojectname/my-common, NODE=node:22-alpine]
+        dockerfile: dev.Dockerfile
+        image_name: reg/testprojectname/myapp
+        tag: ${{CF_SHORT_REVISION}}
+        title: Building myapp
+        type: build
+        working_directory: ../applications/myapp
+      myapp-mytask:
+        build_arguments: [NODE=node:22-alpine]
+        dockerfile: Dockerfile
+        image_name: reg/testprojectname/myapp-mytask
+        tag: ${{CF_SHORT_REVISION}}
+        title: Building myapp-mytask
+        type: build
+        working_directory: ../applications/myapp/tasks/mytask
+    type: parallel
+  build_application_images_0: null
+  build_application_images_1: null
+  build_application_images_2: null
+  build_application_images_3: null
+  build_application_images_4: null
+  build_application_images_5: null
+  build_test_images:
+    stage: qa
+    steps: []
+    title: Build test images
+    type: parallel
+    when:
+      condition:
+        all: {whenVarExists: 'includes("${{SKIP_TESTS}}", "{{SKIP_TESTS}}") == true'}
+  deployment:
+    arguments:
+      chart_name: deployment/helm
+      chart_version: ${{CF_BUILD_ID}}
+      cmd_ps: --timeout 200s --create-namespace
+      custom_value_files: [./deployment/helm/values.yaml]
+      helm_version: 3.14.4
+      kube_context: ${{CLUSTER_NAME}}
+      namespace: ${{NAMESPACE}}
+      release_name: ${{NAMESPACE}}
+    stage: deploy
+    title: Installing chart
+    type: helm
+    working_directory: ./${{CF_REPO_NAME}}
+  main_clone: {git: github, repo: '${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}', 
+      revision: '${{CF_BRANCH}}', stage: prepare, title: Overridden, type: 
+      git-clone}
+  post_main_clone:
+    stage: prepare
+    steps:
+      clone_b_git_master_myapp: {git: github, repo: https://github.com/a/b.git, 
+          revision: master, title: Cloning b.git repository..., type: git-clone, 
+          working_directory: ../applications/myapp/dependencies}
+      clone_cloud_harness: {git: github, repo: 
+          https://github.com/MetaCell/cloud-harness.git, revision: '${{CLOUDHARNESS_BRANCH}}',
+        stage: prepare, title: Cloning cloud-harness repository..., type: 
+          git-clone, working_directory: .}
+      clone_d_git_v1_0_0_myapp: {git: github, repo: https://github.com/c/d.git, 
+          revision: v1.0.0, title: Cloning d.git repository..., type: git-clone, 
+          working_directory: ../applications/myapp/dependencies/myrepo}
+    title: Post main clone
+    type: parallel
+  prepare_deployment:
+    commands: [bash cloud-harness/install.sh, 'export HELM_NAME_ARG="$( [ -n "${{CHART_NAME}}"
+        ] && printf -- "--name %s" "${{CHART_NAME}}" )"', 'export HELM_CHART_VERSION_ARG="$(
+        [ -n "${{CHART_VERSION}}" ] && printf -- "--chart-version %s" "${{CHART_VERSION}}"
+        )"', 'export HELM_APP_VERSION_ARG="$( APP_VERSION_RESOLVED="${{APP_VERSION}}";
+        [ -z "$APP_VERSION_RESOLVED" ] && APP_VERSION_RESOLVED="${{DEPLOYMENT_TAG}}";
+        [ -n "$APP_VERSION_RESOLVED" ] && printf -- "--app-version %s" "$APP_VERSION_RESOLVED"
+        )"', export HELM_META_ARGS="$HELM_NAME_ARG $HELM_CHART_VERSION_ARG 
+        $HELM_APP_VERSION_ARG", "harness-deployment $PATHS -d ${{DOMAIN}} -r ${{REGISTRY}}
+        -rsn '${{REGISTRY_SECRET}}' -n ${{NAMESPACE}} --write-env -e $ENV --cache-url
+        '${{IMAGE_CACHE_URL}}' $HELM_META_ARGS $PARAMS", 'cat deployment/.env >> ${{CF_VOLUME_PATH}}/env_vars_to_export',
+      'cat ${{CF_VOLUME_PATH}}/env_vars_to_export']
+    image: python:3.12
+    stage: prepare
+    title: Prepare helm chart
+    working_directory: .
+  prepare_deployment_view:
+    commands: ['helm template ./deployment/helm --debug -n ${{NAMESPACE}}']
+    environment: [ACTION=auth, 'KUBE_CONTEXT=${{NAMESPACE}}']
+    image: codefresh/cfstep-helm:3.14.4
+    stage: prepare
+    title: View helm chart
+  publish:
+    stage: publish
+    steps: {}
+    type: parallel
+    when:
+      condition:
+        all: {whenVarExists: 'includes("${{DEPLOYMENT_PUBLISH_TAG}}", "{{DEPLOYMENT_PUBLISH_TAG}}")
+            == false'}
+  tests_unit:
+    stage: unittest
+    steps:
+      myapp_ut:
+        commands: [tox, echo "hello"]
+        image: reg/testprojectname/myapp
+        title: Unit tests for myapp
+    type: parallel
+  wait_deployment:
+    commands: ['kubectl config use-context ${{CLUSTER_NAME}}', 'kubectl config set-context
+        --current --namespace=${{NAMESPACE}}']
+    image: codefresh/kubectl
+    stage: qa
+    timeout: 10m
+    title: Wait deployment to be ready
+    when:
+      condition:
+        all: {whenVarExists: 'includes("${{SKIP_TESTS}}", "{{SKIP_TESTS}}") == true'}
+test_step: dev
+version: '1.0'

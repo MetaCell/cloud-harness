@@ -1,0 +1,623 @@
+stages: [prepare, build, unittest, deploy, qa]
+steps:
+  approval:
+    description: The pipeline will fail after ${{WAIT_ON_FAIL}} minutes
+    stage: qa
+    timeout: {duration: '${{WAIT_ON_FAIL}}', finalState: denied, timeUnit: minutes}
+    title: Approve anyway and delete deployment
+    type: pending-approval
+    when:
+      condition:
+        all: {error: '"${{FAILED}}" == "failed"'}
+  build_application_images_0:
+    stage: build
+    steps:
+      accounts:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'GOLANG=golang:1.26',
+          'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/accounts
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{ACCOUNTS_TAG}}
+        title: Building accounts
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{ACCOUNTS_TAG_EXISTS}}'', ''{{ACCOUNTS_TAG_EXISTS}}'')
+                == true', forceNoCache: 'includes(''${{ACCOUNTS_TAG_FORCE_BUILD}}'',
+                ''{{ACCOUNTS_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: cloud-harness/applications/accounts
+      cloudharness-base:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'GOLANG=golang:1.26',
+          'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: infrastructure/base-images/cloudharness-base/Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/cloudharness-base
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{CLOUDHARNESS_BASE_TAG}}
+        title: Building cloudharness-base
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{CLOUDHARNESS_BASE_TAG_EXISTS}}'',
+                ''{{CLOUDHARNESS_BASE_TAG_EXISTS}}'') == true', forceNoCache: 'includes(''${{CLOUDHARNESS_BASE_TAG_FORCE_BUILD}}'',
+                ''{{CLOUDHARNESS_BASE_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: .overrides/cloudharness-base
+      cloudharness-frontend-build:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'GOLANG=golang:1.26',
+          'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: infrastructure/base-images/cloudharness-frontend-build/Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/cloudharness-frontend-build
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{CLOUDHARNESS_FRONTEND_BUILD_TAG}}
+        title: Building cloudharness-frontend-build
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{CLOUDHARNESS_FRONTEND_BUILD_TAG_EXISTS}}'',
+                ''{{CLOUDHARNESS_FRONTEND_BUILD_TAG_EXISTS}}'') == true', forceNoCache: 'includes(''${{CLOUDHARNESS_FRONTEND_BUILD_TAG_FORCE_BUILD}}'',
+                ''{{CLOUDHARNESS_FRONTEND_BUILD_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: cloud-harness
+      my-common:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'GOLANG=golang:1.26',
+          'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/my-common
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{MY_COMMON_TAG}}
+        title: Building my-common
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{MY_COMMON_TAG_EXISTS}}'', ''{{MY_COMMON_TAG_EXISTS}}'')
+                == true', forceNoCache: 'includes(''${{MY_COMMON_TAG_FORCE_BUILD}}'',
+                ''{{MY_COMMON_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: ../infrastructure/common-images/my-common
+      myapp-mytask:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'GOLANG=golang:1.26',
+          'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/myapp-mytask
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{MYAPP_MYTASK_TAG}}
+        title: Building myapp-mytask
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{MYAPP_MYTASK_TAG_EXISTS}}'', ''{{MYAPP_MYTASK_TAG_EXISTS}}'')
+                == true', forceNoCache: 'includes(''${{MYAPP_MYTASK_TAG_FORCE_BUILD}}'',
+                ''{{MYAPP_MYTASK_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: ../applications/myapp/tasks/mytask
+      nfsserver:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'GOLANG=golang:1.26',
+          'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/nfsserver
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{NFSSERVER_TAG}}
+        title: Building nfsserver
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{NFSSERVER_TAG_EXISTS}}'', ''{{NFSSERVER_TAG_EXISTS}}'')
+                == true', forceNoCache: 'includes(''${{NFSSERVER_TAG_FORCE_BUILD}}'',
+                ''{{NFSSERVER_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: cloud-harness/applications/nfsserver
+      test-e2e:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'GOLANG=golang:1.26',
+          'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/test-e2e
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{TEST_E2E_TAG}}
+        title: Building test-e2e
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{TEST_E2E_TAG_EXISTS}}'', ''{{TEST_E2E_TAG_EXISTS}}'')
+                == true', forceNoCache: 'includes(''${{TEST_E2E_TAG_FORCE_BUILD}}'',
+                ''{{TEST_E2E_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: cloud-harness/test/test-e2e
+      workflows-new-task:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'GOLANG=golang:1.26',
+          'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/workflows-new-task
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{WORKFLOWS_NEW_TASK_TAG}}
+        title: Building workflows-new-task
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{WORKFLOWS_NEW_TASK_TAG_EXISTS}}'',
+                ''{{WORKFLOWS_NEW_TASK_TAG_EXISTS}}'') == true', forceNoCache: 'includes(''${{WORKFLOWS_NEW_TASK_TAG_FORCE_BUILD}}'',
+                ''{{WORKFLOWS_NEW_TASK_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: ../applications/workflows/tasks/new-task
+    title: Build parallel step 1
+    type: parallel
+  build_application_images_1:
+    stage: build
+    steps:
+      cloudharness-django:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'CLOUDHARNESS_BASE=${{REGISTRY}}/testprojectname/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}',
+          'GOLANG=golang:1.26', 'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/cloudharness-django
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{CLOUDHARNESS_DJANGO_TAG}}
+        title: Building cloudharness-django
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{CLOUDHARNESS_DJANGO_TAG_EXISTS}}'',
+                ''{{CLOUDHARNESS_DJANGO_TAG_EXISTS}}'') == true', forceNoCache: 'includes(''${{CLOUDHARNESS_DJANGO_TAG_FORCE_BUILD}}'',
+                ''{{CLOUDHARNESS_DJANGO_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: cloud-harness/infrastructure/common-images/cloudharness-django
+      cloudharness-fastapi:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'CLOUDHARNESS_BASE=${{REGISTRY}}/testprojectname/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}',
+          'GOLANG=golang:1.26', 'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/cloudharness-fastapi
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{CLOUDHARNESS_FASTAPI_TAG}}
+        title: Building cloudharness-fastapi
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{CLOUDHARNESS_FASTAPI_TAG_EXISTS}}'',
+                ''{{CLOUDHARNESS_FASTAPI_TAG_EXISTS}}'') == true', forceNoCache: 'includes(''${{CLOUDHARNESS_FASTAPI_TAG_FORCE_BUILD}}'',
+                ''{{CLOUDHARNESS_FASTAPI_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: cloud-harness/infrastructure/common-images/cloudharness-fastapi
+      cloudharness-flask:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'CLOUDHARNESS_BASE=${{REGISTRY}}/testprojectname/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}',
+          'GOLANG=golang:1.26', 'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/cloudharness-flask
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{CLOUDHARNESS_FLASK_TAG}}
+        title: Building cloudharness-flask
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{CLOUDHARNESS_FLASK_TAG_EXISTS}}'',
+                ''{{CLOUDHARNESS_FLASK_TAG_EXISTS}}'') == true', forceNoCache: 'includes(''${{CLOUDHARNESS_FLASK_TAG_FORCE_BUILD}}'',
+                ''{{CLOUDHARNESS_FLASK_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: cloud-harness/infrastructure/common-images/cloudharness-flask
+      jupyterhub:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'CLOUDHARNESS_BASE=${{REGISTRY}}/testprojectname/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}',
+          'GOLANG=golang:1.26', 'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/jupyterhub
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{JUPYTERHUB_TAG}}
+        title: Building jupyterhub
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{JUPYTERHUB_TAG_EXISTS}}'', ''{{JUPYTERHUB_TAG_EXISTS}}'')
+                == true', forceNoCache: 'includes(''${{JUPYTERHUB_TAG_FORCE_BUILD}}'',
+                ''{{JUPYTERHUB_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: cloud-harness/applications/jupyterhub
+      samples-print-file:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'CLOUDHARNESS_BASE=${{REGISTRY}}/testprojectname/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}',
+          'GOLANG=golang:1.26', 'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/sampleapp-print-file
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{SAMPLES_PRINT_FILE_TAG}}
+        title: Building samples-print-file
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{SAMPLES_PRINT_FILE_TAG_EXISTS}}'',
+                ''{{SAMPLES_PRINT_FILE_TAG_EXISTS}}'') == true', forceNoCache: 'includes(''${{SAMPLES_PRINT_FILE_TAG_FORCE_BUILD}}'',
+                ''{{SAMPLES_PRINT_FILE_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: cloud-harness/applications/samples/tasks/print-file
+      samples-secret:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'CLOUDHARNESS_BASE=${{REGISTRY}}/testprojectname/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}',
+          'GOLANG=golang:1.26', 'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/sampleapp-secret
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{SAMPLES_SECRET_TAG}}
+        title: Building samples-secret
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{SAMPLES_SECRET_TAG_EXISTS}}'',
+                ''{{SAMPLES_SECRET_TAG_EXISTS}}'') == true', forceNoCache: 'includes(''${{SAMPLES_SECRET_TAG_FORCE_BUILD}}'',
+                ''{{SAMPLES_SECRET_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: cloud-harness/applications/samples/tasks/secret
+      test-api:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'CLOUDHARNESS_BASE=${{REGISTRY}}/testprojectname/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}',
+          'GOLANG=golang:1.26', 'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/test-api
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{TEST_API_TAG}}
+        title: Building test-api
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{TEST_API_TAG_EXISTS}}'', ''{{TEST_API_TAG_EXISTS}}'')
+                == true', forceNoCache: 'includes(''${{TEST_API_TAG_FORCE_BUILD}}'',
+                ''{{TEST_API_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: cloud-harness/test/test-api
+      workflows-extract-download:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'CLOUDHARNESS_BASE=${{REGISTRY}}/testprojectname/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}',
+          'GOLANG=golang:1.26', 'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/workflows-extract-download
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{WORKFLOWS_EXTRACT_DOWNLOAD_TAG}}
+        title: Building workflows-extract-download
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{WORKFLOWS_EXTRACT_DOWNLOAD_TAG_EXISTS}}'',
+                ''{{WORKFLOWS_EXTRACT_DOWNLOAD_TAG_EXISTS}}'') == true', forceNoCache: 'includes(''${{WORKFLOWS_EXTRACT_DOWNLOAD_TAG_FORCE_BUILD}}'',
+                ''{{WORKFLOWS_EXTRACT_DOWNLOAD_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: .overrides/workflows-extract-download
+      workflows-notify-queue:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'CLOUDHARNESS_BASE=${{REGISTRY}}/testprojectname/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}',
+          'GOLANG=golang:1.26', 'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/workflows-notify-queue
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{WORKFLOWS_NOTIFY_QUEUE_TAG}}
+        title: Building workflows-notify-queue
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{WORKFLOWS_NOTIFY_QUEUE_TAG_EXISTS}}'',
+                ''{{WORKFLOWS_NOTIFY_QUEUE_TAG_EXISTS}}'') == true', forceNoCache: 'includes(''${{WORKFLOWS_NOTIFY_QUEUE_TAG_FORCE_BUILD}}'',
+                ''{{WORKFLOWS_NOTIFY_QUEUE_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: cloud-harness/applications/workflows/tasks/notify-queue
+      workflows-send-result-event:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'CLOUDHARNESS_BASE=${{REGISTRY}}/testprojectname/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}',
+          'GOLANG=golang:1.26', 'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/workflows-send-result-event
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{WORKFLOWS_SEND_RESULT_EVENT_TAG}}
+        title: Building workflows-send-result-event
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{WORKFLOWS_SEND_RESULT_EVENT_TAG_EXISTS}}'',
+                ''{{WORKFLOWS_SEND_RESULT_EVENT_TAG_EXISTS}}'') == true', forceNoCache: 'includes(''${{WORKFLOWS_SEND_RESULT_EVENT_TAG_FORCE_BUILD}}'',
+                ''{{WORKFLOWS_SEND_RESULT_EVENT_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: .overrides/workflows-send-result-event
+    title: Build parallel step 2
+    type: parallel
+  build_application_images_2:
+    stage: build
+    steps:
+      common:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'CLOUDHARNESS_FLASK=${{REGISTRY}}/testprojectname/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}',
+          'GOLANG=golang:1.26', 'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: server/Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/common
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{COMMON_TAG}}
+        title: Building common
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{COMMON_TAG_EXISTS}}'', ''{{COMMON_TAG_EXISTS}}'')
+                == true', forceNoCache: 'includes(''${{COMMON_TAG_FORCE_BUILD}}'',
+                ''{{COMMON_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: cloud-harness/applications/common
+      myapp:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'CLOUDHARNESS_FLASK=${{REGISTRY}}/testprojectname/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}',
+          'GOLANG=golang:1.26', 'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/myapp
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{MYAPP_TAG}}
+        title: Building myapp
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{MYAPP_TAG_EXISTS}}'', ''{{MYAPP_TAG_EXISTS}}'')
+                == true', forceNoCache: 'includes(''${{MYAPP_TAG_FORCE_BUILD}}'',
+                ''{{MYAPP_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: ../applications/myapp
+      samples:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'CLOUDHARNESS_FLASK=${{REGISTRY}}/testprojectname/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}',
+          'CLOUDHARNESS_FRONTEND_BUILD=${{REGISTRY}}/testprojectname/cloudharness-frontend-build:${{CLOUDHARNESS_FRONTEND_BUILD_TAG}}',
+          'CLOUDHARNESS_DJANGO=${{REGISTRY}}/testprojectname/cloudharness-django:${{CLOUDHARNESS_DJANGO_TAG}}',
+          'GOLANG=golang:1.26', 'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: test.Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/sampleapp
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{SAMPLES_TAG}}
+        title: Building samples
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{SAMPLES_TAG_EXISTS}}'', ''{{SAMPLES_TAG_EXISTS}}'')
+                == true', forceNoCache: 'includes(''${{SAMPLES_TAG_FORCE_BUILD}}'',
+                ''{{SAMPLES_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: cloud-harness/applications/samples
+      volumemanager:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'CLOUDHARNESS_FLASK=${{REGISTRY}}/testprojectname/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}',
+          'GOLANG=golang:1.26', 'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: server/Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/volumemanager
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{VOLUMEMANAGER_TAG}}
+        title: Building volumemanager
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{VOLUMEMANAGER_TAG_EXISTS}}'',
+                ''{{VOLUMEMANAGER_TAG_EXISTS}}'') == true', forceNoCache: 'includes(''${{VOLUMEMANAGER_TAG_FORCE_BUILD}}'',
+                ''{{VOLUMEMANAGER_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: cloud-harness/applications/volumemanager
+      workflows:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'CLOUDHARNESS_FLASK=${{REGISTRY}}/testprojectname/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}',
+          'GOLANG=golang:1.26', 'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: server/Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/workflows
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{WORKFLOWS_TAG}}
+        title: Building workflows
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{WORKFLOWS_TAG_EXISTS}}'', ''{{WORKFLOWS_TAG_EXISTS}}'')
+                == true', forceNoCache: 'includes(''${{WORKFLOWS_TAG_FORCE_BUILD}}'',
+                ''{{WORKFLOWS_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: cloud-harness/applications/workflows
+    title: Build parallel step 3
+    type: parallel
+  build_application_images_3:
+    stage: build
+    steps:
+      samples-sum:
+        build_arguments: ['NOCACHE=${{CF_BUILD_ID}}', DEBUG=true, 'SAMPLES=${{REGISTRY}}/testprojectname/sampleapp:${{SAMPLES_TAG}}',
+          'GOLANG=golang:1.26', 'ROCKYLINUX=rockylinux/rockylinux:10.1-minimal', 'KEYCLOAK=quay.io/keycloak/keycloak:26.5',
+          'NODE=node:22-alpine', 'GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0']
+        buildkit: true
+        dockerfile: Dockerfile
+        image_name: ${{REGISTRY}}/testprojectname/sampleapp-sum
+        registry: ${{CODEFRESH_REGISTRY}}
+        stage: build
+        tag: ${{SAMPLES_SUM_TAG}}
+        title: Building samples-sum
+        type: build
+        when:
+          condition:
+            any: {buildDoesNotExist: 'includes(''${{SAMPLES_SUM_TAG_EXISTS}}'', ''{{SAMPLES_SUM_TAG_EXISTS}}'')
+                == true', forceNoCache: 'includes(''${{SAMPLES_SUM_TAG_FORCE_BUILD}}'',
+                ''{{SAMPLES_SUM_TAG_FORCE_BUILD}}'') == false'}
+        working_directory: cloud-harness/applications/samples/tasks/sum
+    title: Build parallel step 4
+    type: parallel
+  deployment:
+    arguments:
+      chart_name: deployment/helm
+      chart_version: ${{CF_SHORT_REVISION}}
+      cmd_ps: --timeout 200s --create-namespace
+      custom_value_files: [./deployment/helm/values.yaml]
+      custom_values: ['apps_myapp-inst1_harness_database_connect__string="${{MYAPP_INST1_DB_CONNECT_STRING}}"',
+        'apps_myapp_harness_database_connect__string="${{MYAPP_DB_CONNECT_STRING}}"',
+        'apps_samples_harness_secrets_asecret="${{ASECRET}}"', 'apps_samples-instance1_harness_secrets_asecret="${{ASECRET}}"']
+      helm_version: 3.14.4
+      kube_context: ${{CLUSTER_NAME}}
+      namespace: test-${{NAMESPACE_BASENAME}}
+      release_name: test-${{NAMESPACE_BASENAME}}
+    stage: deploy
+    title: Installing chart
+    type: helm
+    working_directory: ./${{CF_REPO_NAME}}
+  main_clone: {git: github, repo: '${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}', revision: '${{CF_BRANCH}}',
+    stage: prepare, title: Clone main repository, type: git-clone}
+  post_main_clone:
+    stage: prepare
+    steps:
+      clone_b_git_master_myapp: {git: github, repo: 'https://github.com/a/b.git',
+        revision: master, title: Cloning b.git repository..., type: git-clone, working_directory: ../applications/myapp/dependencies}
+      clone_cloud_harness: {git: github, repo: 'https://github.com/MetaCell/cloud-harness.git',
+        revision: '${{CLOUDHARNESS_BRANCH}}', stage: prepare, title: Cloning cloud-harness
+          repository..., type: git-clone, working_directory: .}
+      clone_d_git_v1_0_0_myapp: {git: github, repo: 'https://github.com/c/d.git',
+        revision: v1.0.0, title: Cloning d.git repository..., type: git-clone, working_directory: ../applications/myapp/dependencies/myrepo}
+    title: Post main clone
+    type: parallel
+  prepare_deployment:
+    commands: [bash cloud-harness/install.sh, 'export HELM_NAME_ARG="$( [ -n "${{CHART_NAME}}"
+        ] && printf -- "--name %s" "${{CHART_NAME}}" )"', 'export HELM_CHART_VERSION_ARG="$(
+        [ -n "${{CHART_VERSION}}" ] && printf -- "--chart-version %s" "${{CHART_VERSION}}"
+        )"', 'export HELM_APP_VERSION_ARG="$( APP_VERSION_RESOLVED="${{APP_VERSION}}";
+        [ -z "$APP_VERSION_RESOLVED" ] && APP_VERSION_RESOLVED="${{DEPLOYMENT_TAG}}";
+        [ -n "$APP_VERSION_RESOLVED" ] && printf -- "--app-version %s" "$APP_VERSION_RESOLVED"
+        )"', export HELM_META_ARGS="$HELM_NAME_ARG $HELM_CHART_VERSION_ARG $HELM_APP_VERSION_ARG",
+      'harness-deployment cloud-harness . -n test-${{NAMESPACE_BASENAME}} -d ${{DOMAIN}}
+        -r ${{REGISTRY}} -rsn ${{REGISTRY_SECRET}} -e test --write-env --cache-url
+        ''${{IMAGE_CACHE_URL}}'' -N $HELM_META_ARGS -i samples -i myapp', 'cat deployment/.env
+        >> ${{CF_VOLUME_PATH}}/env_vars_to_export', 'cat ${{CF_VOLUME_PATH}}/env_vars_to_export']
+    image: python:3.12
+    stage: prepare
+    title: Prepare helm chart
+    working_directory: .
+  prepare_deployment_view:
+    commands: ['helm template ./deployment/helm --debug -n test-${{NAMESPACE_BASENAME}}-${{CF_SHORT_REVISION}}']
+    environment: [ACTION=auth, 'KUBE_CONTEXT=test-${{CF_BUILD_ID}}']
+    image: codefresh/cfstep-helm:3.14.4
+    stage: prepare
+    title: View helm chart
+  tests_api:
+    commands: [echo $APP_NAME]
+    fail_fast: false
+    hooks:
+      on_fail:
+        exec:
+          commands: [cf_export  FAILED=failed]
+          image: alpine
+    image: ${{REGISTRY}}/testprojectname/test-api:${{TEST_API_TAG}}
+    scale:
+      common_api_test:
+        commands: ['st --pre-run cloudharness_test.apitest_init run api/openapi.yaml
+            --base-url https://common.${{DOMAIN}}/api -c all']
+        environment: ['APP_URL=https://common.${{DOMAIN}}/api']
+        title: common api test
+        volumes: ['${{CF_REPO_NAME}}/../../../../../applications/common:/home/test',
+          '${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml']
+      samples_api_test:
+        commands: ['st --pre-run cloudharness_test.apitest_init run api/openapi.yaml
+            --base-url https://www.${{DOMAIN}}/api -c all --skip-deprecated-operations
+            --exclude-operation-id=submit_sync --exclude-operation-id=submit_sync_with_results
+            --exclude-operation-id=error --hypothesis-suppress-health-check=too_slow
+            --hypothesis-deadline=180000 --request-timeout=180000 --hypothesis-max-examples=2
+            --show-trace --exclude-checks=ignored_auth', pytest -v test/api]
+        environment: ['APP_URL=https://www.${{DOMAIN}}/api', USERNAME=sample@testuser.com,
+          PASSWORD=test]
+        title: samples api test
+        volumes: ['${{CF_REPO_NAME}}/../../../../../applications/samples:/home/test',
+          '${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml']
+    stage: qa
+    title: Api tests
+    working_directory: /home/test
+  tests_e2e:
+    commands: [npx puppeteer browsers install chrome, yarn test]
+    fail_fast: false
+    hooks:
+      on_fail:
+        exec:
+          commands: [cf_export  FAILED=failed]
+          image: alpine
+    image: ${{REGISTRY}}/testprojectname/test-e2e:${{TEST_E2E_TAG}}
+    scale:
+      jupyterhub_e2e_test:
+        environment: ['APP_URL=https://hub.${{DOMAIN}}']
+        title: jupyterhub e2e test
+        volumes: ['${{CF_REPO_NAME}}/../../../../../applications/jupyterhub/test/e2e:/home/test/__tests__/jupyterhub']
+      samples_e2e_test:
+        environment: ['APP_URL=https://www.${{DOMAIN}}', USERNAME=sample@testuser.com,
+          PASSWORD=test]
+        title: samples e2e test
+        volumes: ['${{CF_REPO_NAME}}/../../../../../applications/samples/test/e2e:/home/test/__tests__/samples']
+    stage: qa
+    title: End to end tests
+    working_directory: /home/test
+  tests_nfs_failover:
+    commands: ['kubectl config use-context ${{CLUSTER_NAME}}', 'export NAMESPACE=test-${{NAMESPACE_BASENAME}}',
+      'export STORAGE_CLASS=${NAMESPACE}-nfs-client', bash applications/nfsserver/test/failover-test.sh]
+    fail_fast: false
+    hooks:
+      on_fail:
+        exec:
+          commands: [cf_export  FAILED=failed]
+          image: alpine
+      on_finish:
+        exec:
+          commands: ['kubectl config use-context ${{CLUSTER_NAME}}', 'export NAMESPACE=test-${{NAMESPACE_BASENAME}}',
+            kubectl -n $NAMESPACE delete pod -l app=nfs-failover-test --ignore-not-found
+              --grace-period=0 --force --wait=false 2>/dev/null || true, kubectl -n
+              $NAMESPACE delete pvc -l app=nfs-failover-test --ignore-not-found --wait=false
+              2>/dev/null || true]
+          image: codefresh/kubectl
+    image: codefresh/kubectl
+    stage: qa
+    title: NFS server failover & multi-node tests
+    when:
+      condition:
+        all: {nfs_test_enabled: '"${{TEST_NFS_FAILOVER}}" == "true"'}
+    working_directory: .
+  tests_unit:
+    stage: unittest
+    steps:
+      myapp_ut:
+        commands: [tox, echo "hello"]
+        image: ${{REGISTRY}}/testprojectname/myapp:${{MYAPP_TAG}}
+        title: Unit tests for myapp
+      samples_ut:
+        commands: [pytest /usr/src/app/samples/test]
+        image: ${{REGISTRY}}/testprojectname/sampleapp:${{SAMPLES_TAG}}
+        title: Unit tests for samples
+    type: parallel
+  wait_deployment:
+    commands: ['kubectl config use-context ${{CLUSTER_NAME}}', 'kubectl config set-context
+        --current --namespace=test-${{NAMESPACE_BASENAME}}', kubectl rollout status
+        deployment/argo-gk, kubectl rollout status statefulset/samples, kubectl rollout
+        status deployment/www-gk, kubectl rollout status deployment/workflows, kubectl
+        rollout status deployment/common, kubectl rollout status deployment/samples-instance1,
+      kubectl rollout status deployment/samples1-gk, kubectl rollout status deployment/volumemanager,
+      kubectl rollout status deployment/accounts, sleep 60]
+    image: codefresh/kubectl
+    stage: qa
+    timeout: 10m
+    title: Wait deployment to be ready
+test: true
+test_step: test
+version: '1.0'
