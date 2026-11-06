@@ -1,0 +1,23 @@
+harness:
+  dependencies:
+    build:
+    - cloudharness-base
+    - cloudharness-flask
+  deployment:
+    auto: true
+    port: 8080
+  livenessProbe:
+    path: /api/live
+  readinessProbe:
+    path: /api/ready
+  secured: false
+  service:
+    auto: true
+    port: 8080
+  subdomain: test
+  test:
+    api:
+      autotest: true
+      checks:
+      - all
+      enabled: true

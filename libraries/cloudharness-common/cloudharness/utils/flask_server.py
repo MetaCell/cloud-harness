@@ -6,7 +6,6 @@ from datetime import date, datetime
 import flask
 import connexion
 from flask.json.provider import DefaultJSONProvider
-import six
 
 from cloudharness import log as logging
 from cloudharness.applications import get_current_configuration
@@ -35,7 +34,7 @@ class JSONEncoder(DefaultJSONProvider):
         # also define `to_dict()`.
         if hasattr(o, 'openapi_types') and hasattr(o, 'attribute_map'):
             dikt = {}
-            for attr, _ in six.iteritems(o.openapi_types):
+            for attr, _ in o.openapi_types.items():
                 value = getattr(o, attr)
                 if value is None and not self.include_nulls:
                     continue

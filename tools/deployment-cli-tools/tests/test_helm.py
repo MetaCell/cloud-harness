@@ -2056,3 +2056,42 @@ def test_find_chart_images_resolves_empty_tag_from_app_version():
     assert find_chart_images({'image': {'repository': 'a/b', 'tag': ''}}) == [
         ChartImageRef(path=('image',), value={'repository': 'a/b'}),
     ]
+
+
+def test_official_argo_chart_keeps_cloudharness_service_and_naming_defaults(tmp_path):
+    out_path = tmp_path / "official_argo"
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT],
+        output_path=out_path,
+        include=["argo"],
+        domain="argo.test",
+        namespace="argo-contract",
+        local=False,
+        tls=False,
+        secured=False,
+        tag="test",
+    )
+    chart = out_path / HELM_CHART_PATH
+    metadata = yaml.load((chart / "charts" / "argo" / "Chart.yaml").read_text())
+
+    assert metadata["version"] == "2.0.14"
+    assert values["argo-workflows"]["singleNamespace"] is True
+    assert values[KEY_APPS]["argo"]["serviceaccount"] == "argo-workflows"
+
+    manifests = render_helm_chart(chart)
+    server = next(
+        item
+        for item in manifests
+        if item["kind"] == "Deployment" and item["metadata"]["name"].endswith("-server")
+    )
+    service = find_manifest(manifests, "Service", "argo-server")
+    assert all(
+        server["spec"]["template"]["metadata"]["labels"][key] == value
+        for key, value in service["spec"]["selector"].items()
+    )
+    assert find_manifest(manifests, "ConfigMap", "argo-cloudharness-env")["data"]["POD_NAMES"] == "v1"
+    jobs = [item for item in manifests if item["kind"] == "Job"]
+    assert any(
+        item["metadata"].get("annotations", {}).get("helm.sh/hook") == "pre-install,pre-upgrade"
+        for item in jobs
+    )

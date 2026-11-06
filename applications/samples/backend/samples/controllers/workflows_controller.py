@@ -1,5 +1,4 @@
 import connexion
-import six
 
 from cloudharness.auth import get_api_password
 from samples.models.inline_response202 import InlineResponse202  # noqa: E501

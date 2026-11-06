@@ -4,7 +4,6 @@ from __future__ import absolute_import
 import unittest
 
 from flask import json
-from six import BytesIO
 
 from workflows_api.models.operation import Operation  # noqa: E501
 from workflows_api.models.operation_search_result import OperationSearchResult  # noqa: E501

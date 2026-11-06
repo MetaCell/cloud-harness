@@ -1,29 +1,26 @@
 {{- if .Values.workflow.rbac.create -}}
-  {{- range $namespace := or .Values.singleNamespace false | ternary (list "") (append .Values.controller.workflowNamespaces (coalesce .Values.workflow.namespace .Release.Namespace) | uniq)  }}
+  {{- range $namespace := or .Values.singleNamespace false | ternary (list "") (append .Values.controller.workflowNamespaces (coalesce .Values.workflow.namespace (include "argo-workflows.namespace" .)) | uniq)  }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: {{ template "argo-workflows.fullname" $ }}-workflow
+  labels:
+    {{- include "argo-workflows.labels" (dict "context" $ "component" $.Values.controller.name "name" $.Values.controller.name) | nindent 4 }}
     {{- with $namespace }}
   namespace: {{ . }}
     {{- end }}
 rules:
   - apiGroups:
-      - ""
+      - argoproj.io
     resources:
-      - pods
+      - workflowtaskresults
     verbs:
-      - get
-      - watch
+      - create
       - patch
-  - apiGroups:
-      - ""
-    resources:
-      - pods/log
-    verbs:
-      - get
-      - watch
+  {{- with $.Values.workflow.rbac.rules }}
+    {{- toYaml . | nindent 2 }}
+  {{- end }}
   {{- end }}
 
 {{- end }}

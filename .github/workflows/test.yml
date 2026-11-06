@@ -42,3 +42,8 @@ jobs:
 
       - name: Run tox - deployment-cli-tools
         run: tox -c tools/deployment-cli-tools
+
+      - name: Test Argo components
+        run: |
+          pip install PyYAML
+          python -m unittest discover -s applications/argo/tests -v
