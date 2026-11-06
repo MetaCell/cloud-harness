@@ -13,7 +13,7 @@ class TestTestController(BaseTestCase):
 
         test the application is up
         """
-        headers = { 
+        headers = {
             'Accept': 'application/json',
         }
         response = self.client.open(

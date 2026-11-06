@@ -13,7 +13,7 @@ class TestReadyController(BaseTestCase):
 
         Test if application is ready to take requests
         """
-        headers = { 
+        headers = {
             'Accept': 'application/json',
         }
         response = self.client.open(

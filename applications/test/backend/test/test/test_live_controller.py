@@ -13,7 +13,7 @@ class TestLiveController(BaseTestCase):
 
         Test if application is healthy
         """
-        headers = { 
+        headers = {
             'Accept': 'application/json',
         }
         response = self.client.open(
