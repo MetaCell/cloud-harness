@@ -1,0 +1,1586 @@
+# Generated with: harness-deployment . -i samples -e test -ci github
+name: CloudHarness test
+on:
+  pull_request:
+    branches:
+      - develop
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: Comma-separated image names to rebuild even if their tag already exists, or `all`
+        type: string
+        default: ''
+      skip_tests:
+        description: Set to `true` to skip the tests
+        type: string
+        default: ''
+permissions:
+  contents: read
+  packages: write
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  CLOUDHARNESS_BRANCH: ${{ vars.CLOUDHARNESS_BRANCH || 'develop' }}
+jobs:
+  prepare:
+    name: Prepare helm chart
+    env:
+      NAMESPACE: test-${{ vars.NAMESPACE_BASENAME }}
+      DOMAIN: ${{ vars.DOMAIN }}
+      REGISTRY: ${{ vars.REGISTRY }}
+      REGISTRY_SECRET: ${{ vars.REGISTRY_SECRET }}
+      IMAGE_CACHE_URL: ${{ vars.IMAGE_CACHE_URL }}
+      CHART_NAME: ${{ vars.CHART_NAME }}
+      CHART_VERSION: ${{ vars.CHART_VERSION }}
+      APP_VERSION: ${{ vars.APP_VERSION }}
+      PUBLISH_TAG: ${{ inputs.publish_tag || vars.DEPLOYMENT_PUBLISH_TAG }}
+      DEPLOYMENT_TAG: ${{ inputs.deployment_tag || (github.ref_type == 'tag' && github.ref_name) || '' }}
+      SKIP_TESTS: ${{ inputs.skip_tests || vars.SKIP_TESTS }}
+      FORCE_BUILD: ${{ inputs.force_build }}
+    outputs:
+      branch_tag: ${{ steps.env.outputs.branch_tag }}
+      short_sha: ${{ steps.env.outputs.short_sha }}
+      registry_host: ${{ steps.env.outputs.registry_host }}
+      namespace: ${{ steps.env.outputs.namespace }}
+      publish_tag: ${{ steps.env.outputs.publish_tag }}
+      deployment_tag: ${{ steps.env.outputs.deployment_tag }}
+      skip_tests: ${{ steps.env.outputs.skip_tests }}
+      force_build: ${{ steps.env.outputs.force_build }}
+      ACCOUNTS_TAG: ${{ steps.images.outputs.ACCOUNTS_TAG }}
+      ACCOUNTS_TAG_EXISTS: ${{ steps.images.outputs.ACCOUNTS_TAG_EXISTS }}
+      COMMON_TAG: ${{ steps.images.outputs.COMMON_TAG }}
+      COMMON_TAG_EXISTS: ${{ steps.images.outputs.COMMON_TAG_EXISTS }}
+      JUPYTERHUB_TAG: ${{ steps.images.outputs.JUPYTERHUB_TAG }}
+      JUPYTERHUB_TAG_EXISTS: ${{ steps.images.outputs.JUPYTERHUB_TAG_EXISTS }}
+      NFSSERVER_TAG: ${{ steps.images.outputs.NFSSERVER_TAG }}
+      NFSSERVER_TAG_EXISTS: ${{ steps.images.outputs.NFSSERVER_TAG_EXISTS }}
+      SAMPLES_TAG: ${{ steps.images.outputs.SAMPLES_TAG }}
+      SAMPLES_TAG_EXISTS: ${{ steps.images.outputs.SAMPLES_TAG_EXISTS }}
+      SAMPLES_INSTANCE1_TAG: ${{ steps.images.outputs.SAMPLES_INSTANCE1_TAG }}
+      SAMPLES_INSTANCE1_TAG_EXISTS: ${{ steps.images.outputs.SAMPLES_INSTANCE1_TAG_EXISTS }}
+      VOLUMEMANAGER_TAG: ${{ steps.images.outputs.VOLUMEMANAGER_TAG }}
+      VOLUMEMANAGER_TAG_EXISTS: ${{ steps.images.outputs.VOLUMEMANAGER_TAG_EXISTS }}
+      WORKFLOWS_TAG: ${{ steps.images.outputs.WORKFLOWS_TAG }}
+      WORKFLOWS_TAG_EXISTS: ${{ steps.images.outputs.WORKFLOWS_TAG_EXISTS }}
+      CLOUDHARNESS_FLASK_TAG: ${{ steps.images.outputs.CLOUDHARNESS_FLASK_TAG }}
+      CLOUDHARNESS_FLASK_TAG_EXISTS: ${{ steps.images.outputs.CLOUDHARNESS_FLASK_TAG_EXISTS }}
+      CLOUDHARNESS_BASE_TAG: ${{ steps.images.outputs.CLOUDHARNESS_BASE_TAG }}
+      CLOUDHARNESS_BASE_TAG_EXISTS: ${{ steps.images.outputs.CLOUDHARNESS_BASE_TAG_EXISTS }}
+      CLOUDHARNESS_DJANGO_TAG: ${{ steps.images.outputs.CLOUDHARNESS_DJANGO_TAG }}
+      CLOUDHARNESS_DJANGO_TAG_EXISTS: ${{ steps.images.outputs.CLOUDHARNESS_DJANGO_TAG_EXISTS }}
+      CLOUDHARNESS_FRONTEND_BUILD_TAG: ${{ steps.images.outputs.CLOUDHARNESS_FRONTEND_BUILD_TAG }}
+      CLOUDHARNESS_FRONTEND_BUILD_TAG_EXISTS: ${{ steps.images.outputs.CLOUDHARNESS_FRONTEND_BUILD_TAG_EXISTS }}
+      SAMPLES_PRINT_FILE_TAG: ${{ steps.images.outputs.SAMPLES_PRINT_FILE_TAG }}
+      SAMPLES_PRINT_FILE_TAG_EXISTS: ${{ steps.images.outputs.SAMPLES_PRINT_FILE_TAG_EXISTS }}
+      SAMPLES_SUM_TAG: ${{ steps.images.outputs.SAMPLES_SUM_TAG }}
+      SAMPLES_SUM_TAG_EXISTS: ${{ steps.images.outputs.SAMPLES_SUM_TAG_EXISTS }}
+      SAMPLES_SECRET_TAG: ${{ steps.images.outputs.SAMPLES_SECRET_TAG }}
+      SAMPLES_SECRET_TAG_EXISTS: ${{ steps.images.outputs.SAMPLES_SECRET_TAG_EXISTS }}
+      WORKFLOWS_NOTIFY_QUEUE_TAG: ${{ steps.images.outputs.WORKFLOWS_NOTIFY_QUEUE_TAG }}
+      WORKFLOWS_NOTIFY_QUEUE_TAG_EXISTS: ${{ steps.images.outputs.WORKFLOWS_NOTIFY_QUEUE_TAG_EXISTS }}
+      WORKFLOWS_SEND_RESULT_EVENT_TAG: ${{ steps.images.outputs.WORKFLOWS_SEND_RESULT_EVENT_TAG }}
+      WORKFLOWS_SEND_RESULT_EVENT_TAG_EXISTS: ${{ steps.images.outputs.WORKFLOWS_SEND_RESULT_EVENT_TAG_EXISTS }}
+      WORKFLOWS_EXTRACT_DOWNLOAD_TAG: ${{ steps.images.outputs.WORKFLOWS_EXTRACT_DOWNLOAD_TAG }}
+      WORKFLOWS_EXTRACT_DOWNLOAD_TAG_EXISTS: ${{ steps.images.outputs.WORKFLOWS_EXTRACT_DOWNLOAD_TAG_EXISTS }}
+      TEST_API_TAG: ${{ steps.images.outputs.TEST_API_TAG }}
+      TEST_API_TAG_EXISTS: ${{ steps.images.outputs.TEST_API_TAG_EXISTS }}
+      TEST_E2E_TAG: ${{ steps.images.outputs.TEST_E2E_TAG }}
+      TEST_E2E_TAG_EXISTS: ${{ steps.images.outputs.TEST_E2E_TAG_EXISTS }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: azure/setup-helm@v4
+      - name: Install cloud-harness tools
+        run: bash cloud-harness/install.sh
+      - name: Resolve pipeline variables
+        id: env
+        run: |
+          branch_tag=$(echo "$GITHUB_REF_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g' | cut -c1-128)
+          {
+            echo "branch_tag=$branch_tag"
+            echo "short_sha=${GITHUB_SHA::7}"
+            echo "registry_host=${REGISTRY%%/*}"
+            echo "namespace=$NAMESPACE"
+            echo "publish_tag=$PUBLISH_TAG"
+            echo "deployment_tag=$DEPLOYMENT_TAG"
+            echo "skip_tests=$SKIP_TESTS"
+            echo "force_build=$FORCE_BUILD"
+          } >> "$GITHUB_OUTPUT"
+      - name: Prepare helm chart
+        id: images
+        run: |
+          HELM_META_ARGS=""
+          if [ -n "$CHART_NAME" ]; then HELM_META_ARGS="$HELM_META_ARGS --name $CHART_NAME"; fi
+          if [ -n "$CHART_VERSION" ]; then HELM_META_ARGS="$HELM_META_ARGS --chart-version $CHART_VERSION"; fi
+          APP_VERSION_RESOLVED="${APP_VERSION:-$DEPLOYMENT_TAG}"
+          if [ -n "$APP_VERSION_RESOLVED" ]; then HELM_META_ARGS="$HELM_META_ARGS --app-version $APP_VERSION_RESOLVED"; fi
+          TAG_ARG=""
+          if [ -n "$DEPLOYMENT_TAG" ]; then TAG_ARG="-t $DEPLOYMENT_TAG"; fi
+          harness-deployment . -d "$DOMAIN" -r "$REGISTRY" -rsn "$REGISTRY_SECRET" -n "$NAMESPACE" -e test $TAG_ARG --write-env --cache-url "$IMAGE_CACHE_URL" --force-build "$FORCE_BUILD" -N $HELM_META_ARGS -i samples
+          cat deployment/.env >> "$GITHUB_OUTPUT"
+      - name: View helm chart
+        run: helm template ./deployment/helm --debug -n "$NAMESPACE"
+      - name: Share the deployment with the other jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: |
+            deployment
+            .overrides
+          include-hidden-files: true
+          if-no-files-found: error
+    runs-on: ubuntu-latest
+  build-accounts:
+    name: Build accounts
+    needs:
+      - prepare
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether accounts already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/accounts:${{ needs.prepare.outputs.ACCOUNTS_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push accounts
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/accounts:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/accounts:buildcache,mode=max
+          context: ./applications/accounts
+          file: ./applications/accounts/Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/accounts:${{ needs.prepare.outputs.ACCOUNTS_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/accounts:${{ needs.prepare.outputs.branch_tag }}
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',accounts,') }}
+    if: ${{ (needs.prepare.outputs.ACCOUNTS_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  build-common:
+    name: Build common
+    needs:
+      - prepare
+      - build-cloudharness-flask
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether common already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/common:${{ needs.prepare.outputs.COMMON_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push common
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/common:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/common:buildcache,mode=max
+          context: ./applications/common
+          file: ./applications/common/server/Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            CLOUDHARNESS_FLASK=${{ vars.REGISTRY }}/cloud-harness/cloudharness-flask:${{ needs.prepare.outputs.CLOUDHARNESS_FLASK_TAG }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/common:${{ needs.prepare.outputs.COMMON_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/common:${{ needs.prepare.outputs.branch_tag }}
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',common,') }}
+    if: ${{ (needs.prepare.outputs.COMMON_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  build-jupyterhub:
+    name: Build jupyterhub
+    needs:
+      - prepare
+      - build-cloudharness-base
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether jupyterhub already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/jupyterhub:${{ needs.prepare.outputs.JUPYTERHUB_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push jupyterhub
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/jupyterhub:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/jupyterhub:buildcache,mode=max
+          context: ./applications/jupyterhub
+          file: ./applications/jupyterhub/Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            CLOUDHARNESS_BASE=${{ vars.REGISTRY }}/cloud-harness/cloudharness-base:${{ needs.prepare.outputs.CLOUDHARNESS_BASE_TAG }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/jupyterhub:${{ needs.prepare.outputs.JUPYTERHUB_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/jupyterhub:${{ needs.prepare.outputs.branch_tag }}
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',jupyterhub,') }}
+    if: ${{ (needs.prepare.outputs.JUPYTERHUB_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  build-nfsserver:
+    name: Build nfsserver
+    needs:
+      - prepare
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether nfsserver already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/nfsserver:${{ needs.prepare.outputs.NFSSERVER_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push nfsserver
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/nfsserver:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/nfsserver:buildcache,mode=max
+          context: ./applications/nfsserver
+          file: ./applications/nfsserver/Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/nfsserver:${{ needs.prepare.outputs.NFSSERVER_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/nfsserver:${{ needs.prepare.outputs.branch_tag }}
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',nfsserver,') }}
+    if: ${{ (needs.prepare.outputs.NFSSERVER_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  build-samples:
+    name: Build samples
+    needs:
+      - prepare
+      - build-cloudharness-flask
+      - build-cloudharness-frontend-build
+      - build-cloudharness-django
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether samples already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/sampleapp:${{ needs.prepare.outputs.SAMPLES_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push samples
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/sampleapp:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/sampleapp:buildcache,mode=max
+          context: ./applications/samples
+          file: ./applications/samples/test.Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            CLOUDHARNESS_FLASK=${{ vars.REGISTRY }}/cloud-harness/cloudharness-flask:${{ needs.prepare.outputs.CLOUDHARNESS_FLASK_TAG }}
+            CLOUDHARNESS_FRONTEND_BUILD=${{ vars.REGISTRY }}/cloud-harness/cloudharness-frontend-build:${{ needs.prepare.outputs.CLOUDHARNESS_FRONTEND_BUILD_TAG }}
+            CLOUDHARNESS_DJANGO=${{ vars.REGISTRY }}/cloud-harness/cloudharness-django:${{ needs.prepare.outputs.CLOUDHARNESS_DJANGO_TAG }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+            TEST_ARGUMENT=example value
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/sampleapp:${{ needs.prepare.outputs.SAMPLES_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/sampleapp:${{ needs.prepare.outputs.branch_tag }}
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',samples,') }}
+    if: ${{ (needs.prepare.outputs.SAMPLES_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  build-samples-print-file:
+    name: Build samples-print-file
+    needs:
+      - prepare
+      - build-cloudharness-base
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether samples-print-file already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/sampleapp-print-file:${{ needs.prepare.outputs.SAMPLES_PRINT_FILE_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push samples-print-file
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/sampleapp-print-file:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/sampleapp-print-file:buildcache,mode=max
+          context: ./applications/samples/tasks/print-file
+          file: ./applications/samples/tasks/print-file/Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            CLOUDHARNESS_BASE=${{ vars.REGISTRY }}/cloud-harness/cloudharness-base:${{ needs.prepare.outputs.CLOUDHARNESS_BASE_TAG }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/sampleapp-print-file:${{ needs.prepare.outputs.SAMPLES_PRINT_FILE_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/sampleapp-print-file:${{ needs.prepare.outputs.branch_tag }}
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',samples-print-file,') }}
+    if: ${{ (needs.prepare.outputs.SAMPLES_PRINT_FILE_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  build-samples-sum:
+    name: Build samples-sum
+    needs:
+      - prepare
+      - build-samples
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether samples-sum already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/sampleapp-sum:${{ needs.prepare.outputs.SAMPLES_SUM_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push samples-sum
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/sampleapp-sum:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/sampleapp-sum:buildcache,mode=max
+          context: ./applications/samples/tasks/sum
+          file: ./applications/samples/tasks/sum/Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            SAMPLES=${{ vars.REGISTRY }}/cloud-harness/sampleapp:${{ needs.prepare.outputs.SAMPLES_TAG }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/sampleapp-sum:${{ needs.prepare.outputs.SAMPLES_SUM_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/sampleapp-sum:${{ needs.prepare.outputs.branch_tag }}
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',samples-sum,') }}
+    if: ${{ (needs.prepare.outputs.SAMPLES_SUM_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  build-samples-secret:
+    name: Build samples-secret
+    needs:
+      - prepare
+      - build-cloudharness-base
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether samples-secret already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/sampleapp-secret:${{ needs.prepare.outputs.SAMPLES_SECRET_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push samples-secret
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/sampleapp-secret:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/sampleapp-secret:buildcache,mode=max
+          context: ./applications/samples/tasks/secret
+          file: ./applications/samples/tasks/secret/Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            CLOUDHARNESS_BASE=${{ vars.REGISTRY }}/cloud-harness/cloudharness-base:${{ needs.prepare.outputs.CLOUDHARNESS_BASE_TAG }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/sampleapp-secret:${{ needs.prepare.outputs.SAMPLES_SECRET_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/sampleapp-secret:${{ needs.prepare.outputs.branch_tag }}
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',samples-secret,') }}
+    if: ${{ (needs.prepare.outputs.SAMPLES_SECRET_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  build-volumemanager:
+    name: Build volumemanager
+    needs:
+      - prepare
+      - build-cloudharness-flask
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether volumemanager already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/volumemanager:${{ needs.prepare.outputs.VOLUMEMANAGER_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push volumemanager
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/volumemanager:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/volumemanager:buildcache,mode=max
+          context: ./applications/volumemanager
+          file: ./applications/volumemanager/server/Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            CLOUDHARNESS_FLASK=${{ vars.REGISTRY }}/cloud-harness/cloudharness-flask:${{ needs.prepare.outputs.CLOUDHARNESS_FLASK_TAG }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/volumemanager:${{ needs.prepare.outputs.VOLUMEMANAGER_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/volumemanager:${{ needs.prepare.outputs.branch_tag }}
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',volumemanager,') }}
+    if: ${{ (needs.prepare.outputs.VOLUMEMANAGER_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  build-workflows:
+    name: Build workflows
+    needs:
+      - prepare
+      - build-cloudharness-flask
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether workflows already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/workflows:${{ needs.prepare.outputs.WORKFLOWS_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push workflows
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/workflows:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/workflows:buildcache,mode=max
+          context: ./applications/workflows
+          file: ./applications/workflows/server/Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            CLOUDHARNESS_FLASK=${{ vars.REGISTRY }}/cloud-harness/cloudharness-flask:${{ needs.prepare.outputs.CLOUDHARNESS_FLASK_TAG }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/workflows:${{ needs.prepare.outputs.WORKFLOWS_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/workflows:${{ needs.prepare.outputs.branch_tag }}
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',workflows,') }}
+    if: ${{ (needs.prepare.outputs.WORKFLOWS_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  build-workflows-notify-queue:
+    name: Build workflows-notify-queue
+    needs:
+      - prepare
+      - build-cloudharness-base
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether workflows-notify-queue already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/workflows-notify-queue:${{ needs.prepare.outputs.WORKFLOWS_NOTIFY_QUEUE_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push workflows-notify-queue
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/workflows-notify-queue:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/workflows-notify-queue:buildcache,mode=max
+          context: ./applications/workflows/tasks/notify-queue
+          file: ./applications/workflows/tasks/notify-queue/Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            CLOUDHARNESS_BASE=${{ vars.REGISTRY }}/cloud-harness/cloudharness-base:${{ needs.prepare.outputs.CLOUDHARNESS_BASE_TAG }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/workflows-notify-queue:${{ needs.prepare.outputs.WORKFLOWS_NOTIFY_QUEUE_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/workflows-notify-queue:${{ needs.prepare.outputs.branch_tag }}
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',workflows-notify-queue,') }}
+    if: ${{ (needs.prepare.outputs.WORKFLOWS_NOTIFY_QUEUE_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  build-workflows-send-result-event:
+    name: Build workflows-send-result-event
+    needs:
+      - prepare
+      - build-cloudharness-base
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether workflows-send-result-event already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/workflows-send-result-event:${{ needs.prepare.outputs.WORKFLOWS_SEND_RESULT_EVENT_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push workflows-send-result-event
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/workflows-send-result-event:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/workflows-send-result-event:buildcache,mode=max
+          context: ./applications/workflows/tasks/send-result-event
+          file: ./applications/workflows/tasks/send-result-event/Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            CLOUDHARNESS_BASE=${{ vars.REGISTRY }}/cloud-harness/cloudharness-base:${{ needs.prepare.outputs.CLOUDHARNESS_BASE_TAG }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/workflows-send-result-event:${{ needs.prepare.outputs.WORKFLOWS_SEND_RESULT_EVENT_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/workflows-send-result-event:${{ needs.prepare.outputs.branch_tag }}
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',workflows-send-result-event,') }}
+    if: ${{ (needs.prepare.outputs.WORKFLOWS_SEND_RESULT_EVENT_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  build-workflows-extract-download:
+    name: Build workflows-extract-download
+    needs:
+      - prepare
+      - build-cloudharness-base
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether workflows-extract-download already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/workflows-extract-download:${{ needs.prepare.outputs.WORKFLOWS_EXTRACT_DOWNLOAD_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push workflows-extract-download
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/workflows-extract-download:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/workflows-extract-download:buildcache,mode=max
+          context: ./applications/workflows/tasks/extract-download
+          file: ./applications/workflows/tasks/extract-download/Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            CLOUDHARNESS_BASE=${{ vars.REGISTRY }}/cloud-harness/cloudharness-base:${{ needs.prepare.outputs.CLOUDHARNESS_BASE_TAG }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/workflows-extract-download:${{ needs.prepare.outputs.WORKFLOWS_EXTRACT_DOWNLOAD_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/workflows-extract-download:${{ needs.prepare.outputs.branch_tag }}
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',workflows-extract-download,') }}
+    if: ${{ (needs.prepare.outputs.WORKFLOWS_EXTRACT_DOWNLOAD_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  build-cloudharness-flask:
+    name: Build cloudharness-flask
+    needs:
+      - prepare
+      - build-cloudharness-base
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether cloudharness-flask already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/cloudharness-flask:${{ needs.prepare.outputs.CLOUDHARNESS_FLASK_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push cloudharness-flask
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/cloudharness-flask:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/cloudharness-flask:buildcache,mode=max
+          context: ./infrastructure/common-images/cloudharness-flask
+          file: ./infrastructure/common-images/cloudharness-flask/Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            CLOUDHARNESS_BASE=${{ vars.REGISTRY }}/cloud-harness/cloudharness-base:${{ needs.prepare.outputs.CLOUDHARNESS_BASE_TAG }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/cloudharness-flask:${{ needs.prepare.outputs.CLOUDHARNESS_FLASK_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/cloudharness-flask:${{ needs.prepare.outputs.branch_tag }}
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',cloudharness-flask,') }}
+    if: ${{ (needs.prepare.outputs.CLOUDHARNESS_FLASK_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  build-cloudharness-base:
+    name: Build cloudharness-base
+    needs:
+      - prepare
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether cloudharness-base already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/cloudharness-base:${{ needs.prepare.outputs.CLOUDHARNESS_BASE_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push cloudharness-base
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/cloudharness-base:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/cloudharness-base:buildcache,mode=max
+          context: ./.
+          file: ././infrastructure/base-images/cloudharness-base/Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/cloudharness-base:${{ needs.prepare.outputs.CLOUDHARNESS_BASE_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/cloudharness-base:${{ needs.prepare.outputs.branch_tag }}
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',cloudharness-base,') }}
+    if: ${{ (needs.prepare.outputs.CLOUDHARNESS_BASE_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  build-cloudharness-django:
+    name: Build cloudharness-django
+    needs:
+      - prepare
+      - build-cloudharness-base
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether cloudharness-django already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/cloudharness-django:${{ needs.prepare.outputs.CLOUDHARNESS_DJANGO_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push cloudharness-django
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/cloudharness-django:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/cloudharness-django:buildcache,mode=max
+          context: ./infrastructure/common-images/cloudharness-django
+          file: ./infrastructure/common-images/cloudharness-django/Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            CLOUDHARNESS_BASE=${{ vars.REGISTRY }}/cloud-harness/cloudharness-base:${{ needs.prepare.outputs.CLOUDHARNESS_BASE_TAG }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/cloudharness-django:${{ needs.prepare.outputs.CLOUDHARNESS_DJANGO_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/cloudharness-django:${{ needs.prepare.outputs.branch_tag }}
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',cloudharness-django,') }}
+    if: ${{ (needs.prepare.outputs.CLOUDHARNESS_DJANGO_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  build-cloudharness-frontend-build:
+    name: Build cloudharness-frontend-build
+    needs:
+      - prepare
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether cloudharness-frontend-build already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/cloudharness-frontend-build:${{ needs.prepare.outputs.CLOUDHARNESS_FRONTEND_BUILD_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push cloudharness-frontend-build
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/cloudharness-frontend-build:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/cloudharness-frontend-build:buildcache,mode=max
+          context: ./.
+          file: ././infrastructure/base-images/cloudharness-frontend-build/Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/cloudharness-frontend-build:${{ needs.prepare.outputs.CLOUDHARNESS_FRONTEND_BUILD_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/cloudharness-frontend-build:${{ needs.prepare.outputs.branch_tag }}
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',cloudharness-frontend-build,') }}
+    if: ${{ (needs.prepare.outputs.CLOUDHARNESS_FRONTEND_BUILD_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  build-test-api:
+    name: Build test-api
+    needs:
+      - prepare
+      - build-cloudharness-base
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether test-api already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/test-api:${{ needs.prepare.outputs.TEST_API_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push test-api
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/test-api:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/test-api:buildcache,mode=max
+          context: ./test/test-api
+          file: ./test/test-api/Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            CLOUDHARNESS_BASE=${{ vars.REGISTRY }}/cloud-harness/cloudharness-base:${{ needs.prepare.outputs.CLOUDHARNESS_BASE_TAG }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/test-api:${{ needs.prepare.outputs.TEST_API_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/test-api:${{ needs.prepare.outputs.branch_tag }}
+            ${{ vars.REGISTRY }}/cloud-harness/test-api:latest
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',test-api,') }}
+    if: ${{ (needs.prepare.outputs.TEST_API_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  build-test-e2e:
+    name: Build test-e2e
+    needs:
+      - prepare
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Check whether test-e2e already exists in the registry
+        id: check
+        env:
+          IMAGE: ${{ vars.REGISTRY }}/cloud-harness/test-e2e:${{ needs.prepare.outputs.TEST_E2E_TAG }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push test-e2e
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          cache-from: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/test-e2e:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY }}/cloud-harness/test-e2e:buildcache,mode=max
+          context: ./test/test-e2e
+          file: ./test/test-e2e/Dockerfile
+          build-args: |-
+            NOCACHE=${{ github.run_id }}
+            KEYCLOAK=quay.io/keycloak/keycloak:26.5
+            GOLANG=golang:1.26
+            ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
+            NODE=node:22-alpine
+            PYTHON=python:3.12-slim-trixie
+            GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
+          tags: |-
+            ${{ vars.REGISTRY }}/cloud-harness/test-e2e:${{ needs.prepare.outputs.TEST_E2E_TAG }}
+            ${{ vars.REGISTRY }}/cloud-harness/test-e2e:${{ needs.prepare.outputs.branch_tag }}
+            ${{ vars.REGISTRY }}/cloud-harness/test-e2e:latest
+        if: ${{ steps.check.outputs.exists != 'true' || needs.prepare.outputs.force_build == 'all' || contains(format(',{0},', needs.prepare.outputs.force_build), ',test-e2e,') }}
+    if: ${{ (needs.prepare.outputs.TEST_E2E_TAG_EXISTS != '1') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    runs-on: ubuntu-latest
+  tests-unit-samples:
+    name: Unit tests samples
+    needs:
+      - prepare
+      - build-samples
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Run samples unit tests
+        env:
+          CH_TEST_IMAGE: ${{ vars.REGISTRY }}/cloud-harness/sampleapp:${{ needs.prepare.outputs.SAMPLES_TAG }}
+          CH_TEST_COMMANDS: |
+            set -e
+            pytest /usr/src/app/samples/test
+        run: |-
+          docker run --rm \
+            "$CH_TEST_IMAGE" sh -c "$CH_TEST_COMMANDS"
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success' }}
+    runs-on: ubuntu-latest
+  deploy:
+    name: Deploy
+    needs:
+      - prepare
+      - build-accounts
+      - build-common
+      - build-jupyterhub
+      - build-nfsserver
+      - build-samples
+      - build-samples-print-file
+      - build-samples-sum
+      - build-samples-secret
+      - build-volumemanager
+      - build-workflows
+      - build-workflows-notify-queue
+      - build-workflows-send-result-event
+      - build-workflows-extract-download
+      - build-cloudharness-flask
+      - build-cloudharness-base
+      - build-cloudharness-django
+      - build-cloudharness-frontend-build
+      - tests-unit-samples
+    environment: test
+    env:
+      HELM_FLAGS: --timeout 200s --create-namespace
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: azure/setup-helm@v4
+      - uses: azure/setup-kubectl@v4
+      - name: Configure kubectl
+        env:
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
+        run: |
+          if [ -n "$KUBECONFIG_DATA" ]; then
+            mkdir -p "$HOME/.kube"
+            echo "$KUBECONFIG_DATA" | base64 -d > "$HOME/.kube/config"
+            chmod 600 "$HOME/.kube/config"
+          elif [ -n "$KUBERNETES_SERVICE_HOST" ] || kubectl config current-context > /dev/null 2>&1; then
+            echo "Using the runner's ambient cluster access"
+          else
+            echo "::error::No cluster access: set the KUBECONFIG secret (base64 kubeconfig) where this job can read it, or run on a runner inside the target cluster"
+            exit 1
+          fi
+      - name: Collect secret values
+        env:
+          ASECRET: ${{ secrets.ASECRET }}
+        run: |
+          set -e
+          secrets_dir="$RUNNER_TEMP/ch-secrets"
+          mkdir -p "$secrets_dir"
+          args=""
+          printf '%s' "$ASECRET" > "$secrets_dir/0"
+          args="$args --set-file apps.samples.harness.secrets.asecret=$secrets_dir/0"
+          printf '%s' "$ASECRET" > "$secrets_dir/1"
+          args="$args --set-file apps.samples-instance1.harness.secrets.asecret=$secrets_dir/1"
+          echo "HELM_SET_ARGS=$args" >> "$GITHUB_ENV"
+      - name: Install chart
+        env:
+          NAMESPACE: ${{ needs.prepare.outputs.namespace }}
+        run: helm upgrade --install "$NAMESPACE" deployment/helm -n "$NAMESPACE" $HELM_FLAGS -f deployment/helm/values.yaml $HELM_SET_ARGS
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success' && needs.tests-unit-samples.result == 'success' }}
+    runs-on: ubuntu-latest
+  wait-deployment:
+    name: Wait for the deployment
+    needs:
+      - prepare
+      - deploy
+    if: ${{ (needs.prepare.outputs.skip_tests != 'true') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success' && needs.deploy.result == 'success') }}
+    timeout-minutes: 15
+    env:
+      NAMESPACE: ${{ needs.prepare.outputs.namespace }}
+    steps:
+      - uses: azure/setup-kubectl@v4
+      - name: Configure kubectl
+        env:
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
+        run: |
+          if [ -n "$KUBECONFIG_DATA" ]; then
+            mkdir -p "$HOME/.kube"
+            echo "$KUBECONFIG_DATA" | base64 -d > "$HOME/.kube/config"
+            chmod 600 "$HOME/.kube/config"
+          elif [ -n "$KUBERNETES_SERVICE_HOST" ] || kubectl config current-context > /dev/null 2>&1; then
+            echo "Using the runner's ambient cluster access"
+          else
+            echo "::error::No cluster access: set the KUBECONFIG secret (base64 kubeconfig) where this job can read it, or run on a runner inside the target cluster"
+            exit 1
+          fi
+      - name: Select the namespace
+        run: kubectl config set-context --current --namespace="$NAMESPACE"
+      - name: Wait for the rollouts
+        run: |
+          kubectl rollout status deployment/accounts
+          kubectl rollout status deployment/argo-gk
+          kubectl rollout status deployment/common
+          kubectl rollout status statefulset/samples
+          kubectl rollout status deployment/www-gk
+          kubectl rollout status deployment/samples-instance1
+          kubectl rollout status deployment/samples1-gk
+          kubectl rollout status deployment/volumemanager
+          kubectl rollout status deployment/workflows
+          sleep 60
+    runs-on: ubuntu-latest
+  tests-api-common:
+    name: API tests common
+    needs:
+      - prepare
+      - wait-deployment
+      - build-test-api
+    if: ${{ (needs.prepare.outputs.skip_tests != 'true') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Run common API tests
+        env:
+          APP_URL: https://common.${{ vars.DOMAIN }}/api
+          CH_TEST_IMAGE: ${{ vars.REGISTRY }}/cloud-harness/test-api:${{ needs.prepare.outputs.TEST_API_TAG }}
+          CH_TEST_COMMANDS: |
+            set -e
+            st --pre-run cloudharness_test.apitest_init run api/openapi.yaml --base-url https://common.${{ vars.DOMAIN }}/api -c all
+        run: |-
+          docker run --rm \
+            -e APP_URL \
+            -v "$GITHUB_WORKSPACE/applications/common:/home/test" \
+            -v "$GITHUB_WORKSPACE/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml" \
+            -w /home/test \
+            "$CH_TEST_IMAGE" sh -c "$CH_TEST_COMMANDS"
+    runs-on: ubuntu-latest
+  tests-api-samples:
+    name: API tests samples
+    needs:
+      - prepare
+      - wait-deployment
+      - build-test-api
+    if: ${{ (needs.prepare.outputs.skip_tests != 'true') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Run samples API tests
+        env:
+          APP_URL: https://www.${{ vars.DOMAIN }}/api
+          USERNAME: sample@testuser.com
+          PASSWORD: test
+          CH_TEST_IMAGE: ${{ vars.REGISTRY }}/cloud-harness/test-api:${{ needs.prepare.outputs.TEST_API_TAG }}
+          CH_TEST_COMMANDS: |
+            set -e
+            st --pre-run cloudharness_test.apitest_init run api/openapi.yaml --base-url https://www.${{ vars.DOMAIN }}/api -c all --skip-deprecated-operations --exclude-operation-id=submit_sync --exclude-operation-id=submit_sync_with_results --exclude-operation-id=error --hypothesis-suppress-health-check=too_slow --hypothesis-deadline=180000 --request-timeout=180000 --hypothesis-max-examples=2 --show-trace --exclude-checks=ignored_auth
+            pytest -v test/api
+        run: |-
+          docker run --rm \
+            -e APP_URL \
+            -e USERNAME \
+            -e PASSWORD \
+            -v "$GITHUB_WORKSPACE/applications/samples:/home/test" \
+            -v "$GITHUB_WORKSPACE/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml" \
+            -w /home/test \
+            "$CH_TEST_IMAGE" sh -c "$CH_TEST_COMMANDS"
+    runs-on: ubuntu-latest
+  tests-api-workflows:
+    name: API tests workflows
+    needs:
+      - prepare
+      - wait-deployment
+      - build-test-api
+    if: ${{ (needs.prepare.outputs.skip_tests != 'true') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudharness-deployment
+          path: .
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Run workflows API tests
+        env:
+          APP_URL: https://workflows.${{ vars.DOMAIN }}/api
+          CH_TEST_IMAGE: ${{ vars.REGISTRY }}/cloud-harness/test-api:${{ needs.prepare.outputs.TEST_API_TAG }}
+          CH_TEST_COMMANDS: |
+            set -e
+            st --pre-run cloudharness_test.apitest_init run api/openapi.yaml --base-url https://workflows.${{ vars.DOMAIN }}/api -c all
+        run: |-
+          docker run --rm \
+            -e APP_URL \
+            -v "$GITHUB_WORKSPACE/applications/workflows:/home/test" \
+            -v "$GITHUB_WORKSPACE/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml" \
+            -w /home/test \
+            "$CH_TEST_IMAGE" sh -c "$CH_TEST_COMMANDS"
+    runs-on: ubuntu-latest
+  tests-e2e-jupyterhub:
+    name: E2E tests jupyterhub
+    needs:
+      - prepare
+      - wait-deployment
+      - build-test-e2e
+    if: ${{ (needs.prepare.outputs.skip_tests != 'true') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Run jupyterhub E2E tests
+        env:
+          APP_URL: https://hub.${{ vars.DOMAIN }}
+          CH_TEST_IMAGE: ${{ vars.REGISTRY }}/cloud-harness/test-e2e:${{ needs.prepare.outputs.TEST_E2E_TAG }}
+          CH_TEST_COMMANDS: |
+            set -e
+            npx puppeteer browsers install chrome
+            yarn test
+        run: |-
+          docker run --rm \
+            -e APP_URL \
+            -v "$GITHUB_WORKSPACE/applications/jupyterhub/test/e2e:/home/test/__tests__/jupyterhub" \
+            -w /home/test \
+            "$CH_TEST_IMAGE" sh -c "$CH_TEST_COMMANDS"
+    runs-on: ubuntu-latest
+  tests-e2e-samples:
+    name: E2E tests samples
+    needs:
+      - prepare
+      - wait-deployment
+      - build-test-e2e
+    if: ${{ (needs.prepare.outputs.skip_tests != 'true') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone cloud-harness
+        uses: actions/checkout@v4
+        with:
+          repository: MetaCell/cloud-harness
+          ref: ${{ env.CLOUDHARNESS_BRANCH }}
+          path: cloud-harness
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.prepare.outputs.registry_host }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Run samples E2E tests
+        env:
+          APP_URL: https://www.${{ vars.DOMAIN }}
+          USERNAME: sample@testuser.com
+          PASSWORD: test
+          CH_TEST_IMAGE: ${{ vars.REGISTRY }}/cloud-harness/test-e2e:${{ needs.prepare.outputs.TEST_E2E_TAG }}
+          CH_TEST_COMMANDS: |
+            set -e
+            npx puppeteer browsers install chrome
+            yarn test
+        run: |-
+          docker run --rm \
+            -e APP_URL \
+            -e USERNAME \
+            -e PASSWORD \
+            -v "$GITHUB_WORKSPACE/applications/samples/test/e2e:/home/test/__tests__/samples" \
+            -w /home/test \
+            "$CH_TEST_IMAGE" sh -c "$CH_TEST_COMMANDS"
+    runs-on: ubuntu-latest
+  cleanup:
+    name: Delete the test deployment
+    needs:
+      - prepare
+      - deploy
+      - tests-unit-samples
+      - tests-api-common
+      - tests-api-samples
+      - tests-api-workflows
+      - tests-e2e-jupyterhub
+      - tests-e2e-samples
+    if: ${{ always() && needs.deploy.result == 'success' }}
+    env:
+      NAMESPACE: ${{ needs.prepare.outputs.namespace }}
+      WAIT_ON_FAIL: ${{ vars.WAIT_ON_FAIL || '0' }}
+      FAILED: ${{ contains(needs.*.result, 'failure') }}
+    steps:
+      - uses: azure/setup-helm@v4
+      - uses: azure/setup-kubectl@v4
+      - name: Configure kubectl
+        env:
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
+        run: |
+          if [ -n "$KUBECONFIG_DATA" ]; then
+            mkdir -p "$HOME/.kube"
+            echo "$KUBECONFIG_DATA" | base64 -d > "$HOME/.kube/config"
+            chmod 600 "$HOME/.kube/config"
+          elif [ -n "$KUBERNETES_SERVICE_HOST" ] || kubectl config current-context > /dev/null 2>&1; then
+            echo "Using the runner's ambient cluster access"
+          else
+            echo "::error::No cluster access: set the KUBECONFIG secret (base64 kubeconfig) where this job can read it, or run on a runner inside the target cluster"
+            exit 1
+          fi
+      - name: Uninstall the release and delete the namespace
+        run: |
+          if [ "$FAILED" = "true" ] && [ "$WAIT_ON_FAIL" != "0" ]; then
+            echo "Tests failed: keeping the deployment for $WAIT_ON_FAIL minutes for inspection"
+            sleep $((WAIT_ON_FAIL * 60))
+          fi
+          helm uninstall "$NAMESPACE" -n "$NAMESPACE" || true
+          kubectl delete namespace "$NAMESPACE" --ignore-not-found
+    runs-on: ubuntu-latest

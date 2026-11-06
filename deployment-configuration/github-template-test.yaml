@@ -1,0 +1,39 @@
+# Testing pipeline: deploys the current code in its own namespace, runs every test and removes the deployment.
+name: CloudHarness $ENV
+on:
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: Comma-separated image names to rebuild even if their tag already exists, or `all`
+        type: string
+        default: ""
+      skip_tests:
+        description: Set to `true` to skip the tests
+        type: string
+        default: ""
+jobs:
+  prepare:
+    env:
+      NAMESPACE: test-${{ vars.NAMESPACE_BASENAME }}
+  publish: null
+  cleanup:
+    name: Delete the test deployment
+    needs: [prepare, deploy, tests-unit, tests-api, tests-e2e]
+    if: ${{ always() && needs.deploy.result == 'success' }}
+    env:
+      NAMESPACE: ${{ needs.prepare.outputs.namespace }}
+      WAIT_ON_FAIL: ${{ vars.WAIT_ON_FAIL || '0' }}
+      FAILED: ${{ contains(needs.*.result, 'failure') }}
+    steps:
+      - uses: azure/setup-helm@v4
+      - $KUBE_AUTH
+      - name: Uninstall the release and delete the namespace
+        run: |
+          if [ "$FAILED" = "true" ] && [ "$WAIT_ON_FAIL" != "0" ]; then
+            echo "Tests failed: keeping the deployment for $WAIT_ON_FAIL minutes for inspection"
+            sleep $((WAIT_ON_FAIL * 60))
+          fi
+          helm uninstall "$NAMESPACE" -n "$NAMESPACE" || true
+          kubectl delete namespace "$NAMESPACE" --ignore-not-found
