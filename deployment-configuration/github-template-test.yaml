@@ -20,7 +20,7 @@ jobs:
   publish: null
   cleanup:
     name: Delete the test deployment
-    needs: [prepare, deploy, tests-unit, tests-api, tests-e2e]
+    needs: [prepare, deploy, tests-api, tests-e2e]
     if: ${{ always() && needs.deploy.result == 'success' }}
     env:
       NAMESPACE: ${{ needs.prepare.outputs.namespace }}

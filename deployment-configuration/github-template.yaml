@@ -2,8 +2,8 @@
 # github-template-<env>.yaml adds the workflow name, the triggers and the per-environment deltas; a project
 # overrides any part from its own deployment-configuration/github-template[-<env>].yaml (dicts merge key by
 # key, lists are replaced, `null` removes a job).
-# `tests-unit`, `tests-api` and `tests-e2e` are prototypes, expanded into one job per app ($CH_NAME, $CH_IMAGE
-# and $CH_TAG stand for the app's image). A `$...` item in a steps list is a fragment the generator fills in.
+# `tests-api` and `tests-e2e` are prototypes, expanded into one job per app ($CH_NAME, $CH_IMAGE and $CH_TAG
+# stand for the app's image). A `$...` item in a steps list is a fragment the generator fills in.
 # Every job without `runs-on` runs on the runner named by the CH_GITHUB_RUNNER repository/organization variable
 # (prepare, when it builds the images: CH_GITHUB_BUILD_RUNNER first), falling back to the runner given at
 # generation time (CH_GITHUB_RUNNER environment variable, default ubuntu-latest).
@@ -12,11 +12,13 @@ permissions:
   packages: write
 # Generator-only settings, never part of the workflow.
 cloudharness:
-  # Steps building and pushing the images whose tag is not in the registry yet, inserted where prepare says
-  # `- $BUILD_STEPS`. prepare's harness-deployment lists just those images in deployment/skaffold-build.yaml,
-  # each one a `docker buildx build --push` with its registry cache (<image>:buildcache, mode=max): skaffold
-  # runs them in parallel, a base image before the images built on it. A bigger build runner
-  # (CH_GITHUB_BUILD_RUNNER) means more parallel builds. null builds nothing (stage and prod deploy
+  # Steps building and pushing the images whose tag is not in the registry yet, then running the unit tests,
+  # inserted where prepare says `- $BUILD_STEPS`. prepare's harness-deployment lists just those images in
+  # deployment/skaffold-build.yaml, each one a `docker buildx build --push` with its registry cache
+  # (<image>:buildcache, mode=max): skaffold runs them in parallel, a base image before the images built on it.
+  # A bigger build runner (CH_GITHUB_BUILD_RUNNER) means more parallel builds. The same file's `test` section
+  # holds every app's unit tests, run by `skaffold test` against every image of the deployment
+  # (deployment/skaffold-images.json), rebuilt or not. null builds and tests nothing (stage and prod deploy
   # published images).
   build:
     - uses: docker/setup-buildx-action@v3
@@ -40,6 +42,8 @@ cloudharness:
         NOCACHE: ${{ github.run_id }}
         CH_BRANCH_TAG: ${{ steps.env.outputs.branch_tag }}
       run: skaffold build --filename deployment/skaffold-build.yaml --cache-artifacts=false --update-check=false --interactive=false
+    - name: Run the unit tests
+      run: skaffold test --filename deployment/skaffold-build.yaml --build-artifacts deployment/skaffold-images.json --update-check=false --interactive=false
   # Steps giving kubectl and helm access to the cluster, inserted where a job says `- $KUBE_AUTH`.
   # Default: a kubeconfig from the KUBECONFIG secret (base64) when it is set, otherwise the ambient
   # configuration (the service account of a runner that lives in the target cluster). Replace the list
@@ -68,8 +72,8 @@ concurrency:
 env:
   CLOUDHARNESS_BRANCH: ${{ vars.CLOUDHARNESS_BRANCH || 'develop' }}
 jobs:
-  # prepare also builds the images ($BUILD_STEPS): a re-run asks the registry again, so after a failure it only
-  # builds what the failed attempt did not push.
+  # prepare also builds the images and runs the unit tests ($BUILD_STEPS): a re-run asks the registry again, so
+  # after a failure it only builds what the failed attempt did not push, and tests everything again.
   prepare:
     name: Prepare and build
     env:
@@ -147,16 +151,6 @@ jobs:
           # a re-run of prepare (e.g. after a failed build) uploads it again
           overwrite: true
       - $BUILD_STEPS
-  tests-unit:
-    name: Unit tests
-    needs: [prepare]
-    steps:
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ needs.prepare.outputs.registry_host }}
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
-      - $TEST_STEPS
   # deploy targets the GitHub environment named after the CloudHarness environment: its protection
   # rules (required reviewers on stage/prod) approve the deployment. Every job naming an environment is
   # gated by those rules, so wait-deployment and the test cleanup do not: they read the cluster
@@ -164,7 +158,7 @@ jobs:
   # them for deploy).
   deploy:
     name: Deploy
-    needs: [prepare, tests-unit]
+    needs: [prepare]
     environment: $ENV
     env:
       HELM_FLAGS: --timeout 200s --create-namespace
@@ -240,7 +234,7 @@ jobs:
   # environment with required reviewers.
   publish:
     name: Publish images
-    needs: [prepare, deploy, wait-deployment, tests-unit, tests-api, tests-e2e]
+    needs: [prepare, deploy, wait-deployment, tests-api, tests-e2e]
     if: ${{ !cancelled() && needs.prepare.outputs.publish_tag != '' && needs.deploy.result == 'success' && !contains(needs.*.result, 'failure') }}
     environment: publish
     steps:

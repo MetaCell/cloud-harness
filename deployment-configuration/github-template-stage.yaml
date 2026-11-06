@@ -22,7 +22,6 @@ cloudharness:
 jobs:
   prepare:
     name: Prepare helm chart
-  tests-unit: null
   deploy:
     env:
       HELM_FLAGS: --wait --timeout 600s --create-namespace

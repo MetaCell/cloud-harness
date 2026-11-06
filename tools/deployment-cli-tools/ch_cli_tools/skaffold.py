@@ -77,6 +77,7 @@ from .utils import dict_merge  # type: ignore
 
 BUILD_CACHE_TAG = "buildcache"
 BRANCH_TAG_VARIABLE = "CH_BRANCH_TAG"
+IMAGES_FILE_NAME = "skaffold-images.json"
 
 # tools/clone.sh, shipped alongside this package - not part of any deployed
 # project, so it's located relative to this file, not project.root/ch_path.
@@ -378,9 +379,15 @@ def buildx_command(image: str, dockerfile: str, build_args: dict[str, str], extr
     return " ".join(parts)
 
 
+def unit_test_command(commands) -> str:
+    """A custom skaffold test running an app's unit test commands in its image, through the image's shell."""
+    script = "\n".join(["set -e", *commands])
+    return f'docker run --rm "$IMAGE" sh -c {shlex.quote(script)}'
+
+
 @register_file("skaffold_build", lambda root: root / "deployment" / "skaffold-build.yaml")
 class CHSkaffoldBuild(CHValues):
-    """deployment/skaffold-build.yaml: what a CI run still has to build.
+    """deployment/skaffold-build.yaml: what a CI run still has to build, and the unit tests.
 
     Written at pipeline run time (`harness-deployment --write-skaffold-build`), once
     `ci.image_tag_env` has asked the registry which tags exist: the artifacts are only
@@ -396,7 +403,39 @@ class CHSkaffoldBuild(CHValues):
     policy. Run from the project root with `skaffold build -f
     deployment/skaffold-build.yaml --cache-artifacts=false`; NOCACHE and
     CH_BRANCH_TAG come from the environment.
+
+    The `test` section runs the unit tests of every app that has some, rebuilt or
+    not: `skaffold build` does not test, `skaffold test -f deployment/skaffold-build.yaml
+    --build-artifacts deployment/skaffold-images.json` does, against the images
+    listed in skaffold-images.json - every image of the deployment with its tag. So
+    an image pushed by a run whose tests then failed is tested again on the next run.
     """
+
+    @property
+    def images_path(self) -> Path:
+        return self.path.with_name(IMAGES_FILE_NAME)
+
+    def images(self) -> dict:
+        """Every image of the deployment with the tag it is deployed with, in skaffold's build
+        output format (`skaffold test --build-artifacts`)."""
+        project = self.project
+        entities = {**ci.build_entities(project), **ci.test_runner_images(project)}
+        return {
+            "builds": [
+                {"imageName": project.qualify(entity.image_name), "tag": project.qualify_image(entity)}
+                for entity in entities.values()
+            ]
+        }
+
+    def _tests(self) -> list[dict]:
+        return [
+            {
+                "image": self.project.qualify(app.image_name),
+                "custom": [{"command": unit_test_command(app.test.unit.commands)}],
+            }
+            for app in ci.buildable_apps(self.project)
+            if app.test.unit.commands
+        ]
 
     def _context(self, entity) -> tuple[str, str]:
         """The merged build context, relative to the project root (skaffold resolves contexts from
@@ -456,6 +495,10 @@ class CHSkaffoldBuild(CHValues):
                 "artifacts": artifacts,
             },
         }
+        tests = self._tests()
+        if tests:
+            plan["test"] = tests
         if write_on_disk:
             self.write(plan)
+            self.images_path.write_text(json.dumps(self.images(), indent=2) + "\n", encoding="utf-8")
         return plan

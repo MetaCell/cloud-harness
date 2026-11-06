@@ -1,8 +1,8 @@
 """CHSkaffoldBuild: deployment/skaffold-build.yaml, the images a CI run still has to build."""
 
+import json
 import os
 import subprocess
-from pathlib import Path
 
 from conftest import CLOUDHARNESS_ROOT, RESOURCES, chain
 from ruamel.yaml import YAML
@@ -10,7 +10,7 @@ from test_util import write_tree_from_yaml
 
 from ch_cli_tools import CHDeployConfig, ci
 from ch_cli_tools.api import create_helm_chart
-from ch_cli_tools.skaffold import buildx_command, tag_template
+from ch_cli_tools.skaffold import buildx_command, tag_template, unit_test_command
 
 
 def _project(tmp_path, include, tag=None):
@@ -125,6 +125,27 @@ def test_nothing_to_build(tmp_path):
     assert plan["build"]["tagPolicy"]["envTemplate"]["template"] == "{{ index (dict ) .IMAGE_NAME }}"
 
 
+def test_unit_tests_cover_every_app(tmp_path):
+    project = _project(tmp_path, ["samples", "myapp"])
+    # nothing to build: the unit tests still run, against the images in the registry
+    plan = project.skaffold_build.generate(_existing(project), write_on_disk=False)
+    assert plan["build"]["artifacts"] == []
+    tests = {test["image"]: test["custom"] for test in plan["test"]}
+    assert set(tests) == {"reg/testprojectname/myapp", "reg/testprojectname/sampleapp"}
+    assert tests["reg/testprojectname/myapp"] == [
+        {"command": 'docker run --rm "$IMAGE" sh -c \'set -e\ntox\necho "hello"\''}
+    ]
+
+    # `skaffold test --build-artifacts` takes every image's tag from skaffold-images.json
+    images = {build["imageName"]: build["tag"] for build in project.skaffold_build.images()["builds"]}
+    assert images["reg/testprojectname/myapp"] == project.qualify_image(project["myapp"])
+    assert set(tests) <= set(images)
+    assert set(images) == {
+        project.qualify(entity.image_name)
+        for entity in {**ci.build_entities(project), **ci.test_runner_images(project)}.values()
+    }
+
+
 def test_generate_writes_deployment_skaffold_build(tmp_path):
     write_tree_from_yaml(
         tmp_path,
@@ -151,17 +172,18 @@ def test_generate_writes_deployment_skaffold_build(tmp_path):
     assert plan["kind"] == "Config"
     assert "reg/testproj/myapp" not in _artifacts(plan), "its tag exists"
     assert "reg/testproj/cloudharness-base" in _artifacts(plan)
+    images = json.loads((tmp_path / "deployment" / "skaffold-images.json").read_text())
+    assert {"imageName": "reg/testproj/myapp", "tag": "reg/testproj/myapp:1"} in images["builds"]
 
 
-def test_build_command_shell_words(tmp_path):
-    # the command runs through `sh -c`: check the words docker gets
+def test_shell_words(tmp_path):
+    # the build and test commands run through `sh -c`: check the words docker gets
     fake = tmp_path / "bin" / "docker"
     fake.parent.mkdir()
     fake.write_text('#!/bin/sh\nfor arg in "$@"; do echo "$arg"; done\n')
     fake.chmod(0o755)
-    command = buildx_command("reg/x", "my dir/Dockerfile", {"A": "b c", "B": "$HOME"}, ("latest",))
 
-    def words(**env):
+    def words(command, **env):
         result = subprocess.run(
             ["sh", "-c", command],
             env={"PATH": f"{fake.parent}{os.pathsep}{os.environ['PATH']}", "IMAGE": "reg/x:h1", **env},
@@ -171,10 +193,15 @@ def test_build_command_shell_words(tmp_path):
         )
         return result.stdout.splitlines()
 
-    args = words(CH_BRANCH_TAG="feature-1")
+    build = buildx_command("reg/x", "my dir/Dockerfile", {"A": "b c", "B": "$HOME"}, ("latest",))
+    args = words(build, CH_BRANCH_TAG="feature-1")
     assert args[:5] == ["buildx", "build", "--push", "--file", "my dir/Dockerfile"]
     assert args[5:11] == ["--tag", "reg/x:h1", "--tag", "reg/x:latest", "--tag", "reg/x:feature-1"]
     assert "A=b c" in args and "B=$HOME" in args, "build args are passed literally"
     assert args[-1] == "."
-    assert "reg/x:feature-1" not in words(), "no branch tag outside CI"
-    assert Path(fake).exists()
+    assert "reg/x:feature-1" not in words(build), "no branch tag outside CI"
+
+    # the unit tests run in the image's own shell, one container for all the commands
+    args = words(unit_test_command(["tox", 'echo "a b" $HOME']))
+    assert args[:5] == ["run", "--rm", "reg/x:h1", "sh", "-c"]
+    assert "\n".join(args[5:]) == 'set -e\ntox\necho "a b" $HOME'

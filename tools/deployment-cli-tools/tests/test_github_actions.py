@@ -65,7 +65,7 @@ def test_template_layering(tmp_path):
     assert custom["needs"] == ["deploy"]
     assert "needs.deploy.result == 'success'" in custom["if"]
     # an overlay for an expanded job id is merged over the generated job
-    assert wf["jobs"]["tests-unit-myapp"]["runs-on"] == "big-runner"
+    assert wf["jobs"]["tests-api-samples"]["runs-on"] == "big-runner"
     # the generator-only section is consumed, not emitted; its kube_auth steps replace
     # the default ones wherever a job asks for $KUBE_AUTH
     assert "cloudharness" not in wf
@@ -99,7 +99,7 @@ def test_prepare_builds_the_missing_images_with_skaffold(tmp_path):
     names = [step.get("name") or step.get("uses") for step in prepare["steps"]]
     assert names.index("Prepare helm chart") < names.index("Install skaffold") < names.index(
         "Build and push the images"
-    )
+    ) < names.index("Run the unit tests")
     login = next(step for step in prepare["steps"] if step.get("uses") == "docker/login-action@v3")
     assert login["with"]["registry"] == "${{ steps.env.outputs.registry_host }}"
     install = _steps(prepare, "Install skaffold")[0]
@@ -145,24 +145,20 @@ def test_prepare_outputs_cover_every_image(tmp_path):
     assert "MYAPP_INST1_TAG" in outputs
 
 
-def test_unit_test_jobs(tmp_path):
+def test_unit_tests_run_in_prepare_with_skaffold(tmp_path):
     wf, _ = _generate(tmp_path, ["samples", "myapp"])
     jobs = wf["jobs"]
 
-    unit_jobs = [name for name in jobs if name.startswith("tests-unit-")]
-    assert sorted(unit_jobs) == ["tests-unit-myapp", "tests-unit-samples"]
-    job = jobs["tests-unit-myapp"]
-    assert job["needs"] == ["prepare"], "prepare builds the images"
-    assert "needs.prepare.result == 'success'" in job["if"]
-    step = _steps(job, "Run myapp unit tests")[0]
-    assert step["env"]["CH_TEST_IMAGE"] == (
-        "${{ vars.REGISTRY }}/testprojectname/myapp:${{ needs.prepare.outputs.MYAPP_TAG }}"
+    # skaffold runs every app's unit tests (the `test` section of deployment/skaffold-build.yaml)
+    # against every image of the deployment, rebuilt or not: no job of their own
+    assert not [name for name in jobs if name.startswith("tests-unit")]
+    step = _steps(jobs["prepare"], "Run the unit tests")[0]
+    assert step["run"].startswith(
+        "skaffold test --filename deployment/skaffold-build.yaml "
+        "--build-artifacts deployment/skaffold-images.json"
     )
-    assert step["env"]["CH_TEST_COMMANDS"].startswith("set -e\ntox\n")
-    assert step["run"].startswith("docker run --rm")
-    assert '"$CH_TEST_IMAGE" sh -c "$CH_TEST_COMMANDS"' in step["run"]
-    # deploy waits for the unit tests, as the Codefresh unittest stage precedes deploy
-    assert "tests-unit-myapp" in jobs["deploy"]["needs"]
+    # the deployment waits for them, as the Codefresh unittest stage precedes deploy
+    assert jobs["deploy"]["needs"] == ["prepare"]
 
 
 def test_api_and_e2e_test_jobs(tmp_path):
@@ -286,7 +282,7 @@ def test_multienv_test_overlay(tmp_path):
     assert "-e dev-test " in _step(jobs["prepare"], "images")["run"]
     cleanup = jobs["cleanup"]
     assert cleanup["if"] == "${{ always() && needs.deploy.result == 'success' }}"
-    assert "tests-unit-myapp" in cleanup["needs"] and "tests-e2e-samples" in cleanup["needs"]
+    assert "tests-api-samples" in cleanup["needs"] and "tests-e2e-samples" in cleanup["needs"]
 
 
 def test_prod_deploys_only(tmp_path):
@@ -313,7 +309,8 @@ def test_stage_keeps_tests_and_tags_the_repository(tmp_path):
 
     assert not _steps(jobs["prepare"], "Build and push"), "stage deploys published images"
     assert not _steps(jobs["publish"], "Publish test-"), "the test images are not built here"
-    assert "tests-api-samples" in jobs and "tests-unit-samples" not in jobs
+    assert "tests-api-samples" in jobs
+    assert not _steps(jobs["prepare"], "Run the unit tests"), "stage runs no unit tests"
     assert jobs["tests-api-samples"]["needs"] == ["prepare", "wait-deployment"]
     assert jobs["git-tag"]["needs"] == ["prepare", "publish"]
     assert jobs["git-tag"]["permissions"] == {"contents": "write"}
@@ -326,14 +323,15 @@ def test_stage_keeps_tests_and_tags_the_repository(tmp_path):
 
 
 def test_runner_configuration(tmp_path):
-    wf, _ = _generate(tmp_path, ["myapp"])
+    wf, _ = _generate(tmp_path, ["samples", "myapp"])
     jobs = wf["jobs"]
     # the runner is a repository variable read at run time; the generation-time runner is the fallback
     default = "${{ vars.CH_GITHUB_RUNNER || '%s' }}" % DEFAULT_RUNNER
     build = "${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || '%s' }}" % DEFAULT_RUNNER
     assert jobs["prepare"]["runs-on"] == build, "prepare builds the images"
     assert jobs["deploy"]["runs-on"] == default
-    assert jobs["tests-unit-myapp"]["runs-on"] == "big-runner", "a template runs-on is kept"
+    assert jobs["tests-e2e-samples"]["runs-on"] == default
+    assert jobs["tests-api-samples"]["runs-on"] == "big-runner", "a template runs-on is kept"
 
     project = chain(CLOUDHARNESS_ROOT, RESOURCES, config=CHDeployConfig(
         env="dev", includes=["myapp"], excludes=["events"], registry="reg", tag="1",

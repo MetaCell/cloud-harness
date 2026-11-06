@@ -7,9 +7,10 @@ content-hash skip. The `prepare` job runs `harness-deployment --write-env
 --write-skaffold-build`: deployment/.env becomes job outputs (every image's tag)
 and deployment/skaffold-build.yaml lists only the images whose tag is not in the
 registry yet, which the same job then builds with skaffold (`cloudharness.build`
-steps), in parallel and in dependency order. Like codefresh.yaml, the workflow
-is generated once and committed, so everything only known at run time stays a
-`${{ ... }}` expression (vars, secrets, prepare outputs).
+steps), in parallel and in dependency order, before `skaffold test` runs every
+app's unit tests. Like codefresh.yaml, the workflow is generated once and
+committed, so everything only known at run time stays a `${{ ... }}` expression
+(vars, secrets, prepare outputs).
 
 What differs from Codefresh, and shapes the template:
 - GitHub only runs workflows found in .github/workflows/, so that is where the
@@ -30,20 +31,21 @@ What differs from Codefresh, and shapes the template:
 
 Template mechanics (`github-template.yaml` + `github-template-<env>.yaml`, layered
 across cloud-harness and the project exactly like the Codefresh templates):
-- `jobs.tests-unit`, `jobs.tests-api` and `jobs.tests-e2e` are prototypes,
-  expanded into one job per app at their position; a `null` or missing
-  prototype means that kind of job is not generated. Inside a prototype
-  `$CH_NAME`, `$CH_IMAGE` and `$CH_TAG` stand for the app's image.
+- `jobs.tests-api` and `jobs.tests-e2e` are prototypes, expanded into one job
+  per app at their position; a `null` or missing prototype means that kind of
+  job is not generated. Inside a prototype `$CH_NAME`, `$CH_IMAGE` and
+  `$CH_TAG` stand for the app's image.
 - A string item in a `steps` list is a fragment the generator fills:
   `$GIT_CLONES`, `$BUILD_STEPS`, `$PUBLISH_STEPS`, `$HELM_SECRETS_STEPS`,
   `$ROLLOUT_STEPS`, `$TEST_STEPS` and `$KUBE_AUTH`. The steps of
   `$BUILD_STEPS` and `$KUBE_AUTH` come from the template's own
   `cloudharness.build` and `cloudharness.kube_auth` lists, so a project
-  changes how images are built or how the cluster is reached in one place;
-  `cloudharness.build: null` builds nothing (stage, prod). The top-level
+  changes how images are built and unit-tested or how the cluster is reached
+  in one place; `cloudharness.build: null` builds and tests nothing (stage,
+  prod). The top-level
   `cloudharness` section is for the generator only and never reaches GitHub.
 - `$ENV`, `$PARAMS` and `$PATHS` are substituted everywhere, as in Codefresh.
-- A template key matching an expanded job id (`jobs.tests-unit-myapp`) is merged
+- A template key matching an expanded job id (`jobs.tests-api-myapp`) is merged
   over the generated job, so one app can get a bigger runner or extra steps;
   such a key is dropped when its app is not part of the deployment being
   generated.
@@ -73,13 +75,12 @@ RUNNER_VARIABLE = "CH_GITHUB_RUNNER"
 BUILD_RUNNER_VARIABLE = "CH_GITHUB_BUILD_RUNNER"
 
 JOB_PREPARE = "prepare"
-JOB_UNIT_TESTS = "tests-unit"
 JOB_API_TESTS = "tests-api"
 JOB_E2E_TESTS = "tests-e2e"
 JOB_DEPLOY = "deploy"
 JOB_WAIT_DEPLOYMENT = "wait-deployment"
 JOB_PUBLISH = "publish"
-PROTOTYPE_JOBS = (JOB_UNIT_TESTS, JOB_API_TESTS, JOB_E2E_TESTS)
+PROTOTYPE_JOBS = (JOB_API_TESTS, JOB_E2E_TESTS)
 
 FRAGMENT_GIT_CLONES = "$GIT_CLONES"
 FRAGMENT_BUILD = "$BUILD_STEPS"
@@ -461,17 +462,6 @@ class CHGithubActions(CHValues):
             },
         )
 
-    def _unit_test_job(self, prototype, app, fragments):
-        job = self._prototype(prototype, app.name, app.image_name)
-        job["name"] = f"Unit tests {app.name}"
-        test_step = self._docker_run_step(
-            f"Run {app.name} unit tests",
-            f"{self.qualify(app.image_name)}:{tag_output(app.name)}",
-            app.test.unit.commands,
-        )
-        job["steps"] = expand_steps(job.get("steps"), {**fragments, FRAGMENT_TEST: [test_step]})
-        return job
-
     def _test_image_reference(self, name) -> str | None:
         test_image = self.project.test_images.get(name)
         if test_image is None or not test_image.dockerfile.exists():
@@ -537,14 +527,12 @@ class CHGithubActions(CHValues):
         build_steps = list(settings.get(SETTING_BUILD) or [])
         # the test runner images are built (hence published) only by a workflow that builds
         test_images = ci.test_runner_images(project) if build_steps else {}
-        unit_apps = [app for app in ci.buildable_apps(project) if app.test.unit.commands]
         api_apps = ci.api_test_apps(project) if JOB_API_TESTS in jobs else []
         e2e_apps = ci.e2e_test_apps(project) if JOB_E2E_TESTS in jobs else []
 
-        unit_ids = {app.name: job_id(f"{JOB_UNIT_TESTS}-{app.name}") for app in unit_apps}
         api_ids = {app.name: job_id(f"{JOB_API_TESTS}-{app.name}") for app in api_apps}
         e2e_ids = {app.name: job_id(f"{JOB_E2E_TESTS}-{app.name}") for app in e2e_apps}
-        generated_ids = {*unit_ids.values(), *api_ids.values(), *e2e_ids.values()}
+        generated_ids = {*api_ids.values(), *e2e_ids.values()}
 
         fragments = {
             # prepare merges the build contexts (.overrides/) with the git dependencies in them
@@ -577,13 +565,7 @@ class CHGithubActions(CHValues):
         for key, job in jobs.items():
             if key in overlays:
                 continue
-            if key == JOB_UNIT_TESTS:
-                expand(
-                    key,
-                    unit_apps,
-                    lambda app: (unit_ids[app.name], self._unit_test_job(job, app, fragments)),
-                )
-            elif key == JOB_API_TESTS:
+            if key == JOB_API_TESTS:
                 expand(
                     key,
                     api_apps,

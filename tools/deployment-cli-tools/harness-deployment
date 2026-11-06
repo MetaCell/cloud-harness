@@ -196,7 +196,9 @@ if __name__ == "__main__":
         dest="write_skaffold_build",
         action="store_true",
         help=f"Write {DEPLOYMENT_PATH}/skaffold-build.yaml, a skaffold build of the images whose tag is "
-        "not in the registry yet (see --force-build), pushed with their registry cache",
+        "not in the registry yet (see --force-build), pushed with their registry cache, with the apps' unit "
+        f"tests; and {DEPLOYMENT_PATH}/skaffold-images.json, every image with its tag, to run them all with "
+        "`skaffold test --build-artifacts`",
     )
     parser.add_argument(
         "--migrate",

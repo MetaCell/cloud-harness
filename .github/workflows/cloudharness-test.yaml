@@ -158,33 +158,13 @@ jobs:
           NOCACHE: ${{ github.run_id }}
           CH_BRANCH_TAG: ${{ steps.env.outputs.branch_tag }}
         run: skaffold build --filename deployment/skaffold-build.yaml --cache-artifacts=false --update-check=false --interactive=false
+      - name: Run the unit tests
+        run: skaffold test --filename deployment/skaffold-build.yaml --build-artifacts deployment/skaffold-images.json --update-check=false --interactive=false
     runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
-  tests-unit-samples:
-    name: Unit tests samples
-    needs:
-      - prepare
-    steps:
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ needs.prepare.outputs.registry_host }}
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
-      - name: Run samples unit tests
-        env:
-          CH_TEST_IMAGE: ${{ vars.REGISTRY }}/cloud-harness/sampleapp:${{ needs.prepare.outputs.SAMPLES_TAG }}
-          CH_TEST_COMMANDS: |
-            set -e
-            pytest /usr/src/app/samples/test
-        run: |-
-          docker run --rm \
-            "$CH_TEST_IMAGE" sh -c "$CH_TEST_COMMANDS"
-    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success' }}
-    runs-on: ${{ vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
   deploy:
     name: Deploy
     needs:
       - prepare
-      - tests-unit-samples
     environment: test
     env:
       HELM_FLAGS: --timeout 200s --create-namespace
@@ -226,7 +206,7 @@ jobs:
         env:
           NAMESPACE: ${{ needs.prepare.outputs.namespace }}
         run: helm upgrade --install "$NAMESPACE" deployment/helm -n "$NAMESPACE" $HELM_FLAGS -f deployment/helm/values.yaml $HELM_SET_ARGS
-    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success' && needs.tests-unit-samples.result == 'success' }}
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success' }}
     runs-on: ${{ vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
   wait-deployment:
     name: Wait for the deployment
@@ -464,7 +444,6 @@ jobs:
     needs:
       - prepare
       - deploy
-      - tests-unit-samples
       - tests-api-common
       - tests-api-samples
       - tests-api-workflows

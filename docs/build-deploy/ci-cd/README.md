@@ -34,13 +34,15 @@ and publication. Pass `-ci codefresh -ci github` to generate both.
   whose tag is missing (or forced). The same job then runs `skaffold build` on it: every image is a
   `docker buildx build --push` with its registry cache (`[image]:buildcache`), skaffold runs them in parallel and
   builds a base image before the images built on it, while base images that are already published are pulled.
-  The more CPUs the build runner has, the more images build at once. A re-run after a failure asks the registry
-  again and only builds what is still missing. The steps live under `cloudharness.build` in the template
-  (`null` in stage and prod, which deploy published images).
+  The more CPUs the build runner has, the more images build at once. `skaffold test` then runs the unit tests of
+  every app (the `test` section of the same file) against every image of the deployment, rebuilt or not
+  (`deployment/skaffold-images.json`). A re-run after a failure asks the registry again, only builds what is
+  still missing and tests everything again. The steps live under `cloudharness.build` in the template (`null`
+  in stage and prod, which deploy published images).
 - Templates: `deployment-configuration/github-template.yaml` (job prototypes and shared steps) plus
   `github-template-[dev|stage|prod|test].yaml` (name, triggers, per-environment deltas), layered and overridable
-  from your project's `deployment-configuration/` like the Codefresh ones. A `jobs.tests-unit-[app]` entry (or
-  `tests-api-`, `tests-e2e-`) in your template is merged over that app's generated job.
+  from your project's `deployment-configuration/` like the Codefresh ones. A `jobs.tests-api-[app]` or
+  `jobs.tests-e2e-[app]` entry in your template is merged over that app's generated job.
 - Runner: set the `CH_GITHUB_RUNNER` repository or organization variable to the runner label (for ARC, the
   runner scale set name); `prepare`, which builds the images, reads `CH_GITHUB_BUILD_RUNNER` first, so images can
   build on a bigger runner. Both are read when the workflow runs, so changing runners needs no regeneration. When neither is
