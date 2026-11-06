@@ -9,6 +9,7 @@ steps as `<IMAGE>_TAG` / `<IMAGE>_TAG_EXISTS` variables (`image_tag_env`).
 """
 
 import logging
+import re
 from dataclasses import dataclass
 
 from ch_cli_tools.configuration.secrets import (
@@ -305,12 +306,25 @@ def rollout_wait_commands(project) -> list[str]:
     return commands
 
 
+SECRETS_HOME_DIR = ".cloudharness/secrets"  # under the home directory of the job deploying the chart
+
+
 @dataclass(frozen=True)
 class HelmSecretValue:
     """A helm value the pipeline must supply from one of its own secret variables."""
 
     path: tuple[str, ...]  # helm value path, e.g. ("apps", "myapp", "harness", "secrets", "token")
     variable: str  # pipeline variable holding the value, e.g. TOKEN
+
+    @property
+    def key(self) -> str:
+        """The `--set-file` key: the value path, dots inside a segment escaped."""
+        return ".".join(segment.replace(".", "\\.") for segment in self.path)
+
+    @property
+    def file_name(self) -> str:
+        """The file under ~/SECRETS_HOME_DIR the pipeline writes the value to, for `--set-file`."""
+        return re.sub(r"[^A-Za-z0-9_]", "_", self.variable)
 
 
 def deployment_secret_values(project) -> list[HelmSecretValue]:

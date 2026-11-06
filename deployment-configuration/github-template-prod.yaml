@@ -16,8 +16,4 @@ jobs:
     name: Prepare helm chart
   tests-api: null
   tests-e2e: null
-  wait-deployment: null
   publish: null
-  deploy:
-    env:
-      HELM_FLAGS: --wait --timeout 600s --create-namespace

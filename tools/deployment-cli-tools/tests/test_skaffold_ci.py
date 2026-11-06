@@ -1,4 +1,4 @@
-"""CHSkaffoldBuild: deployment/skaffold-build.yaml, the images a CI run still has to build."""
+"""CHSkaffoldCI: deployment/skaffold-ci.yaml, the images a CI run still has to build."""
 
 import json
 import os
@@ -47,7 +47,7 @@ def _artifacts(plan):
 
 def test_only_the_missing_images_are_built(tmp_path):
     project = _project(tmp_path, ["samples", "myapp"])
-    plan = project.skaffold_build.generate(
+    plan = project.skaffold_ci.generate(
         _existing(project, "myapp", "cloudharness-flask"), write_on_disk=False
     )
     artifacts = _artifacts(plan)
@@ -74,7 +74,7 @@ def test_only_the_missing_images_are_built(tmp_path):
 
 def test_build_command(tmp_path):
     project = _project(tmp_path, ["myapp"])
-    plan = project.skaffold_build.generate(_existing(project, "myapp"), write_on_disk=False)
+    plan = project.skaffold_ci.generate(_existing(project, "myapp"), write_on_disk=False)
     command = _artifacts(plan)["reg/testprojectname/myapp"]["custom"]["buildCommand"]
 
     assert command.startswith("docker buildx build --push --file dev.Dockerfile ")
@@ -91,7 +91,7 @@ def test_build_command(tmp_path):
 def test_contexts_are_relative_to_the_project_root(tmp_path):
     # skaffold resolves the contexts from the directory it runs in: the workflow runs it from the root
     project = _project(tmp_path, ["samples", "myapp"])
-    plan = project.skaffold_build.generate({}, write_on_disk=False)
+    plan = project.skaffold_ci.generate({}, write_on_disk=False)
     artifacts = _artifacts(plan)
 
     def context(image):
@@ -106,7 +106,7 @@ def test_contexts_are_relative_to_the_project_root(tmp_path):
 
 def test_test_runner_images_get_the_latest_tag(tmp_path):
     project = _project(tmp_path, ["samples"], tag="1")
-    artifacts = _artifacts(project.skaffold_build.generate({}, write_on_disk=False))
+    artifacts = _artifacts(project.skaffold_ci.generate({}, write_on_disk=False))
     for name in ("test-api", "test-e2e"):
         command = artifacts[f"reg/testprojectname/{name}"]["custom"]["buildCommand"]
         assert f"--tag reg/testprojectname/{name}:latest" in command
@@ -114,13 +114,13 @@ def test_test_runner_images_get_the_latest_tag(tmp_path):
 
     # no app runs API/E2E tests: no test runner image
     project = _project(tmp_path, ["myapp"], tag="1")
-    artifacts = _artifacts(project.skaffold_build.generate({}, write_on_disk=False))
+    artifacts = _artifacts(project.skaffold_ci.generate({}, write_on_disk=False))
     assert not [image for image in artifacts if "/test-" in image]
 
 
 def test_nothing_to_build(tmp_path):
     project = _project(tmp_path, ["samples", "myapp"], tag="1")
-    plan = project.skaffold_build.generate(_existing(project), write_on_disk=False)
+    plan = project.skaffold_ci.generate(_existing(project), write_on_disk=False)
     assert plan["build"]["artifacts"] == []
     assert plan["build"]["tagPolicy"]["envTemplate"]["template"] == "{{ index (dict ) .IMAGE_NAME }}"
 
@@ -128,7 +128,7 @@ def test_nothing_to_build(tmp_path):
 def test_unit_tests_cover_every_app(tmp_path):
     project = _project(tmp_path, ["samples", "myapp"])
     # nothing to build: the unit tests still run, against the images in the registry
-    plan = project.skaffold_build.generate(_existing(project), write_on_disk=False)
+    plan = project.skaffold_ci.generate(_existing(project), write_on_disk=False)
     assert plan["build"]["artifacts"] == []
     tests = {test["image"]: test["custom"] for test in plan["test"]}
     assert set(tests) == {"reg/testprojectname/myapp", "reg/testprojectname/sampleapp"}
@@ -137,7 +137,7 @@ def test_unit_tests_cover_every_app(tmp_path):
     ]
 
     # `skaffold test --build-artifacts` takes every image's tag from skaffold-images.json
-    images = {build["imageName"]: build["tag"] for build in project.skaffold_build.images()["builds"]}
+    images = {build["imageName"]: build["tag"] for build in project.skaffold_ci.images()["builds"]}
     assert images["reg/testprojectname/myapp"] == project.qualify_image(project["myapp"])
     assert set(tests) <= set(images)
     assert set(images) == {
@@ -146,7 +146,26 @@ def test_unit_tests_cover_every_app(tmp_path):
     }
 
 
-def test_generate_writes_deployment_skaffold_build(tmp_path):
+def test_deploy_installs_the_chart_and_waits_for_the_rollout(tmp_path):
+    project = _project(tmp_path, ["samples", "myapp"])
+    plan = project.skaffold_ci.generate(_existing(project), write_on_disk=False)
+    # tolerateFailuresUntilDeadline needs a v4 schema
+    assert plan["apiVersion"] == "skaffold/v4beta14"
+    deploy = plan["deploy"]
+    assert deploy["tolerateFailuresUntilDeadline"] is True
+    assert deploy["statusCheckDeadlineSeconds"] == 900
+    [release] = deploy["helm"]["releases"]
+    assert release["name"] == release["namespace"] == "test"
+    assert release["chartPath"] == "deployment/helm"
+    assert release["createNamespace"] is True and release["skipBuildDependencies"] is True
+    # secret values come from the files the pipeline writes, never from the file itself
+    assert release["setFiles"]["apps.samples.harness.secrets.asecret"] == "~/.cloudharness/secrets/ASECRET"
+    assert release["setFiles"]["apps.myapp.harness.database.connect_string"] == (
+        "~/.cloudharness/secrets/MYAPP_DB_CONNECT_STRING"
+    )
+
+
+def test_generate_writes_deployment_skaffold_ci(tmp_path):
     write_tree_from_yaml(
         tmp_path,
         """
@@ -165,11 +184,12 @@ def test_generate_writes_deployment_skaffold_build(tmp_path):
         tmp_path,
         config=CHDeployConfig(env="dev", registry="reg", tag="1", output_path=str(tmp_path / "deployment")),
     )
-    project.skaffold_build.generate({"MYAPP_TAG_EXISTS": "1"})
+    project.skaffold_ci.generate({"MYAPP_TAG_EXISTS": "1"})
 
-    plan = YAML(typ="safe").load((tmp_path / "deployment" / "skaffold-build.yaml").read_text())
+    plan = YAML(typ="safe").load((tmp_path / "deployment" / "skaffold-ci.yaml").read_text())
     assert plan["apiVersion"].startswith("skaffold/")
     assert plan["kind"] == "Config"
+    assert "deploy" not in plan, "no namespace to deploy to"
     assert "reg/testproj/myapp" not in _artifacts(plan), "its tag exists"
     assert "reg/testproj/cloudharness-base" in _artifacts(plan)
     images = json.loads((tmp_path / "deployment" / "skaffold-images.json").read_text())

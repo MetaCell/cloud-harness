@@ -69,13 +69,10 @@ def test_template_layering(tmp_path):
     # the generator-only section is consumed, not emitted; its kube_auth steps replace
     # the default ones wherever a job asks for $KUBE_AUTH
     assert "cloudharness" not in wf
-    for name in ("deploy", "wait-deployment"):
-        steps = wf["jobs"][name]["steps"]
-        assert [s for s in steps if s.get("name") == "Custom cluster access"], name
-        assert not [s for s in steps if s.get("name") == "Configure kubectl"], name
+    steps = wf["jobs"]["deploy"]["steps"]
+    assert [s for s in steps if s.get("name") == "Custom cluster access"]
+    assert not [s for s in steps if s.get("name") == "Configure kubectl"]
     assert wf["jobs"]["deploy"]["environment"] == "dev"
-    # only deploy is gated by the environment's protection rules, not every job using the cluster
-    assert "environment" not in wf["jobs"]["wait-deployment"]
     # OIDC tokens are not minted for every job
     assert "id-token" not in wf["permissions"]
 
@@ -87,10 +84,10 @@ def test_prepare_builds_the_missing_images_with_skaffold(tmp_path):
 
     # one job builds every image: harness-deployment lists the missing ones, skaffold builds them
     assert not [name for name in jobs if name.startswith("build")]
-    assert "--write-env --write-skaffold-build" in _step(prepare, "images")["run"]
+    assert "--write-env --write-skaffold-ci" in _step(prepare, "images")["run"]
     build = _steps(prepare, "Build and push the images")[0]
     assert build["run"].startswith(
-        "skaffold build --filename deployment/skaffold-build.yaml --cache-artifacts=false"
+        "skaffold build --filename deployment/skaffold-ci.yaml --cache-artifacts=false"
     )
     assert build["env"] == {
         "NOCACHE": "${{ github.run_id }}",
@@ -149,12 +146,12 @@ def test_unit_tests_run_in_prepare_with_skaffold(tmp_path):
     wf, _ = _generate(tmp_path, ["samples", "myapp"])
     jobs = wf["jobs"]
 
-    # skaffold runs every app's unit tests (the `test` section of deployment/skaffold-build.yaml)
+    # skaffold runs every app's unit tests (the `test` section of deployment/skaffold-ci.yaml)
     # against every image of the deployment, rebuilt or not: no job of their own
     assert not [name for name in jobs if name.startswith("tests-unit")]
     step = _steps(jobs["prepare"], "Run the unit tests")[0]
     assert step["run"].startswith(
-        "skaffold test --filename deployment/skaffold-build.yaml "
+        "skaffold test --filename deployment/skaffold-ci.yaml "
         "--build-artifacts deployment/skaffold-images.json"
     )
     # the deployment waits for them, as the Codefresh unittest stage precedes deploy
@@ -166,10 +163,11 @@ def test_api_and_e2e_test_jobs(tmp_path):
     jobs = wf["jobs"]
 
     api = jobs["tests-api-samples"]
-    assert api["needs"] == ["prepare", "wait-deployment"]
+    assert api["needs"] == ["prepare", "deploy"]
+    assert api["steps"][0] == {"name": "Give the certificates time to settle", "run": "sleep 60"}
     assert "needs.prepare.outputs.skip_tests != 'true'" in api["if"]
-    # wait-deployment may be skipped (it has its own `if`), but must not have failed
-    assert "needs.wait-deployment.result ==" not in api["if"]
+    # skaffold deploy waits for the rollout: the deployment must have succeeded
+    assert "needs.deploy.result == 'success'" in api["if"]
     assert "!contains(needs.*.result, 'failure')" in api["if"]
     step = _steps(api, "Run samples API tests")[0]
     assert step["env"]["APP_URL"] == "https://www.${{ vars.DOMAIN }}/api"
@@ -189,7 +187,7 @@ def test_api_and_e2e_test_jobs(tmp_path):
     assert commands[2] == "pytest -v test/api"
 
     e2e = jobs["tests-e2e-samples"]
-    assert e2e["needs"] == ["prepare", "wait-deployment"]
+    assert e2e["needs"] == ["prepare", "deploy"]
     step = _steps(e2e, "Run samples E2E tests")[0]
     assert step["env"]["APP_URL"] == "https://www.${{ vars.DOMAIN }}"
     assert (
@@ -204,40 +202,50 @@ def test_no_api_e2e_jobs_when_not_enabled(tmp_path):
     wf, _ = _generate(tmp_path, ["myapp"])
     names = list(wf["jobs"])
     assert not [n for n in names if n.startswith(("tests-api", "tests-e2e", "build-test-"))]
-    assert "wait-deployment" in names
+    assert "deploy" in names
     # nothing references the removed prototypes any more
     for job in wf["jobs"].values():
         for need in job.get("needs", []):
             assert need in wf["jobs"], need
 
 
-def test_deploy_secret_values(tmp_path):
-    wf, _ = _generate(tmp_path, ["samples", "myapp"], registry_secret_name="my-pull-secret")
-    deploy = wf["jobs"]["deploy"]
+def test_deploy_with_skaffold(tmp_path):
+    wf, project = _generate(tmp_path, ["samples", "myapp"], registry_secret_name="my-pull-secret")
+    jobs = wf["jobs"]
+    deploy = jobs["deploy"]
 
-    step = _steps(deploy, "Collect secret values")[0]
+    # skaffold deploy installs the chart and waits for its rollout: no job of its own waits for it
+    assert "wait-deployment" not in jobs
+    run = _steps(deploy, "Deploy and wait for the rollout")[0]["run"]
+    assert run.startswith(
+        "skaffold deploy --filename deployment/skaffold-ci.yaml --build-artifacts deployment/skaffold-images.json "
+    )
+    # skaffold labels every pod template with its run id: a new one would restart every pod on every deploy
+    assert "--label skaffold.dev/run-id=cloudharness" in run
+    names = [step.get("name") or step.get("uses") for step in deploy["steps"]]
+    assert names.index("Write the secret values") < names.index("Deploy and wait for the rollout")
+    assert names.index("Install skaffold") < names.index("Deploy and wait for the rollout")
+
+    # every secret value lands in the file skaffold-ci.yaml passes to helm with --set-file
+    step = _steps(deploy, "Write the secret values")[0]
     assert step["env"]["ASECRET"] == "${{ secrets.ASECRET }}"
     assert step["env"]["MYAPP_DB_CONNECT_STRING"] == "${{ secrets.MYAPP_DB_CONNECT_STRING }}"
     assert step["env"]["K8S_SA_JSON"] == "${{ secrets.K8S_SA_JSON }}"
-    assert "--set-file apps.samples.harness.secrets.asecret=$secrets_dir/" in step["run"]
-    assert "--set-file apps.myapp.harness.database.connect_string=$secrets_dir/" in step["run"]
-    assert "--set-file registry.secret.value=$secrets_dir/" in step["run"]
-    assert 'echo "HELM_SET_ARGS=$args" >> "$GITHUB_ENV"' in step["run"]
-    install = _steps(deploy, "Install chart")[0]
-    assert "$HELM_SET_ARGS" in install["run"]
-    assert "helm upgrade --install" in install["run"]
+    assert 'secrets_dir="$HOME/.cloudharness/secrets"' in step["run"]
+    plan = project.skaffold_ci.generate({}, write_on_disk=False)
+    set_files = plan["deploy"]["helm"]["releases"][0]["setFiles"]
+    assert set_files["registry.secret.value"] == "~/.cloudharness/secrets/K8S_SA_JSON"
+    for path in set_files.values():
+        file_name = path[len("~/.cloudharness/secrets/"):]
+        assert f'"$secrets_dir/{file_name}"' in step["run"], file_name
+    assert step["run"].count('"$secrets_dir/ASECRET"') == 1, "a secret is written once"
     # secrets only ever travel through env, never inline in a script
     assert not [run for run in _run_strings(wf) if "${{ secrets." in run]
 
 
-def test_rollout_wait_and_publish_steps(tmp_path):
+def test_publish_steps(tmp_path):
     wf, project = _generate(tmp_path, ["samples", "myapp"])
     jobs = wf["jobs"]
-
-    rollout = _steps(jobs["wait-deployment"], "Wait for the rollouts")[0]
-    lines = rollout["run"].splitlines()
-    assert any(line.startswith("kubectl rollout status deployment/") for line in lines)
-    assert lines[-1] == "sleep 60"
 
     publish = jobs["publish"]
     assert "needs.prepare.outputs.publish_tag != ''" in publish["if"]
@@ -268,7 +276,7 @@ def test_prepare_command_placeholders(tmp_path):
     assert "-e dev " in run
     assert "-i samples -i myapp -ex events" in run
     assert "$PATHS" not in run and "$ENV " not in run and "$PARAMS" not in run
-    assert "--write-env" in run and "--write-skaffold-build" in run and "--force-build" in run
+    assert "--write-env" in run and "--write-skaffold-ci" in run and "--force-build" in run
 
 
 def test_multienv_test_overlay(tmp_path):
@@ -299,7 +307,7 @@ def test_prod_deploys_only(tmp_path):
     # the fixture's kube_auth override lives in the dev overlay only: prod keeps the
     # default step (KUBECONFIG secret or the runner's own cluster access)
     assert [s for s in jobs["deploy"]["steps"] if s.get("name") == "Configure kubectl"]
-    assert jobs["deploy"]["env"]["HELM_FLAGS"].startswith("--wait")
+    assert _steps(jobs["deploy"], "Deploy and wait for the rollout")
     assert wf["on"]["workflow_dispatch"]["inputs"]["deployment_tag"]["required"] is True
 
 
@@ -311,7 +319,7 @@ def test_stage_keeps_tests_and_tags_the_repository(tmp_path):
     assert not _steps(jobs["publish"], "Publish test-"), "the test images are not built here"
     assert "tests-api-samples" in jobs
     assert not _steps(jobs["prepare"], "Run the unit tests"), "stage runs no unit tests"
-    assert jobs["tests-api-samples"]["needs"] == ["prepare", "wait-deployment"]
+    assert jobs["tests-api-samples"]["needs"] == ["prepare", "deploy"]
     assert jobs["git-tag"]["needs"] == ["prepare", "publish"]
     assert jobs["git-tag"]["permissions"] == {"contents": "write"}
     # the tag is pushed only when the images were published: a failed deployment or test

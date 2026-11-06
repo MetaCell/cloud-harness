@@ -4,13 +4,14 @@ The GitHub Actions pipeline does what the Codefresh one does - build every image
 the deployment needs, run the unit tests, deploy the helm chart, wait for the
 rollout, run the API/E2E tests, publish (re-tag) the images - with the same
 content-hash skip. The `prepare` job runs `harness-deployment --write-env
---write-skaffold-build`: deployment/.env becomes job outputs (every image's tag)
-and deployment/skaffold-build.yaml lists only the images whose tag is not in the
+--write-skaffold-ci`: deployment/.env becomes job outputs (every image's tag)
+and deployment/skaffold-ci.yaml lists only the images whose tag is not in the
 registry yet, which the same job then builds with skaffold (`cloudharness.build`
 steps), in parallel and in dependency order, before `skaffold test` runs every
-app's unit tests. Like codefresh.yaml, the workflow is generated once and
-committed, so everything only known at run time stays a `${{ ... }}` expression
-(vars, secrets, prepare outputs).
+app's unit tests. The `deploy` job runs `skaffold deploy` on the same file, which
+installs the helm chart and waits for its rollout. Like codefresh.yaml, the
+workflow is generated once and committed, so everything only known at run time
+stays a `${{ ... }}` expression (vars, secrets, prepare outputs).
 
 What differs from Codefresh, and shapes the template:
 - GitHub only runs workflows found in .github/workflows/, so that is where the
@@ -37,13 +38,13 @@ across cloud-harness and the project exactly like the Codefresh templates):
   `$CH_TAG` stand for the app's image.
 - A string item in a `steps` list is a fragment the generator fills:
   `$GIT_CLONES`, `$BUILD_STEPS`, `$PUBLISH_STEPS`, `$HELM_SECRETS_STEPS`,
-  `$ROLLOUT_STEPS`, `$TEST_STEPS` and `$KUBE_AUTH`. The steps of
-  `$BUILD_STEPS` and `$KUBE_AUTH` come from the template's own
-  `cloudharness.build` and `cloudharness.kube_auth` lists, so a project
-  changes how images are built and unit-tested or how the cluster is reached
-  in one place; `cloudharness.build: null` builds and tests nothing (stage,
-  prod). The top-level
-  `cloudharness` section is for the generator only and never reaches GitHub.
+  `$TEST_STEPS` and `$KUBE_AUTH`. The steps of `$BUILD_STEPS` and
+  `$KUBE_AUTH` come from the template's own `cloudharness.build` and
+  `cloudharness.kube_auth` lists, so a project changes how images are built
+  and unit-tested or how the cluster is reached in one place;
+  `cloudharness.build: null` builds and tests nothing (stage, prod). The
+  top-level `cloudharness` section is for the generator only and never
+  reaches GitHub.
 - `$ENV`, `$PARAMS` and `$PATHS` are substituted everywhere, as in Codefresh.
 - A template key matching an expanded job id (`jobs.tests-api-myapp`) is merged
   over the generated job, so one app can get a bigger runner or extra steps;
@@ -78,7 +79,6 @@ JOB_PREPARE = "prepare"
 JOB_API_TESTS = "tests-api"
 JOB_E2E_TESTS = "tests-e2e"
 JOB_DEPLOY = "deploy"
-JOB_WAIT_DEPLOYMENT = "wait-deployment"
 JOB_PUBLISH = "publish"
 PROTOTYPE_JOBS = (JOB_API_TESTS, JOB_E2E_TESTS)
 
@@ -86,7 +86,6 @@ FRAGMENT_GIT_CLONES = "$GIT_CLONES"
 FRAGMENT_BUILD = "$BUILD_STEPS"
 FRAGMENT_PUBLISH_STEPS = "$PUBLISH_STEPS"
 FRAGMENT_HELM_SECRETS = "$HELM_SECRETS_STEPS"
-FRAGMENT_ROLLOUT = "$ROLLOUT_STEPS"
 FRAGMENT_TEST = "$TEST_STEPS"
 FRAGMENT_KUBE_AUTH = "$KUBE_AUTH"
 
@@ -408,33 +407,28 @@ class CHGithubActions(CHValues):
         return steps
 
     def _helm_secrets_steps(self) -> list[dict]:
-        """One step writing every pipeline-supplied secret to a file and exporting the
-        matching `--set-file` arguments as HELM_SET_ARGS: no quoting or escaping of the
-        values is needed, and no secret ever appears on a command line."""
+        """One step writing every pipeline-supplied secret to the file skaffold's deploy passes to
+        helm with `--set-file` (deployment/skaffold-ci.yaml): no quoting or escaping of the values
+        is needed, and no secret ever appears on a command line."""
         values = ci.deployment_secret_values(self.project)
         if not values:
             return []
         env: dict[str, str] = {}
         lines = [
             "set -e",
-            'secrets_dir="$RUNNER_TEMP/ch-secrets"',
+            f'secrets_dir="$HOME/{ci.SECRETS_HOME_DIR}"',
             'mkdir -p "$secrets_dir"',
-            'args=""',
+            'chmod 700 "$secrets_dir"',
         ]
-        for index, value in enumerate(values):
+        written = set()
+        for value in values:
+            if value.file_name in written:  # one secret can feed several helm values
+                continue
+            written.add(value.file_name)
             secret = github_secret_name(value.variable)
             env[secret] = "${{ secrets.%s }}" % secret
-            key = ".".join(segment.replace(".", "\\.") for segment in value.path)
-            lines.append(f"printf '%s' \"${secret}\" > \"$secrets_dir/{index}\"")
-            lines.append(f'args="$args --set-file {key}=$secrets_dir/{index}"')
-        lines.append('echo "HELM_SET_ARGS=$args" >> "$GITHUB_ENV"')
-        return [{"name": "Collect secret values", "env": env, "run": "\n".join(lines) + "\n"}]
-
-    def _rollout_steps(self) -> list[dict]:
-        commands = ci.rollout_wait_commands(self.project)
-        if not commands:
-            return []
-        return [{"name": "Wait for the rollouts", "run": "\n".join(commands) + "\n"}]
+            lines.append(f"printf '%s' \"${secret}\" > \"$secrets_dir/{value.file_name}\"")
+        return [{"name": "Write the secret values", "env": env, "run": "\n".join(lines) + "\n"}]
 
     def _docker_run_step(self, name, image, commands, env=None, volumes=(), workdir=None):
         env = dict(env or {})
@@ -540,7 +534,6 @@ class CHGithubActions(CHValues):
             FRAGMENT_BUILD: build_steps,
             FRAGMENT_PUBLISH_STEPS: self._publish_steps({**entities, **test_images}),
             FRAGMENT_HELM_SECRETS: self._helm_secrets_steps(),
-            FRAGMENT_ROLLOUT: self._rollout_steps(),
             FRAGMENT_TEST: [],
             FRAGMENT_KUBE_AUTH: list(settings.get(SETTING_KUBE_AUTH) or []),
         }

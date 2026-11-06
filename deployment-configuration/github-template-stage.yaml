@@ -22,9 +22,6 @@ cloudharness:
 jobs:
   prepare:
     name: Prepare helm chart
-  deploy:
-    env:
-      HELM_FLAGS: --wait --timeout 600s --create-namespace
   # Only once the images were actually published: publish is skipped when the deployment or a test fails.
   git-tag:
     name: Tag the repository

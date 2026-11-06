@@ -27,10 +27,11 @@ When defining an applications values you can provide details on dockerfile confi
 
 `harness-deployment -ci github -e [ENV]` generates `.github/workflows/cloudharness-[ENV].yaml`, a workflow with
 the same stages as the Codefresh pipeline: image build, unit tests, helm deployment, rollout wait, API/E2E tests
-and publication. Pass `-ci codefresh -ci github` to generate both.
+and publication. Pass `-ci codefresh -ci github` to generate both. Build, unit tests and deployment run with
+[Skaffold](https://skaffold.dev/), from the `deployment/skaffold-ci.yaml` the pipeline writes.
 
-- Build: the `prepare` job runs `harness-deployment --write-env --write-skaffold-build`, which asks the
-  registry for every image's content-hash tag and writes `deployment/skaffold-build.yaml` with only the images
+- Build: the `prepare` job runs `harness-deployment --write-env --write-skaffold-ci`, which asks the
+  registry for every image's content-hash tag and writes `deployment/skaffold-ci.yaml` with only the images
   whose tag is missing (or forced). The same job then runs `skaffold build` on it: every image is a
   `docker buildx build --push` with its registry cache (`[image]:buildcache`), skaffold runs them in parallel and
   builds a base image before the images built on it, while base images that are already published are pulled.
@@ -39,6 +40,11 @@ and publication. Pass `-ci codefresh -ci github` to generate both.
   (`deployment/skaffold-images.json`). A re-run after a failure asks the registry again, only builds what is
   still missing and tests everything again. The steps live under `cloudharness.build` in the template (`null`
   in stage and prod, which deploy published images).
+- Deployment: the `deploy` job runs `skaffold deploy` on the same file, which installs or upgrades the helm
+  chart (release and namespace named after the deployment namespace) and waits until its deployments and
+  statefulsets are rolled out, tolerating restarts for up to 15 minutes. Skaffold labels every pod template
+  with its run id: the workflow sets a constant one, so the apps whose image did not change are not restarted.
+  Secret values reach helm with `--set-file`, from files the job writes under `~/.cloudharness/secrets`.
 - Templates: `deployment-configuration/github-template.yaml` (job prototypes and shared steps) plus
   `github-template-[dev|stage|prod|test].yaml` (name, triggers, per-environment deltas), layered and overridable
   from your project's `deployment-configuration/` like the Codefresh ones. A `jobs.tests-api-[app]` or
@@ -53,13 +59,13 @@ and publication. Pass `-ci codefresh -ci github` to generate both.
   as the Codefresh variables) the workflow expects. Approvals are GitHub environment protection rules on the
   `publish` and `prod`/`stage` environments. `workflow_dispatch` inputs replace the `DEPLOYMENT_PUBLISH_TAG`,
   `DEPLOYMENT_TAG`, `*_TAG_FORCE_BUILD` and `SKIP_TESTS` pipeline variables.
-- Cluster credentials: the `deploy`, `wait-deployment` and test `cleanup` jobs run the steps listed under
+- Cluster credentials: the `deploy` and test `cleanup` jobs run the steps listed under
   `cloudharness.kube_auth` in the template. The default step uses a base64 `KUBECONFIG` secret when present and
   the runner's own cluster access otherwise (a runner inside the target cluster with a service account bound to
   the deployment namespaces needs no secret at all); with neither, the job fails immediately. Only `deploy`
   targets the GitHub environment named after the CloudHarness environment (so required reviewers on
-  `stage`/`prod` approve the deployment once): `wait-deployment` and `cleanup` read repository or organization
-  secrets, which an environment secret of the same name overrides for `deploy`. For GKE with workload identity
+  `stage`/`prod` approve the deployment once): `cleanup` reads repository or organization secrets, which an
+  environment secret of the same name overrides for `deploy`. For GKE with workload identity
   federation, replace the list in your project's `github-template.yaml` and grant `id-token: write` to the jobs
   using it (it is not granted to the whole workflow; a job-level `permissions` replaces the workflow-level one):
 
@@ -77,7 +83,7 @@ and publication. Pass `-ci codefresh -ci github` to generate both.
   jobs:
     deploy:
       permissions: {contents: read, packages: write, id-token: write}
-    wait-deployment:
+    cleanup:
       permissions: {contents: read, packages: write, id-token: write}
   ```
 - Test failures: unit tests gate the deployment, as in Codefresh. The API/E2E tests run after the deployment

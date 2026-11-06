@@ -125,7 +125,7 @@ jobs:
           if [ -n "$APP_VERSION_RESOLVED" ]; then HELM_META_ARGS="$HELM_META_ARGS --app-version $APP_VERSION_RESOLVED"; fi
           TAG_ARG=""
           if [ -n "$DEPLOYMENT_TAG" ]; then TAG_ARG="-t $DEPLOYMENT_TAG"; fi
-          harness-deployment . -d "$DOMAIN" -r "$REGISTRY" -rsn "$REGISTRY_SECRET" -n "$NAMESPACE" -e test $TAG_ARG --write-env --write-skaffold-build --cache-url "$IMAGE_CACHE_URL" --force-build "$FORCE_BUILD" -N $HELM_META_ARGS -i samples
+          harness-deployment . -d "$DOMAIN" -r "$REGISTRY" -rsn "$REGISTRY_SECRET" -n "$NAMESPACE" -e test $TAG_ARG --write-env --write-skaffold-ci --cache-url "$IMAGE_CACHE_URL" --force-build "$FORCE_BUILD" -N $HELM_META_ARGS -i samples
           cat deployment/.env >> "$GITHUB_OUTPUT"
       - name: View helm chart
         run: helm template ./deployment/helm --debug -n "$NAMESPACE"
@@ -157,17 +157,15 @@ jobs:
         env:
           NOCACHE: ${{ github.run_id }}
           CH_BRANCH_TAG: ${{ steps.env.outputs.branch_tag }}
-        run: skaffold build --filename deployment/skaffold-build.yaml --cache-artifacts=false --update-check=false --interactive=false
+        run: skaffold build --filename deployment/skaffold-ci.yaml --cache-artifacts=false --update-check=false --interactive=false
       - name: Run the unit tests
-        run: skaffold test --filename deployment/skaffold-build.yaml --build-artifacts deployment/skaffold-images.json --update-check=false --interactive=false
+        run: skaffold test --filename deployment/skaffold-ci.yaml --build-artifacts deployment/skaffold-images.json --update-check=false --interactive=false
     runs-on: ${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
   deploy:
     name: Deploy
     needs:
       - prepare
     environment: test
-    env:
-      HELM_FLAGS: --timeout 200s --create-namespace
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -189,72 +187,38 @@ jobs:
             echo "::error::No cluster access: set the KUBECONFIG secret (base64 kubeconfig) where this job can read it, or run on a runner inside the target cluster"
             exit 1
           fi
-      - name: Collect secret values
+      - name: Write the secret values
         env:
           ASECRET: ${{ secrets.ASECRET }}
         run: |
           set -e
-          secrets_dir="$RUNNER_TEMP/ch-secrets"
+          secrets_dir="$HOME/.cloudharness/secrets"
           mkdir -p "$secrets_dir"
-          args=""
-          printf '%s' "$ASECRET" > "$secrets_dir/0"
-          args="$args --set-file apps.samples.harness.secrets.asecret=$secrets_dir/0"
-          printf '%s' "$ASECRET" > "$secrets_dir/1"
-          args="$args --set-file apps.samples-instance1.harness.secrets.asecret=$secrets_dir/1"
-          echo "HELM_SET_ARGS=$args" >> "$GITHUB_ENV"
-      - name: Install chart
+          chmod 700 "$secrets_dir"
+          printf '%s' "$ASECRET" > "$secrets_dir/ASECRET"
+      - name: Install skaffold
         env:
-          NAMESPACE: ${{ needs.prepare.outputs.namespace }}
-        run: helm upgrade --install "$NAMESPACE" deployment/helm -n "$NAMESPACE" $HELM_FLAGS -f deployment/helm/values.yaml $HELM_SET_ARGS
+          SKAFFOLD_VERSION: v2.25.0
+          SKAFFOLD_SHA256: 42b9e2e3246c19b78fcc53dd60cc7ded1da8704293886b909a2a02b9bef34d20
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -fsSLo "$RUNNER_TEMP/bin/skaffold" "https://github.com/GoogleContainerTools/skaffold/releases/download/$SKAFFOLD_VERSION/skaffold-linux-amd64"
+          echo "$SKAFFOLD_SHA256  $RUNNER_TEMP/bin/skaffold" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/bin/skaffold"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Deploy and wait for the rollout
+        run: skaffold deploy --filename deployment/skaffold-ci.yaml --build-artifacts deployment/skaffold-images.json --label skaffold.dev/run-id=cloudharness --update-check=false --interactive=false
     if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success' }}
-    runs-on: ${{ vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
-  wait-deployment:
-    name: Wait for the deployment
-    needs:
-      - prepare
-      - deploy
-    if: ${{ (needs.prepare.outputs.skip_tests != 'true') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success' && needs.deploy.result == 'success') }}
-    timeout-minutes: 15
-    env:
-      NAMESPACE: ${{ needs.prepare.outputs.namespace }}
-    steps:
-      - uses: azure/setup-kubectl@v4
-      - name: Configure kubectl
-        env:
-          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
-        run: |
-          if [ -n "$KUBECONFIG_DATA" ]; then
-            mkdir -p "$HOME/.kube"
-            echo "$KUBECONFIG_DATA" | base64 -d > "$HOME/.kube/config"
-            chmod 600 "$HOME/.kube/config"
-          elif [ -n "$KUBERNETES_SERVICE_HOST" ] || kubectl config current-context > /dev/null 2>&1; then
-            echo "Using the runner's ambient cluster access"
-          else
-            echo "::error::No cluster access: set the KUBECONFIG secret (base64 kubeconfig) where this job can read it, or run on a runner inside the target cluster"
-            exit 1
-          fi
-      - name: Select the namespace
-        run: kubectl config set-context --current --namespace="$NAMESPACE"
-      - name: Wait for the rollouts
-        run: |
-          kubectl rollout status deployment/accounts
-          kubectl rollout status deployment/argo-gk
-          kubectl rollout status deployment/common
-          kubectl rollout status statefulset/samples
-          kubectl rollout status deployment/www-gk
-          kubectl rollout status deployment/samples-instance1
-          kubectl rollout status deployment/samples1-gk
-          kubectl rollout status deployment/volumemanager
-          kubectl rollout status deployment/workflows
-          sleep 60
     runs-on: ${{ vars.CH_GITHUB_RUNNER || 'ubuntu-latest' }}
   tests-api-common:
     name: API tests common
     needs:
       - prepare
-      - wait-deployment
-    if: ${{ (needs.prepare.outputs.skip_tests != 'true') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+      - deploy
+    if: ${{ (needs.prepare.outputs.skip_tests != 'true') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success' && needs.deploy.result == 'success') }}
     steps:
+      - name: Give the certificates time to settle
+        run: sleep 60
       - uses: actions/checkout@v4
       - name: Clone cloud-harness
         uses: actions/checkout@v4
@@ -290,9 +254,11 @@ jobs:
     name: API tests samples
     needs:
       - prepare
-      - wait-deployment
-    if: ${{ (needs.prepare.outputs.skip_tests != 'true') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+      - deploy
+    if: ${{ (needs.prepare.outputs.skip_tests != 'true') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success' && needs.deploy.result == 'success') }}
     steps:
+      - name: Give the certificates time to settle
+        run: sleep 60
       - uses: actions/checkout@v4
       - name: Clone cloud-harness
         uses: actions/checkout@v4
@@ -333,9 +299,11 @@ jobs:
     name: API tests workflows
     needs:
       - prepare
-      - wait-deployment
-    if: ${{ (needs.prepare.outputs.skip_tests != 'true') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+      - deploy
+    if: ${{ (needs.prepare.outputs.skip_tests != 'true') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success' && needs.deploy.result == 'success') }}
     steps:
+      - name: Give the certificates time to settle
+        run: sleep 60
       - uses: actions/checkout@v4
       - name: Clone cloud-harness
         uses: actions/checkout@v4
@@ -371,9 +339,11 @@ jobs:
     name: E2E tests jupyterhub
     needs:
       - prepare
-      - wait-deployment
-    if: ${{ (needs.prepare.outputs.skip_tests != 'true') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+      - deploy
+    if: ${{ (needs.prepare.outputs.skip_tests != 'true') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success' && needs.deploy.result == 'success') }}
     steps:
+      - name: Give the certificates time to settle
+        run: sleep 60
       - uses: actions/checkout@v4
       - name: Clone cloud-harness
         uses: actions/checkout@v4
@@ -405,9 +375,11 @@ jobs:
     name: E2E tests samples
     needs:
       - prepare
-      - wait-deployment
-    if: ${{ (needs.prepare.outputs.skip_tests != 'true') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success') }}
+      - deploy
+    if: ${{ (needs.prepare.outputs.skip_tests != 'true') && (!cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.prepare.result == 'success' && needs.deploy.result == 'success') }}
     steps:
+      - name: Give the certificates time to settle
+        run: sleep 60
       - uses: actions/checkout@v4
       - name: Clone cloud-harness
         uses: actions/checkout@v4

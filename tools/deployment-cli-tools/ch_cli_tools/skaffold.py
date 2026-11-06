@@ -78,6 +78,9 @@ from .utils import dict_merge  # type: ignore
 BUILD_CACHE_TAG = "buildcache"
 BRANCH_TAG_VARIABLE = "CH_BRANCH_TAG"
 IMAGES_FILE_NAME = "skaffold-images.json"
+# deploy.tolerateFailuresUntilDeadline needs a v4 schema: the newest of the skaffold the CI installs (v2.25.0)
+CI_API_VERSION = "skaffold/v4beta14"
+STATUS_CHECK_DEADLINE_SECONDS = 900
 
 # tools/clone.sh, shipped alongside this package - not part of any deployed
 # project, so it's located relative to this file, not project.root/ch_path.
@@ -385,11 +388,11 @@ def unit_test_command(commands) -> str:
     return f'docker run --rm "$IMAGE" sh -c {shlex.quote(script)}'
 
 
-@register_file("skaffold_build", lambda root: root / "deployment" / "skaffold-build.yaml")
-class CHSkaffoldBuild(CHValues):
-    """deployment/skaffold-build.yaml: what a CI run still has to build, and the unit tests.
+@register_file("skaffold_ci", lambda root: root / "deployment" / "skaffold-ci.yaml")
+class CHSkaffoldCI(CHValues):
+    """deployment/skaffold-ci.yaml: what a CI run still has to build, the unit tests and the deployment.
 
-    Written at pipeline run time (`harness-deployment --write-skaffold-build`), once
+    Written at pipeline run time (`harness-deployment --write-skaffold-ci`), once
     `ci.image_tag_env` has asked the registry which tags exist: the artifacts are only
     the images whose tag is missing or forced. Since an image's content-hash tag folds
     in the tags of the images it is built on, a changed base image is rebuilt along
@@ -401,14 +404,24 @@ class CHSkaffoldBuild(CHValues):
     image's registry cache (`<image>:buildcache`, mode=max): skaffold orders the
     builds, runs them in parallel and tags each image from the table in its tag
     policy. Run from the project root with `skaffold build -f
-    deployment/skaffold-build.yaml --cache-artifacts=false`; NOCACHE and
+    deployment/skaffold-ci.yaml --cache-artifacts=false`; NOCACHE and
     CH_BRANCH_TAG come from the environment.
 
     The `test` section runs the unit tests of every app that has some, rebuilt or
-    not: `skaffold build` does not test, `skaffold test -f deployment/skaffold-build.yaml
+    not: `skaffold build` does not test, `skaffold test -f deployment/skaffold-ci.yaml
     --build-artifacts deployment/skaffold-images.json` does, against the images
     listed in skaffold-images.json - every image of the deployment with its tag. So
     an image pushed by a run whose tests then failed is tested again on the next run.
+
+    The `deploy` section installs or upgrades the helm chart harness-deployment wrote
+    (release and namespace named after the deployment namespace), then waits until
+    its deployments and statefulsets are rolled out:
+    `skaffold deploy -f deployment/skaffold-ci.yaml --build-artifacts
+    deployment/skaffold-images.json --label skaffold.dev/run-id=<constant>`. The
+    constant label matters: skaffold labels every pod template with its run id, a new
+    one per run unless overridden, which would restart every pod on every deployment.
+    Secret values come from files the pipeline writes under ~/.cloudharness/secrets
+    (`ci.HelmSecretValue.file_name`), passed with `--set-file`.
     """
 
     @property
@@ -436,6 +449,31 @@ class CHSkaffoldBuild(CHValues):
             for app in ci.buildable_apps(self.project)
             if app.test.unit.commands
         ]
+
+    def _deploy(self) -> dict | None:
+        project = self.project
+        namespace = project.config.namespace
+        if not namespace:
+            return None
+        release = {
+            "name": namespace,
+            "namespace": namespace,
+            "chartPath": os.path.relpath(self.path.parent / "helm", project.root),
+            "createNamespace": True,
+            # the chart is deployed as harness-deployment wrote it: no `helm dependency build`
+            "skipBuildDependencies": True,
+        }
+        secrets = ci.deployment_secret_values(project)
+        if secrets:
+            release["setFiles"] = {
+                value.key: f"~/{ci.SECRETS_HOME_DIR}/{value.file_name}" for value in secrets
+            }
+        return {
+            "statusCheckDeadlineSeconds": STATUS_CHECK_DEADLINE_SECONDS,
+            # an app restarting while what it depends on starts up only fails at the deadline
+            "tolerateFailuresUntilDeadline": True,
+            "helm": {"releases": [release]},
+        }
 
     def _context(self, entity) -> tuple[str, str]:
         """The merged build context, relative to the project root (skaffold resolves contexts from
@@ -484,10 +522,9 @@ class CHSkaffoldBuild(CHValues):
             extra_tags = ("latest",) if name in test_images else ()
             artifacts.append(self._artifact(entity, image, building, extra_tags))
 
-        template = project.skaffold_template.all_values()
         plan = {
-            "apiVersion": template["apiVersion"],
-            "kind": template.get("kind", "Config"),
+            "apiVersion": CI_API_VERSION,
+            "kind": "Config",
             "build": {
                 "tagPolicy": {"envTemplate": {"template": tag_template(tags)}},
                 # the custom builds push; skaffold then reads each image's digest from the registry
@@ -498,6 +535,9 @@ class CHSkaffoldBuild(CHValues):
         tests = self._tests()
         if tests:
             plan["test"] = tests
+        deploy = self._deploy()
+        if deploy:
+            plan["deploy"] = deploy
         if write_on_disk:
             self.write(plan)
             self.images_path.write_text(json.dumps(self.images(), indent=2) + "\n", encoding="utf-8")
