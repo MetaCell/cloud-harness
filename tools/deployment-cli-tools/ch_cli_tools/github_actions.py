@@ -3,11 +3,13 @@
 The GitHub Actions pipeline does what the Codefresh one does - build every image
 the deployment needs, run the unit tests, deploy the helm chart, wait for the
 rollout, run the API/E2E tests, publish (re-tag) the images - with the same
-content-hash skip: the `prepare` job runs `harness-deployment --write-env` and
-turns `deployment/.env` into job outputs, and every `build-<image>` job is only
-scheduled when `<IMAGE>_TAG_EXISTS` is not set. Like codefresh.yaml, the
-workflow is generated once and committed, so everything only known at run time
-stays a `${{ ... }}` expression (vars, secrets, prepare outputs).
+content-hash skip. The `prepare` job runs `harness-deployment --write-env
+--write-skaffold-build`: deployment/.env becomes job outputs (every image's tag)
+and deployment/skaffold-build.yaml lists only the images whose tag is not in the
+registry yet, which the same job then builds with skaffold (`cloudharness.build`
+steps), in parallel and in dependency order. Like codefresh.yaml, the workflow
+is generated once and committed, so everything only known at run time stays a
+`${{ ... }}` expression (vars, secrets, prepare outputs).
 
 What differs from Codefresh, and shapes the template:
 - GitHub only runs workflows found in .github/workflows/, so that is where the
@@ -15,55 +17,55 @@ What differs from Codefresh, and shapes the template:
 - Triggers (`on:`) are part of the file, hence of the per-environment template.
 - Every job runs on a fresh runner: each one checks out what it needs, images
   travel between jobs through the registry, the helm chart travels as a
-  workflow artifact. An image built from a context merged across layers
-  (`.overrides/<image>`, written by prepare's harness-deployment) gets its own
-  artifact, downloaded only by that image's build job.
+  workflow artifact. Building in `prepare` keeps the merged contexts
+  (`.overrides/`) and git dependencies on the runner that produced them, and
+  makes a re-run after a failure (or a preempted runner) ask the registry
+  again, so it only builds what the failed attempt did not push.
 - A job whose `needs` were skipped is skipped too unless its `if` says
-  otherwise; since build jobs are skipped on purpose, every dependent job gets
-  a guard (`apply_needs_guards`) that tolerates skipped builds but not failures.
-  A job deciding for itself - an `if` using always()/cancelled()/failure() - is
-  left alone. The template uses that for `publish`, which waits for the API/E2E
-  tests and runs only if none failed.
+  otherwise; since test jobs can be skipped on purpose, every dependent job
+  gets a guard (`apply_needs_guards`) that tolerates skipped jobs but not
+  failures. A job deciding for itself - an `if` using
+  always()/cancelled()/failure() - is left alone. The template uses that for
+  `publish`, which waits for the API/E2E tests and runs only if none failed.
 
 Template mechanics (`github-template.yaml` + `github-template-<env>.yaml`, layered
 across cloud-harness and the project exactly like the Codefresh templates):
-- `jobs.build`, `jobs.build-test-images`, `jobs.tests-unit`, `jobs.tests-api`
-  and `jobs.tests-e2e` are prototypes, expanded into one job per image/app at
-  their position; a `null` or missing prototype means that kind of job is not
-  generated. Inside a prototype `$CH_NAME`, `$CH_IMAGE` and `$CH_TAG` stand for
-  the image being expanded.
+- `jobs.tests-unit`, `jobs.tests-api` and `jobs.tests-e2e` are prototypes,
+  expanded into one job per app at their position; a `null` or missing
+  prototype means that kind of job is not generated. Inside a prototype
+  `$CH_NAME`, `$CH_IMAGE` and `$CH_TAG` stand for the app's image.
 - A string item in a `steps` list is a fragment the generator fills:
-  `$GIT_CLONES`, `$UPLOAD_OVERRIDES` (prepare: one artifact per merged
-  context), `$DOWNLOAD_OVERRIDES` (build: this image's merged context, if
-  any), `$PUBLISH_STEPS`, `$HELM_SECRETS_STEPS`, `$ROLLOUT_STEPS`,
-  `$TEST_STEPS`, and `$KUBE_AUTH`, the steps giving kubectl/helm access to the
-  cluster, taken from the template's own `cloudharness.kube_auth` list so a
-  project changes the authentication method in one place. The top-level
+  `$GIT_CLONES`, `$BUILD_STEPS`, `$PUBLISH_STEPS`, `$HELM_SECRETS_STEPS`,
+  `$ROLLOUT_STEPS`, `$TEST_STEPS` and `$KUBE_AUTH`. The steps of
+  `$BUILD_STEPS` and `$KUBE_AUTH` come from the template's own
+  `cloudharness.build` and `cloudharness.kube_auth` lists, so a project
+  changes how images are built or how the cluster is reached in one place;
+  `cloudharness.build: null` builds nothing (stage, prod). The top-level
   `cloudharness` section is for the generator only and never reaches GitHub.
 - `$ENV`, `$PARAMS` and `$PATHS` are substituted everywhere, as in Codefresh.
-- A template key matching an expanded job id (`jobs.build-myapp`) is merged over
-  the generated job, so one image can get a bigger runner or extra steps; such a
-  key is dropped when its image is not part of the deployment being generated.
+- A template key matching an expanded job id (`jobs.tests-unit-myapp`) is merged
+  over the generated job, so one app can get a bigger runner or extra steps;
+  such a key is dropped when its app is not part of the deployment being
+  generated.
 - `runs-on` defaults to the `CH_GITHUB_RUNNER` repository/organization variable
-  (build jobs: `CH_GITHUB_BUILD_RUNNER` first), read when the workflow runs,
-  falling back to CHDeployConfig.ci_runner (`CH_GITHUB_RUNNER` in the generating
-  shell, default ubuntu-latest). A template `runs-on` always wins.
+  (`prepare`, when it builds: `CH_GITHUB_BUILD_RUNNER` first), read when the
+  workflow runs, falling back to CHDeployConfig.ci_runner (`CH_GITHUB_RUNNER` in
+  the generating shell, default ubuntu-latest). A template `runs-on` always wins.
 """
 
 import copy
-import dataclasses
 import json
 import logging
 import re
-from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
 from ruamel.yaml.scalarstring import LiteralScalarString
 
 from . import ci
+from .ci import TEST_IMAGE_API, TEST_IMAGE_E2E
 from .model import CHValues, register_file
-from .utils import MERGE_DIRNAME, GeneratedYAML, dict_merge, pipeline_relative_path  # type: ignore
+from .utils import GeneratedYAML, dict_merge, pipeline_relative_path  # type: ignore
 
 WORKFLOW_FILE_NAME = "cloudharness.yaml"
 DEFAULT_RUNNER = "ubuntu-latest"
@@ -71,19 +73,16 @@ RUNNER_VARIABLE = "CH_GITHUB_RUNNER"
 BUILD_RUNNER_VARIABLE = "CH_GITHUB_BUILD_RUNNER"
 
 JOB_PREPARE = "prepare"
-JOB_BUILD = "build"
-JOB_BUILD_TEST_IMAGES = "build-test-images"
 JOB_UNIT_TESTS = "tests-unit"
 JOB_API_TESTS = "tests-api"
 JOB_E2E_TESTS = "tests-e2e"
 JOB_DEPLOY = "deploy"
 JOB_WAIT_DEPLOYMENT = "wait-deployment"
 JOB_PUBLISH = "publish"
-PROTOTYPE_JOBS = (JOB_BUILD, JOB_BUILD_TEST_IMAGES, JOB_UNIT_TESTS, JOB_API_TESTS, JOB_E2E_TESTS)
+PROTOTYPE_JOBS = (JOB_UNIT_TESTS, JOB_API_TESTS, JOB_E2E_TESTS)
 
 FRAGMENT_GIT_CLONES = "$GIT_CLONES"
-FRAGMENT_UPLOAD_OVERRIDES = "$UPLOAD_OVERRIDES"
-FRAGMENT_DOWNLOAD_OVERRIDES = "$DOWNLOAD_OVERRIDES"
+FRAGMENT_BUILD = "$BUILD_STEPS"
 FRAGMENT_PUBLISH_STEPS = "$PUBLISH_STEPS"
 FRAGMENT_HELM_SECRETS = "$HELM_SECRETS_STEPS"
 FRAGMENT_ROLLOUT = "$ROLLOUT_STEPS"
@@ -92,13 +91,10 @@ FRAGMENT_KUBE_AUTH = "$KUBE_AUTH"
 
 SETTINGS_KEY = "cloudharness"  # generator-only template section, stripped from the workflow
 SETTING_KUBE_AUTH = "kube_auth"
+SETTING_BUILD = "build"
 
 STEP_IMAGES = "images"  # prepare step appending deployment/.env to $GITHUB_OUTPUT
-STEP_CHECK = "check"  # build step asking the registry whether the image exists
-STEP_BUILD = "build"  # build step running docker/build-push-action
 
-TEST_IMAGE_API = "test-api"
-TEST_IMAGE_E2E = "test-e2e"
 TEST_HOME = "/home/test"
 DEFAULT_E2E_COMMANDS = ("npx puppeteer browsers install chrome", "yarn test")
 
@@ -153,13 +149,6 @@ def expand_steps(steps, fragments: dict[str, list]) -> list:
         else:
             expanded.append(step)
     return expanded
-
-
-def step_by_id(steps, step_id: str):
-    return next(
-        (step for step in steps if isinstance(step, dict) and step.get("id") == step_id),
-        None,
-    )
 
 
 def strip_expression(value) -> str:
@@ -314,13 +303,6 @@ def tag_output(name: str) -> str:
     return prepare_output(ci.tag_variable(name))
 
 
-@dataclass(frozen=True)
-class BuildContext:
-    path: str  # docker build context, relative to the workflow's checkout root
-    dockerfile: str  # Dockerfile, relative to the context
-    artifact: str | None = None  # workflow artifact carrying a merged context from prepare
-
-
 # --- generator ------------------------------------------------------------------
 
 
@@ -366,47 +348,6 @@ class CHGithubActions(CHValues):
             )
         )
 
-    def _context_for(self, entity) -> BuildContext:
-        root = self.project.root
-        context = entity.dockerfile.resolve_context(root).resolve_for_build(root)
-        return BuildContext(
-            self._pipeline_path(root / context.path), str(context.dockerfile.path)
-        )
-
-    def _dependencies(self, entity) -> list:
-        dependencies = []
-        for dependency in self.project._combined_dependencies(entity):
-            if isinstance(dependency, str):
-                continue
-            if dependency.name not in {d.name for d in dependencies}:
-                dependencies.append(dependency)
-        return dependencies
-
-    def _buildable_apps(self) -> list:
-        return [
-            app
-            for app in self.project.involved_apps
-            if not isinstance(app, str) and app.is_buildable
-        ]
-
-    def _entities(self) -> dict:
-        """Every image to build: buildable involved apps, their tasks and the
-        build dependencies the deployment needs - the same set helm's
-        `task-images` and `write_env_file` cover."""
-        project = self.project
-        entities = {}
-        for app in project.involved_apps:
-            if isinstance(app, str):
-                continue
-            if app.is_buildable:
-                entities[app.name] = app
-            for task in app.buildable_tasks:
-                entities[task.name] = task
-        app_names = {app.name for app in project.involved_apps if not isinstance(app, str)}
-        for name, dependency in project.all_build_dependencies(app_names).items():
-            entities.setdefault(name, dependency)
-        return entities
-
     # --- generated fragments ---
 
     def _git_clone_steps(self, entities) -> list[dict]:
@@ -445,37 +386,6 @@ class CHGithubActions(CHValues):
                         }
                     )
         return steps
-
-    def _upload_overrides_steps(self, contexts: dict[str, BuildContext]) -> list[dict]:
-        return [
-            {
-                "name": f"Share the merged {name} build context",
-                # an image whose tag exists is not built, so nobody downloads its context
-                "if": combine_conditions(
-                    f"steps.{STEP_IMAGES}.outputs.{ci.tag_variable(name)}_EXISTS != '1'"
-                ),
-                "uses": "actions/upload-artifact@v4",
-                "with": {
-                    "name": context.artifact,
-                    "path": context.path,
-                    "include-hidden-files": True,
-                    "if-no-files-found": "error",
-                },
-            }
-            for name, context in contexts.items()
-            if context.artifact
-        ]
-
-    def _download_overrides_steps(self, name: str, context: BuildContext) -> list[dict]:
-        if not context.artifact:
-            return []
-        return [
-            {
-                "name": f"Download the merged {name} build context",
-                "uses": "actions/download-artifact@v4",
-                "with": {"name": context.artifact, "path": context.path},
-            }
-        ]
 
     def _publish_steps(self, entities: dict) -> list[dict]:
         steps = []
@@ -551,86 +461,9 @@ class CHGithubActions(CHValues):
             },
         )
 
-    def _specific_needs(self, prototype, replacements: dict[str, list]) -> list[str]:
-        needs = []
-        for need in normalize_needs(prototype.get("needs")):
-            for target in replacements.get(need, [need]):
-                if target and target not in needs:
-                    needs.append(target)
-        return needs
-
-    def _build_args(self, entity) -> list[str]:
-        project = self.project
-        args = {"NOCACHE": "${{ github.run_id }}"}
-        if project.config.local or project.config.debug:
-            args["DEBUG"] = "true"
-        for dependency in self._dependencies(entity):
-            args[ci.env_key(dependency.name)] = (
-                f"{self.qualify(dependency.image_name)}:{tag_output(dependency.name)}"
-            )
-        args.update(project.all_source_images())
-        args.update(getattr(entity, "build_args", None) or {})
-        return [f"{key}={value}" for key, value in args.items()]
-
-    def _build_job(self, prototype, entity, context, build_ids, fragments, extra_tags=()):
-        name = entity.name
-        image = self.qualify(entity.image_name)
-        tag_var = ci.tag_variable(name)
-        job = self._prototype(prototype, name, entity.image_name)
-        job["name"] = f"Build {name}"
-        job.setdefault("runs-on", self._runner(BUILD_RUNNER_VARIABLE))
-        job["needs"] = self._specific_needs(
-            prototype,
-            {
-                JOB_BUILD: [],
-                JOB_BUILD_TEST_IMAGES: [],
-                JOB_PREPARE: [JOB_PREPARE],
-            },
-        ) or [JOB_PREPARE]
-        if JOB_PREPARE not in job["needs"]:
-            job["needs"].insert(0, JOB_PREPARE)
-        for dependency in self._dependencies(entity):
-            dependency_job = build_ids.get(dependency.name)
-            if dependency_job and dependency_job not in job["needs"]:
-                job["needs"].append(dependency_job)
-        job["if"] = combine_conditions(
-            prototype.get("if"), f"needs.{JOB_PREPARE}.outputs.{tag_var}_EXISTS != '1'"
-        )
-        steps = expand_steps(
-            job.get("steps"),
-            {
-                **fragments,
-                # prepare clones the git dependencies before merging: a shared context has them
-                FRAGMENT_GIT_CLONES: [] if context.artifact else self._git_clone_steps([entity]),
-                FRAGMENT_DOWNLOAD_OVERRIDES: self._download_overrides_steps(name, context),
-            },
-        )
-        build = step_by_id(steps, STEP_BUILD)
-        if build is not None:
-            with_ = build.setdefault("with", {})
-            with_["context"] = f"./{context.path}"
-            with_["file"] = f"./{context.path}/{context.dockerfile}"
-            with_["build-args"] = "\n".join(self._build_args(entity))
-            tags = [
-                f"{image}:{tag_output(name)}",
-                f"{image}:{prepare_output('branch_tag')}",
-                *(f"{image}:{tag}" for tag in extra_tags),
-            ]
-            with_["tags"] = "\n".join(tags)
-            forced = (
-                f"needs.{JOB_PREPARE}.outputs.force_build == 'all' || "
-                f"contains(format(',{{0}},', needs.{JOB_PREPARE}.outputs.force_build), ',{name},')"
-            )
-            build["if"] = combine_conditions(
-                build.get("if"), f"steps.{STEP_CHECK}.outputs.exists != 'true' || {forced}"
-            )
-        job["steps"] = steps
-        return job
-
-    def _unit_test_job(self, prototype, app, build_ids, fragments):
+    def _unit_test_job(self, prototype, app, fragments):
         job = self._prototype(prototype, app.name, app.image_name)
         job["name"] = f"Unit tests {app.name}"
-        job["needs"] = self._specific_needs(prototype, {JOB_BUILD: [build_ids.get(app.name)]})
         test_step = self._docker_run_step(
             f"Run {app.name} unit tests",
             f"{self.qualify(app.image_name)}:{tag_output(app.name)}",
@@ -645,16 +478,13 @@ class CHGithubActions(CHValues):
             return None
         return f"{self.qualify(test_image.image_name)}:{tag_output(name)}"
 
-    def _api_test_job(self, prototype, app, build_ids, fragments):
+    def _api_test_job(self, prototype, app, fragments):
         url = ci.api_test_url(app, "${{ vars.DOMAIN }}")
         image = self._test_image_reference(TEST_IMAGE_API)
         if url is None or image is None:
             return None
         job = self._prototype(prototype, app.name, app.image_name)
         job["name"] = f"API tests {app.name}"
-        job["needs"] = self._specific_needs(
-            prototype, {JOB_BUILD_TEST_IMAGES: [build_ids.get(TEST_IMAGE_API)]}
-        )
         app_path = self._pipeline_path(app.path)
         test_step = self._docker_run_step(
             f"Run {app.name} API tests",
@@ -670,16 +500,13 @@ class CHGithubActions(CHValues):
         job["steps"] = expand_steps(job.get("steps"), {**fragments, FRAGMENT_TEST: [test_step]})
         return job
 
-    def _e2e_test_job(self, prototype, app, build_ids, fragments):
+    def _e2e_test_job(self, prototype, app, fragments):
         image = self._test_image_reference(TEST_IMAGE_E2E)
         if image is None:
             return None
         url = ci.app_domain(app, "${{ vars.DOMAIN }}")
         job = self._prototype(prototype, app.name, app.image_name)
         job["name"] = f"E2E tests {app.name}"
-        job["needs"] = self._specific_needs(
-            prototype, {JOB_BUILD_TEST_IMAGES: [build_ids.get(TEST_IMAGE_E2E)]}
-        )
         app_path = self._pipeline_path(app.path)
         test_step = self._docker_run_step(
             f"Run {app.name} E2E tests",
@@ -706,45 +533,24 @@ class CHGithubActions(CHValues):
         removed = [key for key, job in jobs.items() if job is None]
         jobs = {key: job for key, job in jobs.items() if job is not None}
 
-        entities = self._entities()
-        apps = self._buildable_apps()
-        unit_apps = [app for app in apps if app.test.unit.commands]
-        api_apps = (
-            [app for app in apps if ci.has_api_tests(app) and app.openapi.server_urls]
-            if JOB_API_TESTS in jobs
-            else []
-        )
-        e2e_apps = [app for app in apps if ci.has_e2e_tests(app)] if JOB_E2E_TESTS in jobs else []
-        test_entities = {}
-        if JOB_BUILD_TEST_IMAGES in jobs and JOB_BUILD in jobs:
-            for name, users in ((TEST_IMAGE_API, api_apps), (TEST_IMAGE_E2E, e2e_apps)):
-                image = project.test_images.get(name)
-                if users and image is not None and image.dockerfile.exists():
-                    test_entities[name] = image
+        entities = ci.build_entities(project)
+        build_steps = list(settings.get(SETTING_BUILD) or [])
+        # the test runner images are built (hence published) only by a workflow that builds
+        test_images = ci.test_runner_images(project) if build_steps else {}
+        unit_apps = [app for app in ci.buildable_apps(project) if app.test.unit.commands]
+        api_apps = ci.api_test_apps(project) if JOB_API_TESTS in jobs else []
+        e2e_apps = ci.e2e_test_apps(project) if JOB_E2E_TESTS in jobs else []
 
-        # prepare's harness-deployment merges the contexts of apps, tasks and build dependencies
-        # again (skaffold, tilt), not those of test images: only the former can be shared
-        contexts = {}
-        if JOB_BUILD in jobs:
-            for name, entity in entities.items():
-                context = self._context_for(entity)
-                if Path(context.path).parts[:1] == (MERGE_DIRNAME,):
-                    context = dataclasses.replace(context, artifact=f"cloudharness-overrides-{name}")
-                contexts[name] = context
-            for name, image in test_entities.items():
-                contexts[name] = self._context_for(image)
-
-        build_ids = {name: job_id(f"{JOB_BUILD}-{name}") for name in [*entities, *test_entities]}
         unit_ids = {app.name: job_id(f"{JOB_UNIT_TESTS}-{app.name}") for app in unit_apps}
         api_ids = {app.name: job_id(f"{JOB_API_TESTS}-{app.name}") for app in api_apps}
         e2e_ids = {app.name: job_id(f"{JOB_E2E_TESTS}-{app.name}") for app in e2e_apps}
-        generated_ids = {*build_ids.values(), *unit_ids.values(), *api_ids.values(), *e2e_ids.values()}
+        generated_ids = {*unit_ids.values(), *api_ids.values(), *e2e_ids.values()}
 
         fragments = {
-            FRAGMENT_GIT_CLONES: self._git_clone_steps(apps),
-            FRAGMENT_UPLOAD_OVERRIDES: self._upload_overrides_steps(contexts),
-            FRAGMENT_DOWNLOAD_OVERRIDES: [],
-            FRAGMENT_PUBLISH_STEPS: self._publish_steps({**entities, **test_entities}),
+            # prepare merges the build contexts (.overrides/) with the git dependencies in them
+            FRAGMENT_GIT_CLONES: self._git_clone_steps(entities.values()),
+            FRAGMENT_BUILD: build_steps,
+            FRAGMENT_PUBLISH_STEPS: self._publish_steps({**entities, **test_images}),
             FRAGMENT_HELM_SECRETS: self._helm_secrets_steps(),
             FRAGMENT_ROLLOUT: self._rollout_steps(),
             FRAGMENT_TEST: [],
@@ -771,61 +577,26 @@ class CHGithubActions(CHValues):
         for key, job in jobs.items():
             if key in overlays:
                 continue
-            if key == JOB_BUILD:
-                expand(
-                    key,
-                    entities.items(),
-                    lambda item: (
-                        build_ids[item[0]],
-                        self._build_job(job, item[1], contexts[item[0]], build_ids, fragments),
-                    ),
-                )
-            elif key == JOB_BUILD_TEST_IMAGES:
-                prototype = dict_merge(jobs[JOB_BUILD], job) if JOB_BUILD in jobs else None
-                expand(
-                    key,
-                    test_entities.items() if prototype else [],
-                    lambda item: (
-                        build_ids[item[0]],
-                        self._build_job(
-                            prototype,
-                            item[1],
-                            contexts[item[0]],
-                            build_ids,
-                            fragments,
-                            extra_tags=("latest",),
-                        ),
-                    ),
-                )
-            elif key == JOB_UNIT_TESTS:
+            if key == JOB_UNIT_TESTS:
                 expand(
                     key,
                     unit_apps,
-                    lambda app: (
-                        unit_ids[app.name],
-                        self._unit_test_job(job, app, build_ids, fragments),
-                    ),
+                    lambda app: (unit_ids[app.name], self._unit_test_job(job, app, fragments)),
                 )
             elif key == JOB_API_TESTS:
                 expand(
                     key,
                     api_apps,
-                    lambda app: (
-                        api_ids[app.name],
-                        self._api_test_job(job, app, build_ids, fragments),
-                    ),
+                    lambda app: (api_ids[app.name], self._api_test_job(job, app, fragments)),
                 )
             elif key == JOB_E2E_TESTS:
                 expand(
                     key,
                     e2e_apps,
-                    lambda app: (
-                        e2e_ids[app.name],
-                        self._e2e_test_job(job, app, build_ids, fragments),
-                    ),
+                    lambda app: (e2e_ids[app.name], self._e2e_test_job(job, app, fragments)),
                 )
             elif key.startswith(overlay_prefixes):
-                # an overlay for an image/app that is not part of this deployment
+                # an overlay for an app that is not part of this deployment
                 continue
             else:
                 job = copy.deepcopy(job)
@@ -834,6 +605,8 @@ class CHGithubActions(CHValues):
                     for output, value in self._prepare_outputs().items():
                         outputs.setdefault(output, value)
                     job["outputs"] = outputs
+                    if build_steps:
+                        job.setdefault("runs-on", self._runner(BUILD_RUNNER_VARIABLE))
                 job["steps"] = expand_steps(job.get("steps"), fragments)
                 result[key] = job
 

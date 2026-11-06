@@ -65,11 +65,18 @@ CHSkaffold.generate() algorithm:
    overrides.
 """
 
+import json
+import os
+import shlex
 from functools import lru_cache
 from pathlib import Path
 
+from . import ci
 from .model import CHValues, register_file
 from .utils import dict_merge  # type: ignore
+
+BUILD_CACHE_TAG = "buildcache"
+BRANCH_TAG_VARIABLE = "CH_BRANCH_TAG"
 
 # tools/clone.sh, shipped alongside this package - not part of any deployed
 # project, so it's located relative to this file, not project.root/ch_path.
@@ -341,3 +348,114 @@ class CHSkaffold(CHValues):
             self.write(base, output_path=output_path)
 
         return base
+
+
+def tag_template(tags: dict[str, str]) -> str:
+    """An envTemplate tag policy giving every image its own tag: skaffold has a single
+    tag policy for all the artifacts, so it looks the image up in a table."""
+    table = " ".join(f"{json.dumps(image)} {json.dumps(tag)}" for image, tag in tags.items())
+    return "{{ index (dict %s) .IMAGE_NAME }}" % table
+
+
+def buildx_command(image: str, dockerfile: str, build_args: dict[str, str], extra_tags=()) -> str:
+    """The shell command a custom skaffold artifact builds and pushes `image` with, from its
+    context directory: tagged `$IMAGE` (skaffold's tag), the extra tags and `$CH_BRANCH_TAG`
+    when set, with the image's registry cache."""
+    cache = f"{image}:{BUILD_CACHE_TAG}"
+    parts = [
+        "docker buildx build --push",
+        f"--file {shlex.quote(dockerfile)}",
+        '--tag "$IMAGE"',
+        *(f"--tag {shlex.quote(f'{image}:{tag}')}" for tag in extra_tags),
+        f"${{{BRANCH_TAG_VARIABLE}:+--tag {image}:${BRANCH_TAG_VARIABLE}}}",
+        # value from the environment: a different one on every run busts the layers using it
+        "--build-arg NOCACHE",
+        *(f"--build-arg {shlex.quote(f'{key}={value}')}" for key, value in build_args.items()),
+        f"--cache-from type=registry,ref={cache}",
+        f"--cache-to type=registry,ref={cache},mode=max",
+        ".",
+    ]
+    return " ".join(parts)
+
+
+@register_file("skaffold_build", lambda root: root / "deployment" / "skaffold-build.yaml")
+class CHSkaffoldBuild(CHValues):
+    """deployment/skaffold-build.yaml: what a CI run still has to build.
+
+    Written at pipeline run time (`harness-deployment --write-skaffold-build`), once
+    `ci.image_tag_env` has asked the registry which tags exist: the artifacts are only
+    the images whose tag is missing or forced. Since an image's content-hash tag folds
+    in the tags of the images it is built on, a changed base image is rebuilt along
+    with everything built on it. Every base image reaches a Dockerfile as a build arg
+    naming its tag in the registry, so the ones not rebuilt are pulled; `requires`
+    lists the ones built in the same run, which skaffold builds first.
+
+    Each artifact is a custom build running `docker buildx build --push` with the
+    image's registry cache (`<image>:buildcache`, mode=max): skaffold orders the
+    builds, runs them in parallel and tags each image from the table in its tag
+    policy. Run from the project root with `skaffold build -f
+    deployment/skaffold-build.yaml --cache-artifacts=false`; NOCACHE and
+    CH_BRANCH_TAG come from the environment.
+    """
+
+    def _context(self, entity) -> tuple[str, str]:
+        """The merged build context, relative to the project root (skaffold resolves contexts from
+        the directory it runs in, not from the file's), and the Dockerfile, relative to the context."""
+        root = self.project.root
+        context = entity.dockerfile.resolve_context(root).resolve_for_build(root)
+        return os.path.relpath(root / context.path, root), str(context.dockerfile.path)
+
+    def _artifact(self, entity, image: str, building: dict, extra_tags=()) -> dict:
+        project = self.project
+        context, dockerfile = self._context(entity)
+        build_args = {}
+        if project.config.local or project.config.debug:
+            build_args["DEBUG"] = "true"
+        requires = []
+        for dependency in ci.build_dependencies(project, entity):
+            alias = ci.env_key(dependency.name)
+            build_args[alias] = project.qualify_image(dependency)
+            if dependency.name in building:
+                requires.append({"image": project.qualify(dependency.image_name), "alias": alias})
+        build_args.update(project.all_source_images())
+        build_args.update(getattr(entity, "build_args", None) or {})
+        artifact = {
+            "image": image,
+            "context": context,
+            "custom": {"buildCommand": buildx_command(image, dockerfile, build_args, extra_tags)},
+        }
+        if requires:
+            artifact["requires"] = requires
+        return artifact
+
+    def generate(self, image_env: dict[str, str], write_on_disk=True) -> dict:
+        project = self.project
+        test_images = ci.test_runner_images(project)
+        building = {
+            name: entity
+            for name, entity in {**ci.build_entities(project), **test_images}.items()
+            if not ci.tag_exists(image_env, name)
+        }
+        tags = {}
+        artifacts = []
+        for name, entity in building.items():
+            image = project.qualify(entity.image_name)
+            tags[image] = ci.ImageReference.parse(project.qualify_image(entity)).tag
+            # the stage pipeline, which builds nothing, runs the tests in the `latest` test images
+            extra_tags = ("latest",) if name in test_images else ()
+            artifacts.append(self._artifact(entity, image, building, extra_tags))
+
+        template = project.skaffold_template.all_values()
+        plan = {
+            "apiVersion": template["apiVersion"],
+            "kind": template.get("kind", "Config"),
+            "build": {
+                "tagPolicy": {"envTemplate": {"template": tag_template(tags)}},
+                # the custom builds push; skaffold then reads each image's digest from the registry
+                "local": {"push": True, "concurrency": 0},
+                "artifacts": artifacts,
+            },
+        }
+        if write_on_disk:
+            self.write(plan)
+        return plan

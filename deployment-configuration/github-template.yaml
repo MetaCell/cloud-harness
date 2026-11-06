@@ -2,16 +2,44 @@
 # github-template-<env>.yaml adds the workflow name, the triggers and the per-environment deltas; a project
 # overrides any part from its own deployment-configuration/github-template[-<env>].yaml (dicts merge key by
 # key, lists are replaced, `null` removes a job).
-# `build`, `build-test-images`, `tests-unit`, `tests-api` and `tests-e2e` are prototypes, expanded into one
-# job per image/app ($CH_NAME, $CH_IMAGE and $CH_TAG stand for the image being expanded). A `$...` item in a steps
-# list is a fragment the generator fills in. Every job without `runs-on` runs on the runner named by the
-# CH_GITHUB_RUNNER repository/organization variable (build jobs: CH_GITHUB_BUILD_RUNNER first), falling back
-# to the runner given at generation time (CH_GITHUB_RUNNER environment variable, default ubuntu-latest).
+# `tests-unit`, `tests-api` and `tests-e2e` are prototypes, expanded into one job per app ($CH_NAME, $CH_IMAGE
+# and $CH_TAG stand for the app's image). A `$...` item in a steps list is a fragment the generator fills in.
+# Every job without `runs-on` runs on the runner named by the CH_GITHUB_RUNNER repository/organization variable
+# (prepare, when it builds the images: CH_GITHUB_BUILD_RUNNER first), falling back to the runner given at
+# generation time (CH_GITHUB_RUNNER environment variable, default ubuntu-latest).
 permissions:
   contents: read
   packages: write
 # Generator-only settings, never part of the workflow.
 cloudharness:
+  # Steps building and pushing the images whose tag is not in the registry yet, inserted where prepare says
+  # `- $BUILD_STEPS`. prepare's harness-deployment lists just those images in deployment/skaffold-build.yaml,
+  # each one a `docker buildx build --push` with its registry cache (<image>:buildcache, mode=max): skaffold
+  # runs them in parallel, a base image before the images built on it. A bigger build runner
+  # (CH_GITHUB_BUILD_RUNNER) means more parallel builds. null builds nothing (stage and prod deploy
+  # published images).
+  build:
+    - uses: docker/setup-buildx-action@v3
+    - uses: docker/login-action@v3
+      with:
+        registry: ${{ steps.env.outputs.registry_host }}
+        username: ${{ secrets.REGISTRY_USERNAME }}
+        password: ${{ secrets.REGISTRY_PASSWORD }}
+    - name: Install skaffold
+      env:
+        SKAFFOLD_VERSION: v2.25.0
+        SKAFFOLD_SHA256: 42b9e2e3246c19b78fcc53dd60cc7ded1da8704293886b909a2a02b9bef34d20
+      run: |
+        mkdir -p "$RUNNER_TEMP/bin"
+        curl -fsSLo "$RUNNER_TEMP/bin/skaffold" "https://github.com/GoogleContainerTools/skaffold/releases/download/$SKAFFOLD_VERSION/skaffold-linux-amd64"
+        echo "$SKAFFOLD_SHA256  $RUNNER_TEMP/bin/skaffold" | sha256sum -c -
+        chmod +x "$RUNNER_TEMP/bin/skaffold"
+        echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+    - name: Build and push the images
+      env:
+        NOCACHE: ${{ github.run_id }}
+        CH_BRANCH_TAG: ${{ steps.env.outputs.branch_tag }}
+      run: skaffold build --filename deployment/skaffold-build.yaml --cache-artifacts=false --update-check=false --interactive=false
   # Steps giving kubectl and helm access to the cluster, inserted where a job says `- $KUBE_AUTH`.
   # Default: a kubeconfig from the KUBECONFIG secret (base64) when it is set, otherwise the ambient
   # configuration (the service account of a runner that lives in the target cluster). Replace the list
@@ -40,8 +68,10 @@ concurrency:
 env:
   CLOUDHARNESS_BRANCH: ${{ vars.CLOUDHARNESS_BRANCH || 'develop' }}
 jobs:
+  # prepare also builds the images ($BUILD_STEPS): a re-run asks the registry again, so after a failure it only
+  # builds what the failed attempt did not push.
   prepare:
-    name: Prepare helm chart
+    name: Prepare and build
     env:
       NAMESPACE: ${{ vars.NAMESPACE }}
       DOMAIN: ${{ vars.DOMAIN }}
@@ -103,7 +133,7 @@ jobs:
           if [ -n "$APP_VERSION_RESOLVED" ]; then HELM_META_ARGS="$HELM_META_ARGS --app-version $APP_VERSION_RESOLVED"; fi
           TAG_ARG=""
           if [ -n "$DEPLOYMENT_TAG" ]; then TAG_ARG="-t $DEPLOYMENT_TAG"; fi
-          harness-deployment $PATHS -d "$DOMAIN" -r "$REGISTRY" -rsn "$REGISTRY_SECRET" -n "$NAMESPACE" -e $ENV $TAG_ARG --write-env --cache-url "$IMAGE_CACHE_URL" --force-build "$FORCE_BUILD" -N $HELM_META_ARGS $PARAMS
+          harness-deployment $PATHS -d "$DOMAIN" -r "$REGISTRY" -rsn "$REGISTRY_SECRET" -n "$NAMESPACE" -e $ENV $TAG_ARG --write-env --write-skaffold-build --cache-url "$IMAGE_CACHE_URL" --force-build "$FORCE_BUILD" -N $HELM_META_ARGS $PARAMS
           cat deployment/.env >> "$GITHUB_OUTPUT"
       - name: View helm chart
         run: helm template ./deployment/helm --debug -n "$NAMESPACE"
@@ -114,49 +144,12 @@ jobs:
           path: deployment
           include-hidden-files: true
           if-no-files-found: error
-      # one artifact per build context merged across layers in .overrides/, for that image's build job
-      - $UPLOAD_OVERRIDES
-  build:
-    name: Build
-    needs: [prepare]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Clone cloud-harness
-        uses: actions/checkout@v4
-        with:
-          repository: MetaCell/cloud-harness
-          ref: ${{ env.CLOUDHARNESS_BRANCH }}
-          path: cloud-harness
-      - $GIT_CLONES
-      - $DOWNLOAD_OVERRIDES
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ needs.prepare.outputs.registry_host }}
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
-      - name: Check whether $CH_NAME already exists in the registry
-        id: check
-        env:
-          IMAGE: $CH_IMAGE:$CH_TAG
-        run: |
-          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Build and push $CH_NAME
-        id: build
-        uses: docker/build-push-action@v6
-        with:
-          push: true
-          cache-from: type=registry,ref=$CH_IMAGE:buildcache
-          cache-to: type=registry,ref=$CH_IMAGE:buildcache,mode=max
-  build-test-images:
-    name: Build test image
+          # a re-run of prepare (e.g. after a failed build) uploads it again
+          overwrite: true
+      - $BUILD_STEPS
   tests-unit:
     name: Unit tests
-    needs: [prepare, build]
+    needs: [prepare]
     steps:
       - uses: docker/login-action@v3
         with:
@@ -171,7 +164,7 @@ jobs:
   # them for deploy).
   deploy:
     name: Deploy
-    needs: [prepare, build, tests-unit]
+    needs: [prepare, tests-unit]
     environment: $ENV
     env:
       HELM_FLAGS: --timeout 200s --create-namespace
@@ -201,7 +194,7 @@ jobs:
       - $ROLLOUT_STEPS
   tests-api:
     name: API tests
-    needs: [prepare, wait-deployment, build-test-images]
+    needs: [prepare, wait-deployment]
     if: ${{ needs.prepare.outputs.skip_tests != 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -223,7 +216,7 @@ jobs:
       - $TEST_STEPS
   tests-e2e:
     name: End to end tests
-    needs: [prepare, wait-deployment, build-test-images]
+    needs: [prepare, wait-deployment]
     if: ${{ needs.prepare.outputs.skip_tests != 'true' }}
     commands:
       - npx puppeteer browsers install chrome

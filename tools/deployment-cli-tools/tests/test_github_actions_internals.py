@@ -15,7 +15,6 @@ from ch_cli_tools.github_actions import (
     referenced_names,
     rewrite_needs,
     runner_expression,
-    step_by_id,
     substitute_vars,
 )
 
@@ -48,12 +47,6 @@ def test_expand_steps_replaces_fragments_and_rejects_unknown_ones():
     assert expand_steps(None, {}) == []
     with pytest.raises(ValueError, match="Unknown step fragment"):
         expand_steps(["$NOPE"], {"$F": fragment})
-
-
-def test_step_by_id():
-    steps = [{"run": "a"}, {"id": "build", "uses": "x"}]
-    assert step_by_id(steps, "build") == {"id": "build", "uses": "x"}
-    assert step_by_id(steps, "missing") is None
 
 
 def test_combine_conditions():

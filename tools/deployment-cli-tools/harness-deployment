@@ -6,7 +6,7 @@ from pathlib import Path
 from cloudharness_utils.constants import DEPLOYMENT_PATH
 
 from ch_cli_tools.api import deploy, hosts_info, perform_migration
-from ch_cli_tools.ci import parse_force_build
+from ch_cli_tools.ci import image_tag_env, parse_force_build, write_env_file
 from ch_cli_tools.model import CHDeployConfig, CHProject
 from ch_cli_tools.utils import discover_root_paths, generation_argv
 
@@ -179,8 +179,8 @@ if __name__ == "__main__":
         dest="force_build",
         action="store",
         default=None,
-        help="With --write-env, report these images (comma-separated, or `all`) as not built yet "
-        "so the pipeline rebuilds them even if their tag already exists in the registry",
+        help="With --write-env/--write-skaffold-build, report these images (comma-separated, or `all`) as "
+        "not built yet so the pipeline rebuilds them even if their tag already exists in the registry",
     )
     parser.add_argument(
         "-we",
@@ -190,6 +190,13 @@ if __name__ == "__main__":
         default=None,
         const=True,
         help=f"Write build env to .env file in {DEPLOYMENT_PATH}",
+    )
+    parser.add_argument(
+        "--write-skaffold-build",
+        dest="write_skaffold_build",
+        action="store_true",
+        help=f"Write {DEPLOYMENT_PATH}/skaffold-build.yaml, a skaffold build of the images whose tag is "
+        "not in the registry yet (see --force-build), pushed with their registry cache",
     )
     parser.add_argument(
         "--migrate",
@@ -292,12 +299,15 @@ if __name__ == "__main__":
         if "github" in ci_providers:
             project.github_actions.generate()
 
-    if args.write_env:
-        project.codefresh.write_env_file(
-            root_paths[-1] / DEPLOYMENT_PATH / ".env",
-            args.image_cache_url,
-            force_build=parse_force_build(args.force_build),
+    if args.write_env or args.write_skaffold_build:
+        # one registry lookup per image, shared by both files
+        image_env = image_tag_env(
+            project, args.image_cache_url, force_build=parse_force_build(args.force_build)
         )
+        if args.write_env:
+            write_env_file(root_paths[-1] / DEPLOYMENT_PATH / ".env", image_env)
+        if args.write_skaffold_build:
+            project.skaffold_build.generate(image_env)
 
     project.skaffold.generate()
     project.tilt.generate()

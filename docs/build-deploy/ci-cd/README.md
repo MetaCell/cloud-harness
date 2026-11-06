@@ -26,17 +26,24 @@ When defining an applications values you can provide details on dockerfile confi
 ## CI/CD with GitHub Actions
 
 `harness-deployment -ci github -e [ENV]` generates `.github/workflows/cloudharness-[ENV].yaml`, a workflow with
-the same stages as the Codefresh pipeline: one build job per image (skipped when the image's content-hash tag
-already exists in the registry), unit tests, helm deployment, rollout wait, API/E2E tests and publication.
-Pass `-ci codefresh -ci github` to generate both.
+the same stages as the Codefresh pipeline: image build, unit tests, helm deployment, rollout wait, API/E2E tests
+and publication. Pass `-ci codefresh -ci github` to generate both.
 
+- Build: the `prepare` job runs `harness-deployment --write-env --write-skaffold-build`, which asks the
+  registry for every image's content-hash tag and writes `deployment/skaffold-build.yaml` with only the images
+  whose tag is missing (or forced). The same job then runs `skaffold build` on it: every image is a
+  `docker buildx build --push` with its registry cache (`[image]:buildcache`), skaffold runs them in parallel and
+  builds a base image before the images built on it, while base images that are already published are pulled.
+  The more CPUs the build runner has, the more images build at once. A re-run after a failure asks the registry
+  again and only builds what is still missing. The steps live under `cloudharness.build` in the template
+  (`null` in stage and prod, which deploy published images).
 - Templates: `deployment-configuration/github-template.yaml` (job prototypes and shared steps) plus
   `github-template-[dev|stage|prod|test].yaml` (name, triggers, per-environment deltas), layered and overridable
-  from your project's `deployment-configuration/` like the Codefresh ones. A `jobs.build-[image]` entry in your
-  template is merged over that image's generated job (for instance to pick a bigger runner).
+  from your project's `deployment-configuration/` like the Codefresh ones. A `jobs.tests-unit-[app]` entry (or
+  `tests-api-`, `tests-e2e-`) in your template is merged over that app's generated job.
 - Runner: set the `CH_GITHUB_RUNNER` repository or organization variable to the runner label (for ARC, the
-  runner scale set name); build jobs read `CH_GITHUB_BUILD_RUNNER` first, so images can build on bigger
-  runners. Both are read when the workflow runs, so changing runners needs no regeneration. When neither is
+  runner scale set name); `prepare`, which builds the images, reads `CH_GITHUB_BUILD_RUNNER` first, so images can
+  build on a bigger runner. Both are read when the workflow runs, so changing runners needs no regeneration. When neither is
   set, jobs use the runner given at generation time by the `CH_GITHUB_RUNNER` environment variable (default
   `ubuntu-latest`, comma-separated labels allowed). A `runs-on` in the template always wins.
 - Configuration: the generator logs the repository variables (`REGISTRY`, `DOMAIN`, `NAMESPACE`, ...) and

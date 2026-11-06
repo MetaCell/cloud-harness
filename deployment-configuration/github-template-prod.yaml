@@ -8,9 +8,12 @@ on:
         description: Tag of the images to deploy (a tag published by the development or staging pipeline)
         type: string
         required: true
-jobs:
+# deploys the published images: builds nothing
+cloudharness:
   build: null
-  build-test-images: null
+jobs:
+  prepare:
+    name: Prepare helm chart
   tests-unit: null
   tests-api: null
   tests-e2e: null

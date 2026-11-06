@@ -3,7 +3,7 @@ test_step: dev
 jobs:
   prepare:
     name: Overridden
-  build-myapp:
+  tests-unit-myapp:
     runs-on: big-runner
   custom-job:
     name: Custom

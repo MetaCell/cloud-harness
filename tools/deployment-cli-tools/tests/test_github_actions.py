@@ -10,7 +10,7 @@ from conftest import CLOUDHARNESS_ROOT, RESOURCES, chain
 from ruamel.yaml import YAML
 from test_util import write_tree_from_yaml
 
-from ch_cli_tools import CHDeployConfig
+from ch_cli_tools import CHDeployConfig, ci
 from ch_cli_tools.api import create_helm_chart
 from ch_cli_tools.github_actions import DEFAULT_RUNNER
 
@@ -65,7 +65,7 @@ def test_template_layering(tmp_path):
     assert custom["needs"] == ["deploy"]
     assert "needs.deploy.result == 'success'" in custom["if"]
     # an overlay for an expanded job id is merged over the generated job
-    assert wf["jobs"]["build-myapp"]["runs-on"] == "big-runner"
+    assert wf["jobs"]["tests-unit-myapp"]["runs-on"] == "big-runner"
     # the generator-only section is consumed, not emitted; its kube_auth steps replace
     # the default ones wherever a job asks for $KUBE_AUTH
     assert "cloudharness" not in wf
@@ -80,176 +80,65 @@ def test_template_layering(tmp_path):
     assert "id-token" not in wf["permissions"]
 
 
-def test_build_jobs_follow_the_dependency_graph(tmp_path):
+def test_prepare_builds_the_missing_images_with_skaffold(tmp_path):
     wf, _ = _generate(tmp_path, ["samples", "myapp"])
     jobs = wf["jobs"]
+    prepare = jobs["prepare"]
 
-    for name in ("cloudharness-base", "cloudharness-flask", "myapp", "myapp-mytask", "my-common", "samples"):
-        assert f"build-{name}" in jobs, name
-    # only what the deployment needs is built: no excluded app, no unused base image
-    assert "build-events" not in jobs
-    assert "build-cloudharness-base-debian" not in jobs
-
-    assert jobs["build-cloudharness-base"]["needs"] == ["prepare"]
-    assert jobs["build-myapp"]["needs"][:2] == ["prepare", "build-cloudharness-flask"]
-    assert jobs["build-cloudharness-flask"]["needs"] == ["prepare", "build-cloudharness-base"]
-
-    condition = jobs["build-myapp"]["if"]
-    assert "needs.prepare.outputs.MYAPP_TAG_EXISTS != '1'" in condition
-    assert "!cancelled()" in condition
-    assert "needs.prepare.result == 'success'" in condition
-    # a skipped dependency build must not skip the dependant
-    assert "needs.build-cloudharness-flask.result ==" not in condition
-
-
-def test_build_step_inputs(tmp_path):
-    wf, _ = _generate(tmp_path, ["samples", "myapp"])
-    jobs = wf["jobs"]
-
-    build = _step(jobs["build-myapp"], "build")
-    with_ = build["with"]
-    assert with_["context"] == "./applications/myapp"
-    assert with_["file"] == "./applications/myapp/dev.Dockerfile", "env Dockerfile preferred"
-    assert isinstance(with_["build-args"], str) and isinstance(with_["tags"], str)
-    build_args = with_["build-args"].splitlines()
-    assert build_args[0] == "NOCACHE=${{ github.run_id }}"
-    assert (
-        "CLOUDHARNESS_FLASK=${{ vars.REGISTRY }}/testprojectname/cloudharness-flask:"
-        "${{ needs.prepare.outputs.CLOUDHARNESS_FLASK_TAG }}" in build_args
+    # one job builds every image: harness-deployment lists the missing ones, skaffold builds them
+    assert not [name for name in jobs if name.startswith("build")]
+    assert "--write-env --write-skaffold-build" in _step(prepare, "images")["run"]
+    build = _steps(prepare, "Build and push the images")[0]
+    assert build["run"].startswith(
+        "skaffold build --filename deployment/skaffold-build.yaml --cache-artifacts=false"
     )
-    tags = with_["tags"].splitlines()
-    assert tags[0] == "${{ vars.REGISTRY }}/testprojectname/myapp:${{ needs.prepare.outputs.MYAPP_TAG }}"
-    assert tags[1].endswith(":${{ needs.prepare.outputs.branch_tag }}")
-    assert with_["push"] is True
-    assert with_["cache-from"] == "type=registry,ref=${{ vars.REGISTRY }}/testprojectname/myapp:buildcache"
-    assert "steps.check.outputs.exists != 'true'" in build["if"]
-    assert "',myapp,'" in build["if"]
-
-    check = _step(jobs["build-myapp"], "check")
-    assert check["env"]["IMAGE"] == (
-        "${{ vars.REGISTRY }}/testprojectname/myapp:${{ needs.prepare.outputs.MYAPP_TAG }}"
+    assert build["env"] == {
+        "NOCACHE": "${{ github.run_id }}",
+        "CH_BRANCH_TAG": "${{ steps.env.outputs.branch_tag }}",
+    }
+    names = [step.get("name") or step.get("uses") for step in prepare["steps"]]
+    assert names.index("Prepare helm chart") < names.index("Install skaffold") < names.index(
+        "Build and push the images"
     )
-    assert 'imagetools inspect "$IMAGE"' in check["run"]
-
-    # cloudharness-base is overridden by RESOURCES: built from the merged .overrides context
-    base = _step(jobs["build-cloudharness-base"], "build")["with"]
-    assert base["context"] == "./.overrides/cloudharness-base"
-    assert base["file"] == (
-        "./.overrides/cloudharness-base/infrastructure/base-images/cloudharness-base/Dockerfile"
-    )
-    # samples lives in cloud-harness, cloned into ./cloud-harness by the workflow
-    samples = _step(jobs["build-samples"], "build")["with"]
-    assert samples["context"] == "./cloud-harness/applications/samples"
-    assert samples["file"] == "./cloud-harness/applications/samples/Dockerfile"
-    # a test image gets the extra latest tag
-    assert "${{ vars.REGISTRY }}/testprojectname/test-e2e:latest" in (
-        _step(jobs["build-test-e2e"], "build")["with"]["tags"].splitlines()
-    )
+    login = next(step for step in prepare["steps"] if step.get("uses") == "docker/login-action@v3")
+    assert login["with"]["registry"] == "${{ steps.env.outputs.registry_host }}"
+    install = _steps(prepare, "Install skaffold")[0]
+    assert re.fullmatch(r"v\d+\.\d+\.\d+", install["env"]["SKAFFOLD_VERSION"])
+    assert re.fullmatch(r"[0-9a-f]{64}", install["env"]["SKAFFOLD_SHA256"])
+    assert 'sha256sum -c -' in install["run"]
+    # the merged contexts never leave prepare: the only artifact is the deployment
+    uploads = [step for step in prepare["steps"] if step.get("uses") == "actions/upload-artifact@v4"]
+    assert [step["with"]["name"] for step in uploads] == ["cloudharness-deployment"]
+    assert jobs["deploy"]["needs"][0] == "prepare"
 
 
 def test_git_dependency_checkouts(tmp_path):
     wf, _ = _generate(tmp_path, ["samples", "myapp"])
-    jobs = wf["jobs"]
+    prepare = wf["jobs"]["prepare"]
 
-    clones = _steps(jobs["build-myapp"], "Clone ")
-    clones = [step for step in clones if step["name"] != "Clone cloud-harness"]
+    clones = [step for step in _steps(prepare, "Clone ") if step["name"] != "Clone cloud-harness"]
     assert len(clones) == 2, "myapp declares two git dependencies"
     assert clones[0]["uses"] == "actions/checkout@v4"
     assert clones[0]["with"]["repository"] == "a/b"
     assert clones[0]["with"]["ref"] == "master"
     assert clones[0]["with"]["path"] == "applications/myapp/dependencies/b"
-    step_names = [step.get("name") for step in jobs["build-myapp"]["steps"]]
-    assert step_names.index("Clone b") < step_names.index("Build and push myapp")
-    # prepare clones them too (the content hash needs them); samples has none
-    assert len([s for s in _steps(jobs["prepare"], "Clone ") if s["name"] != "Clone cloud-harness"]) == 2
-    assert not [s for s in _steps(jobs["build-samples"], "Clone ") if s["name"] != "Clone cloud-harness"]
-
-
-def test_merged_contexts_travel_as_their_own_artifacts(tmp_path):
-    # sentry overrides cloud-harness' own app, Dockerfile included: built from .overrides/sentry;
-    # my-base is the project's own base image, built from the project root
-    write_tree_from_yaml(
-        tmp_path,
-        """
-        deployment-configuration:
-          values-template.yaml: |
-            name: testproj
-            mainapp: sentry
-        infrastructure:
-          base-images:
-            my-base:
-              Dockerfile: |
-                FROM scratch
-        applications:
-          sentry:
-            Dockerfile: |
-              FROM scratch
-            deploy:
-              values.yaml: |
-                harness:
-                  dependencies:
-                    build:
-                      - my-base
-                    git:
-                      - url: https://github.com/a/b.git
-                        branch_tag: master
-    """,
-    )
-    project = chain(
-        CLOUDHARNESS_ROOT,
-        tmp_path,
-        config=CHDeployConfig(env="dev", registry="reg", tag="1", output_path=str(tmp_path / "deployment")),
-    )
-    jobs = project.github_actions.generate(write_on_disk=False)["jobs"]
-
-    def artifact_steps(job, action):
-        return [step for step in job["steps"] if step.get("uses") == f"actions/{action}-artifact@v4"]
-
-    deployment, upload = artifact_steps(jobs["prepare"], "upload")
-    assert deployment["with"]["name"] == "cloudharness-deployment"
-    assert deployment["with"]["path"] == "deployment"
-    assert upload["with"] == {
-        "name": "cloudharness-overrides-sentry",
-        "path": ".overrides/sentry",
-        "include-hidden-files": True,
-        "if-no-files-found": "error",
-    }
-    assert upload["if"] == "${{ steps.images.outputs.SENTRY_TAG_EXISTS != '1' }}"
-    # prepare clones the git dependency before harness-deployment merges the context
-    step_names = [step.get("name") for step in jobs["prepare"]["steps"]]
+    # cloned before harness-deployment merges and hashes the build contexts
+    step_names = [step.get("name") for step in prepare["steps"]]
     assert step_names.index("Clone b") < step_names.index("Prepare helm chart")
-
-    build = jobs["build-sentry"]
-    assert _step(build, "build")["with"]["context"] == "./.overrides/sentry"
-    assert [step["with"] for step in artifact_steps(build, "download")] == [
-        {"name": "cloudharness-overrides-sentry", "path": ".overrides/sentry"}
-    ]
-    assert not _steps(build, "Clone b"), "the merged context already holds the git dependency"
-    assert _step(jobs["build-my-base"], "build")["with"]["context"] == "./."
-    for name, job in jobs.items():
-        if name.startswith("build-") and name != "build-sentry":
-            assert not artifact_steps(job, "download"), f"{name} builds from the checkout"
-    assert [step["with"] for step in artifact_steps(jobs["deploy"], "download")] == [
-        {"name": "cloudharness-deployment", "path": "deployment"}
-    ]
-
-    # prepare's harness-deployment writes .overrides/ through skaffold and tilt, not through this
-    # generator: every context it uploads must come out of those two
-    shutil.rmtree(tmp_path / ".overrides")
-    project.skaffold.generate(write_on_disk=False)
-    project.tilt.generate(write_on_disk=False)
-    assert (tmp_path / upload["with"]["path"] / "Dockerfile").exists()
+    for name, job in wf["jobs"].items():
+        if name != "prepare":
+            assert not [s for s in _steps(job, "Clone ") if s["name"] != "Clone cloud-harness"], name
 
 
-def test_prepare_outputs_cover_every_build(tmp_path):
-    wf, _ = _generate(tmp_path, ["samples", "myapp"])
+def test_prepare_outputs_cover_every_image(tmp_path):
+    wf, project = _generate(tmp_path, ["samples", "myapp"])
     outputs = wf["jobs"]["prepare"]["outputs"]
 
     assert list(outputs)[0] == "branch_tag", "template outputs come first"
-    for job_name in wf["jobs"]:
-        if not job_name.startswith("build-"):
-            continue
-        variable = job_name[len("build-"):].replace("-", "_").upper() + "_TAG"
+    names = [*ci.build_entities(project), *ci.test_runner_images(project)]
+    assert "cloudharness-base" in names and "test-api" in names
+    for name in names:
+        variable = ci.tag_variable(name)
         assert outputs[variable] == "${{ steps.images.outputs.%s }}" % variable
         assert outputs[f"{variable}_EXISTS"] == "${{ steps.images.outputs.%s_EXISTS }}" % variable
     # instances share their parent's image but still get their variables
@@ -263,7 +152,7 @@ def test_unit_test_jobs(tmp_path):
     unit_jobs = [name for name in jobs if name.startswith("tests-unit-")]
     assert sorted(unit_jobs) == ["tests-unit-myapp", "tests-unit-samples"]
     job = jobs["tests-unit-myapp"]
-    assert job["needs"] == ["prepare", "build-myapp"]
+    assert job["needs"] == ["prepare"], "prepare builds the images"
     assert "needs.prepare.result == 'success'" in job["if"]
     step = _steps(job, "Run myapp unit tests")[0]
     assert step["env"]["CH_TEST_IMAGE"] == (
@@ -281,7 +170,7 @@ def test_api_and_e2e_test_jobs(tmp_path):
     jobs = wf["jobs"]
 
     api = jobs["tests-api-samples"]
-    assert "wait-deployment" in api["needs"] and "build-test-api" in api["needs"]
+    assert api["needs"] == ["prepare", "wait-deployment"]
     assert "needs.prepare.outputs.skip_tests != 'true'" in api["if"]
     # wait-deployment may be skipped (it has its own `if`), but must not have failed
     assert "needs.wait-deployment.result ==" not in api["if"]
@@ -304,7 +193,7 @@ def test_api_and_e2e_test_jobs(tmp_path):
     assert commands[2] == "pytest -v test/api"
 
     e2e = jobs["tests-e2e-samples"]
-    assert "build-test-e2e" in e2e["needs"]
+    assert e2e["needs"] == ["prepare", "wait-deployment"]
     step = _steps(e2e, "Run samples E2E tests")[0]
     assert step["env"]["APP_URL"] == "https://www.${{ vars.DOMAIN }}"
     assert (
@@ -313,10 +202,6 @@ def test_api_and_e2e_test_jobs(tmp_path):
     )
     assert step["env"]["CH_TEST_COMMANDS"] == "set -e\nnpx puppeteer browsers install chrome\nyarn test\n"
     assert "commands" not in e2e, "the prototype's commands key never reaches the workflow"
-
-    # the test runner images are built with the build prototype
-    assert jobs["build-test-api"]["needs"] == ["prepare", "build-cloudharness-base"]
-    assert "build-test-api" not in jobs["deploy"]["needs"]
 
 
 def test_no_api_e2e_jobs_when_not_enabled(tmp_path):
@@ -350,7 +235,7 @@ def test_deploy_secret_values(tmp_path):
 
 
 def test_rollout_wait_and_publish_steps(tmp_path):
-    wf, _ = _generate(tmp_path, ["samples", "myapp"])
+    wf, project = _generate(tmp_path, ["samples", "myapp"])
     jobs = wf["jobs"]
 
     rollout = _steps(jobs["wait-deployment"], "Wait for the rollouts")[0]
@@ -369,8 +254,8 @@ def test_rollout_wait_and_publish_steps(tmp_path):
     # the API/E2E tests run after the deployment, so they cannot block it
     assert not [n for n in jobs["deploy"]["needs"] if n.startswith(("tests-api", "tests-e2e"))]
     published = {step["name"][len("Publish "):] for step in _steps(publish, "Publish ")}
-    built = {name[len("build-"):] for name in jobs if name.startswith("build-")}
-    assert published == built
+    built = {*ci.build_entities(project), *ci.test_runner_images(project)}
+    assert published == built and "test-e2e" in published
     step = _steps(publish, "Publish myapp")[0]
     assert step["if"] == "${{ vars.MYAPP_PUBLISH_SKIP == '' }}"
     assert step["env"]["SOURCE"] == (
@@ -387,7 +272,7 @@ def test_prepare_command_placeholders(tmp_path):
     assert "-e dev " in run
     assert "-i samples -i myapp -ex events" in run
     assert "$PATHS" not in run and "$ENV " not in run and "$PARAMS" not in run
-    assert "--write-env" in run and "--force-build" in run
+    assert "--write-env" in run and "--write-skaffold-build" in run and "--force-build" in run
 
 
 def test_multienv_test_overlay(tmp_path):
@@ -409,6 +294,10 @@ def test_prod_deploys_only(tmp_path):
     jobs = wf["jobs"]
 
     assert list(jobs) == ["prepare", "deploy"]
+    # prod deploys published images: prepare builds nothing, on the default runner
+    assert jobs["prepare"]["name"] == "Prepare helm chart"
+    assert not _steps(jobs["prepare"], "Build and push")
+    assert jobs["prepare"]["runs-on"] == "${{ vars.CH_GITHUB_RUNNER || '%s' }}" % DEFAULT_RUNNER
     assert jobs["deploy"]["needs"] == ["prepare"]
     assert jobs["deploy"]["environment"] == "prod"
     # the fixture's kube_auth override lives in the dev overlay only: prod keeps the
@@ -422,7 +311,8 @@ def test_stage_keeps_tests_and_tags_the_repository(tmp_path):
     wf, _ = _generate(tmp_path, ["samples", "myapp"], envs=("stage",))
     jobs = wf["jobs"]
 
-    assert not [name for name in jobs if name.startswith("build-")]
+    assert not _steps(jobs["prepare"], "Build and push"), "stage deploys published images"
+    assert not _steps(jobs["publish"], "Publish test-"), "the test images are not built here"
     assert "tests-api-samples" in jobs and "tests-unit-samples" not in jobs
     assert jobs["tests-api-samples"]["needs"] == ["prepare", "wait-deployment"]
     assert jobs["git-tag"]["needs"] == ["prepare", "publish"]
@@ -441,13 +331,9 @@ def test_runner_configuration(tmp_path):
     # the runner is a repository variable read at run time; the generation-time runner is the fallback
     default = "${{ vars.CH_GITHUB_RUNNER || '%s' }}" % DEFAULT_RUNNER
     build = "${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || '%s' }}" % DEFAULT_RUNNER
-    assert jobs["prepare"]["runs-on"] == default
+    assert jobs["prepare"]["runs-on"] == build, "prepare builds the images"
     assert jobs["deploy"]["runs-on"] == default
-    assert jobs["tests-unit-myapp"]["runs-on"] == default
-    builds = [name for name in jobs if name.startswith("build-") and name != "build-myapp"]
-    assert builds
-    assert all(jobs[name]["runs-on"] == build for name in builds)
-    assert jobs["build-myapp"]["runs-on"] == "big-runner", "a template runs-on is kept"
+    assert jobs["tests-unit-myapp"]["runs-on"] == "big-runner", "a template runs-on is kept"
 
     project = chain(CLOUDHARNESS_ROOT, RESOURCES, config=CHDeployConfig(
         env="dev", includes=["myapp"], excludes=["events"], registry="reg", tag="1",
@@ -455,6 +341,9 @@ def test_runner_configuration(tmp_path):
     ))
     wf = project.github_actions.generate(write_on_disk=False)
     assert wf["jobs"]["prepare"]["runs-on"] == (
+        """${{ vars.CH_GITHUB_BUILD_RUNNER || vars.CH_GITHUB_RUNNER || fromJSON('["self-hosted", "linux"]') }}"""
+    )
+    assert wf["jobs"]["deploy"]["runs-on"] == (
         """${{ vars.CH_GITHUB_RUNNER || fromJSON('["self-hosted", "linux"]') }}"""
     )
 
@@ -491,18 +380,17 @@ def test_paths_are_cwd_independent(tmp_path):
     old_cwd = os.getcwd()
     try:
         os.chdir(sibling_dir)
-        wf, _ = _generate(tmp_path, ["samples"])
+        wf, _ = _generate(tmp_path, ["samples", "myapp"])
     finally:
         os.chdir(old_cwd)
         shutil.rmtree(sibling_dir, ignore_errors=True)
 
-    for name, job in wf["jobs"].items():
-        if not name.startswith("build-"):
-            continue
-        context = _step(job, "build")["with"]["context"]
-        assert not context.startswith("./..") and "/../" not in context, (name, context)
-        assert not os.path.isabs(context), (name, context)
-    assert "../cloud-harness" not in _step(wf["jobs"]["prepare"], "images")["run"]
+    prepare = wf["jobs"]["prepare"]
+    paths = [step["with"]["path"] for step in _steps(prepare, "Clone ")]
+    assert "applications/myapp/dependencies/b" in paths
+    for path in paths:
+        assert not path.startswith("..") and "/../" not in path and not os.path.isabs(path), path
+    assert "../cloud-harness" not in _step(prepare, "images")["run"]
 
 
 def test_generate_writes_the_workflow_under_github_workflows(tmp_path):
@@ -530,10 +418,9 @@ def test_generate_writes_the_workflow_under_github_workflows(tmp_path):
     assert workflow.exists()
     text = workflow.read_text()
     assert text.startswith("name: CloudHarness dev\n") and text.splitlines()[1].startswith("on:")
-    assert "build-args: |" in text, "multi-line inputs are written as literal blocks"
-    assert "run: |" in text
+    assert "run: |" in text, "multi-line strings are written as literal blocks"
     loaded = YAML(typ="safe").load(text)
-    assert "on" in loaded and "build-myapp" in loaded["jobs"]
+    assert "on" in loaded and "prepare" in loaded["jobs"]
 
 
 def test_no_template_means_no_workflow(tmp_path):

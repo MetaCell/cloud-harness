@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 FORCE_BUILD_ALL = "all"
 DOCKER_HUB_REGISTRY = "docker.io"
+TEST_IMAGE_API = "test-api"
+TEST_IMAGE_E2E = "test-e2e"
 
 
 def env_key(name: str) -> str:
@@ -105,6 +107,11 @@ def image_tag_env(project, image_cache_endpoint_url=None, force_build=()) -> dic
         record(name, project.qualify_image(test_image))
 
     return env
+
+
+def tag_exists(env: dict[str, str], name: str) -> bool:
+    """Whether `image_tag_env` found the image's tag in the registry (and it is not forced)."""
+    return env.get(tag_variable(name) + "_EXISTS") == "1"
 
 
 def write_env_file(path, env: dict[str, str]) -> None:
@@ -219,6 +226,62 @@ def has_e2e_tests(app) -> bool:
     return bool(
         app.is_buildable and app.test.e2e.enabled and app.harness_config.get("subdomain")
     )
+
+
+def buildable_apps(project) -> list:
+    return [
+        app
+        for app in project.involved_apps
+        if not isinstance(app, str) and app.is_buildable
+    ]
+
+
+def api_test_apps(project) -> list:
+    return [app for app in buildable_apps(project) if has_api_tests(app) and app.openapi.server_urls]
+
+
+def e2e_test_apps(project) -> list:
+    return [app for app in buildable_apps(project) if has_e2e_tests(app)]
+
+
+def build_entities(project) -> dict:
+    """Every image the deployment builds, by name: buildable involved apps, their
+    tasks and the build dependencies they need - the set helm's `task-images` and
+    `image_tag_env` cover."""
+    entities = {}
+    for app in project.involved_apps:
+        if isinstance(app, str):
+            continue
+        if app.is_buildable:
+            entities[app.name] = app
+        for task in app.buildable_tasks:
+            entities[task.name] = task
+    app_names = {app.name for app in project.involved_apps if not isinstance(app, str)}
+    for name, dependency in project.all_build_dependencies(app_names).items():
+        entities.setdefault(name, dependency)
+    return entities
+
+
+def test_runner_images(project) -> dict:
+    """The test runner images (`test-api`, `test-e2e`) the tests of some involved app run in."""
+    users = {TEST_IMAGE_API: api_test_apps(project), TEST_IMAGE_E2E: e2e_test_apps(project)}
+    images = {}
+    for name, apps in users.items():
+        image = project.test_images.get(name)
+        if apps and image is not None and image.dockerfile.exists():
+            images[name] = image
+    return images
+
+
+def build_dependencies(project, entity) -> list:
+    """The images an entity's build FROMs or declares, deduplicated, in order."""
+    dependencies = []
+    for dependency in project._combined_dependencies(entity):
+        if isinstance(dependency, str):
+            continue
+        if dependency.name not in {d.name for d in dependencies}:
+            dependencies.append(dependency)
+    return dependencies
 
 
 def rollout_wait_commands(project) -> list[str]:

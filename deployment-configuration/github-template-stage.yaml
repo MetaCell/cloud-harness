@@ -16,9 +16,12 @@ on:
         description: Set to `true` to skip the tests
         type: string
         default: ""
-jobs:
+# deploys the published images: builds nothing
+cloudharness:
   build: null
-  build-test-images: null
+jobs:
+  prepare:
+    name: Prepare helm chart
   tests-unit: null
   deploy:
     env:
