@@ -1,0 +1,9 @@
+{{- with $argo := index .Subcharts "argo-workflows" -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argo-cloudharness-env
+  namespace: {{ include "argo-workflows.namespace" $argo }}
+data:
+  POD_NAMES: "v1"
+{{- end }}

@@ -3,9 +3,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ template "argo-workflows.controller.fullname" . }}
+  namespace: {{ include "argo-workflows.namespace" . | quote }}
   labels:
     {{- include "argo-workflows.labels" (dict "context" . "component" .Values.controller.name "name" .Values.controller.name) | nindent 4 }}
-    app.kubernetes.io/version: {{ default .Chart.AppVersion .Values.controller.image.tag | quote }}
+    app.kubernetes.io/version: {{ include "argo-workflows.controller_chart_version_label" . }}
     {{- with .Values.controller.serviceLabels }}
       {{ toYaml . | nindent 4 }}
     {{- end }}
@@ -31,8 +32,16 @@ spec:
     {{- include "argo-workflows.selectorLabels" (dict "context" . "name" .Values.controller.name) | nindent 4 }}
   sessionAffinity: None
   type: {{ .Values.controller.serviceType }}
-  {{- if and (eq .Values.controller.serviceType "LoadBalancer") .Values.controller.loadBalancerSourceRanges }}
+  {{- if and (eq .Values.controller.serviceType "ClusterIP") .Values.controller.metricsConfig.headlessService }}
+  clusterIP: None
+  {{- end }}
+  {{- if eq .Values.controller.serviceType "LoadBalancer" }}
+  {{- with .Values.controller.loadBalancerClass }}
+  loadBalancerClass: {{ . }}
+  {{- end }}
+  {{- if .Values.controller.loadBalancerSourceRanges }}
   loadBalancerSourceRanges:
     {{- toYaml .Values.controller.loadBalancerSourceRanges | nindent 4 }}
+  {{- end }}
   {{- end }}
 {{- end -}}

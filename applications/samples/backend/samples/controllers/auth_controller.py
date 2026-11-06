@@ -1,5 +1,4 @@
 import connexion
-import six
 
 from samples import util
 

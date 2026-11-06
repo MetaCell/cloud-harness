@@ -1,0 +1,17 @@
+{{- with $argo := index .Subcharts "argo-workflows" -}}
+{{- if and $argo.Values.server.enabled (ne (include "argo-workflows.server.fullname" $argo) "argo-server") }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: argo-server
+  namespace: {{ include "argo-workflows.namespace" $argo }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: web
+      port: {{ $argo.Values.server.servicePort }}
+      targetPort: {{ $argo.Values.server.serviceTargetPort }}
+  selector:
+    {{- include "argo-workflows.selectorLabels" (dict "context" $argo "name" $argo.Values.server.name) | nindent 4 }}
+{{- end }}
+{{- end }}

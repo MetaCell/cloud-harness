@@ -1,5 +1,4 @@
 import connexion
-import six
 
 from workflows_api.models.operation import Operation  # noqa: E501
 from workflows_api.models.operation_search_result import OperationSearchResult  # noqa: E501

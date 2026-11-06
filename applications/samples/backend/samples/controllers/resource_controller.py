@@ -1,5 +1,4 @@
 import connexion
-import six
 from flask import request
 
 from samples.models.sample_resource import SampleResource  # noqa: E501

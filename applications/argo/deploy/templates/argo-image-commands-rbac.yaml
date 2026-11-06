@@ -1,0 +1,31 @@
+{{- with $argo := index .Subcharts "argo-workflows" -}}
+{{- if $argo.Values.controller.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ if $argo.Values.singleNamespace }}Role{{ else }}ClusterRole{{ end }}
+metadata:
+  name: {{ include "argo-workflows.controller.fullname" $argo }}-image-commands
+  {{- if $argo.Values.singleNamespace }}
+  namespace: {{ include "argo-workflows.namespace" $argo }}
+  {{- end }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ if $argo.Values.singleNamespace }}RoleBinding{{ else }}ClusterRoleBinding{{ end }}
+metadata:
+  name: {{ include "argo-workflows.controller.fullname" $argo }}-image-commands
+  {{- if $argo.Values.singleNamespace }}
+  namespace: {{ include "argo-workflows.namespace" $argo }}
+  {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: {{ if $argo.Values.singleNamespace }}Role{{ else }}ClusterRole{{ end }}
+  name: {{ include "argo-workflows.controller.fullname" $argo }}-image-commands
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "argo-workflows.controllerServiceAccountName" $argo }}
+    namespace: {{ include "argo-workflows.namespace" $argo }}
+{{- end }}
+{{- end }}
