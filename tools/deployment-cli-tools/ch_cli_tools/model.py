@@ -86,7 +86,7 @@ import shutil
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import lru_cache
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Literal, cast
 
 from cloudharness_model import HarnessMainConfig  # type: ignore
@@ -458,11 +458,8 @@ class CHApp:
 
     @property
     def image_name(self):
-        return f"{self.project.base_image_name()} / {
-            resolve_path(
-                self.harness_config, 'image_name', default=self.dockerfile.app.name
-            )
-        }"
+        name = resolve_path(self.harness_config, "image_name", default=self.dockerfile.app.name)
+        return str(PurePosixPath(self.project.base_image_name(), name))
 
     @property
     def is_buildable(self) -> bool:
@@ -815,7 +812,7 @@ class CHBaseImage:
 
     @property
     def image_name(self):
-        return f"{self.project.base_image_name()}/{self.name}"
+        return str(PurePosixPath(self.project.base_image_name(), self.name))
 
     def build_dependencies(self) -> list["CHApp | CHBaseImage | CHAppTask | str"]:
         return []
@@ -826,6 +823,14 @@ class CHBaseImage:
 
 class CHTestImage(CHBaseImage):
     """A base image under test/."""
+
+    @property
+    def build_context(self) -> Path:
+        """test-api COPYs the libraries and tools it tests with, so it builds from its layer's
+        root, like the shared base images; the other test images from their own directory."""
+        if self.name == "test-api":
+            return self.containing_project.root
+        return self.path
 
     def _lower_registry(self, lower: "CHProject") -> dict:
         return lower.test_images

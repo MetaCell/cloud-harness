@@ -102,6 +102,10 @@ def test_contexts_are_relative_to_the_project_root(tmp_path):
     # the project overrides cloud-harness' base image: built from the context merged across layers
     assert context("cloudharness-base") == (RESOURCES / ".overrides" / "cloudharness-base").resolve()
     assert artifacts["reg/testprojectname/myapp"]["context"] == "applications/myapp"
+    # test-api COPYs cloud-harness' libraries and tools: it builds from the root of its layer
+    assert context("test-api") == CLOUDHARNESS_ROOT.resolve()
+    assert "--file test/test-api/Dockerfile " in artifacts["reg/testprojectname/test-api"]["custom"]["buildCommand"]
+    assert context("test-e2e") == (CLOUDHARNESS_ROOT / "test" / "test-e2e").resolve()
 
 
 def test_test_runner_images_get_the_latest_tag(tmp_path):

@@ -68,7 +68,6 @@ CHSkaffold.generate() algorithm:
 """
 
 import json
-import os
 import re
 import shlex
 from functools import lru_cache
@@ -483,7 +482,9 @@ class CHSkaffoldCI(CHValues):
         project = self.project
         release = {
             **helm_release(project),
-            "chartPath": os.path.relpath(self.path.parent / "helm", project.root),
+            "chartPath": str(
+                (self.path.parent / "helm").resolve().relative_to(project.root.resolve(), walk_up=True)
+            ),
             "createNamespace": True,
             # the chart is deployed as harness-deployment wrote it: no `helm dependency build`
             "skipBuildDependencies": True,
@@ -505,7 +506,8 @@ class CHSkaffoldCI(CHValues):
         the directory it runs in, not from the file's), and the Dockerfile, relative to the context."""
         root = self.project.root
         context = entity.dockerfile.resolve_context(root).resolve_for_build(root)
-        return os.path.relpath(root / context.path, root), str(context.dockerfile.path)
+        path = (root / context.path).resolve().relative_to(root.resolve(), walk_up=True)
+        return str(path), str(context.dockerfile.path)
 
     def _artifact(self, entity, image: str, building: dict, extra_tags=()) -> dict:
         project = self.project
