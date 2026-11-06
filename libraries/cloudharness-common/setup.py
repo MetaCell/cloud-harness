@@ -28,6 +28,7 @@ REQUIREMENTS = [
     'kafka-python-ng >= 2.2.0',
     'requests >= 2.31.0',
     'python-dateutil >= 2.8.2',
+    'six >= 1.16.0',
     'sentry-sdk >= 1.39.2',
 ]
 
