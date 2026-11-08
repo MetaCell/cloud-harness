@@ -4,12 +4,32 @@
 # preprocess_build_overrides() call is needed.
 import os
 
+import pytest
+
 from conftest import CLOUDHARNESS_ROOT, RESOURCES
 
 from ch_cli_tools.api import create_helm_chart, create_skaffold_configuration
-from ch_cli_tools.model import KEY_APPS, KEY_DEPLOYMENT, KEY_HARNESS, KEY_TASK_IMAGES
+from ch_cli_tools.model import (
+    KEY_APPS, KEY_DEPLOYMENT, KEY_HARNESS, KEY_TASK_IMAGES, CHDeployConfig, CHProject,
+)
 
 RESOURCES_BUGGY = os.path.join(os.path.dirname(RESOURCES), "resources_buggy")
+
+
+@pytest.mark.parametrize("namespace, expected", [(None, "from-values"), ("explicit", "explicit")])
+def test_skaffold_release_uses_values_namespace_unless_overridden(tmp_path, namespace, expected):
+    overlay = tmp_path / "project"
+    configuration = overlay / "deployment-configuration"
+    configuration.mkdir(parents=True)
+    (configuration / "values-template.yaml").write_text("namespace: from-values\n")
+    project = CHProject.init(
+        [CLOUDHARNESS_ROOT, RESOURCES, overlay],
+        CHDeployConfig(includes=["myapp"], excludes=["events"], namespace=namespace),
+    )
+    generated = project.skaffold.generate(write_on_disk=False)
+    release = generated["deploy"]["helm"]["releases"][0]
+    assert release["name"] == expected
+    assert release["namespace"] == expected
 
 
 def test_create_skaffold_configuration(tmp_path):

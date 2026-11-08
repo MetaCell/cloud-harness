@@ -457,11 +457,10 @@ class CHApp:
 
     @property
     def image_name(self):
-        return f"{self.project.base_image_name()} / {
-            resolve_path(
-                self.harness_config, 'image_name', default=self.dockerfile.app.name
-            )
-        }"
+        name = resolve_path(
+            self.harness_config, "image_name", default=self.dockerfile.app.name
+        )
+        return f"{self.project.base_image_name()}/{name}"
 
     @property
     def is_buildable(self) -> bool:
