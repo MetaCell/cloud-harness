@@ -325,10 +325,9 @@ class CHSkaffold(CHValues):
             deploy = base.setdefault("deploy", {})
             releases = deploy.setdefault("helm", {}).setdefault("releases", [{}])
             release_config = releases[0]
-            namespace = project.config.namespace or project.all_values().get("namespace")
-            if namespace:
-                release_config["name"] = namespace
-                release_config["namespace"] = namespace
+            if project.config.namespace:
+                release_config["name"] = project.config.namespace
+                release_config["namespace"] = project.config.namespace
             artifact_overrides = release_config.setdefault("artifactOverrides", {})
             artifact_overrides["apps"] = {
                 name: {"harness": {"deployment": {"image": image}}}
