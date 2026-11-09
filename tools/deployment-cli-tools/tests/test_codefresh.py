@@ -129,6 +129,27 @@ def test_create_codefresh_configuration_build_steps(tmp_path):
     assert "myapp-mytask" in steps
 
 
+def test_create_codefresh_configuration_excludes_base_images_nothing_depends_on(
+    tmp_path,
+):
+    # Legacy regression: legacy scoped base/common-image build-step generation
+    # to include=task_images.keys() (same set write_env_file exports pipeline
+    # tag variables for); ng's rewrite iterated project.base_images
+    # unconditionally instead, scheduling a build step for every base image in
+    # the whole chain regardless of whether anything included actually
+    # depends on it. write_env_file stays correctly scoped, so such a step's
+    # tag reference is never exported - it fails at build time with an
+    # unsubstituted "${{..._TAG}}" placeholder.
+    cf, _ = _generate_cf(tmp_path, ["myapp"])
+    steps = _build_steps(cf)
+
+    # myapp's real build dependency must still get a build step.
+    assert "cloudharness-flask" in steps
+    # cloudharness-frontend-build: a real base image nothing included here
+    # depends on - must not get a build step with no tag variable behind it.
+    assert "cloudharness-frontend-build" not in steps
+
+
 def test_create_codefresh_configuration_app_without_build_dependency_still_builds(
     tmp_path,
 ):
