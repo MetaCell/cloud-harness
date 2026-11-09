@@ -352,8 +352,9 @@ class CHCodefresh(CHValues):
 
     def _collect_base_image_build_steps(self, project):
         build_steps, publish_steps = {}, {}
-        for base_image in project.base_images.values():
-            if not base_image.dockerfile.exists():
+        needed = project.all_task_images()
+        for name, base_image in project.base_images.items():
+            if name not in needed or not base_image.dockerfile.exists():
                 continue
             key, step = self._collect_build_step(base_image)
             build_steps[key] = step
