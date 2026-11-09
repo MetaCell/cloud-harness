@@ -106,6 +106,12 @@ def test_create_codefresh_configuration_build_steps(tmp_path):
     assert myapp_step["buildkit"] is True
     assert myapp_step["build_arguments"][0] == "NOCACHE=${{CF_BUILD_ID}}"
 
+    # image_name must stay bare, no "${{REGISTRY}}/" prefix: the build step
+    # auto-pushes through the registry integration named by CODEFRESH_REGISTRY,
+    # which adds its own host. Qualifying image_name here doubles it
+    # (observed in production as a rejected "us.gcr.io/us.gcr.io/..." push).
+    assert not myapp_step["image_name"].startswith("${{REGISTRY}}")
+
     # cloudharness-base: overridden by RESOURCES, so it must build from the merged
     # .overrides directory, not straight from CLOUDHARNESS_ROOT's own tree - same
     # cross-layer merge CHSkaffold already relies on for its own artifacts.
@@ -680,7 +686,7 @@ def test_create_codefresh_configuration_api_and_e2e_test_steps(tmp_path):
     # every other image reference embedded in codefresh.yaml.
     assert (
         cf["steps"]["tests_api"]["image"] ==
-        build_steps["test-api"]["image_name"] + ":${{TEST_API_TAG}}"
+        "${{REGISTRY}}/%s:${{TEST_API_TAG}}" % build_steps["test-api"]["image_name"]
     )
 
     e2e_steps = cf["steps"]["tests_e2e"]["scale"]
@@ -692,7 +698,7 @@ def test_create_codefresh_configuration_api_and_e2e_test_steps(tmp_path):
     )
     assert (
         cf["steps"]["tests_e2e"]["image"] ==
-        build_steps["test-e2e"]["image_name"] + ":${{TEST_E2E_TAG}}"
+        "${{REGISTRY}}/%s:${{TEST_E2E_TAG}}" % build_steps["test-e2e"]["image_name"]
     )
 
 

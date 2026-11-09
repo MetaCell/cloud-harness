@@ -272,7 +272,7 @@ class CHCodefresh(CHValues):
             "stage": "build",
             "registry": "${{CODEFRESH_REGISTRY}}",
             "buildkit": True,
-            "image_name": self.qualify(entity.image_name),
+            "image_name": entity.image_name,
             "working_directory": self._working_directory_for(context),
             "dockerfile": str(context.dockerfile.path),
             "tag": _tag_reference(entity.name),
