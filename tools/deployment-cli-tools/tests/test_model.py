@@ -258,6 +258,10 @@ def test_app_dockerfile_found_under_a_conventional_subdirectory(tmp_path):
 
     assert app.dockerfile.exists()
     assert app.dockerfile.path == app_dir / "server" / "Dockerfile"
+    # The build context must be the Dockerfile's own directory, not the app
+    # root: COPY instructions in every such Dockerfile (workflows, common,
+    # notifications, volumemanager) are written relative to that subdirectory.
+    assert app.build_context == app_dir / "server"
 
 
 def test_app_dockerfile_prefers_top_level_over_a_conventional_subdirectory(tmp_path):

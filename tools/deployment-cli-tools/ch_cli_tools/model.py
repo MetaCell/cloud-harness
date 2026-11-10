@@ -277,7 +277,7 @@ class CHApp:
 
     @property
     def build_context(self) -> Path:
-        return self.path
+        return self.dockerfile.path.parent
 
     def __getitem__(self, key) -> "CHAppTask":
         try:
