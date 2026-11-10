@@ -14,4 +14,8 @@ Those files are used by the script `harness-deployment` script.
   change the build steps inside codefresh
 - `codefresh-build-template.yaml`: base for a single build entry in `codefresh.yaml`
 - `codefresh-publish-template.yaml`: base for a single publish (image tagging) entry in `codefresh.yaml`
+- `github-template.yaml`: base for the GitHub Actions workflows (`.github/workflows/cloudharness-[env].yaml`),
+  generated with `harness-deployment -ci github`: the job prototypes expanded per image/app and the shared steps
+- `github-template-[dev|stage|prod|test].yaml`: per-environment workflow name, triggers and deltas, merged over
+  the base template. Override any part from the same files in your project's `deployment-configuration/`
 
