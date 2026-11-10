@@ -1,4 +1,4 @@
-# Generated with: harness-deployment . -d '${{DOMAIN}}' -n 'test-${{NAMESPACE_BASENAME}}' -r reg -t 1 -rsn '${{REGISTRY_SECRET}}' -e test --write-env --cache-url '${{IMAGE_CACHE_URL}}' -i samples
+# Generated with: harness-deployment . -d '${{DOMAIN}}' -n 'test-${{NAMESPACE_BASENAME}}' -r reg -t 1 -e test --write-env --cache-url '${{IMAGE_CACHE_URL}}' -i samples
 version: '1.0'
 stages:
 - prepare
@@ -595,7 +595,6 @@ steps:
       custom_values:
       - apps_samples_harness_secrets_asecret="${{ASECRET}}"
       - apps_samples-instance1_harness_secrets_asecret="${{ASECRET}}"
-      - registry_secret_value="${{K8S_SA_JSON}}"
   wait_deployment:
     stage: qa
     title: Wait deployment to be ready
