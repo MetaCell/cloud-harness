@@ -1,4 +1,4 @@
-# Generated with: harness-deployment . -d '${{DOMAIN}}' -n 'test-${{NAMESPACE_BASENAME}}' -r reg -t 1 -rsn '${{REGISTRY_SECRET}}' -e test --write-env --cache-url '${{IMAGE_CACHE_URL}}'
+# Generated with: harness-deployment . -d '${{DOMAIN}}' -n 'test-${{NAMESPACE_BASENAME}}' -r reg -t 1 -rsn '${{REGISTRY_SECRET}}' -e test --write-env --cache-url '${{IMAGE_CACHE_URL}}' -i samples
 version: '1.0'
 stages:
 - prepare
@@ -43,9 +43,9 @@ steps:
       "$APP_VERSION_RESOLVED" ] && printf -- "--app-version %s" "$APP_VERSION_RESOLVED"
       )"
     - export HELM_META_ARGS="$HELM_NAME_ARG $HELM_CHART_VERSION_ARG $HELM_APP_VERSION_ARG"
-    - 'harness-deployment . -n test-${{NAMESPACE_BASENAME}} -d ${{DOMAIN}} -r ${{REGISTRY}}
-      -rsn ${{REGISTRY_SECRET}} -e test --write-env --cache-url ''${{IMAGE_CACHE_URL}}''
-      -N $HELM_META_ARGS '
+    - harness-deployment . -n test-${{NAMESPACE_BASENAME}} -d ${{DOMAIN}} -r ${{REGISTRY}}
+      -rsn ${{REGISTRY_SECRET}} -e test --write-env --cache-url '${{IMAGE_CACHE_URL}}'
+      -N $HELM_META_ARGS -i samples
     - cat deployment/.env >> ${{CF_VOLUME_PATH}}/env_vars_to_export
     - cat ${{CF_VOLUME_PATH}}/env_vars_to_export
   prepare_deployment_view:
@@ -76,7 +76,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -102,7 +101,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -128,7 +126,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -154,7 +151,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -180,7 +176,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -212,7 +207,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -239,7 +233,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -266,7 +259,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -276,33 +268,6 @@ steps:
               buildDoesNotExist: includes('${{JUPYTERHUB_TAG_EXISTS}}', '{{JUPYTERHUB_TAG_EXISTS}}')
                 == true
               forceNoCache: includes('${{JUPYTERHUB_TAG_FORCE_BUILD}}', '{{JUPYTERHUB_TAG_FORCE_BUILD}}')
-                == false
-      notifications:
-        title: Building notifications
-        type: build
-        stage: build
-        registry: ${{CODEFRESH_REGISTRY}}
-        buildkit: true
-        image_name: cloud-harness/notifications
-        working_directory: applications/notifications/server
-        dockerfile: Dockerfile
-        tag: ${{NOTIFICATIONS_TAG}}
-        build_arguments:
-        - NOCACHE=${{CF_BUILD_ID}}
-        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
-        - GOLANG=golang:1.26
-        - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
-        - PYTHON=python:3.12-slim-trixie
-        - NODE=node:22-alpine
-        - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
-        when:
-          condition:
-            any:
-              buildDoesNotExist: includes('${{NOTIFICATIONS_TAG_EXISTS}}', '{{NOTIFICATIONS_TAG_EXISTS}}')
-                == true
-              forceNoCache: includes('${{NOTIFICATIONS_TAG_FORCE_BUILD}}', '{{NOTIFICATIONS_TAG_FORCE_BUILD}}')
                 == false
       samples-print-file:
         title: Building samples-print-file
@@ -320,7 +285,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -347,7 +311,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -365,8 +328,8 @@ steps:
         registry: ${{CODEFRESH_REGISTRY}}
         buildkit: true
         image_name: cloud-harness/test-api
-        working_directory: test/test-api
-        dockerfile: Dockerfile
+        working_directory: .
+        dockerfile: test/test-api/Dockerfile
         tag: ${{TEST_API_TAG}}
         build_arguments:
         - NOCACHE=${{CF_BUILD_ID}}
@@ -374,7 +337,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -401,7 +363,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -428,7 +389,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -455,7 +415,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -487,7 +446,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -516,7 +474,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -526,34 +483,6 @@ steps:
               buildDoesNotExist: includes('${{SAMPLES_TAG_EXISTS}}', '{{SAMPLES_TAG_EXISTS}}')
                 == true
               forceNoCache: includes('${{SAMPLES_TAG_FORCE_BUILD}}', '{{SAMPLES_TAG_FORCE_BUILD}}')
-                == false
-      test:
-        title: Building test
-        type: build
-        stage: build
-        registry: ${{CODEFRESH_REGISTRY}}
-        buildkit: true
-        image_name: cloud-harness/test
-        working_directory: applications/test/backend
-        dockerfile: Dockerfile
-        tag: ${{TEST_TAG}}
-        build_arguments:
-        - NOCACHE=${{CF_BUILD_ID}}
-        - CLOUDHARNESS_BASE=${{REGISTRY}}/cloud-harness/cloudharness-base:${{CLOUDHARNESS_BASE_TAG}}
-        - CLOUDHARNESS_FLASK=${{REGISTRY}}/cloud-harness/cloudharness-flask:${{CLOUDHARNESS_FLASK_TAG}}
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
-        - GOLANG=golang:1.26
-        - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
-        - PYTHON=python:3.12-slim-trixie
-        - NODE=node:22-alpine
-        - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
-        when:
-          condition:
-            any:
-              buildDoesNotExist: includes('${{TEST_TAG_EXISTS}}', '{{TEST_TAG_EXISTS}}')
-                == true
-              forceNoCache: includes('${{TEST_TAG_FORCE_BUILD}}', '{{TEST_TAG_FORCE_BUILD}}')
                 == false
       volumemanager:
         title: Building volumemanager
@@ -571,7 +500,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -598,7 +526,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -630,7 +557,6 @@ steps:
         - KEYCLOAK=quay.io/keycloak/keycloak:26.5
         - GOLANG=golang:1.26
         - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - SENTRY=sentry:9.1.2
         - PYTHON=python:3.12-slim-trixie
         - NODE=node:22-alpine
         - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
@@ -642,37 +568,6 @@ steps:
               forceNoCache: includes('${{SAMPLES_SUM_TAG_FORCE_BUILD}}', '{{SAMPLES_SUM_TAG_FORCE_BUILD}}')
                 == false
     title: Build parallel step 4
-  build_application_images_4:
-    type: parallel
-    stage: build
-    steps:
-      sentry:
-        title: Building sentry
-        type: build
-        stage: build
-        registry: ${{CODEFRESH_REGISTRY}}
-        buildkit: true
-        image_name: cloud-harness/sentry
-        working_directory: applications/sentry
-        dockerfile: Dockerfile
-        tag: ${{SENTRY_TAG}}
-        build_arguments:
-        - NOCACHE=${{CF_BUILD_ID}}
-        - SENTRY=sentry:9.1.2
-        - KEYCLOAK=quay.io/keycloak/keycloak:26.5
-        - GOLANG=golang:1.26
-        - ROCKYLINUX=rockylinux/rockylinux:10.1-minimal
-        - PYTHON=python:3.12-slim-trixie
-        - NODE=node:22-alpine
-        - GATEKEEPER=quay.io/gogatekeeper/gatekeeper:4.6.0
-        when:
-          condition:
-            any:
-              buildDoesNotExist: includes('${{SENTRY_TAG_EXISTS}}', '{{SENTRY_TAG_EXISTS}}')
-                == true
-              forceNoCache: includes('${{SENTRY_TAG_FORCE_BUILD}}', '{{SENTRY_TAG_FORCE_BUILD}}')
-                == false
-    title: Build parallel step 5
   tests_unit:
     stage: unittest
     type: parallel
@@ -698,13 +593,8 @@ steps:
       custom_value_files:
       - ./deployment/helm/values.yaml
       custom_values:
-      - apps_notifications_harness_secrets_email-user="${{EMAIL_USER}}"
-      - apps_notifications_harness_secrets_email-password="${{EMAIL_PASSWORD}}"
       - apps_samples_harness_secrets_asecret="${{ASECRET}}"
       - apps_samples-instance1_harness_secrets_asecret="${{ASECRET}}"
-      - apps_sentry_harness_secrets_email-server="${{EMAIL_SERVER}}"
-      - apps_sentry_harness_secrets_email-user="${{EMAIL_USER}}"
-      - apps_sentry_harness_secrets_email-password="${{EMAIL_PASSWORD}}"
       - registry_secret_value="${{K8S_SA_JSON}}"
   wait_deployment:
     stage: qa
@@ -717,14 +607,10 @@ steps:
     - kubectl rollout status deployment/accounts
     - kubectl rollout status deployment/argo-gk
     - kubectl rollout status deployment/common
-    - kubectl rollout status deployment/es-gk
-    - kubectl rollout status deployment/notifications
     - kubectl rollout status statefulset/samples
     - kubectl rollout status deployment/www-gk
     - kubectl rollout status deployment/samples-instance1
     - kubectl rollout status deployment/samples1-gk
-    - kubectl rollout status deployment/sentry
-    - kubectl rollout status deployment/test
     - kubectl rollout status deployment/volumemanager
     - kubectl rollout status deployment/workflows
     - sleep 60
@@ -793,17 +679,6 @@ steps:
           --exclude-operation-id=submit_sync_with_results --exclude-operation-id=error
           --hypothesis-suppress-health-check=too_slow --hypothesis-deadline=180000
           --request-timeout=180000 --hypothesis-max-examples=2 --show-trace --exclude-checks=ignored_auth
-        - pytest -v test/api
-      test_api_test:
-        title: test api test
-        volumes:
-        - ${{CF_REPO_NAME}}/applications/test:/home/test
-        - ${{CF_REPO_NAME}}/deployment/helm/values.yaml:/opt/cloudharness/resources/allvalues.yaml
-        environment:
-        - APP_URL=https://test.${{DOMAIN}}/api
-        commands:
-        - st --pre-run cloudharness_test.apitest_init run api/openapi.yaml --base-url
-          https://test.${{DOMAIN}}/api -c all
         - pytest -v test/api
       workflows_api_test:
         title: workflows api test

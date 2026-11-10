@@ -819,6 +819,20 @@ class CHTestImage(CHBaseImage):
     def _lower_registry(self, lower: "CHProject") -> dict:
         return lower.test_images
 
+    @property
+    def build_context(self) -> Path:
+        # FIXME: test-api's Dockerfile COPYs library/tool sources from outside
+        # test/test-api, so it needs the project root as its build context, unlike
+        # test-e2e or any other test image. Legacy hardcoded this exact exception by
+        # name (old/codefresh.py, codefresh_steps_from_base_path(..., fixed_context=...)
+        # only for name == "test-api") instead of deriving it from the Dockerfile's own
+        # COPY instructions - ported as-is rather than introduced here, but still a
+        # hardcoded special case: a new test image with the same need won't get this
+        # automatically.
+        if self.name != "test-api":
+            return self.path
+        return self.containing_project.root
+
 
 class CHAppTask:
     """A buildable task owned by an app or base image."""

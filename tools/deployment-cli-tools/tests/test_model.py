@@ -1155,6 +1155,31 @@ def test_test_image_gets_a_content_hash_tag_that_follows_its_content(tmp_path):
     assert after != before
 
 
+def test_test_api_builds_from_project_root_unlike_other_test_images(tmp_path):
+    # test-api's Dockerfile COPYs libraries/tools from outside test/test-api
+    # (it needs the whole repo as context); test-e2e's doesn't, same as any
+    # other test image - test-api is a hardcoded, legacy-matching exception.
+    write_tree_from_yaml(
+        tmp_path,
+        """
+        deployment-configuration:
+          values-template.yaml: |
+            name: testproj
+        test:
+          test-api:
+            Dockerfile: |
+              FROM scratch
+          test-e2e:
+            Dockerfile: |
+              FROM scratch
+        """,
+    )
+    project = chain(tmp_path, config=CHDeployConfig())
+
+    assert project.test_images["test-api"].build_context == tmp_path
+    assert project.test_images["test-e2e"].build_context == tmp_path / "test" / "test-e2e"
+
+
 def test_deploy_runs_helm_dependency_update_then_upgrade(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(
