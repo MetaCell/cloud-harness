@@ -658,6 +658,50 @@ def test_create_codefresh_configuration_secret_value_containing_quotes(tmp_path)
     )
 
 
+def test_create_codefresh_configuration_secret_name_with_hyphen(tmp_path):
+    # A hyphen is valid in a Helm --set key but not in a Codefresh pipeline
+    # variable name, so the reference must substitute it with an underscore -
+    # ${{EMAIL-PASSWORD}} is left unresolved by Codefresh and then breaks the
+    # shell ("bad substitution") when the deployment step actually runs.
+    override_root = write_tree_from_yaml(
+        tmp_path / "override",
+        """
+        applications:
+          myapp:
+            deploy:
+              values.yaml: |
+                harness:
+                  secrets:
+                    email-password: null
+    """,
+    )
+
+    roots = [CLOUDHARNESS_ROOT, RESOURCES, override_root]
+    values = create_helm_chart(
+        roots,
+        output_path=tmp_path,
+        include=["myapp"],
+        exclude=["events"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+    cf = create_codefresh_deployment_scripts(
+        roots, envs=["dev"], helm_values=values, save=False
+    )
+
+    custom_values = cf["steps"]["deployment"]["arguments"]["custom_values"]
+    entry = next(
+        v
+        for v in custom_values
+        if v.startswith("apps_myapp_harness_secrets_email-password=")
+    )
+    assert entry == 'apps_myapp_harness_secrets_email-password="${{EMAIL_PASSWORD}}"'
+
+
 def test_create_codefresh_configuration_api_and_e2e_test_steps(tmp_path):
     # real cloud-harness samples app: subdomain=www, test.api/test.e2e both
     # enabled, a real api/openapi.yaml (servers: [{url: /api}]), and both a

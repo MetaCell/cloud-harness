@@ -417,7 +417,7 @@ class CHCodefresh(CHValues):
                 )
                 values.append(
                     'apps_%s_harness_secrets_%s="${{%s}}"'
-                    % (app_key, value_path, secret_name.upper())
+                    % (app_key, value_path, secret_name.replace("-", "_").upper())
                 )
             if app.database.get("connect_string") == "":
                 var_name = f"{_env_key(app.name)}_DB_CONNECT_STRING"

@@ -698,13 +698,13 @@ steps:
       custom_value_files:
       - ./deployment/helm/values.yaml
       custom_values:
-      - apps_notifications_harness_secrets_email-user="${{EMAIL-USER}}"
-      - apps_notifications_harness_secrets_email-password="${{EMAIL-PASSWORD}}"
+      - apps_notifications_harness_secrets_email-user="${{EMAIL_USER}}"
+      - apps_notifications_harness_secrets_email-password="${{EMAIL_PASSWORD}}"
       - apps_samples_harness_secrets_asecret="${{ASECRET}}"
       - apps_samples-instance1_harness_secrets_asecret="${{ASECRET}}"
-      - apps_sentry_harness_secrets_email-server="${{EMAIL-SERVER}}"
-      - apps_sentry_harness_secrets_email-user="${{EMAIL-USER}}"
-      - apps_sentry_harness_secrets_email-password="${{EMAIL-PASSWORD}}"
+      - apps_sentry_harness_secrets_email-server="${{EMAIL_SERVER}}"
+      - apps_sentry_harness_secrets_email-user="${{EMAIL_USER}}"
+      - apps_sentry_harness_secrets_email-password="${{EMAIL_PASSWORD}}"
       - registry_secret_value="${{K8S_SA_JSON}}"
   wait_deployment:
     stage: qa
