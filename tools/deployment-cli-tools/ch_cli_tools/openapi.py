@@ -271,14 +271,15 @@ def generate_clients(
         if not should_generate(f'Should we regenerate the client libraries for {app_path.name} ?'):
             continue
 
-        if TemplateType.DJANGO_NINJA in manifest.templates:
+        if TemplateType.DJANGO_NINJA in manifest.templates or TemplateType.DJANGO_ENTRA in manifest.templates:
             generate_openapi_from_ninja_schema(manifest.app_name, app_path)
 
         for openapi_file in app_path.glob('api/*.yaml'):
             if ClientType.PYTHON_CLIENT in client_types and client_lib_name:
                 generate_python_client(manifest.app_name, openapi_file, client_src_path, lib_name=client_lib_name)
 
-            if TemplateType.WEBAPP in manifest.templates and ClientType.TS_CLIENT in client_types:
+            has_frontend = TemplateType.WEBAPP in manifest.templates or TemplateType.DJANGO_ENTRA in manifest.templates
+            if has_frontend and ClientType.TS_CLIENT in client_types:
                 ts_client_name = app_name if app_name else manifest.app_name
                 generate_ts_client(openapi_file, ts_client_name)
 
