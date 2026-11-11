@@ -1,13 +1,14 @@
 # Continuous deployment with Codefresh
 
-Codefresh pipelines are generated as `deployment/codefresh-[ENV].yaml`.
+Codefresh pipelines are generated as `deployment/ci--[NAME]--[ENV].yaml` by `harness-generate ci-cd`, `[NAME]` being
+the included applications joined with dashes (or `--name`).
 These files can be loaded from codefresh as documented [here](https://codefresh.io/docs/docs/configure-ci-cd-pipeline/pipelines/).
 
 The pipeline will take care of building the images from the source code and deploy the helm chart.
 Log in to codefresh and run the pipeline associated to the repository.
 
-- To setup a new dev pipeline, indicate the remote yaml path `./deployment/codefresh-dev.yaml`
-- To setup a new production pipeline, indicate the remote yaml path `./deployment/codefresh-prod.yaml`
+- To setup a new dev pipeline, indicate the remote yaml path `./deployment/ci--[NAME]--dev.yaml`
+- To setup a new production pipeline, indicate the remote yaml path `./deployment/ci--[NAME]--prod.yaml`
 
 ## Preconfigured pipelines
 
@@ -56,17 +57,19 @@ Variables are used to customize the deployment
 
 The deployment must be updated whenever new build artifacts are added/removed, or opon changes in the templates.
 
-To update a pipeline for a specific env, run
+To update the pipelines, run
 ```
-harness-deployment . -e [ENV]
+harness-generate ci-cd [paths] -i [APP]
 ```
 
-A file `./deployment/codefresh-dev.yaml` is created, provided that a file `./deployment/codefresh-[ENV].yaml` exists either as a preconfigured pipeline on cloudharness or as a custom pipeline in your application.
+A file `./deployment/ci--[APP]--[ENV].yaml` is created for every `./deployment-configuration/codefresh-template-[ENV].yaml`
+of your project: the file can be empty to use the preconfigured pipeline of cloudharness as it is. Add `-e [ENV]` to
+update one pipeline only.
 
 ## Override Codefresh pipeline templates
 Edit `./deployment-configuration/codefresh-template-[ENV].yaml` to override any helm chart values file.
-Notice that Codefresh templates will be generated only if a specific environment file is defined.
-By default, the *dev* and *prod* environments are defined.
+Notice that a pipeline is generated only for the environments your project has a template file for: cloudharness
+predefines *dev*, *stage*, *prod* and *test*, each inherited through an (even empty) file of the same name.
 
 To override the single image build template, edit  `deployment-configuration/codefresh-build-template.yaml`
 

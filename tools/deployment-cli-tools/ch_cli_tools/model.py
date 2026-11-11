@@ -1101,11 +1101,11 @@ def _finalize_app_values(
     return _promote_legacy_top_level_fields(value, harness)
 
 
-def register_file(key: str, path: Callable[[Path], Path], only_env: bool = False):
+def register_file(key: str, path: Callable[[Path], Path]):
     """Registers an extra values file CHProject.__init__ should load for every layer."""
 
     def clsdescr(cls):
-        CHProject._extregister.append((cls, key, path, only_env))
+        CHProject._extregister.append((cls, key, path))
         return cls
 
     return clsdescr
@@ -1114,7 +1114,7 @@ def register_file(key: str, path: Callable[[Path], Path], only_env: bool = False
 class CHProject:
     """A deployment root, optionally layered over a base CHProject."""
 
-    _extregister: list[tuple[type, str, Callable[[Path], Path], bool]] = []
+    _extregister: list[tuple[type, str, Callable[[Path], Path]]] = []
 
     def __init__(
         self,
@@ -1147,13 +1147,8 @@ class CHProject:
         self.helm_values_defaults = CHValues(
             self.root / "deployment-configuration" / "helm" / "values.yaml", self
         )
-        for cls, key, path, no_base in self._extregister:
-            p = (
-                CHValues.path_for_env(path(self.root), self.config.envs)
-                if no_base and self.config.envs
-                else path(self.root)
-            )
-            setattr(self, key, cls(p, self))
+        for cls, key, path in self._extregister:
+            setattr(self, key, cls(path(self.root), self))
 
         own_apps: dict[str, CHApp] = {
             p.name: CHApp(p, self) for p in self.root.glob("applications/*/")
@@ -1637,6 +1632,8 @@ class CHDeployConfig:
     chart_version: str | None = field(default=None, kw_only=True)
     app_version: str | None = field(default=None, kw_only=True)
     ci_runner: str | None = field(default=None, kw_only=True)
+    # Name of the CI/CD pipeline in its file names (ci.pipeline_name: default the included apps)
+    pipeline: str | None = field(default=None, kw_only=True)
 
     @property
     def envs(self) -> list[str]:

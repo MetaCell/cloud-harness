@@ -48,7 +48,8 @@ CI/CD generation and build parameters
 - `--registry`, `-r`: set the Docker registry where images are pushed on build
 - `-we', '--write-env`: Write build env to .env file with variables about the generated image tags.
 - `-cu`, `--cache-url`: Specify a custom cache URL for the docker images. This is used to speed up builds by caching layers. Example: https://cache.cloudharness.io?repository=[REGISTRY]/[IMAGE_NAME]&tag=[TAG]
-- `-N`, `--no-cd`: Do not generate ci/cd files
+- `-N`, `--no-cd`: deprecated, no effect. The CI/CD pipelines are generated with
+  [`harness-generate ci-cd`](../applications/harness-generate.md#generate-the-cicd-pipelines)
 
 
 Other

@@ -2,8 +2,8 @@
 
 The GitHub Actions pipeline does what the Codefresh one does - build every image
 the deployment needs, run the unit tests, deploy the helm chart, wait for the
-rollout, run the API/E2E tests, publish (re-tag) the images - with the same
-content-hash skip. The `prepare` job runs `harness-deployment --write-env
+rollout, run the API/E2E tests - with the same content-hash skip; publishing is
+a workflow of its own (promote, below). The `prepare` job runs `harness-deployment --write-env
 --write-skaffold-ci`: deployment/.env becomes job outputs (every image's tag)
 and deployment/skaffold-ci.yaml lists only the images whose tag is not in the
 registry yet, which the same job then builds with skaffold (`cloudharness.build`
@@ -15,7 +15,8 @@ stays a `${{ ... }}` expression (vars, secrets, prepare outputs).
 
 What differs from Codefresh, and shapes the template:
 - GitHub only runs workflows found in .github/workflows/, so that is where the
-  file goes: `.github/workflows/cloudharness-<env>.yaml` in the project root.
+  file goes: `.github/workflows/ci--<pipeline>--<env>.yaml` in the project root
+  (`harness-generate ci-cd`, see ci.pipeline_file_name).
 - Triggers (`on:`) are part of the file, hence of the per-environment template.
 - Every job runs on a fresh runner: each one checks out what it needs, images
   travel between jobs through the registry, the helm chart travels as a
@@ -27,8 +28,13 @@ What differs from Codefresh, and shapes the template:
   otherwise; since test jobs can be skipped on purpose, every dependent job
   gets a guard (`apply_needs_guards`) that tolerates skipped jobs but not
   failures. A job deciding for itself - an `if` using
-  always()/cancelled()/failure() - is left alone. The template uses that for
-  `publish`, which waits for the API/E2E tests and runs only if none failed.
+  always()/cancelled()/failure() - is left alone. The test template uses that
+  for `cleanup`, which runs once the tests are done, whatever their result.
+- Promoting a run is a manual workflow, `cloudharness.promote` in the template
+  (the dev one), written next to the workflow as ci--<pipeline>--promote.yaml with
+  `$WORKFLOW` naming the workflow whose runs it promotes: it takes the run's
+  deployment/skaffold-images.json - the exact images it deployed - tags them and
+  pushes the git tag that starts the staging pipeline.
 
 Template mechanics (`github-template.yaml` + `github-template-<env>.yaml`, layered
 across cloud-harness and the project exactly like the Codefresh templates):
@@ -38,7 +44,7 @@ across cloud-harness and the project exactly like the Codefresh templates):
   `$CH_TAG` stand for the app's image.
 - A string item in a `steps` list is a fragment the generator fills:
   `$CLONE_CLOUDHARNESS` (nothing in cloud-harness' own workflow, which tests
-  its checkout), `$GIT_CLONES`, `$BUILD_STEPS`, `$PUBLISH_STEPS`, `$HELM_SECRETS_STEPS`,
+  its checkout), `$GIT_CLONES`, `$BUILD_STEPS`, `$HELM_SECRETS_STEPS`,
   `$TEST_STEPS` and `$KUBE_AUTH`. The steps of `$BUILD_STEPS` and
   `$KUBE_AUTH` come from the template's own `cloudharness.build` and
   `cloudharness.kube_auth` lists, so a project changes how images are built
@@ -73,7 +79,7 @@ from .ci import TEST_IMAGE_API, TEST_IMAGE_E2E
 from .model import CHValues, register_file
 from .utils import GeneratedYAML, dict_merge, pipeline_relative_path  # type: ignore
 
-WORKFLOW_FILE_NAME = "cloudharness.yaml"
+WORKFLOWS_PATH = Path(".github") / "workflows"
 DEFAULT_RUNNER = "ubuntu-latest"
 RUNNER_VARIABLE = "CH_GITHUB_RUNNER"
 BUILD_RUNNER_VARIABLE = "CH_GITHUB_BUILD_RUNNER"
@@ -82,13 +88,11 @@ JOB_PREPARE = "prepare"
 JOB_API_TESTS = "tests-api"
 JOB_E2E_TESTS = "tests-e2e"
 JOB_DEPLOY = "deploy"
-JOB_PUBLISH = "publish"
 PROTOTYPE_JOBS = (JOB_API_TESTS, JOB_E2E_TESTS)
 
 FRAGMENT_GIT_CLONES = "$GIT_CLONES"
 FRAGMENT_CLONE_CLOUDHARNESS = "$CLONE_CLOUDHARNESS"
 FRAGMENT_BUILD = "$BUILD_STEPS"
-FRAGMENT_PUBLISH_STEPS = "$PUBLISH_STEPS"
 FRAGMENT_HELM_SECRETS = "$HELM_SECRETS_STEPS"
 FRAGMENT_TEST = "$TEST_STEPS"
 FRAGMENT_KUBE_AUTH = "$KUBE_AUTH"
@@ -96,6 +100,8 @@ FRAGMENT_KUBE_AUTH = "$KUBE_AUTH"
 SETTINGS_KEY = "cloudharness"  # generator-only template section, stripped from the workflow
 SETTING_KUBE_AUTH = "kube_auth"
 SETTING_BUILD = "build"
+SETTING_PROMOTE = "promote"
+PROMOTE_SUFFIX = "promote"  # ci--<pipeline>--promote.yaml
 
 STEP_IMAGES = "images"  # prepare step appending deployment/.env to $GITHUB_OUTPUT
 
@@ -324,12 +330,22 @@ class CHGithubActionsTemplate(CHValues):
         return dict_merge(layer.base.github_template.all_values(), own)
 
 
-@register_file(
-    "github_actions",
-    lambda root: root / ".github" / "workflows" / WORKFLOW_FILE_NAME,
-    only_env=True,
-)
+@register_file("github_actions", lambda root: root / WORKFLOWS_PATH)
 class CHGithubActions(CHValues):
+    """`path` is the project's workflows folder: the file names come from the pipeline."""
+
+    promote: dict | None = None  # the promote workflow of the last generate(), if the template has one
+
+    @property
+    def file_path(self) -> Path:
+        """.github/workflows/ci--<pipeline>--<env>.yaml"""
+        return self.path / ci.pipeline_file_name(self.project.config)
+
+    @property
+    def promote_file_path(self) -> Path:
+        """.github/workflows/ci--<pipeline>--promote.yaml"""
+        return self.path / ci.pipeline_file_name(self.project.config, PROMOTE_SUFFIX)
+
     def qualify(self, image_name: str) -> str:
         return "${{ vars.REGISTRY }}/%s" % image_name
 
@@ -410,25 +426,6 @@ class CHGithubActions(CHValues):
                             "run": f'git clone --depth 1{branch} "{url}" "{destination}"',
                         }
                     )
-        return steps
-
-    def _publish_steps(self, entities: dict) -> list[dict]:
-        steps = []
-        for name, entity in entities.items():
-            steps.append(
-                {
-                    "name": f"Publish {name}",
-                    "if": "${{ vars.%s_PUBLISH_SKIP == '' }}" % ci.env_key(name),
-                    "env": {
-                        "SOURCE": f"{self.qualify(entity.image_name)}:{tag_output(name)}",
-                        "TARGET": "${{ vars.REGISTRY_PUBLISH_URL || vars.REGISTRY }}/%s"
-                        % entity.image_name,
-                        "PUBLISH_TAG": prepare_output("publish_tag"),
-                    },
-                    "run": 'docker buildx imagetools create -t "$TARGET:$PUBLISH_TAG" '
-                    '-t "$TARGET:latest" "$SOURCE"',
-                }
-            )
         return steps
 
     def _helm_secrets_steps(self) -> list[dict]:
@@ -544,8 +541,6 @@ class CHGithubActions(CHValues):
 
         entities = ci.build_entities(project)
         build_steps = list(settings.get(SETTING_BUILD) or [])
-        # the test runner images are built (hence published) only by a workflow that builds
-        test_images = ci.test_runner_images(project) if build_steps else {}
         api_apps = ci.api_test_apps(project) if JOB_API_TESTS in jobs else []
         e2e_apps = ci.e2e_test_apps(project) if JOB_E2E_TESTS in jobs else []
 
@@ -558,7 +553,6 @@ class CHGithubActions(CHValues):
             FRAGMENT_GIT_CLONES: self._git_clone_steps(entities.values()),
             FRAGMENT_CLONE_CLOUDHARNESS: self._cloudharness_clone_steps(),
             FRAGMENT_BUILD: build_steps,
-            FRAGMENT_PUBLISH_STEPS: self._publish_steps({**entities, **test_images}),
             FRAGMENT_HELM_SECRETS: self._helm_secrets_steps(),
             FRAGMENT_TEST: [],
             FRAGMENT_KUBE_AUTH: list(settings.get(SETTING_KUBE_AUTH) or []),
@@ -635,9 +629,11 @@ class CHGithubActions(CHValues):
             {
                 **ci.placeholder_values(project, self._pipeline_path),
                 "CLOUDHARNESS_PATH": self._pipeline_path(self._cloudharness_root()),
+                "WORKFLOW": self.file_path.name,
             },
         )
         settings = base.pop(SETTINGS_KEY, None) or {}
+        self.promote = self._promote_workflow(settings)
         base["jobs"] = self._expand_jobs(base.get("jobs") or {}, settings)
         # the env template contributes name/on after the base keys: put them first
         base = {key: base[key] for key in ("name", "on") if key in base} | {
@@ -651,15 +647,29 @@ class CHGithubActions(CHValues):
         references = referenced_names(base)
         logging.info(
             "GitHub Actions workflow %s expects repository variables %s and secrets %s",
-            self.path.name,
+            self.file_path.name,
             ", ".join(sorted(references["vars"])) or "-",
             ", ".join(sorted(references["secrets"])) or "-",
         )
 
         if write_on_disk:
-            self.write(base, output_path=output_path)
+            folder = Path(output_path) if output_path else self.path
+            self.write_on_disk(folder / self.file_path.name, base)
+            if self.promote:
+                self.write_on_disk(folder / self.promote_file_path.name, self.promote)
 
         return base
+
+    def _promote_workflow(self, settings: dict) -> dict | None:
+        """The workflow promoting this one's runs, from `cloudharness.promote` (generate() keeps it in
+        `self.promote` and writes it as ci--<pipeline>--promote.yaml)."""
+        promote = copy.deepcopy(settings.get(SETTING_PROMOTE))
+        if not promote:
+            return None
+        runner = self._runner()
+        for job in (promote.get("jobs") or {}).values():
+            job.setdefault("runs-on", runner)
+        return promote
 
     @classmethod
     def write_on_disk(cls, path, data) -> None:
@@ -670,3 +680,4 @@ class CHGithubActions(CHValues):
         yaml.indent(mapping=2, sequence=4, offset=2)
         with path.open("w", encoding="utf-8") as f:
             yaml.dump(as_literal_blocks(data), f)
+        logging.info("Wrote %s", path)

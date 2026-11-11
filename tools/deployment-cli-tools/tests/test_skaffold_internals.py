@@ -329,10 +329,10 @@ def test_multi_env_output_path_is_dash_joined(tmp_path):
     # Ports the real -e dev-test convention: the *output* artifact name joins
     # the envs with a dash, unlike the per-env *input* files it reads from.
     project = _multi_env_project(tmp_path / "both", env=["dev", "test"])
-    assert project.codefresh.path.name == "codefresh-dev-test.yaml"
+    assert project.codefresh.file_path.name == "ci--all--dev-test.yaml"
 
     project_none = _multi_env_project(tmp_path / "none", env=None)
-    assert project_none.codefresh.path.name == "codefresh.yaml"
+    assert project_none.codefresh.file_path.name == "ci--all.yaml"
 
 
 def test_own_build_args_apply_only_to_the_apps_own_artifact():

@@ -273,30 +273,49 @@ def test_deploy_with_skaffold(tmp_path):
     assert not [run for run in _run_strings(wf) if "${{ secrets." in run]
 
 
-def test_publish_steps(tmp_path):
+def test_promote_workflow(tmp_path):
     wf, project = _generate(tmp_path, ["samples", "myapp"])
-    jobs = wf["jobs"]
-
-    publish = jobs["publish"]
-    assert "needs.prepare.outputs.publish_tag != ''" in publish["if"]
-    assert "deploy" in publish["needs"] and "tests-e2e-samples" in publish["needs"]
-    assert publish["environment"] == "publish"
-    # publication waits for the tests and never runs when the deployment or a test failed
-    assert "needs.deploy.result == 'success'" in publish["if"]
-    assert "!cancelled()" in publish["if"]
-    assert "!contains(needs.*.result, 'failure')" in publish["if"]
+    # the dev pipeline publishes nothing itself: a run is promoted by hand afterwards
+    assert "publish" not in wf["jobs"]
+    assert "publish_tag" not in wf["on"]["workflow_dispatch"]["inputs"]
+    assert "publish_tag" not in wf["jobs"]["prepare"]["outputs"]
     # the API/E2E tests run after the deployment, so they cannot block it
-    assert not [n for n in jobs["deploy"]["needs"] if n.startswith(("tests-api", "tests-e2e"))]
-    published = {step["name"][len("Publish "):] for step in _steps(publish, "Publish ")}
-    built = {*ci.build_entities(project), *ci.test_runner_images(project)}
-    assert published == built and "test-e2e" in published
-    step = _steps(publish, "Publish myapp")[0]
-    assert step["if"] == "${{ vars.MYAPP_PUBLISH_SKIP == '' }}"
-    assert step["env"]["SOURCE"] == (
-        "${{ vars.REGISTRY }}/testprojectname/myapp:${{ needs.prepare.outputs.MYAPP_TAG }}"
-    )
-    assert step["env"]["TARGET"] == "${{ vars.REGISTRY_PUBLISH_URL || vars.REGISTRY }}/testprojectname/myapp"
-    assert "imagetools create" in step["run"]
+    assert not [n for n in wf["jobs"]["deploy"]["needs"] if n.startswith(("tests-api", "tests-e2e"))]
+
+    promote = project.github_actions.promote
+    assert promote["name"] == "CloudHarness promote"
+    inputs = promote["on"]["workflow_dispatch"]["inputs"]
+    assert inputs["tag"]["required"] is True and inputs["run_id"]["default"] == ""
+    assert promote["permissions"] == {"contents": "write", "actions": "read"}
+    [job] = promote["jobs"].values()
+    # promotion waits for the approval of the `publish` environment
+    assert job["environment"] == "publish"
+    assert job["runs-on"] == "${{ vars.CH_GITHUB_RUNNER || '%s' }}" % DEFAULT_RUNNER
+    # it promotes runs of the workflow generated with it, by default its latest successful one
+    find = _steps(job, "Find the run to promote")[0]["run"]
+    assert project.github_actions.file_path.name == "ci--samples-myapp--dev.yaml"
+    assert "--workflow ci--samples-myapp--dev.yaml " in find and "$WORKFLOW" not in find
+    # the exact images of that run: the skaffold-images.json of its deployment artifact
+    download = _steps(job, "Download the images of the run")[0]["with"]
+    assert download["run-id"] == "${{ steps.run.outputs.id }}" and download["name"] == "cloudharness-deployment"
+    tag = _steps(job, "Tag the images")[0]["run"]
+    assert "deployment/skaffold-images.json" in tag and "docker buildx imagetools create" in tag
+    # the git tag goes on the run's commit, pushed with a token that can start the staging pipeline
+    checkout = next(step for step in job["steps"] if step.get("uses") == "actions/checkout@v4")
+    assert checkout["with"] == {
+        "ref": "${{ steps.run.outputs.sha }}",
+        "token": "${{ secrets.GH_PAT || github.token }}",
+    }
+    assert 'git push origin "refs/tags/$TAG"' in _steps(job, "Tag the repository")[0]["run"]
+
+    # written next to the workflow, and only by the dev pipeline
+    project.github_actions.generate(output_path=tmp_path / "workflows")
+    assert sorted(path.name for path in (tmp_path / "workflows").iterdir()) == [
+        "ci--samples-myapp--dev.yaml",
+        "ci--samples-myapp--promote.yaml",
+    ]
+    _, test_project = _generate(tmp_path, ["samples"], envs=("test",))
+    assert test_project.github_actions.promote is None
 
 
 def test_prepare_command_placeholders(tmp_path):
@@ -320,6 +339,9 @@ def test_multienv_test_overlay(tmp_path):
     assert "-e dev-test " in _step(jobs["prepare"], "images")["run"]
     cleanup = jobs["cleanup"]
     assert cleanup["if"] == "${{ always() && needs.deploy.result == 'success' }}"
+    # deleting the deployment waits for the `cleanup` environment's approval, without recording a deployment
+    assert cleanup["environment"] == {"name": "cleanup", "deployment": False}
+    assert jobs["deploy"]["environment"] == "dev-test"
     assert "tests-api-samples" in cleanup["needs"] and "tests-e2e-samples" in cleanup["needs"]
 
 
@@ -328,7 +350,7 @@ def test_prod_deploys_only(tmp_path):
     jobs = wf["jobs"]
 
     assert list(jobs) == ["prepare", "deploy"]
-    # prod deploys published images: prepare builds nothing, on the default runner
+    # prod deploys promoted images: prepare builds nothing, on the default runner
     assert jobs["prepare"]["name"] == "Prepare helm chart"
     assert not _steps(jobs["prepare"], "Build and push")
     assert jobs["prepare"]["runs-on"] == "${{ vars.CH_GITHUB_RUNNER || '%s' }}" % DEFAULT_RUNNER
@@ -341,23 +363,19 @@ def test_prod_deploys_only(tmp_path):
     assert wf["on"]["workflow_dispatch"]["inputs"]["deployment_tag"]["required"] is True
 
 
-def test_stage_keeps_tests_and_tags_the_repository(tmp_path):
+def test_stage_deploys_the_tag_that_started_it(tmp_path):
     wf, _ = _generate(tmp_path, ["samples", "myapp"], envs=("stage",))
     jobs = wf["jobs"]
 
-    assert not _steps(jobs["prepare"], "Build and push"), "stage deploys published images"
-    assert not _steps(jobs["publish"], "Publish test-"), "the test images are not built here"
-    assert "tests-api-samples" in jobs
+    # the promote workflow pushes a git tag: the staging pipeline deploys the images with that tag
+    assert wf["on"]["push"] == {"tags": ["*"]}
+    assert wf["on"]["workflow_dispatch"]["inputs"]["deployment_tag"]["required"] is True
+    assert "github.ref_type == 'tag' && github.ref_name" in jobs["prepare"]["env"]["DEPLOYMENT_TAG"]
+    assert not _steps(jobs["prepare"], "Build and push"), "stage deploys promoted images"
     assert not _steps(jobs["prepare"], "Run the unit tests"), "stage runs no unit tests"
+    assert "tests-api-samples" in jobs
     assert jobs["tests-api-samples"]["needs"] == ["prepare", "deploy"]
-    assert jobs["git-tag"]["needs"] == ["prepare", "publish"]
-    assert jobs["git-tag"]["permissions"] == {"contents": "write"}
-    # the tag is pushed only when the images were published: a failed deployment or test
-    # skips publish, and a skipped publish must not let the guard through
-    tag_if = jobs["git-tag"]["if"]
-    assert "needs.publish.result == 'success'" in tag_if
-    assert "needs.prepare.outputs.publish_tag != ''" in tag_if
-    assert "needs.prepare.result == 'success'" in tag_if
+    assert "publish" not in jobs and "git-tag" not in jobs
 
 
 def test_runner_configuration(tmp_path):
@@ -450,7 +468,7 @@ def test_generate_writes_the_workflow_under_github_workflows(tmp_path):
     )
     project.github_actions.generate()
 
-    workflow = tmp_path / ".github" / "workflows" / "cloudharness-dev.yaml"
+    workflow = tmp_path / ".github" / "workflows" / "ci--all--dev.yaml"
     assert workflow.exists()
     text = workflow.read_text()
     assert text.startswith("name: CloudHarness dev\n") and text.splitlines()[1].startswith("on:")

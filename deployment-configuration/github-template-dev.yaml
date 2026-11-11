@@ -1,15 +1,11 @@
-# Development pipeline: build, unit tests, deployment, API/E2E tests and, when a publish tag is given,
-# publication of the images after approval (protect the `publish` environment with required reviewers).
+# Development pipeline: build, unit tests, deployment and API/E2E tests. Its runs are promoted with the
+# workflow in `cloudharness.promote`, written next to this one as cloudharness-promote.yaml.
 name: CloudHarness $ENV
 on:
   push:
     branches: [develop]
   workflow_dispatch:
     inputs:
-      publish_tag:
-        description: Tag to publish the images with when the run succeeds (leave empty not to publish)
-        type: string
-        default: ""
       force_build:
         description: Comma-separated image names to rebuild even if their tag already exists, or `all`
         type: string
@@ -18,3 +14,91 @@ on:
         description: Set to `true` to skip the tests
         type: string
         default: ""
+cloudharness:
+  # Promotes the images of one run of this workflow, started by hand after approval (protect the `publish`
+  # environment with required reviewers): every image the run deployed - deployment/skaffold-images.json in
+  # its cloudharness-deployment artifact - gets the given tag (and `latest` where it is published), then the
+  # run's commit gets the git tag, which starts the staging pipeline. A tag pushed with the workflow's own
+  # token starts no workflow: set the GH_PAT secret (contents: write) for that.
+  promote:
+    name: CloudHarness promote
+    on:
+      workflow_dispatch:
+        inputs:
+          tag:
+            description: Tag to give the images and the repository
+            type: string
+            required: true
+          run_id:
+            description: Run of $WORKFLOW whose images to promote (default its latest successful run on the default branch)
+            type: string
+            default: ""
+    permissions:
+      contents: write
+      actions: read
+    jobs:
+      promote:
+        name: Promote the images
+        environment: publish
+        env:
+          TAG: ${{ inputs.tag }}
+          REGISTRY: ${{ vars.REGISTRY }}
+          REGISTRY_PUBLISH_URL: ${{ vars.REGISTRY_PUBLISH_URL }}
+        steps:
+          - name: Find the run to promote
+            id: run
+            env:
+              GH_TOKEN: ${{ github.token }}
+              RUN_ID: ${{ inputs.run_id }}
+              DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+            run: |
+              if [ -z "$RUN_ID" ]; then
+                RUN_ID=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow $WORKFLOW --branch "$DEFAULT_BRANCH" --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+              fi
+              if [ -z "$RUN_ID" ]; then
+                echo "::error::No successful run of $WORKFLOW to promote"
+                exit 1
+              fi
+              sha=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .head_sha)
+              echo "id=$RUN_ID" >> "$GITHUB_OUTPUT"
+              echo "sha=$sha" >> "$GITHUB_OUTPUT"
+              echo "Promoting run $RUN_ID (commit $sha) as $TAG" >> "$GITHUB_STEP_SUMMARY"
+          - name: Download the images of the run
+            uses: actions/download-artifact@v4
+            with:
+              name: cloudharness-deployment
+              path: deployment
+              run-id: ${{ steps.run.outputs.id }}
+              github-token: ${{ github.token }}
+          - uses: docker/login-action@v3
+            with:
+              registry: ${{ vars.REGISTRY }}
+              username: ${{ secrets.REGISTRY_USERNAME }}
+              password: ${{ secrets.REGISTRY_PASSWORD }}
+          - name: Log in to the publish registry
+            if: ${{ vars.REGISTRY_PUBLISH_URL != '' }}
+            env:
+              USERNAME: ${{ secrets.REGISTRY_PUBLISH_USERNAME || secrets.REGISTRY_USERNAME }}
+              PASSWORD: ${{ secrets.REGISTRY_PUBLISH_PASSWORD || secrets.REGISTRY_PASSWORD }}
+            run: echo "$PASSWORD" | docker login "${REGISTRY_PUBLISH_URL%%/*}" -u "$USERNAME" --password-stdin
+          # each image keeps its content-hash tag and gets the new one in the registry the pipelines deploy
+          # from; the publish registry (REGISTRY_PUBLISH_URL, default the same) also gets `latest`
+          - name: Tag the images
+            run: |
+              set -e
+              target="${REGISTRY_PUBLISH_URL:-$REGISTRY}"
+              jq -r '.builds[] | "\(.imageName) \(.tag)"' deployment/skaffold-images.json | while read -r image source; do
+                published="$target/${image#"$REGISTRY"/}"
+                tags="-t $image:$TAG -t $published:latest"
+                if [ "$published" != "$image" ]; then tags="$tags -t $published:$TAG"; fi
+                echo "$source -> $tags"
+                docker buildx imagetools create $tags "$source"
+              done
+          - uses: actions/checkout@v4
+            with:
+              ref: ${{ steps.run.outputs.sha }}
+              token: ${{ secrets.GH_PAT || github.token }}
+          - name: Tag the repository
+            run: |
+              git tag "$TAG"
+              git push origin "refs/tags/$TAG"

@@ -90,7 +90,7 @@ def test_written_codefresh_pipeline_keeps_generated_order(tmp_path):
     project = chain(CLOUDHARNESS_ROOT, RESOURCES, config=_config(tmp_path))
     cf = project.codefresh.generate(output_path=tmp_path)
 
-    loaded = get_yaml_parser().load((tmp_path / "codefresh-dev.yaml").read_text())
+    loaded = get_yaml_parser().load((tmp_path / "ci--samples--dev.yaml").read_text())
     assert list(loaded) == list(cf)
     assert list(loaded["steps"]) == list(cf["steps"])
 
@@ -107,7 +107,7 @@ def test_every_generated_yaml_file_starts_with_the_command(tmp_path, generation_
         "deployment/helm/values.yaml",
         "deployment/helm/Chart.yaml",
         "deployment/helm/values-overrides.yaml",
-        "deployment/codefresh-dev.yaml",
+        "deployment/ci--samples--dev.yaml",
         "skaffold.yaml",
     ):
         _assert_header_once(tmp_path / path)

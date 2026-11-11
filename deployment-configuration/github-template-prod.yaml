@@ -1,14 +1,14 @@
-# Production pipeline: deploys images published by the development or staging pipeline, nothing else.
+# Production pipeline: deploys the images promoted with the given tag, nothing else.
 # Protect the `prod` environment with required reviewers to get an approval step.
 name: CloudHarness $ENV
 on:
   workflow_dispatch:
     inputs:
       deployment_tag:
-        description: Tag of the images to deploy (a tag published by the development or staging pipeline)
+        description: Tag of the images to deploy (a tag given by the promote workflow)
         type: string
         required: true
-# deploys the published images: builds nothing
+# deploys the promoted images: builds nothing
 cloudharness:
   build: null
 jobs:
@@ -16,4 +16,3 @@ jobs:
     name: Prepare helm chart
   tests-api: null
   tests-e2e: null
-  publish: null

@@ -7,8 +7,8 @@
 
 ## Key Scripts
 
-- `harness-generate` — generate code
-- `harness-deployment` — generate deployment files (Helm charts, CI/CD files, etc.)
+- `harness-generate` — generate code; `harness-generate ci-cd` generates the CI/CD pipelines
+- `harness-deployment` — generate deployment files (Helm charts, Skaffold, etc.)
 - `harness-application` — generate application code (e.g. Django apps)
 - `harness-migrate` — migration helper
 - `ch_cli_tools` — Python package for deployment and other tools

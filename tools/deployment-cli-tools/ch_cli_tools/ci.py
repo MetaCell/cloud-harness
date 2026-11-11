@@ -11,6 +11,7 @@ steps as `<IMAGE>_TAG` / `<IMAGE>_TAG_EXISTS` variables (`image_tag_env`).
 import logging
 import re
 from dataclasses import dataclass
+from pathlib import Path
 
 from ch_cli_tools.configuration.secrets import (
     is_cloudharness_managed,
@@ -27,6 +28,52 @@ FORCE_BUILD_ALL = "all"
 DOCKER_HUB_REGISTRY = "docker.io"
 TEST_IMAGE_API = "test-api"
 TEST_IMAGE_E2E = "test-e2e"
+
+PIPELINE_FILE_PREFIX = "ci"
+PIPELINE_FILE_SEPARATOR = "--"
+DEFAULT_PIPELINE_NAME = "all"
+_PIPELINE_NAME = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+def pipeline_name(config) -> str:
+    """The name of a pipeline in its file names: the configured one, else the included apps joined
+    with dashes, else `all`."""
+    name = config.pipeline or "-".join(config.includes) or DEFAULT_PIPELINE_NAME
+    if not _PIPELINE_NAME.match(name):
+        raise ValueError(f"Invalid pipeline name {name!r}: use letters, digits, `.`, `_` and `-`")
+    return name
+
+
+def pipeline_file_name(config, suffix: str | None = None) -> str:
+    """`ci--<pipeline>--<suffix>.yaml`; the suffix defaults to the environments joined with dashes,
+    as `-e` takes them."""
+    if suffix is None:
+        suffix = "-".join(config.envs)
+    parts = [PIPELINE_FILE_PREFIX, pipeline_name(config), suffix]
+    return PIPELINE_FILE_SEPARATOR.join(part for part in parts if part) + ".yaml"
+
+
+def template_environments(folder: Path, template: str) -> list[str]:
+    """The environments with a `<template>-<env>.yaml` file in folder, sorted.
+
+    A dashed name is skipped with a warning: `-e a-b` merges the `a` and `b` templates and never
+    reads `<template>-a-b.yaml`.
+    """
+    prefix = f"{template}-"
+    environments = []
+    for path in sorted(Path(folder).glob(f"{prefix}*.yaml")):
+        env = path.stem[len(prefix):]
+        if "-" in env:
+            logger.warning(
+                "Ignoring %s: an environment name cannot contain `-` (`-e a-b` combines the "
+                "%sa.yaml and %sb.yaml templates)",
+                path,
+                prefix,
+                prefix,
+            )
+            continue
+        environments.append(env)
+    return environments
 
 
 def env_key(name: str) -> str:

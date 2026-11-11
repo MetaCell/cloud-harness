@@ -19,16 +19,25 @@ All you need to to is:
 
 When defining an applications values you can provide details on dockerfile configuration such as build arguments. This feature is intended to support useful development use cases (e.g. conditionally running unit tests via build arguments) and should be used with caution as it can lead to different images in different deployment environments.
 
+## Generating the pipelines
+
+`harness-generate ci-cd [paths] [-i APP ...]` writes one pipeline per CI provider and environment the project has
+a template for in its own `deployment-configuration` (an empty file inherits the cloud-harness template):
+`codefresh-template-[ENV].yaml` gives `deployment/ci--[NAME]--[ENV].yaml`, `github-template-[ENV].yaml` gives
+`.github/workflows/ci--[NAME]--[ENV].yaml`. `[NAME]` is `--name`, by default the included applications joined with
+dashes. Run it once per set of applications deployed together, and again whenever applications, their
+dependencies or the templates change. See [harness-generate](../../applications/harness-generate.md#generate-the-cicd-pipelines).
+
 ## CI/CD with Codefresh
 
 [Codefresh](https://codefresh.io/) is a nice platform for CI/CD see details in the [dedicated document](./codefresh.md).
 
 ## CI/CD with GitHub Actions
 
-`harness-deployment -ci github -e [ENV]` generates `.github/workflows/cloudharness-[ENV].yaml`, a workflow with
-the same stages as the Codefresh pipeline: image build, unit tests, helm deployment, rollout wait, API/E2E tests
-and publication. Pass `-ci codefresh -ci github` to generate both. Build, unit tests and deployment run with
-[Skaffold](https://skaffold.dev/), from the `deployment/skaffold-ci.yaml` the pipeline writes.
+`harness-generate ci-cd` generates `.github/workflows/ci--[NAME]--[ENV].yaml` from `github-template-[ENV].yaml`, a
+workflow with the stages of the Codefresh pipeline: image build, unit tests, helm deployment, rollout wait and
+API/E2E tests. Build, unit tests and deployment run with [Skaffold](https://skaffold.dev/), from the
+`deployment/skaffold-ci.yaml` the pipeline writes.
 
 - Build: the `prepare` job runs `harness-deployment --write-env --write-skaffold-ci`, which asks the
   registry for every image's content-hash tag and writes `deployment/skaffold-ci.yaml` with only the images
@@ -56,18 +65,19 @@ and publication. Pass `-ci codefresh -ci github` to generate both. Build, unit t
   `ubuntu-latest`, comma-separated labels allowed). A `runs-on` in the template always wins.
 - Configuration: the generator logs the repository variables (`REGISTRY`, `DOMAIN`, `NAMESPACE`, ...) and
   secrets (`REGISTRY_USERNAME`, `REGISTRY_PASSWORD`, `KUBECONFIG`, the application secrets with the same names
-  as the Codefresh variables) the workflow expects. Approvals are GitHub environment protection rules on the
-  `publish` and `prod`/`stage` environments. `workflow_dispatch` inputs replace the `DEPLOYMENT_PUBLISH_TAG`,
-  `DEPLOYMENT_TAG`, `*_TAG_FORCE_BUILD` and `SKIP_TESTS` pipeline variables. A project's jobs clone and install
+  as the Codefresh variables) the workflow expects. Approvals are GitHub environment protection rules (required
+  reviewers): on `publish` (promotion), on `cleanup` (deleting the test deployment) and on `prod`/`stage`
+  (deploying); dev and test deploy without approval. `workflow_dispatch` inputs replace the `DEPLOYMENT_TAG`,
+  `*_TAG_FORCE_BUILD` and `SKIP_TESTS` pipeline variables. A project's jobs clone and install
   the cloud-harness branch named by the `CLOUDHARNESS_BRANCH` variable (default `develop`); cloud-harness' own
   workflow builds and tests the branch that triggered it, tools included, and does not read that variable.
 - Cluster credentials: the `deploy` and test `cleanup` jobs run the steps listed under
   `cloudharness.kube_auth` in the template. The default step uses a base64 `KUBECONFIG` secret when present and
   the runner's own cluster access otherwise (a runner inside the target cluster with a service account bound to
-  the deployment namespaces needs no secret at all); with neither, the job fails immediately. Only `deploy`
-  targets the GitHub environment named after the CloudHarness environment (so required reviewers on
-  `stage`/`prod` approve the deployment once): `cleanup` reads repository or organization secrets, which an
-  environment secret of the same name overrides for `deploy`. For GKE with workload identity
+  the deployment namespaces needs no secret at all); with neither, the job fails immediately. `deploy`
+  targets the GitHub environment named after the CloudHarness environment and `cleanup` the `cleanup`
+  environment, so environment secrets of the CloudHarness environment reach `deploy` only: keep the cluster
+  credentials in repository or organization secrets. For GKE with workload identity
   federation, replace the list in your project's `github-template.yaml` and grant `id-token: write` to the jobs
   using it (it is not granted to the whole workflow; a job-level `permissions` replaces the workflow-level one):
 
@@ -88,7 +98,13 @@ and publication. Pass `-ci codefresh -ci github` to generate both. Build, unit t
     cleanup:
       permissions: {contents: read, packages: write, id-token: write}
   ```
+- Promotion: generating the dev workflow also writes `.github/workflows/ci--[NAME]--promote.yaml` (from
+  `cloudharness.promote` in `github-template-dev.yaml`), started by hand with a tag and, optionally, the dev run
+  to promote (default: its latest successful run on the default branch). After the approval of the `publish`
+  environment it gives the tag to the exact images that run deployed (`deployment/skaffold-images.json` in its
+  `cloudharness-deployment` artifact), also in `REGISTRY_PUBLISH_URL` with `latest` when set, and pushes the git
+  tag on the run's commit. The tag starts the staging pipeline, which deploys and tests the images with that
+  tag; production deploys a tag by hand. A tag pushed with the workflow's own token starts no workflow: set a
+  `GH_PAT` secret (a token with contents write access) for the staging pipeline to start by itself.
 - Test failures: unit tests gate the deployment, as in Codefresh. The API/E2E tests run after the deployment
-  and never block it, but `publish` (and `git-tag` on stage) is skipped when anything failed. To publish
-  despite failing tests, as Codefresh's `fail_fast: false` does, override the `if` of `publish` in your
-  project's template and protect the `publish` environment with required reviewers.
+  and never block it; a run whose tests failed is simply not promoted.

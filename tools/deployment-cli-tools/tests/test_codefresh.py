@@ -29,9 +29,10 @@ import shutil
 import tempfile
 from unittest.mock import patch
 
-from conftest import CLOUDHARNESS_ROOT, RESOURCES
+from conftest import CLOUDHARNESS_ROOT, RESOURCES, chain
 from test_util import write_tree_from_yaml
 
+from ch_cli_tools import CHDeployConfig
 from ch_cli_tools.api import (
     create_codefresh_deployment_scripts,
     create_helm_chart,
@@ -918,8 +919,8 @@ def test_create_codefresh_configuration_nobuild(tmp_path):
 
 def test_create_codefresh_deployment_scripts_save_writes_under_deployment_dir(tmp_path):
     # save=True (the real CLI's default) must write next to where helm's own
-    # chart lands - root/deployment/codefresh-{env}.yaml - not CWD/codefresh-
-    # {env}.yaml. Regression test for a bug where generate()'s own
+    # chart lands - root/deployment/ci--{pipeline}--{env}.yaml - not CWD/ci--
+    # {pipeline}--{env}.yaml. Regression test for a bug where generate()'s own
     # output_path="." default didn't match CHCodefresh.path's actual location.
     # Uses its own synthetic single-root project, not the shared
     # [CLOUDHARNESS_ROOT, RESOURCES] fixture _generate_cf relies on.
@@ -955,7 +956,7 @@ def test_create_codefresh_deployment_scripts_save_writes_under_deployment_dir(tm
         save=True,
     )
 
-    assert (tmp_path / "deployment" / "codefresh-dev.yaml").exists()
+    assert (tmp_path / "deployment" / "ci--all--dev.yaml").exists()
 
 
 def test_create_codefresh_configuration_prepare_deployment_placeholders(tmp_path):
@@ -1135,3 +1136,16 @@ def test_write_env_file(tmp_path):
     new_suffixes = [k for k in env if k.endswith("_NEW")]
     assert len(exists_suffixes) == 4
     assert len(new_suffixes) == 4
+
+
+def test_create_codefresh_configuration_stage_publish_placeholder(tmp_path):
+    # codefresh-template-stage.yaml's publish container says `steps: REPLACE_ME`: the generated
+    # publish steps replace the placeholder
+    project = chain(
+        CLOUDHARNESS_ROOT,
+        RESOURCES,
+        config=CHDeployConfig(env="stage", includes=["myapp"], excludes=["events"], registry="reg"),
+    )
+    cf = project.codefresh.generate(write_on_disk=False)
+    publish = cf["steps"]["publish"]["steps"]
+    assert "publish_myapp" in publish and "REPLACE_ME" not in str(publish)

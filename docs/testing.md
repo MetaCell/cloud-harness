@@ -179,7 +179,7 @@ after the deployment is established, tests for each application are executed in 
 The suggested usage for the test pipeline is to trigger the tests on pull requests and
 integrate the results on Github (or equivalent) PRs.
 
-> Note: To regenerate the test pipeline, run `harness-deployment ... -e test`.
+> Note: To regenerate the test pipeline, run `harness-generate ci-cd ... -e test`.
 
 ## Run API and E2E tests tests manually
 

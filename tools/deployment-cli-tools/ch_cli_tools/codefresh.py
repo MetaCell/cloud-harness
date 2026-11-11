@@ -1,4 +1,5 @@
-"""Generates codefresh.yaml from a CHProject.
+"""Generates the Codefresh pipeline (codefresh.yaml, written as
+deployment/ci--<pipeline>--<env>.yaml by `harness-generate ci-cd`) from a CHProject.
 
 Codefresh is the CI/CD pipeline that actually builds, tests, publishes and
 deploys a CH project, but unlike `skaffold dev` (used locally, right after
@@ -96,6 +97,7 @@ exactly the kind of fact that can't be baked into the committed file.
 
 import re
 from functools import lru_cache
+from pathlib import Path
 
 from . import ci
 from .model import CHValues, register_file
@@ -158,10 +160,15 @@ class CHCodefreshTemplate(CHValues):
         return dict_merge(layer.base.codefresh_template.all_values(), own)
 
 
-@register_file(
-    "codefresh", lambda root: root / "deployment" / "codefresh.yaml", only_env=True
-)
+@register_file("codefresh", lambda root: root / "deployment")
 class CHCodefresh(CHValues):
+    """`path` is the project's deployment folder: the file name comes from the pipeline."""
+
+    @property
+    def file_path(self) -> Path:
+        """deployment/ci--<pipeline>--<env>.yaml"""
+        return self.path / ci.pipeline_file_name(self.project.config)
+
     def qualify(self, image_name):
         return "${{REGISTRY}}/%s" % image_name
 
@@ -518,7 +525,10 @@ class CHCodefresh(CHValues):
             KEY_PUBLISH, {"type": "parallel", "steps": {}}
         )
         if publish_container is not None:
-            publish_container.setdefault("steps", {}).update(publish_steps)
+            # the stage template's `steps: REPLACE_ME` placeholder stands for the generated steps
+            if not isinstance(publish_container.get("steps"), dict):
+                publish_container["steps"] = {}
+            publish_container["steps"].update(publish_steps)
 
         unit_test_steps = self._collect_unit_test_steps(project)
         unit_test_container = steps.setdefault(
@@ -581,6 +591,7 @@ class CHCodefresh(CHValues):
         base["steps"] = steps
 
         if write_on_disk:
-            self.write(base, output_path=output_path)
+            folder = Path(output_path) if output_path else self.path
+            self.write_on_disk(folder / self.file_path.name, base)
 
         return base
