@@ -60,6 +60,50 @@ def test_submit_preserves_raw_workflow_and_future_fields(api, workflow):
     assert transport.call_args.args[0] == "POST"
 
 
+@pytest.mark.parametrize("operation_type", [operations.PipelineOperation, operations.ParallelOperation])
+@pytest.mark.parametrize("request_timeout", [None, 1.5, (2, 10)])
+def test_async_execute_forwards_optional_submission_timeout(api, workflow, operation_type, request_timeout):
+    respond, client = api
+    transport = respond(workflow)
+    close = Mock(wraps=client.close)
+    client.close = close
+    operation = operation_type("sdk-timeout-", [])
+
+    result = operation.execute(request_timeout=request_timeout)
+
+    assert result.name == "sdk-test"
+    assert result.raw.status.phase == "Running"
+    assert operation.persisted is result
+    assert transport.call_count == 1
+    assert transport.call_args.kwargs["_request_timeout"] == request_timeout
+    close.assert_called_once_with()
+
+
+def test_async_execute_default_preserves_no_argument_submit_override():
+    operation = operations.PipelineOperation("legacy-submit-", [])
+    expected = object()
+    operation.submit = lambda: expected
+
+    assert operation.execute() is expected
+
+
+def test_submit_closes_client_and_preserves_errors_without_retry(api, monkeypatch):
+    _, client = api
+    close = Mock(wraps=client.close)
+    monkeypatch.setattr(client, "close", close)
+    error = exceptions.ApiException(status=503, reason="Unavailable")
+    error.body = b"unavailable"
+    transport = Mock(side_effect=error)
+    monkeypatch.setattr(client.rest_client, "request", transport)
+
+    with pytest.raises(exceptions.ApiException) as caught:
+        argo_service.submit_workflow({"metadata": {"name": "sdk-test"}}, request_timeout=(2, 10))
+
+    assert caught.value is error
+    assert transport.call_count == 1
+    close.assert_called_once_with()
+
+
 def test_running_response_keeps_native_progress_and_optional_fields(api, workflow):
     respond, _ = api
     respond(workflow)

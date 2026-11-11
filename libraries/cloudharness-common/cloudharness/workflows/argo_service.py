@@ -225,15 +225,16 @@ def get_workflows(status=None, limit=10, continue_token=None, timeout_seconds=3,
         return SearchResult(api_response)
 
 
-def submit_workflow(spec) -> Workflow:
+def submit_workflow(spec, *, request_timeout=None) -> Workflow:
+    """Create one workflow; optionally bound HTTP I/O with seconds or (connect, read)."""
     log.debug(f"Submitting workflow %s", spec)
-
-    service = WorkflowServiceApi(api_client=get_api_client())
 
     req = V1alpha1WorkflowCreateRequest(workflow=spec, instance_id=namespace, namespace=namespace, _check_type=False)
 
-    # pprint(service.list_workflows('ch', V1alpha1WorkflowList()))
-    wf = service.create_workflow(namespace, req)
+    options = {} if request_timeout is None else {"_request_timeout": request_timeout}
+    with get_api_client() as api_client:
+        service = WorkflowServiceApi(api_client=api_client)
+        wf = service.create_workflow(namespace, req, **options)
     return Workflow(wf)
 
 

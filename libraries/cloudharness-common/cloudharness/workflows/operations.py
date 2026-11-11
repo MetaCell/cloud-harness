@@ -211,14 +211,17 @@ class ContainerizedOperation(ManagedOperation):
 
         return template
 
-    def submit(self):
-        """Created and submits the Argo workflow"""
+    def submit(self, *, request_timeout=None):
+        """Submit the workflow with an optional HTTP timeout in seconds or (connect, read)."""
         op = self.to_workflow()
 
         log.debug("Submitting workflow\n" + yaml.dump(op))
 
         # TODO use rest api for that? Include this into cloudharness.workflows?
-        self.persisted = argo_service.submit_workflow(op)
+        if request_timeout is None:
+            self.persisted = argo_service.submit_workflow(op)
+        else:
+            self.persisted = argo_service.submit_workflow(op, request_timeout=request_timeout)
         return self.persisted
 
     def is_running(self):
@@ -347,9 +350,11 @@ class AsyncOperation(ContainerizedOperation):
     """The operation is made asynchronously in an Argo workflow.
     The workflow can be monitored during the execution"""
 
-    def execute(self):
-        op = self.submit()
-        return op
+    def execute(self, *, request_timeout=None):
+        """Submit asynchronously; request_timeout bounds HTTP I/O, not workflow execution."""
+        if request_timeout is None:
+            return self.submit()
+        return self.submit(request_timeout=request_timeout)
 
     def get_operation_update_url(self):
         return f"{env.get_cloudharness_workflows_service_url()}/api/operations/{self.persisted.name}"
