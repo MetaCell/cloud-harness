@@ -60,10 +60,10 @@ def test_build_only_dependency_is_not_deployed():
         CLOUDHARNESS_ROOT, RESOURCES, config=CHDeployConfig(includes=["dependantapp"])
     )
     generated = project.skaffold.generate(write_on_disk=False)
-    overrides = generated["deploy"]["helm"]["releases"][0]["artifactOverrides"]["apps"]
+    templates = generated["deploy"]["helm"]["releases"][0]["setValueTemplates"]
 
-    assert "dependantapp" in overrides
-    assert "myapp" not in overrides
+    assert "apps.dependantapp.harness.deployment.image" in templates
+    assert not [key for key in templates if key.startswith("apps.myapp.")]
 
 
 def test_build_dependency_on_base_image_gets_its_own_artifact():
@@ -92,6 +92,25 @@ def test_build_dependency_on_base_image_gets_its_own_artifact():
         CLOUDHARNESS_ROOT / "infrastructure" / "common-images" / "cloudharness-flask"
     )
     assert context == expected.resolve()
+
+
+def test_task_artifacts_require_the_images_they_are_built_on():
+    # a task's Dockerfile FROMs a build arg like an app's (ARG CLOUDHARNESS_BASE, or its
+    # own app's image): without `requires` skaffold passes no value and FROM is empty
+    project = chain(CLOUDHARNESS_ROOT, RESOURCES, config=CHDeployConfig(includes=["samples"]))
+    artifacts = {
+        a["image"]: a for a in project.skaffold.generate(write_on_disk=False)["build"]["artifacts"]
+    }
+
+    assert artifacts["testprojectname/sampleapp-secret"]["requires"] == [
+        {"image": "testprojectname/cloudharness-base", "alias": "CLOUDHARNESS_BASE"}
+    ]
+    assert artifacts["testprojectname/sampleapp-sum"]["requires"] == [
+        {"image": "testprojectname/sampleapp", "alias": "SAMPLES"}
+    ]
+    for artifact in artifacts.values():
+        for required in artifact.get("requires", []):
+            assert required["image"] in artifacts, f"{artifact['image']} requires an image nobody builds"
 
 
 def test_build_dependency_on_task_owned_by_an_undeployed_app_resolves():
@@ -146,14 +165,24 @@ def test_namespace_sets_helm_release_name_and_namespace(tmp_path):
     assert release["namespace"] == "my-ns"
 
 
-def test_no_namespace_leaves_helm_release_name_unset(tmp_path):
+def test_no_namespace_names_the_release_after_the_chart(tmp_path):
+    # skaffold rejects a release without a name; with no namespace configured
+    # nor set in the helm values, the chart's name is used
     project = minimal_project(tmp_path)
     release = project.skaffold.generate(write_on_disk=False)["deploy"]["helm"][
         "releases"
     ][0]
 
-    assert "name" not in release
+    assert release["name"] == "testproj"
     assert "namespace" not in release
+
+
+def test_default_namespace_comes_from_the_helm_values():
+    # cloud-harness' helm values default the namespace to `ch`
+    project = chain(CLOUDHARNESS_ROOT, RESOURCES, config=CHDeployConfig(includes=["myapp"]))
+    release = project.skaffold.generate(write_on_disk=False)["deploy"]["helm"]["releases"][0]
+
+    assert release["name"] == release["namespace"] == "ch"
 
 
 def test_tag_policy_is_sha256_by_default(tmp_path):
@@ -167,7 +196,7 @@ def test_tag_policy_is_env_template_when_external_tag_and_not_local(tmp_path):
     # handed rather than compute its own content hash.
     project = minimal_project(tmp_path, tag="v1", local=False)
     build = project.skaffold.generate(write_on_disk=False)["build"]
-    assert build["tagPolicy"] == {"envTemplate": {"template": '"{{.TAG}}"'}}
+    assert build["tagPolicy"] == {"envTemplate": {"template": "v1"}}
 
 
 def test_tag_policy_is_sha256_when_tag_set_but_local(tmp_path):
@@ -185,9 +214,8 @@ def test_compose_backend_builds_docker_compose_deploy_block(tmp_path):
     project = minimal_project(tmp_path, backend="compose")
     generated = project.skaffold.generate(write_on_disk=False)
 
-    assert generated["build"]["tagPolicy"] == {
-        "envTemplate": {"template": '"{{.TAG}}"'}
-    }
+    # no tag configured: $TAG, which skaffold replaces with `latest` when unset
+    assert generated["build"]["tagPolicy"] == {"envTemplate": {"template": "{{.TAG}}"}}
     assert generated["deploy"] == {
         "docker": {
             "useCompose": True,
@@ -301,10 +329,10 @@ def test_multi_env_output_path_is_dash_joined(tmp_path):
     # Ports the real -e dev-test convention: the *output* artifact name joins
     # the envs with a dash, unlike the per-env *input* files it reads from.
     project = _multi_env_project(tmp_path / "both", env=["dev", "test"])
-    assert project.codefresh.path.name == "codefresh-dev-test.yaml"
+    assert project.codefresh.file_path.name == "ci--all--dev-test.yaml"
 
     project_none = _multi_env_project(tmp_path / "none", env=None)
-    assert project_none.codefresh.path.name == "codefresh.yaml"
+    assert project_none.codefresh.file_path.name == "ci--all.yaml"
 
 
 def test_own_build_args_apply_only_to_the_apps_own_artifact():
@@ -919,5 +947,5 @@ def test_app_with_explicit_deployment_image_is_never_built(tmp_path):
     assert "testproj/myapp-mytask" in images
     assert result.get("test", []) == []
 
-    overrides = result["deploy"]["helm"]["releases"][0]["artifactOverrides"]["apps"]
-    assert "myapp" not in overrides
+    templates = result["deploy"]["helm"]["releases"][0]["setValueTemplates"]
+    assert not [key for key in templates if key.startswith("apps.myapp.")]

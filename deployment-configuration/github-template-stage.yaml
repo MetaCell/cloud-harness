@@ -1,0 +1,22 @@
+# Staging pipeline: started by a git tag (the promote workflow pushes one), deploys the images with that tag
+# and runs the API/E2E tests. It can also be started by hand for a tag.
+name: CloudHarness $ENV
+on:
+  push:
+    tags: ["*"]
+  workflow_dispatch:
+    inputs:
+      deployment_tag:
+        description: Tag of the images to deploy (a tag given by the promote workflow)
+        type: string
+        required: true
+      skip_tests:
+        description: Set to `true` to skip the tests
+        type: string
+        default: ""
+# deploys the promoted images: builds nothing
+cloudharness:
+  build: null
+jobs:
+  prepare:
+    name: Prepare helm chart

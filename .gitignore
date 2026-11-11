@@ -10,6 +10,8 @@ node_modules
 *.DS_Store
 deployment/helm
 deployment/compose
+deployment/skaffold-ci.yaml
+deployment/skaffold-images.json
 /docker-compose.yaml
 *.egg-info
 *.idea

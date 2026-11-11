@@ -1,4 +1,4 @@
-apiVersion: skaffold/v2beta28
+apiVersion: skaffold/v4beta14
 kind: Config
 build:
   tagPolicy: {}
@@ -21,8 +21,6 @@ deploy:
       #valuesFiles:
       #- helm-skaffold-values.yaml
       skipBuildDependencies: true # Skip helm dep build
-      artifactOverrides:
-        apps: {}
       overrides:
         apps: {}
 test: []

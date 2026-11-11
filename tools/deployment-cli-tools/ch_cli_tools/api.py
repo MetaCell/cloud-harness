@@ -12,13 +12,16 @@ by CHProject/CHDeployConfig and the rest of the ng model instead of the legacy
 ConfigurationGenerator/HarnessMainConfig machinery.
 """
 
+import dataclasses
 import logging
 import subprocess
 from pathlib import Path
 
+from cloudharness_utils.constants import DEPLOYMENT_CONFIGURATION_PATH
+
 from ch_cli_tools.utils import get_cluster_ip  # type: ignore
 
-from . import migration
+from . import ci, migration
 from .model import CHDeployConfig, CHProject
 
 logger = logging.getLogger(__name__)
@@ -226,6 +229,56 @@ def create_codefresh_deployment_scripts(
 def write_env_file(helm_values, filename, image_cache_endpoint_url=None):
     project = helm_values._ch_project
     return project.codefresh.write_env_file(filename, image_cache_endpoint_url)
+
+
+# --- CI/CD pipelines (harness-generate ci-cd) ---
+
+# The CHProject attribute generating each provider's pipelines -> the name of its templates
+CI_GENERATORS = {"codefresh": "codefresh-template", "github_actions": "github-template"}
+
+
+def generate_ci_cd(root_paths, config: CHDeployConfig, envs=()) -> list[Path]:
+    """Writes the CI/CD pipelines of the project layered from root_paths (lowest priority first)
+    and returns the files written.
+
+    A provider gets one pipeline per environment with a template in the last root's own
+    deployment-configuration (`codefresh-template-<env>.yaml`, `github-template-<env>.yaml`, even
+    empty): the templates of the layers below are merged in, but never add a pipeline by
+    themselves. `envs` restricts the environments; one can combine several (`research-dev`),
+    each of which needs a template.
+    """
+    folder = Path(root_paths[-1]) / DEPLOYMENT_CONFIGURATION_PATH
+    written: list[Path] = []
+    for generator, template in CI_GENERATORS.items():
+        available = ci.template_environments(folder, template)
+        if not available:
+            continue
+        for env in envs or available:
+            parts = env.split("-")
+            missing = [part for part in parts if part not in available]
+            if missing:
+                logger.warning(
+                    "No %s pipeline for %s: add %s",
+                    template,
+                    env,
+                    ", ".join(str(folder / f"{template}-{part}.yaml") for part in missing),
+                )
+                continue
+            project = CHProject.init(root_paths, config=dataclasses.replace(config, env=parts))
+            pipeline = getattr(project, generator)
+            if not pipeline.generate():
+                continue
+            written.append(pipeline.file_path)
+            if getattr(pipeline, "promote", None):
+                if pipeline.promote_file_path in written:
+                    logger.warning(
+                        "More than one environment defines cloudharness.promote: %s promotes %s",
+                        pipeline.promote_file_path.name,
+                        pipeline.file_path.name,
+                    )
+                else:
+                    written.append(pipeline.promote_file_path)
+    return written
 
 
 # --- ch_cli_tools/preprocessing.py ---

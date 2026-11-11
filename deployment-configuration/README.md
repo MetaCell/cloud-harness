@@ -10,8 +10,14 @@ Those files are used by the script `harness-deployment` script.
   custom `values.yaml` to your application over changing this file.
 - `values-template-[env].yaml` / `value-template-[env].yaml`: environment specific overrides of the above, loaded
   when the environment is selected with `harness-deployment -e [env]`. See [environments](../docs/build-deploy/environments.md)
-- `codefresh-template-[dev|prod].yaml`: base for `codefresh/codefresh-[dev|prod].yaml`. Modify this file if you want to
-  change the build steps inside codefresh
+- `codefresh-template-[dev|prod].yaml`: base for `deployment/ci--[NAME]--[dev|prod].yaml`, generated with
+  `harness-generate ci-cd`. Modify this file if you want to change the build steps inside codefresh
 - `codefresh-build-template.yaml`: base for a single build entry in `codefresh.yaml`
 - `codefresh-publish-template.yaml`: base for a single publish (image tagging) entry in `codefresh.yaml`
+- `github-template.yaml`: base for the GitHub Actions workflows (`.github/workflows/ci--[NAME]--[env].yaml`),
+  generated with `harness-generate ci-cd`: the job prototypes expanded per image/app and the shared steps
+- `github-template-[dev|stage|prod|test].yaml`: per-environment workflow name, triggers and deltas, merged over
+  the base template. Override any part from the same files in your project's `deployment-configuration/`: a
+  project gets a pipeline only for the environments it has a `codefresh-template-[env].yaml` or
+  `github-template-[env].yaml` for (an empty file inherits everything)
 

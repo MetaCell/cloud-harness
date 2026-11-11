@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from ch_cli_tools.utils import get_yaml_parser
+from ch_cli_tools.utils import discover_root_paths, get_yaml_parser
 
 
 def write_tree_from_yaml(
@@ -165,3 +165,55 @@ def test_write_tree_from_yaml_rejects_both_text_and_path(tmp_path):
 def test_write_tree_from_yaml_rejects_neither_text_nor_path(tmp_path):
     with pytest.raises(ValueError):
         write_tree_from_yaml(tmp_path)
+
+
+def test_discover_root_paths_puts_subdirectories_before_current(tmp_path):
+    write_tree(
+        tmp_path,
+        {
+            "deployment-configuration": {},
+            "cloud-harness": {"deployment-configuration": {}},
+            "applications": {"myapp": {}},
+        },
+    )
+
+    assert discover_root_paths(tmp_path) == [tmp_path / "cloud-harness", tmp_path]
+
+
+def test_discover_root_paths_orders_subdirectories_by_name(tmp_path):
+    write_tree(
+        tmp_path,
+        {
+            "zeta": {"deployment-configuration": {}},
+            "alpha": {"deployment-configuration": {}},
+        },
+    )
+
+    assert discover_root_paths(tmp_path) == [tmp_path / "alpha", tmp_path / "zeta"]
+
+
+def test_discover_root_paths_skips_hidden_blueprint_and_nested(tmp_path):
+    write_tree(
+        tmp_path,
+        {
+            "deployment-configuration": {},
+            ".history": {"deployment-configuration": {}},
+            "blueprint": {"deployment-configuration": {}},
+            "tools": {"tests": {"resources": {"deployment-configuration": {}}}},
+        },
+    )
+
+    assert discover_root_paths(tmp_path) == [tmp_path]
+
+
+def test_discover_root_paths_ignores_deployment_configuration_file(tmp_path):
+    write_tree(tmp_path, {"cloud-harness": {"deployment-configuration": "not a dir"}})
+
+    assert discover_root_paths(tmp_path) == []
+
+
+def test_discover_root_paths_warns_about_a_skipped_scaffold(tmp_path, caplog):
+    write_tree(tmp_path, {"blueprint": {"deployment-configuration": {}}, "deployment-configuration": {}})
+
+    assert discover_root_paths(tmp_path) == [tmp_path]
+    assert "blueprint" in caplog.text

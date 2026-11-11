@@ -30,6 +30,7 @@ harness-generate [mode] [-h] [-i] [-a APP_NAME] [-cn CLIENT_NAME] [-t | -p] [pat
 - **clients** – Generates only client libraries.
 - **servers** – Generates only server stubs.
 - **models** – Regenerates only model libraries.
+- **ci-cd** – Generates the CI/CD pipelines (Codefresh, GitHub Actions), see [below](#generate-the-cicd-pipelines).
 
 ## harness-generate Examples
 
@@ -81,9 +82,33 @@ harness-generate all -p
 harness-generate all -i
 ```
 
+### Generate the CI/CD pipelines
+
+```sh
+harness-generate ci-cd [paths ...] [-i APP ...] [-ex APP ...] [-e ENV ...] [--name NAME] [-u] [-rsn SECRET]
+```
+
+`paths` are the deployment layers, lowest priority first, as `harness-deployment` takes them (omit them to use
+the subdirectories with a `deployment-configuration`, then the current directory). A pipeline is generated for
+each environment with a template in the `deployment-configuration` of the last path:
+
+- `codefresh-template-[ENV].yaml` → `deployment/ci--[NAME]--[ENV].yaml`
+- `github-template-[ENV].yaml` → `.github/workflows/ci--[NAME]--[ENV].yaml` (and
+  `.github/workflows/ci--[NAME]--promote.yaml` when the template has a `cloudharness.promote` workflow)
+
+The templates of the other layers (e.g. cloud-harness) are merged in, but a pipeline is only generated for an
+environment the project has a template file for, even an empty one. `[NAME]` is `--name`, by default the
+included applications joined with dashes (`all` when there is no `-i`). `-e` restricts the environments; combine
+several with dashes (`-e research-dev`), each needing its template. For example, from the cloud-harness root:
+
+```sh
+harness-generate ci-cd . -i samples
+```
+
 ## harness-generate Notes
 
-- The tool scans the `./applications` directory for available applications.
+- The tool scans the `./applications` directory for available applications (`ci-cd` takes its own arguments,
+  `-i` there selects the applications to deploy).
 - If `path` is provided, `-a/--app-name` is ignored.
 - The `models` mode is a special flag used when regenerating only model libraries (deprecated).
 - The tool supports interactive mode to confirm before generating clients.
