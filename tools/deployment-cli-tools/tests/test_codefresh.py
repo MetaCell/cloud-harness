@@ -96,7 +96,13 @@ def test_create_codefresh_configuration_build_steps(tmp_path):
     # during prepare_deployment - not an unrelated built-in variable like
     # CF_SHORT_REVISION, so the image this step pushes is the exact one the
     # Helm chart's deployment.image already references.
-    assert myapp_step["tag"] == "${{MYAPP_TAG}}"
+    # Followed by the deployment "-dev" alias and the branch tag.
+    assert myapp_step["tags"] == [
+        "${{MYAPP_TAG}}",
+        "${{DEPLOYMENT_PUBLISH_TAG}}-dev",
+        "${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}",
+    ]
+    assert "tag" not in myapp_step
 
     # Every build step carries cloud-harness's own build-template defaults:
     # its own stage, the Codefresh registry reference, buildkit, and a
@@ -241,6 +247,51 @@ def test_create_codefresh_configuration_source_images_override_wins_on_collision
         arg.split("=", 1) for arg in _build_steps(cf)["myapp"]["build_arguments"]
     )
     assert myapp_args["CLOUDHARNESS_FLASK"] == "myoverride/cloudharness-flask:9.9"
+
+
+def test_create_codefresh_configuration_build_template_extra_keys(tmp_path):
+    # A project layer's codefresh-build-template.yaml adds keys to every build
+    # step (mnp sets no_cf_cache), but can't override generated ones.
+    override_root = write_tree_from_yaml(
+        tmp_path / "override",
+        """
+        deployment-configuration:
+          codefresh-build-template.yaml: |
+            no_cf_cache: true
+            dockerfile: ShouldNotWin
+    """,
+    )
+
+    roots = [CLOUDHARNESS_ROOT, RESOURCES, override_root]
+    values = create_helm_chart(
+        roots,
+        output_path=tmp_path,
+        include=["myapp"],
+        exclude=["events"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="1",
+        registry="reg",
+    )
+    cf = create_codefresh_deployment_scripts(
+        roots, envs=["dev"], helm_values=values, save=False
+    )
+
+    myapp_step = _build_steps(cf)["myapp"]
+    assert myapp_step["no_cf_cache"] is True
+    assert myapp_step["dockerfile"] == "dev.Dockerfile"
+
+
+def test_create_codefresh_configuration_test_images_tagged_latest(tmp_path):
+    # Test runner images are never published, so their build step tags latest.
+    cf, _ = _generate_cf(tmp_path, ["samples"])
+
+    steps = _build_steps(cf)
+    assert steps["test-api"]["tags"][0] == "${{TEST_API_TAG}}"
+    assert steps["test-api"]["tags"][-1] == "latest"
+    assert "latest" not in steps["samples"]["tags"]
 
 
 def test_create_codefresh_configuration_build_skip_when_condition(tmp_path):

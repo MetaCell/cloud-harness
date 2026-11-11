@@ -176,6 +176,22 @@ class CHCodefreshTemplate(CHValues):
 
 
 @register_file(
+    "codefresh_build_template",
+    lambda root: root / "deployment-configuration" / "codefresh-build-template.yaml",
+)
+class CHCodefreshBuildTemplate(CHValues):
+    """Per-layer defaults for every build step (e.g. a project's `no_cf_cache: true`)."""
+
+    @lru_cache
+    def all_values(self):
+        layer = self.containing_project
+        own = self.merge_with_envs(self.project.config.envs)
+        if layer.base is None:
+            return own
+        return dict_merge(layer.base.codefresh_build_template.all_values(), own)
+
+
+@register_file(
     "codefresh", lambda root: root / "deployment" / "codefresh.yaml", only_env=True
 )
 class CHCodefresh(CHValues):
@@ -264,7 +280,7 @@ class CHCodefresh(CHValues):
             }
         }
 
-    def _collect_build_step(self, entity):
+    def _collect_build_step(self, entity, additional_tags=()):
         context = self._context_for(entity)
         step = {
             "title": f"Building {entity.name}",
@@ -275,13 +291,26 @@ class CHCodefresh(CHValues):
             "image_name": entity.image_name,
             "working_directory": self._working_directory_for(context),
             "dockerfile": str(context.dockerfile.path),
-            "tag": _tag_reference(entity.name),
+            # First tag is the pipeline-variable tag the chart and the publish
+            # step reference; the rest are convenience aliases for the build.
+            "tags": [
+                _tag_reference(entity.name),
+                "${{DEPLOYMENT_PUBLISH_TAG}}-dev",
+                "${{CF_BRANCH_TAG_NORMALIZED_LOWER_CASE}}",
+                *additional_tags,
+            ],
             "build_arguments": [
                 "NOCACHE=${{CF_BUILD_ID}}",
                 *self._build_arguments(entity),
             ],
             "when": self._build_skip_when_condition(entity.name),
         }
+        # Keys only the layered codefresh-build-template.yaml sets (no_cf_cache,
+        # ...) carry over; everything generated above takes precedence.
+        template = self.project.codefresh_build_template.all_values()
+        step.update(
+            {k: v for k, v in template.items() if k not in step}
+        )
         step["dependencies"] = [
             dep.name
             for dep in self.project._combined_dependencies(entity)
@@ -555,7 +584,10 @@ class CHCodefresh(CHValues):
         test_image = project.test_images.get(name)
         if test_image is None or not test_image.dockerfile.exists():
             return
-        build_key, build_step = self._collect_build_step(test_image)
+        # Test runner images have no publish step, so tag them latest here.
+        build_key, build_step = self._collect_build_step(
+            test_image, additional_tags=("latest",)
+        )
         build_steps[build_key] = build_step
         steps[key]["image"] = (
             f"{self.qualify(test_image.image_name)}:{_tag_reference(test_image.name)}"
