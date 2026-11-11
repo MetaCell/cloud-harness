@@ -22,6 +22,7 @@ import requests
 import xxhash
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
+from ruamel.yaml.error import YAMLError
 
 from cloudharness_utils.constants import DEPLOYMENT_CONFIGURATION_PATH, EXCLUDE_PATHS, VALUES_OVERRIDES_PATH
 from . import CH_ROOT
@@ -183,13 +184,47 @@ _MERGE_COPY_IGNORE = shutil.ignore_patterns(
 
 
 def _merge_base_chain(entity, source_of, destination: Path) -> None:
+    """Copy the source_of directory of every entity of the base chain into destination, the
+    base first, so each layer overrides the ones below it. A YAML or JSON file a lower layer
+    already put there is deep-merged with the overriding one rather than replaced, so an
+    override only needs to state the keys it changes (e.g. a project's
+    applications/<app>/deploy/charts/values.yaml over the vendored sub-chart's defaults)."""
     if entity.base is not None:
         _merge_base_chain(entity.base, source_of, destination)
     source = source_of(entity)
     if source.exists():
         shutil.copytree(
-            source, destination, dirs_exist_ok=True, ignore=_MERGE_COPY_IGNORE
+            source,
+            destination,
+            dirs_exist_ok=True,
+            ignore=_MERGE_COPY_IGNORE,
+            copy_function=_merge_or_copy_file,
         )
+
+
+def _merge_or_copy_file(source: str, destination: str) -> str:
+    """copytree copy_function of _merge_base_chain: deep-merges a YAML or JSON source into the
+    data file destination already holds, the source's values winning, and copies any other
+    file over it. An empty source overrides nothing. A file that is not a mapping of data on
+    both sides - most often a Helm template, which is not parsable YAML - is replaced."""
+    codec = _MERGEABLE_SUFFIXES.get(Path(source).suffix.lower())
+    if codec is None or not os.path.exists(destination):
+        return shutil.copy2(source, destination)
+    try:
+        with open(source, encoding="utf-8") as f:
+            override = codec.load(f)
+        with open(destination, encoding="utf-8") as f:
+            base = codec.load(f)
+    except (YAMLError, json.JSONDecodeError):
+        # Not data but a template: nothing to merge, the override replaces it whole
+        return shutil.copy2(source, destination)
+    if override is None:
+        return destination
+    if not isinstance(base, dict) or not isinstance(override, dict):
+        return shutil.copy2(source, destination)
+    with open(destination, "w", encoding="utf-8") as f:
+        codec.dump(dict_merge(base, override), f)
+    return destination
 
 
 # The argv of the harness-deployment invocation generating files in this context, set by the CLI

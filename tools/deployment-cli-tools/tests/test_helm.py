@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import shutil
@@ -155,6 +156,56 @@ def test_collect_helm_values(tmp_path):
         chart_values = yaml.load(values_file)
     assert chart_values is not None, "values.yaml should be valid YAML"
     assert chart_values["test"] == "dev"
+
+
+def test_overriding_root_deep_merges_data_files_and_replaces_templates(tmp_path):
+    """A root overriding an application of a lower root states only the values it changes:
+    its sub-chart values.yaml and JSON resources are deep-merged over the lower root's ones,
+    while templates and other files replace them."""
+    base_root, top_root = tmp_path / "base", tmp_path / "top"
+    write_tree(base_root, {APPS_PATH: {"chartapp": {"deploy": {
+        "values.yaml": "harness: {}\n",
+        "resources": {"conf.json": '{"a": {"b": 1, "c": 2}}'},
+        "charts": {
+            "Chart.yaml": "apiVersion: v2\nname: vendored\nversion: 1.0.0\n",
+            "values.yaml": (
+                "workflow:\n  rbac:\n    create: true\n"
+                "controller:\n  parallelism: null\n  image:\n    tag: v1\n"
+            ),
+            "README.md": "vendored\n",
+            "templates": {"role.yaml": "{{- if .Values.workflow.rbac.create }}\nkind: Role\n{{- end }}\n"},
+        },
+    }}}})
+    write_tree(top_root, {APPS_PATH: {"chartapp": {"deploy": {
+        "resources": {"conf.json": '{"a": {"c": 3}}'},
+        "charts": {
+            "values.yaml": "controller:\n  parallelism: 5\n",
+            "README.md": "overridden\n",
+            "templates": {"role.yaml": "{{- if .Values.workflow.rbac.create }}\nkind: ClusterRole\n{{- end }}\n"},
+        },
+    }}}})
+
+    out_folder = tmp_path / "out"
+    create_helm_chart(
+        [CLOUDHARNESS_ROOT, base_root, top_root],
+        output_path=out_folder,
+        include=["chartapp"],
+        domain="my.local",
+        namespace="test",
+        local=False,
+        tag=1,
+    )
+
+    helm_path = out_folder / HELM_CHART_PATH
+    chart_path = helm_path / "charts" / "chartapp"
+    chart_values = yaml.load(chart_path / "values.yaml")
+    assert chart_values["workflow"]["rbac"]["create"] is True
+    assert chart_values["controller"]["parallelism"] == 5
+    assert chart_values["controller"]["image"]["tag"] == "v1"
+    assert (chart_path / "README.md").read_text() == "overridden\n"
+    assert "ClusterRole" in (chart_path / "templates" / "role.yaml").read_text()
+    resource = json.loads((helm_path / "resources" / "chartapp" / "conf.json").read_text())
+    assert resource == {"a": {"b": 1, "c": 3}}
 
 
 def test_collect_nobuild(tmp_path):
