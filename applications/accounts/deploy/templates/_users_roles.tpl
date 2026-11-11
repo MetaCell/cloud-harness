@@ -23,27 +23,39 @@
                 "value": {{ .user.password | default "test" | quote }}
             }
         ],
-        "realmRoles": {{ .user.realmRoles | toJson }},
-        "clientRoles": {
-            {{ .app.harness.name | quote }}: {{ .user.clientRoles | toJson }}
-        } 
+        "realmRoles": {{ .realmRoles | toJson }},
+        "clientRoles": {{ .clientRoles | toJson }}
     }
 {{- end}}
 #
 {{- define "deploy_accounts_utils.users_roles" }}
-        "users": [
-            {{- $j := 0}}
-            {{- range $app := .Values.apps }}
-              {{- if (hasKey $app.harness "accounts")  }}
-                {{- if $j}},{{end}}
-                {{- if $app.harness.accounts.users}}
-                    {{- $j = add1 $j }}
-                {{- end }}
-                {{- range $i, $user := $app.harness.accounts.users }}{{if $i}},{{end}}
-                {{ include "deploy_accounts_utils.user" (dict "root" $ "app" $app "user" $user) }}
-                {{- end }}
+        {{- /*
+        The same user can be declared by several apps (e.g. an app and its instances,
+        which inherit the app's accounts.users). Keycloak rejects duplicate usernames
+        (case-insensitive) in a realm import, so users are merged by username: the first
+        declaration wins for the user fields, realm roles are joined and client roles are
+        collected per app client.
+        */}}
+        {{- $users := dict }}
+        {{- $keys := list }}
+        {{- range $app := .Values.apps }}
+          {{- if hasKey $app.harness "accounts" }}
+            {{- range $user := $app.harness.accounts.users }}
+              {{- $key := $user.username | default $user.email | lower }}
+              {{- if not (hasKey $users $key) }}
+                {{- $keys = append $keys $key }}
+                {{- $_ := set $users $key (dict "user" $user "realmRoles" (list) "clientRoles" (dict)) }}
               {{- end }}
-              
+              {{- $entry := get $users $key }}
+              {{- $_ := set $entry "realmRoles" (concat $entry.realmRoles (default (list) $user.realmRoles) | uniq) }}
+              {{- $_ := set $entry.clientRoles $app.harness.name (default (list) $user.clientRoles) }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+        "users": [
+            {{- range $i, $key := $keys }}{{ if $i }},{{ end }}
+              {{- $entry := get $users $key }}
+            {{ include "deploy_accounts_utils.user" $entry }}
             {{- end }}
         ],
         "roles": {
