@@ -211,14 +211,14 @@ class ContainerizedOperation(ManagedOperation):
 
         return template
 
-    def submit(self):
-        """Created and submits the Argo workflow"""
+    def submit(self, **kwargs):
+        """Submit the workflow, forwarding keyword arguments to argo_service.submit_workflow."""
         op = self.to_workflow()
 
         log.debug("Submitting workflow\n" + yaml.dump(op))
 
         # TODO use rest api for that? Include this into cloudharness.workflows?
-        self.persisted = argo_service.submit_workflow(op)
+        self.persisted = argo_service.submit_workflow(op, **kwargs)
         return self.persisted
 
     def is_running(self):
@@ -347,9 +347,9 @@ class AsyncOperation(ContainerizedOperation):
     """The operation is made asynchronously in an Argo workflow.
     The workflow can be monitored during the execution"""
 
-    def execute(self):
-        op = self.submit()
-        return op
+    def execute(self, **kwargs):
+        """Submit asynchronously, forwarding keyword arguments to submit."""
+        return self.submit(**kwargs)
 
     def get_operation_update_url(self):
         return f"{env.get_cloudharness_workflows_service_url()}/api/operations/{self.persisted.name}"
