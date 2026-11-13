@@ -158,6 +158,91 @@ def test_collect_helm_values(tmp_path):
     assert chart_values["test"] == "dev"
 
 
+def test_untagged_deployment_does_not_inherit_latest_tag(tmp_path, monkeypatch):
+    commit_paths = []
+    monkeypatch.setattr(
+        "ch_cli_tools.model.get_git_commit_hash",
+        lambda path: commit_paths.append(Path(path)) or "abc1234",
+    )
+    out_path = tmp_path / "untagged"
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=out_path,
+        include=["myapp"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        registry="reg",
+    )
+
+    assert values.tag is None
+    assert values.build_hash == "abc1234"
+    assert set(commit_paths) == {Path(RESOURCES)}
+    with open(out_path / HELM_CHART_PATH / "values.yaml") as values_file:
+        written = yaml.load(values_file)
+    assert "tag" not in written
+    assert written["build_hash"] == "abc1234"
+
+
+def test_tagged_deployment_sets_tag(tmp_path):
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=tmp_path / "tagged",
+        include=["myapp"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag="2.1.0",
+        registry="reg",
+    )
+
+    assert values.tag == "2.1.0"
+
+
+def test_root_key_named_like_an_app_stays_at_root(tmp_path):
+    # values-template-nreg.yaml sets `events: kafka: image:` at the root: Helm reads a
+    # same-named sub-chart's values only from there, while the app keeps the override too
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=tmp_path / "root_key",
+        include=["events"],
+        domain="my.local",
+        namespace="test",
+        env="nreg",
+        local=False,
+        tag=1,
+        registry="reg",
+    ).to_dict()
+
+    assert values["events"] == {"kafka": {"image": "nodocker.io/apache/kafka:4.0.2"}}
+    assert values[KEY_APPS]["events"]["kafka"]["image"] == "nodocker.io/apache/kafka:4.0.2"
+
+
+def test_env_variables_expose_apps_domain_registry_and_tag(tmp_path):
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=tmp_path / "env",
+        include=["myapp"],
+        domain="my.local",
+        namespace="test",
+        env="dev",
+        local=False,
+        tag=1,
+        registry="reg",
+    ).to_dict()
+
+    env = [(variable["name"], variable["value"]) for variable in values["env"]]
+    assert ("CH_MYAPP_NAME", "myapp") in env
+    assert ("CH_MYAPP_SUBDOMAIN", "mysubdomain") in env
+    assert ("CH_DOMAIN", "my.local") in env
+    assert ("CH_IMAGE_REGISTRY", "reg") in env
+    assert ("CH_IMAGE_TAG", "1") in env
+    assert any(name == "CH_VERSION" for name, _ in env)
+    assert len(env) == len(set(env)), "values built twice must not duplicate variables"
+
+
 def test_overriding_root_deep_merges_data_files_and_replaces_templates(tmp_path):
     """A root overriding an application of a lower root states only the values it changes:
     its sub-chart values.yaml and JSON resources are deep-merged over the lower root's ones,

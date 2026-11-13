@@ -99,6 +99,7 @@ from .utils import (
     dict_merge,  # type: ignore
     env_suffixed_path,
     find_files,
+    get_git_commit_hash,
     get_yaml_parser,
     merge_with_layer,
     own_dockerfile_path,
@@ -1067,6 +1068,30 @@ def _promote_legacy_top_level_fields(value: dict, harness: dict) -> dict:
     return value
 
 
+_HARNESS_ENV_KEYS = ("name", "port", "subdomain")
+
+
+def _harness_env_variables(values: dict) -> list[dict]:
+    """The CH_* variables given to every pod: each app's harness name, port and
+    subdomain (CH_<APP>_<KEY>), then the domain, the image registry and the tag."""
+
+    def variable(name, value) -> dict:
+        return {"name": name.replace("-", "_").upper(), "value": str(value)}
+
+    variables = [
+        variable(f"CH_{app_name}_{key}", value)
+        for app_name, app_values in values[KEY_APPS].items()
+        for key, value in (app_values.get(KEY_HARNESS) or {}).items()
+        if key in _HARNESS_ENV_KEYS
+    ]
+    variables.append(variable("CH_DOMAIN", values.get("domain")))
+    variables.append(
+        variable("CH_IMAGE_REGISTRY", (values.get("registry") or {}).get("name"))
+    )
+    variables.append(variable("CH_IMAGE_TAG", values.get("tag")))
+    return variables
+
+
 def _finalize_app_values(
     name: str,
     value: dict,
@@ -1496,6 +1521,16 @@ class CHProject:
         project_values = {
             key: value for key, value in values.items() if key not in involved_apps
         }
+        # A root key named like an app also addresses the sub-chart of that name
+        # (e.g. the vendored `elasticsearch` chart), and Helm passes values down
+        # to a sub-chart only from the root: the project's own value stays there.
+        root_values = dict_merge(
+            self.helm_values_defaults.merge_with_base_and_envs(),
+            self.valuesyaml.merge_with_base_and_envs(),
+        )
+        project_values.update(
+            {key: root_values[key] for key in root_values.keys() & involved_apps.keys()}
+        )
 
         ingress = dict(project_values.get("ingress") or {})
         if ingress:
@@ -1520,8 +1555,10 @@ class CHProject:
         if self.config.namespace:
             final_allvalues["namespace"] = self.config.namespace
         final_allvalues.setdefault("namespace", "")
-        if self.config.tag:
-            final_allvalues["tag"] = self.config.tag
+        # Untagged deployments pin every image by content hash, so the base
+        # `tag: latest` default must not survive as if it were the version.
+        final_allvalues["tag"] = self.config.tag
+        final_allvalues["build_hash"] = get_git_commit_hash(self.project.root)
         registry = dict(project_values.get("registry") or {})
         if self.config.local:
             registry["secret"] = None
@@ -1535,6 +1572,10 @@ class CHProject:
             if not registry.get("name"):
                 registry["name"] = self.config.registry
             final_allvalues["registry"] = registry
+        final_allvalues["env"] = [
+            *(project_values.get("env") or []),
+            *_harness_env_variables(final_allvalues),
+        ]
 
         for warning in self.validate():
             logger.warning(warning)
