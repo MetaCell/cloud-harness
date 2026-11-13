@@ -57,6 +57,25 @@ op = operations.ParallelOperation('test-parallel-op-', (tasks.PythonTask('p1', f
     - **ParallelOperation** - takes a list of tasks running in parallel
     - **SimpleDagOperation** - simple Direct-Acyclic-Graph made from pipeline of parallel tasks
 
+### Asynchronous submission timeout
+
+Asynchronous operations such as `PipelineOperation` and `ParallelOperation` accept
+an optional HTTP submission timeout:
+
+```python
+workflow = op.execute(request_timeout=(2, 10))  # connection and read timeouts, in seconds
+```
+
+A single number is also accepted. Omitting `request_timeout` preserves the existing
+submission behaviour. `ContainerizedOperation.submit()` and
+`argo_service.submit_workflow()` accept the same keyword.
+
+This bounds the submission request, not the workflow's execution time. A timeout
+does not prove that Argo rejected the workflow; callers must reconcile uncertain
+outcomes before retrying. CloudHarness does not automatically resubmit.
+The existing `timeout` argument on synchronous operations still controls waiting
+for completion and is unchanged.
+
 ### Task Types
 - _InlinedTask_ - runs a script in a default image. No specific container configuration
   - **PythonTask** - runs a Python function
