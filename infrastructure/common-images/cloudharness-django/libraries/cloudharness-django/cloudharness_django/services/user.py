@@ -100,6 +100,18 @@ class UserService:
         for kc_group in kc_groups:
             self.sync_kc_group(kc_group)
 
+    def deactivate_kc_user(self, kc_id: str):
+        """
+        Deactivate the django user of a Keycloak user that was deleted.
+        Works from the Keycloak id alone, as the user can no longer be fetched from Keycloak.
+        The django user is kept, as other models may reference it.
+        """
+        user = get_user_by_kc_id(kc_id)
+        if user is None:
+            return
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+
     @transaction.atomic
     def sync_kc_user(self, kc_user: ch_models.User, is_superuser=False, delete=False):
         """
