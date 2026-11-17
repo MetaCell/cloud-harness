@@ -79,6 +79,7 @@ classDiagram
 import copy
 import hashlib
 import itertools
+import json
 import logging
 import re
 import shutil
@@ -97,6 +98,7 @@ from .utils import (
     _merge_base_chain,
     content_hash,
     dict_merge,  # type: ignore
+    dockerfile_lines,
     env_suffixed_path,
     find_files,
     get_git_commit_hash,
@@ -104,6 +106,7 @@ from .utils import (
     merge_with_layer,
     own_dockerfile_path,
     parse_dockerfile,
+    parse_dockerfile_line,
     resolve_path,
 )
 
@@ -995,6 +998,61 @@ class CHDockerfile:
             )
             dependencies.append(entity.dockerfile if entity is not None else name)
         return dependencies
+
+    def _collect_final_stage_lines(self) -> list[str]:
+        """The lines that build the final stage, preceded by those of the stages of this file it is built FROM."""
+        stages: dict[str, list[str]] = {}
+        current: list[str] = []
+        alias = None
+        for line in dockerfile_lines(self.path):
+            instruction, *fields = parse_dockerfile_line(line)
+            if instruction != "FROM" or not fields:
+                current.append(line)
+                continue
+            if alias:
+                stages[alias] = current
+            reference, *names = fields
+            current = list(stages.get(reference, [line]))
+            alias = names[0] if names else None
+        return current
+
+    def _collect_command_argvs(self, instruction: str) -> list[list[str]]:
+        """The argv of every ENTRYPOINT or CMD (per `instruction`) of the final stage, in order."""
+        argvs = []
+        for line in self._collect_final_stage_lines():
+            name, _, rest = line.partition(" ")
+            if name.upper() == instruction and rest.strip():
+                argvs.append(_command_argv(rest.strip()))
+        return argvs
+
+    @property
+    def entrypoint(self) -> list[str] | None:
+        """The ENTRYPOINT of the final stage, None when it sets none."""
+        argvs = self._collect_command_argvs("ENTRYPOINT")
+        return argvs[-1] if argvs else None
+
+    @property
+    def cmd(self) -> list[str] | None:
+        """The CMD of the final stage, None when it sets none."""
+        argvs = self._collect_command_argvs("CMD")
+        return argvs[-1] if argvs else None
+
+    @property
+    def command(self) -> list[str]:
+        """What the container runs: the ENTRYPOINT followed by the CMD, empty when neither is set."""
+        return [*(self.entrypoint or []), *(self.cmd or [])]
+
+
+def _command_argv(argument: str) -> list[str]:
+    """The argv of an ENTRYPOINT or CMD argument: its JSON array in exec form, else `/bin/sh -c` over the raw string."""
+    if argument.startswith("["):
+        try:
+            parsed = json.loads(argument)
+        except ValueError:
+            parsed = None
+        if isinstance(parsed, list):
+            return [str(item) for item in parsed]
+    return ["/bin/sh", "-c", argument]
 
 
 def _default_test_unit_enabled(harness: dict) -> dict:

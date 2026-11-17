@@ -71,11 +71,12 @@ def dockerfile_variable_reference(token: str) -> str | None:
     return match.group(1) if match else None
 
 
-def parse_dockerfile(path: Path) -> list[tuple[str, ...]]:
+def dockerfile_lines(path: Path) -> list[str]:
+    """The Dockerfile's instructions, one per line: comments dropped, continuations joined."""
     if not path.exists():
         return []
 
-    instructions: list[tuple[str, ...]] = []
+    lines: list[str] = []
     pending = ""
     for raw_line in path.read_text().splitlines():
         line = raw_line.strip()
@@ -87,24 +88,29 @@ def parse_dockerfile(path: Path) -> list[tuple[str, ...]]:
         if _LINE_CONTINUATION.search(line):
             pending = _LINE_CONTINUATION.sub("", line).strip()
             continue
+        lines.append(line)
+    return lines
 
-        command, _, rest = line.partition(" ")
-        command = command.upper()
-        rest = rest.strip()
-        if not rest:
-            instructions.append((command,))
-            continue
 
-        if command == "FROM":
-            instructions.append((command, *_parse_from(rest)))
-        elif command == "ARG":
-            instructions.append((command, *_parse_arg(rest)))
-        elif command in _EXEC_FORM_COMMANDS and rest.startswith("["):
-            instructions.append((command, *_parse_exec_form(rest)))
-        else:
-            instructions.append((command, *_split_args(rest)))
+def parse_dockerfile_line(line: str) -> tuple[str, ...]:
+    """The instruction of a Dockerfile line followed by its arguments."""
+    command, _, rest = line.partition(" ")
+    command = command.upper()
+    rest = rest.strip()
+    if not rest:
+        return (command,)
 
-    return instructions
+    if command == "FROM":
+        return (command, *_parse_from(rest))
+    if command == "ARG":
+        return (command, *_parse_arg(rest))
+    if command in _EXEC_FORM_COMMANDS and rest.startswith("["):
+        return (command, *_parse_exec_form(rest))
+    return (command, *_split_args(rest))
+
+
+def parse_dockerfile(path: Path) -> list[tuple[str, ...]]:
+    return [parse_dockerfile_line(line) for line in dockerfile_lines(path)]
 
 
 def _strip_leading_flags(tokens: list[str]) -> list[str]:
