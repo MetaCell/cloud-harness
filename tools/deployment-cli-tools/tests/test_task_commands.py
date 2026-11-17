@@ -8,6 +8,7 @@ at generation time and carried in the generated values instead.
 import logging
 from pathlib import Path
 
+import pytest
 from conftest import CLOUDHARNESS_ROOT, chain
 from test_util import write_tree
 
@@ -15,6 +16,8 @@ from ch_cli_tools import CHDeployConfig
 from ch_cli_tools.api import create_helm_chart
 from ch_cli_tools.model import CHDockerfile
 from ch_cli_tools.utils import parse_dockerfile
+from cloudharness.utils.config import CloudharnessConfig
+from cloudharness.workflows import operations, tasks
 from cloudharness_model import HarnessMainConfig
 
 
@@ -442,3 +445,91 @@ def test_generated_values_carry_task_commands_beside_task_images(tmp_path):
     assert values["task-commands"]["myapp-job"] == ["/bin/sh", "-c", "python job.py"]
     assert values["task-commands"]["myapp-plain"] == ["x"]
     assert set(values["task-commands"]) <= set(values["task-images"])
+
+
+# Runtime
+
+
+@pytest.fixture
+def ch_config(monkeypatch):
+    """Installs a Cloud Harness configuration for the test, with a registry and the given values."""
+
+    def install(**values):
+        allvalues = {
+            "registry": {"name": "reg"},
+            "apps": {},
+            "task-images": {"job": "reg/job:1", "workflows-notify-queue": "reg/notify:1"},
+            **values,
+        }
+        monkeypatch.setattr(CloudharnessConfig, "allvalues", allvalues)
+        return allvalues
+
+    return install
+
+
+def test_get_task_command_returns_the_derived_command(ch_config):
+    ch_config(**{"task-commands": {"job": ["./run.sh"]}})
+
+    assert CloudharnessConfig.get_task_command("job") == ["./run.sh"]
+
+
+@pytest.mark.parametrize("values", [{"task-commands": {"other": ["x"]}}, {"task-commands": None}, {}])
+def test_get_task_command_is_none_when_there_is_none_for_the_image(ch_config, values):
+    ch_config(**values)
+
+    assert CloudharnessConfig.get_task_command("job") is None
+
+
+def test_get_task_command_is_none_without_any_configuration(monkeypatch):
+    monkeypatch.setattr(CloudharnessConfig, "allvalues", {})
+    monkeypatch.setattr("cloudharness.utils.config.ALLVALUES_PATH", "/nonexistent/allvalues.yaml")
+
+    assert CloudharnessConfig.get_task_command("job") is None
+
+
+def test_custom_task_uses_the_derived_command_by_default(ch_config):
+    ch_config(**{"task-commands": {"job": ["./run.sh"]}})
+
+    spec = tasks.CustomTask("t", "job").spec()
+
+    assert spec["container"]["command"] == ["./run.sh"]
+
+
+def test_custom_task_explicit_command_wins(ch_config):
+    ch_config(**{"task-commands": {"job": ["./run.sh"]}})
+
+    spec = tasks.CustomTask("t", "job", command=["explicit"]).spec()
+
+    assert spec["container"]["command"] == ["explicit"]
+
+
+def test_custom_task_without_a_derived_command_sets_none(ch_config):
+    ch_config()
+
+    spec = tasks.CustomTask("t", "job").spec()
+
+    assert "command" not in spec["container"]
+
+
+def _exit_template(workflow):
+    return next(t for t in workflow["spec"]["templates"] if t["name"] == "exit-handler")
+
+
+def test_exit_handler_uses_the_derived_command_by_default(ch_config):
+    ch_config(**{"task-commands": {"workflows-notify-queue": ["notify"]}})
+
+    operation = operations.PipelineOperation(
+        "wf", [tasks.CustomTask("t", "job")], on_exit_notify={"queue": "q"}
+    )
+
+    assert _exit_template(operation.to_workflow())["container"]["command"] == ["notify"]
+
+
+def test_exit_handler_explicit_command_wins(ch_config):
+    ch_config(**{"task-commands": {"workflows-notify-queue": ["notify"]}})
+
+    operation = operations.PipelineOperation(
+        "wf", [tasks.CustomTask("t", "job")], on_exit_notify={"queue": "q", "command": ["explicit"]}
+    )
+
+    assert _exit_template(operation.to_workflow())["container"]["command"] == ["explicit"]

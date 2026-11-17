@@ -98,6 +98,17 @@ class CloudharnessConfig:
             return cls.get_configuration()['task-images'][base_name]
 
     @classmethod
+    def get_task_command(cls, base_name):
+        """
+        Command a task image runs, derived from its Dockerfile by harness-deployment.
+
+        Returns:
+            list of the command arguments, None when the image has no derived command
+            (an external image, a base image, or a configuration generated without it)
+        """
+        return (cls.get_configuration().get('task-commands') or {}).get(base_name)
+
+    @classmethod
     def get_application_by_filter(cls, **filter):
         """
         Helper function for filtering CH app objects

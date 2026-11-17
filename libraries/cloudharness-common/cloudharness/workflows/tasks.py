@@ -1,6 +1,7 @@
 from cloudharness.utils import dict_merge
 from . import argo_service
 from argo_workflows.model.io_argoproj_workflow_v1alpha1_template import IoArgoprojWorkflowV1alpha1Template
+from cloudharness.utils.config import CloudharnessConfig as conf
 from cloudharness.utils.env import get_cloudharness_variables, get_image_full_tag
 from .utils import WORKFLOW_NAME_VARIABLE_NAME, PodExecutionContext, affinity_spec, is_accounts_present, volume_mount_template, volume_requires_affinity
 
@@ -184,6 +185,8 @@ class BashTask(InlinedTask):
 
 class CustomTask(ContainerizedTask):
     def __init__(self, name, image_name, resources={}, image_pull_policy='IfNotPresent', command=None, **env_args):
+        if command is None:
+            command = conf.get_task_command(image_name)
         super().__init__(name, resources=resources,
                          image_pull_policy=image_pull_policy, command=command, **env_args)
         self.__image_name = get_image_full_tag(image_name)
