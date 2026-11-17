@@ -119,7 +119,9 @@ class DockerfileParser:
     @cached_property
     def parsed(self) -> ParsedDockerfile:
         model = ParsedDockerfile(
-            instructions=[self._tokenize(line) for line in self._read_lines()]
+            instructions=[
+                instruction for line in self._read_lines() for instruction in self._tokenize(line)
+            ]
         )
         self._split_stages(model)
         self._resolve_commands(model)
@@ -134,11 +136,11 @@ class DockerfileParser:
         pending = ""
         for raw_line in self.path.read_text().splitlines():
             line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
             if pending:
                 line = f"{pending} {line}".strip()
                 pending = ""
-            if not line or line.startswith("#"):
-                continue
             if _LINE_CONTINUATION.search(line):
                 pending = _LINE_CONTINUATION.sub("", line).strip()
                 continue
@@ -146,30 +148,32 @@ class DockerfileParser:
         return lines
 
     @classmethod
-    def _tokenize(cls, line: str) -> Instruction:
+    def _tokenize(cls, line: str) -> list[Instruction]:
+        """The instructions of a line: one, except for an ARG declaring several names."""
         name, _, rest = line.partition(" ")
         name = name.upper()
         rest = rest.strip()
         if not rest:
-            return Instruction(name)
+            return [Instruction(name)]
         if name == "FROM":
-            return Instruction(name, cls._parse_from(rest), rest)
+            return [Instruction(name, cls._parse_from(rest), rest)]
         if name == "ARG":
-            return Instruction(name, cls._parse_arg(rest), rest)
+            return [Instruction(name, cls._parse_arg(token), token) for token in cls._split_args(rest)]
         if name in _EXEC_FORM_INSTRUCTIONS and rest.startswith("["):
             items = cls.parse_exec_form(rest)
-            return Instruction(name, tuple(items) if items is not None else (rest,), rest)
-        return Instruction(name, tuple(cls._split_args(rest)), rest)
+            return [Instruction(name, tuple(items) if items is not None else (rest,), rest)]
+        return [Instruction(name, tuple(cls._split_args(rest)), rest)]
 
-    @staticmethod
-    def _split_stages(model: ParsedDockerfile) -> None:
+    @classmethod
+    def _split_stages(cls, model: ParsedDockerfile) -> None:
         """Group the instructions after each FROM into a stage, linked to the earlier stage it is built FROM."""
         by_alias: dict[str, Stage] = {}
         for instruction in model.instructions:
             if instruction.name == "FROM" and instruction.arguments:
                 reference, *alias = instruction.arguments
-                # Stage names are case-insensitive
-                stage = Stage(reference, alias[0] if alias else None, by_alias.get(reference.lower()))
+                is_variable = cls.variable_reference(cls._strip_leading_flags(instruction.raw.split())[0]) is not None
+                parent = None if is_variable else by_alias.get(reference.lower())
+                stage = Stage(reference, alias[0] if alias else None, parent)
                 model.stages.append(stage)
                 if stage.alias:
                     by_alias[stage.alias.lower()] = stage
@@ -229,9 +233,7 @@ class DockerfileParser:
         return tuple(parts)
 
     @staticmethod
-    def _parse_arg(rest: str) -> tuple[str, ...]:
-        # ARG <name>[=<default>]
-        name, has_default, default = rest.partition("=")
-        if has_default:
-            return (name.strip(), default.strip())
-        return (name.strip(),)
+    def _parse_arg(token: str) -> tuple[str, ...]:
+        # <name>[=<default>]
+        name, has_default, default = token.partition("=")
+        return (name, default) if has_default else (name,)

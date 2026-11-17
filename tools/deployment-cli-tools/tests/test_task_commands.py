@@ -398,6 +398,26 @@ def test_dockerfile_built_from_itself_is_reported_and_does_not_crash(tmp_path, c
     assert "built FROM itself" in caplog.text
 
 
+def test_dockerfile_leading_into_a_loop_keeps_its_base_and_names_only_the_loop(tmp_path, caplog):
+    project = _project(
+        tmp_path,
+        {
+            "a": "ARG MYAPP_B\nFROM $MYAPP_B\nRUN true\n",
+            "b": 'ARG MYAPP_C\nFROM $MYAPP_C\nCMD ["b"]\n',
+            "c": 'ARG MYAPP_B\nFROM $MYAPP_B\n',
+        },
+    )
+
+    dockerfile = _task_dockerfile(project, "a")
+    with caplog.at_level(logging.ERROR):
+        command = dockerfile.command
+
+    assert command == ["b"]
+    assert dockerfile.base_dockerfile is not None
+    assert f"Dockerfile {dockerfile.path} is built FROM" not in caplog.text
+    assert "built FROM itself" in caplog.text
+
+
 # Generation
 
 

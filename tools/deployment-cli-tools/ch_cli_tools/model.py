@@ -79,7 +79,6 @@ classDiagram
 import copy
 import hashlib
 import itertools
-import json
 import logging
 import re
 import shutil
@@ -99,7 +98,7 @@ from .utils import (
     MERGE_DIRNAME,
     _merge_base_chain,
     content_hash,
-    dict_merge,  # type: ignore
+    dict_merge,
     env_suffixed_path,
     find_files,
     get_git_commit_hash,
@@ -1006,11 +1005,14 @@ class CHDockerfile:
         return entity.dockerfile if entity is not None else None
 
     def _leads_back_to_itself(self, base: "CHDockerfile") -> bool:
-        seen = {self.path.resolve()}
+        own = self.path.resolve()
+        seen: set[Path] = set()
         while base is not None:
             path = base.path.resolve()
-            if path in seen:
+            if path == own:
                 return True
+            if path in seen:  # a loop this Dockerfile only leads into: the Dockerfiles in it report it
+                return False
             seen.add(path)
             base = base._find_base_dockerfile()
         return False
