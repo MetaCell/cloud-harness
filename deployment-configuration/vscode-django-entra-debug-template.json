@@ -1,0 +1,22 @@
+{
+    "args": [
+      "--host",
+      "0.0.0.0",
+      "--port",
+      "8000",
+      "django_baseapp.asgi:application"
+    ],
+    "console": "integratedTerminal",
+    "cwd": "${workspaceFolder}/applications/__APP_NAME__/backend",
+    "env": {
+      "CH_CURRENT_APP_NAME": "__APP_NAME__",
+      "CH_VALUES_PATH": "${workspaceFolder}/deployment/helm/values.yaml",
+      "DJANGO_SETTINGS_MODULE": "django_baseapp.settings"
+    },
+    "envFile": "${workspaceFolder}/applications/__APP_NAME__/.env",
+    "justMyCode": false,
+    "module": "uvicorn",
+    "name": "__APP_NAME__ backend",
+    "request": "launch",
+    "type": "debugpy"
+  }

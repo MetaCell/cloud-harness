@@ -69,6 +69,10 @@ def infer_server_template(app_path: pathlib.Path) -> Iterable[str]:
     manage_path = backend_path / 'manage.py'
 
     if manage_path.exists():
+        if (app_path / 'libraries' / 'cloudharness-django').exists():
+            # vendored Entra CloudHarness libraries
+            yield TemplateType.DJANGO_ENTRA
+            return
         yield from infer_django_template(backend_path)
         return
 

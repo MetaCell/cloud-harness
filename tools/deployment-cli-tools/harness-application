@@ -60,6 +60,8 @@ def get_command_line_arguments() -> tuple[str, list[str]]:
                         - db-mongo
                         - django-fastapi (fastapi django backend based on openapi)
                         - django-ninja (django ninja backend)
+                        - django-entra (django ninja backend and React frontend authenticated with Microsoft Entra ID,
+                          self-contained: not combined with other templates)
                         """)
     args, unknown = parser.parse_known_args(sys.argv[1:])
 
@@ -84,6 +86,15 @@ def get_command_line_arguments() -> tuple[str, list[str]]:
 
 def normalize_templates(templates: list[str]) -> list[str]:
     templates = list(templates)
+
+    standalone_templates = [template for template in templates if template in TemplateType.standalone_templates()]
+    if standalone_templates:
+        others = [template for template in templates if template not in standalone_templates and template != TemplateType.BASE]
+        if len(standalone_templates) > 1 or others:
+            print(f'The {standalone_templates[0]} template is a complete application and cannot be combined with: '
+                  f'{", ".join(standalone_templates[1:] + others)}')
+            exit(1)
+        return standalone_templates
 
     def django_template_index():
         return next(index for index, template in enumerate(templates) if template in TemplateType.django_templates())

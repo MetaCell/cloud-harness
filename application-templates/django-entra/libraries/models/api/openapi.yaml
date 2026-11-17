@@ -1,0 +1,1384 @@
+openapi: 3.0.2
+info:
+    title: cloudharness
+    version: 1.0.0
+components:
+    schemas:
+        AutoArtifactSpec:
+            description: ''
+            required: []
+            type: object
+            properties:
+                auto:
+                    description: 'When true, enables automatic template'
+                    type: boolean
+                name:
+                    description: ''
+                    type: string
+        ServiceAutoArtifactConfig:
+            description: ''
+            type: object
+            allOf:
+                -
+                    type: object
+                    properties:
+                        port:
+                            description: Service port
+                            type: integer
+                -
+                    $ref: '#/components/schemas/AutoArtifactSpec'
+        ApplicationDependenciesConfig:
+            description: ''
+            type: object
+            properties:
+                hard:
+                    description: >-
+                        Hard dependencies indicate that the application may not start without these other
+                        applications.
+                    type: array
+                    items:
+                        type: string
+                soft:
+                    description: >-
+                        Soft dependencies indicate that the application will work partially without these
+                        other applications.
+                    type: array
+                    items:
+                        type: string
+                build:
+                    description: >-
+                        Hard dependencies indicate that the application Docker image build requires these
+                        base/common images
+                    type: array
+                    items:
+                        type: string
+                git:
+                    description: ''
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GitDependencyConfig'
+        DeploymentResourcesConf:
+            description: ''
+            type: object
+            properties:
+                requests:
+                    $ref: '#/components/schemas/CpuMemoryConfig'
+                    description: ''
+                limits:
+                    $ref: '#/components/schemas/CpuMemoryConfig'
+                    description: ''
+        FileResourcesConfig:
+            description: ''
+            required:
+                - name
+                - src
+                - dst
+            type: object
+            properties:
+                name:
+                    $ref: '#/components/schemas/Filename'
+                    description: ''
+                src:
+                    $ref: '#/components/schemas/Filename'
+                    description: ''
+                dst:
+                    description: ''
+                    type: string
+        ApplicationProbe:
+            description: >-
+                Define a Kubernetes probe See also the
+
+                [official
+                documentation](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
+            required:
+                - path
+            type: object
+            properties:
+                path:
+                    $ref: '#/components/schemas/URL'
+                    description: ''
+                periodSeconds:
+                    description: ''
+                    type: number
+                failureThreshold:
+                    description: ''
+                    type: number
+                initialDelaySeconds:
+                    description: ''
+                    type: number
+                port:
+                    description: ''
+                    type: number
+        URL:
+            description: ''
+            type: string
+        ApplicationConfig:
+            description: Place here the values to configure your application helm templates.
+            required:
+                - harness
+            type: object
+            properties:
+                harness:
+                    $ref: '#/components/schemas/ApplicationHarnessConfig'
+                    description: >-
+                        Values inside this section have a special meaning to cloudharness (e.g. enabling and
+                        configuring automatic deployment)
+            additionalProperties: true
+        RegistrySecretConfig:
+            description: ''
+            required: []
+            type: object
+            properties:
+                name:
+                    description: The name of the secret to create for docker registry credentials
+                    type: string
+                value:
+                    description: >-
+                        The value of the secret to create for docker registry  credentials. This should be the
+                        raw JSON content of the  Google Cloud service account key used for the registry.
+                    type: string
+        RegistryConfig:
+            description: ''
+            required:
+                - name
+            type: object
+            properties:
+                name:
+                    $ref: '#/components/schemas/URL'
+                    description: The docker registry where built images are pushed
+                secret:
+                    $ref: '#/components/schemas/RegistrySecretConfig'
+                    description: Optional secret used for pulling from docker registry.
+        FreeObject:
+            description: ''
+            type: object
+            additionalProperties: true
+        ApplicationsConfigsMap:
+            description: ''
+            type: object
+            additionalProperties:
+                $ref: '#/components/schemas/ApplicationConfig'
+        NameValue:
+            description: ''
+            required:
+                - name
+            type: object
+            properties:
+                name:
+                    description: ''
+                    type: string
+                value:
+                    description: ''
+                    type: string
+        UserGroup:
+            type: object
+            properties:
+                access:
+                    type: object
+                    additionalProperties: true
+                attributes:
+                    $ref: '#/components/schemas/SimpleMap'
+                    additionalProperties: true
+                clientRoles:
+                    type: object
+                    additionalProperties: true
+                id:
+                    type: string
+                name:
+                    type: string
+                path:
+                    type: string
+                realmRoles:
+                    type: array
+                    items:
+                        type: string
+                subGroups:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/UserGroup'
+        UserCredential:
+            type: object
+            properties:
+                createdDate:
+                    format: int64
+                    type: integer
+                credentialData:
+                    type: string
+                id:
+                    type: string
+                priority:
+                    format: int32
+                    type: integer
+                secretData:
+                    type: string
+                temporary:
+                    type: boolean
+                type:
+                    type: string
+                userLabel:
+                    type: string
+                value:
+                    type: string
+        User:
+            type: object
+            properties:
+                access:
+                    type: object
+                    additionalProperties: true
+                attributes:
+                    type: object
+                    additionalProperties: true
+                clientRoles:
+                    type: object
+                    additionalProperties: true
+                createdTimestamp:
+                    format: int64
+                    type: integer
+                credentials:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/UserCredential'
+                disableableCredentialTypes:
+                    type: array
+                    items:
+                        type: string
+                email:
+                    type: string
+                emailVerified:
+                    type: boolean
+                enabled:
+                    type: boolean
+                federationLink:
+                    type: string
+                firstName:
+                    type: string
+                groups:
+                    type: array
+                    items:
+                        type: string
+                id:
+                    type: string
+                lastName:
+                    type: string
+                realmRoles:
+                    type: array
+                    items:
+                        type: string
+                requiredActions:
+                    type: array
+                    items:
+                        type: string
+                serviceAccountClientId:
+                    type: string
+                username:
+                    type: string
+                additionalProperties: {}
+                userGroups:
+                    description: ''
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/UserGroup'
+                organizations:
+                    description: ''
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Organization'
+        Filename:
+            description: ''
+            pattern: '^[^<>:;,?*|]+$'
+            type: string
+        PathSpecifier:
+            description: ''
+            pattern: '^[^<>:;,?|]+$'
+            type: string
+        CDCEventMeta:
+            description: ''
+            required:
+                - app_name
+            type: object
+            properties:
+                app_name:
+                    description: The name of the application/microservice sending the message
+                    type: string
+                user:
+                    $ref: '#/components/schemas/User'
+                    description: ''
+                args:
+                    description: the caller function arguments
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FreeObject'
+                kwargs:
+                    description: the caller function keyword arguments
+                description:
+                    description: General description -- for human consumption
+                    type: string
+        JupyterHubConfig:
+            description: ''
+            type: object
+            properties:
+                args:
+                    description: arguments passed to the container
+                    type: array
+                    items:
+                        type: string
+                extraConfig:
+                    $ref: '#/components/schemas/SimpleMap'
+                    description: allows you to add Python snippets to the jupyterhub_config.py file
+                spawnerExtraConfig:
+                    $ref: '#/components/schemas/FreeObject'
+                    description: allows you to add values to the spawner object without the need of creating a new hook
+                applicationHook:
+                    description: |-
+                        change the hook function (advanced)
+
+                        Specify the Python name of the function (full module path, the module must be 
+                        installed in the Docker image)
+                    example: my_lib.change_pod_manifest
+            additionalProperties: true
+        UserRole:
+            type: object
+            properties:
+                attributes:
+                    type: object
+                    additionalProperties: true
+                clientRole:
+                    type: boolean
+                composite:
+                    type: boolean
+                containerId:
+                    type: string
+                description:
+                    type: string
+                id:
+                    type: string
+                name:
+                    type: string
+            additionalProperties: true
+        ApplicationAccountsConfig:
+            description: ''
+            type: object
+            properties:
+                roles:
+                    description: Specify roles to be created in this deployment specific for this application
+                    type: array
+                    items:
+                        type: string
+                users:
+                    description: 'Defines test users to be added to the deployment, specific for this application'
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ApplicationUser'
+        ApplicationUser:
+            description: Defines a user
+            required:
+                - username
+            type: object
+            properties:
+                username:
+                    description: ''
+                    type: string
+                password:
+                    description: ''
+                    type: string
+                clientRoles:
+                    description: ''
+                    type: array
+                    items:
+                        type: string
+                realmRoles:
+                    description: ''
+                    type: array
+                    items:
+                        type: string
+        ApplicationTestConfig:
+            description: ''
+            required:
+                - unit
+                - e2e
+                - api
+            type: object
+            properties:
+                unit:
+                    $ref: '#/components/schemas/UnitTestsConfig'
+                    description: ''
+                api:
+                    $ref: '#/components/schemas/ApiTestsConfig'
+                    description: ''
+                e2e:
+                    $ref: '#/components/schemas/E2ETestsConfig'
+                    description: ''
+        UnitTestsConfig:
+            description: ''
+            required:
+                - enabled
+                - commands
+            type: object
+            properties:
+                enabled:
+                    description: 'Enables unit tests for this application (default: true)'
+                    type: boolean
+                commands:
+                    description: Commands to run unit tests
+                    type: array
+                    items:
+                        type: string
+                    example: '["pytest /usr/src/app/samples/test"]'
+        E2ETestsConfig:
+            description: ''
+            required:
+                - enabled
+                - smoketest
+            type: object
+            properties:
+                enabled:
+                    description: 'Enables end to end testing for this application (default: false)'
+                    type: boolean
+                smoketest:
+                    description: Specify whether to run the common smoke tests
+                    type: boolean
+                ignoreConsoleErrors:
+                    description: ''
+                    type: boolean
+                ignoreRequestErrors:
+                    description: ''
+                    type: boolean
+        ApiTestsConfig:
+            description: ''
+            required:
+                - enabled
+                - autotest
+                - checks
+            type: object
+            properties:
+                enabled:
+                    description: 'Enables api tests for this application (default: false)'
+                    type: boolean
+                autotest:
+                    description: Specify whether to run the common smoke tests
+                    type: boolean
+                runParams:
+                    description: Additional schemathesis parameters
+                    type: array
+                    items:
+                        type: string
+                checks:
+                    description: >-
+                        One of the Schemathesis checks:
+
+
+                        - not_a_server_error. The response has 5xx HTTP status;
+
+                        - status_code_conformance. The response status is not defined in the API schema;
+
+                        - content_type_conformance. The response content type is not defined in the API
+                        schema;
+
+                        - response_schema_conformance. The response content does not conform to the schema
+                        defined for this specific response;
+
+                        - response_headers_conformance. The response headers does not contain all defined
+                        headers.
+                    type: array
+                    items:
+                        type: string
+                    example: '["not_a_server_error", "status_code_conformance"]'
+        SimpleMap:
+            description: ''
+            type: object
+            additionalProperties: true
+        SecretsMap:
+            description: 'Application secrets, by name'
+            type: object
+            additionalProperties:
+                $ref: '#/components/schemas/SecretDefinition'
+            example:
+                unsecureSecret: a value
+                randomSecret: ''
+                managedSecret:
+                    manager: onepassword
+                    path: vaults/my-vault/items/my-item
+        SecretDefinition:
+            description: >-
+                An application secret, defined either as a plain value or as a secret
+                configuration object. A `string` (or null) is the secret value itself: empty or
+                null generates a random value, `?` generates a new random value at every
+                deployment. A `SecretConfig` object instead delegates the secret to a secret
+                manager, and carries the settings that manager needs.
+            anyOf:
+                - type: string
+                - $ref: '#/components/schemas/SecretConfig'
+        SecretConfig:
+            title: Root Type for SecretConfig
+            description: >-
+                Rich definition of an application secret, used in place of a plain value to
+                delegate the secret to a secret manager. Manager specific settings (e.g. `path`
+                for onepassword, `arn` for aws) are added next to the properties below.
+            type: object
+            properties:
+                manager:
+                    description: >-
+                        Name of the secret manager handling the secret. Defaults to `cloudharness`,
+                        which creates the value in the application secret. Set explicitly to null to
+                        leave the secret unmanaged: nothing is created and the secret is assumed to
+                        exist already.
+                    type: string
+                    nullable: true
+                    example: onepassword
+                default:
+                    description: >-
+                        Value used by the `cloudharness` manager and as a fallback when the secret
+                        manager is not available, as in local docker compose deployments. Follows the
+                        same conventions as a plain secret value: null or empty generates a random
+                        value once, `?` generates a new random value at every deployment.
+                    type: string
+                    nullable: true
+            additionalProperties: true
+            example:
+                manager: onepassword
+                default: a-value
+                path: vaults/my-vault/items/my-item
+        Quota:
+            description: ''
+            type: object
+            additionalProperties: true
+            example:
+                quota-ws-max: 5
+                quota-storage-max: 1G
+        GitDependencyConfig:
+            title: Root Type for GitDependencyConfig
+            description: Defines a git repo to be cloned inside the application path
+            required:
+                - branch_tag
+                - url
+            type: object
+            properties:
+                url:
+                    type: string
+                branch_tag:
+                    type: string
+                path:
+                    description: 'Defines the path where the repo is cloned. default: /git'
+                    type: string
+            example:
+                url: 'https://github.com/MetaCell/nwb-explorer.git'
+                branch_tag: master
+                path: /git
+        DockerfileConfig:
+            description: Configuration for a dockerfile
+            type: object
+            properties:
+                buildArgs:
+                    $ref: '#/components/schemas/SimpleMap'
+                    description: >-
+                        Map of build arguments to provide to the dockerfile at build time.
+
+
+                        The use of this feature is to aid in development (e.g. not running tests on every
+                        local build) and not for setting environment variables in different environments;
+                        caution should be taken when using this feature as it can lead to inconsistent
+                        behaviour across environments.
+        HarnessMainConfig:
+            description: ''
+            required:
+                - local
+                - secured_gatekeepers
+                - domain
+                - namespace
+                - mainapp
+                - apps
+            type: object
+            properties:
+                local:
+                    description: 'If set to true, local DNS mapping is added to pods.'
+                    type: boolean
+                secured_gatekeepers:
+                    description: >-
+                        Enables/disables Gatekeepers on secured applications. Set to false for
+                        testing/development
+                    type: boolean
+                domain:
+                    description: The root domain
+                    type: string
+                    example: The root domain.
+                namespace:
+                    description: The K8s namespace.
+                    type: string
+                mainapp:
+                    description: Defines the app to map to the root domain
+                    type: string
+                registry:
+                    $ref: '#/components/schemas/RegistryConfig'
+                    description: ''
+                tag:
+                    description: Docker tag used to push/pull the built images.
+                    type: string
+                apps:
+                    $ref: '#/components/schemas/ApplicationsConfigsMap'
+                    description: ''
+                env:
+                    description: Environmental variables added to all pods
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/NameValue'
+                privenv:
+                    description: Private environmental variables added to all pods
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/NameValue'
+                backup:
+                    $ref: '#/components/schemas/BackupConfig'
+                    description: ''
+                name:
+                    description: Base name
+                    type: string
+                task-images:
+                    $ref: '#/components/schemas/SimpleMap'
+                    description: ''
+                build_hash:
+                    description: ''
+                    type: string
+                ingress:
+                    $ref: '#/components/schemas/GatewayGlobalConfig'
+                    description: ''
+            additionalProperties: true
+        Organization:
+            description: ''
+            type: object
+            allOf:
+                -
+                    type: object
+                    properties:
+                        domains:
+                            description: ''
+                            type: array
+                            items:
+                                $ref: '#/components/schemas/NamedObject'
+                        alias:
+                            description: ''
+                            type: string
+                        enabled:
+                            description: ''
+                            type: boolean
+                        id:
+                            description: ''
+                            type: string
+                -
+                    $ref: '#/components/schemas/NamedObject'
+        DatabaseDeploymentConfig:
+            description: ''
+            type: object
+            allOf:
+                -
+                    type: object
+                    properties:
+                        type:
+                            description: |-
+                                Define the database type.
+
+                                One of (mongo, postgres, neo4j, sqlite3)
+                            pattern: ^(mongo|postgres|neo4j|sqlite3)$
+                            type: string
+                            example: '"neo4j"'
+                        size:
+                            description: Specify database disk size
+                            type: string
+                            example: 1Gi
+                        storageClass:
+                            description: |-
+                                Storage class of the database volume claim.
+
+                                When not set, the claim carries no storage class, so that the cluster
+                                default storage class is used.
+                            type: string
+                            nullable: true
+                        user:
+                            description: database username
+                            type: string
+                        pass:
+                            description: Database password
+                            type: string
+                        image_ref:
+                            description: Used for referencing images from the build
+                            type: string
+                            example: 'image_ref: myownpgimage'
+                        statefulset:
+                            description: >-
+                                When true, the auto-generated database is rendered as a StatefulSet instead
+                                of a Deployment, provisioning its volume through volumeClaimTemplates. The
+                                data of a pre-existing database PVC is copied into the statefulset volume by
+                                a migration job (delete the legacy PVC once migrated). Ignored when
+                                postgres.operator is true.
+                            type: boolean
+                        mongo:
+                            $ref: '#/components/schemas/FreeObject'
+                            description: Mongo db specific configuration
+                        postgres:
+                            $ref: '#/components/schemas/FreeObject'
+                            description: Postgres database specific configuration
+                        neo4j:
+                            description: Neo4j database specific configuration
+                        resources:
+                            $ref: '#/components/schemas/DeploymentResourcesConf'
+                            description: Database deployment resources
+                        connect_string:
+                            description: >-
+                                Specify if the database is external. If not null, auto deployment if set will
+                                not
+
+                                be used. Leave it as an empty string and the connect string will be provided
+                                as 
+
+                                a secret to be provided at CI/CD (recommended)
+                            type: string
+                -
+                    $ref: '#/components/schemas/AutoArtifactSpec'
+            additionalProperties: true
+        UriRoleMappingConfig:
+            description: 'Defines the application Gatekeeper configuration, if enabled (i.e. `secured: true`.'
+            required:
+                - uri
+            type: object
+            properties:
+                uri:
+                    $ref: '#/components/schemas/PathSpecifier'
+                    description: Path to secure
+                roles:
+                    description: Roles allowed to access the present uri
+                    type: array
+                    items:
+                        type: string
+                methods:
+                    description: >-
+                        HTTP methods (uppercase) the mapping applies to. Empty means all methods.
+                        Passed through to the gatekeeper resource when `secured` is true. When
+                        `deployment.statefulset` is true, uris declaring a write method
+                        (POST/PUT/PATCH/DELETE) are also routed through the ingress to the leader
+                        service (pod 0).
+                    type: array
+                    items:
+                        type: string
+                white-listed:
+                    description: ''
+                    type: boolean
+            additionalProperties: true
+        BackupConfig:
+            description: ''
+            required:
+                - dir
+                - resources
+            type: object
+            properties:
+                active:
+                    description: ''
+                    type: boolean
+                keep_days:
+                    description: ''
+                keep_weeks:
+                    description: ''
+                keep_months:
+                    description: ''
+                schedule:
+                    description: Cron expression
+                    type: string
+                suffix:
+                    description: The file suffix added to backup files
+                    type: string
+                volumesize:
+                    description: The volume size for backups (all backups share the same volume)
+                    type: string
+                dir:
+                    $ref: '#/components/schemas/Filename'
+                    description: 'Target directory of backups, the mount point of the persistent volume.'
+                resources:
+                    $ref: '#/components/schemas/DeploymentResourcesConf'
+                    description: ''
+        CpuMemoryConfig:
+            description: ''
+            type: object
+            properties:
+                cpu:
+                    description: ''
+                memory:
+                    description: ''
+        DeploymentVolumeSpec:
+            description: |-
+                Defines a volume attached to the deployment.
+                Automatically created the volume claim and mounts.
+            type: object
+            allOf:
+                -
+                    required:
+                        - mountpath
+                    type: object
+                    properties:
+                        mountpath:
+                            description: The mount path for the volume
+                            type: string
+                        size:
+                            description: |-
+                                The volume size. 
+
+                                E.g. 5Gi
+                        usenfs:
+                            description: |-
+                                Deprecated: use `writeMany` with the nfs storage class instead.
+
+                                Set to `true` to use the nfs on the created volume and mount as ReadWriteMany.
+                            type: boolean
+                        writeMany:
+                            description: |-
+                                Set to `true` to create and mount the volume as ReadWriteMany.
+
+                                ReadWriteMany volumes attach to several nodes at once, hence pods using them
+                                are not pinned to the volume's node.
+                                Requires a storage class supporting ReadWriteMany: set `storageClass`, unless
+                                the cluster default one supports it.
+                            type: boolean
+                        storageClass:
+                            description: |-
+                                The storage class used to create the volume claim, `standard` by default.
+
+                                Set it to null to omit the storage class from the claim, so that the
+                                cluster default storage class is used.
+                            type: string
+                            nullable: true
+                -
+                    $ref: '#/components/schemas/AutoArtifactSpec'
+            example:
+                auto: true
+                mountpath: /usr/src/app/persistent
+                name: my-files
+                size: 5Gi
+                writeMany: true
+                storageClass: efs-sc
+        CDCEvent:
+            description: |-
+                A message sent to the orchestration queue.
+                Applications can listen to these events to react to data change events happening
+                on other applications.
+            required:
+                - message_type
+                - operation
+                - uid
+                - meta
+            type: object
+            properties:
+                operation:
+                    description: the operation on the object e.g. create / update / delete
+                    enum:
+                        - create
+                        - update
+                        - delete
+                        - other
+                    type: string
+                uid:
+                    description: the unique identifier attribute of the object
+                message_type:
+                    description: the type of the message (relates to the object type) e.g. jobs
+                    type: string
+                resource:
+                    $ref: '#/components/schemas/FreeObject'
+                    description: The target object
+                meta:
+                    $ref: '#/components/schemas/CDCEventMeta'
+                    description: ''
+        ProxyConf:
+            title: Root Type for ProxyConf
+            description: ''
+            type: object
+            properties:
+                forwardedHeaders:
+                    type: boolean
+                payload:
+                    $ref: '#/components/schemas/ProxyPayloadConf'
+                    properties:
+                        max:
+                            format: int32
+                            type: integer
+                timeout:
+                    $ref: '#/components/schemas/ProxyTimeoutConf'
+                    properties:
+                        keepalive:
+                            format: int32
+                            type: integer
+                        read:
+                            format: int32
+                            type: integer
+                        send:
+                            format: int32
+                            type: integer
+                gatekeeper:
+                    $ref: '#/components/schemas/GatekeeperConf'
+                    description: ''
+            example:
+                forwardedHeaders: true
+                payload:
+                    max: 250
+                timeout:
+                    keepalive: 60
+                    read: 60
+                    send: 60
+        ProxyPayloadConf:
+            title: Root Type for ProxyPayloadConf
+            description: ''
+            type: object
+            properties:
+                max:
+                    format: int32
+                    type: integer
+            example:
+                max: 250
+        ProxyTimeoutConf:
+            title: Root Type for ProxyTimeoutConf
+            description: ''
+            type: object
+            properties:
+                keepalive:
+                    format: int32
+                    type: integer
+                read:
+                    format: int32
+                    type: integer
+                send:
+                    format: int32
+                    type: integer
+            example:
+                keepalive: 60
+                read: 60
+                send: 60
+        NamedObject:
+            title: Root Type for NamedObject
+            description: ''
+            type: object
+            properties:
+                name:
+                    type: string
+            additionalProperties: true
+            example:
+                name: a name
+        GatekeeperConf:
+            title: Root Type for GatekeeperConf
+            description: ''
+            type: object
+            properties:
+                image:
+                    type: string
+                replicas:
+                    format: int32
+                    type: integer
+                resources:
+                    $ref: '#/components/schemas/DeploymentResourcesConf'
+                    description: ''
+                secret:
+                    description: ''
+                    type: string
+                configuration:
+                    description: >-
+                        Native Gatekeeper proxy.yml settings, keyed by the kebab-case names from
+                        the Gatekeeper configuration reference. Application values override global
+                        values and CloudHarness-generated defaults.
+                    type: object
+                    additionalProperties: true
+            example:
+                image: 'quay.io/gogatekeeper/gatekeeper:2.14.3'
+                replicas: 5
+                configuration:
+                    same-site-cookie: Lax
+        GatewayConfig:
+            description: ''
+            type: object
+            allOf:
+                -
+                    required: []
+                    type: object
+                    properties:
+                        pathType:
+                            description: 'Ingress path type '
+                            type: string
+                            example: '"Prefix"'
+                        path:
+                            description: |
+                                Default target path prefix for applications endpoints.
+                                To use regular expressions (e.g.'/(pattern)'), also set `route_type` to 
+                                `ImplementationSpecific`.
+                            type: string
+                            example: '"/"'
+            additionalProperties: true
+        GatewayGlobalConfig:
+            description: ''
+            type: object
+            allOf:
+                -
+                    type: object
+                    properties:
+                        ssl_redirect:
+                            description: ''
+                            type: boolean
+                        tls:
+                            description: |
+                                BYO TLS certificate configuration. Used when
+                                `letsencrypt.enabled` is false or `local` is true.
+                                Per-app entries override the file-based shared cert
+                                at `resources/certs/tls.crt|key`.
+                            type: object
+                            properties:
+                                certs:
+                                    description: |
+                                        Map of `<appName>` to `{crt, key}` PEM strings.
+                                        Materializes one `tls-secret-<appName>` Secret per entry
+                                        of type `kubernetes.io/tls`.
+                                    type: object
+                                    additionalProperties:
+                                        type: object
+                                        properties:
+                                            crt:
+                                                type: string
+                                            key:
+                                                type: string
+                        letsencrypt:
+                            description: ''
+                            type: object
+                            properties:
+                                enabled:
+                                    description: |
+                                        Whether to provision a cert-manager ACME Issuer for
+                                        Let's Encrypt. Set to false to use externally provided
+                                        TLS Secrets without ACME (e.g. ACM/ALB, commercial
+                                        wildcards, internal CAs, air-gapped clusters).
+                                    type: boolean
+                                email:
+                                    type: string
+                                privateKeySecretName:
+                                    description: |
+                                        Name of the Secret cert-manager uses to store the ACME
+                                        account private key. Defaults to `tls-secret-issuer`.
+                                    type: string
+                                solvers:
+                                    description: |
+                                        ACME solvers passed through to the cert-manager Issuer.
+                                        Defaults to an http01 solver using the configured
+                                        ingressClass. Set to a dns01 solver list to obtain
+                                        certificates for non-public domains.
+                                    type: array
+                                    items:
+                                        type: object
+                                        additionalProperties: true
+                                secrets:
+                                    description: |
+                                        Credential Secrets created in the namespace alongside the
+                                        Issuer. Map of `<secret-name>` to a `<key>: <value>` map
+                                        rendered as `stringData`. Reference these from `solvers`.
+                                    type: object
+                                    additionalProperties:
+                                        type: object
+                                        additionalProperties:
+                                            type: string
+                        enabled:
+                            description: ''
+                            type: boolean
+                -
+                    $ref: '#/components/schemas/AutoArtifactSpec'
+                -
+                    $ref: '#/components/schemas/GatewayConfig'
+            additionalProperties: true
+        PortConfig:
+            title: Root Type for PortConfig
+            description: ''
+            type: object
+            properties:
+                name:
+                    type: string
+                port:
+                    format: int32
+                    type: integer
+            example:
+                name: http
+                port: 8080
+        DatabaseConfig:
+            description: ''
+            type: object
+            properties:
+                image:
+                    description: ''
+                    type: string
+                name:
+                    description: ''
+                    type: string
+                ports:
+                    description: ''
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/PortConfig'
+                operator:
+                    description: 'Use the CloudNative-PG operator instead of a plain Deployment (postgres only)'
+                    type: boolean
+                instances:
+                    description: 'Number of PostgreSQL instances managed by the CNPG operator (only used when operator is true)'
+                    type: integer
+                    minimum: 1
+                apiServerCidr:
+                    description: 'CIDR(s) allowed for CNPG pods to reach the Kubernetes API server (port 443). Override with your cluster API-server or service CIDR.'
+                    type: array
+                    items:
+                        type: string
+                parameters:
+                    description: 'PostgreSQL configuration parameters passed to CloudNative-PG as spec.postgresql.parameters (postgres operator only). Values must be strings.'
+                    type: object
+                    additionalProperties:
+                        type: string
+                initialdb:
+                    description: 'Initial database name (postgres only)'
+                    type: string
+                args:
+                    description: 'Additional command-line arguments passed to the database server process (postgres only)'
+                    type: array
+                    items:
+                        type: string
+            additionalProperties: true
+        NetworkConfig:
+            title: Root Type for NetworkConfig
+            description: ''
+            type: object
+            properties:
+                ingress:
+                    type: boolean
+                egress:
+                    type: boolean
+                allowedNamespaces:
+                    description: List of namespaces allowed to communicate with this pod (both ingress and egress),
+                    type: array
+                    items:
+                        type: string
+            example:
+                ingress: true
+                egress: false
+        ApplicationHarnessConfig:
+            description: |-
+                Define helm variables that allow CloudHarness to enable and configure your 
+                application's deployment
+            required: []
+            type: object
+            properties:
+                deployment:
+                    $ref: '#/components/schemas/DeploymentAutoArtifactConfig'
+                    description: Defines reference deployment parameters. Values maps to k8s spec
+                service:
+                    $ref: '#/components/schemas/ServiceAutoArtifactConfig'
+                    description: Defines automatic service parameters.
+                subdomain:
+                    description: 'If specified, an ingress will be created at [subdomain].[.Values.domain]'
+                    type: string
+                aliases:
+                    description: 'If specified, an ingress will be created at [alias].[.Values.domain] for each alias'
+                    type: array
+                    items:
+                        type: string
+                domain:
+                    description: 'If specified, an ingress will be created at [domain]'
+                    type: string
+                dependencies:
+                    $ref: '#/components/schemas/ApplicationDependenciesConfig'
+                    description: >-
+                        Application dependencies are used to define what is required in the deployment when
+                        --include (-i) is used. Specify application names in the list.
+                secured:
+                    description: 'When true, the application is shielded with a getekeeper'
+                uri_role_mapping:
+                    description: 'Map uri/roles to secure with the Gatekeeper (if `secured: true`)'
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/UriRoleMappingConfig'
+                secrets:
+                    $ref: '#/components/schemas/SecretsMap'
+                    description: |-
+                        Define secrets will be mounted in the deployment
+
+                        Define as
+
+                        ```yaml
+                        secrets:
+                            secret_name: 'value'
+
+                        ```
+
+                        Values if left empty are randomly generated.
+
+                        A secret can also be defined in the rich form, to delegate it to a secret
+                        manager (see `SecretConfig`)
+
+                        ```yaml
+                        secrets:
+                            secret_name:
+                                manager: onepassword
+                                default: 'value'
+                                path: vaults/my-vault/items/my-item
+
+                        ```
+                use_services:
+                    description: >-
+                        Specify which services this application uses in the frontend to create proxy
+                        ingresses. e.g. 
+
+                        ```
+
+                        - name: samples
+
+                        ```
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/NamedObject'
+                database:
+                    $ref: '#/components/schemas/DatabaseDeploymentConfig'
+                    description: ''
+                resources:
+                    description: |-
+                        Application file resources. Maps from deploy/resources folder and mounts as
+                        configmaps
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FileResourcesConfig'
+                readinessProbe:
+                    $ref: '#/components/schemas/ApplicationProbe'
+                    description: Kubernetes readiness probe configuration
+                startupProbe:
+                    $ref: '#/components/schemas/ApplicationProbe'
+                    description: ''
+                livenessProbe:
+                    $ref: '#/components/schemas/ApplicationProbe'
+                    description: Kubernetes liveness probe configuration
+                sourceRoot:
+                    $ref: '#/components/schemas/Filename'
+                    description: ''
+                name:
+                    description: |-
+                        Application's name. Do not edit, the value is automatically set from the
+                        application directory's name
+                    type: string
+                jupyterhub:
+                    $ref: '#/components/schemas/JupyterHubConfig'
+                    description: |
+                        Configurations specific to jupyterhub. Edit only if your application is
+                        configured as a jupyterhub deployment
+                accounts:
+                    $ref: '#/components/schemas/ApplicationAccountsConfig'
+                    description: Define specific test users and roles for this application
+                test:
+                    $ref: '#/components/schemas/ApplicationTestConfig'
+                    description: Enable and configure automated testing for this application.
+                quotas:
+                    $ref: '#/components/schemas/Quota'
+                    description: ''
+                env:
+                    description: 'Environmental variables added to all containers (deprecated, please use envmap)'
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/NameValue'
+                envmap:
+                    $ref: '#/components/schemas/SimpleMap'
+                    description: Environmental variables added to all containers
+                dockerfile:
+                    $ref: '#/components/schemas/DockerfileConfig'
+                    description: Configuration for the dockerfile used to build the app
+                sentry:
+                    description: ''
+                    type: boolean
+                proxy:
+                    $ref: '#/components/schemas/ProxyConf'
+                    description: ''
+                image_name:
+                    description: Use this name for the image in place of the default directory name
+                    type: string
+                gateway:
+                    $ref: '#/components/schemas/GatewayConfig'
+                    description: ''
+            additionalProperties: true
+        ExtraContainerConfig:
+            description: Configuration for an extra container (init container or sidecar) in a deployment
+            type: object
+            properties:
+                auto:
+                    description: When true, the extra container is included in the deployment
+                    type: boolean
+                initContainer:
+                    description: >-
+                        When true, the container runs as a Kubernetes init container (before the main container).
+                        When false, the container runs as a sidecar (alongside the main container).
+                    type: boolean
+                image:
+                    description: >-
+                        Docker image for the extra container. If not specified, defaults to the main
+                        application image.
+                    type: string
+                command:
+                    description: Command to run in the extra container
+                    type: array
+                    items:
+                        type: string
+                shareVolume:
+                    description: >-
+                        When true, the extra container shares the same volume mounts as the main container.
+                    type: boolean
+                resources:
+                    $ref: '#/components/schemas/DeploymentResourcesConf'
+                    description: >-
+                        Resource requests and limits for the extra container. If not specified,
+                        inherits the main container resources.
+            additionalProperties: true
+        DeploymentAutoArtifactConfig:
+            description: ''
+            type: object
+            allOf:
+                -
+                    type: object
+                    properties:
+                        port:
+                            description: Deployment port
+                        replicas:
+                            description: Number of replicas
+                            type: integer
+                        image:
+                            description: >-
+                                Image name to use in the deployment. Leave it blank to set from the
+                                application's
+
+                                Docker file
+                            pattern: '(?:[a-z]+/)?([a-z]+)(?::[0-9]+)?'
+                            type: string
+                        image_ref:
+                            description: >-
+                                Used for running an image from the build instead of building one: a build
+                                dependency or a task image of the application. Takes precedence over image
+                            type: string
+                            example: 'image_ref: my-base-image'
+                        resources:
+                            $ref: '#/components/schemas/DeploymentResourcesConf'
+                            description: Deployment resources
+                        volume:
+                            $ref: '#/components/schemas/DeploymentVolumeSpec'
+                            description: Volume specification
+                        statefulset:
+                            description: >-
+                                When true, the workload is rendered as a Kubernetes StatefulSet instead of a
+                                Deployment. Recommended for deployments with a ReadWriteOnce volume: updates
+                                terminate the old pod before creating the new one, so no Recreate strategy or
+                                node pinning is needed. The volume, unless ReadWriteMany or externally managed
+                                (auto false), is provisioned per replica through volumeClaimTemplates. A
+                                pre-existing PVC named after the volume (left over from a previous Deployment)
+                                is migrated automatically: a migration job streams its data into each
+                                statefulset volume through the Kubernetes API, so the volumes are never
+                                mounted by the same pod (works on multi-zone clusters); delete the legacy PVC
+                                once migrated.
+                            type: boolean
+                        network:
+                            $ref: '#/components/schemas/NetworkConfig'
+                            description: Define the network policy for the deployment
+                        extraContainers:
+                            description: >-
+                                Extra containers (init containers and sidecars) for the deployment.
+                                Each key is a container name mapping to an ExtraContainerConfig.
+                            type: object
+                            additionalProperties:
+                                $ref: '#/components/schemas/ExtraContainerConfig'
+                -
+                    $ref: '#/components/schemas/AutoArtifactSpec'
