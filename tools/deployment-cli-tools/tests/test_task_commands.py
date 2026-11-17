@@ -166,6 +166,54 @@ def test_stage_built_from_an_earlier_stage_can_override_its_cmd(tmp_path):
     assert dockerfile.command == ["e", "own"]
 
 
+def test_entrypoint_of_a_stage_clears_the_cmd_of_the_stage_it_is_built_from(tmp_path):
+    dockerfile = _dockerfile(
+        tmp_path,
+        'FROM a AS base\nCMD ["a"]\nFROM base\nENTRYPOINT ["b"]\n',
+    )
+
+    assert dockerfile.command == ["b"]
+
+
+def test_entrypoint_after_cmd_in_the_same_stage_keeps_the_cmd(tmp_path):
+    dockerfile = _dockerfile(tmp_path, 'FROM a\nCMD ["c"]\nENTRYPOINT ["e"]\n')
+
+    assert dockerfile.command == ["e", "c"]
+
+
+def test_stage_names_are_case_insensitive(tmp_path):
+    dockerfile = _dockerfile(
+        tmp_path,
+        'FROM a AS Builder\nCMD ["c"]\nFROM builder\nRUN true\n',
+    )
+
+    assert dockerfile.command == ["c"]
+    assert dockerfile.external_base == "a"
+
+
+def test_shell_instruction_changes_the_wrapper_of_shell_form_commands(tmp_path):
+    dockerfile = _dockerfile(
+        tmp_path,
+        'FROM a\nSHELL ["/bin/bash", "-c"]\nCMD echo hi\n',
+    )
+
+    assert dockerfile.command == ["/bin/bash", "-c", "echo hi"]
+
+
+def test_dockerfile_not_starting_with_from_has_no_base(tmp_path):
+    dockerfile = _dockerfile(tmp_path, "ADD x /x\n")
+
+    assert dockerfile.base_dockerfile is None
+    assert dockerfile.external_base is None
+
+
+def test_dockerfile_with_a_bare_instruction_has_no_base(tmp_path):
+    dockerfile = _dockerfile(tmp_path, "RUN\n")
+
+    assert dockerfile.external_base is None
+    assert dockerfile.command == []
+
+
 # Chain following
 
 

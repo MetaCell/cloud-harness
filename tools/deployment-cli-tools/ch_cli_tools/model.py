@@ -85,7 +85,7 @@ import re
 import shutil
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import Literal, cast
 
@@ -997,10 +997,9 @@ class CHDockerfile:
     @property
     def base_dockerfile(self) -> "CHDockerfile | None":
         """The Dockerfile of the project image this one is built FROM, None when that image is external."""
-        lines = self._collect_final_stage_lines()
-        if not lines:
+        reference = self._root_reference
+        if reference is None:
             return None
-        reference = parse_dockerfile_line(lines[0])[1]
         arg_names = {
             instruction[1]
             for instruction in parse_dockerfile(self.path)
@@ -1014,17 +1013,19 @@ class CHDockerfile:
     @property
     def external_base(self) -> str | None:
         """The image outside the project the chain of FROMs ends in, None when there is no FROM."""
+        reference = self._root_reference
+        if reference is None:
+            return None
         base = self.base_dockerfile
         if base is not None:
             return base.external_base
-        lines = self._collect_final_stage_lines()
-        if not lines:
-            return None
-        reference = parse_dockerfile_line(lines[0])[1]
         return self.base_images.get(reference, reference)
 
-    def _collect_final_stage_lines(self) -> list[str]:
-        """The lines that build the final stage, preceded by those of the stages of this file it is built FROM."""
+    @cached_property
+    def _final_stage_lines(self) -> list[str]:
+        """The lines that build the final stage, preceded by those of the stages of this file it is built FROM.
+
+        The FROM line of every stage is kept, to tell where each stage starts."""
         stages: dict[str, list[str]] = {}
         current: list[str] = []
         alias = None
@@ -1036,42 +1037,56 @@ class CHDockerfile:
             if alias:
                 stages[alias] = current
             reference, *names = fields
-            current = list(stages.get(reference, [line]))
-            alias = names[0] if names else None
+            # Stage names are case-insensitive
+            current = [*stages.get(reference.lower(), []), line]
+            alias = names[0].lower() if names else None
         return current
 
-    def _collect_command_argvs(self, instruction: str) -> list[list[str]]:
-        """The argv of every ENTRYPOINT or CMD (per `instruction`) of the final stage, in order."""
-        argvs = []
-        for line in self._collect_final_stage_lines():
-            name, _, rest = line.partition(" ")
-            if name.upper() == instruction and rest.strip():
-                argvs.append(_command_argv(rest.strip()))
-        return argvs
+    @property
+    def _root_reference(self) -> str | None:
+        """The image the final stage ultimately starts FROM, None when the file has no FROM."""
+        if not self._final_stage_lines:
+            return None
+        instruction, *fields = parse_dockerfile_line(self._final_stage_lines[0])
+        return fields[0] if instruction == "FROM" and fields else None
+
+    @cached_property
+    def _resolved_command(self) -> dict[str, list[str] | None]:
+        """The ENTRYPOINT and CMD at the end of the final stage, starting from those of its base.
+
+        A base outside the project is assumed to set none. Like Docker, an ENTRYPOINT clears the CMD
+        inherited from a base (an image or an earlier stage) but not one set earlier in the same stage."""
+        base = self.base_dockerfile
+        entrypoint = base.entrypoint if base is not None else None
+        cmd = base.cmd if base is not None else None
+        shell = ["/bin/sh", "-c"]
+        cmd_set = False
+        for line in self._final_stage_lines:
+            name, _, argument = line.partition(" ")
+            argument = argument.strip()
+            match name.upper():
+                case "FROM":
+                    cmd_set = False
+                case "SHELL" if argument:
+                    shell = _parse_exec_argv(argument) or shell
+                case "CMD" if argument:
+                    cmd = _command_argv(argument, shell)
+                    cmd_set = True
+                case "ENTRYPOINT" if argument:
+                    entrypoint = _command_argv(argument, shell)
+                    if not cmd_set:
+                        cmd = None
+        return {"entrypoint": entrypoint, "cmd": cmd}
 
     @property
     def entrypoint(self) -> list[str] | None:
-        """The ENTRYPOINT of the final stage, else its base's; None when neither sets one.
-
-        A base outside the project is assumed to set none."""
-        argvs = self._collect_command_argvs("ENTRYPOINT")
-        if argvs:
-            return argvs[-1]
-        base = self.base_dockerfile
-        return base.entrypoint if base is not None else None
+        """The ENTRYPOINT of the final stage, else its base's; None when neither sets one."""
+        return self._resolved_command["entrypoint"]
 
     @property
     def cmd(self) -> list[str] | None:
-        """The CMD of the final stage, else its base's unless the stage sets an ENTRYPOINT (which clears it).
-
-        A base outside the project is assumed to set none."""
-        argvs = self._collect_command_argvs("CMD")
-        if argvs:
-            return argvs[-1]
-        if self._collect_command_argvs("ENTRYPOINT"):
-            return None
-        base = self.base_dockerfile
-        return base.cmd if base is not None else None
+        """The CMD of the final stage, else its base's unless the stage sets an ENTRYPOINT (which clears it)."""
+        return self._resolved_command["cmd"]
 
     @property
     def command(self) -> list[str]:
@@ -1079,16 +1094,22 @@ class CHDockerfile:
         return [*(self.entrypoint or []), *(self.cmd or [])]
 
 
-def _command_argv(argument: str) -> list[str]:
-    """The argv of an ENTRYPOINT or CMD argument: its JSON array in exec form, else `/bin/sh -c` over the raw string."""
+def _parse_exec_argv(argument: str) -> list[str] | None:
+    """The items of an exec-form (JSON array) argument, None when it is not one."""
     if argument.startswith("["):
         try:
             parsed = json.loads(argument)
         except ValueError:
-            parsed = None
+            return None
         if isinstance(parsed, list):
             return [str(item) for item in parsed]
-    return ["/bin/sh", "-c", argument]
+    return None
+
+
+def _command_argv(argument: str, shell: list[str]) -> list[str]:
+    """The argv of an ENTRYPOINT or CMD argument: its exec form as written, else `shell` over the raw string."""
+    argv = _parse_exec_argv(argument)
+    return argv if argv is not None else [*shell, argument]
 
 
 def _default_test_unit_enabled(harness: dict) -> dict:
@@ -1566,6 +1587,7 @@ class CHProject:
             tag = self.config.tag
         return f"{qualified}:{tag}" if tag else qualified
 
+    @lru_cache
     def all_task_entities(self) -> dict[str, CHApp | CHBaseImage | CHAppTask]:
         """Every build dependency and task, deployed or not, by the name of its image."""
         already_deployed = tuple(app.name for app in self._concrete_involved_apps)
@@ -1590,14 +1612,15 @@ class CHProject:
         assumed_bases: set[str] = set()
         for name, entity in self.all_task_entities().items():
             dockerfile = entity.dockerfile
-            if dockerfile.command:
-                commands[name] = dockerfile.command
+            command = dockerfile.command
+            if command:
+                commands[name] = command
             elif isinstance(entity, CHAppTask):
                 logger.warning(
                     "Task %s sets no ENTRYPOINT or CMD: workflows must pass its command explicitly",
                     name,
                 )
-            if dockerfile.command and dockerfile.entrypoint is None and dockerfile.external_base:
+            if command and dockerfile.entrypoint is None and dockerfile.external_base:
                 assumed_bases.add(dockerfile.external_base)
         if assumed_bases:
             logger.warning(
