@@ -95,19 +95,44 @@ class ParsedDockerfile:
     instructions: list[Instruction] = field(default_factory=list)
     stages: list[Stage] = field(default_factory=list)
 
-    @property
-    def final_stage(self) -> Stage | None:
-        return self.stages[-1] if self.stages else None
-
-    @property
+    @cached_property
     def arg_names(self) -> set[str]:
         """The names declared by the ARG instructions."""
         return {i.arguments[0] for i in self.instructions if i.name == "ARG" and i.arguments}
 
     @property
+    def final_stage(self) -> Stage | None:
+        return self.stages[-1] if self.stages else None
+
+    @property
     def arg_references(self) -> list[str]:
         """The ARG names used as the image of a FROM, in order."""
         return [s.reference for s in self.stages if s.reference in self.arg_names]
+
+    @property
+    def base_images(self) -> dict[str, str]:
+        """The default of each ARG used as the image of a FROM, by the name of the ARG."""
+        defaults = {
+            i.arguments[0]: i.arguments[1]
+            for i in self.instructions
+            if i.name == "ARG" and len(i.arguments) > 1
+        }
+        return {ref: defaults[ref] for ref in self.arg_references if ref in defaults}
+
+    def resolve_commands(self, inherited_shell: list[str] | None = None) -> None:
+        """Set the argv of every ENTRYPOINT and CMD, shell form being run by the SHELL in effect.
+
+        `inherited_shell` is the one the base image leaves in effect for the first stage."""
+        for stage in self.stages:
+            stage.shell = list(
+                stage.parent.shell if stage.parent else inherited_shell or _DEFAULT_SHELL
+            )
+            for instruction in stage.instructions:
+                if instruction.name == "SHELL" and instruction.raw:
+                    stage.shell = DockerfileParser.parse_exec_form(instruction.raw) or stage.shell
+                elif instruction.name in ("ENTRYPOINT", "CMD") and instruction.raw:
+                    argv = DockerfileParser.parse_exec_form(instruction.raw)
+                    instruction.argv = argv if argv is not None else [*stage.shell, instruction.raw]
 
 
 class DockerfileParser:
@@ -116,15 +141,14 @@ class DockerfileParser:
     def __init__(self, path: Path):
         self.path = path
 
-    @cached_property
-    def parsed(self) -> ParsedDockerfile:
+    def parse(self) -> ParsedDockerfile:
         model = ParsedDockerfile(
             instructions=[
                 instruction for line in self._read_lines() for instruction in self._tokenize(line)
             ]
         )
         self._split_stages(model)
-        self._resolve_commands(model)
+        model.resolve_commands()
         return model
 
     def _read_lines(self) -> list[str]:
@@ -179,19 +203,6 @@ class DockerfileParser:
                     by_alias[stage.alias.lower()] = stage
             elif model.stages:
                 model.stages[-1].instructions.append(instruction)
-
-    @classmethod
-    def _resolve_commands(cls, model: ParsedDockerfile) -> None:
-        """Set the argv of every ENTRYPOINT and CMD, shell form being run by the SHELL in effect."""
-        for stage in model.stages:
-            if stage.parent:
-                stage.shell = list(stage.parent.shell)
-            for instruction in stage.instructions:
-                if instruction.name == "SHELL" and instruction.raw:
-                    stage.shell = cls.parse_exec_form(instruction.raw) or stage.shell
-                elif instruction.name in ("ENTRYPOINT", "CMD") and instruction.raw:
-                    argv = cls.parse_exec_form(instruction.raw)
-                    instruction.argv = argv if argv is not None else [*stage.shell, instruction.raw]
 
     @staticmethod
     def variable_reference(token: str) -> str | None:

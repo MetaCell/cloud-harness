@@ -22,7 +22,7 @@ from cloudharness_model import HarnessMainConfig
 
 
 def _instructions(path):
-    return [i.fields for i in DockerfileParser(path).parsed.instructions]
+    return [i.fields for i in DockerfileParser(path).parse().instructions]
 
 
 # Schema
@@ -416,6 +416,18 @@ def test_dockerfile_leading_into_a_loop_keeps_its_base_and_names_only_the_loop(t
     assert dockerfile.base_dockerfile is not None
     assert f"Dockerfile {dockerfile.path} is built FROM" not in caplog.text
     assert "built FROM itself" in caplog.text
+
+
+def test_shell_of_a_project_base_image_wraps_the_shell_form_command_of_its_child(tmp_path):
+    project = _project(
+        tmp_path,
+        {
+            "base": 'FROM python:3.14\nSHELL ["/bin/bash", "-c"]\n',
+            "child": "ARG MYAPP_BASE\nFROM $MYAPP_BASE\nCMD source env.sh && run\n",
+        },
+    )
+
+    assert _task_dockerfile(project, "child").command == ["/bin/bash", "-c", "source env.sh && run"]
 
 
 # Generation

@@ -943,34 +943,24 @@ class CHDockerfile:
     @property
     def base_images(self) -> dict[str, str]:
         """Gets the ARGS from a Dockerfile image (if ARGS is used directly in the FROM of the Dockerfile)"""
-        if not self.exists():
-            return {}
-        content = self.path.read_text()
-        found_args = {}
-        args: dict[str, str] = {}
-        for line in content.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            cmd, *rest = line.split()
-            arg = rest[0] if len(rest) > 0 else ""
-            match cmd:
-                case "ARG" if "=" in arg:
-                    key, val = arg.split("=", maxsplit=1)
-                    found_args[key] = val
-                case "FROM" if arg[1:] in found_args:  # $NAME case
-                    key = arg[1:]
-                    args[key] = found_args[key]
-                case "FROM" if arg[2:-1] in found_args:  # ${NAME} case
-                    key = arg[2:-1]
-                    args[key] = found_args[key]
-                case _:
-                    continue
-        return args
+        return self.parsed.base_images
 
     @cached_property
     def parsed(self) -> ParsedDockerfile:
-        return DockerfileParser(self.path).parsed
+        return DockerfileParser(self.path).parse()
+
+    @cached_property
+    def _resolved(self) -> ParsedDockerfile:
+        """The parsed Dockerfile with its commands resolved under the SHELL its base image leaves in effect."""
+        base = self.base_dockerfile
+        self.parsed.resolve_commands(base.shell if base is not None else None)
+        return self.parsed
+
+    @property
+    def shell(self) -> list[str] | None:
+        """The SHELL in effect at the end of the final stage, None when the Dockerfile has none."""
+        stage = self._resolved.final_stage
+        return stage.shell if stage is not None else None
 
     @property
     def base_dependencies(self) -> list["CHDockerfile | str"]:
@@ -1033,7 +1023,7 @@ class CHDockerfile:
         """The ENTRYPOINT of the final stage, else its base's; None when neither sets one.
 
         A base outside the project is assumed to set none."""
-        stage = self.parsed.final_stage
+        stage = self._resolved.final_stage
         if stage is None:
             return None
         if stage.inherits_entrypoint:
@@ -1046,7 +1036,7 @@ class CHDockerfile:
         """The CMD of the final stage, else its base's unless the stage sets an ENTRYPOINT (which clears it).
 
         A base outside the project is assumed to set none."""
-        stage = self.parsed.final_stage
+        stage = self._resolved.final_stage
         if stage is None:
             return None
         if stage.inherits_cmd:

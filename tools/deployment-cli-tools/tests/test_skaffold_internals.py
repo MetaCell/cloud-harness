@@ -11,7 +11,7 @@ from ch_cli_tools.dockerfile import DockerfileParser
 
 
 def _instructions(path):
-    return [i.fields for i in DockerfileParser(path).parsed.instructions]
+    return [i.fields for i in DockerfileParser(path).parse().instructions]
 
 
 def test_build_dependency_on_app_produces_requires_entry():
