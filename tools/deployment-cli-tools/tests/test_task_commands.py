@@ -14,15 +14,15 @@ from test_util import write_tree
 
 from ch_cli_tools import CHDeployConfig
 from ch_cli_tools.api import create_helm_chart
-from ch_cli_tools.model import CHDockerfile
 from ch_cli_tools.dockerfile import DockerfileParser
+from ch_cli_tools.model import CHDockerfile
+from cloudharness.utils.config import CloudharnessConfig
+from cloudharness.workflows import operations, tasks
+from cloudharness_model import HarnessMainConfig
 
 
 def _instructions(path):
     return [i.fields for i in DockerfileParser(path).parsed.instructions]
-from cloudharness.utils.config import CloudharnessConfig
-from cloudharness.workflows import operations, tasks
-from cloudharness_model import HarnessMainConfig
 
 
 # Schema
@@ -370,6 +370,32 @@ def test_project_finds_an_app_or_a_task_by_name(tmp_path):
     assert project.find_entity("myapp").name == "myapp"
     assert project.find_entity("myapp-mytask").name == "myapp-mytask"
     assert project.find_entity("unknown") is None
+
+
+def test_dockerfiles_built_from_each_other_are_reported_and_do_not_crash(tmp_path, caplog):
+    project = _project(
+        tmp_path,
+        {
+            "a": 'ARG MYAPP_B\nFROM $MYAPP_B\nCMD ["a"]\n',
+            "b": 'ARG MYAPP_A\nFROM $MYAPP_A\nCMD ["b"]\n',
+        },
+    )
+
+    with caplog.at_level(logging.ERROR):
+        command = _task_dockerfile(project, "a").command
+
+    assert command == ["a"]
+    assert "built FROM itself" in caplog.text
+
+
+def test_dockerfile_built_from_itself_is_reported_and_does_not_crash(tmp_path, caplog):
+    project = _project(tmp_path, {"a": 'ARG MYAPP_A\nFROM $MYAPP_A\nCMD ["a"]\n'})
+
+    with caplog.at_level(logging.ERROR):
+        command = _task_dockerfile(project, "a").command
+
+    assert command == ["a"]
+    assert "built FROM itself" in caplog.text
 
 
 # Generation

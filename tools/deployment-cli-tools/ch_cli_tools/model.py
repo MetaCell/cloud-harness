@@ -983,14 +983,37 @@ class CHDockerfile:
             dependencies.append(entity.dockerfile if entity is not None else name)
         return dependencies
 
-    @property
+    @cached_property
     def base_dockerfile(self) -> "CHDockerfile | None":
-        """The Dockerfile of the project image this one is built FROM, None when that image is external."""
+        """The Dockerfile of the project image this one is built FROM, None when that image is external.
+
+        A base that leads back to this Dockerfile is ignored, with an error."""
+        base = self._find_base_dockerfile()
+        if base is not None and self._leads_back_to_itself(base):
+            logger.error(
+                "Dockerfile %s is built FROM itself through %s: its base is ignored",
+                self.path,
+                base.path,
+            )
+            return None
+        return base
+
+    def _find_base_dockerfile(self) -> "CHDockerfile | None":
         stage = self.parsed.final_stage
         if stage is None or stage.root_reference not in self.parsed.arg_names:
             return None
         entity = self.app.project.find_entity(_project_image_name(stage.root_reference))
         return entity.dockerfile if entity is not None else None
+
+    def _leads_back_to_itself(self, base: "CHDockerfile") -> bool:
+        seen = {self.path.resolve()}
+        while base is not None:
+            path = base.path.resolve()
+            if path in seen:
+                return True
+            seen.add(path)
+            base = base._find_base_dockerfile()
+        return False
 
     @property
     def external_base(self) -> str | None:
