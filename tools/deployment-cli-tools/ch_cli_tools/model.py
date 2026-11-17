@@ -1011,6 +1011,18 @@ class CHDockerfile:
         entity = self.app.project.find_entity(reference.lower().replace("_", "-"))
         return entity.dockerfile if entity is not None else None
 
+    @property
+    def external_base(self) -> str | None:
+        """The image outside the project the chain of FROMs ends in, None when there is no FROM."""
+        base = self.base_dockerfile
+        if base is not None:
+            return base.external_base
+        lines = self._collect_final_stage_lines()
+        if not lines:
+            return None
+        reference = parse_dockerfile_line(lines[0])[1]
+        return self.base_images.get(reference, reference)
+
     def _collect_final_stage_lines(self) -> list[str]:
         """The lines that build the final stage, preceded by those of the stages of this file it is built FROM."""
         stages: dict[str, list[str]] = {}
@@ -1554,18 +1566,45 @@ class CHProject:
             tag = self.config.tag
         return f"{qualified}:{tag}" if tag else qualified
 
+    def all_task_entities(self) -> dict[str, CHApp | CHBaseImage | CHAppTask]:
+        """Every build dependency and task, deployed or not, by the name of its image."""
+        already_deployed = tuple(app.name for app in self._concrete_involved_apps)
+        entities = dict(self.all_build_dependencies(already_deployed))
+        for app in self._concrete_involved_apps:
+            entities.update({task.name: task for task in app.buildable_tasks})
+        return entities
+
     def all_task_images(self) -> dict[str, str]:
         """Qualified images for every build dependency and task, deployed or not."""
-        already_deployed = tuple(app.name for app in self._concrete_involved_apps)
-        images = {
-            name: self.qualify_image(dependency)
-            for name, dependency in self.all_build_dependencies(
-                already_deployed
-            ).items()
+        return {
+            name: self.qualify_image(entity)
+            for name, entity in self.all_task_entities().items()
         }
-        for app in self._concrete_involved_apps:
-            images.update(app.task_images)
-        return images
+
+    def all_task_commands(self) -> dict[str, list[str]]:
+        """What each task image runs, under the names of all_task_images.
+
+        An image whose Dockerfile and bases set neither ENTRYPOINT nor CMD is left out, with a warning
+        when it is a task: its workflows must then pass the command explicitly."""
+        commands = {}
+        assumed_bases: set[str] = set()
+        for name, entity in self.all_task_entities().items():
+            dockerfile = entity.dockerfile
+            if dockerfile.command:
+                commands[name] = dockerfile.command
+            elif isinstance(entity, CHAppTask):
+                logger.warning(
+                    "Task %s sets no ENTRYPOINT or CMD: workflows must pass its command explicitly",
+                    name,
+                )
+            if dockerfile.command and dockerfile.entrypoint is None and dockerfile.external_base:
+                assumed_bases.add(dockerfile.external_base)
+        if assumed_bases:
+            logger.warning(
+                "Task commands assume these external base images define no ENTRYPOINT: %s",
+                ", ".join(sorted(assumed_bases)),
+            )
+        return commands
 
     @lru_cache
     def all_values(self):
@@ -1635,6 +1674,7 @@ class CHProject:
             **project_values,
             "apps": apps,
             "task-images": self.all_task_images(),
+            "task-commands": self.all_task_commands(),
             "source_images": source_images,
             "local": self.config.local,
             "secured_gatekeepers": self.config.secured_gatekeepers,

@@ -5,12 +5,14 @@ no command, which needs registry credentials. The commands are derived from the 
 at generation time and carried in the generated values instead.
 """
 
+import logging
 from pathlib import Path
 
-from conftest import chain
+from conftest import CLOUDHARNESS_ROOT, chain
 from test_util import write_tree
 
 from ch_cli_tools import CHDeployConfig
+from ch_cli_tools.api import create_helm_chart
 from ch_cli_tools.model import CHDockerfile
 from ch_cli_tools.utils import parse_dockerfile
 from cloudharness_model import HarnessMainConfig
@@ -313,3 +315,130 @@ def test_project_finds_an_app_or_a_task_by_name(tmp_path):
     assert project.find_entity("myapp").name == "myapp"
     assert project.find_entity("myapp-mytask").name == "myapp-mytask"
     assert project.find_entity("unknown") is None
+
+
+# Generation
+
+
+def test_task_commands_are_derived_for_every_task_image(tmp_path):
+    project = _project(
+        tmp_path,
+        {
+            "exec": 'FROM python:3.14\nCMD ["./run.sh"]\n',
+            "shell": "FROM python:3.14\nCMD python job.py\n",
+            "base": 'FROM python:3.14\nENTRYPOINT ["python"]\n',
+            "child": 'ARG MYAPP_BASE\nFROM $MYAPP_BASE\nCMD ["job.py"]\n',
+        },
+    )
+
+    assert project.all_task_commands() == {
+        "myapp-exec": ["./run.sh"],
+        "myapp-shell": ["/bin/sh", "-c", "python job.py"],
+        "myapp-base": ["python"],
+        "myapp-child": ["python", "job.py"],
+    }
+
+
+def test_task_commands_are_named_like_the_task_images(tmp_path):
+    project = _project(tmp_path, {"job": 'FROM python:3.14\nCMD ["x"]\n'})
+
+    assert set(project.all_task_commands()) <= set(project.all_task_images())
+
+
+def test_task_without_any_command_is_left_out_with_a_warning(tmp_path, caplog):
+    project = _project(tmp_path, {"silent": "FROM scratch\nRUN true\n"})
+
+    with caplog.at_level(logging.WARNING):
+        commands = project.all_task_commands()
+
+    assert "myapp-silent" not in commands
+    assert "Task myapp-silent sets no ENTRYPOINT or CMD" in caplog.text
+
+
+def test_base_image_without_a_command_is_left_out_silently(tmp_path, caplog):
+    write_tree(
+        tmp_path,
+        {
+            "infrastructure": {"base-images": {"mybase": {"Dockerfile": "FROM python:3.14\n"}}},
+        },
+    )
+    project = _project(
+        tmp_path,
+        {"job": 'FROM python:3.14\nCMD ["x"]\n'},
+        app_dockerfile="ARG MYBASE\nFROM $MYBASE\n",
+    )
+
+    with caplog.at_level(logging.WARNING):
+        commands = project.all_task_commands()
+
+    assert "mybase" in project.all_task_images()
+    assert "mybase" not in commands
+    assert "mybase sets no" not in caplog.text
+
+
+def test_external_bases_the_commands_rely_on_are_reported_in_one_warning(tmp_path, caplog):
+    project = _project(
+        tmp_path,
+        {
+            "a": 'FROM python:3.14\nCMD ["a"]\n',
+            "b": 'ARG NODE=node:22\nFROM $NODE\nCMD ["b"]\n',
+            "own": 'FROM alpine:3\nENTRYPOINT ["own"]\n',
+        },
+    )
+
+    with caplog.at_level(logging.WARNING):
+        project.all_task_commands()
+
+    warnings = [r.message for r in caplog.records if "external base images" in r.message]
+    assert len(warnings) == 1
+    assert "node:22" in warnings[0] and "python:3.14" in warnings[0]
+    assert "alpine:3" not in warnings[0]
+
+
+def test_external_base_is_where_the_chain_of_froms_ends(tmp_path):
+    project = _project(
+        tmp_path,
+        {
+            "base": "FROM python:3.14\n",
+            "child": "ARG MYAPP_BASE\nFROM $MYAPP_BASE\n",
+            "arg": "ARG PYTHON=python:3.12\nFROM $PYTHON\n",
+        },
+    )
+
+    assert _task_dockerfile(project, "child").external_base == "python:3.14"
+    assert _task_dockerfile(project, "arg").external_base == "python:3.12"
+
+
+def test_generated_values_carry_task_commands_beside_task_images(tmp_path):
+    solution = tmp_path / "solution"
+    write_tree(
+        solution,
+        {
+            "deployment-configuration": {"values-template.yaml": "name: testproj\n"},
+            "applications": {
+                "myapp": {
+                    "Dockerfile": "FROM scratch\n",
+                    "deploy": {"values.yaml": "harness:\n  subdomain: myapp\n"},
+                    "tasks": {
+                        "job": {"Dockerfile": "FROM python:3.14\nCMD python job.py\n"},
+                        "plain": {"Dockerfile": 'FROM scratch\nCMD ["x"]\n'},
+                    },
+                }
+            },
+        },
+    )
+
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, solution],
+        output_path=tmp_path / "out",
+        domain="my.local",
+        namespace="test",
+        local=False,
+        tag="1",
+        registry="reg",
+        include=["myapp"],
+    ).to_dict()
+
+    assert values["task-commands"]["myapp-job"] == ["/bin/sh", "-c", "python job.py"]
+    assert values["task-commands"]["myapp-plain"] == ["x"]
+    assert set(values["task-commands"]) <= set(values["task-images"])
