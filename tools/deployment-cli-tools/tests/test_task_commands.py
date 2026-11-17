@@ -555,6 +555,34 @@ def test_custom_task_explicit_command_wins(ch_config):
     assert spec["container"]["command"] == ["explicit"]
 
 
+def test_custom_task_keeps_the_command_of_its_template_overrides(ch_config):
+    ch_config(**{"task-commands": {"job": ["./run.sh"]}})
+    overrides = tasks.V1alpha1Template(container={"command": ["mine"]})
+
+    spec = tasks.CustomTask("t", "job", template_overrides=overrides).spec()
+
+    assert spec["container"]["command"] == ["mine"]
+
+
+def test_custom_task_keeps_the_args_of_its_template_overrides_without_a_derived_command(ch_config):
+    ch_config(**{"task-commands": {"job": ["./run.sh"]}})
+    overrides = tasks.V1alpha1Template(container={"args": ["--fast"]})
+
+    spec = tasks.CustomTask("t", "job", template_overrides=overrides).spec()
+
+    assert "command" not in spec["container"]
+    assert spec["container"]["args"] == ["--fast"]
+
+
+def test_custom_task_still_uses_the_derived_command_with_other_template_overrides(ch_config):
+    ch_config(**{"task-commands": {"job": ["./run.sh"]}})
+    overrides = tasks.V1alpha1Template(container={"workingDir": "/work"})
+
+    spec = tasks.CustomTask("t", "job", template_overrides=overrides).spec()
+
+    assert spec["container"]["command"] == ["./run.sh"]
+
+
 def test_custom_task_without_a_derived_command_sets_none(ch_config):
     ch_config()
 

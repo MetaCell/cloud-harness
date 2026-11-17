@@ -185,11 +185,16 @@ class BashTask(InlinedTask):
 
 class CustomTask(ContainerizedTask):
     def __init__(self, name, image_name, resources={}, image_pull_policy='IfNotPresent', command=None, **env_args):
-        if command is None:
-            command = conf.get_task_command(image_name)
         super().__init__(name, resources=resources,
                          image_pull_policy=image_pull_policy, command=command, **env_args)
+        if command is None and not self._overrides_container_command():
+            self.command = conf.get_task_command(image_name)
         self.__image_name = get_image_full_tag(image_name)
+
+    def _overrides_container_command(self):
+        """Whether the template overrides already set what the container runs, which the derived command must not replace."""
+        container = self.template_overrides.get('container') or {}
+        return container.get('command') is not None or container.get('args') is not None
 
     @property
     def image_name(self):
