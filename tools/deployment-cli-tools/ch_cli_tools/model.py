@@ -971,12 +971,11 @@ class CHDockerfile:
         return args
 
     @property
-    def base_dependencies(self) -> list["CHApp | CHBaseImage | CHAppTask | str"]:
-        """Apps, base images or tasks referenced via ARG in a FROM line."""
+    def base_dependencies(self) -> list["CHDockerfile | str"]:
+        """Dockerfiles of the apps, base images or tasks referenced via ARG in a FROM line, or their name when unknown."""
         if not self.exists():
             return []
 
-        project = self.app.project
         instructions = parse_dockerfile(self.path)
         arg_names = {
             instruction[1] for instruction in instructions if instruction[0] == "ARG"
@@ -991,13 +990,26 @@ class CHDockerfile:
                 continue
 
             name = ref.lower().replace("_", "-")
-            entity = (
-                project.scanned_apps.get(name) or
-                project.base_images.get(name) or
-                project.all_buildable_tasks().get(name)
-            )
+            entity = self.app.project.find_entity(name)
             dependencies.append(entity.dockerfile if entity is not None else name)
         return dependencies
+
+    @property
+    def base_dockerfile(self) -> "CHDockerfile | None":
+        """The Dockerfile of the project image this one is built FROM, None when that image is external."""
+        lines = self._collect_final_stage_lines()
+        if not lines:
+            return None
+        reference = parse_dockerfile_line(lines[0])[1]
+        arg_names = {
+            instruction[1]
+            for instruction in parse_dockerfile(self.path)
+            if instruction[0] == "ARG"
+        }
+        if reference not in arg_names:
+            return None
+        entity = self.app.project.find_entity(reference.lower().replace("_", "-"))
+        return entity.dockerfile if entity is not None else None
 
     def _collect_final_stage_lines(self) -> list[str]:
         """The lines that build the final stage, preceded by those of the stages of this file it is built FROM."""
@@ -1027,15 +1039,27 @@ class CHDockerfile:
 
     @property
     def entrypoint(self) -> list[str] | None:
-        """The ENTRYPOINT of the final stage, None when it sets none."""
+        """The ENTRYPOINT of the final stage, else its base's; None when neither sets one.
+
+        A base outside the project is assumed to set none."""
         argvs = self._collect_command_argvs("ENTRYPOINT")
-        return argvs[-1] if argvs else None
+        if argvs:
+            return argvs[-1]
+        base = self.base_dockerfile
+        return base.entrypoint if base is not None else None
 
     @property
     def cmd(self) -> list[str] | None:
-        """The CMD of the final stage, None when it sets none."""
+        """The CMD of the final stage, else its base's unless the stage sets an ENTRYPOINT (which clears it).
+
+        A base outside the project is assumed to set none."""
         argvs = self._collect_command_argvs("CMD")
-        return argvs[-1] if argvs else None
+        if argvs:
+            return argvs[-1]
+        if self._collect_command_argvs("ENTRYPOINT"):
+            return None
+        base = self.base_dockerfile
+        return base.cmd if base is not None else None
 
     @property
     def command(self) -> list[str]:
@@ -1396,6 +1420,14 @@ class CHProject:
         for app in self.scanned_apps.values():
             tasks.update(app._tasks)
         return tasks
+
+    def find_entity(self, name: str) -> "CHApp | CHBaseImage | CHAppTask | None":
+        """The app, base image or task of the project with that name."""
+        return (
+            self.scanned_apps.get(name) or
+            self.base_images.get(name) or
+            self.all_buildable_tasks().get(name)
+        )
 
     def all_source_images(self) -> dict[str, str]:
         """Every externally-sourced image: Dockerfile ARGs plus the source_images overrides."""

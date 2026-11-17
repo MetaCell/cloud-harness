@@ -49,22 +49,26 @@ def test_main_config_model_does_not_require_task_commands():
 # Dockerfile reading
 
 
-def _dockerfile(tmp_path: Path, content: str) -> CHDockerfile:
-    """The Dockerfile of a task, mytask, of a project with one app, myapp."""
+def _project(tmp_path: Path, tasks: dict[str, str], app_dockerfile: str = "FROM scratch\n"):
+    """A project with one app, myapp, whose tasks have the given Dockerfile contents."""
     write_tree(
         tmp_path,
         {
             "deployment-configuration": {"values-template.yaml": "name: testproj\n"},
             "applications": {
                 "myapp": {
-                    "Dockerfile": "FROM scratch\n",
-                    "tasks": {"mytask": {"Dockerfile": content}},
+                    "Dockerfile": app_dockerfile,
+                    "tasks": {name: {"Dockerfile": content} for name, content in tasks.items()},
                 }
             },
         },
     )
-    project = chain(tmp_path, tmp_path, config=CHDeployConfig())
-    return project.all_buildable_tasks()["myapp-mytask"].dockerfile
+    return chain(tmp_path, tmp_path, config=CHDeployConfig())
+
+
+def _dockerfile(tmp_path: Path, content: str) -> CHDockerfile:
+    """The Dockerfile of a task, mytask, of a project with one app, myapp."""
+    return _project(tmp_path, {"mytask": content}).all_buildable_tasks()["myapp-mytask"].dockerfile
 
 
 def test_parse_dockerfile_still_joins_continuations_and_skips_comments(tmp_path):
@@ -155,3 +159,157 @@ def test_stage_built_from_an_earlier_stage_can_override_its_cmd(tmp_path):
     )
 
     assert dockerfile.command == ["e", "own"]
+
+
+# Chain following
+
+
+def _task_dockerfile(project, name: str) -> CHDockerfile:
+    return project.all_buildable_tasks()[f"myapp-{name}"].dockerfile
+
+
+def test_command_is_inherited_from_a_project_task(tmp_path):
+    project = _project(
+        tmp_path,
+        {
+            "base": 'FROM python:3.14\nENTRYPOINT ["python"]\nCMD ["-V"]\n',
+            "child": "ARG MYAPP_BASE\nFROM $MYAPP_BASE\nRUN true\n",
+        },
+    )
+
+    child = _task_dockerfile(project, "child")
+
+    assert child.entrypoint == ["python"]
+    assert child.cmd == ["-V"]
+    assert child.command == ["python", "-V"]
+
+
+def test_command_is_inherited_through_several_project_images(tmp_path):
+    project = _project(
+        tmp_path,
+        {
+            "root": 'FROM python:3.14\nENTRYPOINT ["e"]\nCMD ["c"]\n',
+            "middle": "ARG MYAPP_ROOT\nFROM $MYAPP_ROOT\nRUN true\n",
+            "leaf": "ARG MYAPP_MIDDLE\nFROM ${MYAPP_MIDDLE}\nRUN true\n",
+        },
+    )
+
+    assert _task_dockerfile(project, "leaf").command == ["e", "c"]
+
+
+def test_command_is_inherited_from_an_app_image(tmp_path):
+    project = _project(
+        tmp_path,
+        {"child": "ARG MYAPP\nFROM $MYAPP\nRUN true\n"},
+        app_dockerfile='FROM python:3.14\nCMD ["serve"]\n',
+    )
+
+    assert _task_dockerfile(project, "child").command == ["serve"]
+
+
+def test_own_cmd_replaces_the_inherited_cmd_and_keeps_the_entrypoint(tmp_path):
+    project = _project(
+        tmp_path,
+        {
+            "base": 'FROM python:3.14\nENTRYPOINT ["e"]\nCMD ["c"]\n',
+            "child": 'ARG MYAPP_BASE\nFROM $MYAPP_BASE\nCMD ["own"]\n',
+        },
+    )
+
+    assert _task_dockerfile(project, "child").command == ["e", "own"]
+
+
+def test_own_entrypoint_clears_the_inherited_cmd(tmp_path):
+    project = _project(
+        tmp_path,
+        {
+            "base": 'FROM python:3.14\nENTRYPOINT ["e"]\nCMD ["c"]\n',
+            "child": 'ARG MYAPP_BASE\nFROM $MYAPP_BASE\nENTRYPOINT ["own"]\n',
+        },
+    )
+
+    assert _task_dockerfile(project, "child").command == ["own"]
+
+
+def test_own_entrypoint_and_cmd_replace_both_inherited_ones(tmp_path):
+    project = _project(
+        tmp_path,
+        {
+            "base": 'FROM python:3.14\nENTRYPOINT ["e"]\nCMD ["c"]\n',
+            "child": 'ARG MYAPP_BASE\nFROM $MYAPP_BASE\nENTRYPOINT ["own"]\nCMD ["arg"]\n',
+        },
+    )
+
+    assert _task_dockerfile(project, "child").command == ["own", "arg"]
+
+
+def test_base_dockerfile_is_the_project_image_the_dockerfile_is_built_from(tmp_path):
+    project = _project(
+        tmp_path,
+        {
+            "base": "FROM python:3.14\n",
+            "child": "ARG MYAPP_BASE\nFROM $MYAPP_BASE\n",
+        },
+    )
+
+    assert _task_dockerfile(project, "child").base_dockerfile.path == _task_dockerfile(project, "base").path
+
+
+def test_base_dockerfile_is_found_through_a_stage_of_the_same_file(tmp_path):
+    project = _project(
+        tmp_path,
+        {
+            "base": 'FROM python:3.14\nCMD ["c"]\n',
+            "child": "ARG MYAPP_BASE\nFROM $MYAPP_BASE AS build\nFROM build\nRUN true\n",
+        },
+    )
+
+    child = _task_dockerfile(project, "child")
+
+    assert child.base_dockerfile.path == _task_dockerfile(project, "base").path
+    assert child.command == ["c"]
+
+
+def test_external_base_through_an_arg_has_no_base_dockerfile(tmp_path):
+    dockerfile = _dockerfile(tmp_path, 'ARG PYTHON=python:3.14\nFROM $PYTHON\nCMD ["a"]\n')
+
+    assert dockerfile.base_dockerfile is None
+    assert dockerfile.command == ["a"]
+
+
+def test_literal_from_is_external_even_when_named_like_a_project_image(tmp_path):
+    project = _project(
+        tmp_path,
+        {
+            "base": 'FROM python:3.14\nCMD ["c"]\n',
+            "child": "FROM myapp-base\nRUN true\n",
+        },
+    )
+
+    child = _task_dockerfile(project, "child")
+
+    assert child.base_dockerfile is None
+    assert child.command == []
+
+
+def test_base_dependencies_still_lists_the_project_images_referenced_via_arg(tmp_path):
+    project = _project(
+        tmp_path,
+        {
+            "base": "FROM python:3.14\n",
+            "child": "ARG MYAPP_BASE\nARG OTHER\nFROM $MYAPP_BASE\nFROM $OTHER\n",
+        },
+    )
+
+    dependencies = _task_dockerfile(project, "child").base_dependencies
+
+    assert dependencies[0].path == _task_dockerfile(project, "base").path
+    assert dependencies[1] == "other"
+
+
+def test_project_finds_an_app_or_a_task_by_name(tmp_path):
+    project = _project(tmp_path, {"mytask": "FROM scratch\n"})
+
+    assert project.find_entity("myapp").name == "myapp"
+    assert project.find_entity("myapp-mytask").name == "myapp-mytask"
+    assert project.find_entity("unknown") is None
