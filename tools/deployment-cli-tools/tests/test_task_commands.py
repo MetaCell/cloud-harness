@@ -15,7 +15,11 @@ from test_util import write_tree
 from ch_cli_tools import CHDeployConfig
 from ch_cli_tools.api import create_helm_chart
 from ch_cli_tools.model import CHDockerfile
-from ch_cli_tools.utils import parse_dockerfile
+from ch_cli_tools.dockerfile import DockerfileParser
+
+
+def _instructions(path):
+    return [i.fields for i in DockerfileParser(path).parsed.instructions]
 from cloudharness.utils.config import CloudharnessConfig
 from cloudharness.workflows import operations, tasks
 from cloudharness_model import HarnessMainConfig
@@ -80,7 +84,7 @@ def test_parse_dockerfile_still_joins_continuations_and_skips_comments(tmp_path)
     path = tmp_path / "Dockerfile"
     path.write_text("# comment\nFROM scratch\nRUN a \\\n  b\n")
 
-    assert parse_dockerfile(path) == [("FROM", "scratch"), ("RUN", "a", "b")]
+    assert _instructions(path) == [("FROM", "scratch"), ("RUN", "a", "b")]
 
 
 def test_exec_form_cmd_is_used_as_written(tmp_path):

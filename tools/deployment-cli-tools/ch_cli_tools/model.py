@@ -83,6 +83,7 @@ import json
 import logging
 import re
 import shutil
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
@@ -93,20 +94,18 @@ from cloudharness_model import HarnessMainConfig  # type: ignore
 
 from ch_cli_tools.configuration.secrets import secret_definition_error  # type: ignore
 
+from .dockerfile import DockerfileParser, ParsedDockerfile
 from .utils import (
     MERGE_DIRNAME,
     _merge_base_chain,
     content_hash,
     dict_merge,  # type: ignore
-    dockerfile_lines,
     env_suffixed_path,
     find_files,
     get_git_commit_hash,
     get_yaml_parser,
     merge_with_layer,
     own_dockerfile_path,
-    parse_dockerfile,
-    parse_dockerfile_line,
     resolve_path,
 )
 
@@ -970,26 +969,16 @@ class CHDockerfile:
                     continue
         return args
 
+    @cached_property
+    def parsed(self) -> ParsedDockerfile:
+        return DockerfileParser(self.path).parsed
+
     @property
     def base_dependencies(self) -> list["CHDockerfile | str"]:
         """Dockerfiles of the apps, base images or tasks referenced via ARG in a FROM line, or their name when unknown."""
-        if not self.exists():
-            return []
-
-        instructions = parse_dockerfile(self.path)
-        arg_names = {
-            instruction[1] for instruction in instructions if instruction[0] == "ARG"
-        }
-
         dependencies = []
-        for instruction in instructions:
-            if instruction[0] != "FROM":
-                continue
-            ref = instruction[1]
-            if ref not in arg_names:
-                continue
-
-            name = ref.lower().replace("_", "-")
+        for reference in self.parsed.arg_references:
+            name = _project_image_name(reference)
             entity = self.app.project.find_entity(name)
             dependencies.append(entity.dockerfile if entity is not None else name)
         return dependencies
@@ -997,96 +986,48 @@ class CHDockerfile:
     @property
     def base_dockerfile(self) -> "CHDockerfile | None":
         """The Dockerfile of the project image this one is built FROM, None when that image is external."""
-        reference = self._root_reference
-        if reference is None:
+        stage = self.parsed.final_stage
+        if stage is None or stage.root_reference not in self.parsed.arg_names:
             return None
-        arg_names = {
-            instruction[1]
-            for instruction in parse_dockerfile(self.path)
-            if instruction[0] == "ARG"
-        }
-        if reference not in arg_names:
-            return None
-        entity = self.app.project.find_entity(reference.lower().replace("_", "-"))
+        entity = self.app.project.find_entity(_project_image_name(stage.root_reference))
         return entity.dockerfile if entity is not None else None
 
     @property
     def external_base(self) -> str | None:
         """The image outside the project the chain of FROMs ends in, None when there is no FROM."""
-        reference = self._root_reference
-        if reference is None:
+        stage = self.parsed.final_stage
+        if stage is None:
             return None
         base = self.base_dockerfile
         if base is not None:
             return base.external_base
-        return self.base_images.get(reference, reference)
-
-    @cached_property
-    def _final_stage_lines(self) -> list[str]:
-        """The lines that build the final stage, preceded by those of the stages of this file it is built FROM.
-
-        The FROM line of every stage is kept, to tell where each stage starts."""
-        stages: dict[str, list[str]] = {}
-        current: list[str] = []
-        alias = None
-        for line in dockerfile_lines(self.path):
-            instruction, *fields = parse_dockerfile_line(line)
-            if instruction != "FROM" or not fields:
-                current.append(line)
-                continue
-            if alias:
-                stages[alias] = current
-            reference, *names = fields
-            # Stage names are case-insensitive
-            current = [*stages.get(reference.lower(), []), line]
-            alias = names[0].lower() if names else None
-        return current
-
-    @property
-    def _root_reference(self) -> str | None:
-        """The image the final stage ultimately starts FROM, None when the file has no FROM."""
-        if not self._final_stage_lines:
-            return None
-        instruction, *fields = parse_dockerfile_line(self._final_stage_lines[0])
-        return fields[0] if instruction == "FROM" and fields else None
-
-    @cached_property
-    def _resolved_command(self) -> dict[str, list[str] | None]:
-        """The ENTRYPOINT and CMD at the end of the final stage, starting from those of its base.
-
-        A base outside the project is assumed to set none. Like Docker, an ENTRYPOINT clears the CMD
-        inherited from a base (an image or an earlier stage) but not one set earlier in the same stage."""
-        base = self.base_dockerfile
-        entrypoint = base.entrypoint if base is not None else None
-        cmd = base.cmd if base is not None else None
-        shell = ["/bin/sh", "-c"]
-        cmd_set = False
-        for line in self._final_stage_lines:
-            name, _, argument = line.partition(" ")
-            argument = argument.strip()
-            match name.upper():
-                case "FROM":
-                    cmd_set = False
-                case "SHELL" if argument:
-                    shell = _parse_exec_argv(argument) or shell
-                case "CMD" if argument:
-                    cmd = _command_argv(argument, shell)
-                    cmd_set = True
-                case "ENTRYPOINT" if argument:
-                    entrypoint = _command_argv(argument, shell)
-                    if not cmd_set:
-                        cmd = None
-        return {"entrypoint": entrypoint, "cmd": cmd}
+        return self.base_images.get(stage.root_reference, stage.root_reference)
 
     @property
     def entrypoint(self) -> list[str] | None:
-        """The ENTRYPOINT of the final stage, else its base's; None when neither sets one."""
-        return self._resolved_command["entrypoint"]
+        """The ENTRYPOINT of the final stage, else its base's; None when neither sets one.
+
+        A base outside the project is assumed to set none."""
+        stage = self.parsed.final_stage
+        if stage is None:
+            return None
+        if stage.inherits_entrypoint:
+            base = self.base_dockerfile
+            return base.entrypoint if base is not None else None
+        return stage.entrypoint
 
     @property
     def cmd(self) -> list[str] | None:
-        """The CMD of the final stage, else its base's unless the stage sets an ENTRYPOINT (which clears it)."""
-        return self._resolved_command["cmd"]
+        """The CMD of the final stage, else its base's unless the stage sets an ENTRYPOINT (which clears it).
+
+        A base outside the project is assumed to set none."""
+        stage = self.parsed.final_stage
+        if stage is None:
+            return None
+        if stage.inherits_cmd:
+            base = self.base_dockerfile
+            return base.cmd if base is not None else None
+        return stage.cmd
 
     @property
     def command(self) -> list[str]:
@@ -1094,22 +1035,14 @@ class CHDockerfile:
         return [*(self.entrypoint or []), *(self.cmd or [])]
 
 
-def _parse_exec_argv(argument: str) -> list[str] | None:
-    """The items of an exec-form (JSON array) argument, None when it is not one."""
-    if argument.startswith("["):
-        try:
-            parsed = json.loads(argument)
-        except ValueError:
-            return None
-        if isinstance(parsed, list):
-            return [str(item) for item in parsed]
-    return None
+def _highlight(message: str) -> str:
+    """The message in bold yellow when logging to a terminal."""
+    return f"\033[1;33m{message}\033[0m" if sys.stderr.isatty() else message
 
 
-def _command_argv(argument: str, shell: list[str]) -> list[str]:
-    """The argv of an ENTRYPOINT or CMD argument: its exec form as written, else `shell` over the raw string."""
-    argv = _parse_exec_argv(argument)
-    return argv if argv is not None else [*shell, argument]
+def _project_image_name(reference: str) -> str:
+    """The name of the project image an ARG named `reference` stands for (MY_BASE -> my-base)."""
+    return reference.lower().replace("_", "-")
 
 
 def _default_test_unit_enabled(harness: dict) -> dict:
@@ -1617,14 +1550,14 @@ class CHProject:
                 commands[name] = command
             elif isinstance(entity, CHAppTask):
                 logger.warning(
-                    "Task %s sets no ENTRYPOINT or CMD: workflows must pass its command explicitly",
+                    "Task %s sets no ENTRYPOINT or CMD, so no command is derived: if its base image defines none either, workflows must pass the command explicitly",
                     name,
                 )
             if command and dockerfile.entrypoint is None and dockerfile.external_base:
                 assumed_bases.add(dockerfile.external_base)
         if assumed_bases:
             logger.warning(
-                "Task commands assume these external base images define no ENTRYPOINT: %s",
+                _highlight("Task commands assume these external base images define no ENTRYPOINT (a task of a base that does gets a wrong command, set it explicitly in the Dockerfile or use the 'command=' parameter in your Python code launching the task): %s"),
                 ", ".join(sorted(assumed_bases)),
             )
         return commands
