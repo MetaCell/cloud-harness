@@ -533,3 +533,51 @@ def test_exit_handler_explicit_command_wins(ch_config):
     )
 
     assert _exit_template(operation.to_workflow())["container"]["command"] == ["explicit"]
+
+
+# End to end
+
+
+def _generate_values(tmp_path: Path, tasks: dict[str, str]) -> dict:
+    """The values harness-deployment generates for a project with one app, myapp, and the given tasks."""
+    solution = tmp_path / "solution"
+    write_tree(
+        solution,
+        {
+            "deployment-configuration": {"values-template.yaml": "name: testproj\n"},
+            "applications": {
+                "myapp": {
+                    "Dockerfile": "FROM scratch\n",
+                    "deploy": {"values.yaml": "harness:\n  subdomain: myapp\n"},
+                    "tasks": {name: {"Dockerfile": content} for name, content in tasks.items()},
+                }
+            },
+        },
+    )
+    return create_helm_chart(
+        [CLOUDHARNESS_ROOT, solution],
+        output_path=tmp_path / "out",
+        domain="my.local",
+        namespace="test",
+        local=False,
+        tag="1",
+        registry="reg",
+        include=["myapp"],
+    ).to_dict()
+
+
+def test_generated_command_reaches_the_argo_workflow(tmp_path, monkeypatch):
+    values = _generate_values(
+        tmp_path,
+        {
+            "base": 'FROM python:3.14\nENTRYPOINT ["python"]\n',
+            "child": 'ARG MYAPP_BASE\nFROM $MYAPP_BASE\nCMD ["job.py"]\n',
+        },
+    )
+    monkeypatch.setattr(CloudharnessConfig, "allvalues", values)
+
+    workflow = operations.PipelineOperation("wf", [tasks.CustomTask("run", "myapp-child")]).to_workflow()
+
+    template = next(t for t in workflow["spec"]["templates"] if t["name"] == "run")
+    assert template["container"]["command"] == ["python", "job.py"]
+    assert template["container"]["image"] == values["task-images"]["myapp-child"]
