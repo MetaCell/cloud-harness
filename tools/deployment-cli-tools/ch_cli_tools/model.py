@@ -82,9 +82,10 @@ import itertools
 import logging
 import re
 import shutil
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import Literal, cast
 
@@ -92,18 +93,18 @@ from cloudharness_model import HarnessMainConfig  # type: ignore
 
 from ch_cli_tools.configuration.secrets import secret_definition_error  # type: ignore
 
+from .dockerfile import DockerfileParser, ParsedDockerfile
 from .utils import (
     MERGE_DIRNAME,
     _merge_base_chain,
     content_hash,
-    dict_merge,  # type: ignore
+    dict_merge,
     env_suffixed_path,
     find_files,
     get_git_commit_hash,
     get_yaml_parser,
     merge_with_layer,
     own_dockerfile_path,
-    parse_dockerfile,
     resolve_path,
 )
 
@@ -942,59 +943,121 @@ class CHDockerfile:
     @property
     def base_images(self) -> dict[str, str]:
         """Gets the ARGS from a Dockerfile image (if ARGS is used directly in the FROM of the Dockerfile)"""
-        if not self.exists():
-            return {}
-        content = self.path.read_text()
-        found_args = {}
-        args: dict[str, str] = {}
-        for line in content.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            cmd, *rest = line.split()
-            arg = rest[0] if len(rest) > 0 else ""
-            match cmd:
-                case "ARG" if "=" in arg:
-                    key, val = arg.split("=", maxsplit=1)
-                    found_args[key] = val
-                case "FROM" if arg[1:] in found_args:  # $NAME case
-                    key = arg[1:]
-                    args[key] = found_args[key]
-                case "FROM" if arg[2:-1] in found_args:  # ${NAME} case
-                    key = arg[2:-1]
-                    args[key] = found_args[key]
-                case _:
-                    continue
-        return args
+        return self.parsed.base_images
+
+    @cached_property
+    def parsed(self) -> ParsedDockerfile:
+        return DockerfileParser(self.path).parse()
+
+    @cached_property
+    def _resolved(self) -> ParsedDockerfile:
+        """The parsed Dockerfile with its commands resolved under the SHELL its base image leaves in effect."""
+        base = self.base_dockerfile
+        self.parsed.resolve_commands(base.shell if base is not None else None)
+        return self.parsed
 
     @property
-    def base_dependencies(self) -> list["CHApp | CHBaseImage | CHAppTask | str"]:
-        """Apps, base images or tasks referenced via ARG in a FROM line."""
-        if not self.exists():
-            return []
+    def shell(self) -> list[str] | None:
+        """The SHELL in effect at the end of the final stage, None when the Dockerfile has none."""
+        stage = self._resolved.final_stage
+        return stage.shell if stage is not None else None
 
-        project = self.app.project
-        instructions = parse_dockerfile(self.path)
-        arg_names = {
-            instruction[1] for instruction in instructions if instruction[0] == "ARG"
-        }
-
+    @property
+    def base_dependencies(self) -> list["CHDockerfile | str"]:
+        """Dockerfiles of the apps, base images or tasks referenced via ARG in a FROM line, or their name when unknown."""
         dependencies = []
-        for instruction in instructions:
-            if instruction[0] != "FROM":
-                continue
-            ref = instruction[1]
-            if ref not in arg_names:
-                continue
-
-            name = ref.lower().replace("_", "-")
-            entity = (
-                project.scanned_apps.get(name) or
-                project.base_images.get(name) or
-                project.all_buildable_tasks().get(name)
-            )
+        for reference in self.parsed.arg_references:
+            name = _project_image_name(reference)
+            entity = self.app.project.find_entity(name)
             dependencies.append(entity.dockerfile if entity is not None else name)
         return dependencies
+
+    @cached_property
+    def base_dockerfile(self) -> "CHDockerfile | None":
+        """The Dockerfile of the project image this one is built FROM, None when that image is external.
+
+        A base that leads back to this Dockerfile is ignored, with an error."""
+        base = self._find_base_dockerfile()
+        if base is not None and self._leads_back_to_itself(base):
+            logger.error(
+                "Dockerfile %s is built FROM itself through %s: its base is ignored",
+                self.path,
+                base.path,
+            )
+            return None
+        return base
+
+    def _find_base_dockerfile(self) -> "CHDockerfile | None":
+        stage = self.parsed.final_stage
+        if stage is None or stage.root_reference not in self.parsed.arg_names:
+            return None
+        entity = self.app.project.find_entity(_project_image_name(stage.root_reference))
+        return entity.dockerfile if entity is not None else None
+
+    def _leads_back_to_itself(self, base: "CHDockerfile") -> bool:
+        own = self.path.resolve()
+        seen: set[Path] = set()
+        while base is not None:
+            path = base.path.resolve()
+            if path == own:
+                return True
+            if path in seen:  # a loop this Dockerfile only leads into: the Dockerfiles in it report it
+                return False
+            seen.add(path)
+            base = base._find_base_dockerfile()
+        return False
+
+    @property
+    def external_base(self) -> str | None:
+        """The image outside the project the chain of FROMs ends in, None when there is no FROM."""
+        stage = self.parsed.final_stage
+        if stage is None:
+            return None
+        base = self.base_dockerfile
+        if base is not None:
+            return base.external_base
+        return self.base_images.get(stage.root_reference, stage.root_reference)
+
+    @property
+    def entrypoint(self) -> list[str] | None:
+        """The ENTRYPOINT of the final stage, else its base's; None when neither sets one.
+
+        A base outside the project is assumed to set none."""
+        stage = self._resolved.final_stage
+        if stage is None:
+            return None
+        if stage.inherits_entrypoint:
+            base = self.base_dockerfile
+            return base.entrypoint if base is not None else None
+        return stage.entrypoint
+
+    @property
+    def cmd(self) -> list[str] | None:
+        """The CMD of the final stage, else its base's unless the stage sets an ENTRYPOINT (which clears it).
+
+        A base outside the project is assumed to set none."""
+        stage = self._resolved.final_stage
+        if stage is None:
+            return None
+        if stage.inherits_cmd:
+            base = self.base_dockerfile
+            return base.cmd if base is not None else None
+        return stage.cmd
+
+    @property
+    def command(self) -> list[str]:
+        """What the container runs: the ENTRYPOINT followed by the CMD, empty when neither is set."""
+        return [*(self.entrypoint or []), *(self.cmd or [])]
+
+
+def _highlight(message: str) -> str:
+    """The message in bold yellow when logging to a terminal."""
+    return f"\033[1;33m{message}\033[0m" if sys.stderr.isatty() else message
+
+
+def _project_image_name(reference: str) -> str:
+    """The name of the project image an ARG named `reference` stands for (MY_BASE -> my-base)."""
+    return reference.lower().replace("_", "-")
 
 
 def _default_test_unit_enabled(harness: dict) -> dict:
@@ -1339,6 +1402,14 @@ class CHProject:
             tasks.update(app._tasks)
         return tasks
 
+    def find_entity(self, name: str) -> "CHApp | CHBaseImage | CHAppTask | None":
+        """The app, base image or task of the project with that name."""
+        return (
+            self.scanned_apps.get(name) or
+            self.base_images.get(name) or
+            self.all_buildable_tasks().get(name)
+        )
+
     def all_source_images(self) -> dict[str, str]:
         """Every externally-sourced image: Dockerfile ARGs plus the source_images overrides."""
         images: dict[str, str] = {}
@@ -1464,18 +1535,47 @@ class CHProject:
             tag = self.config.tag
         return f"{qualified}:{tag}" if tag else qualified
 
+    @lru_cache
+    def all_task_entities(self) -> dict[str, CHApp | CHBaseImage | CHAppTask]:
+        """Every build dependency and task, deployed or not, by the name of its image."""
+        already_deployed = tuple(app.name for app in self._concrete_involved_apps)
+        entities = dict(self.all_build_dependencies(already_deployed))
+        for app in self._concrete_involved_apps:
+            entities.update({task.name: task for task in app.buildable_tasks})
+        return entities
+
     def all_task_images(self) -> dict[str, str]:
         """Qualified images for every build dependency and task, deployed or not."""
-        already_deployed = tuple(app.name for app in self._concrete_involved_apps)
-        images = {
-            name: self.qualify_image(dependency)
-            for name, dependency in self.all_build_dependencies(
-                already_deployed
-            ).items()
+        return {
+            name: self.qualify_image(entity)
+            for name, entity in self.all_task_entities().items()
         }
-        for app in self._concrete_involved_apps:
-            images.update(app.task_images)
-        return images
+
+    def all_task_commands(self) -> dict[str, list[str]]:
+        """What each task image runs, under the names of all_task_images.
+
+        An image whose Dockerfile and bases set neither ENTRYPOINT nor CMD is left out, with a warning
+        when it is a task: its workflows must then pass the command explicitly."""
+        commands = {}
+        assumed_bases: set[str] = set()
+        for name, entity in self.all_task_entities().items():
+            dockerfile = entity.dockerfile
+            command = dockerfile.command
+            if command:
+                commands[name] = command
+            elif isinstance(entity, CHAppTask):
+                logger.warning(
+                    "Task %s sets no ENTRYPOINT or CMD, so no command is derived: if its base image defines none either, workflows must pass the command explicitly",
+                    name,
+                )
+            if command and dockerfile.entrypoint is None and dockerfile.external_base:
+                assumed_bases.add(dockerfile.external_base)
+        if assumed_bases:
+            logger.warning(
+                _highlight("Task commands assume these external base images define no ENTRYPOINT (a task of a base that does gets a wrong command, set it explicitly in the Dockerfile or use the 'command=' parameter in your Python code launching the task): %s"),
+                ", ".join(sorted(assumed_bases)),
+            )
+        return commands
 
     @lru_cache
     def all_values(self):
@@ -1545,6 +1645,7 @@ class CHProject:
             **project_values,
             "apps": apps,
             "task-images": self.all_task_images(),
+            "task-commands": self.all_task_commands(),
             "source_images": source_images,
             "local": self.config.local,
             "secured_gatekeepers": self.config.secured_gatekeepers,
