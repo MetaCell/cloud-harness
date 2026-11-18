@@ -78,9 +78,9 @@ class Stage:
     def inherits_cmd(self) -> bool:
         """Whether no stage of the chain sets a CMD or an ENTRYPOINT, leaving the CMD of the base image."""
         return (
-            self._last_argv("CMD") is None
-            and self._last_argv("ENTRYPOINT") is None
-            and (self.parent is None or self.parent.inherits_cmd)
+            self._last_argv("CMD") is None and
+            self._last_argv("ENTRYPOINT") is None and
+            (self.parent is None or self.parent.inherits_cmd)
         )
 
     def _last_argv(self, name: str) -> list[str] | None:
