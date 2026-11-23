@@ -145,6 +145,8 @@ harness:
       apiServerCidr: []
       # -- PostgreSQL configuration parameters for CloudNative-PG clusters (operator: true). Values must be strings.
       parameters: {}
+      # -- SQL statements to execute in the application database during initial CloudNativePG bootstrap (operator: true).
+      postInitApplicationSQL: []
       ports:
         - name: http
           port: 5432

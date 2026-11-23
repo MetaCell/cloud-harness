@@ -57,6 +57,17 @@ def test_database_config_parameters_round_trip():
     }
 
 
+def test_database_config_post_init_application_sql_round_trip():
+    statements = [
+        "CREATE EXTENSION IF NOT EXISTS pg_trgm",
+        "DO $$ BEGIN\nNULL;\nEND; $$;",
+    ]
+    config = DatabaseConfig.from_dict({"postInitApplicationSQL": statements})
+
+    assert config.post_init_application_sql == statements
+    assert config.to_dict()["postInitApplicationSQL"] == statements
+
+
 def test_gatekeeper_native_configuration_round_trip():
     native_configuration = {
         "same-site-cookie": "None",

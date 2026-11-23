@@ -1127,6 +1127,11 @@ components:
                     type: object
                     additionalProperties:
                         type: string
+                postInitApplicationSQL:
+                    description: SQL statements to execute as a superuser in the application database during initial CloudNativePG bootstrap (postgres operator only).
+                    type: array
+                    items:
+                        type: string
                 initialdb:
                     description: 'Initial database name (postgres only)'
                     type: string

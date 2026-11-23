@@ -43,6 +43,10 @@ spec:
       owner: {{ .app.harness.database.user | quote }}
       secret:
         name: {{ printf "%s-credentials" .app.harness.database.name | quote }}
+      {{- with .app.harness.database.postgres.postInitApplicationSQL }}
+      postInitApplicationSQL:
+{{ toYaml . | indent 8 }}
+      {{- end }}
 
   storage:
     size: {{ .app.harness.database.size }}
