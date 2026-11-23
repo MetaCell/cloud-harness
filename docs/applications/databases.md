@@ -106,6 +106,7 @@ harness
       instances: 1
       apiServerCidr: []
       parameters: {}
+      postInitApplicationSQL: []
       ports:
         - name: http
           port: 5432
@@ -129,6 +130,8 @@ helm install cnpg cloudnative-pg/cloudnative-pg
 `apiServerCidr`: List of CIDRs allowed for CNPG database pods to reach the Kubernetes API server on port 443. **Resolved automatically at deploy time** by looking up the `kubernetes` Service and Endpoints in the `default` namespace. The explicit list is only used as a fallback when lookup returns nothing (e.g. `helm template` dry-run). Leave empty (`[]`) for auto-detection; set explicitly only for air-gapped or restricted environments.
 
 `parameters`: Optional map of PostgreSQL configuration parameters rendered to CloudNative-PG as `spec.postgresql.parameters` when `operator: true`. Values must be strings, for example `max_connections: "200"`. CloudNative-PG rejects parameters that are fixed or managed by the operator.
+
+`postInitApplicationSQL` is an optional list of SQL strings for `operator: true`. CloudNativePG runs the statements in order as a superuser in the application database during initial `initdb` bootstrap. Use a separate migration to apply the same SQL to existing clusters.
 
 
 #### Neo4j
