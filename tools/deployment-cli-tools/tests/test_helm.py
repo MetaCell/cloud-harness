@@ -743,6 +743,45 @@ def test_cnpg_postgres_parameters_render_only_when_set(tmp_path):
     assert "postgresql" not in cluster["spec"]
 
 
+@pytest.mark.parametrize("statements", [
+    [],
+    ["CREATE EXTENSION IF NOT EXISTS postgis",
+     "DO $$ BEGIN\nNULL;\nEND; $$;"],
+])
+def test_cnpg_application_bootstrap_sql(tmp_path, statements):
+    resource_path = tmp_path / "resources"
+    shutil.copytree(RESOURCES, resource_path)
+    values_path = resource_path / "applications/myapp/deploy/values-withpostgres.yaml"
+    with values_path.open() as values_file:
+        values = yaml.load(values_file)
+    values["harness"]["database"]["postgres"].update(
+        operator=True, postInitApplicationSQL=statements,
+    )
+    with values_path.open("w") as values_file:
+        yaml.dump(values, values_file)
+
+    out_folder = tmp_path / "deployment"
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, resource_path],
+        output_path=out_folder,
+        domain="my.local",
+        namespace="test",
+        env="withpostgres",
+        local=False,
+        include=["myapp"],
+        exclude=["legacy"],
+    )
+    helm_path = out_folder / "helm"
+    shutil.rmtree(helm_path / "charts")
+    db_name = values["apps"]["myapp"]["harness"]["database"]["name"]
+    cluster = find_manifest(render_helm_chart(helm_path), "Cluster", db_name)
+    initdb = cluster["spec"]["bootstrap"]["initdb"]
+    if statements:
+        assert initdb["postInitApplicationSQL"] == statements
+    else:
+        assert "postInitApplicationSQL" not in initdb
+
+
 def test_statefulset_option(tmp_path):
     out_folder = tmp_path / "test_statefulset_option"
     # nfsserver is included to provide the storage class values needed by the usenfs case
