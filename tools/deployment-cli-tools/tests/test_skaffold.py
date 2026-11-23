@@ -495,3 +495,31 @@ def test_skaffold_imgarg(tmp_path):
     myapp_buildargs = get_buildargs("myapp")
     assert myapp_buildargs["KEYCLOAK"] == "myregistry.myapp:15.3"
     assert myapp_buildargs["NODE"] == "node:22-alpine"
+
+
+def test_skaffold_task_artifacts_require_their_base_image(tmp_path):
+    # dependanttask FROMs $MYAPP_MYTASK and dependanttask2 FROMs $DEPENDANTAPP:
+    # skaffold only builds the base first, and injects the alias build arg,
+    # when the task artifact declares `requires`.
+    values = create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=tmp_path / "task_requires",
+        domain="my.local",
+        env="",
+        local=False,
+        include=["dependantapp"],
+        exclude=[],
+    )
+
+    sk = create_skaffold_configuration(
+        root_paths=[CLOUDHARNESS_ROOT, RESOURCES],
+        helm_values=values,
+        output_path=tmp_path,
+    )
+
+    def aliases(suffix):
+        (artifact,) = [a for a in sk["build"]["artifacts"] if a["image"].endswith(suffix)]
+        return {r["alias"] for r in artifact.get("requires", [])}
+
+    assert aliases("dependantapp-dependanttask") == {"MYAPP_MYTASK"}
+    assert aliases("dependantapp-dependanttask2") == {"DEPENDANTAPP"}
