@@ -205,6 +205,9 @@ class CHSkaffold(CHValues):
                 "context": str(context.path),
                 "docker": self._build_docker_options(context.dockerfile.path),
             }
+            requires = self._requires_for(task)
+            if requires:
+                artifact["requires"] = requires
             artifacts.append(artifact)
             overrides[task.name] = artifact["image"]
         return artifacts, overrides
