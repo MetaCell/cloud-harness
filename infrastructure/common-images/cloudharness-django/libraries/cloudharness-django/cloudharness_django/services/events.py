@@ -39,10 +39,15 @@ class KeycloakMessageService:
                     user_service.sync_kc_group(kc_group)
                     return
                 if resource == "USER":
+                    if operation == "DELETE":
+                        # the user no longer exists in Keycloak, so it can't be fetched: work from the id
+                        user_service.deactivate_kc_user(resource_path[1])
+                        invalidate_user_cache(resource_path[1])
+                        return
                     kc_user = auth_client.get_user(resource_path[1])
                     # invalidate the user cache to force the user to be reloaded
                     invalidate_user_cache(kc_user.id)
-                    user_service.sync_kc_user(kc_user, delete=operation == "DELETE")
+                    user_service.sync_kc_user(kc_user)
                     return
                 if resource == "CLIENT_ROLE_MAPPING":
                     # adding/deleting user client roles
