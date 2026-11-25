@@ -9,11 +9,12 @@ from .common_types import TemplateType
 from .openapi import generate_fastapi_server, generate_flask_server, generate_openapi_from_ninja_schema, generate_ts_client
 from .utils import copymergedir, get_json_template, merge_configuration_directories, replace_in_dict, replace_in_file, replaceindir, to_python_module
 from . import CH_ROOT
-from cloudharness_utils.constants import APPLICATION_TEMPLATE_PATH
+from cloudharness_utils.constants import APPLICATION_TEMPLATE_PATH, EXCLUDE_PATHS
 
 
 class ApplicationBuilder(abc.ABC):
     APP_NAME_PLACEHOLDER = '__APP_NAME__'
+    APP_MODULE_PLACEHOLDER = '__APP_MODULE__'
     CLOUDHARNESS_PATH_PLACEHOLDER = '__CLOUDHARNESS_PATH__'
 
     def __init__(self, app_name: str, app_path: pathlib.Path):
@@ -230,6 +231,40 @@ class DjangoNinjaBuilder(BaseDjangoAppBuilder):
         generate_openapi_from_ninja_schema(self.app_name, self.app_path)
 
 
+class DjangoEntraBuilder(BaseDjangoAppBuilder):
+    """Django Ninja backend and React frontend, authenticated with Microsoft Entra ID (no Keycloak)"""
+    debug_template_file = 'vscode-django-entra-debug-template.json'
+
+    def handles(self, templates):
+        return TemplateType.DJANGO_ENTRA in templates
+
+    def handle_pre_merge(self):
+        pass
+
+    def handle_merge(self):
+        # self-contained template, not merged with django-base: copied as is, keeping the comments of the
+        # yaml and json files (which a merge would drop), then merged with the project template overrides
+        shutil.copytree(
+            self.app_template_path / TemplateType.DJANGO_ENTRA, self.app_path,
+            dirs_exist_ok=True, ignore=shutil.ignore_patterns(*EXCLUDE_PATHS),
+        )
+        project_template_path = pathlib.Path.cwd() / APPLICATION_TEMPLATE_PATH / TemplateType.DJANGO_ENTRA
+        if project_template_path.exists():
+            merge_configuration_directories(project_template_path, self.app_path)
+        # the python module name in the markdown files, where __APP_NAME__ is replaced by the app name
+        for markdown_file in self.app_path.rglob('*.md'):
+            if 'node_modules' not in markdown_file.parts:
+                replace_in_file(markdown_file, self.APP_MODULE_PLACEHOLDER, self.python_app_name)
+
+    def handle_post_merge(self):
+        super().handle_post_merge()
+        replace_in_file(self.app_path / 'port-forward.sh', self.APP_NAME_PLACEHOLDER, self.app_name)
+        logging.info('Installing frontend dependencies')
+        self.run_command('yarn', 'install', cwd=self.frontend_path)
+        logging.info('Generating ts client')
+        generate_ts_client(self.api_path / 'openapi.yaml', self.app_name)
+
+
 class AppBuilderPipeline(ApplicationBuilder):
     def __init__(self, app_name: str, app_path: pathlib.Path, templates: list[str]):
         super().__init__(app_name, app_path)
@@ -240,6 +275,7 @@ class AppBuilderPipeline(ApplicationBuilder):
             TemplateType.FLASK_SERVER: FlaskServerAppBuilder(app_name, app_path),
             TemplateType.DJANGO_FASTAPI: DjangoFastApiBuilder(app_name, app_path),
             TemplateType.DJANGO_NINJA: DjangoNinjaBuilder(app_name, app_path),
+            TemplateType.DJANGO_ENTRA: DjangoEntraBuilder(app_name, app_path),
         }
 
     def handles(self, templates):
@@ -250,6 +286,7 @@ class AppBuilderPipeline(ApplicationBuilder):
             TemplateType.FLASK_SERVER,
             TemplateType.DJANGO_FASTAPI,
             TemplateType.DJANGO_NINJA,
+            TemplateType.DJANGO_ENTRA,
             TemplateType.WEBAPP,
             TemplateType.SERVER,
         ]
@@ -276,6 +313,7 @@ class AppBuilderPipeline(ApplicationBuilder):
             TemplateType.FLASK_SERVER,
             TemplateType.DJANGO_FASTAPI,
             TemplateType.DJANGO_NINJA,
+            TemplateType.DJANGO_ENTRA,
             TemplateType.WEBAPP,
             TemplateType.SERVER,
         ]

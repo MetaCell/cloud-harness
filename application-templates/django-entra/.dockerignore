@@ -1,0 +1,8 @@
+node_modules
+dist
+.git
+**/__pycache__
+**/*.egg-info
+**/.pytest_cache
+**/.tox
+.env

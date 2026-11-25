@@ -61,6 +61,18 @@ usage: harness-application [-h] [-t TEMPLATES] name
   - The frontend bundle is served by the Python backend.
   - React is used by default, but other frontend technologies can be integrated.
 
+#### Django with Microsoft Entra ID
+
+- The `django-entra` template is a complete application: a [Django Ninja](https://django-ninja.dev/) backend,
+  a [React](https://reactjs.org/) frontend served by the backend and a PostgreSQL database.
+  - Users log in with [Microsoft Entra ID](https://learn.microsoft.com/entra/identity/) (OpenID Connect, single tenant)
+    and are synchronized in Django at login; app roles of the Entra registration give access to the application and
+    to the Django admin. API clients can use Entra access tokens.
+  - Does not use Keycloak (`accounts`), Kafka (`events`), the gatekeeper or the CloudHarness base images: the
+    CloudHarness Python libraries are vendored in the application (`libraries`).
+  - Self-contained: it cannot be combined with other templates (`base` is not added).
+  - See the README of the generated application to register it in Entra and configure the deployment.
+
 ### Database Templates
 
 - `db-postgres` – [PostgreSQL](https://www.postgresql.org/), a relational database.
@@ -85,6 +97,12 @@ harness-application myapp -t webapp
 
 ```sh
 harness-application myapp -t webapp -t db-mongo
+```
+
+### Create a Django Application Authenticated with Microsoft Entra ID
+
+```sh
+harness-application myapp -t django-entra
 ```
 
 ### Display Help Information

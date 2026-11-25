@@ -1,0 +1,2 @@
+# local Entra configuration (contains the client secret)
+.env
