@@ -7,7 +7,11 @@ from conftest import CLOUDHARNESS_ROOT, RESOURCES, chain, minimal_project
 from test_util import write_tree, write_tree_from_yaml
 
 from ch_cli_tools import CHDeployConfig, skaffold
-from ch_cli_tools.utils import dockerfile_variable_reference, parse_dockerfile
+from ch_cli_tools.dockerfile import DockerfileParser
+
+
+def _instructions(path):
+    return [i.fields for i in DockerfileParser(path).parse().instructions]
 
 
 def test_build_dependency_on_app_produces_requires_entry():
@@ -492,12 +496,12 @@ def test_app_entrypoint_override_and_unit_tests_reach_skaffold_output():
 
 
 def test_parse_dockerfile_missing_file_returns_empty_list(tmp_path):
-    assert parse_dockerfile(tmp_path / "Dockerfile") == []
+    assert _instructions(tmp_path / "Dockerfile") == []
 
 
 def test_parse_dockerfile_skips_comments_and_blank_lines(tmp_path):
     write_tree(tmp_path, {"Dockerfile": "# a comment\n\nFROM scratch\n\n# another\n"})
-    assert parse_dockerfile(tmp_path / "Dockerfile") == [("FROM", "scratch")]
+    assert _instructions(tmp_path / "Dockerfile") == [("FROM", "scratch")]
 
 
 def test_parse_dockerfile_from_with_and_without_alias(tmp_path):
@@ -507,7 +511,7 @@ def test_parse_dockerfile_from_with_and_without_alias(tmp_path):
             "Dockerfile": "FROM python:3.12 AS builder\nFROM --platform=linux/amd64 scratch\n",
         },
     )
-    assert parse_dockerfile(tmp_path / "Dockerfile") == [
+    assert _instructions(tmp_path / "Dockerfile") == [
         ("FROM", "python:3.12", "builder"),
         ("FROM", "scratch"),
     ]
@@ -517,7 +521,7 @@ def test_parse_dockerfile_from_normalizes_variable_references(tmp_path):
     write_tree(
         tmp_path, {"Dockerfile": "FROM $BASE AS one\nFROM ${BASE}\nFROM python:3.12\n"}
     )
-    assert parse_dockerfile(tmp_path / "Dockerfile") == [
+    assert _instructions(tmp_path / "Dockerfile") == [
         ("FROM", "BASE", "one"),
         ("FROM", "BASE"),
         ("FROM", "python:3.12"),  # a literal image is left untouched
@@ -526,7 +530,7 @@ def test_parse_dockerfile_from_normalizes_variable_references(tmp_path):
 
 def test_parse_dockerfile_arg_with_and_without_default(tmp_path):
     write_tree(tmp_path, {"Dockerfile": "ARG NO_DEFAULT\nARG WITH_DEFAULT=value\n"})
-    assert parse_dockerfile(tmp_path / "Dockerfile") == [
+    assert _instructions(tmp_path / "Dockerfile") == [
         ("ARG", "NO_DEFAULT"),
         ("ARG", "WITH_DEFAULT", "value"),
     ]
@@ -537,7 +541,7 @@ def test_parse_dockerfile_exec_form_vs_shell_form(tmp_path):
         tmp_path,
         {"Dockerfile": 'CMD ["gunicorn", "app:app"]\nRUN pip install gunicorn\n'},
     )
-    assert parse_dockerfile(tmp_path / "Dockerfile") == [
+    assert _instructions(tmp_path / "Dockerfile") == [
         ("CMD", "gunicorn", "app:app"),
         ("RUN", "pip", "install", "gunicorn"),
     ]
@@ -548,14 +552,14 @@ def test_parse_dockerfile_line_continuation(tmp_path):
         tmp_path,
         {"Dockerfile": "RUN apt-get update && \\\n    apt-get install -y curl\n"},
     )
-    assert parse_dockerfile(tmp_path / "Dockerfile") == [
+    assert _instructions(tmp_path / "Dockerfile") == [
         ("RUN", "apt-get", "update", "&&", "apt-get", "install", "-y", "curl")
     ]
 
 
 def test_parse_dockerfile_copy_strips_leading_flags_only(tmp_path):
     write_tree(tmp_path, {"Dockerfile": "COPY --from=builder /app/dist /app/dist\n"})
-    assert parse_dockerfile(tmp_path / "Dockerfile") == [
+    assert _instructions(tmp_path / "Dockerfile") == [
         ("COPY", "/app/dist", "/app/dist")
     ]
 
@@ -564,7 +568,7 @@ def test_parse_dockerfile_command_is_case_insensitive():
     # Real fixture Dockerfile, already all-uppercase - locks in that we don't
     # accidentally rely on case for the common path while testing case
     # insensitivity synthetically below.
-    instructions = parse_dockerfile(RESOURCES / "applications" / "myapp" / "Dockerfile")
+    instructions = _instructions(RESOURCES / "applications" / "myapp" / "Dockerfile")
     assert instructions == [
         ("ARG", "CLOUDHARNESS_FLASK"),
         # $NAME is normalized to the bare NAME at parse time - see
@@ -575,17 +579,17 @@ def test_parse_dockerfile_command_is_case_insensitive():
 
 def test_parse_dockerfile_lowercase_instructions_are_normalized(tmp_path):
     write_tree(tmp_path, {"Dockerfile": "from scratch\n"})
-    assert parse_dockerfile(tmp_path / "Dockerfile") == [("FROM", "scratch")]
+    assert _instructions(tmp_path / "Dockerfile") == [("FROM", "scratch")]
 
 
 def test_dockerfile_variable_reference_dollar_and_braces_are_equivalent():
-    assert dockerfile_variable_reference("$NAME") == "NAME"
-    assert dockerfile_variable_reference("${NAME}") == "NAME"
+    assert DockerfileParser.variable_reference("$NAME") == "NAME"
+    assert DockerfileParser.variable_reference("${NAME}") == "NAME"
 
 
 def test_dockerfile_variable_reference_none_for_a_literal():
-    assert dockerfile_variable_reference("python:3.12") is None
-    assert dockerfile_variable_reference("scratch") is None
+    assert DockerfileParser.variable_reference("python:3.12") is None
+    assert DockerfileParser.variable_reference("scratch") is None
 
 
 def test_git_dependencies_exposes_raw_config():

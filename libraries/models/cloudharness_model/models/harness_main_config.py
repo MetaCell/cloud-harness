@@ -48,10 +48,11 @@ class HarnessMainConfig(CloudHarnessBaseModel):
     backup: Optional[BackupConfig] = None
     name: Optional[StrictStr] = Field(default=None, description="Base name")
     task_images: Optional[Dict[str, Any]] = Field(default=None, alias="task-images")
+    task_commands: Optional[Dict[str, Any]] = Field(default=None, alias="task-commands")
     build_hash: Optional[StrictStr] = None
     ingress: Optional[GatewayGlobalConfig] = None
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["local", "secured_gatekeepers", "domain", "namespace", "mainapp", "registry", "tag", "apps", "env", "privenv", "backup", "name", "task-images", "build_hash", "ingress"]
+    __properties: ClassVar[List[str]] = ["local", "secured_gatekeepers", "domain", "namespace", "mainapp", "registry", "tag", "apps", "env", "privenv", "backup", "name", "task-images", "task-commands", "build_hash", "ingress"]
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the dictionary representation of the model using alias.
@@ -138,6 +139,7 @@ class HarnessMainConfig(CloudHarnessBaseModel):
             "backup": BackupConfig.from_dict(obj["backup"]) if obj.get("backup") is not None else None,
             "name": obj.get("name"),
             "task-images": obj.get("task-images"),
+            "task-commands": obj.get("task-commands"),
             "build_hash": obj.get("build_hash"),
             "ingress": GatewayGlobalConfig.from_dict(obj["ingress"]) if obj.get("ingress") is not None else None
         })

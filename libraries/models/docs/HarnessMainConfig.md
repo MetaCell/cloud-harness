@@ -19,6 +19,7 @@ Name | Type | Description | Notes
 **backup** | [**BackupConfig**](BackupConfig.md) |  | [optional] 
 **name** | **str** | Base name | [optional] 
 **task_images** | **Dict[str, object]** |  | [optional] 
+**task_commands** | **Dict[str, object]** |  | [optional] 
 **build_hash** | **str** |  | [optional] 
 **ingress** | [**GatewayGlobalConfig**](GatewayGlobalConfig.md) |  | [optional] 
 
