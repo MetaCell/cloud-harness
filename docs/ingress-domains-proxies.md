@@ -70,6 +70,35 @@ Note that in the case that gatekeepers are enabled, the same configurations are 
 to the gatekeepers, unless the application override them on `harness.proxy.*`.
 See also the [gatekeepers documentation](./accounts.md#secure-and-endpoint-with-the-gatekeeper).
 
+## Cross-origin requests between applications (CORS)
+
+Applications are served on different subdomains, so a page of one application calling the
+API of another is a cross-origin request. To let the browser send such requests with
+credentials (cookies, `Authorization`) to every application, enable CORS at the ingress in
+your `deployment-configuration/values-template.yaml`:
+
+```yaml
+ingress:
+  cors:
+    enabled: true
+    # Optional, defaults shown in deployment-configuration/helm/values.yaml
+    # allowMethods: [GET, PUT, POST, DELETE, PATCH, OPTIONS]
+    # allowHeaders: [..., Content-Type, Range, Authorization, X-CSRFToken]
+    # exposeHeaders: []
+```
+
+The allowed origins are `<domain>` and `*.<domain>`, over https when TLS is enabled.
+With nginx the wildcard matches a single subdomain level, so nested application hosts
+(e.g. `instance.app.<domain>`) are added explicitly; with traefik the `ch-cors` middleware
+accepts any depth. Origins outside the domain get no CORS headers from the ingress.
+
+The ingress answers the preflight (`OPTIONS`) requests itself and, for allowed origins,
+its CORS headers replace the ones set by gatekeepers or applications.
+
+Every host of the domain becomes trusted by every application: a script running on any
+`*.<domain>` page can read authenticated responses of all of them. Do not enable it when
+a subdomain serves untrusted content.
+
 ## Route pattern configuration
 
 Cloud Harness allows customizing which request paths are routed to an application

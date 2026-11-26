@@ -39,6 +39,19 @@ ingress:
   ingressClass: nginx
   # -- Additional custom annotations to add to the Ingress resource.
   annotations: {}
+  cors:
+    # -- Allow credentialed cross-origin requests to every application from the
+    # deployment's own hosts (`<domain>` and `*.<domain>`). With nginx the wildcard is one
+    # level deep, and the applications' nested hosts are listed one by one.
+    # The ingress answers the preflights and its CORS headers replace the ones set by
+    # gatekeepers or applications for those origins.
+    enabled: false
+    # -- Methods allowed in cross-origin requests.
+    allowMethods: [GET, PUT, POST, DELETE, PATCH, OPTIONS]
+    # -- Request headers allowed in cross-origin requests.
+    allowHeaders: [DNT, Keep-Alive, User-Agent, X-Requested-With, If-Modified-Since, Cache-Control, Content-Type, Range, Authorization, X-CSRFToken]
+    # -- Response headers exposed to cross-origin callers.
+    exposeHeaders: []
   # -- Enables/disables SSL redirect.
   ssl_redirect: true
   letsencrypt:

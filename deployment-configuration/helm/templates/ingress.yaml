@@ -92,10 +92,32 @@
             port:
               number: {{- if (and $app.harness.secured $secured_gatekeepers) }} 8080 {{- else }} {{ $app.harness.service.port | default 80  }}{{- end }}
 {{- end }}
+{{- define "deploy_utils.ingress.cors.nginx" }}
+{{- $scheme := ternary "https" "http" (not (not .Values.tls)) }}
+{{- $cors := .Values.ingress.cors }}
+{{- $origins := list (printf "%s://*.%s" $scheme .Values.domain) (printf "%s://%s" $scheme .Values.domain) }}
+{{- /* The nginx wildcard matches a single label: list the nested hosts (e.g. instance.app.<domain>) one by one. */}}
+{{- range $app := .Values.apps }}
+  {{- range $subdomain := prepend ($app.harness.aliases | default list) ($app.harness.subdomain | default "") }}
+    {{- if contains "." $subdomain }}
+      {{- $origins = append $origins (printf "%s://%s.%s" $scheme $subdomain $.Values.domain) }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+nginx.ingress.kubernetes.io/enable-cors: "true"
+nginx.ingress.kubernetes.io/cors-allow-origin: {{ $origins | uniq | join "," | quote }}
+nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+nginx.ingress.kubernetes.io/cors-allow-methods: {{ join "," $cors.allowMethods | quote }}
+nginx.ingress.kubernetes.io/cors-allow-headers: {{ join "," $cors.allowHeaders | quote }}
+{{- with $cors.exposeHeaders }}
+nginx.ingress.kubernetes.io/cors-expose-headers: {{ join "," . | quote }}
+{{- end }}
+{{- end }}
 {{- if .Values.ingress.enabled }}
   {{- $domain := .Values.domain }}
   {{- $tls := not (not .Values.tls) }}
   {{- $mainapp := .Values.mainapp }}
+  {{- $cors := (.Values.ingress.cors | default dict).enabled }}
   {{- range $app := .Values.apps }}
     {{- if or $app.harness.subdomain $app.harness.domain $app.harness.aliases (and $mainapp (and $app.harness.name (eq $app.harness.name $mainapp))) }}
       {{- $appIngressName := default $app.harness.service.name $app.harness.name }}
@@ -122,8 +144,11 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-read-timeout: {{ $app.harness.proxy.timeout.read | default $.Values.proxy.timeout.read | default 180 | quote }}
     nginx.ingress.kubernetes.io/proxy-send-timeout: {{ $app.harness.proxy.timeout.send | default $.Values.proxy.timeout.send | default 180 | quote }}
     nginx.ingress.kubernetes.io/use-forwarded-headers: {{ $.Values.proxy.forwardedHeaders | quote }}
+    {{- if $cors }}
+    {{- include "deploy_utils.ingress.cors.nginx" $ | nindent 4 }}
+    {{- end }}
     {{- else if eq $.Values.ingress.ingressClass "traefik" }}
-    traefik.ingress.kubernetes.io/router.middlewares: {{ printf "%s-ch-body-size@kubernetescrd" $.Values.namespace }}{{ if and $tls $.Values.ingress.ssl_redirect }},{{ printf "%s-ch-ssl-redirect@kubernetescrd" $.Values.namespace }}{{ end }}
+    traefik.ingress.kubernetes.io/router.middlewares: {{ printf "%s-ch-body-size@kubernetescrd" $.Values.namespace }}{{ if and $tls $.Values.ingress.ssl_redirect }},{{ printf "%s-ch-ssl-redirect@kubernetescrd" $.Values.namespace }}{{ end }}{{ if $cors }},{{ printf "%s-ch-cors@kubernetescrd" $.Values.namespace }}{{ end }}
     {{- end }}
     {{- with $.Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
@@ -198,9 +223,12 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-read-timeout: {{ $app.harness.proxy.timeout.read | default $.Values.proxy.timeout.read | default 180 | quote }}
     nginx.ingress.kubernetes.io/proxy-send-timeout: {{ $app.harness.proxy.timeout.send | default $.Values.proxy.timeout.send | default 180 | quote }}
     nginx.ingress.kubernetes.io/use-forwarded-headers: {{ $.Values.proxy.forwardedHeaders | quote }}
+    {{- if $cors }}
+    {{- include "deploy_utils.ingress.cors.nginx" $ | nindent 4 }}
+    {{- end }}
     {{- else if eq $.Values.ingress.ingressClass "traefik" }}
     traefik.ingress.kubernetes.io/router.pathmatcher: "PathRegexp"
-    traefik.ingress.kubernetes.io/router.middlewares: {{ printf "%s-ch-proxy-rewrite@kubernetescrd,%s-ch-body-size@kubernetescrd" $.Values.namespace $.Values.namespace }}{{ if and $tls $.Values.ingress.ssl_redirect }},{{ printf "%s-ch-ssl-redirect@kubernetescrd" $.Values.namespace }}{{ end }}
+    traefik.ingress.kubernetes.io/router.middlewares: {{ printf "%s-ch-proxy-rewrite@kubernetescrd,%s-ch-body-size@kubernetescrd" $.Values.namespace $.Values.namespace }}{{ if and $tls $.Values.ingress.ssl_redirect }},{{ printf "%s-ch-ssl-redirect@kubernetescrd" $.Values.namespace }}{{ end }}{{ if $cors }},{{ printf "%s-ch-cors@kubernetescrd" $.Values.namespace }}{{ end }}
     {{- end }}
     {{- with $.Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -1322,6 +1323,94 @@ def test_gatekeeper_native_configuration_rendering_and_checksum(tmp_path):
     assert inherited_config["same-site-cookie"] == "Strict"
     assert inherited_config["enable-pkce"] is False
     assert inherited_checksum != tls_checksum
+
+
+def test_ingress_cors_allows_deployment_subdomains(tmp_path):
+    out_folder = tmp_path / "test_ingress_cors"
+    create_helm_chart(
+        [CLOUDHARNESS_ROOT, RESOURCES],
+        output_path=out_folder,
+        domain="my.local",
+        namespace="test",
+        local=False,
+        tls=True,
+        include=["myapp", "accounts"],
+        exclude=["legacy"],
+    )
+
+    helm_path = out_folder / HELM_CHART_PATH
+    shutil.rmtree(helm_path / "charts")
+    values_path = helm_path / "values.yaml"
+    with open(values_path, "r") as values_file:
+        values = yaml.load(values_file)
+    values["apps"]["myapp"]["harness"]["use_services"] = [{"name": "accounts"}]
+    values["apps"]["myapp"]["harness"]["aliases"] = ["other", "instance.mysubdomain"]
+
+    def render():
+        with open(values_path, "w") as values_file:
+            yaml.dump(values, values_file)
+        return render_helm_chart(helm_path)
+
+    def myapp_ingresses(manifests):
+        """The application ingress and its use_services proxy ingress."""
+        ingresses = [
+            m
+            for m in manifests
+            if m["kind"] == "Ingress" and
+            any(rule["host"] == "mysubdomain.my.local" for rule in m["spec"]["rules"])
+        ]
+        assert len(ingresses) == 2
+        return ingresses
+
+    def cors_annotations(ingress):
+        return {k: v for k, v in ingress["metadata"]["annotations"].items() if "cors" in k}
+
+    # Off by default
+    manifests = render()
+    for ingress in myapp_ingresses(manifests):
+        assert cors_annotations(ingress) == {}
+
+    values["ingress"]["cors"]["enabled"] = True
+    values["ingress"]["cors"]["exposeHeaders"] = ["Content-Range"]
+    for ingress in myapp_ingresses(render()):
+        assert cors_annotations(ingress) == {
+            "nginx.ingress.kubernetes.io/enable-cors": "true",
+            # The single-label wildcard does not cover the nested alias, so it is listed
+            "nginx.ingress.kubernetes.io/cors-allow-origin":
+                "https://*.my.local,https://my.local,https://instance.mysubdomain.my.local",
+            "nginx.ingress.kubernetes.io/cors-allow-credentials": "true",
+            "nginx.ingress.kubernetes.io/cors-allow-methods": "GET,PUT,POST,DELETE,PATCH,OPTIONS",
+            "nginx.ingress.kubernetes.io/cors-allow-headers": ",".join(values["ingress"]["cors"]["allowHeaders"]),
+            "nginx.ingress.kubernetes.io/cors-expose-headers": "Content-Range",
+        }
+
+    values["tls"] = False
+    for ingress in myapp_ingresses(render()):
+        assert cors_annotations(ingress)["nginx.ingress.kubernetes.io/cors-allow-origin"] == (
+            "http://*.my.local,http://my.local,http://instance.mysubdomain.my.local"
+        )
+
+    values["tls"] = True
+    values["ingress"]["ingressClass"] = "traefik"
+    manifests = render()
+    for ingress in myapp_ingresses(manifests):
+        middlewares = ingress["metadata"]["annotations"]["traefik.ingress.kubernetes.io/router.middlewares"].split(",")
+        assert "test-ch-cors@kubernetescrd" in middlewares
+    headers = find_manifest(manifests, "Middleware", "ch-cors")["spec"]["headers"]
+    assert headers["accessControlAllowCredentials"] is True
+    assert headers["accessControlExposeHeaders"] == ["Content-Range"]
+    [origin_regex] = headers["accessControlAllowOriginListRegex"]
+    assert origin_regex == r"^https://([A-Za-z0-9-]+\.)*my\.local$"
+    for allowed in ("https://my.local", "https://www.my.local", "https://instance.mysubdomain.my.local"):
+        assert re.match(origin_regex, allowed)
+    for refused in ("http://www.my.local", "https://evil.com", "https://evilmy.local", "https://my.local.evil.com"):
+        assert not re.match(origin_regex, refused)
+
+    values["ingress"]["cors"]["enabled"] = False
+    manifests = render()
+    assert not [m for m in manifests if m["kind"] == "Middleware" and m["metadata"]["name"] == "ch-cors"]
+    for ingress in myapp_ingresses(manifests):
+        assert "ch-cors" not in ingress["metadata"]["annotations"]["traefik.ingress.kubernetes.io/router.middlewares"]
 
 
 def test_clear_all_dbconfig_if_nodb(tmp_path):
