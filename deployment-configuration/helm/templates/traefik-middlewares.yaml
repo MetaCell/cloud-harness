@@ -42,4 +42,25 @@ spec:
     scheme: https
     permanent: true
 {{- end }}
+{{- $cors := .Values.ingress.cors | default dict }}
+{{- if $cors.enabled }}
+---
+# CORS: equivalent of nginx.ingress.kubernetes.io/enable-cors allowing <domain> and *.<domain>
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: ch-cors
+spec:
+  headers:
+    accessControlAllowOriginListRegex:
+      - {{ printf "^%s://([A-Za-z0-9-]+\\.)*%s$" (ternary "https" "http" $tls) (regexQuoteMeta .Values.domain) | quote }}
+    accessControlAllowCredentials: true
+    accessControlAllowMethods: {{ toJson $cors.allowMethods }}
+    accessControlAllowHeaders: {{ toJson $cors.allowHeaders }}
+    {{- with $cors.exposeHeaders }}
+    accessControlExposeHeaders: {{ toJson . }}
+    {{- end }}
+    accessControlMaxAge: 1728000
+    addVaryHeader: true
+{{- end }}
 {{- end }}
